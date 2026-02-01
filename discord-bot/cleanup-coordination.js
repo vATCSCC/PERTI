@@ -85,7 +85,7 @@ async function cleanup() {
             const archivedThreads = await channel.threads.fetchArchived({
                 type: 'public',
                 fetchAll: true,
-                before: before
+                before: before,
             });
 
             console.log(`Found ${archivedThreads.threads.size} archived threads`);

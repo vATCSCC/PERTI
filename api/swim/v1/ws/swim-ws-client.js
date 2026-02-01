@@ -1,14 +1,14 @@
 /**
  * SWIM API WebSocket Client Library
- * 
+ *
  * JavaScript client for connecting to the PERTI SWIM WebSocket server.
- * 
+ *
  * Usage:
  *   const swim = new SWIMWebSocket('your-api-key');
  *   swim.connect();
  *   swim.subscribe(['flight.position', 'flight.departed'], { airports: ['KJFK'] });
  *   swim.on('flight.position', (data) => console.log(data));
- * 
+ *
  * @version 1.0.0
  * @since 2026-01-16
  */
@@ -16,7 +16,7 @@
 class SWIMWebSocket {
     /**
      * Create a new SWIM WebSocket client
-     * 
+     *
      * @param {string} apiKey - API key for authentication
      * @param {object} options - Connection options
      */
@@ -29,7 +29,7 @@ class SWIMWebSocket {
             maxReconnectInterval: options.maxReconnectInterval || 30000,
             debug: options.debug || false,
         };
-        
+
         this.ws = null;
         this.handlers = {};
         this.subscriptions = [];
@@ -38,48 +38,48 @@ class SWIMWebSocket {
         this.connected = false;
         this.clientId = null;
     }
-    
+
     /**
      * Connect to the WebSocket server
-     * 
+     *
      * @returns {Promise} Resolves when connected
      */
     connect() {
         return new Promise((resolve, reject) => {
             const url = `${this.options.url}?api_key=${encodeURIComponent(this.apiKey)}`;
-            
+
             this.log('Connecting to', url);
-            
+
             this.ws = new WebSocket(url);
-            
+
             this.ws.onopen = () => {
                 this.connected = true;
                 this.reconnectAttempts = 0;
                 this.log('Connected');
-                
+
                 // Re-subscribe if we had subscriptions
                 if (this.subscriptions.length > 0) {
                     this.subscribe(this.subscriptions, this.filters);
                 }
-                
+
                 this.emit('connected');
                 resolve();
             };
-            
+
             this.ws.onmessage = (event) => {
                 this.handleMessage(event.data);
             };
-            
+
             this.ws.onclose = (event) => {
                 this.connected = false;
                 this.log('Disconnected', event.code, event.reason);
                 this.emit('disconnected', { code: event.code, reason: event.reason });
-                
+
                 if (this.options.reconnect && event.code !== 4001) {
                     this.scheduleReconnect();
                 }
             };
-            
+
             this.ws.onerror = (error) => {
                 this.log('Error', error);
                 this.emit('error', error);
@@ -89,7 +89,7 @@ class SWIMWebSocket {
             };
         });
     }
-    
+
     /**
      * Disconnect from the server
      */
@@ -99,17 +99,17 @@ class SWIMWebSocket {
             this.ws.close(1000, 'Client disconnect');
         }
     }
-    
+
     /**
      * Subscribe to event channels
-     * 
+     *
      * @param {string[]} channels - Channel names (e.g., ['flight.position', 'tmi.*'])
      * @param {object} filters - Filter criteria
      */
     subscribe(channels, filters = {}) {
         this.subscriptions = channels;
         this.filters = filters;
-        
+
         if (this.connected) {
             this.send({
                 action: 'subscribe',
@@ -118,10 +118,10 @@ class SWIMWebSocket {
             });
         }
     }
-    
+
     /**
      * Unsubscribe from channels
-     * 
+     *
      * @param {string[]} channels - Channels to unsubscribe from (empty = all)
      */
     unsubscribe(channels = []) {
@@ -131,7 +131,7 @@ class SWIMWebSocket {
         } else {
             this.subscriptions = this.subscriptions.filter(c => !channels.includes(c));
         }
-        
+
         if (this.connected) {
             this.send({
                 action: 'unsubscribe',
@@ -139,10 +139,10 @@ class SWIMWebSocket {
             });
         }
     }
-    
+
     /**
      * Register event handler
-     * 
+     *
      * @param {string} eventType - Event type to listen for
      * @param {function} handler - Handler function
      */
@@ -152,57 +152,57 @@ class SWIMWebSocket {
         }
         this.handlers[eventType].push(handler);
     }
-    
+
     /**
      * Remove event handler
-     * 
+     *
      * @param {string} eventType - Event type
      * @param {function} handler - Handler to remove (or all if omitted)
      */
     off(eventType, handler) {
-        if (!this.handlers[eventType]) return;
-        
+        if (!this.handlers[eventType]) {return;}
+
         if (handler) {
             this.handlers[eventType] = this.handlers[eventType].filter(h => h !== handler);
         } else {
             delete this.handlers[eventType];
         }
     }
-    
+
     /**
      * Send ping to server
      */
     ping() {
         this.send({ action: 'ping' });
     }
-    
+
     /**
      * Request connection status
      */
     status() {
         this.send({ action: 'status' });
     }
-    
+
     /**
      * Check if connected
-     * 
+     *
      * @returns {boolean}
      */
     isConnected() {
         return this.connected;
     }
-    
+
     /**
      * Get client ID
-     * 
+     *
      * @returns {string|null}
      */
     getClientId() {
         return this.clientId;
     }
-    
+
     // ========== Private Methods ==========
-    
+
     /**
      * Send message to server
      */
@@ -211,7 +211,7 @@ class SWIMWebSocket {
             this.ws.send(JSON.stringify(data));
         }
     }
-    
+
     /**
      * Handle incoming message
      */
@@ -223,42 +223,42 @@ class SWIMWebSocket {
             this.log('Invalid JSON received', data);
             return;
         }
-        
+
         this.log('Received', msg.type);
-        
+
         // Handle special message types
         switch (msg.type) {
             case 'connected':
                 this.clientId = msg.data?.client_id;
                 break;
-                
+
             case 'subscribed':
                 this.emit('subscribed', msg);
                 break;
-                
+
             case 'pong':
                 this.emit('pong', msg);
                 break;
-                
+
             case 'error':
                 this.emit('error', msg);
                 break;
-                
+
             case 'system.heartbeat':
                 this.emit('heartbeat', msg.data);
                 break;
         }
-        
+
         // Emit to handlers
         this.emit(msg.type, msg.data, msg.timestamp);
-        
+
         // Also emit to wildcard handlers
         const parts = msg.type.split('.');
         if (parts.length === 2) {
             this.emit(parts[0] + '.*', msg.data, msg.timestamp, msg.type);
         }
     }
-    
+
     /**
      * Emit event to handlers
      */
@@ -272,28 +272,28 @@ class SWIMWebSocket {
             }
         });
     }
-    
+
     /**
      * Schedule reconnection attempt
      */
     scheduleReconnect() {
         this.reconnectAttempts++;
-        
+
         // Exponential backoff
         const delay = Math.min(
             this.options.reconnectInterval * Math.pow(1.5, this.reconnectAttempts - 1),
-            this.options.maxReconnectInterval
+            this.options.maxReconnectInterval,
         );
-        
+
         this.log(`Reconnecting in ${Math.round(delay/1000)}s (attempt ${this.reconnectAttempts})`);
-        
+
         setTimeout(() => {
             if (this.options.reconnect && !this.connected) {
                 this.connect().catch(() => {});
             }
         }, delay);
     }
-    
+
     /**
      * Log message (if debug enabled)
      */

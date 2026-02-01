@@ -1,9 +1,9 @@
 /**
  * GroundStopManager - Manages Ground Stop TMIs
- * 
+ *
  * A Ground Stop (GS) holds departures at origin airports destined for
  * the GS airport until the GS ends or is purged.
- * 
+ *
  * Key concepts:
  * - Scope: Which origin centers/airports are included (tier-based)
  * - Exemptions: Carriers, aircraft types, airports that bypass the GS
@@ -16,7 +16,7 @@ const {
     SCOPE_TYPE,
     TIER_KEYWORD,
     CONTROL_TYPE,
-    GS_MIN_DURATION_MINUTES
+    GS_MIN_DURATION_MINUTES,
 } = require('./tmiConstants');
 
 class GroundStopManager {
@@ -40,12 +40,12 @@ class GroundStopManager {
         const { airport, startTime, endTime, reason, scope, exemptions } = params;
 
         // Validate
-        if (!airport) throw new Error('Airport required for Ground Stop');
-        if (!startTime || !endTime) throw new Error('Start and end time required');
-        
+        if (!airport) {throw new Error('Airport required for Ground Stop');}
+        if (!startTime || !endTime) {throw new Error('Start and end time required');}
+
         const durationMs = endTime.getTime() - startTime.getTime();
         const durationMinutes = durationMs / (1000 * 60);
-        
+
         if (durationMinutes < GS_MIN_DURATION_MINUTES) {
             throw new Error(`Ground Stop must be at least ${GS_MIN_DURATION_MINUTES} minutes`);
         }
@@ -57,7 +57,7 @@ class GroundStopManager {
         }
 
         const gsId = `GS_${airport.toUpperCase()}_${this.nextGsId++}`;
-        
+
         const gs = {
             id: gsId,
             type: TMI_TYPE.GROUND_STOP,
@@ -73,12 +73,12 @@ class GroundStopManager {
             stats: {
                 totalHeld: 0,
                 totalExempt: 0,
-                totalReleased: 0
-            }
+                totalReleased: 0,
+            },
         };
 
         this.groundStops.set(airport.toUpperCase(), gs);
-        
+
         return gs;
     }
 
@@ -90,10 +90,10 @@ class GroundStopManager {
      */
     checkFlightStatus(flight, currentTime) {
         const dest = flight.destination?.toUpperCase();
-        if (!dest) return null;
+        if (!dest) {return null;}
 
         const gs = this.groundStops.get(dest);
-        if (!gs || gs.status !== TMI_STATUS.ACTIVE) return null;
+        if (!gs || gs.status !== TMI_STATUS.ACTIVE) {return null;}
 
         // Check if within GS time window
         if (currentTime < gs.startTime || currentTime >= gs.endTime) {
@@ -110,7 +110,7 @@ class GroundStopManager {
             return {
                 groundStop: gs,
                 status: 'EXEMPT',
-                reason: 'Exemption applies'
+                reason: 'Exemption applies',
             };
         }
 
@@ -119,7 +119,7 @@ class GroundStopManager {
             groundStop: gs,
             status: 'HELD',
             gsEndTime: gs.endTime,
-            reason: gs.reason
+            reason: gs.reason,
         };
     }
 
@@ -129,10 +129,10 @@ class GroundStopManager {
      */
     canDepart(flight, currentTime) {
         const status = this.checkFlightStatus(flight, currentTime);
-        
-        if (!status) return { canDepart: true };
-        if (status.status === 'EXEMPT') return { canDepart: true, exempt: true };
-        
+
+        if (!status) {return { canDepart: true };}
+        if (status.status === 'EXEMPT') {return { canDepart: true, exempt: true };}
+
         // Hold the flight
         const gs = status.groundStop;
         if (!gs.heldFlights.has(flight.callsign)) {
@@ -140,7 +140,7 @@ class GroundStopManager {
                 callsign: flight.callsign,
                 origin: flight.origin,
                 heldAt: new Date(currentTime),
-                originalEtd: flight.scheduledDeparture
+                originalEtd: flight.scheduledDeparture,
             });
             gs.stats.totalHeld++;
         }
@@ -149,7 +149,7 @@ class GroundStopManager {
             canDepart: false,
             heldBy: gs.id,
             gsEndTime: gs.endTime,
-            reason: gs.reason
+            reason: gs.reason,
         };
     }
 
@@ -158,18 +158,18 @@ class GroundStopManager {
      */
     releaseFlights(airport) {
         const gs = this.groundStops.get(airport.toUpperCase());
-        if (!gs) return [];
+        if (!gs) {return [];}
 
         const released = [];
         for (const [callsign, holdInfo] of gs.heldFlights) {
             released.push({
                 callsign,
                 origin: holdInfo.origin,
-                heldDuration: Date.now() - holdInfo.heldAt.getTime()
+                heldDuration: Date.now() - holdInfo.heldAt.getTime(),
             });
             gs.stats.totalReleased++;
         }
-        
+
         gs.heldFlights.clear();
         return released;
     }
@@ -179,8 +179,8 @@ class GroundStopManager {
      */
     updateGroundStop(airport, updates) {
         const gs = this.groundStops.get(airport.toUpperCase());
-        if (!gs) throw new Error(`No Ground Stop found for ${airport}`);
-        if (gs.status !== TMI_STATUS.ACTIVE) throw new Error('Cannot update inactive Ground Stop');
+        if (!gs) {throw new Error(`No Ground Stop found for ${airport}`);}
+        if (gs.status !== TMI_STATUS.ACTIVE) {throw new Error('Cannot update inactive Ground Stop');}
 
         if (updates.endTime) {
             gs.endTime = new Date(updates.endTime);
@@ -203,13 +203,13 @@ class GroundStopManager {
      */
     purgeGroundStop(airport) {
         const gs = this.groundStops.get(airport.toUpperCase());
-        if (!gs) throw new Error(`No Ground Stop found for ${airport}`);
+        if (!gs) {throw new Error(`No Ground Stop found for ${airport}`);}
 
         gs.status = TMI_STATUS.PURGED;
         gs.purgedAt = new Date();
-        
+
         const released = this.releaseFlights(airport);
-        
+
         return { groundStop: gs, releasedFlights: released };
     }
 
@@ -218,7 +218,7 @@ class GroundStopManager {
      */
     tick(currentTime) {
         const expired = [];
-        
+
         for (const [airport, gs] of this.groundStops) {
             if (gs.status === TMI_STATUS.ACTIVE && currentTime >= gs.endTime) {
                 gs.status = TMI_STATUS.EXPIRED;
@@ -264,7 +264,7 @@ class GroundStopManager {
                         callsign,
                         destination: gs.airport,
                         gsId: gs.id,
-                        ...info
+                        ...info,
                     });
                 }
             }
@@ -285,7 +285,7 @@ class GroundStopManager {
                 includedCenters: this._getCentersForTier(airport, TIER_KEYWORD.TIER1),
                 excludedCenters: [],
                 includedAirports: [],
-                excludedAirports: []
+                excludedAirports: [],
             };
         }
 
@@ -295,7 +295,7 @@ class GroundStopManager {
             includedCenters: [],
             excludedCenters: scope.excludedCenters || [],
             includedAirports: scope.includedAirports || [],
-            excludedAirports: scope.excludedAirports || []
+            excludedAirports: scope.excludedAirports || [],
         };
 
         if (scope.includedCenters && scope.includedCenters.length > 0) {
@@ -310,10 +310,10 @@ class GroundStopManager {
     _getCentersForTier(airport, tier) {
         // Find the ARTCC for this airport
         const destArtcc = this._getArtccForAirport(airport);
-        if (!destArtcc) return [];
+        if (!destArtcc) {return [];}
 
         const artccData = this.artccReference.artccs[destArtcc];
-        if (!artccData) return [destArtcc];
+        if (!artccData) {return [destArtcc];}
 
         switch (tier) {
             case TIER_KEYWORD.INTERNAL:
@@ -336,7 +336,7 @@ class GroundStopManager {
 
     _getArtccForAirport(airport) {
         const icao = airport.toUpperCase();
-        
+
         // Check majorAirportsByArtcc
         if (this.artccReference.majorAirportsByArtcc) {
             for (const [artcc, airports] of Object.entries(this.artccReference.majorAirportsByArtcc)) {
@@ -359,7 +359,7 @@ class GroundStopManager {
                 originAirports: [],
                 originCenters: [],
                 flightTypes: [],
-                props: false
+                props: false,
             };
         }
 
@@ -370,7 +370,7 @@ class GroundStopManager {
             originAirports: (exemptions.originAirports || []).map(a => a.toUpperCase()),
             originCenters: (exemptions.originCenters || []).map(c => c.toUpperCase()),
             flightTypes: exemptions.flightTypes || [],
-            props: exemptions.props || false
+            props: exemptions.props || false,
         };
     }
 
@@ -446,7 +446,7 @@ class GroundStopManager {
     }
 
     _extractCarrier(callsign) {
-        if (!callsign) return null;
+        if (!callsign) {return null;}
         // Extract 2-3 letter carrier code from callsign (e.g., 'DAL123' -> 'DAL')
         const match = callsign.match(/^([A-Z]{2,3})/);
         return match ? match[1] : null;
@@ -465,12 +465,12 @@ class GroundStopManager {
                 type: gs.scope.type,
                 tier: gs.scope.tier,
                 includedCenters: gs.scope.includedCenters,
-                excludedCenters: gs.scope.excludedCenters
+                excludedCenters: gs.scope.excludedCenters,
             },
             exemptions: gs.exemptions,
             issuedAt: gs.issuedAt,
             heldFlightCount: gs.heldFlights.size,
-            stats: { ...gs.stats }
+            stats: { ...gs.stats },
         };
     }
 }

@@ -1,6 +1,6 @@
 /**
  * TrafficGenerator - Generates realistic traffic for simulator scenarios
- * 
+ *
  * Provides three modes of operation:
  *   A) Scenario-based: Pre-built training scenarios with curated traffic
  *   B) Pattern-based: Generate from historical route patterns
@@ -23,7 +23,7 @@ class TrafficGenerator {
             // Fetch scenario definitions
             const response = await fetch(`${this.pertiApiUrl}/simulator/traffic.php?action=scenarios`);
             const data = await response.json();
-            
+
             if (!data.scenarios) {
                 throw new Error('Failed to load scenarios');
             }
@@ -39,13 +39,13 @@ class TrafficGenerator {
                 startHour: scenario.startHour,
                 endHour: scenario.endHour,
                 targetCount: scenario.targetCount,
-                demandLevel: scenario.demandLevel
+                demandLevel: scenario.demandLevel,
             });
 
             return {
                 ...scenario,
                 flights,
-                generatedAt: new Date().toISOString()
+                generatedAt: new Date().toISOString(),
             };
         } catch (error) {
             console.error('TrafficGenerator.loadScenario error:', error.message);
@@ -134,7 +134,7 @@ class TrafficGenerator {
                 date,
                 timeRange: data.timeRange,
                 flights: data.flights || [],
-                count: data.count || 0
+                count: data.count || 0,
             };
         } catch (error) {
             console.error('TrafficGenerator.loadHistorical error:', error.message);
@@ -143,7 +143,7 @@ class TrafficGenerator {
                 destination,
                 date,
                 flights: this._generateFallbackFlights(destination, startHour || 12, endHour || 18, 60),
-                count: 60
+                count: 60,
             };
         }
     }
@@ -156,7 +156,7 @@ class TrafficGenerator {
     async getPatterns(destination) {
         try {
             const response = await fetch(
-                `${this.pertiApiUrl}/simulator/traffic.php?action=patterns&dest=${destination}&limit=50`
+                `${this.pertiApiUrl}/simulator/traffic.php?action=patterns&dest=${destination}&limit=50`,
             );
             const data = await response.json();
             return data.patterns || [];
@@ -189,13 +189,13 @@ class TrafficGenerator {
     async getDemandProfile(airport) {
         try {
             const response = await fetch(
-                `${this.pertiApiUrl}/simulator/traffic.php?action=demand&airport=${airport}`
+                `${this.pertiApiUrl}/simulator/traffic.php?action=demand&airport=${airport}`,
             );
             const data = await response.json();
             return {
                 airport,
                 source: data.source,
-                hourly: data.hourly || []
+                hourly: data.hourly || [],
             };
         } catch (error) {
             console.error('TrafficGenerator.getDemandProfile error:', error.message);
@@ -240,7 +240,7 @@ class TrafficGenerator {
                 scheduledDeparture: etd,
                 scheduledArrival: eta,
                 carrier: flight.carrier,
-                flightTimeMin: flight.flightTimeMin
+                flightTimeMin: flight.flightTimeMin,
             };
         });
     }
@@ -253,7 +253,7 @@ class TrafficGenerator {
         const carriers = ['DAL', 'UAL', 'AAL', 'SWA', 'JBU'];
         const origins = ['KATL', 'KORD', 'KDFW', 'KDEN', 'KLAX', 'KSFO', 'KMIA', 'KBOS', 'KEWR', 'KSEA'];
         const aircraftTypes = ['B738', 'A320', 'B739', 'A321', 'E75L'];
-        
+
         const flights = [];
         const durationMinutes = (endHour - startHour) * 60;
 
@@ -261,12 +261,12 @@ class TrafficGenerator {
             const carrier = carriers[i % carriers.length];
             const origin = origins.filter(o => o !== destination)[i % (origins.length - 1)];
             const flightNum = 100 + Math.floor(Math.random() * 9000);
-            
+
             // Distribute ETAs across time window
             const etaOffset = Math.floor(Math.random() * durationMinutes);
             const etaHour = (startHour + Math.floor(etaOffset / 60)) % 24;
             const etaMinute = etaOffset % 60;
-            
+
             const flightTimeMin = 90 + Math.floor(Math.random() * 180);
 
             flights.push({
@@ -278,13 +278,13 @@ class TrafficGenerator {
                 eta: `${String(etaHour).padStart(2, '0')}:${String(etaMinute).padStart(2, '0')}:00Z`,
                 altitude: [31000, 33000, 35000, 37000, 39000][Math.floor(Math.random() * 5)],
                 speed: 440 + Math.floor(Math.random() * 40),
-                flightTimeMin
+                flightTimeMin,
             });
         }
 
         // Sort by ETA
         flights.sort((a, b) => a.eta.localeCompare(b.eta));
-        
+
         return flights;
     }
 
@@ -298,7 +298,7 @@ class TrafficGenerator {
                 startHour: 14,
                 endHour: 18,
                 targetCount: 75,
-                demandLevel: 'heavy'
+                demandLevel: 'heavy',
             },
             {
                 id: 'atl_weather_event',
@@ -308,8 +308,8 @@ class TrafficGenerator {
                 startHour: 15,
                 endHour: 20,
                 targetCount: 100,
-                demandLevel: 'heavy'
-            }
+                demandLevel: 'heavy',
+            },
         ];
     }
 
@@ -319,7 +319,7 @@ class TrafficGenerator {
             { icao: 'UAL', name: 'United Airlines', callsign: 'UNITED' },
             { icao: 'AAL', name: 'American Airlines', callsign: 'AMERICAN' },
             { icao: 'SWA', name: 'Southwest Airlines', callsign: 'SOUTHWEST' },
-            { icao: 'JBU', name: 'JetBlue Airways', callsign: 'JETBLUE' }
+            { icao: 'JBU', name: 'JetBlue Airways', callsign: 'JETBLUE' },
         ];
     }
 }

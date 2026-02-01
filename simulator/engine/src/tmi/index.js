@@ -1,6 +1,6 @@
 /**
  * TMI Module - Traffic Management Initiatives
- * 
+ *
  * Exports all TMI-related classes and constants
  */
 
@@ -9,5 +9,5 @@ const tmiConstants = require('./tmiConstants');
 
 module.exports = {
     GroundStopManager,
-    ...tmiConstants
+    ...tmiConstants,
 };

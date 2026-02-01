@@ -1,13 +1,13 @@
-var pathname = $(location).attr('href');
-var uri = pathname.split('?');
-var p_id = uri[1];
+const pathname = $(location).attr('href');
+const uri = pathname.split('?');
+const p_id = uri[1];
 
 
 function loadGoals() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/goals?p_id=${p_id}`).done(function(data) {
-        $('#goals_table').html(data); 
-        tooltips();         
+        $('#goals_table').html(data);
+        tooltips();
     });
 }
 
@@ -22,7 +22,7 @@ function loadDCCStaffing() {
 function loadTermStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/sheet/term_staffing?p_id=${p_id}`).done(function(data) {
-        $('#term_staffing_table').html(data); 
+        $('#term_staffing_table').html(data);
         tooltips();
     });
 }
@@ -30,7 +30,7 @@ function loadTermStaffing() {
 function loadConfigs() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/sheet/configs?p_id=${p_id}`).done(function(data) {
-        $('#configs_table').html(data); 
+        $('#configs_table').html(data);
         tooltips();
     });
 }
@@ -38,7 +38,7 @@ function loadConfigs() {
 function loadEnrouteStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/sheet/enroute_staffing?p_id=${p_id}`).done(function(data) {
-        $('#enroute_staffing_table').html(data); 
+        $('#enroute_staffing_table').html(data);
         tooltips();
     });
 }
@@ -52,9 +52,9 @@ loadEnrouteStaffing();
 
 // edit_dccstaffing Modal
 $('#edit_dccstaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #personnel_name').val(button.data('personnel_name'));
@@ -64,15 +64,15 @@ $('#edit_dccstaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #edit_dccstaffing POST
-$("#edit_dccstaffing").submit(function(e) {
+$('#edit_dccstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/user/dcc/update';
+    const url = 'api/user/dcc/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -81,7 +81,7 @@ $("#edit_dccstaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited the select TMU personnel/position.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadDCCStaffing();
@@ -92,17 +92,17 @@ $("#edit_dccstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing the selected TMU personnel/position.'
+                text:   'There was an error in editing the selected TMU personnel/position.',
             });
-        }
+        },
     });
 });
 
 // editterminalinit Modal
 $('#edittermstaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name'));
@@ -112,15 +112,15 @@ $('#edittermstaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #edittermstaffing POST
-$("#edittermstaffing").submit(function(e) {
+$('#edittermstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/user/term_staffing/update';
+    const url = 'api/user/term_staffing/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -129,7 +129,7 @@ $("#edittermstaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a terminal staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermStaffing();
@@ -140,17 +140,17 @@ $("#edittermstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a terminal staffing entry for this plan.'
+                text:   'There was an error in editing a terminal staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
 // editconfigModal Modal
 $('#editconfigModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal = $(this);
+    const modal = $(this);
 
     // Reset config picker state
     $('#sheet_editconfig_use_adl').prop('checked', false);
@@ -166,7 +166,7 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     modal.find('.modal-body #sheet_editconfig_comments').val(button.data('comments'));
 
     // Pre-fetch configs for the airport
-    var airport = button.data('airport');
+    const airport = button.data('airport');
     if (airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#sheet_editconfig_select');
@@ -175,15 +175,15 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editconfig POST
-$("#editconfig").submit(function(e) {
+$('#editconfig').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/user/configs/update';
+    const url = 'api/user/configs/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -192,7 +192,7 @@ $("#editconfig").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a field config for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadConfigs();
@@ -203,18 +203,18 @@ $("#editconfig").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a field config entry for this plan.'
+                text:   'There was an error in editing a field config entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editenroutestaffing Modal
 $('#editenroutestaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name')).trigger('change');
@@ -224,15 +224,15 @@ $('#editenroutestaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editenroutestaffing POST
-$("#editenroutestaffing").submit(function(e) {
+$('#editenroutestaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/user/enroute_staffing/update';
+    const url = 'api/user/enroute_staffing/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -241,7 +241,7 @@ $("#editenroutestaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an enroute staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteStaffing();
@@ -252,9 +252,9 @@ $("#editenroutestaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an enroute staffing entry for this plan.'
+                text:   'There was an error in editing an enroute staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -263,7 +263,7 @@ $("#editenroutestaffing").submit(function(e) {
 // =====================================================
 
 // Cache for loaded configs by airport
-var sheetConfigCache = {};
+const sheetConfigCache = {};
 var sheetEditconfigSelectedConfig = null;
 
 // Fetch configs for airport from ADL
@@ -273,7 +273,7 @@ function fetchAirportConfigs(airport, callback) {
         return;
     }
 
-    var cacheKey = airport.toUpperCase();
+    const cacheKey = airport.toUpperCase();
     if (sheetConfigCache[cacheKey]) {
         callback(sheetConfigCache[cacheKey]);
         return;
@@ -295,12 +295,12 @@ function fetchAirportConfigs(airport, callback) {
 
 // Populate config dropdown with fetched configs
 function populateConfigDropdown(configs, selectElement) {
-    var $select = $(selectElement);
+    const $select = $(selectElement);
     $select.empty().append('<option value="">-- Select configuration --</option>');
 
     if (configs && configs.length > 0) {
         configs.forEach(function(cfg, idx) {
-            var label = cfg.config_name;
+            let label = cfg.config_name;
             if (cfg.config_code) {
                 label += ' (' + cfg.config_code + ')';
             }
@@ -315,7 +315,7 @@ function populateConfigDropdown(configs, selectElement) {
 
 // Apply config to form fields (runways only for sheet)
 function applySheetConfigToForm(config) {
-    if (!config) return;
+    if (!config) {return;}
 
     $('#sheet_editconfig_arrive').val(config.arr_runways || '');
     $('#sheet_editconfig_depart').val(config.dep_runways || '');
@@ -326,7 +326,7 @@ $('#sheet_editconfig_use_adl').on('change', function() {
     if ($(this).is(':checked')) {
         $('#sheet_editconfig_picker').slideDown(200);
         // Trigger config fetch
-        var airport = $('#sheet_editconfig_airport').val();
+        const airport = $('#sheet_editconfig_airport').val();
         if (airport && airport.length >= 3) {
             fetchAirportConfigs(airport, function(configs) {
                 populateConfigDropdown(configs, '#sheet_editconfig_select');
@@ -340,9 +340,9 @@ $('#sheet_editconfig_use_adl').on('change', function() {
 
 // Apply selected config
 $('#sheet_editconfig_select').on('change', function() {
-    var idx = $(this).val();
-    var airport = $('#sheet_editconfig_airport').val().toUpperCase();
-    var configs = sheetConfigCache[airport] || [];
+    const idx = $(this).val();
+    const airport = $('#sheet_editconfig_airport').val().toUpperCase();
+    const configs = sheetConfigCache[airport] || [];
 
     if (idx !== '' && configs[idx]) {
         sheetEditconfigSelectedConfig = configs[idx];

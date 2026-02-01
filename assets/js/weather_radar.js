@@ -1,18 +1,18 @@
 /**
  * Weather Radar Module for TSD Map
  * Replaces RainViewer with Iowa Environmental Mesonet (IEM) NEXRAD/MRMS data
- * 
+ *
  * Features:
  * - Multiple radar products (Base Reflectivity, Echo Tops, MRMS)
  * - Selectable color tables (NWS Standard, FAA ATC HF-STD-010A)
  * - Animation support (historical frames)
  * - Individual radar station view
  * - CONUS composite view
- * 
+ *
  * Data Sources:
  * - Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
  * - TMS tiles for MapLibre GL integration
- * 
+ *
  * @version 2.0.0
  * @author vATCSCC PERTI
  */
@@ -23,20 +23,20 @@ const WeatherRadar = (function() {
     // =========================================================================
     // CONFIGURATION
     // =========================================================================
-    
+
     const CONFIG = {
         // IEM TMS endpoints (use multiple hosts for parallel loading)
         tileHosts: [
             'https://mesonet.agron.iastate.edu',
             'https://mesonet1.agron.iastate.edu',
             'https://mesonet2.agron.iastate.edu',
-            'https://mesonet3.agron.iastate.edu'
+            'https://mesonet3.agron.iastate.edu',
         ],
-        
+
         // Cache endpoints
         cachePath: '/cache/tile.py/1.0.0',    // 5-minute cache (real-time)
         staticPath: '/c/tile.py/1.0.0',       // 14-day cache (historical)
-        
+
         // Default settings
         defaults: {
             product: 'nexrad-n0q',
@@ -45,17 +45,17 @@ const WeatherRadar = (function() {
             animationSpeed: 500,  // ms per frame
             animationFrames: 12,  // ~1 hour of history (5-min intervals)
             autoRefresh: true,
-            refreshInterval: 300000  // 5 minutes
+            refreshInterval: 300000,  // 5 minutes
         },
-        
+
         // Animation frame offsets (minutes ago, must be multiples of 5)
-        frameOffsets: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+        frameOffsets: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
     };
 
     // =========================================================================
     // RADAR PRODUCTS
     // =========================================================================
-    
+
     const PRODUCTS = {
         'nexrad-n0q': {
             name: 'Base Reflectivity (N0Q)',
@@ -63,7 +63,7 @@ const WeatherRadar = (function() {
             layer: 'nexrad-n0q',
             hasAnimation: true,
             unit: 'dBZ',
-            range: [-30, 75]
+            range: [-30, 75],
         },
         'nexrad-n0q-900913': {
             name: 'Base Reflectivity (Web Mercator)',
@@ -71,7 +71,7 @@ const WeatherRadar = (function() {
             layer: 'nexrad-n0q-900913',
             hasAnimation: true,
             unit: 'dBZ',
-            range: [-30, 75]
+            range: [-30, 75],
         },
         'nexrad-eet': {
             name: 'Echo Tops (EET)',
@@ -79,7 +79,7 @@ const WeatherRadar = (function() {
             layer: 'nexrad-eet',
             hasAnimation: true,
             unit: 'kft',
-            range: [0, 70]
+            range: [0, 70],
         },
         'q2-hsr': {
             name: 'MRMS Reflectivity (HSR)',
@@ -87,7 +87,7 @@ const WeatherRadar = (function() {
             layer: 'q2-hsr',
             hasAnimation: false,
             unit: 'dBZ',
-            range: [-30, 75]
+            range: [-30, 75],
         },
         'q2-p1h': {
             name: 'MRMS 1-Hour Precip',
@@ -95,7 +95,7 @@ const WeatherRadar = (function() {
             layer: 'q2-n1p',
             hasAnimation: false,
             unit: 'inches',
-            range: [0, 4]
+            range: [0, 4],
         },
         'q2-p24h': {
             name: 'MRMS 24-Hour Precip',
@@ -103,17 +103,17 @@ const WeatherRadar = (function() {
             layer: 'q2-p24h',
             hasAnimation: false,
             unit: 'inches',
-            range: [0, 12]
-        }
+            range: [0, 12],
+        },
     };
 
     // =========================================================================
     // COLOR TABLES
     // =========================================================================
-    
+
     /**
      * Color tables for radar display
-     * 
+     *
      * NWS: Standard National Weather Service colors
      * FAA_ATC: FAA HF-STD-010A compliant colors for ATC displays
      * SCOPE: Dark/monochrome suitable for TSD overlay
@@ -139,8 +139,8 @@ const WeatherRadar = (function() {
                 { dbz: 60, color: '#bc0000', label: '60 dBZ' },
                 { dbz: 65, color: '#f800fd', label: '65 dBZ (Hail)' },
                 { dbz: 70, color: '#9854c6', label: '70 dBZ' },
-                { dbz: 75, color: '#fdfdfd', label: '75 dBZ' }
-            ]
+                { dbz: 75, color: '#fdfdfd', label: '75 dBZ' },
+            ],
         },
         'FAA_ATC': {
             name: 'FAA ATC (HF-STD-010A)',
@@ -152,15 +152,15 @@ const WeatherRadar = (function() {
                 { dbz: 30, color: '#173928', label: 'Wx-Green' },
                 { dbz: 40, color: '#5A4A14', label: 'Moderate (30-40 dBZ)' },
                 { dbz: 50, color: '#5D2E59', label: 'Heavy (>40 dBZ)' },
-                { dbz: 60, color: '#5D2E59', label: 'Extreme (>50 dBZ)' }
+                { dbz: 60, color: '#5D2E59', label: 'Extreme (>50 dBZ)' },
             ],
             // Severity mapping per FAA standards
             severityLevels: {
                 light: { maxDbz: 30, color: '#173928' },      // Wx-Green
                 moderate: { maxDbz: 40, color: '#5A4A14' },   // Wx-Yellow
                 heavy: { maxDbz: 50, color: '#5D2E59' },      // Wx-Red
-                extreme: { maxDbz: 999, color: '#5D2E59' }    // Wx-Red
-            }
+                extreme: { maxDbz: 999, color: '#5D2E59' },    // Wx-Red
+            },
         },
         'SCOPE': {
             name: 'Scope (Monochrome)',
@@ -170,50 +170,50 @@ const WeatherRadar = (function() {
                 { dbz: 20, color: '#333', label: 'Light' },
                 { dbz: 35, color: '#666', label: 'Moderate' },
                 { dbz: 50, color: '#999', label: 'Heavy' },
-                { dbz: 65, color: '#ccc', label: 'Extreme' }
-            ]
+                { dbz: 65, color: '#ccc', label: 'Extreme' },
+            ],
         },
         'HIGH_CONTRAST': {
             name: 'High Contrast',
             description: 'Enhanced visibility for low-light conditions',
             filter: 'saturate(1.3) brightness(1.1) contrast(1.4)',
-            legendColors: COLOR_TABLES?.NWS?.legendColors || []
-        }
+            legendColors: COLOR_TABLES?.NWS?.legendColors || [],
+        },
     };
-    
+
     // Fix circular reference
     COLOR_TABLES.HIGH_CONTRAST.legendColors = COLOR_TABLES.NWS.legendColors;
 
     // =========================================================================
     // STATE
     // =========================================================================
-    
-    let state = {
+
+    const state = {
         map: null,
         enabled: false,
         product: CONFIG.defaults.product,
         opacity: CONFIG.defaults.opacity,
         colorTable: CONFIG.defaults.colorTable,
-        
+
         // Animation state
         animating: false,
         animationTimer: null,
         currentFrame: 0,
         frames: [],
-        
+
         // Auto-refresh
         refreshTimer: null,
         lastUpdate: null,
-        
+
         // Layer IDs for MapLibre
         layerIds: [],
-        sourceIds: []
+        sourceIds: [],
     };
 
     // =========================================================================
     // UTILITY FUNCTIONS
     // =========================================================================
-    
+
     /**
      * Get a random tile host for load balancing
      */
@@ -229,7 +229,7 @@ const WeatherRadar = (function() {
     function buildTileUrl(layerName, minutesAgo = 0) {
         const host = getRandomHost();
         const path = minutesAgo === 0 ? CONFIG.cachePath : CONFIG.cachePath;
-        
+
         if (minutesAgo === 0) {
             // Current frame
             return `${host}${path}/${layerName}/{z}/{x}/{y}.png`;
@@ -253,7 +253,7 @@ const WeatherRadar = (function() {
     function getFrameTimestamps() {
         const now = new Date();
         const timestamps = [];
-        
+
         for (const offset of CONFIG.frameOffsets) {
             const frameTime = new Date(now.getTime() - offset * 60 * 1000);
             // Round down to nearest 5 minutes
@@ -263,33 +263,33 @@ const WeatherRadar = (function() {
             timestamps.push({
                 offset: offset,
                 time: frameTime,
-                label: formatTimestamp(frameTime)
+                label: formatTimestamp(frameTime),
             });
         }
-        
+
         return timestamps.reverse(); // Oldest first for animation
     }
 
     // =========================================================================
     // MAP LAYER MANAGEMENT
     // =========================================================================
-    
+
     /**
      * Add radar layer to map
      */
     function addRadarLayer(frameIndex = 0) {
-        if (!state.map) return;
-        
+        if (!state.map) {return;}
+
         const product = PRODUCTS[state.product];
         if (!product) {
             console.error(`Unknown radar product: ${state.product}`);
             return;
         }
-        
+
         const minutesAgo = CONFIG.frameOffsets[frameIndex] || 0;
         const sourceId = `radar-source-${frameIndex}`;
         const layerId = `radar-layer-${frameIndex}`;
-        
+
         // Remove existing if present
         if (state.map.getLayer(layerId)) {
             state.map.removeLayer(layerId);
@@ -297,15 +297,15 @@ const WeatherRadar = (function() {
         if (state.map.getSource(sourceId)) {
             state.map.removeSource(sourceId);
         }
-        
+
         // Add raster source
         state.map.addSource(sourceId, {
             type: 'raster',
             tiles: [buildTileUrl(product.layer, minutesAgo)],
             tileSize: 256,
-            attribution: '&copy; <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>'
+            attribution: '&copy; <a href="https://mesonet.agron.iastate.edu">Iowa Environmental Mesonet</a>',
         });
-        
+
         // Add raster layer
         state.map.addLayer({
             id: layerId,
@@ -313,19 +313,19 @@ const WeatherRadar = (function() {
             source: sourceId,
             paint: {
                 'raster-opacity': frameIndex === state.currentFrame ? state.opacity : 0,
-                'raster-fade-duration': 0
-            }
+                'raster-fade-duration': 0,
+            },
         }, 'aeroway-line'); // Insert below flight symbols
-        
+
         // Apply color table filter via CSS
         applyColorTableFilter(layerId);
-        
+
         // Track layer IDs
         if (!state.layerIds.includes(layerId)) {
             state.layerIds.push(layerId);
             state.sourceIds.push(sourceId);
         }
-        
+
         return layerId;
     }
 
@@ -334,17 +334,17 @@ const WeatherRadar = (function() {
      */
     function addAllFrames() {
         state.frames = [];
-        
+
         for (let i = 0; i < CONFIG.frameOffsets.length; i++) {
             const layerId = addRadarLayer(i);
             state.frames.push({
                 index: i,
                 layerId: layerId,
                 offset: CONFIG.frameOffsets[i],
-                timestamp: getFrameTimestamps()[i]
+                timestamp: getFrameTimestamps()[i],
             });
         }
-        
+
         // Show current frame
         showFrame(CONFIG.frameOffsets.length - 1);
     }
@@ -353,20 +353,20 @@ const WeatherRadar = (function() {
      * Remove all radar layers
      */
     function removeAllLayers() {
-        if (!state.map) return;
-        
+        if (!state.map) {return;}
+
         for (const layerId of state.layerIds) {
             if (state.map.getLayer(layerId)) {
                 state.map.removeLayer(layerId);
             }
         }
-        
+
         for (const sourceId of state.sourceIds) {
             if (state.map.getSource(sourceId)) {
                 state.map.removeSource(sourceId);
             }
         }
-        
+
         state.layerIds = [];
         state.sourceIds = [];
         state.frames = [];
@@ -377,12 +377,12 @@ const WeatherRadar = (function() {
      */
     function applyColorTableFilter(layerId) {
         const colorTable = COLOR_TABLES[state.colorTable];
-        if (!colorTable || !state.map) return;
-        
+        if (!colorTable || !state.map) {return;}
+
         // MapLibre doesn't support CSS filters directly on layers
         // We apply the filter to the canvas container instead when using non-NWS tables
         const container = state.map.getCanvas().parentElement;
-        
+
         if (state.colorTable === 'NWS') {
             container.style.filter = 'none';
         } else {
@@ -390,7 +390,7 @@ const WeatherRadar = (function() {
             // we'd need WebGL shaders or server-side recoloring
             // For now, we apply a subtle filter that works reasonably well
             // container.style.filter = colorTable.filter;
-            
+
             // Actually, let's not filter the whole map - just note in UI
             console.log(`Color table ${state.colorTable} selected - radar colors adjusted`);
         }
@@ -400,10 +400,10 @@ const WeatherRadar = (function() {
      * Show specific animation frame
      */
     function showFrame(frameIndex) {
-        if (!state.map || frameIndex < 0 || frameIndex >= state.frames.length) return;
-        
+        if (!state.map || frameIndex < 0 || frameIndex >= state.frames.length) {return;}
+
         state.currentFrame = frameIndex;
-        
+
         // Update opacity for all frames
         for (let i = 0; i < state.frames.length; i++) {
             const frame = state.frames[i];
@@ -411,21 +411,21 @@ const WeatherRadar = (function() {
                 state.map.setPaintProperty(
                     frame.layerId,
                     'raster-opacity',
-                    i === frameIndex ? state.opacity : 0
+                    i === frameIndex ? state.opacity : 0,
                 );
             }
         }
-        
+
         // Update timestamp display
         updateTimestampDisplay();
-        
+
         // Dispatch event for UI updates
         document.dispatchEvent(new CustomEvent('radar-frame-change', {
             detail: {
                 frameIndex: frameIndex,
                 timestamp: state.frames[frameIndex]?.timestamp,
-                totalFrames: state.frames.length
-            }
+                totalFrames: state.frames.length,
+            },
         }));
     }
 
@@ -443,21 +443,21 @@ const WeatherRadar = (function() {
     // =========================================================================
     // ANIMATION CONTROL
     // =========================================================================
-    
+
     /**
      * Start animation playback
      */
     function startAnimation() {
-        if (state.animating) return;
-        
+        if (state.animating) {return;}
+
         state.animating = true;
         state.currentFrame = 0;
-        
+
         state.animationTimer = setInterval(() => {
             const nextFrame = (state.currentFrame + 1) % state.frames.length;
             showFrame(nextFrame);
         }, CONFIG.defaults.animationSpeed);
-        
+
         document.dispatchEvent(new CustomEvent('radar-animation-start'));
     }
 
@@ -465,18 +465,18 @@ const WeatherRadar = (function() {
      * Stop animation playback
      */
     function stopAnimation() {
-        if (!state.animating) return;
-        
+        if (!state.animating) {return;}
+
         state.animating = false;
-        
+
         if (state.animationTimer) {
             clearInterval(state.animationTimer);
             state.animationTimer = null;
         }
-        
+
         // Show most recent frame
         showFrame(state.frames.length - 1);
-        
+
         document.dispatchEvent(new CustomEvent('radar-animation-stop'));
     }
 
@@ -496,7 +496,7 @@ const WeatherRadar = (function() {
      * Step to next frame
      */
     function nextFrame() {
-        if (state.animating) stopAnimation();
+        if (state.animating) {stopAnimation();}
         const next = (state.currentFrame + 1) % state.frames.length;
         showFrame(next);
     }
@@ -505,7 +505,7 @@ const WeatherRadar = (function() {
      * Step to previous frame
      */
     function prevFrame() {
-        if (state.animating) stopAnimation();
+        if (state.animating) {stopAnimation();}
         const prev = (state.currentFrame - 1 + state.frames.length) % state.frames.length;
         showFrame(prev);
     }
@@ -513,13 +513,13 @@ const WeatherRadar = (function() {
     // =========================================================================
     // AUTO-REFRESH
     // =========================================================================
-    
+
     /**
      * Start auto-refresh timer
      */
     function startAutoRefresh() {
-        if (state.refreshTimer) return;
-        
+        if (state.refreshTimer) {return;}
+
         state.refreshTimer = setInterval(() => {
             if (state.enabled && !state.animating) {
                 refresh();
@@ -541,27 +541,27 @@ const WeatherRadar = (function() {
      * Refresh radar data
      */
     function refresh() {
-        if (!state.enabled) return;
-        
+        if (!state.enabled) {return;}
+
         const wasAnimating = state.animating;
-        if (wasAnimating) stopAnimation();
-        
+        if (wasAnimating) {stopAnimation();}
+
         removeAllLayers();
         addAllFrames();
-        
+
         state.lastUpdate = new Date();
-        
-        if (wasAnimating) startAnimation();
-        
+
+        if (wasAnimating) {startAnimation();}
+
         document.dispatchEvent(new CustomEvent('radar-refresh', {
-            detail: { timestamp: state.lastUpdate }
+            detail: { timestamp: state.lastUpdate },
         }));
     }
 
     // =========================================================================
     // PUBLIC API
     // =========================================================================
-    
+
     /**
      * Initialize weather radar module
      * @param {maplibregl.Map} map - MapLibre GL map instance
@@ -569,7 +569,7 @@ const WeatherRadar = (function() {
      */
     function init(map, options = {}) {
         state.map = map;
-        
+
         // Apply options
         if (options.product && PRODUCTS[options.product]) {
             state.product = options.product;
@@ -580,9 +580,9 @@ const WeatherRadar = (function() {
         if (options.colorTable && COLOR_TABLES[options.colorTable]) {
             state.colorTable = options.colorTable;
         }
-        
+
         console.log('[WeatherRadar] Initialized with IEM NEXRAD/MRMS data');
-        
+
         return WeatherRadar;
     }
 
@@ -590,15 +590,15 @@ const WeatherRadar = (function() {
      * Enable radar display
      */
     function enable() {
-        if (state.enabled) return;
-        
+        if (state.enabled) {return;}
+
         state.enabled = true;
         addAllFrames();
-        
+
         if (CONFIG.defaults.autoRefresh) {
             startAutoRefresh();
         }
-        
+
         document.dispatchEvent(new CustomEvent('radar-enabled'));
     }
 
@@ -606,13 +606,13 @@ const WeatherRadar = (function() {
      * Disable radar display
      */
     function disable() {
-        if (!state.enabled) return;
-        
+        if (!state.enabled) {return;}
+
         state.enabled = false;
         stopAnimation();
         stopAutoRefresh();
         removeAllLayers();
-        
+
         document.dispatchEvent(new CustomEvent('radar-disabled'));
     }
 
@@ -637,13 +637,13 @@ const WeatherRadar = (function() {
             console.error(`Unknown radar product: ${productId}`);
             return false;
         }
-        
+
         state.product = productId;
-        
+
         if (state.enabled) {
             refresh();
         }
-        
+
         return true;
     }
 
@@ -653,7 +653,7 @@ const WeatherRadar = (function() {
      */
     function setOpacity(opacity) {
         state.opacity = Math.max(0, Math.min(1, opacity));
-        
+
         // Update current visible frame
         if (state.map && state.frames[state.currentFrame]) {
             const layerId = state.frames[state.currentFrame].layerId;
@@ -672,14 +672,14 @@ const WeatherRadar = (function() {
             console.error(`Unknown color table: ${tableId}`);
             return false;
         }
-        
+
         state.colorTable = tableId;
-        
+
         // Apply to all layers
         for (const layerId of state.layerIds) {
             applyColorTableFilter(layerId);
         }
-        
+
         return true;
     }
 
@@ -697,7 +697,7 @@ const WeatherRadar = (function() {
             animating: state.animating,
             currentFrame: state.currentFrame,
             totalFrames: state.frames.length,
-            lastUpdate: state.lastUpdate
+            lastUpdate: state.lastUpdate,
         };
     }
 
@@ -721,19 +721,19 @@ const WeatherRadar = (function() {
     function getLegend() {
         const colorTable = COLOR_TABLES[state.colorTable];
         const product = PRODUCTS[state.product];
-        
+
         return {
             product: product?.name || 'Unknown',
             unit: product?.unit || 'dBZ',
             range: product?.range || [0, 75],
-            colors: colorTable?.legendColors || []
+            colors: colorTable?.legendColors || [],
         };
     }
 
     // =========================================================================
     // UI HELPERS
     // =========================================================================
-    
+
     /**
      * Create radar control panel HTML
      */
@@ -752,18 +752,18 @@ const WeatherRadar = (function() {
                     <div class="radar-row">
                         <label>Product:</label>
                         <select id="radar-product-select">
-                            ${Object.entries(PRODUCTS).map(([id, p]) => 
-                                `<option value="${id}"${id === state.product ? ' selected' : ''}>${p.name}</option>`
-                            ).join('')}
+                            ${Object.entries(PRODUCTS).map(([id, p]) =>
+        `<option value="${id}"${id === state.product ? ' selected' : ''}>${p.name}</option>`,
+    ).join('')}
                         </select>
                     </div>
                     
                     <div class="radar-row">
                         <label>Colors:</label>
                         <select id="radar-color-select">
-                            ${Object.entries(COLOR_TABLES).map(([id, t]) => 
-                                `<option value="${id}"${id === state.colorTable ? ' selected' : ''}>${t.name}</option>`
-                            ).join('')}
+                            ${Object.entries(COLOR_TABLES).map(([id, t]) =>
+        `<option value="${id}"${id === state.colorTable ? ' selected' : ''}>${t.name}</option>`,
+    ).join('')}
                         </select>
                     </div>
                     
@@ -785,7 +785,7 @@ const WeatherRadar = (function() {
                 </div>
             </div>
         `;
-        
+
         return html;
     }
 
@@ -802,7 +802,7 @@ const WeatherRadar = (function() {
                 } else {
                     disable();
                 }
-                
+
                 // Show/hide settings
                 const settings = document.querySelector('.radar-settings');
                 if (settings) {
@@ -810,7 +810,7 @@ const WeatherRadar = (function() {
                 }
             });
         }
-        
+
         // Product select
         const productSelect = document.getElementById('radar-product-select');
         if (productSelect) {
@@ -819,7 +819,7 @@ const WeatherRadar = (function() {
                 updateLegend();
             });
         }
-        
+
         // Color table select
         const colorSelect = document.getElementById('radar-color-select');
         if (colorSelect) {
@@ -828,7 +828,7 @@ const WeatherRadar = (function() {
                 updateLegend();
             });
         }
-        
+
         // Opacity slider
         const opacitySlider = document.getElementById('radar-opacity-slider');
         const opacityValue = document.getElementById('radar-opacity-value');
@@ -841,14 +841,14 @@ const WeatherRadar = (function() {
                 }
             });
         }
-        
+
         // Animation controls
         document.getElementById('radar-prev-btn')?.addEventListener('click', prevFrame);
         document.getElementById('radar-next-btn')?.addEventListener('click', nextFrame);
         document.getElementById('radar-play-btn')?.addEventListener('click', () => {
             const playing = toggleAnimation();
             const btn = document.getElementById('radar-play-btn');
-            if (btn) btn.textContent = playing ? '⏸' : '▶';
+            if (btn) {btn.textContent = playing ? '⏸' : '▶';}
         });
         document.getElementById('radar-refresh-btn')?.addEventListener('click', refresh);
     }
@@ -858,13 +858,13 @@ const WeatherRadar = (function() {
      */
     function updateLegend() {
         const legendEl = document.getElementById('radar-legend');
-        if (!legendEl) return;
-        
+        if (!legendEl) {return;}
+
         const legend = getLegend();
-        
+
         let html = `<div class="legend-title">${legend.product} (${legend.unit})</div>`;
         html += '<div class="legend-scale">';
-        
+
         for (const item of legend.colors) {
             html += `
                 <div class="legend-item">
@@ -873,7 +873,7 @@ const WeatherRadar = (function() {
                 </div>
             `;
         }
-        
+
         html += '</div>';
         legendEl.innerHTML = html;
     }
@@ -987,7 +987,7 @@ const WeatherRadar = (function() {
     // =========================================================================
     // EXPORT PUBLIC API
     // =========================================================================
-    
+
     return {
         // Core
         init,
@@ -995,12 +995,12 @@ const WeatherRadar = (function() {
         disable,
         toggle,
         refresh,
-        
+
         // Settings
         setProduct,
         setOpacity,
         setColorTable,
-        
+
         // Animation
         startAnimation,
         stopAnimation,
@@ -1008,22 +1008,22 @@ const WeatherRadar = (function() {
         nextFrame,
         prevFrame,
         showFrame,
-        
+
         // State & Info
         getState,
         getProducts,
         getColorTables,
         getLegend,
-        
+
         // UI Helpers
         createControlPanel,
         bindControlEvents,
         updateLegend,
         getStyles,
-        
+
         // Constants (read-only)
         PRODUCTS: { ...PRODUCTS },
-        COLOR_TABLES: { ...COLOR_TABLES }
+        COLOR_TABLES: { ...COLOR_TABLES },
     };
 
 })();

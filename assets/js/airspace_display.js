@@ -1,16 +1,16 @@
 /**
  * SUA & TFR Display Module for TSD Map
- * 
+ *
  * Displays Special Use Airspace boundaries and Temporary Flight Restrictions
  * on MapLibre GL map with authentic ATC-style rendering.
- * 
+ *
  * Features:
  * - SUA boundaries (MOA, Restricted, Warning, Alert, Prohibited, NSA)
  * - TFR overlay with live FAA data
  * - Filter by type, ARTCC, altitude
  * - Active/inactive status indication
  * - Click-to-info popups
- * 
+ *
  * @version 1.0.0
  * @author vATCSCC PERTI
  */
@@ -21,15 +21,15 @@ const AirspaceDisplay = (function() {
     // =========================================================================
     // CONFIGURATION
     // =========================================================================
-    
+
     const CONFIG = {
         suaEndpoint: '/api/data/sua.php',
         tfrEndpoint: '/api/data/tfr.php',
-        
+
         // Refresh intervals
         suaRefreshInterval: 3600000,  // 1 hour (SUA changes rarely)
         tfrRefreshInterval: 300000,   // 5 minutes (TFRs can change)
-        
+
         // Default visibility
         defaults: {
             showSua: true,
@@ -39,8 +39,8 @@ const AirspaceDisplay = (function() {
             showLabels: true,
             filterTypes: null,  // null = show all
             filterArtcc: null,
-            filterAltitude: null  // { min: FL, max: FL }
-        }
+            filterAltitude: null,  // { min: FL, max: FL }
+        },
     };
 
     // SUA type styling
@@ -51,7 +51,7 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.35,
             strokeWidth: 2,
             strokeDash: null,
-            priority: 0
+            priority: 0,
         },
         'RA': {
             name: 'Restricted',
@@ -59,7 +59,7 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.25,
             strokeWidth: 2,
             strokeDash: null,
-            priority: 1
+            priority: 1,
         },
         'WA': {
             name: 'Warning',
@@ -67,7 +67,7 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.2,
             strokeWidth: 1.5,
             strokeDash: null,
-            priority: 2
+            priority: 2,
         },
         'AA': {
             name: 'Alert',
@@ -75,7 +75,7 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.15,
             strokeWidth: 1.5,
             strokeDash: null,
-            priority: 3
+            priority: 3,
         },
         'MOA': {
             name: 'MOA',
@@ -83,7 +83,7 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.15,
             strokeWidth: 1,
             strokeDash: [5, 3],
-            priority: 4
+            priority: 4,
         },
         'NSA': {
             name: 'NSA',
@@ -91,8 +91,8 @@ const AirspaceDisplay = (function() {
             fillOpacity: 0.2,
             strokeWidth: 1.5,
             strokeDash: null,
-            priority: 5
-        }
+            priority: 5,
+        },
     };
 
     // TFR type styling
@@ -102,65 +102,65 @@ const AirspaceDisplay = (function() {
             color: '#cc0000',
             fillOpacity: 0.4,
             strokeWidth: 3,
-            strokeDash: null
+            strokeDash: null,
         },
         'SECURITY': {
             name: 'Security',
             color: '#ff0000',
             fillOpacity: 0.35,
             strokeWidth: 2.5,
-            strokeDash: null
+            strokeDash: null,
         },
         'HAZARDS': {
             name: 'Hazards',
             color: '#ff6600',
             fillOpacity: 0.3,
             strokeWidth: 2,
-            strokeDash: [8, 4]
+            strokeDash: [8, 4],
         },
         'SPACE': {
             name: 'Space Ops',
             color: '#9900ff',
             fillOpacity: 0.35,
             strokeWidth: 2,
-            strokeDash: null
+            strokeDash: null,
         },
         'STADIUM': {
             name: 'Stadium',
             color: '#0066ff',
             fillOpacity: 0.25,
             strokeWidth: 1.5,
-            strokeDash: [5, 5]
+            strokeDash: [5, 5],
         },
         'SPECIAL': {
             name: 'Special',
             color: '#ff00ff',
             fillOpacity: 0.25,
             strokeWidth: 1.5,
-            strokeDash: [3, 3]
+            strokeDash: [3, 3],
         },
         'OTHER': {
             name: 'Other',
             color: '#888888',
             fillOpacity: 0.2,
             strokeWidth: 1,
-            strokeDash: [3, 3]
-        }
+            strokeDash: [3, 3],
+        },
     };
 
     // =========================================================================
     // STATE
     // =========================================================================
-    
-    let state = {
+
+    const state = {
         map: null,
         suaEnabled: false,
         tfrEnabled: false,
-        
+
         // Data
         suaData: null,
         tfrData: null,
-        
+
         // Settings
         suaOpacity: CONFIG.defaults.suaOpacity,
         tfrOpacity: CONFIG.defaults.tfrOpacity,
@@ -168,23 +168,23 @@ const AirspaceDisplay = (function() {
         filterTypes: CONFIG.defaults.filterTypes,
         filterArtcc: CONFIG.defaults.filterArtcc,
         filterAltitude: CONFIG.defaults.filterAltitude,
-        
+
         // Refresh timers
         suaRefreshTimer: null,
         tfrRefreshTimer: null,
-        
+
         // Layer tracking
         suaLayerIds: [],
         tfrLayerIds: [],
-        
+
         // Popup
-        popup: null
+        popup: null,
     };
 
     // =========================================================================
     // DATA LOADING
     // =========================================================================
-    
+
     /**
      * Fetch SUA data
      */
@@ -192,28 +192,28 @@ const AirspaceDisplay = (function() {
         try {
             let url = CONFIG.suaEndpoint;
             const params = [];
-            
+
             if (state.filterTypes) {
                 params.push(`type=${state.filterTypes.join(',')}`);
             }
             if (state.filterArtcc) {
                 params.push(`artcc=${state.filterArtcc.join(',')}`);
             }
-            
+
             if (params.length > 0) {
                 url += '?' + params.join('&');
             }
-            
+
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             const data = await response.json();
             state.suaData = data;
-            
+
             console.log(`[Airspace] Loaded ${data.count || 0} SUA boundaries`);
-            
+
             return data;
         } catch (error) {
             console.error('[Airspace] Failed to fetch SUA data:', error);
@@ -226,23 +226,23 @@ const AirspaceDisplay = (function() {
      */
     async function fetchTfrData() {
         try {
-            let url = CONFIG.tfrEndpoint;
+            const url = CONFIG.tfrEndpoint;
             const params = ['include_no_geometry=0'];
-            
+
             if (state.filterTypes) {
                 // Filter TFR types if applicable
             }
-            
+
             const response = await fetch(url + '?' + params.join('&'));
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             const data = await response.json();
             state.tfrData = data;
-            
+
             console.log(`[Airspace] Loaded ${data.count || 0} TFRs`);
-            
+
             return data;
         } catch (error) {
             console.error('[Airspace] Failed to fetch TFR data:', error);
@@ -253,38 +253,38 @@ const AirspaceDisplay = (function() {
     // =========================================================================
     // LAYER MANAGEMENT
     // =========================================================================
-    
+
     /**
      * Find a suitable layer to insert airspace layers before
      * This ensures airspace renders below labels/symbols but above base layers
      */
     function findInsertionLayer() {
-        if (!state.map) return undefined;
-        
+        if (!state.map) {return undefined;}
+
         const layers = state.map.getStyle().layers;
-        
+
         // Priority order of layers to insert before
         const preferredLayers = [
             'aeroway-line',
             'airport-label',
-            'poi-label', 
+            'poi-label',
             'road-label',
             'waterway-label',
-            'settlement-label'
+            'settlement-label',
         ];
-        
+
         for (const preferred of preferredLayers) {
             if (layers.find(l => l.id === preferred)) {
                 return preferred;
             }
         }
-        
+
         // Fallback: find first symbol layer
         const firstSymbol = layers.find(l => l.type === 'symbol');
         if (firstSymbol) {
             return firstSymbol.id;
         }
-        
+
         // No suitable layer found - add on top
         return undefined;
     }
@@ -293,28 +293,28 @@ const AirspaceDisplay = (function() {
      * Add SUA layers to map
      */
     function addSuaLayers() {
-        if (!state.map || !state.suaData) return;
-        
+        if (!state.map || !state.suaData) {return;}
+
         // Remove existing layers
         removeSuaLayers();
-        
+
         // Add source
         state.map.addSource('sua-source', {
             type: 'geojson',
-            data: state.suaData
+            data: state.suaData,
         });
-        
+
         // Create layers for each SUA type (in reverse priority order so higher priority renders on top)
         const types = Object.keys(SUA_STYLES).reverse();
-        
+
         for (const type of types) {
             const style = SUA_STYLES[type];
             const fillLayerId = `sua-fill-${type}`;
             const strokeLayerId = `sua-stroke-${type}`;
-            
+
             // Find a suitable layer to insert before (or undefined to add on top)
             const beforeLayer = findInsertionLayer();
-            
+
             // Fill layer
             state.map.addLayer({
                 id: fillLayerId,
@@ -323,17 +323,17 @@ const AirspaceDisplay = (function() {
                 filter: ['==', ['get', 'sua_type'], type],
                 paint: {
                     'fill-color': style.color,
-                    'fill-opacity': state.suaOpacity * (style.fillOpacity / 0.25)
-                }
+                    'fill-opacity': state.suaOpacity * (style.fillOpacity / 0.25),
+                },
             }, beforeLayer);
-            
+
             // Stroke layer
             const strokePaint = {
                 'line-color': style.color,
                 'line-width': style.strokeWidth,
-                'line-opacity': 0.8
+                'line-opacity': 0.8,
             };
-            
+
             state.map.addLayer({
                 id: strokeLayerId,
                 type: 'line',
@@ -341,18 +341,18 @@ const AirspaceDisplay = (function() {
                 filter: ['==', ['get', 'sua_type'], type],
                 paint: strokePaint,
                 layout: style.strokeDash ? {
-                    'line-cap': 'butt'
-                } : {}
+                    'line-cap': 'butt',
+                } : {},
             }, beforeLayer);
-            
+
             // Apply dash pattern if specified
             if (style.strokeDash) {
                 state.map.setPaintProperty(strokeLayerId, 'line-dasharray', style.strokeDash);
             }
-            
+
             state.suaLayerIds.push(fillLayerId, strokeLayerId);
         }
-        
+
         // Add label layer if enabled
         if (state.showLabels) {
             state.map.addLayer({
@@ -364,19 +364,19 @@ const AirspaceDisplay = (function() {
                     'text-size': 10,
                     'text-anchor': 'center',
                     'text-allow-overlap': false,
-                    'text-ignore-placement': false
+                    'text-ignore-placement': false,
                 },
                 paint: {
                     'text-color': '#ffffff',
                     'text-halo-color': '#000000',
-                    'text-halo-width': 1
+                    'text-halo-width': 1,
                 },
-                minzoom: 7
+                minzoom: 7,
             });
-            
+
             state.suaLayerIds.push('sua-labels');
         }
-        
+
         // Add click handler
         for (const layerId of state.suaLayerIds) {
             if (layerId.includes('fill')) {
@@ -395,17 +395,17 @@ const AirspaceDisplay = (function() {
      * Add TFR layers to map
      */
     function addTfrLayers() {
-        if (!state.map || !state.tfrData) return;
-        
+        if (!state.map || !state.tfrData) {return;}
+
         // Remove existing layers
         removeTfrLayers();
-        
+
         // Add source
         state.map.addSource('tfr-source', {
             type: 'geojson',
-            data: state.tfrData
+            data: state.tfrData,
         });
-        
+
         // Fill layer
         state.map.addLayer({
             id: 'tfr-fill',
@@ -413,10 +413,10 @@ const AirspaceDisplay = (function() {
             source: 'tfr-source',
             paint: {
                 'fill-color': ['get', 'color'],
-                'fill-opacity': state.tfrOpacity
-            }
+                'fill-opacity': state.tfrOpacity,
+            },
         }, 'aeroway-line');
-        
+
         // Stroke layer (animated dash for emphasis)
         state.map.addLayer({
             id: 'tfr-stroke',
@@ -425,10 +425,10 @@ const AirspaceDisplay = (function() {
             paint: {
                 'line-color': ['get', 'color'],
                 'line-width': 2.5,
-                'line-opacity': 0.9
-            }
+                'line-opacity': 0.9,
+            },
         }, 'aeroway-line');
-        
+
         // Label layer
         if (state.showLabels) {
             state.map.addLayer({
@@ -440,21 +440,21 @@ const AirspaceDisplay = (function() {
                     'text-size': 11,
                     'text-anchor': 'center',
                     'text-allow-overlap': false,
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold']
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 },
                 paint: {
                     'text-color': '#ffffff',
                     'text-halo-color': '#cc0000',
-                    'text-halo-width': 2
+                    'text-halo-width': 2,
                 },
-                minzoom: 6
+                minzoom: 6,
             });
-            
+
             state.tfrLayerIds.push('tfr-labels');
         }
-        
+
         state.tfrLayerIds.push('tfr-fill', 'tfr-stroke');
-        
+
         // Add click handler
         state.map.on('click', 'tfr-fill', handleTfrClick);
         state.map.on('mouseenter', 'tfr-fill', () => {
@@ -469,18 +469,18 @@ const AirspaceDisplay = (function() {
      * Remove SUA layers
      */
     function removeSuaLayers() {
-        if (!state.map) return;
-        
+        if (!state.map) {return;}
+
         for (const layerId of state.suaLayerIds) {
             if (state.map.getLayer(layerId)) {
                 state.map.removeLayer(layerId);
             }
         }
-        
+
         if (state.map.getSource('sua-source')) {
             state.map.removeSource('sua-source');
         }
-        
+
         state.suaLayerIds = [];
     }
 
@@ -488,37 +488,37 @@ const AirspaceDisplay = (function() {
      * Remove TFR layers
      */
     function removeTfrLayers() {
-        if (!state.map) return;
-        
+        if (!state.map) {return;}
+
         for (const layerId of state.tfrLayerIds) {
             if (state.map.getLayer(layerId)) {
                 state.map.removeLayer(layerId);
             }
         }
-        
+
         if (state.map.getSource('tfr-source')) {
             state.map.removeSource('tfr-source');
         }
-        
+
         state.tfrLayerIds = [];
     }
 
     // =========================================================================
     // INTERACTION HANDLERS
     // =========================================================================
-    
+
     /**
      * Handle SUA feature click
      */
     function handleSuaClick(e) {
-        if (!e.features || e.features.length === 0) return;
-        
+        if (!e.features || e.features.length === 0) {return;}
+
         const feature = e.features[0];
         const props = feature.properties;
         const coords = e.lngLat;
-        
+
         const style = SUA_STYLES[props.sua_type] || {};
-        
+
         // Build popup content
         const html = `
             <div class="airspace-popup sua-popup">
@@ -546,7 +546,7 @@ const AirspaceDisplay = (function() {
                 </div>
             </div>
         `;
-        
+
         showPopup(coords, html);
     }
 
@@ -554,14 +554,14 @@ const AirspaceDisplay = (function() {
      * Handle TFR feature click
      */
     function handleTfrClick(e) {
-        if (!e.features || e.features.length === 0) return;
-        
+        if (!e.features || e.features.length === 0) {return;}
+
         const feature = e.features[0];
         const props = feature.properties;
         const coords = e.lngLat;
-        
+
         const style = TFR_STYLES[props.type] || TFR_STYLES.OTHER;
-        
+
         // Build popup content
         const html = `
             <div class="airspace-popup tfr-popup">
@@ -597,7 +597,7 @@ const AirspaceDisplay = (function() {
                 </div>
             </div>
         `;
-        
+
         showPopup(coords, html);
     }
 
@@ -609,23 +609,23 @@ const AirspaceDisplay = (function() {
         if (state.popup) {
             state.popup.remove();
         }
-        
+
         state.popup = new maplibregl.Popup({
             closeButton: true,
             closeOnClick: true,
-            maxWidth: '300px'
+            maxWidth: '300px',
         })
-        .setLngLat(lngLat)
-        .setHTML(html)
-        .addTo(state.map);
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(state.map);
     }
 
     /**
      * Format altitude for display
      */
     function formatAltitude(alt) {
-        if (alt === 'GND' || alt === 'SFC' || alt === 0) return 'Surface';
-        if (alt === 'UNL' || alt === 'UNLIM') return 'Unlimited';
+        if (alt === 'GND' || alt === 'SFC' || alt === 0) {return 'Surface';}
+        if (alt === 'UNL' || alt === 'UNLIM') {return 'Unlimited';}
         if (typeof alt === 'number') {
             if (alt >= 18000) {
                 return `FL${Math.round(alt / 100)}`;
@@ -638,13 +638,13 @@ const AirspaceDisplay = (function() {
     // =========================================================================
     // PUBLIC API
     // =========================================================================
-    
+
     /**
      * Initialize airspace display module
      */
     function init(map, options = {}) {
         state.map = map;
-        
+
         // Apply options
         if (typeof options.suaOpacity === 'number') {
             state.suaOpacity = options.suaOpacity;
@@ -661,9 +661,9 @@ const AirspaceDisplay = (function() {
         if (options.filterArtcc) {
             state.filterArtcc = options.filterArtcc;
         }
-        
+
         console.log('[Airspace] Module initialized');
-        
+
         return AirspaceDisplay;
     }
 
@@ -671,17 +671,17 @@ const AirspaceDisplay = (function() {
      * Enable SUA display
      */
     async function enableSua() {
-        if (state.suaEnabled) return;
-        
+        if (state.suaEnabled) {return;}
+
         state.suaEnabled = true;
-        
+
         // Fetch data if not loaded
         if (!state.suaData) {
             await fetchSuaData();
         }
-        
+
         addSuaLayers();
-        
+
         // Start refresh timer
         state.suaRefreshTimer = setInterval(async () => {
             await fetchSuaData();
@@ -693,7 +693,7 @@ const AirspaceDisplay = (function() {
                 }
             }
         }, CONFIG.suaRefreshInterval);
-        
+
         document.dispatchEvent(new CustomEvent('sua-enabled'));
     }
 
@@ -701,16 +701,16 @@ const AirspaceDisplay = (function() {
      * Disable SUA display
      */
     function disableSua() {
-        if (!state.suaEnabled) return;
-        
+        if (!state.suaEnabled) {return;}
+
         state.suaEnabled = false;
         removeSuaLayers();
-        
+
         if (state.suaRefreshTimer) {
             clearInterval(state.suaRefreshTimer);
             state.suaRefreshTimer = null;
         }
-        
+
         document.dispatchEvent(new CustomEvent('sua-disabled'));
     }
 
@@ -730,17 +730,17 @@ const AirspaceDisplay = (function() {
      * Enable TFR display
      */
     async function enableTfr() {
-        if (state.tfrEnabled) return;
-        
+        if (state.tfrEnabled) {return;}
+
         state.tfrEnabled = true;
-        
+
         // Fetch data if not loaded
         if (!state.tfrData) {
             await fetchTfrData();
         }
-        
+
         addTfrLayers();
-        
+
         // Start refresh timer
         state.tfrRefreshTimer = setInterval(async () => {
             await fetchTfrData();
@@ -751,7 +751,7 @@ const AirspaceDisplay = (function() {
                 }
             }
         }, CONFIG.tfrRefreshInterval);
-        
+
         document.dispatchEvent(new CustomEvent('tfr-enabled'));
     }
 
@@ -759,16 +759,16 @@ const AirspaceDisplay = (function() {
      * Disable TFR display
      */
     function disableTfr() {
-        if (!state.tfrEnabled) return;
-        
+        if (!state.tfrEnabled) {return;}
+
         state.tfrEnabled = false;
         removeTfrLayers();
-        
+
         if (state.tfrRefreshTimer) {
             clearInterval(state.tfrRefreshTimer);
             state.tfrRefreshTimer = null;
         }
-        
+
         document.dispatchEvent(new CustomEvent('tfr-disabled'));
     }
 
@@ -789,7 +789,7 @@ const AirspaceDisplay = (function() {
      */
     function setSuaOpacity(opacity) {
         state.suaOpacity = Math.max(0, Math.min(1, opacity));
-        
+
         if (state.map) {
             for (const layerId of state.suaLayerIds) {
                 if (layerId.includes('fill') && state.map.getLayer(layerId)) {
@@ -800,7 +800,7 @@ const AirspaceDisplay = (function() {
                         state.map.setPaintProperty(
                             layerId,
                             'fill-opacity',
-                            state.suaOpacity * (style.fillOpacity / 0.25)
+                            state.suaOpacity * (style.fillOpacity / 0.25),
                         );
                     }
                 }
@@ -813,7 +813,7 @@ const AirspaceDisplay = (function() {
      */
     function setTfrOpacity(opacity) {
         state.tfrOpacity = Math.max(0, Math.min(1, opacity));
-        
+
         if (state.map && state.map.getLayer('tfr-fill')) {
             state.map.setPaintProperty('tfr-fill', 'fill-opacity', state.tfrOpacity);
         }
@@ -824,7 +824,7 @@ const AirspaceDisplay = (function() {
      */
     async function filterByType(types) {
         state.filterTypes = types ? (Array.isArray(types) ? types : [types]) : null;
-        
+
         if (state.suaEnabled) {
             await fetchSuaData();
             removeSuaLayers();
@@ -837,7 +837,7 @@ const AirspaceDisplay = (function() {
      */
     async function filterByArtcc(artccs) {
         state.filterArtcc = artccs ? (Array.isArray(artccs) ? artccs : [artccs]) : null;
-        
+
         if (state.suaEnabled) {
             await fetchSuaData();
             removeSuaLayers();
@@ -850,23 +850,23 @@ const AirspaceDisplay = (function() {
      */
     async function refresh() {
         const promises = [];
-        
+
         if (state.suaEnabled) {
             promises.push(fetchSuaData().then(() => {
                 const source = state.map?.getSource('sua-source');
-                if (source) source.setData(state.suaData);
+                if (source) {source.setData(state.suaData);}
             }));
         }
-        
+
         if (state.tfrEnabled) {
             promises.push(fetchTfrData().then(() => {
                 const source = state.map?.getSource('tfr-source');
-                if (source) source.setData(state.tfrData);
+                if (source) {source.setData(state.tfrData);}
             }));
         }
-        
+
         await Promise.all(promises);
-        
+
         document.dispatchEvent(new CustomEvent('airspace-refreshed'));
     }
 
@@ -882,7 +882,7 @@ const AirspaceDisplay = (function() {
             suaCount: state.suaData?.count || 0,
             tfrCount: state.tfrData?.count || 0,
             filterTypes: state.filterTypes,
-            filterArtcc: state.filterArtcc
+            filterArtcc: state.filterArtcc,
         };
     }
 
@@ -903,35 +903,35 @@ const AirspaceDisplay = (function() {
     // =========================================================================
     // EXPORT
     // =========================================================================
-    
+
     return {
         init,
-        
+
         // SUA controls
         enableSua,
         disableSua,
         toggleSua,
         setSuaOpacity,
-        
+
         // TFR controls
         enableTfr,
         disableTfr,
         toggleTfr,
         setTfrOpacity,
-        
+
         // Filters
         filterByType,
         filterByArtcc,
-        
+
         // Data
         refresh,
         getState,
         getSuaTypes,
         getTfrTypes,
-        
+
         // Constants
         SUA_STYLES,
-        TFR_STYLES
+        TFR_STYLES,
     };
 
 })();

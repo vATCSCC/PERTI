@@ -1,12 +1,12 @@
-﻿var pathname = $(location).attr('href');
-var uri = pathname.split('?');
-var p_id = uri[1];
+﻿const pathname = $(location).attr('href');
+const uri = pathname.split('?');
+const p_id = uri[1];
 
 const summernoteFields = [
     'atp_comments',
     'etp_comments',
     'aep_comments',
-    'eep_comments'
+    'eep_comments',
 ];
 
 summernoteFields.forEach(e => {
@@ -15,19 +15,19 @@ summernoteFields.forEach(e => {
             ['style', ['bold', 'italic', 'underline']],
             ['para', ['ul', 'ol']],
             ['insert', ['link', 'table']],
-            ['misc', ['undo', 'redo', 'codeview']]
+            ['misc', ['undo', 'redo', 'codeview']],
         ],
         height: 150,
-        disableDragAndDrop: true
+        disableDragAndDrop: true,
     });
 });
 
 
 function loadGoals() {
-    $('[data-toggle="tooltip"]').tooltip('dispose'); 
+    $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/goals?p_id=${p_id}`).done(function(data) {
-        $('#goals_table').html(data); 
-        tooltips();         
+        $('#goals_table').html(data);
+        tooltips();
     });
 }
 
@@ -50,23 +50,23 @@ function loadDCCStaffing() {
 function loadHistorical() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/historical?p_id=${p_id}`).done(function(data) {
-        $('#historicaldata').html(data); 
-        tooltips();         
+        $('#historicaldata').html(data);
+        tooltips();
     });
 }
 
 function loadForecast() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/forecast?p_id=${p_id}`).done(function(data) {
-        $('#forecastdata').html(data); 
-        tooltips();         
+        $('#forecastdata').html(data);
+        tooltips();
     });
 }
 
 function loadTermInits() {
-    $('[data-toggle="tooltip"]').tooltip('dispose'); 
+    $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/term_inits?p_id=${p_id}`).done(function(data) {
-        $('#term_inits').html(data); 
+        $('#term_inits').html(data);
         tooltips();
         if (typeof opsPlanUpdateMessage === 'function') {
             opsPlanUpdateMessage();
@@ -78,7 +78,7 @@ function loadTermInits() {
 function loadTermStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/term_staffing?p_id=${p_id}`).done(function(data) {
-        $('#term_staffing_table').html(data); 
+        $('#term_staffing_table').html(data);
         tooltips();
     });
 }
@@ -86,7 +86,7 @@ function loadTermStaffing() {
 function loadConfigs() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/configs?p_id=${p_id}`).done(function(data) {
-        $('#configs_table').html(data); 
+        $('#configs_table').html(data);
         tooltips();
     });
 }
@@ -94,16 +94,16 @@ function loadConfigs() {
 function loadTermPlanning() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/term_planning?p_id=${p_id}`).done(function(data) {
-        $('#termplanningdata').html(data); 
-        tooltips();         
+        $('#termplanningdata').html(data);
+        tooltips();
     });
 }
 
 function loadTermConstraints() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/term_constraints?p_id=${p_id}`).done(function(data) {
-        $('#term_constraints_table').html(data); 
-        tooltips();         
+        $('#term_constraints_table').html(data);
+        tooltips();
         if (typeof opsPlanUpdateMessage === 'function') {
             opsPlanUpdateMessage();
         }
@@ -114,7 +114,7 @@ function loadTermConstraints() {
 function loadEnrouteInits() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/enroute_inits?p_id=${p_id}`).done(function(data) {
-        $('#enroute_inits').html(data); 
+        $('#enroute_inits').html(data);
         tooltips();
         if (typeof opsPlanUpdateMessage === 'function') {
             opsPlanUpdateMessage();
@@ -124,9 +124,9 @@ function loadEnrouteInits() {
 }
 
 function loadEnrouteStaffing() {
-    $('[data-toggle="tooltip"]').tooltip('dispose'); 
+    $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/enroute_staffing?p_id=${p_id}`).done(function(data) {
-        $('#enroute_staffing_table').html(data); 
+        $('#enroute_staffing_table').html(data);
         tooltips();
     });
 }
@@ -134,16 +134,16 @@ function loadEnrouteStaffing() {
 function loadEnroutePlanning() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/enroute_planning?p_id=${p_id}`).done(function(data) {
-        $('#enrouteplanningdata').html(data); 
-        tooltips();         
+        $('#enrouteplanningdata').html(data);
+        tooltips();
     });
 }
 
 function loadEnrouteConstraints() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/enroute_constraints?p_id=${p_id}`).done(function(data) {
-        $('#enroute_constraints_table').html(data); 
-        tooltips();         
+        $('#enroute_constraints_table').html(data);
+        tooltips();
         if (typeof opsPlanUpdateMessage === 'function') {
             opsPlanUpdateMessage();
         }
@@ -154,16 +154,16 @@ function loadEnrouteConstraints() {
 function loadGroupFlights() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/group_flights?p_id=${p_id}`).done(function(data) {
-        $('#group_flights_table').html(data); 
-        tooltips();         
+        $('#group_flights_table').html(data);
+        tooltips();
     });
 }
 
 function loadOutlook() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $.get(`api/data/plans/outlook?p_id=${p_id}`).done(function(data) {
-        $('#outlook_data').html(data); 
-        tooltips();         
+        $('#outlook_data').html(data);
+        tooltips();
     });
 }
 
@@ -184,15 +184,15 @@ loadGroupFlights();
 loadOutlook();
 
 // AJAX: #addgoal POST
-$("#addgoal").submit(function(e) {
+$('#addgoal').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/goals/post';
+    const url = 'api/mgt/goals/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -201,7 +201,7 @@ $("#addgoal").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added an operational goal.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGoals();
@@ -212,32 +212,32 @@ $("#addgoal").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding an operational goal.'
+                text:   'There was an error in adding an operational goal.',
             });
-        }
+        },
     });
 });
 
 // Edit Goal Modal
 $('#editgoalModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #comments').html(button.data('comments'));
 });
 
 // AJAX: #editgoal POST
-$("#editgoal").submit(function(e) {
+$('#editgoal').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/goals/update';
+    const url = 'api/mgt/goals/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -246,7 +246,7 @@ $("#editgoal").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an operational goal.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGoals();
@@ -257,9 +257,9 @@ $("#editgoal").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an operational goal.'
+                text:   'There was an error in editing an operational goal.',
             });
-        }
+        },
     });
 });
 
@@ -277,7 +277,7 @@ function deleteGoal(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted the selected operational goal.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGoals();
@@ -286,22 +286,22 @@ function deleteGoal(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting this operational goal.'
+                text:   'There was an error in deleting this operational goal.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #add_dccstaffing POST
-$("#add_dccstaffing").submit(function(e) {
+$('#add_dccstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/dcc/post';
+    const url = 'api/mgt/dcc/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -310,7 +310,7 @@ $("#add_dccstaffing").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a TMU personnel to the roster.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadDCCStaffing();
@@ -321,17 +321,17 @@ $("#add_dccstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a TMU personnel to the roster.'
+                text:   'There was an error in adding a TMU personnel to the roster.',
             });
-        }
+        },
     });
 });
 
 // edit_dccstaffing Modal
 $('#edit_dccstaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #personnel_name').val(button.data('personnel_name'));
@@ -341,15 +341,15 @@ $('#edit_dccstaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #edit_dccstaffing POST
-$("#edit_dccstaffing").submit(function(e) {
+$('#edit_dccstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/dcc/update';
+    const url = 'api/mgt/dcc/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -358,7 +358,7 @@ $("#edit_dccstaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited the select TMU personnel/position.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadDCCStaffing();
@@ -369,9 +369,9 @@ $("#edit_dccstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing the selected TMU personnel/position.'
+                text:   'There was an error in editing the selected TMU personnel/position.',
             });
-        }
+        },
     });
 });
 
@@ -389,7 +389,7 @@ function deleteDCCStaffing(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted the selected TMU personnel/position',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadDCCStaffing();
@@ -398,9 +398,9 @@ function deleteDCCStaffing(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting this TMU personnel/position.'
+                text:   'There was an error in deleting this TMU personnel/position.',
             });
-        }
+        },
     });
 }
 
@@ -410,20 +410,20 @@ $('#addhistoricalModal').on('show.bs.modal', function(event) {
     $(this).find('.modal-body #ah_date').datetimepicker({
         format: 'Y-m-d',
         inline: false,
-        timepicker: false
+        timepicker: false,
     });
 });
 
 // AJAX: #addhistorical POST
-$("#addhistorical").submit(function(e) {
+$('#addhistorical').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/historical/post';
+    const url = 'api/mgt/historical/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -432,7 +432,7 @@ $("#addhistorical").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added historical data for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadHistorical();
@@ -443,17 +443,17 @@ $("#addhistorical").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding historical data for this plan.'
+                text:   'There was an error in adding historical data for this plan.',
             });
-        }
+        },
     });
 });
 
 // edithistoricalModal Modal
 $('#edithistoricalModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #title').val(button.data('title'));
@@ -466,20 +466,20 @@ $('#edithistoricalModal').on('show.bs.modal', function(event) {
         format: 'Y-m-d',
         inline: false,
         timepicker: false,
-        value: button.data('date')
+        value: button.data('date'),
     });
 });
 
 // AJAX: #edithistorical POST
-$("#edithistorical").submit(function(e) {
+$('#edithistorical').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/historical/update';
+    const url = 'api/mgt/historical/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -488,7 +488,7 @@ $("#edithistorical").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an entry of historical data for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadHistorical();
@@ -499,9 +499,9 @@ $("#edithistorical").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an entry of historical data for this plan.'
+                text:   'There was an error in editing an entry of historical data for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -519,7 +519,7 @@ function deleteHistorical(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of historical data for this plan',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadHistorical();
@@ -528,9 +528,9 @@ function deleteHistorical(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of historical data for this plan.'
+                text:   'There was an error in deleting an entry of historical data for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -540,20 +540,20 @@ $('#addforecastModal').on('show.bs.modal', function(event) {
     $(this).find('.modal-body #af_date').datetimepicker({
         format: 'Y-m-d H:i',
         inline: false,
-        timepicker: true
+        timepicker: true,
     });
 });
 
 // AJAX: #addforecast POST
-$("#addforecast").submit(function(e) {
+$('#addforecast').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/forecast/post';
+    const url = 'api/mgt/forecast/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -562,7 +562,7 @@ $("#addforecast").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added forecast data for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadForecast();
@@ -573,17 +573,17 @@ $("#addforecast").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding forecast data for this plan.'
+                text:   'There was an error in adding forecast data for this plan.',
             });
-        }
+        },
     });
 });
 
 // editforecastModal Modal
 $('#editforecastModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #title').val(button.data('title'));
@@ -595,20 +595,20 @@ $('#editforecastModal').on('show.bs.modal', function(event) {
         format: 'Y-m-d H:i',
         inline: false,
         timepicker: true,
-        value: button.data('date')
+        value: button.data('date'),
     });
 });
 
 // AJAX: #edithistorical POST
-$("#editforecast").submit(function(e) {
+$('#editforecast').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/forecast/update';
+    const url = 'api/mgt/forecast/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -617,7 +617,7 @@ $("#editforecast").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an entry of forecast data for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadForecast();
@@ -628,9 +628,9 @@ $("#editforecast").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an entry of forecast data for this plan.'
+                text:   'There was an error in editing an entry of forecast data for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -648,7 +648,7 @@ function deleteForecast(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of forecast data for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadForecast();
@@ -657,23 +657,23 @@ function deleteForecast(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of forecast data for this plan.'
+                text:   'There was an error in deleting an entry of forecast data for this plan.',
             });
-        }
+        },
     });
 }
 
 
 // AJAX: #addterminalinit POST
-$("#addterminalinit").submit(function(e) {
+$('#addterminalinit').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_inits/post';
+    const url = 'api/mgt/terminal_inits/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -682,7 +682,7 @@ $("#addterminalinit").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a terminal initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -693,18 +693,18 @@ $("#addterminalinit").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a terminal initiative for this plan.'
+                text:   'There was an error in adding a terminal initiative for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editterminalinit Modal
 $('#editterminalinitModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #title').val(button.data('title'));
@@ -712,15 +712,15 @@ $('#editterminalinitModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editterminalinit POST
-$("#editterminalinit").submit(function(e) {
+$('#editterminalinit').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_inits/update';
+    const url = 'api/mgt/terminal_inits/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -729,7 +729,7 @@ $("#editterminalinit").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a terminal initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -740,9 +740,9 @@ $("#editterminalinit").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a terminal initiative for this plan.'
+                text:   'There was an error in editing a terminal initiative for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -760,7 +760,7 @@ function deleteTerminalInit(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a terminal initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -769,9 +769,9 @@ function deleteTerminalInit(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal initiative for this plan.'
+                text:   'There was an error in deleting a terminal initiative for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -789,7 +789,7 @@ function createTermTime(init_id, time) {
                 title:      'Successfully Created',
                 text:       'You have successfully created an entry of terminal initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -798,9 +798,9 @@ function createTermTime(init_id, time) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Created',
-                text:   'There was an error in creating an entry of terminal initiatives for this plan.'
+                text:   'There was an error in creating an entry of terminal initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -818,7 +818,7 @@ function changeTermTime(id, prob) {
                 title:      'Successfully Updated',
                 text:       'You have successfully updated an entry of terminal initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -827,9 +827,9 @@ function changeTermTime(id, prob) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Updated',
-                text:   'There was an error in updating an entry of terminal initiatives for this plan.'
+                text:   'There was an error in updating an entry of terminal initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -847,7 +847,7 @@ function deleteTermTime(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of terminal initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -856,22 +856,22 @@ function deleteTermTime(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of terminal initiatives for this plan.'
+                text:   'There was an error in deleting an entry of terminal initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #addtermstaffing POST
-$("#addtermstaffing").submit(function(e) {
+$('#addtermstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_staffing/post';
+    const url = 'api/mgt/terminal_staffing/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -880,7 +880,7 @@ $("#addtermstaffing").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a terminal staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermStaffing();
@@ -891,18 +891,18 @@ $("#addtermstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a terminal staffing entry for this plan.'
+                text:   'There was an error in adding a terminal staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editterminalinit Modal
 $('#edittermstaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name'));
@@ -912,15 +912,15 @@ $('#edittermstaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #edittermstaffing POST
-$("#edittermstaffing").submit(function(e) {
+$('#edittermstaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_staffing/update';
+    const url = 'api/mgt/terminal_staffing/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -929,7 +929,7 @@ $("#edittermstaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a terminal staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermStaffing();
@@ -940,9 +940,9 @@ $("#edittermstaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a terminal staffing entry for this plan.'
+                text:   'There was an error in editing a terminal staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -960,7 +960,7 @@ function deleteTermStaffing(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a terminal staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermStaffing();
@@ -969,22 +969,22 @@ function deleteTermStaffing(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal staffing entry for this plan.'
+                text:   'There was an error in deleting a terminal staffing entry for this plan.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #addconfig POST
-$("#addconfig").submit(function(e) {
+$('#addconfig').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/configs/post';
+    const url = 'api/mgt/configs/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -993,7 +993,7 @@ $("#addconfig").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a field config entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadConfigs();
@@ -1004,18 +1004,18 @@ $("#addconfig").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a field config entry for this plan.'
+                text:   'There was an error in adding a field config entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editconfigModal Modal
 $('#editconfigModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal = $(this);
+    const modal = $(this);
 
     // Reset config picker state
     $('#editconfig_use_adl').prop('checked', false);
@@ -1033,7 +1033,7 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     modal.find('.modal-body #editconfig_comments').val(button.data('comments'));
 
     // Pre-fetch configs for the airport (for edit modal)
-    var airport = button.data('airport');
+    const airport = button.data('airport');
     if (airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#editconfig_select');
@@ -1042,15 +1042,15 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editconfig POST
-$("#editconfig").submit(function(e) {
+$('#editconfig').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/configs/update';
+    const url = 'api/mgt/configs/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1059,7 +1059,7 @@ $("#editconfig").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a field config for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadConfigs();
@@ -1070,9 +1070,9 @@ $("#editconfig").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a field config entry for this plan.'
+                text:   'There was an error in editing a field config entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -1090,7 +1090,7 @@ function deleteConfig(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a field config entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadConfigs();
@@ -1099,9 +1099,9 @@ function deleteConfig(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a field config entry for this plan.'
+                text:   'There was an error in deleting a field config entry for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1119,7 +1119,7 @@ function autoConfig(id, aar, adr) {
                 title:      'Successfully Autofilled',
                 text:       'You have successfully autofilled a field config entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadConfigs();
@@ -1128,9 +1128,9 @@ function autoConfig(id, aar, adr) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in autofilling a field config entry for this plan.'
+                text:   'There was an error in autofilling a field config entry for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1139,8 +1139,8 @@ function autoConfig(id, aar, adr) {
 // =====================================================
 
 // Cache for loaded configs by airport
-var configCache = {};
-var addconfigSelectedConfig = null;
+const configCache = {};
+let addconfigSelectedConfig = null;
 var editconfigSelectedConfig = null;
 
 // Fetch configs for airport from ADL
@@ -1150,7 +1150,7 @@ function fetchAirportConfigs(airport, callback) {
         return;
     }
 
-    var cacheKey = airport.toUpperCase();
+    const cacheKey = airport.toUpperCase();
     if (configCache[cacheKey]) {
         callback(configCache[cacheKey]);
         return;
@@ -1172,12 +1172,12 @@ function fetchAirportConfigs(airport, callback) {
 
 // Populate config dropdown with fetched configs
 function populateConfigDropdown(configs, selectElement) {
-    var $select = $(selectElement);
+    const $select = $(selectElement);
     $select.empty().append('<option value="">-- Select configuration --</option>');
 
     if (configs && configs.length > 0) {
         configs.forEach(function(cfg, idx) {
-            var label = cfg.config_name;
+            let label = cfg.config_name;
             if (cfg.config_code) {
                 label += ' (' + cfg.config_code + ')';
             }
@@ -1192,35 +1192,35 @@ function populateConfigDropdown(configs, selectElement) {
 
 // Get rate values based on weather selection
 function getRatesFromConfig(config, weatherValue) {
-    if (!config || !config.rates) return { aar: '', adr: '' };
+    if (!config || !config.rates) {return { aar: '', adr: '' };}
 
-    var weatherMap = {
+    const weatherMap = {
         '0': 'vmc',   // Unknown -> default to VMC
         '1': 'vmc',
         '2': 'lvmc',
         '3': 'imc',
-        '4': 'limc'
+        '4': 'limc',
     };
 
-    var key = weatherMap[weatherValue] || 'vmc';
-    var rates = config.rates[key] || {};
+    const key = weatherMap[weatherValue] || 'vmc';
+    const rates = config.rates[key] || {};
 
     return {
         aar: rates.aar !== null ? rates.aar : '',
-        adr: rates.adr !== null ? rates.adr : ''
+        adr: rates.adr !== null ? rates.adr : '',
     };
 }
 
 // Apply config to form fields
 function applyConfigToForm(config, prefix, weatherValue) {
-    if (!config) return;
+    if (!config) {return;}
 
     // Set runways (replace slashes with forward slashes for display)
     $('#' + prefix + '_arrive').val(config.arr_runways || '');
     $('#' + prefix + '_depart').val(config.dep_runways || '');
 
     // Set rates based on weather
-    var rates = getRatesFromConfig(config, weatherValue);
+    const rates = getRatesFromConfig(config, weatherValue);
     $('#' + prefix + '_aar').val(rates.aar);
     $('#' + prefix + '_adr').val(rates.adr);
 }
@@ -1234,7 +1234,7 @@ $('#addconfig_use_adl').on('change', function() {
     if ($(this).is(':checked')) {
         $('#addconfig_picker').slideDown(200);
         // Trigger config fetch if airport already entered
-        var airport = $('#addconfig_airport').val();
+        const airport = $('#addconfig_airport').val();
         if (airport && airport.length >= 3) {
             fetchAirportConfigs(airport, function(configs) {
                 populateConfigDropdown(configs, '#addconfig_select');
@@ -1248,7 +1248,7 @@ $('#addconfig_use_adl').on('change', function() {
 
 // Fetch configs when airport field changes (Add Config modal)
 $('#addconfig_airport').on('blur change', function() {
-    var airport = $(this).val();
+    const airport = $(this).val();
     if ($('#addconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#addconfig_select');
@@ -1258,13 +1258,13 @@ $('#addconfig_airport').on('blur change', function() {
 
 // Apply selected config (Add Config modal)
 $('#addconfig_select').on('change', function() {
-    var idx = $(this).val();
-    var airport = $('#addconfig_airport').val().toUpperCase();
-    var configs = configCache[airport] || [];
+    const idx = $(this).val();
+    const airport = $('#addconfig_airport').val().toUpperCase();
+    const configs = configCache[airport] || [];
 
     if (idx !== '' && configs[idx]) {
         addconfigSelectedConfig = configs[idx];
-        var weather = $('#addconfig_weather').val();
+        const weather = $('#addconfig_weather').val();
         applyConfigToForm(addconfigSelectedConfig, 'addconfig', weather);
     } else {
         addconfigSelectedConfig = null;
@@ -1274,7 +1274,7 @@ $('#addconfig_select').on('change', function() {
 // Update rates when weather changes (Add Config modal)
 $('#addconfig_weather').on('change', function() {
     if (addconfigSelectedConfig) {
-        var rates = getRatesFromConfig(addconfigSelectedConfig, $(this).val());
+        const rates = getRatesFromConfig(addconfigSelectedConfig, $(this).val());
         $('#addconfig_aar').val(rates.aar);
         $('#addconfig_adr').val(rates.adr);
     }
@@ -1297,7 +1297,7 @@ $('#editconfig_use_adl').on('change', function() {
     if ($(this).is(':checked')) {
         $('#editconfig_picker').slideDown(200);
         // Trigger config fetch
-        var airport = $('#editconfig_airport').val();
+        const airport = $('#editconfig_airport').val();
         if (airport && airport.length >= 3) {
             fetchAirportConfigs(airport, function(configs) {
                 populateConfigDropdown(configs, '#editconfig_select');
@@ -1311,7 +1311,7 @@ $('#editconfig_use_adl').on('change', function() {
 
 // Fetch configs when airport field changes (Edit Config modal)
 $('#editconfig_airport').on('blur change', function() {
-    var airport = $(this).val();
+    const airport = $(this).val();
     if ($('#editconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#editconfig_select');
@@ -1321,13 +1321,13 @@ $('#editconfig_airport').on('blur change', function() {
 
 // Apply selected config (Edit Config modal)
 $('#editconfig_select').on('change', function() {
-    var idx = $(this).val();
-    var airport = $('#editconfig_airport').val().toUpperCase();
-    var configs = configCache[airport] || [];
+    const idx = $(this).val();
+    const airport = $('#editconfig_airport').val().toUpperCase();
+    const configs = configCache[airport] || [];
 
     if (idx !== '' && configs[idx]) {
         editconfigSelectedConfig = configs[idx];
-        var weather = $('#editconfig_weather').val();
+        const weather = $('#editconfig_weather').val();
         applyConfigToForm(editconfigSelectedConfig, 'editconfig', weather);
     } else {
         editconfigSelectedConfig = null;
@@ -1337,7 +1337,7 @@ $('#editconfig_select').on('change', function() {
 // Update rates when weather changes (Edit Config modal)
 $('#editconfig_weather').on('change', function() {
     if (editconfigSelectedConfig) {
-        var rates = getRatesFromConfig(editconfigSelectedConfig, $(this).val());
+        const rates = getRatesFromConfig(editconfigSelectedConfig, $(this).val());
         $('#editconfig_aar').val(rates.aar);
         $('#editconfig_adr').val(rates.adr);
     }
@@ -1349,15 +1349,15 @@ $('#addtermplanningModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #addtermplanning POST
-$("#addtermplanning").submit(function(e) {
+$('#addtermplanning').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_planning/post';
+    const url = 'api/mgt/terminal_planning/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1366,7 +1366,7 @@ $("#addtermplanning").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a terminal planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermPlanning();
@@ -1377,18 +1377,18 @@ $("#addtermplanning").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a terminal planning entry for this plan.'
+                text:   'There was an error in adding a terminal planning entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // edittermplanning Modal
 $('#edittermplanningModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name'));
@@ -1396,10 +1396,10 @@ $('#edittermplanningModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #edittermplanning POST
-$("#edittermplanning").submit(function(e) {
+$('#edittermplanning').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_planning/update';
+    const url = 'api/mgt/terminal_planning/update';
 
     $.ajax({
         type:   'POST',
@@ -1413,7 +1413,7 @@ $("#edittermplanning").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a terminal planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermPlanning();
@@ -1424,9 +1424,9 @@ $("#edittermplanning").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a terminal planning entry for this plan.'
+                text:   'There was an error in editing a terminal planning entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -1444,7 +1444,7 @@ function deleteTermPlanning(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a terminal planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermPlanning();
@@ -1453,32 +1453,32 @@ function deleteTermPlanning(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal planning entry for this plan.'
+                text:   'There was an error in deleting a terminal planning entry for this plan.',
             });
-        }
+        },
     });
 }
 
 // addtermconstraint Modal
 $('#addtermconstraintModal').on('show.bs.modal', function(event) {
-   // Init: Date Time Picker
-   $(this).find('.modal-body #at_date').datetimepicker({
+    // Init: Date Time Picker
+    $(this).find('.modal-body #at_date').datetimepicker({
         format: 'Y-m-d',
         inline: false,
-        timepicker: false
+        timepicker: false,
     });
 });
 
 // AJAX: #addtermconstraint POST
-$("#addtermconstraint").submit(function(e) {
+$('#addtermconstraint').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_constraints/post';
-    
+    const url = 'api/mgt/terminal_constraints/post';
+
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1487,7 +1487,7 @@ $("#addtermconstraint").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a terminal constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermConstraints();
@@ -1498,18 +1498,18 @@ $("#addtermconstraint").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a terminal constraint entry for this plan.'
+                text:   'There was an error in adding a terminal constraint entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // edittermconstraint Modal
 $('#edittermconstraintModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #location').val(button.data('location'));
@@ -1521,15 +1521,15 @@ $('#edittermconstraintModal').on('show.bs.modal', function(event) {
         format: 'Y-m-d',
         inline: false,
         timepicker: false,
-        value: button.data('date')
+        value: button.data('date'),
     });
 });
 
 // AJAX: #edittermconstraints POST
-$("#edittermconstraint").submit(function(e) {
+$('#edittermconstraint').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/terminal_constraints/update';
+    const url = 'api/mgt/terminal_constraints/update';
 
     $.ajax({
         type:   'POST',
@@ -1543,7 +1543,7 @@ $("#edittermconstraint").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a terminal constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermConstraints();
@@ -1554,9 +1554,9 @@ $("#edittermconstraint").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a terminal constraint entry for this plan.'
+                text:   'There was an error in editing a terminal constraint entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -1574,7 +1574,7 @@ function deleteTermConstraint(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a terminal constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermConstraints();
@@ -1583,23 +1583,23 @@ function deleteTermConstraint(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal constraint entry for this plan.'
+                text:   'There was an error in deleting a terminal constraint entry for this plan.',
             });
-        }
+        },
     });
 }
 
 
 // AJAX: #addenrouteinit POST
-$("#addenrouteinit").submit(function(e) {
+$('#addenrouteinit').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_initializations/post';
+    const url = 'api/mgt/enroute_initializations/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1608,7 +1608,7 @@ $("#addenrouteinit").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a enroute initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1619,18 +1619,18 @@ $("#addenrouteinit").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a enroute initiative for this plan.'
+                text:   'There was an error in adding a enroute initiative for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editenrouteinit Modal
 $('#editenrouteinitModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #title').val(button.data('title'));
@@ -1638,15 +1638,15 @@ $('#editenrouteinitModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editenrouteinit POST
-$("#editenrouteinit").submit(function(e) {
+$('#editenrouteinit').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_initializations/update';
+    const url = 'api/mgt/enroute_initializations/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1655,7 +1655,7 @@ $("#editenrouteinit").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an enroute initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1666,9 +1666,9 @@ $("#editenrouteinit").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an enroute initiative for this plan.'
+                text:   'There was an error in editing an enroute initiative for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -1686,7 +1686,7 @@ function deleteEnrouteInit(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an enroute initiative for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1695,9 +1695,9 @@ function deleteEnrouteInit(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute initiative for this plan.'
+                text:   'There was an error in deleting an enroute initiative for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1715,7 +1715,7 @@ function createEnrouteTime(init_id, time) {
                 title:      'Successfully Created',
                 text:       'You have successfully created an entry of enroute initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1724,9 +1724,9 @@ function createEnrouteTime(init_id, time) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Created',
-                text:   'There was an error in creating an entry of enroute initiatives for this plan.'
+                text:   'There was an error in creating an entry of enroute initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1744,7 +1744,7 @@ function changeEnrouteTime(id, prob) {
                 title:      'Successfully Updated',
                 text:       'You have successfully updated an entry of enroute initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1753,9 +1753,9 @@ function changeEnrouteTime(id, prob) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Updated',
-                text:   'There was an error in updating an entry of enroute initiatives for this plan.'
+                text:   'There was an error in updating an entry of enroute initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1773,7 +1773,7 @@ function deleteEnrouteTime(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of enroute initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -1782,22 +1782,22 @@ function deleteEnrouteTime(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of enroute initiatives for this plan.'
+                text:   'There was an error in deleting an entry of enroute initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #addenroutestaffing POST
-$("#addenroutestaffing").submit(function(e) {
+$('#addenroutestaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_staffing/post';
+    const url = 'api/mgt/enroute_staffing/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1806,7 +1806,7 @@ $("#addenroutestaffing").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added an enroute staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteStaffing();
@@ -1817,18 +1817,18 @@ $("#addenroutestaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding an enroute staffing entry for this plan.'
+                text:   'There was an error in adding an enroute staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editenroutestaffing Modal
 $('#editenroutestaffingModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name')).trigger('change');
@@ -1838,15 +1838,15 @@ $('#editenroutestaffingModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editenroutestaffing POST
-$("#editenroutestaffing").submit(function(e) {
+$('#editenroutestaffing').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_staffing/update';
+    const url = 'api/mgt/enroute_staffing/update';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1855,7 +1855,7 @@ $("#editenroutestaffing").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an enroute staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteStaffing();
@@ -1866,9 +1866,9 @@ $("#editenroutestaffing").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an enroute staffing entry for this plan.'
+                text:   'There was an error in editing an enroute staffing entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -1886,7 +1886,7 @@ function deleteEnrouteStaffing(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an enroute staffing entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteStaffing();
@@ -1895,9 +1895,9 @@ function deleteEnrouteStaffing(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute staffing entry for this plan.'
+                text:   'There was an error in deleting an enroute staffing entry for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -1907,15 +1907,15 @@ $('#addenrouteplanningModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #addenrouteplanning POST
-$("#addenrouteplanning").submit(function(e) {
+$('#addenrouteplanning').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_planning/post';
+    const url = 'api/mgt/enroute_planning/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -1924,7 +1924,7 @@ $("#addenrouteplanning").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added an enroute planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnroutePlanning();
@@ -1935,18 +1935,18 @@ $("#addenrouteplanning").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding an enroute planning entry for this plan.'
+                text:   'There was an error in adding an enroute planning entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editenrouteplanning Modal
 $('#editenrouteplanningModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #facility_name').val(button.data('facility_name')).trigger('change');
@@ -1954,10 +1954,10 @@ $('#editenrouteplanningModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editenrouteplanning POST
-$("#editenrouteplanning").submit(function(e) {
+$('#editenrouteplanning').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_planning/update';
+    const url = 'api/mgt/enroute_planning/update';
 
     $.ajax({
         type:   'POST',
@@ -1971,7 +1971,7 @@ $("#editenrouteplanning").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an enroute planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnroutePlanning();
@@ -1982,9 +1982,9 @@ $("#editenrouteplanning").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an enroute planning entry for this plan.'
+                text:   'There was an error in editing an enroute planning entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -2002,7 +2002,7 @@ function deleteEnroutePlanning(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an enroute planning entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnroutePlanning();
@@ -2011,32 +2011,32 @@ function deleteEnroutePlanning(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute planning entry for this plan.'
+                text:   'There was an error in deleting an enroute planning entry for this plan.',
             });
-        }
+        },
     });
 }
 
 // addenrouteconstraint Modal
 $('#addenrouteconstraintModal').on('show.bs.modal', function(event) {
-   // Init: Date Time Picker
-   $(this).find('.modal-body #ae_date').datetimepicker({
+    // Init: Date Time Picker
+    $(this).find('.modal-body #ae_date').datetimepicker({
         format: 'Y-m-d',
         inline: false,
-        timepicker: false
+        timepicker: false,
     });
 });
 
 // AJAX: #addenrouteconstraint POST
-$("#addenrouteconstraint").submit(function(e) {
+$('#addenrouteconstraint').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_constraints/post';
+    const url = 'api/mgt/enroute_constraints/post';
 
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -2045,7 +2045,7 @@ $("#addenrouteconstraint").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added an enroute constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteConstraints();
@@ -2056,18 +2056,18 @@ $("#addenrouteconstraint").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding an enroute constraint entry for this plan.'
+                text:   'There was an error in adding an enroute constraint entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editenrouteconstraint Modal
 $('#editenrouteconstraintModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #location').val(button.data('location'));
@@ -2079,15 +2079,15 @@ $('#editenrouteconstraintModal').on('show.bs.modal', function(event) {
         format: 'Y-m-d',
         inline: false,
         timepicker: false,
-        value: button.data('date')
+        value: button.data('date'),
     });
 });
 
 // AJAX: #editenrouteconstraints POST
-$("#editenrouteconstraint").submit(function(e) {
+$('#editenrouteconstraint').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/enroute_constraints/update';
+    const url = 'api/mgt/enroute_constraints/update';
 
     $.ajax({
         type:   'POST',
@@ -2101,7 +2101,7 @@ $("#editenrouteconstraint").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited an enroute constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteConstraints();
@@ -2112,9 +2112,9 @@ $("#editenrouteconstraint").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing an enroute constraint entry for this plan.'
+                text:   'There was an error in editing an enroute constraint entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -2132,7 +2132,7 @@ function deleteEnrouteConstraint(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an enroute constraint entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteConstraints();
@@ -2141,22 +2141,22 @@ function deleteEnrouteConstraint(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute constraint entry for this plan.'
+                text:   'There was an error in deleting an enroute constraint entry for this plan.',
             });
-        }
+        },
     });
 }
 
 // AJAX: #addgroupflight POST
-$("#addgroupflight").submit(function(e) {
+$('#addgroupflight').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/group_flights/post';
-    
+    const url = 'api/mgt/group_flights/post';
+
     $.ajax({
         type:   'POST',
         url:    url,
-        data:   $(this).serialize().replace(/'/g, "`"),
+        data:   $(this).serialize().replace(/'/g, '`'),
         success:function(data) {
             Swal.fire({
                 toast:      true,
@@ -2165,7 +2165,7 @@ $("#addgroupflight").submit(function(e) {
                 title:      'Successfully Added',
                 text:       'You have successfully added a group flight entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGroupFlights();
@@ -2176,18 +2176,18 @@ $("#addgroupflight").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Added',
-                text:   'There was an error in adding a group flight entry for this plan.'
+                text:   'There was an error in adding a group flight entry for this plan.',
             });
-        }
+        },
     });
 });
 
 
 // editgroupflight Modal
 $('#editgroupflightModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
+    const button = $(event.relatedTarget);
 
-    var modal= $(this);
+    const modal= $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #entity').val(button.data('entity'));
@@ -2200,10 +2200,10 @@ $('#editgroupflightModal').on('show.bs.modal', function(event) {
 });
 
 // AJAX: #editgroupflight POST
-$("#editgroupflight").submit(function(e) {
+$('#editgroupflight').submit(function(e) {
     e.preventDefault();
 
-    var url = 'api/mgt/group_flights/update';
+    const url = 'api/mgt/group_flights/update';
 
     $.ajax({
         type:   'POST',
@@ -2217,7 +2217,7 @@ $("#editgroupflight").submit(function(e) {
                 title:      'Successfully Edited',
                 text:       'You have successfully edited a group flight entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGroupFlights();
@@ -2228,9 +2228,9 @@ $("#editgroupflight").submit(function(e) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Edited',
-                text:   'There was an error in editing a group flight entry entry for this plan.'
+                text:   'There was an error in editing a group flight entry entry for this plan.',
             });
-        }
+        },
     });
 });
 
@@ -2248,7 +2248,7 @@ function deleteGroupFlight(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted a group flight entry for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadGroupFlights();
@@ -2257,9 +2257,9 @@ function deleteGroupFlight(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting a group flight entry for this plan.'
+                text:   'There was an error in deleting a group flight entry for this plan.',
             });
-        }
+        },
     });
 }
 
@@ -2279,7 +2279,7 @@ function termInitDeleteAjax(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of terminal initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadTermInits();
@@ -2288,22 +2288,22 @@ function termInitDeleteAjax(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of terminal initiatives for this plan.'
+                text:   'There was an error in deleting an entry of terminal initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
 function termInitStateDialog(options) {
-    var mode        = options.mode; // 'create' or 'update'
-    var init_id     = options.init_id || null;
-    var time        = options.time || null;
-    var id          = options.id || null;
-    var currentProb = (typeof options.currentProb !== 'undefined') ? options.currentProb : null;
+    const mode        = options.mode; // 'create' or 'update'
+    const init_id     = options.init_id || null;
+    const time        = options.time || null;
+    const id          = options.id || null;
+    const currentProb = (typeof options.currentProb !== 'undefined') ? options.currentProb : null;
 
-    var currentVal = '';
+    let currentVal = '';
     if (currentProb !== null && typeof currentProb !== 'undefined') {
-        var p = parseInt(currentProb, 10);
+        const p = parseInt(currentProb, 10);
         if (!isNaN(p)) {
             currentVal = (p <= 3 ? p.toString() : '4');
         }
@@ -2318,18 +2318,18 @@ function termInitStateDialog(options) {
             '1': 'Possible',
             '2': 'Probable',
             '3': 'Expected',
-            '4': 'Actual'
+            '4': 'Actual',
         },
         inputValue: currentVal,
         inputPlaceholder: 'Select initiative state',
         showCancelButton: true,
-        confirmButtonText: 'Save'
+        confirmButtonText: 'Save',
     }).then(function(result) {
         if (!result.isConfirmed) {
             return;
         }
 
-        var value = result.value;
+        const value = result.value;
 
         // Clear
         if (value === '' || value === null) {
@@ -2354,7 +2354,7 @@ function termInitStateDialog(options) {
                         title:      'Successfully Created',
                         text:       'You have successfully created an entry of terminal initiatives for this plan.',
                         timer:      3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     loadTermInits();
@@ -2363,9 +2363,9 @@ function termInitStateDialog(options) {
                     Swal.fire({
                         icon:   'error',
                         title:  'Not Created',
-                        text:   'There was an error in creating an entry of terminal initiatives for this plan.'
+                        text:   'There was an error in creating an entry of terminal initiatives for this plan.',
                     });
-                }
+                },
             });
         } else if (mode === 'update' && id) {
             // Update existing state via modified update endpoint (absolute probability)
@@ -2381,7 +2381,7 @@ function termInitStateDialog(options) {
                         title:      'Successfully Updated',
                         text:       'You have successfully updated an entry of terminal initiatives for this plan.',
                         timer:      3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     loadTermInits();
@@ -2390,9 +2390,9 @@ function termInitStateDialog(options) {
                     Swal.fire({
                         icon:   'error',
                         title:  'Not Updated',
-                        text:   'There was an error in updating an entry of terminal initiatives for this plan.'
+                        text:   'There was an error in updating an entry of terminal initiatives for this plan.',
                     });
-                }
+                },
             });
         }
     });
@@ -2426,7 +2426,7 @@ function enrouteInitDeleteAjax(id) {
                 title:      'Successfully Deleted',
                 text:       'You have successfully deleted an entry of enroute initiatives for this plan.',
                 timer:      3000,
-                showConfirmButton: false
+                showConfirmButton: false,
             });
 
             loadEnrouteInits();
@@ -2435,22 +2435,22 @@ function enrouteInitDeleteAjax(id) {
             Swal.fire({
                 icon:   'error',
                 title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of enroute initiatives for this plan.'
+                text:   'There was an error in deleting an entry of enroute initiatives for this plan.',
             });
-        }
+        },
     });
 }
 
 function enrouteInitStateDialog(options) {
-    var mode        = options.mode;
-    var init_id     = options.init_id || null;
-    var time        = options.time || null;
-    var id          = options.id || null;
-    var currentProb = (typeof options.currentProb !== 'undefined') ? options.currentProb : null;
+    const mode        = options.mode;
+    const init_id     = options.init_id || null;
+    const time        = options.time || null;
+    const id          = options.id || null;
+    const currentProb = (typeof options.currentProb !== 'undefined') ? options.currentProb : null;
 
-    var currentVal = '';
+    let currentVal = '';
     if (currentProb !== null && typeof currentProb !== 'undefined') {
-        var p = parseInt(currentProb, 10);
+        const p = parseInt(currentProb, 10);
         if (!isNaN(p)) {
             currentVal = (p <= 3 ? p.toString() : '4');
         }
@@ -2465,18 +2465,18 @@ function enrouteInitStateDialog(options) {
             '1': 'Possible',
             '2': 'Probable',
             '3': 'Expected',
-            '4': 'Actual'
+            '4': 'Actual',
         },
         inputValue: currentVal,
         inputPlaceholder: 'Select initiative state',
         showCancelButton: true,
-        confirmButtonText: 'Save'
+        confirmButtonText: 'Save',
     }).then(function(result) {
         if (!result.isConfirmed) {
             return;
         }
 
-        var value = result.value;
+        const value = result.value;
 
         if (value === '' || value === null) {
             if (mode === 'update' && id) {
@@ -2498,7 +2498,7 @@ function enrouteInitStateDialog(options) {
                         title:      'Successfully Created',
                         text:       'You have successfully created an entry of enroute initiatives for this plan.',
                         timer:      3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     loadEnrouteInits();
@@ -2507,9 +2507,9 @@ function enrouteInitStateDialog(options) {
                     Swal.fire({
                         icon:   'error',
                         title:  'Not Created',
-                        text:   'There was an error in creating an entry of enroute initiatives for this plan.'
+                        text:   'There was an error in creating an entry of enroute initiatives for this plan.',
                     });
-                }
+                },
             });
         } else if (mode === 'update' && id) {
             $.ajax({
@@ -2524,7 +2524,7 @@ function enrouteInitStateDialog(options) {
                         title:      'Successfully Updated',
                         text:       'You have successfully updated an entry of enroute initiatives for this plan.',
                         timer:      3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     loadEnrouteInits();
@@ -2533,9 +2533,9 @@ function enrouteInitStateDialog(options) {
                     Swal.fire({
                         icon:   'error',
                         title:  'Not Updated',
-                        text:   'There was an error in updating an entry of enroute initiatives for this plan.'
+                        text:   'There was an error in updating an entry of enroute initiatives for this plan.',
                     });
-                }
+                },
             });
         }
     });
@@ -2562,80 +2562,78 @@ function deleteEnrouteTime(id) {
 const ADV_FACILITY_CODES = [
     'ZAB','ZAU','ZBW','ZDC','ZDV','ZFW','ZHU','ZID','ZJX','ZKC','ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL',
     'CZE','CZM','CZU','CZV','CZW','CZY',
-    'ZEU','ZMX','CAR'
+    'ZEU','ZMX','CAR',
 ];
 
 const ADV_US_FACILITY_CODES = [
     'ZAB','ZAU','ZBW','ZDC','ZDV','ZFW','ZHU','ZID','ZJX','ZKC',
-    'ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL'
+    'ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL',
 ];
 
 function pertiParseZuluTime(timeStr) {
-    if (!timeStr) return null;
+    if (!timeStr) {return null;}
     timeStr = ('' + timeStr).trim();
-    if (!timeStr) return null;
+    if (!timeStr) {return null;}
 
-    if (timeStr.length === 3) timeStr = '0' + timeStr;
-    if (timeStr.length !== 4) return null;
+    if (timeStr.length === 3) {timeStr = '0' + timeStr;}
+    if (timeStr.length !== 4) {return null;}
 
-    var hh = parseInt(timeStr.slice(0, 2), 10);
-    var mm = parseInt(timeStr.slice(2, 4), 10);
-    if (isNaN(hh) || isNaN(mm)) return null;
-    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+    const hh = parseInt(timeStr.slice(0, 2), 10);
+    const mm = parseInt(timeStr.slice(2, 4), 10);
+    if (isNaN(hh) || isNaN(mm)) {return null;}
+    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) {return null;}
 
     return { hh: hh, mm: mm };
 }
 
 function pertiDefaultEndDate(startDateStr, startTimeStr) {
-    if (!startDateStr) return '';
-    var t = pertiParseZuluTime(startTimeStr);
-    if (!t) return startDateStr;
+    if (!startDateStr) {return '';}
+    const t = pertiParseZuluTime(startTimeStr);
+    if (!t) {return startDateStr;}
 
-    var parts = startDateStr.split('-');
-    if (parts.length !== 3) return startDateStr;
-    var y = parseInt(parts[0], 10);
-    var m = parseInt(parts[1], 10);
-    var d = parseInt(parts[2], 10);
-    if (isNaN(y) || isNaN(m) || isNaN(d)) return startDateStr;
+    const parts = startDateStr.split('-');
+    if (parts.length !== 3) {return startDateStr;}
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) {return startDateStr;}
 
-    var dt = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+    const dt = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
 
-    var stVal = t.hh * 100 + t.mm;
+    const stVal = t.hh * 100 + t.mm;
     if (stVal >= 1800) {
         dt.setUTCDate(dt.getUTCDate() + 1);
     }
 
-    var yy = dt.getUTCFullYear();
-    var mm = (dt.getUTCMonth() + 1).toString().padStart(2, '0');
-    var dd = dt.getUTCDate().toString().padStart(2, '0');
+    const yy = dt.getUTCFullYear();
+    const mm = (dt.getUTCMonth() + 1).toString().padStart(2, '0');
+    const dd = dt.getUTCDate().toString().padStart(2, '0');
     return yy + '-' + mm + '-' + dd;
 }
 
 
-
-
 function opsPlanFormatMmDdYyyy(isoDate) {
-    if (!isoDate) return '';
-    var parts = isoDate.split('-');
-    if (parts.length !== 3) return isoDate;
+    if (!isoDate) {return '';}
+    const parts = isoDate.split('-');
+    if (parts.length !== 3) {return isoDate;}
     return parts[1] + '/' + parts[2] + '/' + parts[0];
 }
 
 function opsPlanGetDayFromIso(isoDate) {
-    if (!isoDate) return '__';
-    var parts = isoDate.split('-');
-    if (parts.length !== 3) return '__';
+    if (!isoDate) {return '__';}
+    const parts = isoDate.split('-');
+    if (parts.length !== 3) {return '__';}
     return parts[2];
 }
 
 function opsPlanUpper(str) {
-    if (str === undefined || str === null) return '';
+    if (str === undefined || str === null) {return '';}
     return String(str).toUpperCase();
 }
 
 function opsPlanLabelFromProbabilityTitle(title) {
-    if (!title) return null;
-    var t = String(title).toLowerCase().trim();
+    if (!title) {return null;}
+    const t = String(title).toLowerCase().trim();
 
     // Ignore toggle-helper titles for both terminal and en route; treat them as "no probability"
     if (t.indexOf('toggle') === 0 ||
@@ -2647,9 +2645,9 @@ function opsPlanLabelFromProbabilityTitle(title) {
     }
 
     // Normalize common probability phrases
-    if (t.indexOf('possible') !== -1) return 'POSSIBLE';
-    if (t.indexOf('probable') !== -1) return 'PROBABLE';
-    if (t.indexOf('expected') !== -1) return 'EXPECTED';
+    if (t.indexOf('possible') !== -1) {return 'POSSIBLE';}
+    if (t.indexOf('probable') !== -1) {return 'PROBABLE';}
+    if (t.indexOf('expected') !== -1) {return 'EXPECTED';}
 
     // Handle both correct and mis-spelled "CRITICAL" CDW labels
     if (t.indexOf('critical decision window') !== -1 ||
@@ -2663,49 +2661,49 @@ function opsPlanLabelFromProbabilityTitle(title) {
 }
 
 function pertiComputeDiscordTimestamps(startDateStr, startTimeStr, endDateStr, endTimeStr) {
-    var st = pertiParseZuluTime(startTimeStr);
-    var et = pertiParseZuluTime(endTimeStr);
-    if (!startDateStr || !st || !endDateStr || !et) return null;
+    const st = pertiParseZuluTime(startTimeStr);
+    const et = pertiParseZuluTime(endTimeStr);
+    if (!startDateStr || !st || !endDateStr || !et) {return null;}
 
-    var sParts = startDateStr.split('-');
-    var eParts = endDateStr.split('-');
-    if (sParts.length !== 3 || eParts.length !== 3) return null;
+    const sParts = startDateStr.split('-');
+    const eParts = endDateStr.split('-');
+    if (sParts.length !== 3 || eParts.length !== 3) {return null;}
 
-    var sy = parseInt(sParts[0], 10);
-    var sm = parseInt(sParts[1], 10);
-    var sd = parseInt(sParts[2], 10);
-    var ey = parseInt(eParts[0], 10);
-    var em = parseInt(eParts[1], 10);
-    var ed = parseInt(eParts[2], 10);
-    if ([sy, sm, sd, ey, em, ed].some(isNaN)) return null;
+    const sy = parseInt(sParts[0], 10);
+    const sm = parseInt(sParts[1], 10);
+    const sd = parseInt(sParts[2], 10);
+    const ey = parseInt(eParts[0], 10);
+    const em = parseInt(eParts[1], 10);
+    const ed = parseInt(eParts[2], 10);
+    if ([sy, sm, sd, ey, em, ed].some(isNaN)) {return null;}
 
-    var startTs = Math.floor(Date.UTC(sy, sm - 1, sd, st.hh, st.mm, 0) / 1000);
-    var endTs   = Math.floor(Date.UTC(ey, em - 1, ed, et.hh, et.mm, 0) / 1000);
+    const startTs = Math.floor(Date.UTC(sy, sm - 1, sd, st.hh, st.mm, 0) / 1000);
+    const endTs   = Math.floor(Date.UTC(ey, em - 1, ed, et.hh, et.mm, 0) / 1000);
 
     return { startTs: startTs, endTs: endTs };
 }
 
 function advInitFacilitiesDropdown() {
-    var $grid = $('#advFacilitiesGrid');
-    if (!$grid.length) return;
+    const $grid = $('#advFacilitiesGrid');
+    if (!$grid.length) {return;}
 
     // Build checkbox grid
     $grid.empty();
     ADV_FACILITY_CODES.forEach(function(code) {
-        var id = 'advFacility_' + code;
-        var $check = $('<input>')
+        const id = 'advFacility_' + code;
+        const $check = $('<input>')
             .attr('type', 'checkbox')
             .addClass('form-check-input')
             .attr('id', id)
             .attr('data-code', code)
             .val(code);
 
-        var $label = $('<label>')
+        const $label = $('<label>')
             .addClass('form-check-label')
             .attr('for', id)
             .text(code);
 
-        var $wrapper = $('<div>').addClass('form-check');
+        const $wrapper = $('<div>').addClass('form-check');
         $wrapper.append($check).append($label);
         $grid.append($wrapper);
     });
@@ -2723,7 +2721,7 @@ function advInitFacilitiesDropdown() {
     $('#advFacilitiesUS').off('click').on('click', function(e) {
         e.stopPropagation();
         $('#advFacilitiesGrid input[type="checkbox"]').each(function() {
-            var code = ($(this).attr('data-code') || '').toString().toUpperCase();
+            const code = ($(this).attr('data-code') || '').toString().toUpperCase();
             if (ADV_US_FACILITY_CODES.indexOf(code) !== -1) {
                 $(this).prop('checked', true);
             } else {
@@ -2734,11 +2732,11 @@ function advInitFacilitiesDropdown() {
 
     $('#advFacilitiesApply').off('click').on('click', function(e) {
         e.stopPropagation();
-        var selected = [];
+        const selected = [];
 
         $('#advFacilitiesGrid input[type="checkbox"]:checked').each(function() {
-            var code = ($(this).attr('data-code') || '').toString().toUpperCase();
-            if (code) selected.push(code);
+            const code = ($(this).attr('data-code') || '').toString().toUpperCase();
+            if (code) {selected.push(code);}
         });
 
         selected.sort();
@@ -2764,8 +2762,8 @@ function advInitFacilitiesDropdown() {
     });
 
     $(document).off('click.advFacilities').on('click.advFacilities', function(e) {
-        var $wrap = $('.adv-facilities-wrapper');
-        if (!$wrap.length) return;
+        const $wrap = $('.adv-facilities-wrapper');
+        if (!$wrap.length) {return;}
         if (!$wrap.is(e.target) && $wrap.has(e.target).length === 0) {
             $('#advFacilitiesDropdown').hide();
         }
@@ -2773,32 +2771,30 @@ function advInitFacilitiesDropdown() {
 }
 
 
-
-
 function opsPlanSortTimeLines(lines) {
-    if (!Array.isArray(lines) || lines.length <= 2) return;
+    if (!Array.isArray(lines) || lines.length <= 2) {return;}
 
     // Do not sort if section is effectively empty (header + NONE)
-    if (lines.length === 2 && lines[1] === 'NONE') return;
+    if (lines.length === 2 && lines[1] === 'NONE') {return;}
 
-    var header = lines[0];
-    var rest = lines.slice(1);
+    const header = lines[0];
+    const rest = lines.slice(1);
 
     function getKey(line) {
-        var match = line.match(/^(UNTIL|AFTER)\s+(\d{4})/);
+        const match = line.match(/^(UNTIL|AFTER)\s+(\d{4})/);
         if (!match) {
             return { type: 2, time: 9999 }; // push non-timed lines to bottom
         }
-        var type = (match[1] === 'UNTIL') ? 0 : 1; // UNTIL before AFTER
-        var time = parseInt(match[2], 10);
-        if (isNaN(time)) time = 9999;
+        const type = (match[1] === 'UNTIL') ? 0 : 1; // UNTIL before AFTER
+        let time = parseInt(match[2], 10);
+        if (isNaN(time)) {time = 9999;}
         return { type: type, time: time };
     }
 
     rest.sort(function(a, b) {
-        var ka = getKey(a);
-        var kb = getKey(b);
-        if (ka.type !== kb.type) return ka.type - kb.type;
+        const ka = getKey(a);
+        const kb = getKey(b);
+        if (ka.type !== kb.type) {return ka.type - kb.type;}
         return ka.time - kb.time;
     });
 
@@ -2809,44 +2805,44 @@ function opsPlanSortTimeLines(lines) {
 
 
 function opsPlanWrapSingleLine68(line) {
-    var maxLen = 68;
-    if (line == null) return [''];
+    const maxLen = 68;
+    if (line == null) {return [''];}
     line = String(line);
-    if (line.length <= maxLen) return [line];
+    if (line.length <= maxLen) {return [line];}
 
-    var result = [];
+    const result = [];
 
     // Detect a "list" prefix we want to preserve exactly (for hanging indent)
-    var prefix = '';
-    var rest = line;
+    let prefix = '';
+    let rest = line;
 
     // Pattern for UNTIL/AFTER initiative lines: capture the full prefix including spaces and dash
-    var m = line.match(/^(UNTIL|AFTER)\s+\d{4}\s+-\s*/);
+    const m = line.match(/^(UNTIL|AFTER)\s+\d{4}\s+-\s*/);
     if (m) {
         prefix = m[0]; // exact characters, including spacing
         rest = line.substring(prefix.length);
     } else {
         // Generic "{something} - " style line
-        var m2 = line.match(/^(\s*[^-]+-\s*)/);
+        const m2 = line.match(/^(\s*[^-]+-\s*)/);
         if (m2) {
             prefix = m2[1];
             rest = line.substring(prefix.length);
         }
     }
 
-    var indentStr = '';
+    let indentStr = '';
     if (prefix) {
         indentStr = ''.padStart(prefix.length, ' ');
     }
 
     // Split only the "rest" text into words; keep prefix as-is
-    var words = rest.split(/\s+/);
-    var idx = 0;
-    var firstLine = true;
+    const words = rest.split(/\s+/);
+    let idx = 0;
+    let firstLine = true;
 
     while (idx < words.length) {
-        var currentPrefix = firstLine ? prefix : indentStr;
-        var avail = maxLen - currentPrefix.length;
+        let currentPrefix = firstLine ? prefix : indentStr;
+        let avail = maxLen - currentPrefix.length;
         if (avail <= 0) {
             // Degenerate case: prefix itself exceeds max; hard-break prefix
             result.push(currentPrefix.substring(0, maxLen));
@@ -2854,9 +2850,9 @@ function opsPlanWrapSingleLine68(line) {
             avail = maxLen - currentPrefix.length;
         }
 
-        var current = '';
+        let current = '';
         while (idx < words.length) {
-            var w = words[idx];
+            const w = words[idx];
             if (!w) {
                 idx++;
                 continue;
@@ -2895,11 +2891,11 @@ function opsPlanWrapSingleLine68(line) {
     return result;
 }
 function opsPlanWrapLines68(lines) {
-    if (!Array.isArray(lines)) return lines;
-    var out = [];
-    for (var i = 0; i < lines.length; i++) {
-        var pieces = opsPlanWrapSingleLine68(lines[i]);
-        for (var j = 0; j < pieces.length; j++) {
+    if (!Array.isArray(lines)) {return lines;}
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        const pieces = opsPlanWrapSingleLine68(lines[i]);
+        for (let j = 0; j < pieces.length; j++) {
             out.push(pieces[j]);
         }
     }
@@ -2909,17 +2905,17 @@ function opsPlanWrapLines68(lines) {
 }
 
 function opsPlanUpdateMessage() {
-    if (typeof PERTI_EVENT_NAME === 'undefined') return;
+    if (typeof PERTI_EVENT_NAME === 'undefined') {return;}
 
-    var advNum    = ($('#opsAdvNum').val()    || '').trim();
-    var advDate   = ($('#opsAdvDate').val()   || '').trim();
-    var narrative = ($('#opsNarrative').val() || '').trim();
+    const advNum    = ($('#opsAdvNum').val()    || '').trim();
+    const advDate   = ($('#opsAdvDate').val()   || '').trim();
+    const narrative = ($('#opsNarrative').val() || '').trim();
 
     // Event timing: prefer Ops Plan-specific inputs, then PERTI fields, then defaults
-    var startDate = ($('#opsStartDate').val()  || '').trim();
-    var startTime = ($('#opsStartTime').val()  || '').trim();
-    var endDate   = ($('#opsEndDate').val()    || '').trim();
-    var endTime   = ($('#opsEndTime').val()    || '').trim();
+    let startDate = ($('#opsStartDate').val()  || '').trim();
+    let startTime = ($('#opsStartTime').val()  || '').trim();
+    let endDate   = ($('#opsEndDate').val()    || '').trim();
+    const endTime   = ($('#opsEndTime').val()    || '').trim();
 
     if (!startDate) {
         startDate = ($('#pertiStartDate').val() || '').trim();
@@ -2940,11 +2936,11 @@ function opsPlanUpdateMessage() {
         startTime = PERTI_EVENT_START;
     }
 
-    var startDay = opsPlanGetDayFromIso(startDate);
-    var endDay   = opsPlanGetDayFromIso(endDate);
+    const startDay = opsPlanGetDayFromIso(startDate);
+    const endDay   = opsPlanGetDayFromIso(endDate);
 
-    var headerAdvNum = advNum || '___';
-    var headerDate   = advDate;
+    const headerAdvNum = advNum || '___';
+    let headerDate   = advDate;
     if (!headerDate) {
         if (startDate) {
             headerDate = opsPlanFormatMmDdYyyy(startDate);
@@ -2956,7 +2952,7 @@ function opsPlanUpdateMessage() {
     }
 
     // HEADER + NARRATIVE (no blank lines around narrative)
-    var headerLines = [];
+    const headerLines = [];
     headerLines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + opsPlanUpper(headerAdvNum) + ' ' + AdvisoryConfig.getFacility() + ' ' + headerDate + ' OPERATIONS PLAN');
     headerLines.push('EVENT TIME: ' + opsPlanUpper((startDay || '__') + '/' + (startTime || '____') + ' - ' + (endDay || '__') + '/' + (endTime || '____')));
     headerLines.push('____________________________________________________________________');
@@ -2964,21 +2960,21 @@ function opsPlanUpdateMessage() {
     headerLines.push('____________________________________________________________________');
 
     // STAFFING
-    var staffingLines = [];
+    const staffingLines = [];
     staffingLines.push('STAFFING:');
 
-    var nomNames = [];
-    var ntmoNames = [];
+    const nomNames = [];
+    const ntmoNames = [];
 
     $('#dcc_table tr').each(function() {
-        var $tds = $(this).find('td');
-        if (!$tds.length) return;
-        var ois  = ($tds.eq(0).text() || '').trim().toUpperCase();
-        var name = ($tds.eq(1).text() || '').trim();
-        var pos  = ($tds.eq(2).text() || '').trim();
-        if (!ois || !name) return;
+        const $tds = $(this).find('td');
+        if (!$tds.length) {return;}
+        const ois  = ($tds.eq(0).text() || '').trim().toUpperCase();
+        const name = ($tds.eq(1).text() || '').trim();
+        const pos  = ($tds.eq(2).text() || '').trim();
+        if (!ois || !name) {return;}
 
-        var label = name;
+        let label = name;
         if (pos) {
             label += ' (' + pos + ')';
         }
@@ -2998,17 +2994,17 @@ function opsPlanUpdateMessage() {
     }
 
     $('#dcc_staffing_table tr').each(function() {
-        var $tds = $(this).find('td');
-        if ($tds.length < 3) return;
-        var fac  = ($tds.eq(0).text() || '').trim();
-        var ois  = ($tds.eq(1).text() || '').trim();
-        var name = ($tds.eq(2).text() || '').trim();
-        if (!fac && !name) return;
+        const $tds = $(this).find('td');
+        if ($tds.length < 3) {return;}
+        const fac  = ($tds.eq(0).text() || '').trim();
+        const ois  = ($tds.eq(1).text() || '').trim();
+        const name = ($tds.eq(2).text() || '').trim();
+        if (!fac && !name) {return;}
 
-        var line = '';
-        if (fac) line += opsPlanUpper(fac) + ' - ';
-        if (name) line += opsPlanUpper(name);
-        if (ois) line += ' [' + opsPlanUpper(ois) + ']';
+        let line = '';
+        if (fac) {line += opsPlanUpper(fac) + ' - ';}
+        if (name) {line += opsPlanUpper(name);}
+        if (ois) {line += ' [' + opsPlanUpper(ois) + ']';}
         if ($.trim(line).length) {
             staffingLines.push(line);
         }
@@ -3019,32 +3015,32 @@ function opsPlanUpdateMessage() {
     }
 
     // TERMINAL CONSTRAINTS (from timeline)
-    var termConstraintLines = [];
+    const termConstraintLines = [];
     termConstraintLines.push('TERMINAL CONSTRAINTS:');
-    
+
     // Get terminal constraints from timeline
     var termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
-    var termConstraints = termTimelineData.filter(function(item) {
+    const termConstraints = termTimelineData.filter(function(item) {
         return item.level === 'Constraint_Terminal';
     });
-    
+
     termConstraints.sort(function(a, b) {
         return (a.start_datetime || '').localeCompare(b.start_datetime || '');
     });
-    
+
     termConstraints.forEach(function(item) {
-        var startTime = opsPlanFormatTmiTime(item.start_datetime);
-        var endTime = opsPlanFormatTmiTime(item.end_datetime);
-        var loc = opsPlanUpper(item.facility || '');
-        var cause = item.tmi_type || '';
+        const startTime = opsPlanFormatTmiTime(item.start_datetime);
+        const endTime = opsPlanFormatTmiTime(item.end_datetime);
+        const loc = opsPlanUpper(item.facility || '');
+        let cause = item.tmi_type || '';
         if (cause === 'Other' && item.tmi_type_other) {
             cause = item.tmi_type_other;
         }
-        var impact = item.cause || '';
-        
-        var line = startTime + '-' + endTime + ' ' + loc;
-        if (cause) line += ' ' + opsPlanUpper(cause);
-        if (impact) line += ' [' + opsPlanUpper(impact) + ']';
+        const impact = item.cause || '';
+
+        let line = startTime + '-' + endTime + ' ' + loc;
+        if (cause) {line += ' ' + opsPlanUpper(cause);}
+        if (impact) {line += ' [' + opsPlanUpper(impact) + ']';}
         termConstraintLines.push(line);
     });
 
@@ -3053,32 +3049,32 @@ function opsPlanUpdateMessage() {
     }
 
     // EN ROUTE CONSTRAINTS (from timeline)
-    var enrouteConstraintLines = [];
+    const enrouteConstraintLines = [];
     enrouteConstraintLines.push('EN ROUTE CONSTRAINTS:');
-    
+
     // Get enroute constraints from timeline
     var enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
-    var enrouteConstraints = enrouteTimelineData.filter(function(item) {
+    const enrouteConstraints = enrouteTimelineData.filter(function(item) {
         return item.level === 'Constraint_EnRoute';
     });
-    
+
     enrouteConstraints.sort(function(a, b) {
         return (a.start_datetime || '').localeCompare(b.start_datetime || '');
     });
-    
+
     enrouteConstraints.forEach(function(item) {
-        var startTime = opsPlanFormatTmiTime(item.start_datetime);
-        var endTime = opsPlanFormatTmiTime(item.end_datetime);
-        var loc = opsPlanUpper(item.facility || '');
-        var cause = item.tmi_type || '';
+        const startTime = opsPlanFormatTmiTime(item.start_datetime);
+        const endTime = opsPlanFormatTmiTime(item.end_datetime);
+        const loc = opsPlanUpper(item.facility || '');
+        let cause = item.tmi_type || '';
         if (cause === 'Other' && item.tmi_type_other) {
             cause = item.tmi_type_other;
         }
-        var impact = item.cause || '';
-        
-        var line = startTime + '-' + endTime + ' ' + loc;
-        if (cause) line += ' ' + opsPlanUpper(cause);
-        if (impact) line += ' [' + opsPlanUpper(impact) + ']';
+        const impact = item.cause || '';
+
+        let line = startTime + '-' + endTime + ' ' + loc;
+        if (cause) {line += ' ' + opsPlanUpper(cause);}
+        if (impact) {line += ' [' + opsPlanUpper(impact) + ']';}
         enrouteConstraintLines.push(line);
     });
 
@@ -3088,151 +3084,151 @@ function opsPlanUpdateMessage() {
 
     // Helper: Format datetime from MySQL/ISO format to DD/HHMM format
     function opsPlanFormatTmiTime(datetime) {
-        if (!datetime) return '__/____';
-        var dtStr = String(datetime).trim();
-        var match = dtStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-        if (!match) return '__/____';
-        var day = match[3];
-        var hour = match[4];
-        var minute = match[5];
+        if (!datetime) {return '__/____';}
+        const dtStr = String(datetime).trim();
+        const match = dtStr.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+        if (!match) {return '__/____';}
+        const day = match[3];
+        const hour = match[4];
+        const minute = match[5];
         return day + '/' + hour + minute;
     }
 
     // Helper: Build TMI description string
     function opsPlanBuildTmiDesc(item) {
-        var parts = [];
+        const parts = [];
         parts.push(opsPlanUpper(item.facility || ''));
-        
+
         // TMI type
-        var tmiType = item.tmi_type || '';
+        let tmiType = item.tmi_type || '';
         if (tmiType === 'Other' && item.tmi_type_other) {
             tmiType = item.tmi_type_other;
         }
         if (tmiType) {
             parts.push(opsPlanUpper(tmiType));
         }
-        
+
         // Area if present
         if (item.area) {
             parts.push(opsPlanUpper(item.area));
         }
-        
-        var desc = parts.join(' ');
-        
+
+        let desc = parts.join(' ');
+
         // Add cause in brackets if present
         if (item.cause) {
             desc += ' [' + opsPlanUpper(item.cause) + ']';
         }
-        
+
         return desc;
     }
 
     // Helper: Build TMI lines from timeline data
     function buildTmiLinesFromTimeline(timelineData, levelFilter) {
-        var result = [];
-        if (!timelineData || !Array.isArray(timelineData)) return result;
-        
-        var filtered = timelineData.filter(function(item) {
+        const result = [];
+        if (!timelineData || !Array.isArray(timelineData)) {return result;}
+
+        const filtered = timelineData.filter(function(item) {
             return levelFilter.indexOf(item.level) !== -1;
         });
-        
+
         // Sort by start time
         filtered.sort(function(a, b) {
             return (a.start_datetime || '').localeCompare(b.start_datetime || '');
         });
-        
+
         filtered.forEach(function(item) {
-            var startTime = opsPlanFormatTmiTime(item.start_datetime);
-            var endTime = opsPlanFormatTmiTime(item.end_datetime);
-            var desc = opsPlanBuildTmiDesc(item);
-            
+            const startTime = opsPlanFormatTmiTime(item.start_datetime);
+            const endTime = opsPlanFormatTmiTime(item.end_datetime);
+            const desc = opsPlanBuildTmiDesc(item);
+
             // For planned items (Possible/Probable/Expected), include probability
-            var probLabel = '';
-            if (item.level === 'Possible') probLabel = ' POSSIBLE';
-            else if (item.level === 'Probable') probLabel = ' PROBABLE';
-            else if (item.level === 'Expected') probLabel = ' EXPECTED';
-            
-            var line = startTime + '-' + endTime + ' -' + desc + probLabel;
+            let probLabel = '';
+            if (item.level === 'Possible') {probLabel = ' POSSIBLE';}
+            else if (item.level === 'Probable') {probLabel = ' PROBABLE';}
+            else if (item.level === 'Expected') {probLabel = ' EXPECTED';}
+
+            const line = startTime + '-' + endTime + ' -' + desc + probLabel;
             result.push(line);
         });
-        
+
         return result;
     }
 
     // Helper: Build Advisory lines from timeline data
     function buildAdvisoryLinesFromTimeline(timelineData, levelFilter) {
-        var result = [];
-        if (!timelineData || !Array.isArray(timelineData)) return result;
-        
-        var filtered = timelineData.filter(function(item) {
+        const result = [];
+        if (!timelineData || !Array.isArray(timelineData)) {return result;}
+
+        const filtered = timelineData.filter(function(item) {
             return levelFilter.indexOf(item.level) !== -1;
         });
-        
+
         filtered.sort(function(a, b) {
             return (a.start_datetime || '').localeCompare(b.start_datetime || '');
         });
-        
+
         filtered.forEach(function(item) {
-            var startTime = opsPlanFormatTmiTime(item.start_datetime);
-            var endTime = opsPlanFormatTmiTime(item.end_datetime);
-            var facility = opsPlanUpper(item.facility || '');
-            var tmiType = item.tmi_type || '';
+            const startTime = opsPlanFormatTmiTime(item.start_datetime);
+            const endTime = opsPlanFormatTmiTime(item.end_datetime);
+            const facility = opsPlanUpper(item.facility || '');
+            let tmiType = item.tmi_type || '';
             if (tmiType === 'Other' && item.tmi_type_other) {
                 tmiType = item.tmi_type_other;
             }
-            
-            var advzyNum = item.advzy_number ? ' ADVZY ' + opsPlanUpper(item.advzy_number) : '';
-            var desc = facility;
-            if (tmiType) desc += ' ' + opsPlanUpper(tmiType);
+
+            const advzyNum = item.advzy_number ? ' ADVZY ' + opsPlanUpper(item.advzy_number) : '';
+            let desc = facility;
+            if (tmiType) {desc += ' ' + opsPlanUpper(tmiType);}
             desc += advzyNum;
-            
+
             if (item.cause) {
                 desc += ' [' + opsPlanUpper(item.cause) + ']';
             }
-            
-            var line = startTime + '-' + endTime + ' -' + desc;
+
+            const line = startTime + '-' + endTime + ' -' + desc;
             result.push(line);
         });
-        
+
         return result;
     }
 
     // Helper: Build VIP/Space/Special Event lines from timeline data
     function buildSpecialLinesFromTimeline(timelineData, levelFilter) {
-        var result = [];
-        if (!timelineData || !Array.isArray(timelineData)) return result;
-        
-        var filtered = timelineData.filter(function(item) {
+        const result = [];
+        if (!timelineData || !Array.isArray(timelineData)) {return result;}
+
+        const filtered = timelineData.filter(function(item) {
             return levelFilter.indexOf(item.level) !== -1;
         });
-        
+
         filtered.sort(function(a, b) {
             return (a.start_datetime || '').localeCompare(b.start_datetime || '');
         });
-        
+
         filtered.forEach(function(item) {
-            var startTime = opsPlanFormatTmiTime(item.start_datetime);
-            var endTime = opsPlanFormatTmiTime(item.end_datetime);
-            var facility = opsPlanUpper(item.facility || '');
-            var tmiType = item.tmi_type || '';
+            const startTime = opsPlanFormatTmiTime(item.start_datetime);
+            const endTime = opsPlanFormatTmiTime(item.end_datetime);
+            const facility = opsPlanUpper(item.facility || '');
+            let tmiType = item.tmi_type || '';
             if (tmiType === 'Other' && item.tmi_type_other) {
                 tmiType = item.tmi_type_other;
             }
-            
-            var desc = facility;
-            if (tmiType) desc += ' ' + opsPlanUpper(tmiType);
-            if (item.area) desc += ' ' + opsPlanUpper(item.area);
-            
+
+            let desc = facility;
+            if (tmiType) {desc += ' ' + opsPlanUpper(tmiType);}
+            if (item.area) {desc += ' ' + opsPlanUpper(item.area);}
+
             if (item.notes) {
                 desc += ' [' + opsPlanUpper(item.notes) + ']';
             } else if (item.cause) {
                 desc += ' [' + opsPlanUpper(item.cause) + ']';
             }
-            
-            var line = startTime + '-' + endTime + ' -' + desc;
+
+            const line = startTime + '-' + endTime + ' -' + desc;
             result.push(line);
         });
-        
+
         return result;
     }
 
@@ -3241,9 +3237,9 @@ function opsPlanUpdateMessage() {
     var enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
 
     // TERMINAL ACTIVE
-    var termActiveLines = [];
+    const termActiveLines = [];
     termActiveLines.push('TERMINAL ACTIVE:');
-    var termActiveTmis = buildTmiLinesFromTimeline(termTimelineData, ['Active']);
+    const termActiveTmis = buildTmiLinesFromTimeline(termTimelineData, ['Active']);
     if (termActiveTmis.length) {
         termActiveTmis.forEach(function(l) { termActiveLines.push(l); });
     } else {
@@ -3251,18 +3247,18 @@ function opsPlanUpdateMessage() {
     }
 
     // TERMINAL PLANNED (Possible, Probable, Expected)
-    var termPlannedLines = [];
+    const termPlannedLines = [];
     termPlannedLines.push('TERMINAL PLANNED:');
-    var termPlannedTmis = buildTmiLinesFromTimeline(termTimelineData, ['Possible', 'Probable', 'Expected']);
+    const termPlannedTmis = buildTmiLinesFromTimeline(termTimelineData, ['Possible', 'Probable', 'Expected']);
     if (termPlannedTmis.length) {
         termPlannedTmis.forEach(function(l) { termPlannedLines.push(l); });
     }
     // Also include planning comments from old UI if present
     $('#termplanningdata .card').each(function() {
-        var fac = $(this).find('.card-title').text().trim();
-        var comments = $(this).find('p').text().trim();
-        if (!fac && !comments) return;
-        var line = '__/____-__/____ -' + opsPlanUpper(fac);
+        const fac = $(this).find('.card-title').text().trim();
+        const comments = $(this).find('p').text().trim();
+        if (!fac && !comments) {return;}
+        let line = '__/____-__/____ -' + opsPlanUpper(fac);
         if (comments) {
             line += ' [' + opsPlanUpper(comments) + ']';
         }
@@ -3277,9 +3273,9 @@ function opsPlanUpdateMessage() {
     opsPlanSortTimeLines(termPlannedLines);
 
     // EN ROUTE ACTIVE
-    var enrouteActiveLines = [];
+    const enrouteActiveLines = [];
     enrouteActiveLines.push('EN ROUTE ACTIVE:');
-    var enrouteActiveTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Active']);
+    const enrouteActiveTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Active']);
     if (enrouteActiveTmis.length) {
         enrouteActiveTmis.forEach(function(l) { enrouteActiveLines.push(l); });
     } else {
@@ -3287,18 +3283,18 @@ function opsPlanUpdateMessage() {
     }
 
     // EN ROUTE PLANNED (Possible, Probable, Expected)
-    var enroutePlannedLines = [];
+    const enroutePlannedLines = [];
     enroutePlannedLines.push('EN ROUTE PLANNED:');
-    var enroutePlannedTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Possible', 'Probable', 'Expected']);
+    const enroutePlannedTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Possible', 'Probable', 'Expected']);
     if (enroutePlannedTmis.length) {
         enroutePlannedTmis.forEach(function(l) { enroutePlannedLines.push(l); });
     }
     // Also include planning comments from old UI if present
     $('#enrouteplanningdata .card').each(function() {
-        var fac = $(this).find('.card-title').text().trim();
-        var comments = $(this).find('p').text().trim();
-        if (!fac && !comments) return;
-        var line = '__/____-__/____ -' + opsPlanUpper(fac);
+        const fac = $(this).find('.card-title').text().trim();
+        const comments = $(this).find('p').text().trim();
+        if (!fac && !comments) {return;}
+        let line = '__/____-__/____ -' + opsPlanUpper(fac);
         if (comments) {
             line += ' [' + opsPlanUpper(comments) + ']';
         }
@@ -3313,10 +3309,10 @@ function opsPlanUpdateMessage() {
     opsPlanSortTimeLines(enroutePlannedLines);
 
     // VIP MOVEMENTS (from both terminal and enroute timelines)
-    var vipLines = [];
+    const vipLines = [];
     vipLines.push('VIP MOVEMENTS:');
-    var allTimelineData = termTimelineData.concat(enrouteTimelineData);
-    var vipTmis = buildSpecialLinesFromTimeline(allTimelineData, ['VIP']);
+    const allTimelineData = termTimelineData.concat(enrouteTimelineData);
+    const vipTmis = buildSpecialLinesFromTimeline(allTimelineData, ['VIP']);
     if (vipTmis.length) {
         vipTmis.forEach(function(l) { vipLines.push(l); });
     } else {
@@ -3324,9 +3320,9 @@ function opsPlanUpdateMessage() {
     }
 
     // SPACE OPERATIONS (from both timelines)
-    var spaceLines = [];
+    const spaceLines = [];
     spaceLines.push('SPACE OPERATIONS:');
-    var spaceTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Space_Op']);
+    const spaceTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Space_Op']);
     if (spaceTmis.length) {
         spaceTmis.forEach(function(l) { spaceLines.push(l); });
     } else {
@@ -3334,9 +3330,9 @@ function opsPlanUpdateMessage() {
     }
 
     // SPECIAL EVENTS (from both timelines)
-    var specialEventLines = [];
+    const specialEventLines = [];
     specialEventLines.push('SPECIAL EVENTS:');
-    var specialTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Special_Event']);
+    const specialTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Special_Event']);
     if (specialTmis.length) {
         specialTmis.forEach(function(l) { specialEventLines.push(l); });
     } else {
@@ -3344,9 +3340,9 @@ function opsPlanUpdateMessage() {
     }
 
     // ADVISORIES (Terminal and EnRoute)
-    var advisoryLines = [];
+    const advisoryLines = [];
     advisoryLines.push('ADVISORIES:');
-    var advisoryTmis = buildAdvisoryLinesFromTimeline(allTimelineData, ['Advisory_Terminal', 'Advisory_EnRoute']);
+    const advisoryTmis = buildAdvisoryLinesFromTimeline(allTimelineData, ['Advisory_Terminal', 'Advisory_EnRoute']);
     if (advisoryTmis.length) {
         advisoryTmis.forEach(function(l) { advisoryLines.push(l); });
     } else {
@@ -3354,28 +3350,28 @@ function opsPlanUpdateMessage() {
     }
 
     // CDRS/SWAP/... and SIRs (still default to NONE for now)
-    var cdrLines = [];
+    const cdrLines = [];
     cdrLines.push('CDRS/SWAP/CAPPING/TUNNELING/HOTLINE/DIVERSION RECOVERY:');
     cdrLines.push('NONE');
 
-    var sirLines = [];
+    const sirLines = [];
     sirLines.push('RUNWAY/EQUIPMENT/POSSIBLE SYSTEM IMPACT REPORTS (SIRs):');
     sirLines.push('NONE');
 
     // Footer time summary
-    var footerLines = [];
+    const footerLines = [];
     footerLines.push(opsPlanUpper((startDay || '__') + (startTime || '____') + '-' + (endDay || '__') + (endTime || '____')));
 
-    var now = new Date();
-    var yy  = String(now.getUTCFullYear()).slice(-2);
-    var mm  = String(now.getUTCMonth() + 1).toString().padStart(2, '0');
-    var dd  = String(now.getUTCDate()).toString().padStart(2, '0');
-    var hh  = String(now.getUTCHours()).toString().padStart(2, '0');
-    var mn  = String(now.getUTCMinutes()).toString().padStart(2, '0');
+    const now = new Date();
+    const yy  = String(now.getUTCFullYear()).slice(-2);
+    const mm  = String(now.getUTCMonth() + 1).toString().padStart(2, '0');
+    const dd  = String(now.getUTCDate()).toString().padStart(2, '0');
+    const hh  = String(now.getUTCHours()).toString().padStart(2, '0');
+    const mn  = String(now.getUTCMinutes()).toString().padStart(2, '0');
     footerLines.push(yy + '/' + mm + '/' + dd + ' ' + hh + ':' + mn);
 
     // Assemble sections and enforce Discord 2000-char limit per part
-    
+
     // Apply 68-character wrapping with hanging indentation
     opsPlanWrapLines68(headerLines);
     opsPlanWrapLines68(staffingLines);
@@ -3393,7 +3389,7 @@ function opsPlanUpdateMessage() {
     opsPlanWrapLines68(sirLines);
     opsPlanWrapLines68(footerLines);
 
-var sections = [
+    const sections = [
         { name: 'HEADER',   lines: headerLines },
         { name: 'STAFFING', lines: staffingLines },
         { name: 'TERM_CONSTRAINTS', lines: termConstraintLines },
@@ -3408,25 +3404,25 @@ var sections = [
         { name: 'ADVISORIES', lines: advisoryLines },
         { name: 'CDR', lines: cdrLines },
         { name: 'SIR', lines: sirLines },
-        { name: 'FOOTER', lines: footerLines }
+        { name: 'FOOTER', lines: footerLines },
     ];
 
-    var parts = [];
-    var currentLines = [];
-    var currentLen = 0;
-    var maxLen = 2000;
+    const parts = [];
+    let currentLines = [];
+    let currentLen = 0;
+    const maxLen = 2000;
 
     function flushPart() {
-        if (!currentLines.length) return;
+        if (!currentLines.length) {return;}
         parts.push(currentLines.join('\n'));
         currentLines = [];
         currentLen = 0;
     }
 
     sections.forEach(function(sec, idx) {
-        var secText = sec.lines.join('\n');
-        var secLen = secText.length;
-        var extraNewlines = currentLines.length ? 1 : 0; // one blank line between sections
+        const secText = sec.lines.join('\n');
+        const secLen = secText.length;
+        const extraNewlines = currentLines.length ? 1 : 0; // one blank line between sections
 
         if (currentLen + extraNewlines + secLen > maxLen && currentLines.length) {
             flushPart();
@@ -3437,8 +3433,8 @@ var sections = [
             currentLen += 1;
         }
 
-        for (var i = 0; i < sec.lines.length; i++) {
-            var line = sec.lines[i];
+        for (let i = 0; i < sec.lines.length; i++) {
+            const line = sec.lines[i];
             currentLines.push(line);
             currentLen += line.length;
             if (i < sec.lines.length - 1) {
@@ -3449,12 +3445,12 @@ var sections = [
 
     flushPart();
 
-    var finalText = '';
+    let finalText = '';
     if (parts.length <= 1) {
         finalText = parts[0] || '';
     } else {
-        for (var p = 0; p < parts.length; p++) {
-            var label = '(PART ' + (p + 1) + ' OF ' + parts.length + ')';
+        for (let p = 0; p < parts.length; p++) {
+            const label = '(PART ' + (p + 1) + ' OF ' + parts.length + ')';
             if (p > 0) {
                 finalText += '\n\n';
             }
@@ -3472,33 +3468,33 @@ function openOpsPlanModal() {
     }
 
     // Default Ops Plan event times from PERTI fields / event defaults if empty
-    var evDate    = (typeof PERTI_EVENT_DATE     !== 'undefined' ? (PERTI_EVENT_DATE     || '') : '');
-    var evStart   = (typeof PERTI_EVENT_START    !== 'undefined' ? (PERTI_EVENT_START    || '') : '');
-    var evEndDate = (typeof PERTI_EVENT_END_DATE !== 'undefined' ? (PERTI_EVENT_END_DATE || '') : '');
-    var evEndTime = (typeof PERTI_EVENT_END_TIME !== 'undefined' ? (PERTI_EVENT_END_TIME || '') : '');
+    const evDate    = (typeof PERTI_EVENT_DATE     !== 'undefined' ? (PERTI_EVENT_DATE     || '') : '');
+    const evStart   = (typeof PERTI_EVENT_START    !== 'undefined' ? (PERTI_EVENT_START    || '') : '');
+    const evEndDate = (typeof PERTI_EVENT_END_DATE !== 'undefined' ? (PERTI_EVENT_END_DATE || '') : '');
+    const evEndTime = (typeof PERTI_EVENT_END_TIME !== 'undefined' ? (PERTI_EVENT_END_TIME || '') : '');
 
     if ($('#opsStartDate').val().trim() === '') {
-        var sd = ($('#pertiStartDate').val() || '').trim() || evDate;
-        if (sd) $('#opsStartDate').val(sd);
+        const sd = ($('#pertiStartDate').val() || '').trim() || evDate;
+        if (sd) {$('#opsStartDate').val(sd);}
     }
     if ($('#opsStartTime').val().trim() === '') {
-        var st = ($('#pertiStartTime').val() || '').trim() || evStart;
-        if (st) $('#opsStartTime').val(st);
+        const st = ($('#pertiStartTime').val() || '').trim() || evStart;
+        if (st) {$('#opsStartTime').val(st);}
     }
     if ($('#opsEndDate').val().trim() === '') {
-        var ed = ($('#pertiEndDate').val() || '').trim() || evEndDate;
+        let ed = ($('#pertiEndDate').val() || '').trim() || evEndDate;
         if (!ed) {
-            var sd2 = ($('#opsStartDate').val() || '').trim();
-            var st2 = ($('#opsStartTime').val() || '').trim();
+            const sd2 = ($('#opsStartDate').val() || '').trim();
+            const st2 = ($('#opsStartTime').val() || '').trim();
             if (sd2 && typeof pertiDefaultEndDate === 'function') {
                 ed = pertiDefaultEndDate(sd2, st2);
             }
         }
-        if (ed) $('#opsEndDate').val(ed);
+        if (ed) {$('#opsEndDate').val(ed);}
     }
     if ($('#opsEndTime').val().trim() === '') {
-        var et = ($('#pertiEndTime').val() || '').trim() || evEndTime;
-        if (et) $('#opsEndTime').val(et);
+        const et = ($('#pertiEndTime').val() || '').trim() || evEndTime;
+        if (et) {$('#opsEndTime').val(et);}
     }
 
     opsPlanUpdateMessage();
@@ -3511,8 +3507,8 @@ function opsPlanInitBindings() {
     });
 
     $(document).on('click', '#opsPlanCopyBtn', function() {
-        var $ta = $('#opsPlanMessage');
-        if (!$ta.length) return;
+        const $ta = $('#opsPlanMessage');
+        if (!$ta.length) {return;}
         $ta.focus();
         $ta.select();
         try {
@@ -3523,35 +3519,35 @@ function opsPlanInitBindings() {
     });
 }
 function pertiUpdateMessage() {
-    if (typeof PERTI_EVENT_NAME === 'undefined') return;
+    if (typeof PERTI_EVENT_NAME === 'undefined') {return;}
 
-    var eventName = PERTI_EVENT_NAME || '';
-    var opLevel   = (typeof PERTI_OPLEVEL !== 'undefined' ? (PERTI_OPLEVEL || '') : '');
-    var planNumber = (typeof PERTI_PLAN_ID !== 'undefined')
+    const eventName = PERTI_EVENT_NAME || '';
+    const opLevel   = (typeof PERTI_OPLEVEL !== 'undefined' ? (PERTI_OPLEVEL || '') : '');
+    const planNumber = (typeof PERTI_PLAN_ID !== 'undefined')
         ? PERTI_PLAN_ID
         : (typeof p_id !== 'undefined' ? p_id : '');
 
-    var startDate = ($('#pertiStartDate').val() || '').trim();
-    var startTime = ($('#pertiStartTime').val() || '').trim();
-    var endDate   = ($('#pertiEndDate').val()   || '').trim();
-    var endTime   = ($('#pertiEndTime').val()   || '').trim();
+    const startDate = ($('#pertiStartDate').val() || '').trim();
+    const startTime = ($('#pertiStartTime').val() || '').trim();
+    const endDate   = ($('#pertiEndDate').val()   || '').trim();
+    const endTime   = ($('#pertiEndTime').val()   || '').trim();
 
-    var startZ = startTime ? (startTime + 'Z') : '____Z';
-    var endZ   = endTime   ? (endTime   + 'Z') : '____Z';
+    const startZ = startTime ? (startTime + 'Z') : '____Z';
+    const endZ   = endTime   ? (endTime   + 'Z') : '____Z';
 
-    var lines = [];
+    const lines = [];
 
     lines.push(eventName + ' | TMU OpLevel ' + opLevel + ' | PERTI Data Request');
 
     if (startDate && endDate && startDate === endDate) {
         lines.push(eventName + ' is on ' + startDate + ' from ' + startZ + ' to ' + endZ + '.');
     } else {
-        var sdText = startDate || '____';
-        var edText = endDate   || '____';
+        const sdText = startDate || '____';
+        const edText = endDate   || '____';
         lines.push(eventName + ' is from ' + sdText + ' ' + startZ + ' to ' + edText + ' ' + endZ + '.');
     }
 
-    var ts = pertiComputeDiscordTimestamps(startDate, startTime, endDate, endTime);
+    const ts = pertiComputeDiscordTimestamps(startDate, startTime, endDate, endTime);
     if (ts && ts.startTs && ts.endTs) {
         lines.push('Start: <t:' + ts.startTs + ':F> (<t:' + ts.startTs + ':R>) in your timezone');
         lines.push('End:   <t:' + ts.endTs + ':F> (<t:' + ts.endTs + ':R>) in your timezone');
@@ -3573,18 +3569,18 @@ function pertiUpdateMessage() {
     lines.push('[DCC Dashboard](https://docs.google.com/spreadsheets/d/1sps5ggCvSnsORlChliWsPsYD4Tl0yhUJfsTLynHq3TY/edit?usp=sharing)');
     lines.push('');
 
-    var facilitiesText = ($('#advFacilities').val() || '').trim();
+    const facilitiesText = ($('#advFacilities').val() || '').trim();
     if (facilitiesText) {
-        var parts = facilitiesText.split(/[\/\s,]+/);
-        var codes = [];
+        const parts = facilitiesText.split(/[\/\s,]+/);
+        const codes = [];
         parts.forEach(function(p) {
             p = (p || '').trim();
-            if (!p) return;
+            if (!p) {return;}
             codes.push(p.toUpperCase());
         });
         if (codes.length) {
             codes.sort();
-            var facLines = [];
+            const facLines = [];
             codes.forEach(function(code) {
                 facLines.push(code + ':');
             });
@@ -3611,10 +3607,10 @@ function openPertiModal() {
         advInitFacilitiesDropdown();
     }
 
-    var $startDate = $('#pertiStartDate');
-    var $startTime = $('#pertiStartTime');
-    var $endDate   = $('#pertiEndDate');
-    var $endTime   = $('#pertiEndTime');
+    const $startDate = $('#pertiStartDate');
+    const $startTime = $('#pertiStartTime');
+    const $endDate   = $('#pertiEndDate');
+    const $endTime   = $('#pertiEndTime');
 
     // Default start date/time from event
     if ($startDate.val().trim() === '' && typeof PERTI_EVENT_DATE !== 'undefined' && PERTI_EVENT_DATE) {
@@ -3629,8 +3625,8 @@ function openPertiModal() {
         if (typeof PERTI_EVENT_END_DATE !== 'undefined' && PERTI_EVENT_END_DATE) {
             $endDate.val(PERTI_EVENT_END_DATE);
         } else {
-            var sd = $startDate.val().trim();
-            var st = $startTime.val().trim();
+            const sd = $startDate.val().trim();
+            const st = $startTime.val().trim();
             if (sd) {
                 $endDate.val(pertiDefaultEndDate(sd, st));
             }
@@ -3648,10 +3644,10 @@ function openPertiModal() {
 
 function pertiInitBindings() {
     $(document).on('input change', '#pertiStartDate, #pertiStartTime', function() {
-        var $endDate = $('#pertiEndDate');
+        const $endDate = $('#pertiEndDate');
         if ($endDate.val().trim() === '') {
-            var sd = ($('#pertiStartDate').val() || '').trim();
-            var st = ($('#pertiStartTime').val() || '').trim();
+            const sd = ($('#pertiStartDate').val() || '').trim();
+            const st = ($('#pertiStartTime').val() || '').trim();
             if (sd) {
                 $endDate.val(pertiDefaultEndDate(sd, st));
             }
@@ -3674,8 +3670,8 @@ function pertiInitBindings() {
     });
 
     $(document).on('click', '#pertiCopyBtn', function() {
-        var $ta = $('#pertiMessage');
-        if (!$ta.length) return;
+        const $ta = $('#pertiMessage');
+        if (!$ta.length) {return;}
         $ta.focus();
         $ta.select();
         try {

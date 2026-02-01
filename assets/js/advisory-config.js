@@ -8,7 +8,7 @@ window.AdvisoryConfig = (function() {
     const STORAGE_KEY = 'perti_advisory_org';
     const ORG_TYPES = {
         DCC: { prefix: 'vATCSCC', facility: 'DCC', name: 'US DCC' },
-        NOC: { prefix: 'vNAVCAN', facility: 'NOC', name: 'Canadian NOC' }
+        NOC: { prefix: 'vNAVCAN', facility: 'NOC', name: 'Canadian NOC' },
     };
     const DEFAULT_ORG = 'DCC';
 
@@ -36,14 +36,14 @@ window.AdvisoryConfig = (function() {
 
     function showConfigModal() {
         // Set the current selection
-        var currentOrg = getOrgType();
+        const currentOrg = getOrgType();
         document.getElementById('orgDCC').checked = (currentOrg === 'DCC');
         document.getElementById('orgNOC').checked = (currentOrg === 'NOC');
         $('#advisoryOrgModal').modal('show');
     }
 
     function saveOrg() {
-        var selectedOrg = document.querySelector('input[name="advisoryOrg"]:checked');
+        const selectedOrg = document.querySelector('input[name="advisoryOrg"]:checked');
         if (selectedOrg) {
             setOrgType(selectedOrg.value);
             updateDisplay();
@@ -52,7 +52,7 @@ window.AdvisoryConfig = (function() {
     }
 
     function updateDisplay() {
-        var displayEl = document.getElementById('advisoryOrgDisplay');
+        const displayEl = document.getElementById('advisoryOrgDisplay');
         if (displayEl) {
             displayEl.textContent = getOrgType();
         }
@@ -62,7 +62,7 @@ window.AdvisoryConfig = (function() {
         updateDisplay();
 
         // Bind modal save button if exists
-        var saveBtn = document.getElementById('advisoryOrgSaveBtn');
+        const saveBtn = document.getElementById('advisoryOrgSaveBtn');
         if (saveBtn) {
             saveBtn.addEventListener('click', saveOrg);
         }
@@ -84,6 +84,6 @@ window.AdvisoryConfig = (function() {
         getOrgName: getOrgName,
         showConfigModal: showConfigModal,
         saveOrg: saveOrg,
-        initUI: initUI
+        initUI: initUI,
     };
 })();

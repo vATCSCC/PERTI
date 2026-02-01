@@ -16,20 +16,20 @@
     'use strict';
 
     // Module state
-    var state = {
+    const state = {
         handoffType: null,      // 'GS' or 'GDP'
         handoffData: null,      // Parsed handoff data
         programId: null,
         flightsVisible: false,
-        nextAdvisoryNumber: '001'  // Will be fetched from API
+        nextAdvisoryNumber: '001',  // Will be fetched from API
     };
 
     // API endpoints
-    var API = {
+    const API = {
         submitCoordination: 'api/gdt/programs/submit_proposal.php',
         publishDirect: 'api/gdt/programs/publish.php',
         cancelProgram: 'api/gdt/programs/cancel.php',
-        flightList: 'api/gdt/programs/flight_list.php'
+        flightList: 'api/gdt/programs/flight_list.php',
     };
 
     /**
@@ -40,10 +40,10 @@
         fetchNextAdvisoryNumber();
 
         // Check URL parameters
-        var params = new URLSearchParams(window.location.search);
-        var tab = params.get('tab');
-        var source = params.get('source');
-        var type = params.get('type');
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        const source = params.get('source');
+        const type = params.get('type');
 
         // Only process if coming from GDT
         if (source !== 'gdt') {
@@ -53,7 +53,7 @@
         // Auto-switch to GS/GDP tab if specified
         if (tab === 'gdp' || tab === 'gsgdp') {
             setTimeout(function() {
-                var tabLink = document.getElementById('gsgdp-tab');
+                const tabLink = document.getElementById('gsgdp-tab');
                 if (tabLink) {
                     tabLink.click();
                 }
@@ -72,12 +72,12 @@
      */
     async function fetchNextAdvisoryNumber() {
         try {
-            var response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
+            const response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
             if (response.ok) {
-                var data = await response.json();
+                const data = await response.json();
                 if (data.success && data.advisory_number) {
                     // Extract just the number part (e.g., "ADVZY 001" -> "001")
-                    var match = data.advisory_number.match(/(\d+)/);
+                    const match = data.advisory_number.match(/(\d+)/);
                     state.nextAdvisoryNumber = match ? match[1] : '001';
                 }
             }
@@ -91,15 +91,15 @@
      * Load handoff data from sessionStorage
      */
     function loadHandoffData(preferredType) {
-        var gsData = null;
-        var gdpData = null;
+        let gsData = null;
+        let gdpData = null;
 
         try {
-            var gsStr = sessionStorage.getItem('tmi_gs_handoff');
-            var gdpStr = sessionStorage.getItem('tmi_gdp_handoff');
+            const gsStr = sessionStorage.getItem('tmi_gs_handoff');
+            const gdpStr = sessionStorage.getItem('tmi_gdp_handoff');
 
-            if (gsStr) gsData = JSON.parse(gsStr);
-            if (gdpStr) gdpData = JSON.parse(gdpStr);
+            if (gsStr) {gsData = JSON.parse(gsStr);}
+            if (gdpStr) {gdpData = JSON.parse(gdpStr);}
         } catch (e) {
             console.error('GSGDP: Error parsing handoff data:', e);
         }
@@ -131,16 +131,16 @@
      * Render the handoff data in the UI
      */
     function renderHandoffData() {
-        var data = state.handoffData;
-        if (!data) return;
+        const data = state.handoffData;
+        if (!data) {return;}
 
         // Hide warning, show main content
         document.getElementById('gsgdpNoHandoff').style.display = 'none';
         document.getElementById('gsgdpMainContent').style.display = '';
 
         // Show source info
-        var sourceInfo = document.getElementById('gsgdpSourceInfo');
-        var sourceDetails = document.getElementById('gsgdpSourceDetails');
+        const sourceInfo = document.getElementById('gsgdpSourceInfo');
+        const sourceDetails = document.getElementById('gsgdpSourceDetails');
         if (sourceInfo && sourceDetails) {
             sourceInfo.style.display = '';
             sourceDetails.textContent = ' - ' + state.handoffType + ' for ' + (data.ctl_element || 'Unknown') +
@@ -148,9 +148,9 @@
         }
 
         // Update header
-        var typeBadge = document.getElementById('gsgdpTypeBadge');
-        var programTitle = document.getElementById('gsgdpProgramTitle');
-        var headerEl = document.getElementById('gsgdpProgramHeader');
+        const typeBadge = document.getElementById('gsgdpTypeBadge');
+        const programTitle = document.getElementById('gsgdpProgramTitle');
+        const headerEl = document.getElementById('gsgdpProgramHeader');
 
         if (state.handoffType === 'GS') {
             typeBadge.className = 'badge badge-lg badge-danger';
@@ -174,8 +174,8 @@
             document.getElementById('gsgdpGsFields').style.display = '';
             document.getElementById('gsgdpGdpFields').style.display = 'none';
 
-            var scope = data.element_type === 'AIRPORT' ? 'Single Airport' :
-                        (data.airports || data.ctl_element);
+            const scope = data.element_type === 'AIRPORT' ? 'Single Airport' :
+                (data.airports || data.ctl_element);
             document.getElementById('gsgdpScope').textContent = scope;
             document.getElementById('gsgdpAffectedFlights').textContent =
                 (data.flights && data.flights.length) || (data.simulation_data && data.simulation_data.flights_affected) || '0';
@@ -184,7 +184,7 @@
             document.getElementById('gsgdpGsFields').style.display = 'none';
             document.getElementById('gsgdpGdpFields').style.display = '';
 
-            var summary = data.summary || {};
+            const summary = data.summary || {};
             document.getElementById('gsgdpProgramRate').textContent =
                 (data.program_rate || summary.program_rate || '--') + '/hr';
             document.getElementById('gsgdpAvgDelay').textContent =
@@ -207,8 +207,8 @@
      * Render flight list table
      */
     function renderFlightList(flights) {
-        var countEl = document.getElementById('gsgdpFlightCount');
-        var tbody = document.getElementById('gsgdpFlightListBody');
+        const countEl = document.getElementById('gsgdpFlightCount');
+        const tbody = document.getElementById('gsgdpFlightListBody');
 
         countEl.textContent = flights.length;
 
@@ -217,13 +217,13 @@
             return;
         }
 
-        var html = '';
-        var maxDisplay = 100;
-        var displayFlights = flights.slice(0, maxDisplay);
+        let html = '';
+        const maxDisplay = 100;
+        const displayFlights = flights.slice(0, maxDisplay);
 
         displayFlights.forEach(function(f) {
-            var delay = f.delay_minutes || f.delayMin || 0;
-            var delayClass = delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '');
+            const delay = f.delay_minutes || f.delayMin || 0;
+            const delayClass = delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '');
 
             html += '<tr>' +
                 '<td class="font-weight-bold">' + escapeHtml(f.callsign || f.acid || '--') + '</td>' +
@@ -248,11 +248,11 @@
      * Generate advisory preview text
      */
     function generateAdvisoryPreview() {
-        var data = state.handoffData;
-        if (!data) return;
+        const data = state.handoffData;
+        if (!data) {return;}
 
-        var previewEl = document.getElementById('gsgdpAdvisoryPreview');
-        var text = '';
+        const previewEl = document.getElementById('gsgdpAdvisoryPreview');
+        let text = '';
 
         if (state.handoffType === 'GS') {
             text = generateGsAdvisory(data);
@@ -267,55 +267,55 @@
      * Generate Ground Stop advisory text (vATCSCC format)
      */
     function generateGsAdvisory(data) {
-        var ctlElement = data.ctl_element || 'UNKN';
-        var elementType = data.element_type || 'APT';
-        var artcc = data.artcc || data.arr_center || 'ZZZ';
-        var reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
-        var remarks = document.getElementById('gsgdpRemarks')?.value || '';
-        var probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
+        const ctlElement = data.ctl_element || 'UNKN';
+        const elementType = data.element_type || 'APT';
+        const artcc = data.artcc || data.arr_center || 'ZZZ';
+        const reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
+        const remarks = document.getElementById('gsgdpRemarks')?.value || '';
+        const probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
 
         // Get selected facilities
-        var facilities = [];
+        const facilities = [];
         document.querySelectorAll('.gsgdp-facility-cb:checked').forEach(function(cb) {
             facilities.push(cb.value);
         });
-        var facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
+        const facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
         // Get flight inclusion criteria
-        var fltIncl = data.flight_filter || 'ALL';
+        const fltIncl = data.flight_filter || 'ALL';
 
         // Get delay summary
-        var summary = data.summary || data.simulation_data || {};
-        var totalDelay = summary.total_delay_min || 0;
-        var maxDelay = summary.max_delay_min || 0;
-        var avgDelay = summary.avg_delay_min || 0;
+        const summary = data.summary || data.simulation_data || {};
+        const totalDelay = summary.total_delay_min || 0;
+        const maxDelay = summary.max_delay_min || 0;
+        const avgDelay = summary.avg_delay_min || 0;
 
         // Format dates
-        var now = new Date();
-        var startDt = data.start_time ? new Date(data.start_time) : now;
-        var endDt = data.end_time ? new Date(data.end_time) : now;
+        const now = new Date();
+        const startDt = data.start_time ? new Date(data.start_time) : now;
+        const endDt = data.end_time ? new Date(data.end_time) : now;
 
         // Header date format: MM/DD/YYYY
-        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+        const headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
 
         // ADL time: HHmmZ
-        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+        const adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
 
         // Period format: DD/HHmmZ - DD/HHmmZ
-        var startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
-        var endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
+        const startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
+        const endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
 
         // Footer time code: DDHHmm-DDHHmm
-        var startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
-        var endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
+        const startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
+        const endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
 
         // Footer timestamp: YY/MM/DD HH:mm
-        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+        const footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
                               padZero(now.getUTCMonth() + 1) + '/' +
                               padZero(now.getUTCDate()) + ' ' +
                               padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
-        var text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND STOP\n' +
+        const text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND STOP\n' +
                    'CTL ELEMENT: ' + ctlElement + '\n' +
                    'ELEMENT TYPE: ' + elementType + '\n' +
                    'ADL TIME: ' + adlTime + '\n' +
@@ -344,58 +344,58 @@
      * Generate GDP advisory text (vATCSCC format)
      */
     function generateGdpAdvisory(data) {
-        var ctlElement = data.ctl_element || 'UNKN';
-        var elementType = data.element_type || 'APT';
-        var artcc = data.artcc || data.arr_center || 'ZZZ';
-        var programType = data.program_type || 'GDP-UDP';
-        var reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
-        var remarks = document.getElementById('gsgdpRemarks')?.value || '';
-        var probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
+        const ctlElement = data.ctl_element || 'UNKN';
+        const elementType = data.element_type || 'APT';
+        const artcc = data.artcc || data.arr_center || 'ZZZ';
+        const programType = data.program_type || 'GDP-UDP';
+        const reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
+        const remarks = document.getElementById('gsgdpRemarks')?.value || '';
+        const probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
 
         // Get selected facilities
-        var facilities = [];
+        const facilities = [];
         document.querySelectorAll('.gsgdp-facility-cb:checked').forEach(function(cb) {
             facilities.push(cb.value);
         });
-        var facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
+        const facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
         // Get flight inclusion criteria
-        var fltIncl = data.flight_filter || 'ALL';
+        const fltIncl = data.flight_filter || 'ALL';
 
         // Get delay/rate summary
-        var summary = data.summary || data.simulation_data || {};
-        var programRate = data.program_rate || summary.program_rate || 0;
-        var totalDelay = summary.total_delay_min || 0;
-        var maxDelay = summary.max_delay_min || data.delay_limit_min || 0;
-        var avgDelay = summary.avg_delay_min || 0;
-        var controlledFlights = summary.controlled_flights || data.flights?.length || 0;
+        const summary = data.summary || data.simulation_data || {};
+        const programRate = data.program_rate || summary.program_rate || 0;
+        const totalDelay = summary.total_delay_min || 0;
+        const maxDelay = summary.max_delay_min || data.delay_limit_min || 0;
+        const avgDelay = summary.avg_delay_min || 0;
+        const controlledFlights = summary.controlled_flights || data.flights?.length || 0;
 
         // Format dates
-        var now = new Date();
-        var startDt = data.start_time ? new Date(data.start_time) : now;
-        var endDt = data.end_time ? new Date(data.end_time) : now;
+        const now = new Date();
+        const startDt = data.start_time ? new Date(data.start_time) : now;
+        const endDt = data.end_time ? new Date(data.end_time) : now;
 
         // Header date format: MM/DD/YYYY
-        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+        const headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
 
         // ADL time: HHmmZ
-        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+        const adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
 
         // Period format: DD/HHmmZ - DD/HHmmZ
-        var startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
-        var endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
+        const startPeriod = padZero(startDt.getUTCDate()) + '/' + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes()) + 'Z';
+        const endPeriod = padZero(endDt.getUTCDate()) + '/' + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes()) + 'Z';
 
         // Footer time code: DDHHmm-DDHHmm
-        var startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
-        var endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
+        const startCode = padZero(startDt.getUTCDate()) + padZero(startDt.getUTCHours()) + padZero(startDt.getUTCMinutes());
+        const endCode = padZero(endDt.getUTCDate()) + padZero(endDt.getUTCHours()) + padZero(endDt.getUTCMinutes());
 
         // Footer timestamp: YY/MM/DD HH:mm
-        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+        const footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
                               padZero(now.getUTCMonth() + 1) + '/' +
                               padZero(now.getUTCDate()) + ' ' +
                               padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
-        var text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM\n' +
+        const text = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM\n' +
                    'CTL ELEMENT: ' + ctlElement + '\n' +
                    'ELEMENT TYPE: ' + elementType + '\n' +
                    'ADL TIME: ' + adlTime + '\n' +
@@ -420,7 +420,7 @@
      * Auto-select facilities based on CTL element
      */
     function autoSelectFacilities(ctlElement) {
-        if (!ctlElement) return;
+        if (!ctlElement) {return;}
 
         // Clear all first
         document.querySelectorAll('.gsgdp-facility-cb').forEach(function(cb) {
@@ -428,7 +428,7 @@
         });
 
         // Map airports to their overlying ARTCCs
-        var airportToArtcc = {
+        const airportToArtcc = {
             'KJFK': ['ZNY', 'ZBW'], 'KEWR': ['ZNY'], 'KLGA': ['ZNY'],
             'KATL': ['ZTL'], 'KORD': ['ZAU'], 'KDEN': ['ZDV'],
             'KDFW': ['ZFW'], 'KLAX': ['ZLA'], 'KSFO': ['ZOA'],
@@ -436,23 +436,23 @@
             'KIAD': ['ZDC'], 'KDCA': ['ZDC'], 'KBWI': ['ZDC'],
             'KMSP': ['ZMP'], 'KDTW': ['ZOB'], 'KCLT': ['ZTL'],
             'KPHX': ['ZAB'], 'KLAS': ['ZLA'], 'KIAH': ['ZHU'],
-            'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE']
+            'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE'],
         };
 
-        var artcc = ctlElement.substring(0, 3);
+        const artcc = ctlElement.substring(0, 3);
 
         // If it's an airport, get overlying ARTCC(s)
         if (ctlElement.length === 4 && ctlElement.startsWith('K')) {
-            var artccs = airportToArtcc[ctlElement] || [];
+            const artccs = airportToArtcc[ctlElement] || [];
             artccs.forEach(function(a) {
-                var cb = document.getElementById('gsgdp_fac_' + a);
-                if (cb) cb.checked = true;
+                const cb = document.getElementById('gsgdp_fac_' + a);
+                if (cb) {cb.checked = true;}
             });
         }
         // If it's already an ARTCC
         else if (artcc.startsWith('Z')) {
-            var cb = document.getElementById('gsgdp_fac_' + artcc);
-            if (cb) cb.checked = true;
+            const cb = document.getElementById('gsgdp_fac_' + artcc);
+            if (cb) {cb.checked = true;}
         }
     }
 
@@ -470,10 +470,10 @@
      */
     function bindEvents() {
         // Toggle flight list
-        var toggleBtn = document.getElementById('gsgdpToggleFlights');
+        const toggleBtn = document.getElementById('gsgdpToggleFlights');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', function() {
-                var container = document.getElementById('gsgdpFlightListContainer');
+                const container = document.getElementById('gsgdpFlightListContainer');
                 state.flightsVisible = !state.flightsVisible;
                 container.style.display = state.flightsVisible ? '' : 'none';
                 this.innerHTML = state.flightsVisible ?
@@ -483,10 +483,10 @@
         }
 
         // Copy preview
-        var copyBtn = document.getElementById('gsgdpCopyPreview');
+        const copyBtn = document.getElementById('gsgdpCopyPreview');
         if (copyBtn) {
             copyBtn.addEventListener('click', function() {
-                var text = document.getElementById('gsgdpAdvisoryPreview').textContent;
+                const text = document.getElementById('gsgdpAdvisoryPreview').textContent;
                 navigator.clipboard.writeText(text).then(function() {
                     showToast('Copied to clipboard', 'success');
                 });
@@ -494,7 +494,7 @@
         }
 
         // Back to GDT
-        var backBtn = document.getElementById('gsgdpBackToGdt');
+        const backBtn = document.getElementById('gsgdpBackToGdt');
         if (backBtn) {
             backBtn.addEventListener('click', function() {
                 window.location.href = 'gdt.php';
@@ -502,7 +502,7 @@
         }
 
         // Discard
-        var discardBtn = document.getElementById('gsgdpDiscard');
+        const discardBtn = document.getElementById('gsgdpDiscard');
         if (discardBtn) {
             discardBtn.addEventListener('click', function() {
                 if (confirm('Discard this program handoff? You will need to re-submit from GDT.')) {
@@ -516,8 +516,8 @@
         }
 
         // Reason/remarks change - update preview
-        var reasonEl = document.getElementById('gsgdpReason');
-        var remarksEl = document.getElementById('gsgdpRemarks');
+        const reasonEl = document.getElementById('gsgdpReason');
+        const remarksEl = document.getElementById('gsgdpRemarks');
         if (reasonEl) {
             reasonEl.addEventListener('change', generateAdvisoryPreview);
         }
@@ -526,19 +526,19 @@
         }
 
         // Submit for Coordination
-        var coordBtn = document.getElementById('gsgdpSubmitCoord');
+        const coordBtn = document.getElementById('gsgdpSubmitCoord');
         if (coordBtn) {
             coordBtn.addEventListener('click', handleSubmitCoordination);
         }
 
         // Publish Direct
-        var publishBtn = document.getElementById('gsgdpPublishDirect');
+        const publishBtn = document.getElementById('gsgdpPublishDirect');
         if (publishBtn) {
             publishBtn.addEventListener('click', handlePublishDirect);
         }
 
         // Refresh flight list
-        var refreshBtn = document.getElementById('gsgdpRefreshFlights');
+        const refreshBtn = document.getElementById('gsgdpRefreshFlights');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', handleRefreshFlightList);
         }
@@ -553,26 +553,26 @@
             return;
         }
 
-        var btn = document.getElementById('gsgdpRefreshFlights');
+        const btn = document.getElementById('gsgdpRefreshFlights');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
         try {
-            var response = await fetch(API.flightList + '?program_id=' + state.programId + '&include_stats=1');
-            var result = await response.json();
+            const response = await fetch(API.flightList + '?program_id=' + state.programId + '&include_stats=1');
+            const result = await response.json();
 
             if (result.status === 'ok' && result.data) {
-                var flights = result.data.flights || [];
-                var stats = result.data.stats || {};
+                const flights = result.data.flights || [];
+                const stats = result.data.stats || {};
 
                 // Update flight list
                 renderFlightList(flights);
 
                 // Update stats badge
-                var statsEl = document.getElementById('gsgdpFlightStats');
+                const statsEl = document.getElementById('gsgdpFlightStats');
                 if (statsEl && stats.total > 0) {
-                    var avgDelay = Math.round(stats.avg_delay_min || 0);
-                    var maxDelay = stats.max_delay_min || 0;
+                    const avgDelay = Math.round(stats.avg_delay_min || 0);
+                    const maxDelay = stats.max_delay_min || 0;
                     statsEl.textContent = 'Avg: ' + avgDelay + ' / Max: ' + maxDelay + ' min';
                     statsEl.style.display = '';
                 }
@@ -620,7 +620,7 @@
         }
 
         // Get selected facilities
-        var facilities = [];
+        const facilities = [];
         document.querySelectorAll('.gsgdp-facility-cb:checked').forEach(function(cb) {
             facilities.push(cb.value);
         });
@@ -630,39 +630,39 @@
             return;
         }
 
-        var deadline = parseInt(document.getElementById('gsgdpCoordDeadline').value) || 30;
-        var reason = document.getElementById('gsgdpReason').value || 'WEATHER';
-        var remarks = document.getElementById('gsgdpRemarks').value || '';
+        const deadline = parseInt(document.getElementById('gsgdpCoordDeadline').value) || 30;
+        const reason = document.getElementById('gsgdpReason').value || 'WEATHER';
+        const remarks = document.getElementById('gsgdpRemarks').value || '';
 
         // Determine coordination mode based on deadline
-        var coordMode = 'STANDARD';
-        if (deadline <= 15) coordMode = 'EXPEDITED';
+        let coordMode = 'STANDARD';
+        if (deadline <= 15) {coordMode = 'EXPEDITED';}
 
         // Build advisory text from preview
-        var advisoryText = document.getElementById('gsgdpAdvisoryPreview')?.textContent || '';
+        const advisoryText = document.getElementById('gsgdpAdvisoryPreview')?.textContent || '';
 
-        var payload = {
+        const payload = {
             program_id: state.programId,
             coordination_mode: coordMode,
             deadline_minutes: deadline,
             facilities: facilities,
             advisory_text: advisoryText,
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown'
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
         };
 
-        var btn = document.getElementById('gsgdpSubmitCoord');
+        const btn = document.getElementById('gsgdpSubmitCoord');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...';
 
         try {
-            var response = await fetch(API.submitCoordination, {
+            const response = await fetch(API.submitCoordination, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            var result = await response.json();
+            const result = await response.json();
 
             if (result.status === 'ok') {
                 showToast('Submitted for coordination - ' + (result.data?.advisory_number || ''), 'success');
@@ -673,8 +673,8 @@
 
                 // Switch to Coordination tab
                 setTimeout(function() {
-                    var coordTab = document.getElementById('coordination-tab');
-                    if (coordTab) coordTab.click();
+                    const coordTab = document.getElementById('coordination-tab');
+                    if (coordTab) {coordTab.click();}
                 }, 500);
             } else {
                 showToast(result.message || 'Submission failed', 'error');
@@ -703,16 +703,16 @@
             return;
         }
 
-        var reason = document.getElementById('gsgdpReason').value || 'WEATHER';
-        var remarks = document.getElementById('gsgdpRemarks').value || '';
+        const reason = document.getElementById('gsgdpReason').value || 'WEATHER';
+        const remarks = document.getElementById('gsgdpRemarks').value || '';
 
         // Get selected Discord orgs
-        var orgs = [];
+        const orgs = [];
         document.querySelectorAll('.discord-org-checkbox-gsgdp:checked').forEach(function(cb) {
             orgs.push(cb.value);
         });
 
-        var payload = {
+        const payload = {
             program_id: state.programId,
             program_type: state.handoffType,
             ctl_element: state.handoffData.ctl_element,
@@ -724,7 +724,7 @@
             organizations: orgs,
             flights: state.handoffData.flights || [],
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown'
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
         };
 
         // Add type-specific data
@@ -734,18 +734,18 @@
             payload.summary = state.handoffData.summary || {};
         }
 
-        var btn = document.getElementById('gsgdpPublishDirect');
+        const btn = document.getElementById('gsgdpPublishDirect');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Publishing...';
 
         try {
-            var response = await fetch(API.publishDirect, {
+            const response = await fetch(API.publishDirect, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            var result = await response.json();
+            const result = await response.json();
 
             if (result.status === 'ok') {
                 showToast(state.handoffType + ' published successfully', 'success');
@@ -756,8 +756,8 @@
 
                 // Switch to Active TMIs tab
                 setTimeout(function() {
-                    var activeTab = document.getElementById('active-tab');
-                    if (activeTab) activeTab.click();
+                    const activeTab = document.getElementById('active-tab');
+                    if (activeTab) {activeTab.click();}
                 }, 500);
             } else {
                 showToast(result.message || 'Publish failed', 'error');
@@ -776,9 +776,9 @@
     // ============================================================================
 
     function formatDateTime(dateStr) {
-        if (!dateStr) return '--';
+        if (!dateStr) {return '--';}
         try {
-            var d = new Date(dateStr);
+            const d = new Date(dateStr);
             return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
         } catch (e) {
             return dateStr;
@@ -786,9 +786,9 @@
     }
 
     function formatTime(dateStr) {
-        if (!dateStr) return '--';
+        if (!dateStr) {return '--';}
         try {
-            var d = new Date(dateStr);
+            const d = new Date(dateStr);
             return d.toISOString().slice(11, 16) + 'Z';
         } catch (e) {
             return dateStr;
@@ -796,12 +796,12 @@
     }
 
     function formatAdvisoryTime(dateStr) {
-        if (!dateStr) return '--/----Z';
+        if (!dateStr) {return '--/----Z';}
         try {
-            var d = new Date(dateStr);
-            var day = String(d.getUTCDate()).padStart(2, '0');
-            var hr = String(d.getUTCHours()).padStart(2, '0');
-            var min = String(d.getUTCMinutes()).padStart(2, '0');
+            const d = new Date(dateStr);
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            const hr = String(d.getUTCHours()).padStart(2, '0');
+            const min = String(d.getUTCMinutes()).padStart(2, '0');
             return day + '/' + hr + min + 'Z';
         } catch (e) {
             return dateStr;
@@ -809,15 +809,15 @@
     }
 
     function calculateDuration(start, end) {
-        if (!start || !end) return '--';
+        if (!start || !end) {return '--';}
         try {
-            var s = new Date(start);
-            var e = new Date(end);
-            var diffMs = e - s;
-            var diffMin = Math.round(diffMs / 60000);
-            if (diffMin < 60) return diffMin + ' min';
-            var hrs = Math.floor(diffMin / 60);
-            var mins = diffMin % 60;
+            const s = new Date(start);
+            const e = new Date(end);
+            const diffMs = e - s;
+            const diffMin = Math.round(diffMs / 60000);
+            if (diffMin < 60) {return diffMin + ' min';}
+            const hrs = Math.floor(diffMin / 60);
+            const mins = diffMin % 60;
             return hrs + 'h ' + mins + 'm';
         } catch (e) {
             return '--';
@@ -825,17 +825,17 @@
     }
 
     function escapeHtml(str) {
-        if (!str) return '';
-        var div = document.createElement('div');
+        if (!str) {return '';}
+        const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
     function debounce(fn, delay) {
-        var timer;
+        let timer;
         return function() {
-            var args = arguments;
-            var context = this;
+            const args = arguments;
+            const context = this;
             clearTimeout(timer);
             timer = setTimeout(function() {
                 fn.apply(context, args);
@@ -851,7 +851,7 @@
                 icon: type || 'info',
                 title: message,
                 showConfirmButton: false,
-                timer: 3000
+                timer: 3000,
             });
         } else {
             console.log('[' + (type || 'info').toUpperCase() + '] ' + message);
@@ -869,10 +869,10 @@
     // Cancellation Modal Functions
     // ============================================================================
 
-    var cancelState = {
+    const cancelState = {
         programId: null,
         programType: null,
-        ctlElement: null
+        ctlElement: null,
     };
 
     /**
@@ -911,11 +911,11 @@
         // EDCT action radio buttons
         document.querySelectorAll('input[name="edctAction"]').forEach(function(radio) {
             radio.addEventListener('change', function() {
-                var timeGroup = document.getElementById('edctAfterTimeGroup');
+                const timeGroup = document.getElementById('edctAfterTimeGroup');
                 if (this.value === 'DISREGARD_AFTER') {
                     timeGroup.style.display = '';
                     // Set default time to now + 1 hour
-                    var now = new Date();
+                    const now = new Date();
                     now.setHours(now.getHours() + 1);
                     now.setMinutes(0);
                     document.getElementById('edctAfterTime').value = now.toISOString().slice(0, 16);
@@ -939,47 +939,47 @@
      * Update the cancellation advisory preview (vATCSCC format)
      */
     function updateCancelPreview() {
-        var ctlElement = cancelState.ctlElement || 'UNKN';
-        var elementType = cancelState.elementType || 'APT';
-        var artcc = cancelState.artcc || 'ZZZ';
-        var programType = cancelState.programType || 'GS';
-        var isGdp = programType.indexOf('GDP') !== -1;
-        var typeName = isGdp ? 'GROUND DELAY PROGRAM' : 'GROUND STOP';
+        const ctlElement = cancelState.ctlElement || 'UNKN';
+        const elementType = cancelState.elementType || 'APT';
+        const artcc = cancelState.artcc || 'ZZZ';
+        const programType = cancelState.programType || 'GS';
+        const isGdp = programType.indexOf('GDP') !== -1;
+        const typeName = isGdp ? 'GROUND DELAY PROGRAM' : 'GROUND STOP';
 
-        var reason = document.getElementById('cancelReason')?.value || 'OPERATIONAL_NEED';
-        var edctAction = document.querySelector('input[name="edctAction"]:checked')?.value || 'DISREGARD';
-        var notes = document.getElementById('cancelNotes')?.value || '';
+        const reason = document.getElementById('cancelReason')?.value || 'OPERATIONAL_NEED';
+        const edctAction = document.querySelector('input[name="edctAction"]:checked')?.value || 'DISREGARD';
+        const notes = document.getElementById('cancelNotes')?.value || '';
 
-        var now = new Date();
+        const now = new Date();
 
         // Header date: MM/DD/YYYY
-        var headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
+        const headerDate = padZero(now.getUTCMonth() + 1) + '/' + padZero(now.getUTCDate()) + '/' + now.getUTCFullYear();
 
         // ADL time: HHmmZ
-        var adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+        const adlTime = padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
 
         // Cancel time: DD/HHmmZ
-        var cancelTimeStr = padZero(now.getUTCDate()) + '/' + padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
+        const cancelTimeStr = padZero(now.getUTCDate()) + '/' + padZero(now.getUTCHours()) + padZero(now.getUTCMinutes()) + 'Z';
 
         // Footer timestamp: YY/MM/DD HH:mm
-        var footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
+        const footerTimestamp = String(now.getUTCFullYear()).slice(-2) + '/' +
                               padZero(now.getUTCMonth() + 1) + '/' +
                               padZero(now.getUTCDate()) + ' ' +
                               padZero(now.getUTCHours()) + ':' + padZero(now.getUTCMinutes());
 
         // Build EDCT line
-        var edctLine = '';
+        let edctLine = '';
         if (edctAction === 'DISREGARD') {
             edctLine = 'DISREGARD EDCTS FOR DEST ' + ctlElement;
         } else if (edctAction === 'DISREGARD_AFTER') {
-            var afterTime = document.getElementById('edctAfterTime')?.value;
-            var afterTimeStr = afterTime ? formatAdvisoryTime(afterTime) : '--/----Z';
+            const afterTime = document.getElementById('edctAfterTime')?.value;
+            const afterTimeStr = afterTime ? formatAdvisoryTime(afterTime) : '--/----Z';
             edctLine = 'DISREGARD EDCTS FOR DEST ' + ctlElement + ' AFTER ' + afterTimeStr;
         } else if (edctAction === 'AFP_ACTIVE') {
             edctLine = 'FLIGHTS MAY RECEIVE NEW EDCTS DUE TO AN ACTIVE AFP';
         }
 
-        var preview = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM ' + typeName + ' CNX\n' +
+        const preview = 'vATCSCC ADVZY ' + state.nextAdvisoryNumber + ' ' + ctlElement + '/' + artcc + ' ' + headerDate + ' CDM ' + typeName + ' CNX\n' +
                       'CTL ELEMENT: ' + ctlElement + '\n' +
                       'ELEMENT TYPE: ' + elementType + '\n' +
                       'ADL TIME: ' + adlTime + '\n' +
@@ -997,14 +997,14 @@
      * Handle confirm cancel button click
      */
     async function handleConfirmCancel() {
-        var reason = document.getElementById('cancelReason')?.value;
+        const reason = document.getElementById('cancelReason')?.value;
         if (!reason) {
             showToast('Please select a cancellation reason', 'warning');
             return;
         }
 
-        var edctAction = document.querySelector('input[name="edctAction"]:checked')?.value || 'DISREGARD';
-        var edctActionTime = null;
+        const edctAction = document.querySelector('input[name="edctAction"]:checked')?.value || 'DISREGARD';
+        let edctActionTime = null;
         if (edctAction === 'DISREGARD_AFTER') {
             edctActionTime = document.getElementById('edctAfterTime')?.value;
             if (!edctActionTime) {
@@ -1013,30 +1013,30 @@
             }
         }
 
-        var notes = document.getElementById('cancelNotes')?.value || '';
+        const notes = document.getElementById('cancelNotes')?.value || '';
 
-        var payload = {
+        const payload = {
             program_id: cancelState.programId,
             cancel_reason: reason,
             cancel_notes: notes,
             edct_action: edctAction,
             edct_action_time: edctActionTime,
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown'
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
         };
 
-        var btn = document.getElementById('confirmCancelBtn');
+        const btn = document.getElementById('confirmCancelBtn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Cancelling...';
 
         try {
-            var response = await fetch(API.cancelProgram, {
+            const response = await fetch(API.cancelProgram, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            var result = await response.json();
+            const result = await response.json();
 
             if (result.status === 'ok') {
                 showToast('Program cancelled - ' + (result.data?.advisory_number || ''), 'success');
@@ -1069,7 +1069,7 @@
     window.TMI_GSGDP = {
         getState: function() { return state; },
         reload: loadHandoffData,
-        openCancelModal: openCancelModal
+        openCancelModal: openCancelModal,
     };
 
 })();

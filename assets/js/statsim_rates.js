@@ -1,7 +1,7 @@
 /**
  * Statsim Traffic Data & Hourly Rates Module with FSM-style Demand Bar Graphs
  * For PERTI Review page
- * 
+ *
  * FSM Chapter 5 Styling:
  * - Title: "{ICAO} MM/DD/YYYY HH:MMZ"
  * - Arrivals bar LEFT, Departures bar RIGHT (between gridlines)
@@ -13,10 +13,10 @@
 
 (function() {
     'use strict';
-    
+
     let planId = null;
     let planInfo = null;  // Store plan info including H+0
-    
+
     function getPlanId() {
         const planIdInput = document.getElementById('plan_id');
         if (planIdInput && planIdInput.value) {
@@ -25,7 +25,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.keys().next().value;
     }
-    
+
     // =========================================================================
     // Custom Chart.js Plugin: Draw Legend on Canvas
     // =========================================================================
@@ -35,16 +35,16 @@
             const ctx = chart.ctx;
             const chartArea = chart.chartArea;
             const legendY = chart.height - 22;
-            
+
             ctx.save();
-            
+
             // Legend background
             ctx.fillStyle = '#d0d0d0';
             ctx.fillRect(chartArea.left, legendY - 2, chartArea.right - chartArea.left, 20);
             ctx.strokeStyle = '#808080';
             ctx.lineWidth = 1;
             ctx.strokeRect(chartArea.left, legendY - 2, chartArea.right - chartArea.left, 20);
-            
+
             // Legend items - Arrivals first (left bar), then Departures (right bar)
             const items = [
                 { color: '#ff0000', label: 'Arrivals', type: 'box' },
@@ -52,15 +52,15 @@
                 { color: '#ffffff', label: 'VATSIM AAR', type: 'line', dash: false },
                 { color: '#ffffff', label: 'VATSIM ADR', type: 'line', dash: true },
                 { color: '#00ffff', label: 'RW AAR', type: 'line', dash: false },
-                { color: '#00ffff', label: 'RW ADR', type: 'line', dash: true }
+                { color: '#00ffff', label: 'RW ADR', type: 'line', dash: true },
             ];
-            
+
             ctx.font = 'bold 9px "Segoe UI", Tahoma, Arial, sans-serif';
             ctx.textBaseline = 'middle';
-            
+
             let x = chartArea.left + 8;
             const y = legendY + 8;
-            
+
             items.forEach(item => {
                 if (item.type === 'box') {
                     ctx.fillStyle = item.color;
@@ -84,41 +84,41 @@
                     ctx.setLineDash([]);
                     x += 20;
                 }
-                
+
                 ctx.fillStyle = '#000';
                 ctx.fillText(item.label, x, y);
                 x += ctx.measureText(item.label).width + 12;
             });
-            
+
             ctx.restore();
-        }
+        },
     };
-    
+
     // Register the plugin
     Chart.register(legendPlugin);
-    
+
     // =========================================================================
     // Statsim Module
     // =========================================================================
     const Statsim = {
         defaults: null,
         airportNames: {},  // Standardized names from VATSIM_ADL.dbo.apts
-        
+
         init: function() {
             this.loadPlanDefaults();
             this.bindEvents();
         },
-        
+
         loadPlanDefaults: function() {
-            if (!planId) return;
-            
+            if (!planId) {return;}
+
             fetch(`api/statsim/plan_info.php?id=${planId}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         planInfo = data;  // Store full plan info for H+0 reference
                         this.defaults = data.defaults;
-                        
+
                         // Store standardized airport names from VATSIM_ADL.dbo.apts
                         if (data.airports && Array.isArray(data.airports)) {
                             data.airports.forEach(apt => {
@@ -129,10 +129,10 @@
                             // Pass to HourlyRates for use in headers
                             HourlyRates.setAirportNames(this.airportNames);
                         }
-                        
+
                         this.applyDefaults();
                         this.updateUrlDisplay();
-                        
+
                         // Set H+0 for HourlyRates from PERTI Plan
                         if (data.defaults && data.defaults.h0_datetime) {
                             HourlyRates.setEventStartHour(data.defaults.h0_datetime);
@@ -141,39 +141,39 @@
                 })
                 .catch(err => console.error('Failed to load plan defaults:', err));
         },
-        
+
         applyDefaults: function() {
-            if (!this.defaults) return;
+            if (!this.defaults) {return;}
             document.getElementById('statsim_airports').value = this.defaults.airports || '';
             document.getElementById('statsim_from').value = this.defaults.from || '';
             document.getElementById('statsim_to').value = this.defaults.to || '';
         },
-        
+
         bindEvents: function() {
             document.getElementById('statsim_fetch').addEventListener('click', () => this.fetchData());
             document.getElementById('statsim_open_url').addEventListener('click', () => this.openUrl());
             document.getElementById('statsim_reset_defaults').addEventListener('click', () => this.applyDefaults());
-            
+
             ['statsim_airports', 'statsim_from', 'statsim_to'].forEach(id => {
                 document.getElementById(id).addEventListener('input', () => this.updateUrlDisplay());
             });
         },
-        
+
         buildUrl: function() {
             const airports = document.getElementById('statsim_airports').value.replace(/\s/g, '');
             const from = document.getElementById('statsim_from').value;
             const to = document.getElementById('statsim_to').value;
-            
-            if (!airports || !from || !to) return null;
-            
+
+            if (!airports || !from || !to) {return null;}
+
             return `https://statsim.net/events/custom/?airports=${airports}&period=custom&from=${from}&to=${to}`;
         },
-        
+
         updateUrlDisplay: function() {
             const url = this.buildUrl();
             const display = document.getElementById('statsim_url_display');
             const link = document.getElementById('statsim_url_link');
-            
+
             if (url) {
                 link.href = url;
                 link.textContent = url;
@@ -182,26 +182,26 @@
                 display.style.display = 'none';
             }
         },
-        
+
         openUrl: function() {
             const url = this.buildUrl();
-            if (url) window.open(url, '_blank');
-            else alert('Please fill in all fields first.');
+            if (url) {window.open(url, '_blank');}
+            else {alert('Please fill in all fields first.');}
         },
-        
+
         fetchData: function() {
             const airports = document.getElementById('statsim_airports').value;
             const from = document.getElementById('statsim_from').value;
             const to = document.getElementById('statsim_to').value;
-            
+
             if (!airports || !from || !to) {
                 alert('Please fill in all fields.');
                 return;
             }
-            
+
             const resultsDiv = document.getElementById('statsim_results');
             resultsDiv.innerHTML = '<div class="statsim-loading"><i class="fas fa-spinner fa-spin"></i> Fetching data from Statsim...</div>';
-            
+
             fetch(`api/statsim/fetch.php?airports=${airports}&from=${from}&to=${to}`)
                 .then(r => r.json())
                 .then(data => this.displayResults(data))
@@ -209,10 +209,10 @@
                     resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Error: ${err.message}</div>`;
                 });
         },
-        
+
         displayResults: function(data) {
             const resultsDiv = document.getElementById('statsim_results');
-            
+
             if (data.error === true || data.success === false) {
                 resultsDiv.innerHTML = `
                     <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> ${data.message || 'An error occurred'}</div>
@@ -220,7 +220,7 @@
                 `;
                 return;
             }
-            
+
             if (data.scraping_available === false) {
                 resultsDiv.innerHTML = `
                     <div class="alert alert-info"><i class="fas fa-info-circle"></i> ${data.message}</div>
@@ -228,7 +228,7 @@
                 `;
                 return;
             }
-            
+
             resultsDiv.innerHTML = `
                 <div class="statsim-totals mb-3">
                     <div class="total-item">
@@ -246,13 +246,13 @@
                 </div>
                 <p class="small text-muted mb-0"><i class="fas fa-link"></i> Source: <a href="${data.statsim_url}" target="_blank">${data.statsim_url}</a></p>
             `;
-            
+
             if (data.airports && data.airports.length > 0) {
                 HourlyRates.populateFromStatsim(data);
             }
-        }
+        },
     };
-    
+
     // =========================================================================
     // HourlyRates Module with FSM-style Bar Graphs
     // =========================================================================
@@ -262,14 +262,14 @@
         charts: {},
         eventStartHour: null,  // H+0 reference point from PERTI Plan
         airportNames: {},  // Standardized names from VATSIM_ADL.dbo.apts
-        
+
         /**
          * Set standardized airport names from VATSIM_ADL.dbo.apts
          */
         setAirportNames: function(names) {
             this.airportNames = names || {};
         },
-        
+
         /**
          * Get standardized airport name
          * Priority: 1) VATSIM_ADL.dbo.apts, 2) Statsim data, 3) ICAO
@@ -290,7 +290,7 @@
             }
             return icao;
         },
-        
+
         /**
          * Set H+0 from PERTI Plan (called by Statsim.loadPlanDefaults)
          */
@@ -300,27 +300,27 @@
                 console.log('H+0 set from PERTI Plan:', this.eventStartHour.toISOString());
             }
         },
-        
+
         /**
          * Calculate relative hour label (H-2, H-1, H+0, H+1, etc.)
          * Based on PERTI Plan event start, not statsim data
          */
         getRelativeHourLabel: function(hourTimestamp) {
-            if (!this.eventStartHour) return '';
-            
+            if (!this.eventStartHour) {return '';}
+
             const hourDate = new Date(hourTimestamp);
             hourDate.setUTCMinutes(0);
             hourDate.setUTCSeconds(0);
             hourDate.setUTCMilliseconds(0);
-            
+
             const diffMs = hourDate.getTime() - this.eventStartHour.getTime();
             const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-            
-            if (diffHours === 0) return 'H+0';
-            if (diffHours > 0) return `H+${diffHours}`;
+
+            if (diffHours === 0) {return 'H+0';}
+            if (diffHours > 0) {return `H+${diffHours}`;}
             return `H${diffHours}`;
         },
-        
+
         /**
          * Format date as DD/HHMM for table display
          */
@@ -330,7 +330,7 @@
             const hhmm = time.replace(':', '');
             return `${day}/${hhmm}`;
         },
-        
+
         /**
          * Format date as MM/DD/YYYY for chart title
          */
@@ -339,31 +339,31 @@
             const parts = date.split('-');
             return `${parts[1]}/${parts[2]}/${parts[0]}`;
         },
-        
+
         /**
          * Format time as HH:MMZ for chart title
          */
         formatChartTime: function(time) {
             return time + 'Z';
         },
-        
+
         populateFromStatsim: function(data) {
             this.statsimData = data;
             this.airports = {};
-            
+
             Object.values(this.charts).forEach(chart => chart.destroy());
             this.charts = {};
-            
+
             // Note: eventStartHour is already set from PERTI Plan via setEventStartHour()
-            
+
             data.airports.forEach(airport => {
                 this.airports[airport.icao] = {
                     name: airport.name,
                     totalArr: airport.arrivals,
                     totalDep: airport.departures,
-                    hours: []
+                    hours: [],
                 };
-                
+
                 if (airport.hourly && airport.hourly.length > 0) {
                     airport.hourly.forEach(h => {
                         this.airports[airport.icao].hours.push({
@@ -377,31 +377,31 @@
                             vatsim_aar: '',
                             vatsim_adr: '',
                             rw_aar: '',
-                            rw_adr: ''
+                            rw_adr: '',
                         });
                     });
                 }
             });
-            
+
             this.renderAll();
         },
-        
+
         renderAll: function() {
             const container = document.getElementById('hourly_rates_container');
-            
+
             if (Object.keys(this.airports).length === 0) {
                 container.innerHTML = `<div class="text-muted text-center py-3"><i class="fas fa-info-circle"></i> Fetch Statsim data to populate hourly rate inputs.</div>`;
                 document.getElementById('rates_actions').style.display = 'none';
                 return;
             }
-            
+
             let html = '';
-            
+
             Object.keys(this.airports).forEach(icao => {
                 const airport = this.airports[icao];
                 // Use standardized name from VATSIM_ADL.dbo.apts
                 const displayName = this.getAirportName(icao);
-                
+
                 html += `
                     <div class="airport-rates-card" id="airport_card_${icao}">
                         <div class="airport-rates-header">
@@ -471,7 +471,7 @@
                                 </thead>
                                 <tbody>
                 `;
-                
+
                 airport.hours.forEach((hour, idx) => {
                     const relClass = hour.relativeHour === 'H+0' ? 'rel-zero' : '';
                     html += `
@@ -503,7 +503,7 @@
                         </tr>
                     `;
                 });
-                
+
                 html += `
                                 </tbody>
                                 <tfoot>
@@ -522,20 +522,20 @@
                     </div>
                 `;
             });
-            
+
             container.innerHTML = html;
             document.getElementById('rates_actions').style.display = 'flex';
-            
+
             container.querySelectorAll('.rate-input').forEach(input => {
                 input.addEventListener('change', (e) => this.onInputChange(e));
                 input.addEventListener('input', (e) => this.onInputChange(e));
             });
-            
+
             Object.keys(this.airports).forEach(icao => {
                 this.createChart(icao);
             });
         },
-        
+
         /**
          * Create FSM-style demand bar graph
          * - Arrivals on LEFT, Departures on RIGHT (between gridlines)
@@ -545,18 +545,18 @@
          */
         createChart: function(icao) {
             const canvas = document.getElementById(`chart_${icao}`);
-            if (!canvas) return;
-            
+            if (!canvas) {return;}
+
             const airport = this.airports[icao];
             const firstHour = airport.hours.length > 0 ? airport.hours[0] : null;
-            
+
             // Format: MM/DD/YYYY HH:MMZ
             const dateStr = firstHour ? this.formatChartDate(firstHour.date) : '';
             const timeStr = firstHour ? this.formatChartTime(firstHour.time) : '';
-            
+
             // HHMM format labels (e.g., "0100", "0200")
             const labels = airport.hours.map(h => h.time.replace(':', ''));
-            
+
             // Data - Arrivals first (left bar), Departures second (right bar)
             const arrData = airport.hours.map(h => h.statsim_arr);
             const depData = airport.hours.map(h => h.statsim_dep);
@@ -564,14 +564,14 @@
             const vatsimAdrData = airport.hours.map(h => h.vatsim_adr !== '' ? parseInt(h.vatsim_adr) : null);
             const rwAarData = airport.hours.map(h => h.rw_aar !== '' ? parseInt(h.rw_aar) : null);
             const rwAdrData = airport.hours.map(h => h.rw_adr !== '' ? parseInt(h.rw_adr) : null);
-            
+
             // FSM-style font configuration
             const fsmFont = {
                 family: "'Segoe UI', Tahoma, Arial, sans-serif",
                 size: 10,
-                weight: 'bold'
+                weight: 'bold',
             };
-            
+
             this.charts[icao] = new Chart(canvas, {
                 type: 'bar',
                 data: {
@@ -586,7 +586,7 @@
                             borderWidth: 1,
                             barPercentage: 0.85,
                             categoryPercentage: 0.9,
-                            order: 2
+                            order: 2,
                         },
                         {
                             // Departures = Bright Green (RIGHT bar)
@@ -597,7 +597,7 @@
                             borderWidth: 1,
                             barPercentage: 0.85,
                             categoryPercentage: 0.9,
-                            order: 2
+                            order: 2,
                         },
                         {
                             // VATSIM AAR = White STEPPED line (THICK)
@@ -614,7 +614,7 @@
                             pointBorderColor: '#000000',
                             fill: false,
                             spanGaps: false,
-                            order: 1
+                            order: 1,
                         },
                         {
                             // VATSIM ADR = White STEPPED dashed line (THICK)
@@ -632,7 +632,7 @@
                             pointBorderColor: '#000000',
                             fill: false,
                             spanGaps: false,
-                            order: 1
+                            order: 1,
                         },
                         {
                             // RW AAR = Cyan STEPPED line (THICK)
@@ -649,7 +649,7 @@
                             pointBorderColor: '#000000',
                             fill: false,
                             spanGaps: false,
-                            order: 1
+                            order: 1,
                         },
                         {
                             // RW ADR = Cyan STEPPED dashed line (THICK)
@@ -667,9 +667,9 @@
                             pointBorderColor: '#000000',
                             fill: false,
                             spanGaps: false,
-                            order: 1
-                        }
-                    ]
+                            order: 1,
+                        },
+                    ],
                 },
                 options: {
                     responsive: true,
@@ -679,12 +679,12 @@
                             left: 5,
                             right: 10,
                             top: 5,
-                            bottom: 25  // Extra space for legend
-                        }
+                            bottom: 25,  // Extra space for legend
+                        },
                     },
                     interaction: {
                         mode: 'index',
-                        intersect: false
+                        intersect: false,
                     },
                     plugins: {
                         // Title rendered ON canvas: MM/DD/YYYY HH:MMZ
@@ -695,12 +695,12 @@
                             font: {
                                 family: "'Segoe UI', Tahoma, Arial, sans-serif",
                                 size: 14,
-                                weight: 'bold'
+                                weight: 'bold',
                             },
-                            padding: { top: 4, bottom: 8 }
+                            padding: { top: 4, bottom: 8 },
                         },
                         legend: {
-                            display: false  // We use custom canvas legend plugin
+                            display: false,  // We use custom canvas legend plugin
                         },
                         tooltip: {
                             backgroundColor: 'rgba(0,0,0,0.9)',
@@ -711,11 +711,11 @@
                             padding: 10,
                             callbacks: {
                                 label: function(context) {
-                                    if (context.raw === null) return null;
+                                    if (context.raw === null) {return null;}
                                     return `${context.dataset.label}: ${context.raw}`;
-                                }
-                            }
-                        }
+                                },
+                            },
+                        },
                     },
                     scales: {
                         x: {
@@ -725,80 +725,80 @@
                                 color: '#666666',
                                 lineWidth: 1,
                                 offset: true,  // Gridlines at category BOUNDARIES (edges)
-                                drawOnChartArea: true
+                                drawOnChartArea: true,
                             },
                             border: {
                                 color: '#000000',
-                                width: 2
+                                width: 2,
                             },
                             ticks: {
                                 color: '#000000',
                                 font: { ...fsmFont, size: 9 },
                                 maxRotation: 90,
                                 minRotation: 90,
-                                padding: 2
+                                padding: 2,
                             },
                             title: {
                                 display: true,
                                 text: 'Time in 60-Minute Increments',
                                 color: '#000000',
                                 font: { ...fsmFont, size: 10 },
-                                padding: { top: 2 }
-                            }
+                                padding: { top: 2 },
+                            },
                         },
                         y: {
                             beginAtZero: true,
                             grid: {
                                 color: '#666666',
-                                lineWidth: 1
+                                lineWidth: 1,
                             },
                             border: {
                                 color: '#000000',
-                                width: 2
+                                width: 2,
                             },
                             ticks: {
                                 color: '#000000',
                                 font: { ...fsmFont, size: 9 },
                                 stepSize: 10,
-                                padding: 4
+                                padding: 4,
                             },
                             title: {
                                 display: true,
                                 text: 'Demand',
                                 color: '#000000',
                                 font: { ...fsmFont, size: 10 },
-                                padding: { bottom: 2 }
-                            }
-                        }
-                    }
-                }
+                                padding: { bottom: 2 },
+                            },
+                        },
+                    },
+                },
             });
         },
-        
+
         updateChart: function(icao) {
             const chart = this.charts[icao];
-            if (!chart) return;
-            
+            if (!chart) {return;}
+
             const airport = this.airports[icao];
-            
+
             chart.data.datasets[2].data = airport.hours.map(h => h.vatsim_aar !== '' ? parseInt(h.vatsim_aar) : null);
             chart.data.datasets[3].data = airport.hours.map(h => h.vatsim_adr !== '' ? parseInt(h.vatsim_adr) : null);
             chart.data.datasets[4].data = airport.hours.map(h => h.rw_aar !== '' ? parseInt(h.rw_aar) : null);
             chart.data.datasets[5].data = airport.hours.map(h => h.rw_adr !== '' ? parseInt(h.rw_adr) : null);
-            
+
             chart.update('none');
         },
-        
+
         // =====================================================================
         // Export Functions with Clipboard Support
         // =====================================================================
-        
+
         copyToClipboard: async function(icao, format) {
             try {
                 if (format === 'png') {
                     const canvas = document.getElementById(`chart_${icao}`);
-                    if (!canvas) return;
-                    
+                    if (!canvas) {return;}
+
                     const tempCanvas = document.createElement('canvas');
                     const ctx = tempCanvas.getContext('2d');
                     tempCanvas.width = canvas.width;
@@ -806,11 +806,11 @@
                     ctx.fillStyle = '#c0c0c0';
                     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
                     ctx.drawImage(canvas, 0, 0);
-                    
+
                     tempCanvas.toBlob(async (blob) => {
                         try {
                             await navigator.clipboard.write([
-                                new ClipboardItem({ 'image/png': blob })
+                                new ClipboardItem({ 'image/png': blob }),
                             ]);
                             this.showCopySuccess('PNG copied to clipboard!');
                         } catch (err) {
@@ -818,12 +818,12 @@
                             alert('Could not copy to clipboard. Try the download button instead.');
                         }
                     }, 'image/png');
-                    
+
                 } else if (format === 'csv') {
                     const csv = this.generateChartCSV(icao);
                     await navigator.clipboard.writeText(csv);
                     this.showCopySuccess('CSV copied to clipboard!');
-                    
+
                 } else if (format === 'svg') {
                     const svg = this.generateSVG(icao);
                     await navigator.clipboard.writeText(svg);
@@ -834,7 +834,7 @@
                 alert('Could not copy to clipboard: ' + err.message);
             }
         },
-        
+
         showCopySuccess: function(message) {
             const toast = document.createElement('div');
             toast.innerHTML = `<i class="fas fa-check"></i> ${message}`;
@@ -842,11 +842,11 @@
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2000);
         },
-        
+
         exportPNG: function(icao) {
             const canvas = document.getElementById(`chart_${icao}`);
-            if (!canvas) return;
-            
+            if (!canvas) {return;}
+
             const tempCanvas = document.createElement('canvas');
             const ctx = tempCanvas.getContext('2d');
             tempCanvas.width = canvas.width;
@@ -854,37 +854,37 @@
             ctx.fillStyle = '#c0c0c0';
             ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
             ctx.drawImage(canvas, 0, 0);
-            
+
             const link = document.createElement('a');
             link.download = `${icao}_demand_chart.png`;
             link.href = tempCanvas.toDataURL('image/png');
             link.click();
         },
-        
+
         generateSVG: function(icao) {
             const chart = this.charts[icao];
-            if (!chart) return '';
-            
+            if (!chart) {return '';}
+
             const airport = this.airports[icao];
             const canvas = document.getElementById(`chart_${icao}`);
             const width = canvas.width || 800;
             const height = canvas.height || 400;
-            
+
             const firstHour = airport.hours.length > 0 ? airport.hours[0] : null;
             const dateStr = firstHour ? this.formatChartDate(firstHour.date) : '';
             const timeStr = firstHour ? this.formatChartTime(firstHour.time) : '';
-            
+
             const labels = airport.hours.map(h => h.time.replace(':', ''));
             const arrData = airport.hours.map(h => h.statsim_arr);
             const depData = airport.hours.map(h => h.statsim_dep);
             const maxVal = Math.max(...arrData, ...depData, 10) * 1.15;
-            
+
             const margin = { top: 40, right: 20, bottom: 80, left: 50 };
             const chartWidth = width - margin.left - margin.right;
             const chartHeight = height - margin.top - margin.bottom;
             const gap = chartWidth / labels.length;
             const barWidth = gap * 0.38;
-            
+
             let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
@@ -902,7 +902,7 @@
   
   <g transform="translate(${margin.left}, ${margin.top})">
 `;
-            
+
             // Grid lines at labels (period start)
             labels.forEach((label, i) => {
                 const x = i * gap;
@@ -912,20 +912,20 @@
             // Final gridline
             svg += `    <line x1="${chartWidth}" y1="0" x2="${chartWidth}" y2="${chartHeight}" stroke="#666" stroke-width="1"/>
 `;
-            
+
             // Horizontal grid lines
             for (let i = 0; i <= 5; i++) {
                 const y = (chartHeight / 5) * i;
                 svg += `    <line x1="0" y1="${y}" x2="${chartWidth}" y2="${y}" stroke="#666" stroke-width="1"/>
 `;
             }
-            
+
             // Bars - positioned between gridlines (Arrivals LEFT, Departures RIGHT)
             labels.forEach((label, i) => {
                 const x = i * gap;
                 const arrH = (arrData[i] / maxVal) * chartHeight;
                 const depH = (depData[i] / maxVal) * chartHeight;
-                
+
                 // Arrivals bar (LEFT, after gridline)
                 svg += `    <rect x="${x + gap * 0.05}" y="${chartHeight - arrH}" width="${barWidth}" height="${arrH}" fill="#ff0000" stroke="#cc0000"/>
 `;
@@ -936,12 +936,12 @@
                 svg += `    <text x="${x}" y="${chartHeight + 8}" transform="rotate(90, ${x}, ${chartHeight + 8})" class="tick-label">${label}</text>
 `;
             });
-            
+
             // Axes
             svg += `    <line x1="0" y1="${chartHeight}" x2="${chartWidth}" y2="${chartHeight}" stroke="#000" stroke-width="2"/>
     <line x1="0" y1="0" x2="0" y2="${chartHeight}" stroke="#000" stroke-width="2"/>
 `;
-            
+
             // Y-axis ticks
             for (let i = 0; i <= 5; i++) {
                 const y = chartHeight - (chartHeight / 5) * i;
@@ -949,12 +949,12 @@
                 svg += `    <text x="-8" y="${y + 3}" text-anchor="end" class="tick-label">${val}</text>
 `;
             }
-            
+
             // Axis labels
             svg += `    <text x="${chartWidth/2}" y="${chartHeight + 55}" text-anchor="middle" class="axis-label">Time in 60-Minute Increments</text>
     <text x="-30" y="${chartHeight/2}" text-anchor="middle" transform="rotate(-90, -30, ${chartHeight/2})" class="axis-label">Demand</text>
 `;
-            
+
             svg += `  </g>
   
   <!-- Legend -->
@@ -972,14 +972,14 @@
   <line x1="${margin.left + 380}" y1="${height - 11}" x2="${margin.left + 395}" y2="${height - 11}" stroke="#0ff" stroke-width="3" stroke-dasharray="4,2"/>
   <text x="${margin.left + 398}" y="${height - 8}" class="legend-text">RW ADR</text>
 </svg>`;
-            
+
             return svg;
         },
-        
+
         exportSVG: function(icao) {
             const svg = this.generateSVG(icao);
-            if (!svg) return;
-            
+            if (!svg) {return;}
+
             const blob = new Blob([svg], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -988,24 +988,24 @@
             link.click();
             URL.revokeObjectURL(url);
         },
-        
+
         generateChartCSV: function(icao) {
             const airport = this.airports[icao];
-            if (!airport) return '';
-            
+            if (!airport) {return '';}
+
             let csv = `Relative,DD/HHMM,Statsim Arrivals,Statsim Departures,VATSIM AAR,VATSIM ADR,RW AAR,RW ADR\n`;
-            
+
             airport.hours.forEach(h => {
                 csv += `${h.relativeHour},${h.tableTime},${h.statsim_arr},${h.statsim_dep},${h.vatsim_aar || ''},${h.vatsim_adr || ''},${h.rw_aar || ''},${h.rw_adr || ''}\n`;
             });
-            
+
             return csv;
         },
-        
+
         exportChartCSV: function(icao) {
             const csv = this.generateChartCSV(icao);
-            if (!csv) return;
-            
+            if (!csv) {return;}
+
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1014,32 +1014,32 @@
             link.click();
             URL.revokeObjectURL(url);
         },
-        
+
         // =====================================================================
         // Input Handling
         // =====================================================================
-        
+
         onInputChange: function(e) {
             const icao = e.target.dataset.icao;
             const idx = parseInt(e.target.dataset.idx);
             const field = e.target.dataset.field;
             const value = e.target.value;
-            
+
             if (this.airports[icao] && this.airports[icao].hours[idx]) {
                 this.airports[icao].hours[idx][field] = value;
             }
-            
+
             this.updateTotals(icao);
             this.updateChart(icao);
         },
-        
+
         updateTotals: function(icao) {
             const airport = this.airports[icao];
-            if (!airport) return;
-            
+            if (!airport) {return;}
+
             const totals = { vatsim_aar: 0, vatsim_adr: 0, rw_aar: 0, rw_adr: 0 };
             const hasTotals = { vatsim_aar: false, vatsim_adr: false, rw_aar: false, rw_adr: false };
-            
+
             airport.hours.forEach(h => {
                 ['vatsim_aar', 'vatsim_adr', 'rw_aar', 'rw_adr'].forEach(field => {
                     if (h[field] !== '' && !isNaN(parseInt(h[field]))) {
@@ -1048,38 +1048,38 @@
                     }
                 });
             });
-            
+
             ['vatsim_aar', 'vatsim_adr', 'rw_aar', 'rw_adr'].forEach(field => {
                 const el = document.getElementById(`total_${icao}_${field}`);
-                if (el) el.textContent = hasTotals[field] ? totals[field] : '-';
+                if (el) {el.textContent = hasTotals[field] ? totals[field] : '-';}
             });
         },
-        
+
         quickFill: function(icao, field) {
             const qfInput = document.getElementById(`qf_${icao}_${field}`);
             const value = qfInput.value;
-            
+
             if (value === '') {
                 alert('Enter a value to fill first.');
                 return;
             }
-            
+
             const airport = this.airports[icao];
-            if (!airport) return;
-            
+            if (!airport) {return;}
+
             airport.hours.forEach((hour, idx) => {
                 hour[field] = value;
                 const input = document.querySelector(`input[data-icao="${icao}"][data-idx="${idx}"][data-field="${field}"]`);
-                if (input) input.value = value;
+                if (input) {input.value = value;}
             });
-            
+
             this.updateTotals(icao);
             this.updateChart(icao);
         },
-        
+
         clearAll: function() {
-            if (!confirm('Clear all rate values?')) return;
-            
+            if (!confirm('Clear all rate values?')) {return;}
+
             Object.keys(this.airports).forEach(icao => {
                 this.airports[icao].hours.forEach(hour => {
                     hour.vatsim_aar = '';
@@ -1088,32 +1088,32 @@
                     hour.rw_adr = '';
                 });
             });
-            
+
             this.renderAll();
         },
-        
+
         saveRates: function() {
             const saveBtn = document.querySelector('#rates_actions .btn-success');
             const originalText = saveBtn.innerHTML;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             saveBtn.disabled = true;
-            
+
             const airports = [];
             Object.keys(this.airports).forEach(icao => {
                 const airport = this.airports[icao];
-                const totals = { 
-                    statsim_arr: airport.totalArr, 
+                const totals = {
+                    statsim_arr: airport.totalArr,
                     statsim_dep: airport.totalDep,
-                    vatsim_aar: 0, vatsim_adr: 0, rw_aar: 0, rw_adr: 0
+                    vatsim_aar: 0, vatsim_adr: 0, rw_aar: 0, rw_adr: 0,
                 };
-                
+
                 const hours = airport.hours.map(h => {
                     ['vatsim_aar', 'vatsim_adr', 'rw_aar', 'rw_adr'].forEach(f => {
                         if (h[f] !== '' && !isNaN(parseInt(h[f]))) {
                             totals[f] += parseInt(h[f]);
                         }
                     });
-                    
+
                     return {
                         timestamp: h.timestamp,
                         date: h.date,
@@ -1123,50 +1123,50 @@
                         vatsim_aar: h.vatsim_aar !== '' ? parseInt(h.vatsim_aar) : null,
                         vatsim_adr: h.vatsim_adr !== '' ? parseInt(h.vatsim_adr) : null,
                         rw_aar: h.rw_aar !== '' ? parseInt(h.rw_aar) : null,
-                        rw_adr: h.rw_adr !== '' ? parseInt(h.rw_adr) : null
+                        rw_adr: h.rw_adr !== '' ? parseInt(h.rw_adr) : null,
                     };
                 });
-                
+
                 airports.push({ icao, name: airport.name, totals, hours });
             });
-            
+
             fetch('api/statsim/save_rates.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     plan_id: planId,
                     statsim_url: this.statsimData?.statsim_url || '',
-                    airports
+                    airports,
+                }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                    alert(data.success ? 'Rates saved successfully to VATSIM_ADL!' : 'Error: ' + (data.message || 'Unknown error'));
                 })
-            })
-            .then(r => r.json())
-            .then(data => {
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-                alert(data.success ? 'Rates saved successfully to VATSIM_ADL!' : 'Error: ' + (data.message || 'Unknown error'));
-            })
-            .catch(err => {
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-                alert('Error saving rates: ' + err.message);
-            });
+                .catch(err => {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                    alert('Error saving rates: ' + err.message);
+                });
         },
-        
+
         exportCSV: function() {
             if (Object.keys(this.airports).length === 0) {
                 alert('No data to export.');
                 return;
             }
-            
+
             let csv = 'Airport,Relative,DD/HHMM,Date,Time,Statsim Arr,Statsim Dep,VATSIM AAR,VATSIM ADR,RW AAR,RW ADR\n';
-            
+
             Object.keys(this.airports).forEach(icao => {
                 const airport = this.airports[icao];
                 airport.hours.forEach(h => {
                     csv += `${icao},${h.relativeHour},${h.tableTime},${h.date},${h.time},${h.statsim_arr},${h.statsim_dep},${h.vatsim_aar || ''},${h.vatsim_adr || ''},${h.rw_aar || ''},${h.rw_adr || ''}\n`;
                 });
             });
-            
+
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1174,12 +1174,12 @@
             link.href = url;
             link.click();
             URL.revokeObjectURL(url);
-        }
+        },
     };
-    
+
     window.Statsim = Statsim;
     window.HourlyRates = HourlyRates;
-    
+
     document.addEventListener('DOMContentLoaded', () => {
         planId = getPlanId();
         Statsim.init();

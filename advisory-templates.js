@@ -1,10 +1,10 @@
 /**
  * vATCSCC Advisory Templates - FAA TFMS Compliant
  * Based on: Advisories and General Messages v1.3 (CSC/TFMM-10/1077)
- * 
+ *
  * This module provides template generation functions for creating
  * FAA-specification-compliant advisory text.
- * 
+ *
  * @version 1.0
  * @date 2026-01-05
  */
@@ -15,7 +15,7 @@ const AdvisoryTemplates = (function() {
     // ========================================
     // Constants
     // ========================================
-    
+
     const ADVISORY_TYPES = {
         ROUTE: 'ROUTE',
         PLAYBOOK: 'PLAYBOOK',
@@ -29,14 +29,14 @@ const AdvisoryTemplates = (function() {
         FCA: 'FCA',
         FEA: 'FEA',
         INFORMATIONAL: 'INFORMATIONAL',
-        MISCELLANEOUS: 'MISCELLANEOUS'
+        MISCELLANEOUS: 'MISCELLANEOUS',
     };
 
     const ADVISORY_ACTIONS = {
         RQD: 'RQD',    // Required
         RMD: 'RMD',    // Recommended
         PLN: 'PLN',    // Planned
-        FYI: 'FYI'     // For Your Information
+        FYI: 'FYI',     // For Your Information
     };
 
     const IMPACTING_CONDITIONS = {
@@ -44,20 +44,20 @@ const AdvisoryTemplates = (function() {
         VOLUME: 'VOLUME',
         RUNWAY: 'RUNWAY',
         EQUIPMENT: 'EQUIPMENT',
-        OTHER: 'OTHER'
+        OTHER: 'OTHER',
     };
 
     const PROBABILITY_EXTENSION = {
         NONE: 'NONE',
         LOW: 'LOW',
         MEDIUM: 'MEDIUM',
-        HIGH: 'HIGH'
+        HIGH: 'HIGH',
     };
 
     const DELAY_ASSIGNMENT_MODES = {
         DAS: 'DAS',    // Delay Assignment System
         GAAP: 'GAAP',  // Ground-Airline-Airport Partnership
-        UDP: 'UDP'     // User-Defined Parameter
+        UDP: 'UDP',     // User-Defined Parameter
     };
 
     const MAX_LINE_LENGTH = 68;
@@ -143,7 +143,7 @@ const AdvisoryTemplates = (function() {
      * Word-wrap text to max line length
      */
     function wordWrap(text, maxLength = MAX_LINE_LENGTH) {
-        if (!text) return '';
+        if (!text) {return '';}
         const words = text.split(' ');
         const lines = [];
         let currentLine = '';
@@ -152,11 +152,11 @@ const AdvisoryTemplates = (function() {
             if (currentLine.length + word.length + 1 <= maxLength) {
                 currentLine += (currentLine ? ' ' : '') + word;
             } else {
-                if (currentLine) lines.push(currentLine);
+                if (currentLine) {lines.push(currentLine);}
                 currentLine = word;
             }
         }
-        if (currentLine) lines.push(currentLine);
+        if (currentLine) {lines.push(currentLine);}
         return lines.join('\n');
     }
 
@@ -166,7 +166,7 @@ const AdvisoryTemplates = (function() {
      * Output: '/ZNY/ZOB/ZDC'
      */
     function formatFacilitiesSlash(facilities) {
-        if (!facilities || !facilities.length) return '';
+        if (!facilities || !facilities.length) {return '';}
         return '/' + facilities.join('/');
     }
 
@@ -176,7 +176,7 @@ const AdvisoryTemplates = (function() {
      * Output: 'ZNY ZOB ZDC'
      */
     function formatFacilitiesSpace(facilities) {
-        if (!facilities || !facilities.length) return '';
+        if (!facilities || !facilities.length) {return '';}
         return facilities.join(' ');
     }
 
@@ -190,10 +190,10 @@ const AdvisoryTemplates = (function() {
      * @param {string} format - 'standard' or 'simple'
      */
     function generateRouteTable(routes, format = 'standard') {
-        if (!routes || !routes.length) return '';
+        if (!routes || !routes.length) {return '';}
 
         let output = '';
-        
+
         if (format === 'standard') {
             output += 'ORIG DEST ASSIGNED ROUTE\n';
             output += '---- ---- --------------\n';
@@ -238,7 +238,7 @@ const AdvisoryTemplates = (function() {
             associatedRestrictions = '',
             modifications = '',
             routes = [],
-            tmiId = null
+            tmiId = null,
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -288,7 +288,7 @@ const AdvisoryTemplates = (function() {
             probExtension = PROBABILITY_EXTENSION.MEDIUM,
             impactingCondition = IMPACTING_CONDITIONS.VOLUME,
             impactingText = '',
-            comments = ''
+            comments = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -300,11 +300,11 @@ const AdvisoryTemplates = (function() {
         const validEnd = formatTimeDDHHMM(gsEnd);
         const sigTime = formatSignatureTime(issueDate);
 
-        const depFacStr = depFacilitiesKeyword 
+        const depFacStr = depFacilitiesKeyword
             ? `(${depFacilitiesKeyword}) ${formatFacilitiesSpace(depFacilitiesIncluded)}`
             : formatFacilitiesSpace(depFacilitiesIncluded);
 
-        const impactStr = impactingText 
+        const impactStr = impactingText
             ? `${impactingCondition} ${impactingText}`
             : impactingCondition;
 
@@ -338,7 +338,7 @@ const AdvisoryTemplates = (function() {
             cnxStart,
             cnxEnd,
             hasActiveAFP = false,
-            comments = ''
+            comments = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -390,7 +390,7 @@ const AdvisoryTemplates = (function() {
             avgDelay = 0,
             impactingCondition = IMPACTING_CONDITIONS.WEATHER,
             impactingText = '',
-            comments = ''
+            comments = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -404,7 +404,7 @@ const AdvisoryTemplates = (function() {
         const validEnd = formatTimeDDHHMM(programEnd);
         const sigTime = formatSignatureTime(issueDate);
 
-        const impactStr = impactingText 
+        const impactStr = impactingText
             ? `${impactingCondition} ${impactingText}`
             : impactingCondition;
 
@@ -450,7 +450,7 @@ const AdvisoryTemplates = (function() {
             cnxStart,
             cnxEnd,
             hasActiveAFP = false,
-            comments = ''
+            comments = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -495,7 +495,7 @@ const AdvisoryTemplates = (function() {
             password = null,
             participation = 'RECOMMENDED',
             participationFacilities = [],
-            contactPerson = ''
+            contactPerson = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -548,7 +548,7 @@ const AdvisoryTemplates = (function() {
             issueDate = new Date(),
             validStart,
             validEnd,
-            bodyText = ''
+            bodyText = '',
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -589,9 +589,9 @@ const AdvisoryTemplates = (function() {
             alternateRoutes = {
                 departures: 'AS NECESSARY',
                 arrivals: 'AS NECESSARY',
-                overflights: 'AS NECESSARY'
+                overflights: 'AS NECESSARY',
             },
-            hotlineInfo = null
+            hotlineInfo = null,
         } = params;
 
         const headerDate = formatDateMMDDYYYY(issueDate);
@@ -687,7 +687,7 @@ const AdvisoryTemplates = (function() {
         generateGDPCancelAdvisory,
         generateHotlineAdvisory,
         generateInformationalAdvisory,
-        generateSWAPAdvisory
+        generateSWAPAdvisory,
     };
 })();
 

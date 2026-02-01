@@ -5,7 +5,7 @@
 (function() {
     'use strict';
     const config = window.JATOC_CONFIG || {};
-    
+
     const state = {
         incidents: [],
         currentIncident: null,
@@ -17,7 +17,7 @@
         hiddenIncidents: new Set(),
         userProfile: null,
         sortColumn: 'start_utc',
-        sortDirection: 'desc'
+        sortDirection: 'desc',
     };
 
     // ========== FACILITY & ROLE DATA ==========
@@ -25,17 +25,17 @@
         ARTCC: [
             'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
             'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-            'ZAN', 'HCF'
+            'ZAN', 'HCF',
         ],
         TRACON: [
             'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'I90', 'L30', 'M98', 'N90',
-            'NCT', 'NorCal', 'P50', 'P80', 'PCT', 'R90', 'S46', 'S56', 'SCT', 'T75', 'Y90'
+            'NCT', 'NorCal', 'P50', 'P80', 'PCT', 'R90', 'S46', 'S56', 'SCT', 'T75', 'Y90',
         ],
         ATCT: [
             'KATL', 'KBOS', 'KBWI', 'KCLT', 'KCVG', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
             'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA',
             'KMCO', 'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KOAK', 'KORD', 'KPBI', 'KPDX',
-            'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KSTL', 'KTPA'
+            'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KSTL', 'KTPA',
         ],
         FIR: [
             'CZEG', 'CZQM', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ',
@@ -53,8 +53,8 @@
             'DGAC', 'DRRR', 'DNKK', 'GOOO', 'GMMM', 'DTTC', 'HLLL', 'HECC',
             'SCEZ', 'SCEL', 'SUEO', 'SABE', 'SBBS', 'SBCW', 'SBRE', 'SBAZ',
             'SVZM', 'SKED', 'SKEC', 'SPIM', 'SLLF', 'SEGU',
-            'MHTG', 'MGGT', 'MMMX', 'MMFR', 'MMTY', 'MMZT', 'TJZS', 'MKJK', 'MDCS', 'TTZP'
-        ]
+            'MHTG', 'MGGT', 'MMMX', 'MMFR', 'MMTY', 'MMZT', 'TJZS', 'MKJK', 'MDCS', 'TTZP',
+        ],
     };
 
     const ROLES = {
@@ -63,7 +63,7 @@
             { code: 'NOM', name: 'National Operations Manager' },
             { code: 'NTMO', name: 'National Traffic Management Officer' },
             { code: 'NTMS', name: 'National Traffic Management Specialist' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         ECFMP: [
             { code: 'LEAD', name: 'Leadership' },
@@ -72,7 +72,7 @@
             { code: 'FM', name: 'Flow Manager' },
             { code: 'EVENT', name: 'Event Staff' },
             { code: 'ATC', name: 'Air Traffic Controller' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         CTP: [
             { code: 'LEAD', name: 'Leadership' },
@@ -81,14 +81,14 @@
             { code: 'RTE', name: 'Routes' },
             { code: 'FLOW', name: 'Flow' },
             { code: 'OCN', name: 'Oceanic' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         WF: [
             { code: 'LEAD', name: 'Leadership' },
             { code: 'AFF', name: 'Affiliate' },
             { code: 'TEAM', name: 'Team Member' },
             { code: 'SM', name: 'Social Media' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         FACILITY: [
             { code: 'STMC', name: 'Supervisory TMC' },
@@ -103,38 +103,38 @@
             { code: 'LEAD', name: 'Leadership' },
             { code: 'EVENT', name: 'Events' },
             { code: 'ATC', name: 'Air Traffic Controller' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         VATUSA: [
             { code: 'LEAD', name: 'Leadership' },
             { code: 'EVENT', name: 'Events' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         VATSIM: [
             { code: 'LEAD', name: 'Leadership' },
             { code: 'BOG', name: 'Board of Governors' },
             { code: 'REGL', name: 'Region Leadership' },
             { code: 'DIVL', name: 'Division Leadership' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         VA: [
             { code: 'LEAD', name: 'Leadership' },
             { code: 'AOC', name: 'Operations' },
-            { code: 'OTHER', name: 'Other' }
+            { code: 'OTHER', name: 'Other' },
         ],
         VSO: [
             { code: 'LEAD', name: 'Leadership' },
             { code: 'CMD', name: 'Command Staff' },
             { code: 'ATC', name: 'ATC Coordination' },
-            { code: 'OTHER', name: 'Other' }
-        ]
+            { code: 'OTHER', name: 'Other' },
+        ],
     };
 
     const LAYER_CONFIG = {
         'artcc': { layerIds: ['artcc-line'], label: 'ARTCC Boundaries', defaultOn: true },
         'tracon': { layerIds: ['tracon-line'], label: 'TRACON Boundaries', defaultOn: false },
         'incidents': { layerIds: ['incident-fill', 'incident-outline', 'incident-points'], label: 'Active Incidents', defaultOn: true },
-        'weather': { layerIds: ['weather-radar-layer'], label: 'Weather Radar', defaultOn: false }
+        'weather': { layerIds: ['weather-radar-layer'], label: 'Weather Radar', defaultOn: false },
     };
 
     const TRIGGERS = {
@@ -142,18 +142,18 @@
         'D': 'Datafeed (VATSIM)', 'E': 'Datafeed (Other)', 'F': 'Frequency Issue',
         'H': 'Radar Client Issue', 'J': 'Staffing (Below Min)', 'K': 'Staffing (At Min)',
         'M': 'No Staffing', 'Q': 'Other', 'R': 'Pilot Issue', 'S': 'Security (RW)',
-        'T': 'Security (VATSIM)', 'U': 'Unknown', 'V': 'Volume', 'W': 'Weather'
+        'T': 'Security (VATSIM)', 'U': 'Unknown', 'V': 'Volume', 'W': 'Weather',
     };
 
     const STATUS_COLORS = {
         'ATC_ZERO': '#dc2626', 'ATC_ALERT': '#f59e0b', 'ATC_LIMITED': '#3b82f6',
-        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#6b7280'
+        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#6b7280',
     };
 
     const OPS_LEVEL_COLORS = {
         1: { bg: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', border: '#22c55e' },
         2: { bg: 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)', border: '#f59e0b' },
-        3: { bg: 'linear-gradient(135deg, #991b1b 0%, #dc2626 100%)', border: '#dc2626' }
+        3: { bg: 'linear-gradient(135deg, #991b1b 0%, #dc2626 100%)', border: '#dc2626' },
     };
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -170,12 +170,12 @@
         startAutoRefresh();
         initSortableTable();
         document.getElementById('opsLevelSelect').addEventListener('change', saveOpsLevel);
-        
+
         // OIs auto-uppercase
         document.getElementById('profileOIs')?.addEventListener('input', (e) => {
             e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
         });
-        
+
         // Profile preview update
         ['profileName', 'profileOIs', 'profileCID', 'profileFacility', 'profileRole', 'customFacilityCode'].forEach(id => {
             document.getElementById(id)?.addEventListener('input', updateProfilePreview);
@@ -230,12 +230,12 @@
             }
 
             // Handle nulls
-            if (aVal == null) aVal = '';
-            if (bVal == null) bVal = '';
+            if (aVal == null) {aVal = '';}
+            if (bVal == null) {bVal = '';}
 
             // Handle booleans (paged)
-            if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0;
-            if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0;
+            if (typeof aVal === 'boolean') {aVal = aVal ? 1 : 0;}
+            if (typeof bVal === 'boolean') {bVal = bVal ? 1 : 0;}
 
             // Handle numbers
             if (state.sortColumn === 'paged') {
@@ -244,16 +244,16 @@
             }
 
             // String comparison
-            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+            if (typeof aVal === 'string') {aVal = aVal.toLowerCase();}
+            if (typeof bVal === 'string') {bVal = bVal.toLowerCase();}
 
             let result = 0;
-            if (aVal < bVal) result = -1;
-            if (aVal > bVal) result = 1;
+            if (aVal < bVal) {result = -1;}
+            if (aVal > bVal) {result = 1;}
 
             return state.sortDirection === 'asc' ? result : -result;
         });
-        
+
         state.incidents = sorted;
         renderIncidents();
     }
@@ -290,7 +290,7 @@
     }
 
     function getUserAuthorString() {
-        if (!state.userProfile?.name || !state.userProfile?.ois) return 'Unknown';
+        if (!state.userProfile?.name || !state.userProfile?.ois) {return 'Unknown';}
         const p = state.userProfile;
         // Only use customCode for custom facility types (check both facilityType and facType)
         const facType = p.facilityType || p.facType;
@@ -327,7 +327,7 @@
             alert(`You must be logged in to ${action}.\nPlease log in with your VATSIM account.`);
             return false;
         }
-        if (!requireProfile(action)) return false;
+        if (!requireProfile(action)) {return false;}
         if (!isDCC()) {
             alert(`Only DCC users may ${action}.`);
             return false;
@@ -341,7 +341,7 @@
         document.getElementById('profileOIs').value = p.ois || '';
         document.getElementById('profileCID').value = p.cid || config.sessionUserCid || '';
         document.getElementById('profileFacilityType').value = p.facilityType || '';
-        
+
         if (p.facilityType) {
             onFacilityTypeChange();
             setTimeout(() => {
@@ -354,7 +354,7 @@
                 updateProfilePreview();
             }, 50);
         }
-        
+
         $('#userProfileModal').modal('show');
     }
 
@@ -364,19 +364,19 @@
         const roleSelect = document.getElementById('profileRole');
         const customRow = document.getElementById('customFacilityRow');
         const facSelectRow = document.getElementById('facilitySelectRow');
-        
+
         facSelect.innerHTML = '<option value="">Select...</option>';
         roleSelect.innerHTML = '<option value="">Select...</option>';
         customRow.classList.remove('show');
         facSelectRow.style.display = 'block';
-        
+
         // Clear custom fields when not a custom type
         const isCustomType = ['VA', 'VSO', 'MIL', 'APT_AUTH', 'OTHER'].includes(type);
         if (!isCustomType) {
             document.getElementById('customFacilityName').value = '';
             document.getElementById('customFacilityCode').value = '';
         }
-        
+
         // Populate facilities
         if (FACILITIES[type]) {
             FACILITIES[type].forEach(f => {
@@ -389,17 +389,17 @@
             facSelect.innerHTML = `<option value="${type}">${type}</option>`;
             facSelect.value = type;
         }
-        
+
         // Populate roles
         let roleKey = type;
-        if (['ARTCC', 'TRACON', 'ATCT', 'FIR'].includes(type)) roleKey = 'FACILITY';
-        if (['MIL', 'APT_AUTH', 'OTHER'].includes(type)) roleKey = 'FACILITY';
-        
+        if (['ARTCC', 'TRACON', 'ATCT', 'FIR'].includes(type)) {roleKey = 'FACILITY';}
+        if (['MIL', 'APT_AUTH', 'OTHER'].includes(type)) {roleKey = 'FACILITY';}
+
         const roles = ROLES[roleKey] || ROLES.FACILITY;
         roles.forEach(r => {
             roleSelect.innerHTML += `<option value="${r.code}">${r.code} - ${r.name}</option>`;
         });
-        
+
         updateProfilePreview();
     }
 
@@ -409,7 +409,7 @@
         const ois = document.getElementById('profileOIs').value || '??';
         const cid = document.getElementById('profileCID').value || '?';
         const roleCode = document.getElementById('profileRole').value || '?';
-        
+
         // Only use customCode for custom types
         const isCustomType = ['VA', 'VSO', 'MIL', 'APT_AUTH', 'OTHER'].includes(type);
         let facCode;
@@ -418,7 +418,7 @@
         } else {
             facCode = document.getElementById('profileFacility').value || '?';
         }
-        
+
         const preview = `${facCode}_${roleCode}/${name} (${ois}/${cid})`;
         document.getElementById('profilePreview').textContent = preview;
     }
@@ -430,18 +430,18 @@
         const facilityType = document.getElementById('profileFacilityType').value;
         const facility = document.getElementById('profileFacility').value;
         const roleCode = document.getElementById('profileRole').value;
-        
+
         // Only save custom fields for custom facility types
         const isCustomType = ['VA', 'VSO', 'MIL', 'APT_AUTH', 'OTHER'].includes(facilityType);
         const customName = isCustomType ? document.getElementById('customFacilityName').value.trim() : '';
         const customCode = isCustomType ? document.getElementById('customFacilityCode').value.toUpperCase().trim() : '';
-        
+
         if (!name) { alert('Name is required'); return; }
         if (!ois || !/^[A-Z0-9]{2}$/.test(ois)) { alert('OIs must be 2 characters (A-Z, 0-9)'); return; }
         if (!facilityType) { alert('Facility type is required'); return; }
         if (!roleCode) { alert('Role is required'); return; }
         if (isCustomType && !customCode) { alert('Custom facility code is required'); return; }
-        
+
         state.userProfile = { name, ois, cid, facilityType, facility, roleCode, customName, customCode };
         localStorage.setItem('jatoc_user_profile', JSON.stringify(state.userProfile));
         updateUserDisplay();
@@ -449,7 +449,7 @@
     }
 
     function clearProfile() {
-        if (!confirm('Clear your profile?')) return;
+        if (!confirm('Clear your profile?')) {return;}
         state.userProfile = null;
         localStorage.removeItem('jatoc_user_profile');
         updateUserDisplay();
@@ -488,24 +488,24 @@
             return;
         }
         const level = parseInt(document.getElementById('opsLevelSelect').value);
-        try { 
-            await api('oplevel.php', 'PUT', { ops_level: level, set_by: getUserAuthorString() }); 
-            state.opsLevel = level; 
-            updateOpsLevel(); 
+        try {
+            await api('oplevel.php', 'PUT', { ops_level: level, set_by: getUserAuthorString() });
+            state.opsLevel = level;
+            updateOpsLevel();
         } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function changeOpsLevel() {
-        if (!requireDCC('change Ops Level')) return;
+        if (!requireDCC('change Ops Level')) {return;}
         const level = parseInt(document.getElementById('modalOpsLevel').value);
         const reason = document.getElementById('modalOpsReason').value;
-        if (!confirm(`Change Ops Level to ${level}? This will log to all active incidents.`)) return;
+        if (!confirm(`Change Ops Level to ${level}? This will log to all active incidents.`)) {return;}
         try {
             await api('oplevel.php', 'PUT', { ops_level: level, reason, set_by: getUserAuthorString() });
             state.opsLevel = level;
             updateOpsLevel();
             document.getElementById('modalOpsReason').value = '';
-            if (state.currentIncident) loadUpdates(state.currentIncident.id);
+            if (state.currentIncident) {loadUpdates(state.currentIncident.id);}
             loadIncidents();
             alert('Ops Level changed and logged to all active incidents.');
         } catch (e) { alert('Error: ' + e.message); }
@@ -516,8 +516,8 @@
         sel.value = state.opsLevel;
         sel.className = 'ops-level-badge ops-level-' + state.opsLevel;
         const modalSel = document.getElementById('modalOpsLevel');
-        if (modalSel) modalSel.value = state.opsLevel;
-        
+        if (modalSel) {modalSel.value = state.opsLevel;}
+
         const header = document.getElementById('jatocHeaderBar');
         const titleBlock = document.getElementById('jatocTitleBlock');
         if (header) {
@@ -525,7 +525,7 @@
             header.style.background = colors.bg;
             header.style.borderBottomColor = colors.border;
         }
-        if (titleBlock) titleBlock.className = 'col-md-4 ops-level-' + state.opsLevel + '-text';
+        if (titleBlock) {titleBlock.className = 'col-md-4 ops-level-' + state.opsLevel + '-text';}
     }
 
     // ========== BOUNDARIES & MAP ==========
@@ -533,7 +533,7 @@
         try {
             const [artccRes, traconRes] = await Promise.all([
                 fetch('assets/geojson/artcc.json').then(r => r.ok ? r.json() : null).catch(() => null),
-                fetch('assets/geojson/tracon.json').then(r => r.ok ? r.json() : null).catch(() => null)
+                fetch('assets/geojson/tracon.json').then(r => r.ok ? r.json() : null).catch(() => null),
             ]);
             state.boundaryData.artcc = artccRes;
             state.boundaryData.tracon = traconRes;
@@ -550,57 +550,57 @@
     }
 
     function initMap() {
-        if (!window.maplibregl) return;
-        
+        if (!window.maplibregl) {return;}
+
         state.map = new maplibregl.Map({
             container: 'jatoc-map',
             style: {
                 version: 8,
                 sources: { 'carto': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'], tileSize: 256 } },
-                layers: [{ id: 'carto', type: 'raster', source: 'carto' }]
+                layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
             },
             center: [-98.5, 39.5],
-            zoom: 3.5
+            zoom: 3.5,
         });
-        
+
         state.map.addControl(new maplibregl.NavigationControl(), 'top-right');
-        
+
         state.map.on('load', () => {
             state.map.addSource('weather-radar', {
                 type: 'raster',
                 tiles: ['https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q/{z}/{x}/{y}.png'],
-                tileSize: 256
+                tileSize: 256,
             });
             state.map.addLayer({ id: 'weather-radar-layer', type: 'raster', source: 'weather-radar', paint: { 'raster-opacity': 0.5 }, layout: { 'visibility': 'none' } });
-            
+
             if (state.boundaryData.artcc) {
                 state.map.addSource('artcc', { type: 'geojson', data: state.boundaryData.artcc });
                 state.map.addLayer({ id: 'artcc-line', type: 'line', source: 'artcc', paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
             }
-            
+
             if (state.boundaryData.tracon) {
                 state.map.addSource('tracon', { type: 'geojson', data: state.boundaryData.tracon });
                 state.map.addLayer({ id: 'tracon-line', type: 'line', source: 'tracon', paint: { 'line-color': '#6b7280', 'line-width': 1, 'line-opacity': 0.4 }, layout: { visibility: 'none' } });
             }
-            
+
             state.map.addSource('incident-fill', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
             state.map.addLayer({ id: 'incident-fill', type: 'fill', source: 'incident-fill', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.3 } });
             state.map.addLayer({ id: 'incident-outline', type: 'line', source: 'incident-fill', paint: { 'line-color': ['get', 'color'], 'line-width': 2 } });
-            
+
             state.map.addSource('incident-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
             state.map.addLayer({ id: 'incident-points', type: 'circle', source: 'incident-points', paint: { 'circle-radius': 10, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } });
-            
-            state.map.on('click', 'incident-fill', (e) => { if (e.features?.length) showIncidentDetails(e.features[0].properties.incidentId); });
-            state.map.on('click', 'incident-points', (e) => { if (e.features?.length) showIncidentDetails(e.features[0].properties.incidentId); });
+
+            state.map.on('click', 'incident-fill', (e) => { if (e.features?.length) {showIncidentDetails(e.features[0].properties.incidentId);} });
+            state.map.on('click', 'incident-points', (e) => { if (e.features?.length) {showIncidentDetails(e.features[0].properties.incidentId);} });
             state.map.on('mouseenter', 'incident-fill', () => state.map.getCanvas().style.cursor = 'pointer');
             state.map.on('mouseleave', 'incident-fill', () => state.map.getCanvas().style.cursor = '');
             state.map.on('mouseenter', 'incident-points', () => state.map.getCanvas().style.cursor = 'pointer');
             state.map.on('mouseleave', 'incident-points', () => state.map.getCanvas().style.cursor = '');
-            
+
             setupLayerControl();
         });
     }
-    
+
     function setupLayerControl() {
         const html = `
             <div class="jatoc-layer-control" id="jatoc-layer-control">
@@ -611,32 +611,32 @@
             </div>
         `;
         document.getElementById('jatoc-map-container').insertAdjacentHTML('beforeend', html);
-        
+
         document.getElementById('jatoc-layer-toggle').addEventListener('click', (e) => {
             e.stopPropagation();
             state.layerControlExpanded = !state.layerControlExpanded;
             document.getElementById('jatoc-layer-panel').style.display = state.layerControlExpanded ? 'block' : 'none';
         });
-        
+
         document.addEventListener('click', (e) => {
             if (state.layerControlExpanded && !e.target.closest('#jatoc-layer-control')) {
                 state.layerControlExpanded = false;
                 document.getElementById('jatoc-layer-panel').style.display = 'none';
             }
         });
-        
+
         document.querySelectorAll('#jatoc-layer-panel input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', () => {
                 const cfg = LAYER_CONFIG[cb.dataset.layer];
                 if (cfg && state.map) {
-                    cfg.layerIds.forEach(id => { if (state.map.getLayer(id)) state.map.setLayoutProperty(id, 'visibility', cb.checked ? 'visible' : 'none'); });
+                    cfg.layerIds.forEach(id => { if (state.map.getLayer(id)) {state.map.setLayoutProperty(id, 'visibility', cb.checked ? 'visible' : 'none');} });
                 }
             });
         });
     }
 
     function updateMapIncidents(incidents) {
-        if (!state.map || !state.map.loaded()) return;
+        if (!state.map || !state.map.loaded()) {return;}
         const fillFeatures = [], pointFeatures = [];
 
         incidents.filter(i => {
@@ -648,7 +648,7 @@
             const facType = (inc.facility_type || '').toUpperCase();
             const fac = (inc.facility || '').toUpperCase();
             let matched = false;
-            
+
             if (facType === 'ARTCC' && state.boundaryData.artcc?.features) {
                 // Try multiple property names for ARTCC matching
                 const feature = state.boundaryData.artcc.features.find(f => {
@@ -673,7 +673,7 @@
                     matched = true;
                 }
             }
-            
+
             // Fallback to point marker using centroid coordinates
             if (!matched) {
                 const coords = getAirportCoords(fac);
@@ -684,7 +684,7 @@
                 }
             }
         });
-        
+
         state.map.getSource('incident-fill')?.setData({ type: 'FeatureCollection', features: fillFeatures });
         state.map.getSource('incident-points')?.setData({ type: 'FeatureCollection', features: pointFeatures });
     }
@@ -716,7 +716,7 @@
             'A80': [-84.43, 33.64], 'A90': [-71.01, 42.36], 'C90': [-87.90, 41.98], 'D01': [-97.04, 32.90],
             'D10': [-97.04, 32.90], 'I90': [-95.34, 29.98], 'L30': [-118.41, 33.94], 'M98': [-80.29, 25.80],
             'N90': [-73.87, 40.78], 'NCT': [-122.38, 37.62], 'P50': [-112.01, 33.43], 'PCT': [-77.04, 38.85],
-            'S46': [-122.31, 47.45], 'SCT': [-117.19, 32.73], 'Y90': [-73.78, 40.64]
+            'S46': [-122.31, 47.45], 'SCT': [-117.19, 32.73], 'Y90': [-73.78, 40.64],
         };
         return coords[fac] || (fac && !fac.startsWith('K') && coords['K' + fac]) || null;
     }
@@ -725,11 +725,11 @@
     async function api(endpoint, method = 'GET', data = null) {
         const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' };
         let url = `api/jatoc/${endpoint}`;
-        if (data && method !== 'GET') opts.body = JSON.stringify(data);
-        if (method === 'GET' && data) url += '?' + new URLSearchParams(data).toString();
+        if (data && method !== 'GET') {opts.body = JSON.stringify(data);}
+        if (method === 'GET' && data) {url += '?' + new URLSearchParams(data).toString();}
         const res = await fetch(url, opts);
         const result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'API error');
+        if (!res.ok) {throw new Error(result.error || 'API error');}
         return result;
     }
 
@@ -740,7 +740,7 @@
             const override = await api('daily_ops.php', 'GET', { item_type: 'POTUS' });
             if (override.success && override.data?.[0]?.content) { el.innerHTML = renderCalendarFromText(override.data[0].content); return; }
             const res = await fetch('https://media-cdn.factba.se/rss/json/trump/calendar-full.json');
-            if (!res.ok) throw new Error('Fetch failed');
+            if (!res.ok) {throw new Error('Fetch failed');}
             const data = await res.json();
             const now = new Date();
             // Start from yesterday to capture all of today's events including those already past
@@ -748,30 +748,30 @@
             const threeDaysOut = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 3));
             // Include events from yesterday through 3 days out
             // Sort by date descending (most recent/upcoming first)
-            const events = data.filter(e => { 
-                if (!e.date) return false; 
-                const d = new Date(e.date); 
-                return d >= yesterdayStart && d <= threeDaysOut; 
+            const events = data.filter(e => {
+                if (!e.date) {return false;}
+                const d = new Date(e.date);
+                return d >= yesterdayStart && d <= threeDaysOut;
             }).sort((a, b) => new Date(b.date) - new Date(a.date));
             el.innerHTML = renderPotusEvents(events);
         } catch (e) { el.innerHTML = '<div class="text-muted small p-2">Unable to load</div>'; }
     }
 
     function renderPotusEvents(events) {
-        if (!events?.length) return '<div class="text-muted small p-2">No scheduled events</div>';
+        if (!events?.length) {return '<div class="text-muted small p-2">No scheduled events</div>';}
         const now = new Date();
         return events.map(e => {
             const eventDate = new Date(e.date);
             const day = String(eventDate.getUTCDate()).padStart(2, '0');
             const time = e.time || 'TBD';
             // Format: dd/hhmm (no seconds)
-            let timeStr = day + '/' + (time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD');
+            const timeStr = day + '/' + (time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD');
             let status = 'future';
             if (e.time && e.date) {
                 const [h, m] = e.time.split(':').map(Number);
                 const eventTime = new Date(eventDate); eventTime.setUTCHours(h, m, 0, 0);
-                if (eventTime < now) status = 'past';
-                else if (eventTime < new Date(now.getTime() + 3600000)) status = 'active';
+                if (eventTime < now) {status = 'past';}
+                else if (eventTime < new Date(now.getTime() + 3600000)) {status = 'active';}
             }
             return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${timeStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || 'Event')}</span></div>`;
         }).join('');
@@ -818,12 +818,12 @@
             const t7d = new Date(todayStart.getTime() + 7 * 24 * 3600000);
             const t30d = new Date(todayStart.getTime() + 30 * 24 * 3600000);
             const today = [], next7 = [], next30 = [];
-            r.data.forEach(e => { 
-                const d = new Date(e.start || e.start_date || e.date); 
-                if (isNaN(d.getTime())) return; 
-                if (d >= todayStart && d < todayEnd) today.push(e); 
-                else if (d >= todayStart && d < t7d) next7.push(e); 
-                else if (d >= todayStart && d < t30d) next30.push(e); 
+            r.data.forEach(e => {
+                const d = new Date(e.start || e.start_date || e.date);
+                if (isNaN(d.getTime())) {return;}
+                if (d >= todayStart && d < todayEnd) {today.push(e);}
+                else if (d >= todayStart && d < t7d) {next7.push(e);}
+                else if (d >= todayStart && d < t30d) {next30.push(e);}
             });
             el.innerHTML = renderEventSection('Today', today, 'vat-today', true) + renderEventSection('T+7D', next7, 'vat-7d') + renderEventSection('T+30D', next30, 'vat-30d');
         } catch (e) { el.innerHTML = '<div class="text-muted small">Unable to load</div>'; }
@@ -834,7 +834,7 @@
         <div class="collapsible-content ${show ? 'show' : ''}" id="${id}">${events.length ? events.map(e => `<div class="vatusa-event"><div class="vatusa-event-name">${esc(e.name || e.title || 'Event')}</div><small class="text-muted">${formatEventTime(e.start || e.start_date || e.date)}${e.facility ? ' • ' + e.facility : ''}</small></div>`).join('') : '<div class="text-muted small py-1">None</div>'}</div>`;
     }
 
-    function formatEventTime(d) { try { const dt = new Date(d); if (isNaN(dt.getTime())) return ''; return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + 'Z'; } catch { return ''; } }
+    function formatEventTime(d) { try { const dt = new Date(d); if (isNaN(dt.getTime())) {return '';} return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + 'Z'; } catch { return ''; } }
     function toggle(id) { document.getElementById(id)?.classList.toggle('show'); }
 
     // ========== INCIDENTS ==========
@@ -848,20 +848,20 @@
     async function loadIncidents() {
         // Store previous data for buffered update
         const previousIncidents = state.incidents ? state.incidents.slice() : [];
-        
+
         try {
             const filters = { status: document.getElementById('filterStatus').value, facilityType: document.getElementById('filterFacilityType').value, incidentType: document.getElementById('filterIncidentType').value, facility: document.getElementById('filterFacility').value };
-            Object.keys(filters).forEach(k => { if (!filters[k]) delete filters[k]; });
+            Object.keys(filters).forEach(k => { if (!filters[k]) {delete filters[k];} });
             const r = await api('incidents.php', 'GET', filters);
             const newIncidents = r.data || [];
-            
+
             // BUFFERED: Only update if we got data, or had no prior data
             if (newIncidents.length > 0 || previousIncidents.length === 0) {
                 state.incidents = newIncidents;
             } else {
                 console.log('[JATOC] Empty response, keeping previous data (' + previousIncidents.length + ' incidents)');
             }
-            
+
             renderIncidents();
             updateStats();
             updateMapIncidents(state.incidents);
@@ -913,26 +913,26 @@
     }
 
     async function quickPage(id) {
-        if (!requireDCC('mark incidents as paged')) return;
-        if (!confirm('Mark paged?')) return;
+        if (!requireDCC('mark incidents as paged')) {return;}
+        if (!confirm('Mark paged?')) {return;}
         try { await api('incident.php?id=' + id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: id, update_type: 'PAGED', remarks: 'Personnel paged', created_by: getUserAuthorString() }); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function quickClose(id) {
-        if (!requireDCC('close out incidents')) return;
-        if (!confirm('Close out?')) return;
-        try { 
-            const now = new Date().toISOString().slice(0, 19).replace('T', ' '); 
-            await api('incident.php?id=' + id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() }); 
+        if (!requireDCC('close out incidents')) {return;}
+        if (!confirm('Close out?')) {return;}
+        try {
+            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            await api('incident.php?id=' + id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() });
             await api('updates.php', 'POST', { incident_id: id, update_type: 'CLOSEOUT', remarks: 'Incident closed out', created_by: getUserAuthorString() });
-            loadIncidents(); 
+            loadIncidents();
         } catch (e) { alert('Error: ' + e.message); }
     }
 
-    function toggleMapVisibility(id) { if (state.hiddenIncidents.has(id)) state.hiddenIncidents.delete(id); else state.hiddenIncidents.add(id); renderIncidents(); updateMapIncidents(state.incidents); }
+    function toggleMapVisibility(id) { if (state.hiddenIncidents.has(id)) {state.hiddenIncidents.delete(id);} else {state.hiddenIncidents.add(id);} renderIncidents(); updateMapIncidents(state.incidents); }
 
     function showCreateModal() {
-        if (!requireDCC('create incidents')) return;
+        if (!requireDCC('create incidents')) {return;}
         document.getElementById('incidentModalTitle').textContent = 'New Incident';
         document.getElementById('incidentForm').reset();
         document.getElementById('incidentId').value = '';
@@ -941,7 +941,7 @@
     }
 
     async function editIncident(id) {
-        if (!requireDCC('edit incidents')) return;
+        if (!requireDCC('edit incidents')) {return;}
         try {
             const r = await api('incident.php?id=' + id);
             const i = r.data;
@@ -965,7 +965,7 @@
         const id = document.getElementById('incidentId').value;
         const data = { facility: document.getElementById('incidentFacility').value, facility_type: document.getElementById('incidentFacilityType').value || null, status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, created_by: getUserAuthorString() };
         if (!data.facility || !data.status || !data.start_utc) { alert('Fill required fields'); return; }
-        try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else await api('incidents.php', 'POST', data); $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function showIncidentDetails(id) {
@@ -1028,14 +1028,14 @@
                         <div class="update-content">${formatPriority(esc(u.remarks || ''))}</div>
                     </div>`;
                 }).join('');
-            } else el.innerHTML = '<div class="text-muted text-center py-3">No updates</div>';
+            } else {el.innerHTML = '<div class="text-muted text-center py-3">No updates</div>';}
         } catch (e) { console.log('[JATOC] Updates error:', e); }
     }
 
     function formatPriority(text) { return text.replace(/&lt;\s*([^&]+?)\s*&gt;/g, '<span class="priority-text">&lt; $1 &gt;</span>'); }
 
     async function addUpdate() {
-        if (!requireProfile('add updates')) return;
+        if (!requireProfile('add updates')) {return;}
         const id = document.getElementById('updateIncidentId').value;
         const remarks = document.getElementById('updateRemarks').value;
         if (!remarks.trim()) { alert('Enter notes'); return; }
@@ -1043,50 +1043,50 @@
     }
 
     async function markPaged() {
-        if (!state.currentIncident) return;
-        if (!requireDCC('mark incidents as paged')) return;
+        if (!state.currentIncident) {return;}
+        if (!requireDCC('mark incidents as paged')) {return;}
         try { await api('incident.php?id=' + state.currentIncident.id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'PAGED', remarks: 'Personnel paged', created_by: getUserAuthorString() }); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
     }
 
     function editFromDetails() { if (state.currentIncident) { $('#incidentDetailsModal').modal('hide'); editIncident(state.currentIncident.id); } }
 
     async function generateReport() {
-        if (!state.currentIncident) return;
-        if (!requireDCC('generate report numbers')) return;
+        if (!state.currentIncident) {return;}
+        if (!requireDCC('generate report numbers')) {return;}
         if (state.currentIncident.report_number) { alert('Already has: ' + state.currentIncident.report_number); return; }
-        if (!confirm('Generate report number?')) return;
+        if (!confirm('Generate report number?')) {return;}
         try { const r = await api('report.php', 'POST', { incident_id: state.currentIncident.id, created_by: getUserAuthorString() }); alert('Report: ' + (r.report_number || '?')); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function closeoutIncident() {
-        if (!state.currentIncident) return;
-        if (!requireDCC('close out incidents')) return;
-        if (!confirm('Close out this incident?')) return;
-        try { 
-            const now = new Date().toISOString().slice(0, 19).replace('T', ' '); 
-            await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() }); 
+        if (!state.currentIncident) {return;}
+        if (!requireDCC('close out incidents')) {return;}
+        if (!confirm('Close out this incident?')) {return;}
+        try {
+            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() });
             // Log the closeout
             await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'CLOSEOUT', remarks: 'Incident closed out', created_by: getUserAuthorString() });
-            $('#incidentDetailsModal').modal('hide'); 
-            loadIncidents(); 
+            $('#incidentDetailsModal').modal('hide');
+            loadIncidents();
         } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function reopenIncident() {
-        if (!state.currentIncident) return;
-        if (!requireDCC('reopen incidents')) return;
-        if (!confirm('Reopen this incident?')) return;
-        try { 
-            await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'ACTIVE', closeout_utc: null, updated_by: getUserAuthorString() }); 
+        if (!state.currentIncident) {return;}
+        if (!requireDCC('reopen incidents')) {return;}
+        if (!confirm('Reopen this incident?')) {return;}
+        try {
+            await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'ACTIVE', closeout_utc: null, updated_by: getUserAuthorString() });
             // Log the reopen
             await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'REOPEN', remarks: 'Incident reopened', created_by: getUserAuthorString() });
             showIncidentDetails(state.currentIncident.id);
-            loadIncidents(); 
+            loadIncidents();
         } catch (e) { alert('Error: ' + e.message); }
     }
 
     async function deleteIncident() {
-        if (!state.currentIncident || !confirm('Delete?')) return;
+        if (!state.currentIncident || !confirm('Delete?')) {return;}
         try { await api('incident.php?id=' + state.currentIncident.id, 'DELETE'); $('#incidentDetailsModal').modal('hide'); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
     }
 
@@ -1101,26 +1101,26 @@
 
     // ========== DAILY OPS & PERSONNEL ==========
     function editDailyOps(type) { document.getElementById('dailyOpsType').value = type; document.getElementById('dailyOpsTypeLabel').textContent = type; const el = document.getElementById(type === 'POTUS' ? 'potusCalendar' : 'spaceCalendar'); document.getElementById('dailyOpsContent').value = el?.innerText || ''; $('#dailyOpsModal').modal('show'); }
-    async function saveDailyOps() { 
-        if (!requireDCC('edit daily ops')) return;
-        const type = document.getElementById('dailyOpsType').value; 
-        try { await api('daily_ops.php', 'PUT', { item_type: type, content: document.getElementById('dailyOpsContent').value, updated_by: getUserAuthorString() }); $('#dailyOpsModal').modal('hide'); if (type === 'POTUS') loadPotusCalendar(); else loadSpaceCalendar(); } catch (e) { alert('Error: ' + e.message); } 
+    async function saveDailyOps() {
+        if (!requireDCC('edit daily ops')) {return;}
+        const type = document.getElementById('dailyOpsType').value;
+        try { await api('daily_ops.php', 'PUT', { item_type: type, content: document.getElementById('dailyOpsContent').value, updated_by: getUserAuthorString() }); $('#dailyOpsModal').modal('hide'); if (type === 'POTUS') {loadPotusCalendar();} else {loadSpaceCalendar();} } catch (e) { alert('Error: ' + e.message); }
     }
     function editPersonnel(elem, init, name) { document.getElementById('personnelElement').textContent = elem; document.getElementById('personnelElementInput').value = elem; document.getElementById('personnelInitials').value = init; document.getElementById('personnelName').value = name; $('#personnelModal').modal('show'); }
-    async function savePersonnel() { 
-        if (!requireDCC('edit personnel')) return;
-        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: document.getElementById('personnelInitials').value, name: document.getElementById('personnelName').value, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); } 
+    async function savePersonnel() {
+        if (!requireDCC('edit personnel')) {return;}
+        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: document.getElementById('personnelInitials').value, name: document.getElementById('personnelName').value, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); }
     }
-    async function clearPersonnel() { 
-        if (!requireDCC('edit personnel')) return;
-        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: null, name: null, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); } 
+    async function clearPersonnel() {
+        if (!requireDCC('edit personnel')) {return;}
+        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: null, name: null, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); }
     }
 
     // ========== UTILITIES ==========
-    function formatTime(dt) { if (!dt) return '-'; try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(5, 16).replace('T', ' ') + 'Z'; } catch { return dt; } }
-    function formatTimeISO(dt) { if (!dt) return '-'; try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(0, 19).replace('T', ' ') + 'Z'; } catch { return dt; } }
+    function formatTime(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(5, 16).replace('T', ' ') + 'Z'; } catch { return dt; } }
+    function formatTimeISO(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(0, 19).replace('T', ' ') + 'Z'; } catch { return dt; } }
     function formatStatus(s) { return (s || '').replace('_', ' '); }
-    function calcDuration(startStr, endStr) { if (!startStr) return '-'; try { const start = new Date(startStr.includes('Z') ? startStr : startStr + 'Z'); const end = endStr ? new Date(endStr.includes('Z') ? endStr : endStr + 'Z') : new Date(); const diffMs = end.getTime() - start.getTime(); if (diffMs < 0) return '0m'; const mins = Math.floor(diffMs / 60000); if (mins < 60) return mins + 'm'; return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm'; } catch { return '-'; } }
+    function calcDuration(startStr, endStr) { if (!startStr) {return '-';} try { const start = new Date(startStr.includes('Z') ? startStr : startStr + 'Z'); const end = endStr ? new Date(endStr.includes('Z') ? endStr : endStr + 'Z') : new Date(); const diffMs = end.getTime() - start.getTime(); if (diffMs < 0) {return '0m';} const mins = Math.floor(diffMs / 60000); if (mins < 60) {return mins + 'm';} return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm'; } catch { return '-'; } }
     function decodeHtml(s) { const txt = document.createElement('textarea'); txt.innerHTML = s || ''; return txt.value; }
     function esc(s) { return decodeHtml(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function applyFilters() { loadIncidents(); }
@@ -1150,37 +1150,37 @@
         const incType = document.getElementById('retrieveIncType').value;
         const fromDate = document.getElementById('retrieveFromDate').value;
         const toDate = document.getElementById('retrieveToDate').value;
-        
+
         const resultsEl = document.getElementById('retrieveResults');
         resultsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
-        
+
         try {
             // Build query params
             const params = {};
-            if (incNum) params.incident_number = incNum;
-            if (reportNum) params.report_number = reportNum;
-            if (facility) params.facility = facility;
-            if (status) params.status = status;
-            if (incType) params.incidentType = incType;
-            if (fromDate) params.from_date = fromDate;
-            if (toDate) params.to_date = toDate;
-            
+            if (incNum) {params.incident_number = incNum;}
+            if (reportNum) {params.report_number = reportNum;}
+            if (facility) {params.facility = facility;}
+            if (status) {params.status = status;}
+            if (incType) {params.incidentType = incType;}
+            if (fromDate) {params.from_date = fromDate;}
+            if (toDate) {params.to_date = toDate;}
+
             const r = await api('incidents.php', 'GET', params);
             const incidents = r.data || [];
-            
+
             if (!incidents.length) {
                 resultsEl.innerHTML = '<div class="text-muted text-center py-3">No incidents found</div>';
                 return;
             }
-            
+
             resultsEl.innerHTML = `
                 <table class="table table-sm table-dark mb-0" style="font-size:0.75rem">
                     <thead><tr><th>INC#</th><th>Facility</th><th>Incident Type</th><th>Lifecycle</th><th>Start</th><th>Action</th></tr></thead>
                     <tbody>
                         ${incidents.map(i => {
-                            const incidentType = i.incident_type || i.status;
-                            const lifecycleStatus = i.lifecycle_status || i.incident_status;
-                            return `
+        const incidentType = i.incident_type || i.status;
+        const lifecycleStatus = i.lifecycle_status || i.incident_status;
+        return `
                             <tr>
                                 <td class="incident-number">${i.incident_number || '-'}</td>
                                 <td>${i.facility}</td>
@@ -1191,7 +1191,7 @@
                                     <button class="btn btn-xs btn-outline-info" onclick="JATOC.openRetrievedIncident(${i.id})" title="Open"><i class="fas fa-folder-open"></i></button>
                                 </td>
                             </tr>
-                        `}).join('')}
+                        `;}).join('')}
                     </tbody>
                 </table>
             `;

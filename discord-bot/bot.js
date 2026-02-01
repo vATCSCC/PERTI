@@ -90,7 +90,7 @@ client.on('warn', (warning) => {
 client.on('messageReactionAdd', async (reaction, user) => {
     try {
         // Ignore bot reactions
-        if (user.bot) return;
+        if (user.bot) {return;}
 
         // Fetch partial data if needed
         if (reaction.partial) {
@@ -127,7 +127,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
 client.on('messageReactionRemove', async (reaction, user) => {
     try {
         // Ignore bot reactions
-        if (user.bot) return;
+        if (user.bot) {return;}
 
         // Fetch partial data if needed
         if (reaction.partial) {
@@ -166,10 +166,10 @@ client.on('messageReactionRemove', async (reaction, user) => {
  */
 function isCoordinationThread(channel) {
     // Check if it's a thread
-    if (!channel.isThread()) return false;
+    if (!channel.isThread()) {return false;}
 
     // Check if parent is the coordination channel
-    if (channel.parentId === CONFIG.coordinationChannelId) return true;
+    if (channel.parentId === CONFIG.coordinationChannelId) {return true;}
 
     // Also accept if the thread itself is being watched
     // (for threads created before this check)

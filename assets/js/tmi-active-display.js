@@ -29,18 +29,18 @@
     // ===========================================
     // Configuration
     // ===========================================
-    
+
     const CONFIG = {
         refreshIntervalMs: 60000,  // 60 seconds
         apiEndpoint: 'api/mgt/tmi/active.php',
-        cancelEndpoint: 'api/mgt/tmi/cancel.php'
+        cancelEndpoint: 'api/mgt/tmi/cancel.php',
     };
 
     // ===========================================
     // State
     // ===========================================
-    
-    let state = {
+
+    const state = {
         restrictions: [],
         advisories: [],
         programs: [],       // GDT programs (Ground Stops, GDPs)
@@ -58,8 +58,8 @@
             provFacilities: [],  // Array for multi-select
             type: 'ALL',
             status: 'ACTIVE',
-            date: ''             // Date filter (YYYY-MM-DD format, empty = today/current)
-        }
+            date: '',             // Date filter (YYYY-MM-DD format, empty = today/current)
+        },
     };
 
     // ===========================================
@@ -87,7 +87,7 @@
         { code: 'CONFIG', label: 'Configuration' },
         { code: 'DELAY', label: 'Delay Advisory' },
         { code: 'GDP', label: 'Ground Delay Program' },
-        { code: 'REROUTE', label: 'Reroute' }
+        { code: 'REROUTE', label: 'Reroute' },
     ];
 
     // ===========================================
@@ -124,7 +124,7 @@
             await FacilityHierarchy.load();
             console.log('[TMI-Active] Facility hierarchy loaded via global FacilityHierarchy:', {
                 artccs: getARTCCS().length,
-                tracons: getALL_TRACONS().size
+                tracons: getALL_TRACONS().size,
             });
         } catch (e) {
             console.warn('[TMI-Active] Failed to load facility hierarchy:', e);
@@ -141,7 +141,7 @@
         const $reqFac = $('#filterReqFac');
         const $provFac = $('#filterProvFac');
 
-        if (!$reqFac.length || !$provFac.length) return;
+        if (!$reqFac.length || !$provFac.length) {return;}
 
         // Add class for CSS styling
         $reqFac.addClass('facility-filter-select');
@@ -199,7 +199,7 @@
         const sortedTracons = Array.from(ALL_TRACONS).sort();
         const commonTracons = sortedTracons.filter(t =>
             ['N90', 'PHL', 'A80', 'C90', 'D10', 'D01', 'I90', 'L30', 'NCT', 'PCT', 'P50', 'P80', 'SCT', 'T75', 'MIA', 'CLE', 'IND', 'BOS', 'DEN', 'ORD'].includes(t) ||
-            (FACILITY_HIERARCHY[t] && FACILITY_HIERARCHY[t].length >= 3)
+            (FACILITY_HIERARCHY[t] && FACILITY_HIERARCHY[t].length >= 3),
         );
         if (commonTracons.length > 0) {
             optionsHtml += '<optgroup label="Major TRACONs">';
@@ -223,7 +223,7 @@
             width: '100%',
             closeOnSelect: false,
             templateResult: formatFacilityOption,
-            templateSelection: formatFacilitySelection
+            templateSelection: formatFacilitySelection,
         };
 
         if ($.fn.select2) {
@@ -239,7 +239,7 @@
                 placeholder: 'All',
                 allowClear: true,
                 width: '100%',
-                closeOnSelect: false
+                closeOnSelect: false,
             };
             $('#filterType').select2({...simpleSelect2Config, placeholder: 'All Types'});
             $('#filterStatus').select2({...simpleSelect2Config, placeholder: 'All Status'});
@@ -249,7 +249,7 @@
                 placeholder: 'All Sources',
                 allowClear: false,
                 width: '100%',
-                minimumResultsForSearch: Infinity // Hide search box for simple dropdown
+                minimumResultsForSearch: Infinity, // Hide search box for simple dropdown
             });
 
             // Set default status selection
@@ -294,11 +294,11 @@
     }
 
     function formatFacilityOption(option) {
-        if (!option.id) return option.text;
+        if (!option.id) {return option.text;}
 
         const fac = option.id;
         let badge = '';
-        let style = '';
+        const style = '';
         const FACILITY_GROUPS = getFACILITY_GROUPS();
         const DCC_REGIONS = getDCC_REGIONS();
         const ARTCCS = getARTCCS();
@@ -377,7 +377,7 @@
         setTimeout(function() {
             $el.closest('.select2-selection__choice').css({
                 'background-color': bgColor,
-                'border-color': bgColor
+                'border-color': bgColor,
             });
         }, 0);
 
@@ -426,17 +426,17 @@
                 state.filters = {
                     source: savedFilters.source || 'PRODUCTION',
                     reqFacilities: Array.isArray(savedFilters.reqFacilities) ? savedFilters.reqFacilities :
-                                   (savedFilters.reqFacility && savedFilters.reqFacility !== 'ALL' ? [savedFilters.reqFacility] : []),
+                        (savedFilters.reqFacility && savedFilters.reqFacility !== 'ALL' ? [savedFilters.reqFacility] : []),
                     provFacilities: Array.isArray(savedFilters.provFacilities) ? savedFilters.provFacilities :
-                                    (savedFilters.provFacility && savedFilters.provFacility !== 'ALL' ? [savedFilters.provFacility] : []),
+                        (savedFilters.provFacility && savedFilters.provFacility !== 'ALL' ? [savedFilters.provFacility] : []),
                     // Migrate type from single to multi-select
                     types: Array.isArray(savedFilters.types) ? savedFilters.types :
-                           (savedFilters.type && savedFilters.type !== 'ALL' ? [savedFilters.type] : []),
+                        (savedFilters.type && savedFilters.type !== 'ALL' ? [savedFilters.type] : []),
                     // Migrate status from single to multi-select, default to ACTIVE+SCHEDULED
                     statuses: Array.isArray(savedFilters.statuses) ? savedFilters.statuses :
-                              (savedFilters.status && savedFilters.status !== 'ACTIVE' ? [savedFilters.status] : ['ACTIVE', 'SCHEDULED']),
+                        (savedFilters.status && savedFilters.status !== 'ACTIVE' ? [savedFilters.status] : ['ACTIVE', 'SCHEDULED']),
                     // Date filter (don't persist - always start with today/current)
-                    date: ''
+                    date: '',
                 };
             } else {
                 // Default filters for first-time users
@@ -446,7 +446,7 @@
                     provFacilities: [],
                     types: [],
                     statuses: ['ACTIVE', 'SCHEDULED'],
-                    date: ''
+                    date: '',
                 };
             }
             // Update UI to reflect saved state
@@ -511,7 +511,7 @@
             selected.push({
                 entityId: $(this).data('id'),
                 entityType: $(this).data('type'),
-                type: $(this).data('subtype') || null  // For distinguishing publicroute vs reroute
+                type: $(this).data('subtype') || null,  // For distinguishing publicroute vs reroute
             });
         });
 
@@ -522,7 +522,7 @@
         // Check if any selected items support cancellation advisories
         const supportsAdvisory = selected.some(item =>
             ['PROGRAM', 'REROUTE'].includes(item.entityType) ||
-            (item.entityType === 'ADVISORY' && item.advisoryType && item.advisoryType.includes('HOTLINE'))
+            (item.entityType === 'ADVISORY' && item.advisoryType && item.advisoryType.includes('HOTLINE')),
         );
 
         Swal.fire({
@@ -546,9 +546,9 @@
             cancelButtonText: 'Nevermind',
             preConfirm: () => {
                 return {
-                    postAdvisory: supportsAdvisory && document.getElementById('postCancelAdvisory')?.checked
+                    postAdvisory: supportsAdvisory && document.getElementById('postCancelAdvisory')?.checked,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 executeBatchCancel(selected, result.value?.postAdvisory || false);
@@ -591,7 +591,7 @@
         const advisoryChannel = window.TMI_PUBLISHER_CONFIG?.advisoryChannel || 'advzy_staging';
 
         let successes = 0;
-        let failures = [];
+        const failures = [];
         let advisoriesPosted = 0;
 
         const updateProgress = (index) => {
@@ -632,7 +632,7 @@
                     userName: userName,
                     postAdvisory: canPostAdvisory,
                     advisoryChannel: advisoryChannel,
-                    type: item.type || null  // Pass subtype to distinguish publicroute vs reroute
+                    type: item.type || null,  // Pass subtype to distinguish publicroute vs reroute
                 }),
                 success: function(response) {
                     if (response.success) {
@@ -649,7 +649,7 @@
                 },
                 complete: function() {
                     processNext(index + 1);
-                }
+                },
             });
         };
 
@@ -670,17 +670,17 @@
                 title: message,
                 timer: 4000,
                 showConfirmButton: false,
-                timerProgressBar: true
+                timerProgressBar: true,
             });
         } else {
             // Show modal only if there were failures (user needs to see errors)
-            let failureHtml = failures.map(f => `<li>#${f.id}: ${f.error}</li>`).join('');
+            const failureHtml = failures.map(f => `<li>#${f.id}: ${f.error}</li>`).join('');
             Swal.fire({
                 icon: 'warning',
                 title: 'Batch Cancel Partial',
                 html: `<p>Cancelled ${successes} TMI${successes > 1 ? 's' : ''}.</p>
                        <p class="text-danger">Failed to cancel ${failures.length}:</p>
-                       <ul class="text-left small">${failureHtml}</ul>`
+                       <ul class="text-left small">${failureHtml}</ul>`,
             });
         }
     }
@@ -702,7 +702,7 @@
             selected.push({
                 entityId: $(this).data('id'),
                 entityType: $(this).data('type'),
-                type: $(this).data('subtype') || null  // For distinguishing publicroute vs reroute
+                type: $(this).data('subtype') || null,  // For distinguishing publicroute vs reroute
             });
         });
 
@@ -732,9 +732,9 @@
             cancelButtonText: 'Nevermind',
             preConfirm: () => {
                 return {
-                    postAdvisory: document.getElementById('postCancelAdvisoryBatch')?.checked
+                    postAdvisory: document.getElementById('postCancelAdvisoryBatch')?.checked,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 executeBatchCancel(selected, result.value?.postAdvisory || false);
@@ -748,7 +748,7 @@
 
     function loadActiveTmis() {
         console.log('[TMI-Active] Loading active TMIs...');
-        
+
         // Show loading state
         $('#restrictionsTableBody').html(`
             <tr>
@@ -758,7 +758,7 @@
                 </td>
             </tr>
         `);
-        
+
         $('#advisoriesContainer').html(`
             <div class="text-center py-4">
                 <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
@@ -773,7 +773,7 @@
             include_scheduled: '1',
             include_cancelled: '1',
             cancelled_hours: 4,
-            limit: 200
+            limit: 200,
         };
         if (state.filters.date) {
             apiParams.date = state.filters.date;
@@ -785,7 +785,7 @@
             data: apiParams,
             success: function(response) {
                 console.log('[TMI-Active] Data received:', response);
-                
+
                 if (response.success) {
                     processData(response.data);
                     renderDisplay();
@@ -797,7 +797,7 @@
             error: function(xhr, status, error) {
                 console.error('[TMI-Active] API error:', error);
                 showError('Connection error. Database may not be configured.');
-            }
+            },
         });
     }
 
@@ -851,14 +851,14 @@
             reroutes: state.reroutes.length,
             scheduled: state.scheduled.length,
             cancelled: state.cancelled.length,
-            expired: state.expired.length
+            expired: state.expired.length,
         });
     }
 
     // ===========================================
     // Rendering
     // ===========================================
-    
+
     function renderDisplay() {
         renderRestrictions();  // Also includes programs and reroutes
         renderAdvisories();
@@ -874,7 +874,7 @@
         $('#selectedCount').text('0');
 
         // Get filtered restrictions
-        let items = getFilteredRestrictions();
+        const items = getFilteredRestrictions();
 
         if (items.length === 0) {
             $tbody.html(`
@@ -946,17 +946,17 @@
         const status = item.status || 'ACTIVE';
 
         const statusClass = status === 'CANCELLED' || status === 'PURGED' ? 'table-secondary' :
-                           status === 'SCHEDULED' || status === 'PROPOSED' ? 'table-info' : '';
+            status === 'SCHEDULED' || status === 'PROPOSED' ? 'table-info' : '';
         const statusBadge = (status === 'CANCELLED' || status === 'PURGED') ? '<span class="badge badge-secondary ml-1">CXLD</span>' :
-                           (status === 'SCHEDULED' || status === 'PROPOSED') ? '<span class="badge badge-info ml-1">SCHED</span>' : '';
+            (status === 'SCHEDULED' || status === 'PROPOSED') ? '<span class="badge badge-info ml-1">SCHED</span>' : '';
 
         // Type badge for programs and reroutes
         let typeBadge = '';
         if (item.entityType === 'PROGRAM') {
             const pType = item.entryType || 'PROGRAM';
             typeBadge = pType === 'GS' ? '<span class="badge badge-danger mr-1">GS</span>' :
-                       pType.includes('GDP') ? '<span class="badge badge-warning text-dark mr-1">GDP</span>' :
-                       '<span class="badge badge-primary mr-1">' + pType + '</span>';
+                pType.includes('GDP') ? '<span class="badge badge-warning text-dark mr-1">GDP</span>' :
+                    '<span class="badge badge-primary mr-1">' + pType + '</span>';
         } else if (item.entityType === 'REROUTE') {
             typeBadge = '<span class="badge badge-info mr-1">REROUTE</span>';
         }
@@ -1045,7 +1045,7 @@
         // For CONFIG and DELAY entries, show the raw text which has all the details
         if ((entryType === 'CONFIG' || entryType === 'DELAY') && item.rawText) {
             // Strip the timestamp prefix if present (format: DD/HHMM    )
-            let text = item.rawText.replace(/^\d{2}\/\d{4}\s+/, '');
+            const text = item.rawText.replace(/^\d{2}\/\d{4}\s+/, '');
             return text;
         }
 
@@ -1116,7 +1116,7 @@
         $('#advisorySelectedCount').text('0');
 
         // Get filtered advisories
-        let items = getFilteredAdvisories();
+        const items = getFilteredAdvisories();
 
         if (items.length === 0) {
             $container.html(`
@@ -1175,7 +1175,7 @@
             $card.find('.advisory-body').slideToggle(200);
             $(this).find('.expand-icon').toggleClass('fa-chevron-down fa-chevron-up');
         });
-        
+
         // Bind cancel buttons
         $container.find('.btn-cancel-advisory').on('click', function(e) {
             e.stopPropagation();
@@ -1203,12 +1203,12 @@
         const status = item.status || 'ACTIVE';
 
         const headerColor = isReroute ? 'bg-info' :
-                           advType === 'HOTLINE' ? 'bg-danger' :
-                           advType === 'SWAP' ? 'bg-warning text-dark' :
-                           advType === 'OPSPLAN' ? 'bg-primary' : 'bg-secondary';
+            advType === 'HOTLINE' ? 'bg-danger' :
+                advType === 'SWAP' ? 'bg-warning text-dark' :
+                    advType === 'OPSPLAN' ? 'bg-primary' : 'bg-secondary';
 
         const statusBadge = status === 'CANCELLED' ? '<span class="badge badge-secondary">CXLD</span>' :
-                           status === 'SCHEDULED' ? '<span class="badge badge-info">SCHEDULED</span>' : '';
+            status === 'SCHEDULED' ? '<span class="badge badge-info">SCHEDULED</span>' : '';
 
         // For reroutes, use advisoryText; for advisories use bodyText/rawText
         const bodyText = isReroute
@@ -1280,7 +1280,7 @@
     // ===========================================
     // Filtering
     // ===========================================
-    
+
     function applyFilters() {
         const previousDate = state.filters.date;
 
@@ -1312,7 +1312,7 @@
             provFacilities: [],
             types: [],
             statuses: ['ACTIVE', 'SCHEDULED'],
-            date: ''
+            date: '',
         };
 
         $('#filterSource').val('PRODUCTION');
@@ -1406,11 +1406,11 @@
 
                 // Check each selected type
                 for (const filterType of filterTypes) {
-                    if (filterType === 'GDP' && i.entityType === 'PROGRAM' && entryType.includes('GDP')) return true;
-                    if (filterType === 'STOP' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
-                    if (filterType === 'GS' && i.entityType === 'PROGRAM' && entryType === 'GS') return true;
-                    if (filterType === 'REROUTE' && i.entityType === 'REROUTE') return true;
-                    if (entryType === filterType) return true;
+                    if (filterType === 'GDP' && i.entityType === 'PROGRAM' && entryType.includes('GDP')) {return true;}
+                    if (filterType === 'STOP' && i.entityType === 'PROGRAM' && entryType === 'GS') {return true;}
+                    if (filterType === 'GS' && i.entityType === 'PROGRAM' && entryType === 'GS') {return true;}
+                    if (filterType === 'REROUTE' && i.entityType === 'REROUTE') {return true;}
+                    if (entryType === filterType) {return true;}
                 }
                 return false;
             });
@@ -1446,7 +1446,7 @@
     // ===========================================
     // Actions
     // ===========================================
-    
+
     function showRestrictionDetails(id, type) {
         // Find the item - also check programs and reroutes
         // Use type parameter to ensure we find the correct item (avoid ID collisions between entity types)
@@ -1458,7 +1458,7 @@
             'REROUTE': 'REROUTE',
             'publicroute': 'REROUTE',
             'ENTRY': 'ENTRY',
-            'ADVISORY': 'ADVISORY'
+            'ADVISORY': 'ADVISORY',
         };
         const expectedEntityType = entityTypeMap[type] || type;
 
@@ -1603,7 +1603,7 @@
             denyButtonText: '<i class="fas fa-edit"></i> Edit',
             denyButtonColor: '#007bff',
             cancelButtonText: '<i class="fas fa-times"></i> Cancel',
-            cancelButtonColor: '#dc3545'
+            cancelButtonColor: '#dc3545',
         }).then((result) => {
             if (result.isDenied && editUrl) {
                 window.location.href = editUrl;
@@ -1624,7 +1624,7 @@
                 window.TMI_GSGDP.openCancelModal(
                     program.programId || id,
                     subtype || program.type || 'GS',
-                    program.ctlElement || program.element || 'UNKN'
+                    program.ctlElement || program.element || 'UNKN',
                 );
                 return;
             }
@@ -1644,7 +1644,7 @@
             confirmButtonText: 'Yes, Cancel TMI',
             preConfirm: () => {
                 return document.getElementById('cancelReason').value || 'Cancelled via TMI Publisher';
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 performCancel(id, type, result.value, subtype);
@@ -1656,7 +1656,7 @@
         Swal.fire({
             title: 'Cancelling...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         // Get user info from TMI_PUBLISHER_CONFIG if available
@@ -1676,7 +1676,7 @@
                 reason: reason,
                 userCid: userCid,
                 userName: userName,
-                type: subtype || null  // Pass subtype to distinguish publicroute vs reroute
+                type: subtype || null,  // Pass subtype to distinguish publicroute vs reroute
             }),
             success: function(response) {
                 Swal.close();
@@ -1687,7 +1687,7 @@
                         title: 'TMI Cancelled',
                         text: response.message || 'The TMI has been cancelled successfully.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     // Reload data
@@ -1696,7 +1696,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Cancel Failed',
-                        text: response.error || 'Unknown error'
+                        text: response.error || 'Unknown error',
                     });
                 }
             },
@@ -1705,9 +1705,9 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Cancel Failed',
-                    text: 'Failed to connect to server: ' + error
+                    text: 'Failed to connect to server: ' + error,
                 });
-            }
+            },
         });
     }
 
@@ -1744,7 +1744,7 @@
 
         // Format current dates for datetime-local inputs
         const formatForInput = (dateStr) => {
-            if (!dateStr) return '';
+            if (!dateStr) {return '';}
             const d = new Date(dateStr);
             return d.toISOString().slice(0, 16);
         };
@@ -1853,9 +1853,9 @@
                     qualifiers: document.getElementById('editQualifiers').value,
                     exclusions: document.getElementById('editExclusions').value,
                     reasonCode: document.getElementById('editReasonCode').value,
-                    reasonDetail: document.getElementById('editReasonDetail').value
+                    reasonDetail: document.getElementById('editReasonDetail').value,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, type, result.value);
@@ -1880,7 +1880,7 @@
         }
 
         const formatForInput = (dateStr) => {
-            if (!dateStr) return '';
+            if (!dateStr) {return '';}
             const d = new Date(dateStr);
             return d.toISOString().slice(0, 16);
         };
@@ -1935,7 +1935,7 @@
             confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
             confirmButtonColor: '#28a745',
             cancelButtonText: 'Cancel',
-            preConfirm: preConfirmFn
+            preConfirm: preConfirmFn,
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, 'ADVISORY', result.value);
@@ -1949,21 +1949,21 @@
 
     function buildHotlineEditForm(item, formatForInput) {
         const hotlineNames = ['NY Metro', 'DC Metro', 'Chicago', 'Atlanta', 'Florida', 'Texas',
-                            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean'];
+            'East Coast', 'West Coast', 'Canada East', 'Canada West', 'Mexico', 'Caribbean'];
         const participationOptions = ['MANDATORY', 'EXPECTED', 'STRONGLY ENCOURAGED', 'STRONGLY RECOMMENDED',
-                                     'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL'];
+            'ENCOURAGED', 'RECOMMENDED', 'OPTIONAL'];
         const hotlineActions = ['ACTIVATION', 'UPDATE', 'TERMINATION'];
 
         const hotlineNameOpts = hotlineNames.map(n =>
-            `<option value="${n}" ${item.hotlineName === n ? 'selected' : ''}>${n}</option>`
+            `<option value="${n}" ${item.hotlineName === n ? 'selected' : ''}>${n}</option>`,
         ).join('');
 
         const participationOpts = participationOptions.map(p =>
-            `<option value="${p}" ${item.participation === p ? 'selected' : ''}>${p}</option>`
+            `<option value="${p}" ${item.participation === p ? 'selected' : ''}>${p}</option>`,
         ).join('');
 
         const actionOpts = hotlineActions.map(a =>
-            `<option value="${a}" ${item.hotlineAction === a ? 'selected' : ''}>${a}</option>`
+            `<option value="${a}" ${item.hotlineAction === a ? 'selected' : ''}>${a}</option>`,
         ).join('');
 
         return `
@@ -2058,7 +2058,7 @@
             reasonCode: document.getElementById('editReasonCode').value,
             impactedArea: document.getElementById('editImpactedArea').value,
             hotlineAddress: document.getElementById('editHotlineAddress').value,
-            notes: document.getElementById('editNotes').value
+            notes: document.getElementById('editNotes').value,
         };
     }
 
@@ -2112,7 +2112,7 @@
             subject: document.getElementById('editSubject').value,
             initiatives: document.getElementById('editInitiatives').value,
             constraints: document.getElementById('editConstraints').value,
-            specialEvents: document.getElementById('editEvents').value
+            specialEvents: document.getElementById('editEvents').value,
         };
     }
 
@@ -2188,7 +2188,7 @@
             reasonDetail: document.getElementById('editReasonDetail').value,
             bodyText: document.getElementById('editBodyText').value,
             programRate: document.getElementById('editProgramRate')?.value || null,
-            delayCap: document.getElementById('editDelayCap')?.value || null
+            delayCap: document.getElementById('editDelayCap')?.value || null,
         };
     }
 
@@ -2252,7 +2252,7 @@
             scopeFacilities: document.getElementById('editScopeFac').value,
             reasonCode: document.getElementById('editReasonCode').value,
             reasonDetail: document.getElementById('editReasonDetail').value,
-            bodyText: document.getElementById('editBodyText').value
+            bodyText: document.getElementById('editBodyText').value,
         };
     }
 
@@ -2267,7 +2267,7 @@
         }
 
         const formatForInput = (dateStr) => {
-            if (!dateStr) return '';
+            if (!dateStr) {return '';}
             const d = new Date(dateStr);
             return d.toISOString().slice(0, 16);
         };
@@ -2353,9 +2353,9 @@
                     scopeType: document.getElementById('editScopeType')?.value || null,
                     impactingCondition: document.getElementById('editImpactingCondition').value,
                     causeText: document.getElementById('editCauseText').value,
-                    comments: document.getElementById('editComments').value
+                    comments: document.getElementById('editComments').value,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, 'PROGRAM', result.value);
@@ -2374,7 +2374,7 @@
         }
 
         const formatForInput = (dateStr) => {
-            if (!dateStr) return '';
+            if (!dateStr) {return '';}
             const d = new Date(dateStr);
             return d.toISOString().slice(0, 16);
         };
@@ -2458,9 +2458,9 @@
                     avoidFixes: document.getElementById('editAvoidFixes').value,
                     impactingCondition: document.getElementById('editImpactingCondition').value,
                     comments: document.getElementById('editComments').value,
-                    advisoryText: document.getElementById('editAdvisoryText').value
+                    advisoryText: document.getElementById('editAdvisoryText').value,
                 };
-            }
+            },
         }).then((result) => {
             if (result.isConfirmed) {
                 performEdit(id, 'REROUTE', result.value);
@@ -2472,7 +2472,7 @@
         Swal.fire({
             title: 'Saving...',
             allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            didOpen: () => Swal.showLoading(),
         });
 
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
@@ -2490,7 +2490,7 @@
                 entityId: id,
                 updates: data,
                 userCid: userCid,
-                userName: userName
+                userName: userName,
             }),
             success: function(response) {
                 Swal.close();
@@ -2501,7 +2501,7 @@
                         title: 'Changes Saved',
                         text: response.message || 'The TMI has been updated successfully.',
                         timer: 2000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
 
                     // Reload data
@@ -2510,7 +2510,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Update Failed',
-                        text: response.error || 'Unknown error'
+                        text: response.error || 'Unknown error',
                     });
                 }
             },
@@ -2519,28 +2519,28 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Update Failed',
-                    text: 'Failed to connect to server: ' + error
+                    text: 'Failed to connect to server: ' + error,
                 });
-            }
+            },
         });
     }
 
     // ===========================================
     // Auto-Refresh
     // ===========================================
-    
+
     function startAutoRefresh() {
         // Clear existing timers
-        if (state.refreshTimer) clearInterval(state.refreshTimer);
-        if (state.countdownTimer) clearInterval(state.countdownTimer);
-        
+        if (state.refreshTimer) {clearInterval(state.refreshTimer);}
+        if (state.countdownTimer) {clearInterval(state.countdownTimer);}
+
         state.secondsUntilRefresh = 60;
-        
+
         // Countdown timer (every second)
         state.countdownTimer = setInterval(function() {
             state.secondsUntilRefresh--;
             updateCountdownDisplay();
-            
+
             if (state.secondsUntilRefresh <= 0) {
                 state.secondsUntilRefresh = 60;
                 loadActiveTmis();
@@ -2584,13 +2584,13 @@
     // ===========================================
     // Utilities
     // ===========================================
-    
+
     function formatFaaDateTime(isoString) {
-        if (!isoString) return '-';
+        if (!isoString) {return '-';}
 
         try {
             const d = new Date(isoString);
-            if (isNaN(d.getTime())) return '-';
+            if (isNaN(d.getTime())) {return '-';}
 
             const month = String(d.getUTCMonth() + 1).padStart(2, '0');
             const day = String(d.getUTCDate()).padStart(2, '0');
@@ -2614,34 +2614,34 @@
         const diffHours = Math.round(diffMins / 60);
         const diffDays = Math.round(diffHours / 24);
 
-        if (diffMins === 0) return 'now';
+        if (diffMins === 0) {return 'now';}
 
         if (diffMins > 0) {
             // Future
-            if (diffMins < 60) return `in ${diffMins}m`;
-            if (diffHours < 24) return `in ${diffHours}h`;
+            if (diffMins < 60) {return `in ${diffMins}m`;}
+            if (diffHours < 24) {return `in ${diffHours}h`;}
             return `in ${diffDays}d`;
         } else {
             // Past
             const absMins = Math.abs(diffMins);
             const absHours = Math.abs(diffHours);
             const absDays = Math.abs(diffDays);
-            if (absMins < 60) return `${absMins}m ago`;
-            if (absHours < 24) return `${absHours}h ago`;
+            if (absMins < 60) {return `${absMins}m ago`;}
+            if (absHours < 24) {return `${absHours}h ago`;}
             return `${absDays}d ago`;
         }
     }
 
     function formatTimeOnly(isoString) {
-        if (!isoString) return '';
-        
+        if (!isoString) {return '';}
+
         try {
             const d = new Date(isoString);
-            if (isNaN(d.getTime())) return '';
-            
+            if (isNaN(d.getTime())) {return '';}
+
             const hours = String(d.getUTCHours()).padStart(2, '0');
             const minutes = String(d.getUTCMinutes()).padStart(2, '0');
-            
+
             return `${hours}${minutes}`;
         } catch (e) {
             return '';
@@ -2657,7 +2657,7 @@
                 </td>
             </tr>
         `);
-        
+
         $('#advisoriesContainer').html(`
             <div class="text-center py-4 text-muted">
                 <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
@@ -2667,7 +2667,7 @@
     }
 
     function escapeHtml(text) {
-        if (text === null || text === undefined) return '';
+        if (text === null || text === undefined) {return '';}
         const str = String(text);
         const div = document.createElement('div');
         div.textContent = str;
@@ -2677,13 +2677,13 @@
     // ===========================================
     // Public API
     // ===========================================
-    
+
     window.TMIActiveDisplay = {
         init: init,
         refresh: loadActiveTmis,
         applyFilters: applyFilters,
         resetFilters: resetFilters,
-        cancelTmi: cancelTmi
+        cancelTmi: cancelTmi,
     };
 
     // Auto-init when document ready

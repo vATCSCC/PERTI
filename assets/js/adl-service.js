@@ -1,24 +1,24 @@
 /**
  * ADL Data Service - Centralized ADL data management with buffered refreshes
- * 
+ *
  * This module provides:
  * 1. Single shared data fetch for all ADL consumers
  * 2. Buffered state that never goes empty during refreshes
  * 3. Subscriber pattern for multiple page components
  * 4. Automatic refresh management
- * 
+ *
  * Usage:
  *   // Subscribe to ADL updates
  *   ADLService.subscribe('my-component', (data) => {
  *       renderMyTable(data.flights);
  *   });
- *   
+ *
  *   // Start auto-refresh (only first caller sets the interval)
  *   ADLService.startAutoRefresh(15000);
- *   
+ *
  *   // Manual refresh
  *   ADLService.refresh();
- *   
+ *
  *   // Get current data (never null after first load)
  *   const flights = ADLService.getFlights();
  */
@@ -29,45 +29,45 @@ const ADLService = (function() {
     // =========================================================================
     // Configuration
     // =========================================================================
-    
+
     const CONFIG = {
         apiUrl: 'api/adl/current.php',
         defaultParams: {
             limit: 10000,
-            active: 1
+            active: 1,
         },
         minRefreshInterval: 5000,  // Minimum 5s between refreshes
-        defaultRefreshInterval: 15000
+        defaultRefreshInterval: 15000,
     };
 
     // =========================================================================
     // State - Uses double-buffering pattern
     // =========================================================================
-    
+
     const state = {
         // Current data (never set to null/empty after first successful load)
         flights: [],
         stats: null,
         snapshotUtc: null,
-        
+
         // Previous data (for change detection)
         previousFlights: [],
-        
+
         // Loading state
         isLoading: false,
         lastRefresh: null,
         lastError: null,
         refreshCount: 0,
-        
+
         // Auto-refresh
         refreshInterval: null,
         refreshIntervalMs: CONFIG.defaultRefreshInterval,
-        
+
         // Subscribers
         subscribers: new Map(),
-        
+
         // Request deduplication
-        pendingRequest: null
+        pendingRequest: null,
     };
 
     // =========================================================================
@@ -101,7 +101,7 @@ const ADLService = (function() {
 
         const params = new URLSearchParams({
             ...CONFIG.defaultParams,
-            ...(options.params || {})
+            ...(options.params || {}),
         });
 
         const url = `${CONFIG.apiUrl}?${params.toString()}`;
@@ -116,7 +116,7 @@ const ADLService = (function() {
             .then(data => {
                 // Extract flights from various response formats
                 const newFlights = data.flights || data.rows || data || [];
-                
+
                 // Validate we got actual data
                 if (!Array.isArray(newFlights)) {
                     console.warn('[ADLService] Invalid response format');
@@ -127,7 +127,7 @@ const ADLService = (function() {
                 if (newFlights.length > 0 || state.flights.length === 0) {
                     state.previousFlights = state.flights;
                     state.flights = newFlights;
-                    
+
                     // Update metadata
                     state.snapshotUtc = data.snapshot_utc || data.snapshotUtc || new Date().toISOString();
                     state.stats = data.stats || null;
@@ -147,7 +147,7 @@ const ADLService = (function() {
             .catch(error => {
                 console.error('[ADLService] Fetch error:', error);
                 state.lastError = error;
-                
+
                 // DON'T clear state.flights - keep old data available
                 // Notify subscribers of error (they can check lastError)
                 notifySubscribers();
@@ -184,7 +184,7 @@ const ADLService = (function() {
         state.subscribers.set(id, {
             callback,
             filter: options.filter || null,
-            options
+            options,
         });
 
         console.log(`[ADLService] Subscriber added: ${id} (total: ${state.subscribers.size})`);
@@ -231,7 +231,7 @@ const ADLService = (function() {
      */
     function getSubscriberData(sub) {
         let flights = state.flights;
-        
+
         // Apply subscriber's filter if provided
         if (typeof sub.filter === 'function') {
             flights = flights.filter(sub.filter);
@@ -246,7 +246,7 @@ const ADLService = (function() {
             isLoading: state.isLoading,
             isError: state.lastError !== null,
             error: state.lastError,
-            refreshCount: state.refreshCount
+            refreshCount: state.refreshCount,
         };
     }
 
@@ -335,7 +335,7 @@ const ADLService = (function() {
      * @param {Function} filterFn - Filter function
      */
     function getFilteredFlights(filterFn) {
-        if (typeof filterFn !== 'function') return state.flights;
+        if (typeof filterFn !== 'function') {return state.flights;}
         return state.flights.filter(filterFn);
     }
 
@@ -343,9 +343,9 @@ const ADLService = (function() {
      * Get flights with valid coordinates
      */
     function getFlightsWithPosition() {
-        return state.flights.filter(f => 
+        return state.flights.filter(f =>
             f.lat != null && f.lon != null &&
-            !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon))
+            !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon)),
         );
     }
 
@@ -354,8 +354,8 @@ const ADLService = (function() {
      */
     function getFlightByCallsign(callsign) {
         const cs = (callsign || '').toUpperCase().trim();
-        return state.flights.find(f => 
-            (f.callsign || '').toUpperCase().trim() === cs
+        return state.flights.find(f =>
+            (f.callsign || '').toUpperCase().trim() === cs,
         );
     }
 
@@ -364,9 +364,9 @@ const ADLService = (function() {
      */
     function getFlightsByDestination(dest) {
         const d = (dest || '').toUpperCase().trim();
-        return state.flights.filter(f => 
+        return state.flights.filter(f =>
             (f.fp_dest_icao || '').toUpperCase().includes(d) ||
-            (f.arr || '').toUpperCase().includes(d)
+            (f.arr || '').toUpperCase().includes(d),
         );
     }
 
@@ -375,9 +375,9 @@ const ADLService = (function() {
      */
     function getFlightsByOrigin(origin) {
         const o = (origin || '').toUpperCase().trim();
-        return state.flights.filter(f => 
+        return state.flights.filter(f =>
             (f.fp_dept_icao || '').toUpperCase().includes(o) ||
-            (f.dep || '').toUpperCase().includes(o)
+            (f.dep || '').toUpperCase().includes(o),
         );
     }
 
@@ -400,7 +400,7 @@ const ADLService = (function() {
             subscriberCount: state.subscribers.size,
             refreshCount: state.refreshCount,
             autoRefreshActive: state.refreshInterval !== null,
-            refreshIntervalMs: state.refreshIntervalMs
+            refreshIntervalMs: state.refreshIntervalMs,
         };
     }
 
@@ -417,13 +417,13 @@ const ADLService = (function() {
      */
     function renderFlightTable(tbody, flights, rowBuilder, options = {}) {
         const tbodyEl = typeof tbody === 'string' ? document.getElementById(tbody) : tbody;
-        if (!tbodyEl) return;
+        if (!tbodyEl) {return;}
 
         const {
             emptyMessage = 'No flights found',
             colspan = 8,
             preserveOnEmpty = true,
-            sortFn = null
+            sortFn = null,
         } = options;
 
         // Sort if requested
@@ -465,15 +465,15 @@ const ADLService = (function() {
      */
     function updateCounter(element, value, options = {}) {
         const el = typeof element === 'string' ? document.getElementById(element) : element;
-        if (!el) return;
+        if (!el) {return;}
 
         // Don't update to invalid values
-        if (value === null || value === undefined || isNaN(value)) return;
+        if (value === null || value === undefined || isNaN(value)) {return;}
 
         // Don't show 0 if we had data (unless forced)
         const currentText = el.textContent || '';
         const currentVal = parseInt(currentText.replace(/[^0-9]/g, ''), 10);
-        if (value === 0 && currentVal > 0 && !options.allowZero) return;
+        if (value === 0 && currentVal > 0 && !options.allowZero) {return;}
 
         const { prefix = '', suffix = '', format = n => n.toLocaleString() } = options;
         el.textContent = prefix + format(value) + suffix;
@@ -484,7 +484,7 @@ const ADLService = (function() {
     // =========================================================================
 
     function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
+        if (str === null || str === undefined) {return '';}
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -498,7 +498,7 @@ const ADLService = (function() {
     // =========================================================================
 
     function injectStyles() {
-        if (document.getElementById('adl-service-styles')) return;
+        if (document.getElementById('adl-service-styles')) {return;}
 
         const styles = document.createElement('style');
         styles.id = 'adl-service-styles';
@@ -545,12 +545,12 @@ const ADLService = (function() {
         refresh,
         subscribe,
         unsubscribe,
-        
+
         // Auto-refresh
         startAutoRefresh,
         stopAutoRefresh,
         setRefreshInterval,
-        
+
         // Data accessors (always return buffered data)
         getFlights,
         getFilteredFlights,
@@ -560,17 +560,17 @@ const ADLService = (function() {
         getFlightsByOrigin,
         getStats,
         getState,
-        
+
         // Rendering helpers
         renderFlightTable,
         updateCounter,
         escapeHtml,
-        
+
         // Configuration
         configure: (config) => Object.assign(CONFIG, config),
-        
+
         // Version
-        version: '1.0.0'
+        version: '1.0.0',
     };
 
 })();

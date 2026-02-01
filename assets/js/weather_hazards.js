@@ -1,8 +1,8 @@
 /**
  * Weather Hazards Display Module for PERTI TSD Map
- * 
+ *
  * Displays SIGMET/AIRMET polygons on MapLibre GL JS map
- * 
+ *
  * Features:
  * - Real-time weather hazard polygons (SIGMET, AIRMET, Convective)
  * - Color-coded by hazard type
@@ -10,7 +10,7 @@
  * - Auto-refresh every 5 minutes
  * - Popup with hazard details on click
  * - Weather panel showing active alerts
- * 
+ *
  * @version 1.0
  * @date 2026-01-06
  */
@@ -21,63 +21,63 @@ const WeatherHazards = (function() {
     // =========================================================================
     // CONFIGURATION
     // =========================================================================
-    
+
     const CONFIG = {
         apiUrl: '/api/weather/alerts.php',
         refreshInterval: 300000,  // 5 minutes
-        
+
         // Hazard type colors (FSM-style)
         colors: {
             CONVECTIVE: {
                 fill: 'rgba(255, 0, 0, 0.25)',
                 stroke: '#FF0000',
-                strokeWidth: 2
+                strokeWidth: 2,
             },
             TURB: {
                 fill: 'rgba(255, 165, 0, 0.25)',
                 stroke: '#FFA500',
-                strokeWidth: 2
+                strokeWidth: 2,
             },
             ICE: {
                 fill: 'rgba(0, 191, 255, 0.25)',
                 stroke: '#00BFFF',
-                strokeWidth: 2
+                strokeWidth: 2,
             },
             IFR: {
                 fill: 'rgba(128, 128, 128, 0.20)',
                 stroke: '#808080',
-                strokeWidth: 1.5
+                strokeWidth: 1.5,
             },
             MTN: {
                 fill: 'rgba(139, 69, 19, 0.20)',
                 stroke: '#8B4513',
-                strokeWidth: 1.5
+                strokeWidth: 1.5,
             },
             DEFAULT: {
                 fill: 'rgba(255, 255, 0, 0.20)',
                 stroke: '#FFFF00',
-                strokeWidth: 1.5
-            }
+                strokeWidth: 1.5,
+            },
         },
-        
+
         // Severity modifiers
         severityOpacity: {
             SEV: 1.0,
             MOD: 0.8,
-            LGT: 0.6
-        }
+            LGT: 0.6,
+        },
     };
 
     // =========================================================================
     // STATE
     // =========================================================================
-    
+
     let map = null;
     let initialized = false;
     let alerts = [];
     let refreshTimer = null;
     let visibleHazards = new Set(['CONVECTIVE', 'TURB', 'ICE', 'IFR', 'MTN']);
-    let onUpdateCallbacks = [];
+    const onUpdateCallbacks = [];
 
     // Source and layer IDs
     const SOURCE_ID = 'weather-hazards-source';
@@ -88,7 +88,7 @@ const WeatherHazards = (function() {
     // =========================================================================
     // INITIALIZATION
     // =========================================================================
-    
+
     /**
      * Initialize the weather hazards module
      * @param {maplibregl.Map} mapInstance - MapLibre map instance
@@ -99,21 +99,21 @@ const WeatherHazards = (function() {
             console.warn('WeatherHazards: Already initialized');
             return;
         }
-        
+
         map = mapInstance;
-        
+
         // Merge options
         if (options.refreshInterval) {
             CONFIG.refreshInterval = options.refreshInterval;
         }
-        
+
         // Wait for map to be ready
         if (map.loaded()) {
             setupLayers();
         } else {
             map.on('load', setupLayers);
         }
-        
+
         initialized = true;
         console.log('WeatherHazards: Initialized');
     }
@@ -128,11 +128,11 @@ const WeatherHazards = (function() {
                 type: 'geojson',
                 data: {
                     type: 'FeatureCollection',
-                    features: []
-                }
+                    features: [],
+                },
             });
         }
-        
+
         // Add fill layer
         if (!map.getLayer(FILL_LAYER_ID)) {
             map.addLayer({
@@ -141,11 +141,11 @@ const WeatherHazards = (function() {
                 source: SOURCE_ID,
                 paint: {
                     'fill-color': ['get', 'fillColor'],
-                    'fill-opacity': ['get', 'fillOpacity']
-                }
+                    'fill-opacity': ['get', 'fillOpacity'],
+                },
             });
         }
-        
+
         // Add outline layer
         if (!map.getLayer(LINE_LAYER_ID)) {
             map.addLayer({
@@ -155,11 +155,11 @@ const WeatherHazards = (function() {
                 paint: {
                     'line-color': ['get', 'strokeColor'],
                     'line-width': ['get', 'strokeWidth'],
-                    'line-opacity': 0.9
-                }
+                    'line-opacity': 0.9,
+                },
             });
         }
-        
+
         // Add label layer
         if (!map.getLayer(LABEL_LAYER_ID)) {
             map.addLayer({
@@ -171,16 +171,16 @@ const WeatherHazards = (function() {
                     'text-size': 11,
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                     'text-anchor': 'center',
-                    'text-allow-overlap': false
+                    'text-allow-overlap': false,
                 },
                 paint: {
                     'text-color': ['get', 'strokeColor'],
                     'text-halo-color': 'rgba(0, 0, 0, 0.8)',
-                    'text-halo-width': 1.5
-                }
+                    'text-halo-width': 1.5,
+                },
             });
         }
-        
+
         // Add click handler for popups
         map.on('click', FILL_LAYER_ID, handlePolygonClick);
         map.on('mouseenter', FILL_LAYER_ID, () => {
@@ -189,10 +189,10 @@ const WeatherHazards = (function() {
         map.on('mouseleave', FILL_LAYER_ID, () => {
             map.getCanvas().style.cursor = '';
         });
-        
+
         // Initial load
         refresh();
-        
+
         // Start auto-refresh
         startAutoRefresh();
     }
@@ -200,14 +200,14 @@ const WeatherHazards = (function() {
     // =========================================================================
     // DATA FETCHING
     // =========================================================================
-    
+
     /**
      * Fetch and display weather alerts
      */
     function refresh() {
         fetch(`${CONFIG.apiUrl}?format=geojson&_=${Date.now()}`)
             .then(response => {
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
                 return response.json();
             })
             .then(data => {
@@ -228,7 +228,7 @@ const WeatherHazards = (function() {
     function processAlerts(geojson) {
         // Store raw alerts
         alerts = geojson.features.map(f => f.properties);
-        
+
         // Add styling properties to features
         const styledFeatures = geojson.features.map(feature => {
             const props = feature.properties;
@@ -236,13 +236,13 @@ const WeatherHazards = (function() {
             const severity = props.severity || 'MOD';
             const colors = CONFIG.colors[hazard] || CONFIG.colors.DEFAULT;
             const opacityMod = CONFIG.severityOpacity[severity] || 0.8;
-            
+
             // Parse fill color and apply opacity
-            let fillOpacity = 0.25 * opacityMod;
-            
+            const fillOpacity = 0.25 * opacityMod;
+
             // Create label
             const label = `${props.hazard || ''} ${props.source_id || ''}`.trim();
-            
+
             return {
                 ...feature,
                 properties: {
@@ -252,26 +252,26 @@ const WeatherHazards = (function() {
                     strokeColor: colors.stroke,
                     strokeWidth: colors.strokeWidth,
                     label: label,
-                    visible: visibleHazards.has(hazard)
-                }
+                    visible: visibleHazards.has(hazard),
+                },
             };
         });
-        
+
         // Filter to visible hazards
         const visibleFeatures = styledFeatures.filter(f => f.properties.visible);
-        
+
         // Update source
         const source = map.getSource(SOURCE_ID);
         if (source) {
             source.setData({
                 type: 'FeatureCollection',
-                features: visibleFeatures
+                features: visibleFeatures,
             });
         }
-        
+
         // Notify listeners
         onUpdateCallbacks.forEach(cb => cb(alerts));
-        
+
         console.log(`WeatherHazards: Updated ${visibleFeatures.length} visible alerts`);
     }
 
@@ -279,10 +279,10 @@ const WeatherHazards = (function() {
      * Handle click on weather polygon
      */
     function handlePolygonClick(e) {
-        if (!e.features || e.features.length === 0) return;
-        
+        if (!e.features || e.features.length === 0) {return;}
+
         const props = e.features[0].properties;
-        
+
         // Build popup content
         const content = `
             <div class="weather-hazard-popup">
@@ -299,7 +299,7 @@ const WeatherHazards = (function() {
                 ${props.raw_text ? `<div class="hazard-raw"><pre>${escapeHtml(props.raw_text)}</pre></div>` : ''}
             </div>
         `;
-        
+
         new maplibregl.Popup()
             .setLngLat(e.lngLat)
             .setHTML(content)
@@ -309,7 +309,7 @@ const WeatherHazards = (function() {
     // =========================================================================
     // VISIBILITY CONTROLS
     // =========================================================================
-    
+
     /**
      * Show/hide specific hazard type
      */
@@ -319,7 +319,7 @@ const WeatherHazards = (function() {
         } else {
             visibleHazards.delete(hazard);
         }
-        
+
         // Re-process alerts with new visibility
         if (alerts.length > 0) {
             const geojson = {
@@ -327,13 +327,13 @@ const WeatherHazards = (function() {
                 features: alerts.map(a => ({
                     type: 'Feature',
                     geometry: a.geometry,
-                    properties: a
-                }))
+                    properties: a,
+                })),
             };
             processAlerts(geojson);
         }
     }
-    
+
     /**
      * Show all hazards
      */
@@ -341,7 +341,7 @@ const WeatherHazards = (function() {
         visibleHazards = new Set(['CONVECTIVE', 'TURB', 'ICE', 'IFR', 'MTN']);
         refresh();
     }
-    
+
     /**
      * Hide all hazards
      */
@@ -352,13 +352,13 @@ const WeatherHazards = (function() {
             source.setData({ type: 'FeatureCollection', features: [] });
         }
     }
-    
+
     /**
      * Toggle all weather hazard layers
      */
     function toggle(visible) {
         const visibility = visible ? 'visible' : 'none';
-        
+
         if (map.getLayer(FILL_LAYER_ID)) {
             map.setLayoutProperty(FILL_LAYER_ID, 'visibility', visibility);
         }
@@ -373,12 +373,12 @@ const WeatherHazards = (function() {
     // =========================================================================
     // AUTO-REFRESH
     // =========================================================================
-    
+
     function startAutoRefresh() {
         stopAutoRefresh();
         refreshTimer = setInterval(refresh, CONFIG.refreshInterval);
     }
-    
+
     function stopAutoRefresh() {
         if (refreshTimer) {
             clearInterval(refreshTimer);
@@ -389,7 +389,7 @@ const WeatherHazards = (function() {
     // =========================================================================
     // EVENT HANDLERS
     // =========================================================================
-    
+
     /**
      * Register callback for alert updates
      */
@@ -402,9 +402,9 @@ const WeatherHazards = (function() {
     // =========================================================================
     // UTILITIES
     // =========================================================================
-    
+
     function formatTime(isoString) {
-        if (!isoString) return '---';
+        if (!isoString) {return '---';}
         try {
             const dt = new Date(isoString);
             return dt.toISOString().substring(11, 16) + 'Z';
@@ -412,9 +412,9 @@ const WeatherHazards = (function() {
             return isoString;
         }
     }
-    
+
     function escapeHtml(str) {
-        if (!str) return '';
+        if (!str) {return '';}
         return str
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -425,7 +425,7 @@ const WeatherHazards = (function() {
     // =========================================================================
     // PUBLIC API
     // =========================================================================
-    
+
     return {
         init: init,
         refresh: refresh,
@@ -436,13 +436,13 @@ const WeatherHazards = (function() {
         onUpdate: onUpdate,
         getAlerts: () => alerts,
         isInitialized: () => initialized,
-        
+
         // Expose layer IDs for external control
         layers: {
             fill: FILL_LAYER_ID,
             line: LINE_LAYER_ID,
-            label: LABEL_LAYER_ID
-        }
+            label: LABEL_LAYER_ID,
+        },
     };
 })();
 

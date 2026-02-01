@@ -18,7 +18,7 @@ const TMICompliance = {
         maxValue: '',       // Max MIT/MINIT value
         hourStart: '',      // Start hour (0-23)
         hourEnd: '',        // End hour (0-23)
-        tmiType: ''         // 'MIT', 'MINIT', or '' for all
+        tmiType: '',         // 'MIT', 'MINIT', or '' for all
     },
 
     init: function() {
@@ -41,7 +41,7 @@ const TMICompliance = {
 
     populateFromPlanData: function() {
         // Use window.planData set by PHP in review.php
-        if (!window.planData) return;
+        if (!window.planData) {return;}
 
         const pd = window.planData;
 
@@ -76,7 +76,7 @@ const TMICompliance = {
             destinations: $('#tmi_destinations').val(),
             event_start: $('#tmi_event_start').val(),
             event_end: $('#tmi_event_end').val(),
-            ntml_text: $('#tmi_ntml_input').val()
+            ntml_text: $('#tmi_ntml_input').val(),
         };
 
         $('#ntml_save_status').text('Saving...');
@@ -96,17 +96,17 @@ const TMICompliance = {
             },
             error: () => {
                 $('#ntml_save_status').text('Save error').addClass('text-danger');
-            }
+            },
         });
     },
 
     loadConfig: function(silent = false) {
         if (!this.planId) {
-            if (!silent) $('#ntml_save_status').text('No plan ID').addClass('text-danger');
+            if (!silent) {$('#ntml_save_status').text('No plan ID').addClass('text-danger');}
             return;
         }
 
-        if (!silent) $('#ntml_save_status').text('Loading...');
+        if (!silent) {$('#ntml_save_status').text('Loading...');}
 
         $.ajax({
             url: `api/analysis/tmi_config.php?p_id=${this.planId}`,
@@ -128,8 +128,8 @@ const TMICompliance = {
                 }
             },
             error: () => {
-                if (!silent) $('#ntml_save_status').text('Load error').addClass('text-danger');
-            }
+                if (!silent) {$('#ntml_save_status').text('Load error').addClass('text-danger');}
+            },
         });
     },
 
@@ -162,7 +162,7 @@ const TMICompliance = {
                 $('#load_tmi_results').prop('disabled', false);
                 $('#tmi_status').text('Error loading results');
                 this.showError(`Failed to load results: ${error}`);
-            }
+            },
         });
     },
 
@@ -193,7 +193,7 @@ const TMICompliance = {
 LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </div>
                 `,
-                confirmButtonText: 'OK'
+                confirmButtonText: 'OK',
             });
             return;
         }
@@ -212,7 +212,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Run Analysis',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 this.executeAnalysis();
@@ -235,7 +235,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             { text: 'Analyzing MIT/MINIT compliance...', icon: 'fa-ruler-horizontal', time: 35 },
             { text: 'Analyzing ground stops...', icon: 'fa-plane-slash', time: 45 },
             { text: 'Processing APREQ restrictions...', icon: 'fa-clipboard-check', time: 50 },
-            { text: 'Generating compliance report...', icon: 'fa-chart-bar', time: 55 }
+            { text: 'Generating compliance report...', icon: 'fa-chart-bar', time: 55 },
         ];
 
         // Show progress modal with step display
@@ -261,7 +261,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `,
             allowOutsideClick: false,
             showConfirmButton: false,
-            width: 450
+            width: 450,
         });
 
         let currentStep = 0;
@@ -342,7 +342,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             </div>
                         `,
                         timer: 3000,
-                        showConfirmButton: false
+                        showConfirmButton: false,
                     });
                     this.renderResults();
                     $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
@@ -351,7 +351,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         icon: 'error',
                         title: 'Analysis Failed',
                         html: `<p>${response.message || response.error || 'Unknown error occurred'}</p>
-                               <p class="small text-muted">Check that the Azure Function is configured and TMI config is saved.</p>`
+                               <p class="small text-muted">Check that the Azure Function is configured and TMI config is saved.</p>`,
                     });
                 }
             },
@@ -372,9 +372,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     title: 'Analysis Failed',
                     html: `<p>${errorMsg}</p>
                            <p class="small text-muted">If the Azure Function is not configured, you can still run analysis locally:<br>
-                           <code>python scripts/tmi_compliance/run.py --plan_id ${this.planId}</code></p>`
+                           <code>python scripts/tmi_compliance/run.py --plan_id ${this.planId}</code></p>`,
                 });
-            }
+            },
         });
     },
 
@@ -442,9 +442,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const uniqueProviders = new Set();
             const uniqueValues = new Set();
             mitResultsArray.forEach(r => {
-                if (r.requestor) uniqueRequestors.add(r.requestor);
-                if (r.provider) uniqueProviders.add(r.provider);
-                if (r.required) uniqueValues.add(r.required);
+                if (r.requestor) {uniqueRequestors.add(r.requestor);}
+                if (r.provider) {uniqueProviders.add(r.provider);}
+                if (r.required) {uniqueValues.add(r.required);}
             });
 
             // Filter controls
@@ -488,7 +488,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             let filteredCount = 0;
             for (const r of mitResultsArray) {
                 // Skip entries with no data
-                if (r.pairs === 0 && r.message) continue;
+                if (r.pairs === 0 && r.message) {continue;}
 
                 // Apply filters
                 if (!this.matchesFilters(r)) {
@@ -562,8 +562,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // TMI type filter
         if (f.tmiType) {
             const isMINIT = r.unit === 'min';
-            if (f.tmiType === 'MIT' && isMINIT) return false;
-            if (f.tmiType === 'MINIT' && !isMINIT) return false;
+            if (f.tmiType === 'MIT' && isMINIT) {return false;}
+            if (f.tmiType === 'MINIT' && !isMINIT) {return false;}
         }
 
         // Value filter
@@ -616,7 +616,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             maxValue: '',
             hourStart: '',
             hourEnd: '',
-            tmiType: ''
+            tmiType: '',
         };
         this.renderResults();
     },
@@ -702,12 +702,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Helper: Calculate compliance streaks
     calcComplianceStreaks: function(allPairs) {
-        if (!allPairs || allPairs.length === 0) return { longestGood: 0, currentGood: 0, goodPeriods: [] };
+        if (!allPairs || allPairs.length === 0) {return { longestGood: 0, currentGood: 0, goodPeriods: [] };}
 
         let longestGood = 0;
         let currentGood = 0;
         let currentStreak = 0;
-        let goodPeriods = [];
+        const goodPeriods = [];
         let streakStart = null;
 
         for (let i = 0; i < allPairs.length; i++) {
@@ -724,21 +724,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     goodPeriods.push({
                         length: currentStreak,
                         start: streakStart,
-                        end: allPairs[i-1]?.curr_time || streakStart
+                        end: allPairs[i-1]?.curr_time || streakStart,
                     });
                 }
-                if (currentStreak > longestGood) longestGood = currentStreak;
+                if (currentStreak > longestGood) {longestGood = currentStreak;}
                 currentStreak = 0;
             }
         }
 
         // Handle final streak
-        if (currentStreak > longestGood) longestGood = currentStreak;
+        if (currentStreak > longestGood) {longestGood = currentStreak;}
         if (currentStreak >= 3) {
             goodPeriods.push({
                 length: currentStreak,
                 start: streakStart,
-                end: allPairs[allPairs.length - 1]?.curr_time || streakStart
+                end: allPairs[allPairs.length - 1]?.curr_time || streakStart,
             });
         }
         currentGood = currentStreak;
@@ -764,10 +764,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Format: DEST via FIX XXnm/min MIT REQUESTOR:PROVIDER TTTTZ-TTTTZ
         // (skip "via FIX" if fix is ALL/ANY - just means all flows)
         let formatted = '';
-        if (destinations) formatted += `${destinations} `;
-        if (isRealFix) formatted += `via ${fix} `;
+        if (destinations) {formatted += `${destinations} `;}
+        if (isRealFix) {formatted += `via ${fix} `;}
         formatted += `${required}${r.unit === 'min' ? 'MINIT' : 'MIT'} `;
-        if (requestor || provider) formatted += `${requestor}:${provider} `;
+        if (requestor || provider) {formatted += `${requestor}:${provider} `;}
         formatted += `${tmiStart}-${tmiEnd}`;
 
         return formatted.trim();
@@ -775,7 +775,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Render horizontal spacing diagram (visual timeline)
     renderSpacingDiagram: function(allPairs, required, unit, diagramId) {
-        if (!allPairs || allPairs.length === 0) return '';
+        if (!allPairs || allPairs.length === 0) {return '';}
 
         const unitLabel = unit === 'min' ? 'min' : 'nm';
         const isMinit = unit === 'min';
@@ -788,15 +788,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 time: allPairs[0].prev_time,
                 dept: allPairs[0].prev_dept || '',
                 dest: allPairs[0].prev_dest || '',
-                color: '#6c757d'
+                color: '#6c757d',
             });
             allPairs.forEach(p => {
                 // Determine color based on category
                 let color = '#6c757d';
-                if (p.spacing_category === 'UNDER') color = '#dc3545';
-                else if (p.spacing_category === 'WITHIN') color = '#28a745';
-                else if (p.spacing_category === 'OVER') color = '#17a2b8';
-                else if (p.spacing_category === 'GAP') color = '#ffc107';
+                if (p.spacing_category === 'UNDER') {color = '#dc3545';}
+                else if (p.spacing_category === 'WITHIN') {color = '#28a745';}
+                else if (p.spacing_category === 'OVER') {color = '#17a2b8';}
+                else if (p.spacing_category === 'GAP') {color = '#ffc107';}
 
                 crossings.push({
                     callsign: p.curr_callsign,
@@ -806,7 +806,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     spacingFromPrev: p.spacing,
                     category: p.spacing_category,
                     isExempt: p.is_exempt || false,
-                    color: color
+                    color: color,
                 });
             });
         }
@@ -937,13 +937,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `,
             showCloseButton: true,
             showConfirmButton: false,
-            width: '400px'
+            width: '400px',
         });
     },
 
     // Render event statistics section
     renderEventStatistics: function() {
-        if (!this.results) return '';
+        if (!this.results) {return '';}
 
         const summary = this.results.summary || {};
         const mitResults = this.results.mit_results || {};
@@ -953,14 +953,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let totalCrossings = 0;
         let totalPairs = 0;
         let totalViolations = 0;
-        let uniqueFlights = new Set();
+        const uniqueFlights = new Set();
 
         // Process MIT results (could be object or array)
         const mitResultsArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
         for (const r of mitResultsArray) {
             totalCrossings += r.total_crossings || r.crossings || 0;
             totalPairs += r.pairs || 0;
-            if (r.violations?.total) totalViolations += r.violations.total;
+            if (r.violations?.total) {totalViolations += r.violations.total;}
             if (r.all_pairs) {
                 r.all_pairs.forEach(p => {
                     uniqueFlights.add(p.prev_callsign);
@@ -1030,7 +1030,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Render TMI Gantt Chart (Timeline visualization)
     renderGanttChart: function() {
-        if (!this.results) return '';
+        if (!this.results) {return '';}
 
         // Collect all TMIs for the timeline
         const allTmis = [];
@@ -1050,7 +1050,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     end: r.tmi_end,
                     compliance: hasPairs ? (r.compliance_pct || 0) : null,
                     cardId: `mit_detail_${i + 1}`,
-                    cancelled: r.cancelled || false
+                    cancelled: r.cancelled || false,
                 });
             }
         });
@@ -1072,7 +1072,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 end: r.gs_end,
                 compliance: r.compliance_pct,
                 cardId: `gs_detail_${mitArray.length + i + 1}`,
-                cancelled: r.cancelled || false
+                cancelled: r.cancelled || false,
             });
         });
 
@@ -1088,17 +1088,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 end: r.tmi_end,
                 compliance: null, // APREQ is tracking only
                 cardId: `apreq_detail_${mitArray.length + gsEntries.length + i + 1}`,
-                cancelled: r.cancelled || false
+                cancelled: r.cancelled || false,
             });
         });
 
-        if (allTmis.length === 0) return '';
+        if (allTmis.length === 0) {return '';}
 
         // Parse event start/end times
         const eventStart = this.parseEventTime(this.results.event_start);
         const eventEnd = this.parseEventTime(this.results.event_end);
 
-        if (!eventStart || !eventEnd) return '';
+        if (!eventStart || !eventEnd) {return '';}
 
         const eventDurationMs = eventEnd - eventStart;
         const eventDurationHours = eventDurationMs / (1000 * 60 * 60);
@@ -1142,7 +1142,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const tmiStart = this.parseTmiTime(tmi.start, eventStart);
             const tmiEnd = this.parseTmiTime(tmi.end, eventStart);
 
-            if (!tmiStart || !tmiEnd) return;
+            if (!tmiStart || !tmiEnd) {return;}
 
             // Calculate bar position
             const startOffset = Math.max(0, (tmiStart - eventStart) / eventDurationMs);
@@ -1152,8 +1152,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Determine color based on type
             let barColor = '#007bff'; // MIT default blue
-            if (tmi.type === 'GS') barColor = '#dc3545'; // Red for ground stop
-            else if (tmi.type === 'APREQ') barColor = '#17a2b8'; // Cyan for APREQ
+            if (tmi.type === 'GS') {barColor = '#dc3545';} // Red for ground stop
+            else if (tmi.type === 'APREQ') {barColor = '#17a2b8';} // Cyan for APREQ
 
             // Compliance-based styling
             let opacity = 1;
@@ -1223,7 +1223,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Parse event time string (format: "2026-01-18T00:00:00" or "2026-01-18 00:00")
     // IMPORTANT: Treat as UTC - append Z if no timezone indicator present
     parseEventTime: function(timeStr) {
-        if (!timeStr) return null;
+        if (!timeStr) {return null;}
         // If no timezone indicator (Z, +, or -), append Z to parse as UTC
         if (!timeStr.endsWith('Z') && !timeStr.includes('+') && !/T\d{2}:\d{2}:\d{2}-/.test(timeStr)) {
             timeStr += 'Z';
@@ -1234,11 +1234,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Parse TMI time string (format: "HH:MMZ" or "HHMM") relative to event date
     parseTmiTime: function(timeStr, eventStart) {
-        if (!timeStr || !eventStart) return null;
+        if (!timeStr || !eventStart) {return null;}
 
         // Extract hours and minutes from various formats
-        let match = timeStr.match(/(\d{2}):?(\d{2})Z?/);
-        if (!match) return null;
+        const match = timeStr.match(/(\d{2}):?(\d{2})Z?/);
+        if (!match) {return null;}
 
         const hours = parseInt(match[1]);
         const minutes = parseInt(match[2]);
@@ -1296,8 +1296,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const measurementBadge = isBoundary
             ? `<span class="badge badge-info ml-2" title="Measured at ARTCC handoff point"><i class="fas fa-border-all"></i> Boundary</span>`
             : measurementType === 'BOUNDARY_FALLBACK_FIX'
-            ? `<span class="badge badge-secondary ml-2" title="Boundary unavailable, measured at fix"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
-            : '';
+                ? `<span class="badge badge-secondary ml-2" title="Boundary unavailable, measured at fix"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
+                : '';
 
         // Determine display name: use fix if real, otherwise use destination(s)
         const isRealFix = r.fix && !['ALL', 'ANY', ''].includes((r.fix || '').toUpperCase());
@@ -1381,8 +1381,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             </thead>
                             <tbody>
                                 ${violations.map(v => {
-                                    const marginAmt = this.calcMarginAmount(v.spacing, v.required);
-                                    return `
+        const marginAmt = this.calcMarginAmount(v.spacing, v.required);
+        return `
                                     <tr class="table-danger">
                                         <td><code>${v.prev_callsign}</code><br><code class="text-muted small">${v.prev_time}</code></td>
                                         <td><code>${v.curr_callsign}</code><br><code class="text-muted small">${v.curr_time}</code></td>
@@ -1392,7 +1392,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                         <td class="text-danger"><code><strong>${marginAmt}${unitLabel}</strong> (${v.shortfall_pct > 0 ? '-' : ''}${v.shortfall_pct}%)</code></td>
                                     </tr>
                                     `;
-                                }).join('')}
+    }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -1424,16 +1424,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             </thead>
                             <tbody>
                                 ${allPairs.map(p => {
-                                    const rowClass = p.spacing_category === 'UNDER' ? 'table-danger' :
-                                                     p.spacing_category === 'WITHIN' ? 'table-success' :
-                                                     p.spacing_category === 'GAP' ? 'table-warning' : '';
-                                    const statusBadge = p.spacing_category === 'UNDER' ? '<span class="badge badge-danger">UNDER</span>' :
-                                                        p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">WITHIN</span>' :
-                                                        p.spacing_category === 'OVER' ? '<span class="badge badge-info">OVER</span>' :
-                                                        '<span class="badge badge-warning">GAP</span>';
-                                    const marginAmt = this.calcMarginAmount(p.spacing, required);
-                                    const marginSign = parseFloat(marginAmt) >= 0 ? '+' : '';
-                                    return `
+        const rowClass = p.spacing_category === 'UNDER' ? 'table-danger' :
+            p.spacing_category === 'WITHIN' ? 'table-success' :
+                p.spacing_category === 'GAP' ? 'table-warning' : '';
+        const statusBadge = p.spacing_category === 'UNDER' ? '<span class="badge badge-danger">UNDER</span>' :
+            p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">WITHIN</span>' :
+                p.spacing_category === 'OVER' ? '<span class="badge badge-info">OVER</span>' :
+                    '<span class="badge badge-warning">GAP</span>';
+        const marginAmt = this.calcMarginAmount(p.spacing, required);
+        const marginSign = parseFloat(marginAmt) >= 0 ? '+' : '';
+        return `
                                         <tr class="${rowClass}">
                                             <td><code>${p.prev_callsign}</code><br><code class="text-muted small">${p.prev_time}</code></td>
                                             <td><code>${p.curr_callsign}</code><br><code class="text-muted small">${p.curr_time}</code></td>
@@ -1443,7 +1443,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${statusBadge}</td>
                                         </tr>
                                     `;
-                                }).join('')}
+    }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -1763,13 +1763,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     renderDelaySection: function(delays) {
-        if (!delays || delays.length === 0) return '';
+        if (!delays || delays.length === 0) {return '';}
 
         // Group delays by airport
         const byAirport = {};
         delays.forEach(d => {
             const apt = d.airport || 'UNKNOWN';
-            if (!byAirport[apt]) byAirport[apt] = [];
+            if (!byAirport[apt]) {byAirport[apt] = [];}
             byAirport[apt].push(d);
         });
 
@@ -1870,8 +1870,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     renderDelayEntry: function(d) {
         const trendIcon = d.delay_trend === 'INCREASING' ? '<i class="fas fa-arrow-up text-danger"></i>'
             : d.delay_trend === 'DECREASING' ? '<i class="fas fa-arrow-down text-success"></i>'
-            : d.delay_trend === 'STEADY' ? '<i class="fas fa-minus text-muted"></i>'
-            : '';
+                : d.delay_trend === 'STEADY' ? '<i class="fas fa-minus text-muted"></i>'
+                    : '';
 
         const holdingBadge = d.holding_status === 'HOLDING'
             ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> Holding${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
@@ -1890,7 +1890,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     renderDistribution: function(dist) {
-        if (!dist) return '';
+        if (!dist) {return '';}
 
         return `
             <div class="tmi-distribution">
@@ -1911,8 +1911,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     getComplianceClass: function(pct) {
-        if (pct >= 90) return 'good';
-        if (pct >= 75) return 'warn';
+        if (pct >= 90) {return 'good';}
+        if (pct >= 75) {return 'warn';}
         return 'bad';
     },
 
@@ -1925,6 +1925,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     // Cache for flight trajectories (keyed by mapId)
     trajectoryCache: {},
+
+    // Cache for TMI metadata (required spacing, unit) keyed by mapId
+    tmiMetadataCache: {},
 
     // Track active maps for cleanup
     activeMaps: {},
@@ -1939,6 +1942,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
+        // Cache TMI metadata for later use in map rendering
+        this.tmiMetadataCache[mapId] = {
+            required: r.required || 0,
+            unit: r.unit || 'nm',
+        };
+
         // Cache trajectories if available (for flight track rendering)
         if (r.trajectories && Object.keys(r.trajectories).length > 0) {
             this.trajectoryCache[mapId] = r.trajectories;
@@ -1951,7 +1960,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.trafficSectorCache[mapId] = {
                 ...r.traffic_sector,
                 required_spacing: r.required || 0,
-                unit: r.unit || 'nm'
+                unit: r.unit || 'nm',
             };
             console.log(`Cached traffic sector for ${mapId}: ${r.traffic_sector.track_count} tracks, ${r.traffic_sector.sector_75.width_deg}° (75%), ${r.traffic_sector.sector_90.width_deg}° (90%), ${r.required}${r.unit} spacing`);
         }
@@ -1979,7 +1988,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                      onclick="TMICompliance.toggleMapFromData(this)">
                     <i class="fas fa-chevron-down"></i>
                     <span><i class="fas fa-map-marked-alt mr-1"></i> View Context Map</span>
-                    <span class="small ml-2">(${displayReq}${displayProv ? ' → ' + displayProv : ''})</span>
+                    <span class="small ml-2">(${displayProv}${displayReq ? ' → ' + displayReq : ''})</span>
                 </div>
                 <div class="tmi-map-collapse" id="${mapId}" style="display: none;">
                     <div class="tmi-map-layer-controls" id="${mapId}_controls" style="display: none;">
@@ -2078,7 +2087,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             provider: provider,
             fixes: JSON.stringify(fix ? [fix] : []),
             destinations: JSON.stringify(destinations || []),
-            origins: JSON.stringify(origins || [])
+            origins: JSON.stringify(origins || []),
         });
 
         const apiUrl = `api/gis/boundaries.php?${params}`;
@@ -2095,7 +2104,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             .then(async data => {
                 console.log('Map API response:', data);
                 if (data.success && data.map_data) {
-                    let mapData = data.map_data;
+                    const mapData = data.map_data;
 
                     // If facilities are empty, load from local GeoJSON files
                     if (!mapData.facilities?.length && (requestor || provider)) {
@@ -2111,8 +2120,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Load sector boundaries for any ARTCC facilities
                     const artccCodes = [];
-                    if (requestor && /^Z[A-Z]{2}$/.test(requestor)) artccCodes.push(requestor);
-                    if (provider && /^Z[A-Z]{2}$/.test(provider) && provider !== requestor) artccCodes.push(provider);
+                    if (requestor && /^Z[A-Z]{2}$/.test(requestor)) {artccCodes.push(requestor);}
+                    if (provider && /^Z[A-Z]{2}$/.test(provider) && provider !== requestor) {artccCodes.push(provider);}
                     if (artccCodes.length > 0) {
                         console.log('Loading sector boundaries for ARTCCs:', artccCodes.join(', '));
                         const sectors = await this.loadLocalSectorBoundaries(artccCodes, provider);
@@ -2142,7 +2151,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      */
     renderMap: function(mapId, mapData) {
         const container = document.getElementById(`${mapId}_container`);
-        if (!container) return;
+        if (!container) {return;}
 
         // Clear loading state
         container.innerHTML = '';
@@ -2179,20 +2188,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         type: 'raster',
                         tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
                         tileSize: 256,
-                        attribution: '&copy; OpenStreetMap contributors'
-                    }
+                        attribution: '&copy; OpenStreetMap contributors',
+                    },
                 },
                 layers: [{
                     id: 'carto-dark-layer',
                     type: 'raster',
                     source: 'carto-dark',
                     minzoom: 0,
-                    maxzoom: 19
-                }]
+                    maxzoom: 19,
+                }],
             },
             center: center,
             zoom: zoom,
-            attributionControl: false
+            attributionControl: false,
         });
 
         this.activeMaps[mapId] = map;
@@ -2202,7 +2211,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (mapData.facilities?.length) {
                 map.addSource('facilities', {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: mapData.facilities }
+                    data: { type: 'FeatureCollection', features: mapData.facilities },
                 });
 
                 map.addLayer({
@@ -2217,8 +2226,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         // Provider is emphasized (manages the traffic stream/MIT)
                         'fill-opacity': ['case',
                             ['==', ['get', 'role'], 'provider'], 0.25,
-                            0.1]
-                    }
+                            0.1],
+                    },
                 });
 
                 map.addLayer({
@@ -2236,8 +2245,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             1.5],
                         'line-opacity': ['case',
                             ['==', ['get', 'role'], 'provider'], 1,
-                            0.6]
-                    }
+                            0.6],
+                    },
                 });
 
                 map.addLayer({
@@ -2248,13 +2257,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'text-field': ['get', 'code'],
                         'text-font': ['Noto Sans Regular'],
                         'text-size': 12,
-                        'text-anchor': 'center'
+                        'text-anchor': 'center',
                     },
                     paint: {
                         'text-color': '#ffffff',
                         'text-halo-color': '#000000',
-                        'text-halo-width': 1
-                    }
+                        'text-halo-width': 1,
+                    },
                 });
 
                 console.log(`Added ${mapData.facilities.length} facility boundaries to map`);
@@ -2266,7 +2275,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const altitudeColors = {
                     low: { fill: '#74c0fc', line: '#74c0fc' },    // Light blue
                     high: { fill: '#4dabf7', line: '#4dabf7' },   // Blue
-                    superhigh: { fill: '#228be6', line: '#228be6' } // Dark blue
+                    superhigh: { fill: '#228be6', line: '#228be6' }, // Dark blue
                 };
 
                 // Insert below facilities if they exist
@@ -2275,14 +2284,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Create separate source and layers for each altitude type
                 for (const altType of ['low', 'high', 'superhigh']) {
                     const altSectors = mapData.sectors.filter(s => s.properties.altitude === altType);
-                    if (altSectors.length === 0) continue;
+                    if (altSectors.length === 0) {continue;}
 
                     const sourceId = `sectors-${altType}`;
                     const colors = altitudeColors[altType];
 
                     map.addSource(sourceId, {
                         type: 'geojson',
-                        data: { type: 'FeatureCollection', features: altSectors }
+                        data: { type: 'FeatureCollection', features: altSectors },
                     });
 
                     // Sector fills - very subtle
@@ -2291,12 +2300,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         type: 'fill',
                         source: sourceId,
                         layout: {
-                            'visibility': altType === 'high' ? 'visible' : 'none'  // Only high visible by default
+                            'visibility': altType === 'high' ? 'visible' : 'none',  // Only high visible by default
                         },
                         paint: {
                             'fill-color': colors.fill,
-                            'fill-opacity': ['case', ['==', ['get', 'role'], 'provider'], 0.08, 0.04]
-                        }
+                            'fill-opacity': ['case', ['==', ['get', 'role'], 'provider'], 0.08, 0.04],
+                        },
                     }, insertBefore);
 
                     // Sector outlines - thin dashed lines
@@ -2305,14 +2314,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         type: 'line',
                         source: sourceId,
                         layout: {
-                            'visibility': altType === 'high' ? 'visible' : 'none'
+                            'visibility': altType === 'high' ? 'visible' : 'none',
                         },
                         paint: {
                             'line-color': colors.line,
                             'line-width': ['case', ['==', ['get', 'role'], 'provider'], 1, 0.5],
                             'line-opacity': 0.6,
-                            'line-dasharray': [3, 2]
-                        }
+                            'line-dasharray': [3, 2],
+                        },
                     }, insertBefore);
 
                     // Sector labels - only at higher zoom levels
@@ -2327,14 +2336,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             'text-font': ['Noto Sans Regular'],
                             'text-size': 9,
                             'text-anchor': 'center',
-                            'text-allow-overlap': false
+                            'text-allow-overlap': false,
                         },
                         paint: {
                             'text-color': colors.line,
                             'text-halo-color': '#000000',
                             'text-halo-width': 1,
-                            'text-opacity': 0.6
-                        }
+                            'text-opacity': 0.6,
+                        },
                     });
 
                     console.log(`Added ${altSectors.length} ${altType}-altitude sectors`);
@@ -2347,7 +2356,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (mapData.shared_boundary) {
                 map.addSource('shared-boundary', {
                     type: 'geojson',
-                    data: mapData.shared_boundary
+                    data: mapData.shared_boundary,
                 });
 
                 map.addLayer({
@@ -2358,8 +2367,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-color': '#ffd43b',
                         'line-width': 8,
                         'line-opacity': 0.3,
-                        'line-blur': 2
-                    }
+                        'line-blur': 2,
+                    },
                 });
 
                 map.addLayer({
@@ -2370,8 +2379,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-color': '#ffd43b',
                         'line-width': 4,
                         'line-opacity': 1,
-                        'line-dasharray': [2, 1]
-                    }
+                        'line-dasharray': [2, 1],
+                    },
                 });
             }
 
@@ -2379,7 +2388,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (mapData.fixes?.length) {
                 map.addSource('fixes', {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: mapData.fixes }
+                    data: { type: 'FeatureCollection', features: mapData.fixes },
                 });
 
                 map.addLayer({
@@ -2390,8 +2399,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'circle-radius': 6,
                         'circle-color': '#51cf66',
                         'circle-stroke-width': 2,
-                        'circle-stroke-color': '#ffffff'
-                    }
+                        'circle-stroke-color': '#ffffff',
+                    },
                 });
 
                 map.addLayer({
@@ -2403,13 +2412,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'text-font': ['Noto Sans Regular'],
                         'text-size': 11,
                         'text-offset': [0, 1.5],
-                        'text-anchor': 'top'
+                        'text-anchor': 'top',
                     },
                     paint: {
                         'text-color': '#51cf66',
                         'text-halo-color': '#000000',
-                        'text-halo-width': 1
-                    }
+                        'text-halo-width': 1,
+                    },
                 });
             }
 
@@ -2417,7 +2426,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (mapData.airports?.length) {
                 map.addSource('airports', {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: mapData.airports }
+                    data: { type: 'FeatureCollection', features: mapData.airports },
                 });
 
                 map.addLayer({
@@ -2431,8 +2440,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ['==', ['get', 'role'], 'destination'], '#74c0fc',
                             '#d0bfff'],
                         'circle-stroke-width': 1,
-                        'circle-stroke-color': '#ffffff'
-                    }
+                        'circle-stroke-color': '#ffffff',
+                    },
                 });
 
                 map.addLayer({
@@ -2444,13 +2453,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'text-font': ['Noto Sans Regular'],
                         'text-size': 10,
                         'text-offset': [0, -1.2],
-                        'text-anchor': 'bottom'
+                        'text-anchor': 'bottom',
                     },
                     paint: {
                         'text-color': '#ffffff',
                         'text-halo-color': '#000000',
-                        'text-halo-width': 1
-                    }
+                        'text-halo-width': 1,
+                    },
                 });
             }
 
@@ -2464,12 +2473,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const GAP_BREAK = 15 * 60;  // 15 minutes in seconds
 
                 Object.entries(trajectories).forEach(([callsign, traj]) => {
-                    if (!traj.coordinates || traj.coordinates.length < 2) return;
+                    if (!traj.coordinates || traj.coordinates.length < 2) {return;}
 
                     const props = {
                         callsign: callsign,
                         dept: traj.properties?.dept || '',
-                        dest: traj.properties?.dest || ''
+                        dest: traj.properties?.dest || '',
                     };
 
                     // Split trajectory into segments based on time gaps
@@ -2489,7 +2498,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 solidFeatures.push({
                                     type: 'Feature',
                                     properties: props,
-                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
+                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
                                 });
                             }
                             currentSolid = [curr];
@@ -2499,14 +2508,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 solidFeatures.push({
                                     type: 'Feature',
                                     properties: props,
-                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
+                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
                                 });
                             }
                             // Add dashed line between last solid point and current
                             dashedFeatures.push({
                                 type: 'Feature',
                                 properties: props,
-                                geometry: { type: 'LineString', coordinates: [[prev[0], prev[1]], [curr[0], curr[1]]] }
+                                geometry: { type: 'LineString', coordinates: [[prev[0], prev[1]], [curr[0], curr[1]]] },
                             });
                             currentSolid = [curr];
                         } else {
@@ -2520,7 +2529,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         solidFeatures.push({
                             type: 'Feature',
                             properties: props,
-                            geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) }
+                            geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
                         });
                     }
                 });
@@ -2529,7 +2538,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 if (solidFeatures.length > 0) {
                     map.addSource('flight-tracks-solid', {
                         type: 'geojson',
-                        data: { type: 'FeatureCollection', features: solidFeatures }
+                        data: { type: 'FeatureCollection', features: solidFeatures },
                     });
 
                     map.addLayer({
@@ -2541,8 +2550,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             'line-color': '#4dabf7',
                             'line-width': 4,
                             'line-opacity': 0.3,
-                            'line-blur': 3
-                        }
+                            'line-blur': 3,
+                        },
                     });
 
                     map.addLayer({
@@ -2553,8 +2562,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         paint: {
                             'line-color': '#74c0fc',
                             'line-width': 1.5,
-                            'line-opacity': 0.8
-                        }
+                            'line-opacity': 0.8,
+                        },
                     });
                 }
 
@@ -2562,7 +2571,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 if (dashedFeatures.length > 0) {
                     map.addSource('flight-tracks-dashed', {
                         type: 'geojson',
-                        data: { type: 'FeatureCollection', features: dashedFeatures }
+                        data: { type: 'FeatureCollection', features: dashedFeatures },
                     });
 
                     map.addLayer({
@@ -2574,12 +2583,133 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             'line-color': '#74c0fc',
                             'line-width': 1.5,
                             'line-opacity': 0.5,
-                            'line-dasharray': [4, 4]
-                        }
+                            'line-dasharray': [4, 4],
+                        },
                     });
                 }
 
                 console.log(`Added flight tracks: ${solidFeatures.length} solid, ${dashedFeatures.length} dashed segments`);
+            }
+
+            // Compute traffic sector from trajectory data if not already cached
+            if (!TMICompliance.trafficSectorCache?.[mapId] && TMICompliance.trajectoryCache[mapId] && mapData.fixes?.length) {
+                const trajectories = TMICompliance.trajectoryCache[mapId];
+                const measurementFix = mapData.fixes[0];
+                if (measurementFix?.geometry?.coordinates) {
+                    const [fixLon, fixLat] = measurementFix.geometry.coordinates;
+
+                    // Compute distance between two points in nm
+                    const distanceNm = (lon1, lat1, lon2, lat2) => {
+                        const R = 3440.065; // Earth radius in nm
+                        const dLat = (lat2 - lat1) * Math.PI / 180;
+                        const dLon = (lon2 - lon1) * Math.PI / 180;
+                        const a = Math.sin(dLat / 2) ** 2 +
+                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    };
+
+                    // Compute bearing from point 1 to point 2
+                    const bearingTo = (lon1, lat1, lon2, lat2) => {
+                        const dLon = (lon2 - lon1) * Math.PI / 180;
+                        const lat1r = lat1 * Math.PI / 180;
+                        const lat2r = lat2 * Math.PI / 180;
+                        const y = Math.sin(dLon) * Math.cos(lat2r);
+                        const x = Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLon);
+                        return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+                    };
+
+                    // Collect approach bearings for all trajectories
+                    const approachBearings = [];
+
+                    Object.entries(trajectories).forEach(([callsign, traj]) => {
+                        if (!traj.coordinates || traj.coordinates.length < 2) return;
+
+                        // Find the closest point to the fix (within 15nm threshold)
+                        let closestIdx = -1;
+                        let closestDist = 15; // 15nm threshold
+
+                        for (let i = 0; i < traj.coordinates.length; i++) {
+                            const [lon, lat] = traj.coordinates[i];
+                            const dist = distanceNm(lon, lat, fixLon, fixLat);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestIdx = i;
+                            }
+                        }
+
+                        if (closestIdx > 0) {
+                            // Find a point ~5-20nm before the closest point for bearing calculation
+                            let approachIdx = closestIdx - 1;
+                            for (let i = closestIdx - 1; i >= 0; i--) {
+                                const [lon, lat] = traj.coordinates[i];
+                                const dist = distanceNm(lon, lat, fixLon, fixLat);
+                                if (dist >= 5 && dist <= 25) {
+                                    approachIdx = i;
+                                    break;
+                                }
+                            }
+
+                            // Calculate bearing from approach point toward the fix
+                            const [aLon, aLat] = traj.coordinates[approachIdx];
+                            const bearing = bearingTo(aLon, aLat, fixLon, fixLat);
+                            approachBearings.push({ callsign, bearing });
+                        }
+                    });
+
+                    if (approachBearings.length >= 3) {
+                        // Sort bearings and compute sectors
+                        const bearings = approachBearings.map(b => b.bearing).sort((a, b) => a - b);
+
+                        // Find the center bearing (median) and compute spread
+                        const medianBearing = bearings[Math.floor(bearings.length / 2)];
+
+                        // Normalize bearings relative to median to handle wrap-around
+                        const normalized = bearings.map(b => {
+                            let diff = b - medianBearing;
+                            if (diff > 180) diff -= 360;
+                            if (diff < -180) diff += 360;
+                            return diff;
+                        }).sort((a, b) => a - b);
+
+                        // Compute percentile ranges (symmetric around median)
+                        const p75Idx = Math.ceil(normalized.length * 0.875) - 1; // 87.5th percentile (captures 75% centered)
+                        const p90Idx = Math.ceil(normalized.length * 0.95) - 1;  // 95th percentile (captures 90% centered)
+                        const p75IdxLow = Math.floor(normalized.length * 0.125);
+                        const p90IdxLow = Math.floor(normalized.length * 0.05);
+
+                        const width75 = (normalized[p75Idx] - normalized[p75IdxLow]) || 30;
+                        const width90 = (normalized[p90Idx] - normalized[p90IdxLow]) || 45;
+
+                        // Convert back to absolute bearings
+                        const center75 = (normalized[p75IdxLow] + normalized[p75Idx]) / 2;
+                        const center90 = (normalized[p90IdxLow] + normalized[p90Idx]) / 2;
+
+                        const sector75 = {
+                            start_bearing: ((medianBearing + normalized[p75IdxLow]) + 360) % 360,
+                            end_bearing: ((medianBearing + normalized[p75Idx]) + 360) % 360,
+                            width_deg: width75,
+                        };
+                        const sector90 = {
+                            start_bearing: ((medianBearing + normalized[p90IdxLow]) + 360) % 360,
+                            end_bearing: ((medianBearing + normalized[p90Idx]) + 360) % 360,
+                            width_deg: width90,
+                        };
+
+                        // Cache the computed sector data (use TMI metadata for spacing)
+                        const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
+                        TMICompliance.trafficSectorCache = TMICompliance.trafficSectorCache || {};
+                        TMICompliance.trafficSectorCache[mapId] = {
+                            measurement_point: [fixLon, fixLat],
+                            sector_75: sector75,
+                            sector_90: sector90,
+                            track_count: approachBearings.length,
+                            required_spacing: tmiMeta.required || 15,
+                            unit: tmiMeta.unit || 'nm',
+                        };
+
+                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°`);
+                    }
+                }
             }
 
             // Add traffic flow sectors (75% and 90% capture zones)
@@ -2600,7 +2730,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(bearing));
                     const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(d) * Math.cos(lat1),
-                                                    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+                        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
 
                     return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
                 };
@@ -2611,11 +2741,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const coords = [[originLon, originLat]]; // Start at vertex
 
                     // Generate arc points from start to end bearing
-                    let startBearing = sector.start_bearing;
+                    const startBearing = sector.start_bearing;
                     let endBearing = sector.end_bearing;
 
                     // Handle wrap-around
-                    if (endBearing < startBearing) endBearing += 360;
+                    if (endBearing < startBearing) {endBearing += 360;}
 
                     const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3)); // ~3 degrees per point
                     for (let i = 0; i <= arcPoints; i++) {
@@ -2631,19 +2761,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 sectorFeatures.push({
                     type: 'Feature',
                     properties: { pct: 90 },
-                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] }
+                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
                 });
 
                 // 75% sector (smaller, more visible)
                 sectorFeatures.push({
                     type: 'Feature',
                     properties: { pct: 75 },
-                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM * 0.8)] }
+                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM * 0.8)] },
                 });
 
                 map.addSource('traffic-sectors', {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: sectorFeatures }
+                    data: { type: 'FeatureCollection', features: sectorFeatures },
                 });
 
                 // Insert below flight tracks if they exist
@@ -2656,8 +2786,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'traffic-sectors',
                     paint: {
                         'fill-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
-                        'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.25, 0.15]
-                    }
+                        'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.25, 0.15],
+                    },
                 }, beforeLayer);
 
                 // Sector outlines
@@ -2668,8 +2798,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     paint: {
                         'line-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
                         'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
-                        'line-opacity': 0.8
-                    }
+                        'line-opacity': 0.8,
+                    },
                 }, beforeLayer);
 
                 // Add spacing arcs within the 90% sector
@@ -2681,9 +2811,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     // Build arc at given radius
                     const buildArc = (radius) => {
                         const coords = [];
-                        let startBearing = sector.start_bearing;
+                        const startBearing = sector.start_bearing;
                         let endBearing = sector.end_bearing;
-                        if (endBearing < startBearing) endBearing += 360;
+                        if (endBearing < startBearing) {endBearing += 360;}
 
                         const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3));
                         for (let i = 0; i <= arcPoints; i++) {
@@ -2698,14 +2828,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         arcFeatures.push({
                             type: 'Feature',
                             properties: { distance: dist },
-                            geometry: { type: 'LineString', coordinates: buildArc(dist) }
+                            geometry: { type: 'LineString', coordinates: buildArc(dist) },
                         });
                     }
 
                     if (arcFeatures.length > 0) {
                         map.addSource('spacing-arcs', {
                             type: 'geojson',
-                            data: { type: 'FeatureCollection', features: arcFeatures }
+                            data: { type: 'FeatureCollection', features: arcFeatures },
                         });
 
                         map.addLayer({
@@ -2716,8 +2846,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 'line-color': '#ffffff',
                                 'line-width': 1,
                                 'line-opacity': 0.5,
-                                'line-dasharray': [2, 2]
-                            }
+                                'line-dasharray': [2, 2],
+                            },
                         }, beforeLayer);
 
                         console.log(`Added ${arcFeatures.length} spacing arcs at ${spacing}nm intervals`);
@@ -2739,8 +2869,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         data: {
                             type: 'Feature',
                             geometry: { type: 'Point', coordinates: [lon, lat] },
-                            properties: { name: measurementFix.properties?.name || 'Measurement Point' }
-                        }
+                            properties: { name: measurementFix.properties?.name || 'Measurement Point' },
+                        },
                     });
 
                     // Outer pulsing ring
@@ -2754,8 +2884,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             'circle-opacity': 0.3,
                             'circle-stroke-width': 2,
                             'circle-stroke-color': '#ffd43b',
-                            'circle-stroke-opacity': 0.6
-                        }
+                            'circle-stroke-opacity': 0.6,
+                        },
                     });
 
                     // Inner solid marker
@@ -2768,8 +2898,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             'circle-color': '#ffd43b',
                             'circle-opacity': 1,
                             'circle-stroke-width': 2,
-                            'circle-stroke-color': '#ffffff'
-                        }
+                            'circle-stroke-color': '#ffffff',
+                        },
                     });
 
                     console.log(`Added measurement point marker at ${measurementFix.properties?.name || 'fix'}`);
@@ -2811,8 +2941,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Creates natural-looking curves through waypoints
      */
     smoothTrajectory: function(coords, segments = 5) {
-        if (!coords || coords.length < 2) return coords;
-        if (coords.length === 2) return coords;
+        if (!coords || coords.length < 2) {return coords;}
+        if (coords.length === 2) {return coords;}
 
         const result = [];
         const n = coords.length;
@@ -2863,11 +2993,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Detect facility type from code
         const detectType = (code) => {
-            if (!code) return null;
+            if (!code) {return null;}
             // ARTCC codes start with Z (ZNY, ZDC, ZBW, etc.)
-            if (/^Z[A-Z]{2}$/.test(code)) return 'ARTCC';
+            if (/^Z[A-Z]{2}$/.test(code)) {return 'ARTCC';}
             // TRACON codes: letter + 2 digits (N90, A80, etc.) or 3 letters (PCT, SCT)
-            if (/^[A-Z]\d{2}$/.test(code) || /^[A-Z]{3}$/.test(code)) return 'TRACON';
+            if (/^[A-Z]\d{2}$/.test(code) || /^[A-Z]{3}$/.test(code)) {return 'TRACON';}
             return null;
         };
 
@@ -2881,14 +3011,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 if (artccResponse.ok) {
                     const artccData = await artccResponse.json();
                     const artccCodes = [];
-                    if (requestorType === 'ARTCC') artccCodes.push({ code: requestor, role: 'requestor' });
-                    if (providerType === 'ARTCC' && provider !== requestor) artccCodes.push({ code: provider, role: 'provider' });
+                    if (requestorType === 'ARTCC') {artccCodes.push({ code: requestor, role: 'requestor' });}
+                    if (providerType === 'ARTCC' && provider !== requestor) {artccCodes.push({ code: provider, role: 'provider' });}
 
                     for (const { code, role } of artccCodes) {
                         // ARTCC GeoJSON uses ICAO codes (KZNY instead of ZNY)
                         const icaoCode = 'K' + code;
                         const feature = artccData.features.find(f =>
-                            f.properties.ICAOCODE === icaoCode || f.properties.ICAOCODE === code
+                            f.properties.ICAOCODE === icaoCode || f.properties.ICAOCODE === code,
                         );
                         if (feature) {
                             facilities.push({
@@ -2897,9 +3027,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     code: code,
                                     name: feature.properties.FIRname || code,
                                     type: 'ARTCC',
-                                    role: role
+                                    role: role,
                                 },
-                                geometry: feature.geometry
+                                geometry: feature.geometry,
                             });
                         }
                     }
@@ -2912,8 +3042,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 if (traconResponse.ok) {
                     const traconData = await traconResponse.json();
                     const traconCodes = [];
-                    if (requestorType === 'TRACON') traconCodes.push({ code: requestor, role: 'requestor' });
-                    if (providerType === 'TRACON' && provider !== requestor) traconCodes.push({ code: provider, role: 'provider' });
+                    if (requestorType === 'TRACON') {traconCodes.push({ code: requestor, role: 'requestor' });}
+                    if (providerType === 'TRACON' && provider !== requestor) {traconCodes.push({ code: provider, role: 'provider' });}
 
                     for (const { code, role } of traconCodes) {
                         // TRACON GeoJSON may have multiple features per sector (altitude layers)
@@ -2937,12 +3067,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     type: 'TRACON',
                                     role: role,
                                     label_lat: features[0].properties.label_lat,
-                                    label_lon: features[0].properties.label_lon
+                                    label_lon: features[0].properties.label_lon,
                                 },
                                 geometry: {
                                     type: 'MultiPolygon',
-                                    coordinates: allCoords
-                                }
+                                    coordinates: allCoords,
+                                },
                             });
                         }
                     }
@@ -2961,7 +3091,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      */
     loadLocalSectorBoundaries: async function(artccCodes, providerCode) {
         const sectors = [];
-        if (!artccCodes || artccCodes.length === 0) return sectors;
+        if (!artccCodes || artccCodes.length === 0) {return sectors;}
 
         // Normalize codes to lowercase for matching
         const normalizedCodes = artccCodes.map(c => c.toLowerCase());
@@ -2972,16 +3102,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const [highResponse, lowResponse, superhighResponse] = await Promise.all([
                 fetch('assets/geojson/high.json').catch(() => null),
                 fetch('assets/geojson/low.json').catch(() => null),
-                fetch('assets/geojson/superhigh.json').catch(() => null)
+                fetch('assets/geojson/superhigh.json').catch(() => null),
             ]);
 
             const processFile = async (response, altitudeType) => {
-                if (!response || !response.ok) return;
+                if (!response || !response.ok) {return;}
                 const data = await response.json();
 
                 for (const feature of data.features) {
                     const artcc = feature.properties.artcc;
-                    if (!artcc || !normalizedCodes.includes(artcc.toLowerCase())) continue;
+                    if (!artcc || !normalizedCodes.includes(artcc.toLowerCase())) {continue;}
 
                     // Determine if this sector belongs to provider
                     const isProvider = providerLower && artcc.toLowerCase() === providerLower;
@@ -2994,9 +3124,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             artcc: artcc.toUpperCase(),
                             type: 'SECTOR',
                             altitude: altitudeType,
-                            role: isProvider ? 'provider' : 'other'
+                            role: isProvider ? 'provider' : 'other',
                         },
-                        geometry: feature.geometry
+                        geometry: feature.geometry,
                     });
                 }
             };
@@ -3004,7 +3134,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             await Promise.all([
                 processFile(highResponse, 'high'),
                 processFile(lowResponse, 'low'),
-                processFile(superhighResponse, 'superhigh')
+                processFile(superhighResponse, 'superhigh'),
             ]);
 
             // Group by altitude for logging
@@ -3042,17 +3172,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Include facilities
         (mapData.facilities || []).forEach(f => {
-            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+            if (f.geometry?.coordinates) {expandBounds(f.geometry.coordinates);}
         });
 
         // Include fixes
         (mapData.fixes || []).forEach(f => {
-            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+            if (f.geometry?.coordinates) {expandBounds(f.geometry.coordinates);}
         });
 
         // Include airports
         (mapData.airports || []).forEach(f => {
-            if (f.geometry?.coordinates) expandBounds(f.geometry.coordinates);
+            if (f.geometry?.coordinates) {expandBounds(f.geometry.coordinates);}
         });
 
         return hasData ? [minLon, minLat, maxLon, maxLat] : null;
@@ -3072,23 +3202,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const layer = btn.dataset.layer;
         const mapId = btn.dataset.map;
         const map = this.activeMaps[mapId];
-        if (!map) return;
+        if (!map) {return;}
 
         const isActive = btn.classList.toggle('active');
 
         // Map layer names to actual map layer IDs
         const layerMappings = {
             'artcc': ['facilities-fill', 'facilities-outline', 'facilities-labels'].filter(id =>
-                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'ARTCC')
+                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'ARTCC'),
             ),
             'tracon': ['facilities-fill', 'facilities-outline', 'facilities-labels'].filter(id =>
-                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'TRACON')
+                map.getLayer(id) && map.getSource('facilities')?.serialize()?.data?.features?.some(f => f.properties.type === 'TRACON'),
             ),
             'sectors-low': ['sectors-low-fill', 'sectors-low-outline', 'sectors-low-labels'],
             'sectors-high': ['sectors-high-fill', 'sectors-high-outline', 'sectors-high-labels'],
             'sectors-superhigh': ['sectors-superhigh-fill', 'sectors-superhigh-outline', 'sectors-superhigh-labels'],
             'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
-            'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs']
+            'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs'],
         };
 
         // Handle ARTCC/TRACON specially since they share the facilities source
@@ -3111,10 +3241,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Build filter based on which are active
                     const types = [];
-                    if (btn.classList.contains('active') && layer === 'artcc') types.push('ARTCC');
-                    if (btn.classList.contains('active') && layer === 'tracon') types.push('TRACON');
-                    if (otherActive && layer !== 'artcc') types.push('ARTCC');
-                    if (otherActive && layer !== 'tracon') types.push('TRACON');
+                    if (btn.classList.contains('active') && layer === 'artcc') {types.push('ARTCC');}
+                    if (btn.classList.contains('active') && layer === 'tracon') {types.push('TRACON');}
+                    if (otherActive && layer !== 'artcc') {types.push('ARTCC');}
+                    if (otherActive && layer !== 'tracon') {types.push('TRACON');}
 
                     const filter = types.length > 0 ? ['in', ['get', 'type'], ['literal', types]] : ['==', 1, 0];
                     map.setFilter('facilities-fill', filter);
@@ -3134,7 +3264,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     cleanupMaps: function() {
-        Object.values(this.activeMaps).forEach(map => { if (map) map.remove(); });
+        Object.values(this.activeMaps).forEach(map => { if (map) {map.remove();} });
         this.activeMaps = {};
     },
 
@@ -3154,7 +3284,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <i class="fas fa-exclamation-circle"></i> ${message}
             </div>
         `);
-    }
+    },
 };
 
 // Initialize when document is ready

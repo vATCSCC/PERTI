@@ -8,7 +8,7 @@
 (function(modules) { // webpackBootstrap
     /******/ // The module cache
     /******/
-    var installedModules = {};
+    const installedModules = {};
     /******/
     /******/ // The require function
     /******/
@@ -23,13 +23,13 @@
         }
         /******/ // Create a new module (and put it into the cache)
         /******/
-        var module = installedModules[moduleId] = {
+        const module = installedModules[moduleId] = {
             /******/
             i: moduleId,
             /******/
             l: false,
             /******/
-            exports: {}
+            exports: {},
             /******/
         };
         /******/
@@ -64,7 +64,7 @@
             /******/
             Object.defineProperty(exports, name, {
                 enumerable: true,
-                get: getter
+                get: getter,
             });
             /******/
         }
@@ -78,13 +78,13 @@
         if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
             /******/
             Object.defineProperty(exports, Symbol.toStringTag, {
-                value: 'Module'
+                value: 'Module',
             });
             /******/
         }
         /******/
         Object.defineProperty(exports, '__esModule', {
-            value: true
+            value: true,
         });
         /******/
     };
@@ -97,25 +97,25 @@
     /******/
     __webpack_require__.t = function(value, mode) {
         /******/
-        if (mode & 1) value = __webpack_require__(value);
+        if (mode & 1) {value = __webpack_require__(value);}
         /******/
-        if (mode & 8) return value;
+        if (mode & 8) {return value;}
         /******/
-        if ((mode & 4) && typeof value === 'object' && value && value.__esModule) return value;
+        if ((mode & 4) && typeof value === 'object' && value && value.__esModule) {return value;}
         /******/
-        var ns = Object.create(null);
+        const ns = Object.create(null);
         /******/
         __webpack_require__.r(ns);
         /******/
         Object.defineProperty(ns, 'default', {
             enumerable: true,
-            value: value
+            value: value,
         });
         /******/
-        if (mode & 2 && typeof value != 'string')
-            for (var key in value) __webpack_require__.d(ns, key, function(key) {
-                return value[key];
-            }.bind(null, key));
+        if (mode & 2 && typeof value !== 'string')
+        {for (const key in value) {__webpack_require__.d(ns, key, function(key) {
+            return value[key];
+        }.bind(null, key));}}
         /******/
         return ns;
         /******/
@@ -125,7 +125,7 @@
     /******/
     __webpack_require__.n = function(module) {
         /******/
-        var getter = module && module.__esModule ?
+        const getter = module && module.__esModule ?
             /******/
             function getDefault() {
                 return module['default'];
@@ -149,7 +149,7 @@
     /******/
     /******/ // __webpack_public_path__
     /******/
-    __webpack_require__.p = "";
+    __webpack_require__.p = '';
     /******/
     /******/
     /******/ // Load entry module and return exports
@@ -175,7 +175,7 @@
             } else if (document.attachEvent) {
                 // Old browsers
                 document.attachEvent('onreadystatechange', function() {
-                    if (document.readyState === 'interactive') callback.call();
+                    if (document.readyState === 'interactive') {callback.call();}
                 });
             } else if (document.addEventListener) {
                 // Modern browsers
@@ -191,13 +191,13 @@
 
         /* WEBPACK VAR INJECTION */
         (function(global) {
-            var win;
+            let win;
 
-            if (typeof window !== "undefined") {
+            if (typeof window !== 'undefined') {
                 win = window;
-            } else if (typeof global !== "undefined") {
+            } else if (typeof global !== 'undefined') {
                 win = global;
-            } else if (typeof self !== "undefined") {
+            } else if (typeof self !== 'undefined') {
                 win = self;
             } else {
                 win = {};
@@ -205,7 +205,7 @@
 
             module.exports = win;
             /* WEBPACK VAR INJECTION */
-        }.call(this, __webpack_require__(4)))
+        }.call(this, __webpack_require__(4)));
 
         /***/
     }),
@@ -214,20 +214,20 @@
     (function(module, exports) {
 
         function _typeof(obj) {
-            "@babel/helpers - typeof";
-            if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+            '@babel/helpers - typeof';
+            if (typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol') {
                 _typeof = function _typeof(obj) {
                     return typeof obj;
                 };
             } else {
                 _typeof = function _typeof(obj) {
-                    return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+                    return obj && typeof Symbol === 'function' && obj.constructor === Symbol && obj !== Symbol.prototype ? 'symbol' : typeof obj;
                 };
             }
             return _typeof(obj);
         }
 
-        var g; // This works in non-strict mode
+        let g; // This works in non-strict mode
 
         g = function() {
             return this;
@@ -235,10 +235,10 @@
 
         try {
             // This works if eval is allowed (see CSP)
-            g = g || new Function("return this")();
+            g = g || new Function('return this')();
         } catch (e) {
             // This works if the window reference is available
-            if ((typeof window === "undefined" ? "undefined" : _typeof(window)) === "object") g = window;
+            if ((typeof window === 'undefined' ? 'undefined' : _typeof(window)) === 'object') {g = window;}
         } // g can still be undefined, but nothing to do about it...
         // We return undefined, instead of nothing here, so it's
         // easier to handle this case. if(!global) { ...}
@@ -271,71 +271,70 @@
     /***/
     (function(module, __webpack_exports__, __webpack_require__) {
 
-        "use strict";
+        'use strict';
         __webpack_require__.r(__webpack_exports__);
         /* harmony import */
-        var lite_ready__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
+        const lite_ready__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
         /* harmony import */
-        var lite_ready__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/ __webpack_require__.n(lite_ready__WEBPACK_IMPORTED_MODULE_0__);
+        const lite_ready__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/ __webpack_require__.n(lite_ready__WEBPACK_IMPORTED_MODULE_0__);
         /* harmony import */
-        var global__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3);
+        const global__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3);
         /* harmony import */
-        var global__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/ __webpack_require__.n(global__WEBPACK_IMPORTED_MODULE_1__);
+        const global__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/ __webpack_require__.n(global__WEBPACK_IMPORTED_MODULE_1__);
         /* harmony import */
-        var _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(12);
+        const _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(12);
 
         function _typeof(obj) {
-            "@babel/helpers - typeof";
-            if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+            '@babel/helpers - typeof';
+            if (typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol') {
                 _typeof = function _typeof(obj) {
                     return typeof obj;
                 };
             } else {
                 _typeof = function _typeof(obj) {
-                    return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+                    return obj && typeof Symbol === 'function' && obj.constructor === Symbol && obj !== Symbol.prototype ? 'symbol' : typeof obj;
                 };
             }
             return _typeof(obj);
         }
 
 
-
         // no conflict
 
-        var oldPlugin = global__WEBPACK_IMPORTED_MODULE_1__["window"].jarallax;
-        global__WEBPACK_IMPORTED_MODULE_1__["window"].jarallax = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__["default"];
+        const oldPlugin = global__WEBPACK_IMPORTED_MODULE_1__['window'].jarallax;
+        global__WEBPACK_IMPORTED_MODULE_1__['window'].jarallax = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__['default'];
 
-        global__WEBPACK_IMPORTED_MODULE_1__["window"].jarallax.noConflict = function() {
-            global__WEBPACK_IMPORTED_MODULE_1__["window"].jarallax = oldPlugin;
+        global__WEBPACK_IMPORTED_MODULE_1__['window'].jarallax.noConflict = function() {
+            global__WEBPACK_IMPORTED_MODULE_1__['window'].jarallax = oldPlugin;
             return this;
         }; // jQuery support
 
 
-        if ('undefined' !== typeof global__WEBPACK_IMPORTED_MODULE_1__["jQuery"]) {
-            var jQueryPlugin = function jQueryPlugin() {
+        if ('undefined' !== typeof global__WEBPACK_IMPORTED_MODULE_1__['jQuery']) {
+            const jQueryPlugin = function jQueryPlugin() {
                 for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
                     args[_key] = arguments[_key];
                 }
 
                 Array.prototype.unshift.call(args, this);
-                var res = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__["default"].apply(global__WEBPACK_IMPORTED_MODULE_1__["window"], args);
+                const res = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__['default'].apply(global__WEBPACK_IMPORTED_MODULE_1__['window'], args);
                 return 'object' !== _typeof(res) ? res : this;
             };
 
-            jQueryPlugin.constructor = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__["default"].constructor; // no conflict
+            jQueryPlugin.constructor = _jarallax_esm__WEBPACK_IMPORTED_MODULE_2__['default'].constructor; // no conflict
 
-            var oldJqPlugin = global__WEBPACK_IMPORTED_MODULE_1__["jQuery"].fn.jarallax;
-            global__WEBPACK_IMPORTED_MODULE_1__["jQuery"].fn.jarallax = jQueryPlugin;
+            const oldJqPlugin = global__WEBPACK_IMPORTED_MODULE_1__['jQuery'].fn.jarallax;
+            global__WEBPACK_IMPORTED_MODULE_1__['jQuery'].fn.jarallax = jQueryPlugin;
 
-            global__WEBPACK_IMPORTED_MODULE_1__["jQuery"].fn.jarallax.noConflict = function() {
-                global__WEBPACK_IMPORTED_MODULE_1__["jQuery"].fn.jarallax = oldJqPlugin;
+            global__WEBPACK_IMPORTED_MODULE_1__['jQuery'].fn.jarallax.noConflict = function() {
+                global__WEBPACK_IMPORTED_MODULE_1__['jQuery'].fn.jarallax = oldJqPlugin;
                 return this;
             };
         } // data-jarallax initialization
 
 
         lite_ready__WEBPACK_IMPORTED_MODULE_0___default()(function() {
-            Object(_jarallax_esm__WEBPACK_IMPORTED_MODULE_2__["default"])(document.querySelectorAll('[data-jarallax]'));
+            Object(_jarallax_esm__WEBPACK_IMPORTED_MODULE_2__['default'])(document.querySelectorAll('[data-jarallax]'));
         });
 
         /***/
@@ -344,36 +343,36 @@
     /***/
     (function(module, __webpack_exports__, __webpack_require__) {
 
-        "use strict";
+        'use strict';
         __webpack_require__.r(__webpack_exports__);
         /* harmony import */
-        var lite_ready__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
+        const lite_ready__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
         /* harmony import */
-        var lite_ready__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/ __webpack_require__.n(lite_ready__WEBPACK_IMPORTED_MODULE_0__);
+        const lite_ready__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/ __webpack_require__.n(lite_ready__WEBPACK_IMPORTED_MODULE_0__);
         /* harmony import */
-        var global__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3);
+        const global__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3);
         /* harmony import */
-        var global__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/ __webpack_require__.n(global__WEBPACK_IMPORTED_MODULE_1__);
+        const global__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/ __webpack_require__.n(global__WEBPACK_IMPORTED_MODULE_1__);
 
         function _slicedToArray(arr, i) {
             return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
         }
 
         function _nonIterableRest() {
-            throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+            throw new TypeError('Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.');
         }
 
         function _unsupportedIterableToArray(o, minLen) {
-            if (!o) return;
-            if (typeof o === "string") return _arrayLikeToArray(o, minLen);
-            var n = Object.prototype.toString.call(o).slice(8, -1);
-            if (n === "Object" && o.constructor) n = o.constructor.name;
-            if (n === "Map" || n === "Set") return Array.from(o);
-            if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+            if (!o) {return;}
+            if (typeof o === 'string') {return _arrayLikeToArray(o, minLen);}
+            let n = Object.prototype.toString.call(o).slice(8, -1);
+            if (n === 'Object' && o.constructor) {n = o.constructor.name;}
+            if (n === 'Map' || n === 'Set') {return Array.from(o);}
+            if (n === 'Arguments' || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) {return _arrayLikeToArray(o, minLen);}
         }
 
         function _arrayLikeToArray(arr, len) {
-            if (len == null || len > arr.length) len = arr.length;
+            if (len == null || len > arr.length) {len = arr.length;}
             for (var i = 0, arr2 = new Array(len); i < len; i++) {
                 arr2[i] = arr[i];
             }
@@ -381,42 +380,42 @@
         }
 
         function _iterableToArrayLimit(arr, i) {
-            if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return;
-            var _arr = [];
-            var _n = true;
-            var _d = false;
-            var _e = undefined;
+            if (typeof Symbol === 'undefined' || !(Symbol.iterator in Object(arr))) {return;}
+            const _arr = [];
+            let _n = true;
+            let _d = false;
+            let _e = undefined;
             try {
                 for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
                     _arr.push(_s.value);
-                    if (i && _arr.length === i) break;
+                    if (i && _arr.length === i) {break;}
                 }
             } catch (err) {
                 _d = true;
                 _e = err;
             } finally {
                 try {
-                    if (!_n && _i["return"] != null) _i["return"]();
+                    if (!_n && _i['return'] != null) {_i['return']();}
                 } finally {
-                    if (_d) throw _e;
+                    if (_d) {throw _e;}
                 }
             }
             return _arr;
         }
 
         function _arrayWithHoles(arr) {
-            if (Array.isArray(arr)) return arr;
+            if (Array.isArray(arr)) {return arr;}
         }
 
         function _typeof(obj) {
-            "@babel/helpers - typeof";
-            if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+            '@babel/helpers - typeof';
+            if (typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol') {
                 _typeof = function _typeof(obj) {
                     return typeof obj;
                 };
             } else {
                 _typeof = function _typeof(obj) {
-                    return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+                    return obj && typeof Symbol === 'function' && obj.constructor === Symbol && obj !== Symbol.prototype ? 'symbol' : typeof obj;
                 };
             }
             return _typeof(obj);
@@ -424,37 +423,36 @@
 
         function _classCallCheck(instance, Constructor) {
             if (!(instance instanceof Constructor)) {
-                throw new TypeError("Cannot call a class as a function");
+                throw new TypeError('Cannot call a class as a function');
             }
         }
 
         function _defineProperties(target, props) {
-            for (var i = 0; i < props.length; i++) {
-                var descriptor = props[i];
+            for (let i = 0; i < props.length; i++) {
+                const descriptor = props[i];
                 descriptor.enumerable = descriptor.enumerable || false;
                 descriptor.configurable = true;
-                if ("value" in descriptor) descriptor.writable = true;
+                if ('value' in descriptor) {descriptor.writable = true;}
                 Object.defineProperty(target, descriptor.key, descriptor);
             }
         }
 
         function _createClass(Constructor, protoProps, staticProps) {
-            if (protoProps) _defineProperties(Constructor.prototype, protoProps);
-            if (staticProps) _defineProperties(Constructor, staticProps);
+            if (protoProps) {_defineProperties(Constructor.prototype, protoProps);}
+            if (staticProps) {_defineProperties(Constructor, staticProps);}
             return Constructor;
         }
 
 
+        const navigator = global__WEBPACK_IMPORTED_MODULE_1__['window'].navigator;
+        const isIE = -1 < navigator.userAgent.indexOf('MSIE ') || -1 < navigator.userAgent.indexOf('Trident/') || -1 < navigator.userAgent.indexOf('Edge/');
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        var navigator = global__WEBPACK_IMPORTED_MODULE_1__["window"].navigator;
-        var isIE = -1 < navigator.userAgent.indexOf('MSIE ') || -1 < navigator.userAgent.indexOf('Trident/') || -1 < navigator.userAgent.indexOf('Edge/');
-        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const supportTransform = function() {
+            const prefixes = 'transform WebkitTransform MozTransform'.split(' ');
+            const div = document.createElement('div');
 
-        var supportTransform = function() {
-            var prefixes = 'transform WebkitTransform MozTransform'.split(' ');
-            var div = document.createElement('div');
-
-            for (var i = 0; i < prefixes.length; i += 1) {
+            for (let i = 0; i < prefixes.length; i += 1) {
                 if (div && div.style[prefixes[i]] !== undefined) {
                     return prefixes[i];
                 }
@@ -463,7 +461,7 @@
             return false;
         }();
 
-        var $deviceHelper;
+        let $deviceHelper;
         /**
          * The most popular mobile browsers changes height after page scroll and this generates image jumping.
          * We can fix it using this workaround with vh units.
@@ -476,35 +474,35 @@
                 document.body.appendChild($deviceHelper);
             }
 
-            return ($deviceHelper ? $deviceHelper.clientHeight : 0) || global__WEBPACK_IMPORTED_MODULE_1__["window"].innerHeight || document.documentElement.clientHeight;
+            return ($deviceHelper ? $deviceHelper.clientHeight : 0) || global__WEBPACK_IMPORTED_MODULE_1__['window'].innerHeight || document.documentElement.clientHeight;
         } // Window height data
 
 
-        var wndH;
+        let wndH;
 
         function updateWndVars() {
             if (isMobile) {
                 wndH = getDeviceHeight();
             } else {
-                wndH = global__WEBPACK_IMPORTED_MODULE_1__["window"].innerHeight || document.documentElement.clientHeight;
+                wndH = global__WEBPACK_IMPORTED_MODULE_1__['window'].innerHeight || document.documentElement.clientHeight;
             }
         }
 
         updateWndVars();
-        global__WEBPACK_IMPORTED_MODULE_1__["window"].addEventListener('resize', updateWndVars);
-        global__WEBPACK_IMPORTED_MODULE_1__["window"].addEventListener('orientationchange', updateWndVars);
-        global__WEBPACK_IMPORTED_MODULE_1__["window"].addEventListener('load', updateWndVars);
+        global__WEBPACK_IMPORTED_MODULE_1__['window'].addEventListener('resize', updateWndVars);
+        global__WEBPACK_IMPORTED_MODULE_1__['window'].addEventListener('orientationchange', updateWndVars);
+        global__WEBPACK_IMPORTED_MODULE_1__['window'].addEventListener('load', updateWndVars);
         lite_ready__WEBPACK_IMPORTED_MODULE_0___default()(function() {
             updateWndVars({
-                type: 'dom-loaded'
+                type: 'dom-loaded',
             });
         }); // list with all jarallax instances
         // need to render all in one scroll/resize event
 
-        var jarallaxList = []; // get all parents of the element.
+        const jarallaxList = []; // get all parents of the element.
 
         function getParents(elem) {
-            var parents = [];
+            const parents = [];
 
             while (null !== elem.parentElement) {
                 elem = elem.parentElement;
@@ -523,19 +521,19 @@
             }
 
             jarallaxList.forEach(function(data, k) {
-                var instance = data.instance,
+                const instance = data.instance,
                     oldData = data.oldData;
-                var clientRect = instance.$item.getBoundingClientRect();
-                var newData = {
+                const clientRect = instance.$item.getBoundingClientRect();
+                const newData = {
                     width: clientRect.width,
                     height: clientRect.height,
                     top: clientRect.top,
                     bottom: clientRect.bottom,
-                    wndW: global__WEBPACK_IMPORTED_MODULE_1__["window"].innerWidth,
-                    wndH: wndH
+                    wndW: global__WEBPACK_IMPORTED_MODULE_1__['window'].innerWidth,
+                    wndH: wndH,
                 };
-                var isResized = !oldData || oldData.wndW !== newData.wndW || oldData.wndH !== newData.wndH || oldData.width !== newData.width || oldData.height !== newData.height;
-                var isScrolled = isResized || !oldData || oldData.top !== newData.top || oldData.bottom !== newData.bottom;
+                const isResized = !oldData || oldData.wndW !== newData.wndW || oldData.wndH !== newData.wndH || oldData.width !== newData.width || oldData.height !== newData.height;
+                const isScrolled = isResized || !oldData || oldData.top !== newData.top || oldData.bottom !== newData.bottom;
                 jarallaxList[k].oldData = newData;
 
                 if (isResized) {
@@ -546,16 +544,16 @@
                     instance.onScroll();
                 }
             });
-            global__WEBPACK_IMPORTED_MODULE_1__["window"].requestAnimationFrame(updateParallax);
+            global__WEBPACK_IMPORTED_MODULE_1__['window'].requestAnimationFrame(updateParallax);
         }
 
-        var instanceID = 0; // Jarallax class
+        let instanceID = 0; // Jarallax class
 
-        var Jarallax = /*#__PURE__*/ function() {
+        const Jarallax = /*#__PURE__*/ function() {
             function Jarallax(item, userOptions) {
                 _classCallCheck(this, Jarallax);
 
-                var self = this;
+                const self = this;
                 self.instanceID = instanceID;
                 instanceID += 1;
                 self.$item = item;
@@ -591,14 +589,14 @@
                     // function() {}
                     onDestroy: null,
                     // function() {}
-                    onCoverImage: null // function() {}
+                    onCoverImage: null, // function() {}
 
                 }; // prepare data-options
 
-                var dataOptions = self.$item.dataset || {};
-                var pureDataOptions = {};
+                const dataOptions = self.$item.dataset || {};
+                const pureDataOptions = {};
                 Object.keys(dataOptions).forEach(function(key) {
-                    var loweCaseOption = key.substr(0, 1).toLowerCase() + key.substr(1);
+                    const loweCaseOption = key.substr(0, 1).toLowerCase() + key.substr(1);
 
                     if (loweCaseOption && 'undefined' !== typeof self.defaults[loweCaseOption]) {
                         pureDataOptions[loweCaseOption] = dataOptions[key];
@@ -622,7 +620,7 @@
                 }
 
                 if (self.options.disableParallax instanceof RegExp) {
-                    var disableParallaxRegexp = self.options.disableParallax;
+                    const disableParallaxRegexp = self.options.disableParallax;
 
                     self.options.disableParallax = function() {
                         return disableParallaxRegexp.test(navigator.userAgent);
@@ -641,7 +639,7 @@
                 }
 
                 if (self.options.disableVideo instanceof RegExp) {
-                    var disableVideoRegexp = self.options.disableVideo;
+                    const disableVideoRegexp = self.options.disableVideo;
 
                     self.options.disableVideo = function() {
                         return disableVideoRegexp.test(navigator.userAgent);
@@ -655,12 +653,12 @@
                 } // custom element to check if parallax in viewport
 
 
-                var elementInVP = self.options.elementInViewport; // get first item from array
+                let elementInVP = self.options.elementInViewport; // get first item from array
 
                 if (elementInVP && 'object' === _typeof(elementInVP) && 'undefined' !== typeof elementInVP.length) {
-                    var _elementInVP = elementInVP;
+                    const _elementInVP = elementInVP;
 
-                    var _elementInVP2 = _slicedToArray(_elementInVP, 1);
+                    const _elementInVP2 = _slicedToArray(_elementInVP, 1);
 
                     elementInVP = _elementInVP2[0];
                 } // check if dom element
@@ -678,7 +676,7 @@
                     // position fixed is needed for the most of browsers because absolute position have glitches
                     // on MacOS with smooth scroll there is a huge lags with absolute position - https://github.com/nk-o/jarallax/issues/75
                     // on mobile devices better scrolled with absolute position
-                    position: /iPad|iPhone|iPod|Android/.test(navigator.userAgent) ? 'absolute' : 'fixed'
+                    position: /iPad|iPhone|iPod|Android/.test(navigator.userAgent) ? 'absolute' : 'fixed',
                 };
 
                 if (self.initImg() && self.canInitParallax()) {
@@ -689,10 +687,10 @@
 
 
             _createClass(Jarallax, [{
-                key: "css",
+                key: 'css',
                 value: function css(el, styles) {
                     if ('string' === typeof styles) {
-                        return global__WEBPACK_IMPORTED_MODULE_1__["window"].getComputedStyle(el).getPropertyValue(styles);
+                        return global__WEBPACK_IMPORTED_MODULE_1__['window'].getComputedStyle(el).getPropertyValue(styles);
                     } // add transform property with vendor prefix
 
 
@@ -704,11 +702,11 @@
                         el.style[key] = styles[key];
                     });
                     return el;
-                } // Extend like jQuery.extend
+                }, // Extend like jQuery.extend
                 // eslint-disable-next-line class-methods-use-this
 
             }, {
-                key: "extend",
+                key: 'extend',
                 value: function extend(out) {
                     for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
                         args[_key - 1] = arguments[_key];
@@ -725,25 +723,25 @@
                         });
                     });
                     return out;
-                } // get window size and scroll position. Useful for extensions
+                }, // get window size and scroll position. Useful for extensions
                 // eslint-disable-next-line class-methods-use-this
 
             }, {
-                key: "getWindowData",
+                key: 'getWindowData',
                 value: function getWindowData() {
                     return {
-                        width: global__WEBPACK_IMPORTED_MODULE_1__["window"].innerWidth || document.documentElement.clientWidth,
+                        width: global__WEBPACK_IMPORTED_MODULE_1__['window'].innerWidth || document.documentElement.clientWidth,
                         height: wndH,
-                        y: document.documentElement.scrollTop
+                        y: document.documentElement.scrollTop,
                     };
-                } // Jarallax functions
+                }, // Jarallax functions
 
             }, {
-                key: "initImg",
+                key: 'initImg',
                 value: function initImg() {
-                    var self = this; // find image element
+                    const self = this; // find image element
 
-                    var $imgElement = self.options.imgElement;
+                    let $imgElement = self.options.imgElement;
 
                     if ($imgElement && 'string' === typeof $imgElement) {
                         $imgElement = self.$item.querySelector($imgElement);
@@ -782,41 +780,41 @@
                     }
 
                     return !(!self.image.bgImage || 'none' === self.image.bgImage);
-                }
+                },
             }, {
-                key: "canInitParallax",
+                key: 'canInitParallax',
                 value: function canInitParallax() {
                     return supportTransform && !this.options.disableParallax();
-                }
+                },
             }, {
-                key: "init",
+                key: 'init',
                 value: function init() {
-                    var self = this;
-                    var containerStyles = {
+                    const self = this;
+                    const containerStyles = {
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         width: '100%',
                         height: '100%',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
                     };
-                    var imageStyles = {
+                    let imageStyles = {
                         pointerEvents: 'none',
                         transformStyle: 'preserve-3d',
                         backfaceVisibility: 'hidden',
-                        willChange: 'transform,opacity'
+                        willChange: 'transform,opacity',
                     };
 
                     if (!self.options.keepImg) {
                         // save default user styles
-                        var curStyle = self.$item.getAttribute('style');
+                        const curStyle = self.$item.getAttribute('style');
 
                         if (curStyle) {
                             self.$item.setAttribute('data-jarallax-original-styles', curStyle);
                         }
 
                         if (self.image.useImgTag) {
-                            var curImgStyle = self.image.$item.getAttribute('style');
+                            const curImgStyle = self.image.$item.getAttribute('style');
 
                             if (curImgStyle) {
                                 self.image.$item.setAttribute('data-jarallax-original-styles', curImgStyle);
@@ -827,13 +825,13 @@
 
                     if ('static' === self.css(self.$item, 'position')) {
                         self.css(self.$item, {
-                            position: 'relative'
+                            position: 'relative',
                         });
                     }
 
                     if ('auto' === self.css(self.$item, 'z-index')) {
                         self.css(self.$item, {
-                            zIndex: 0
+                            zIndex: 0,
                         });
                     } // container for parallax image
 
@@ -841,16 +839,16 @@
                     self.image.$container = document.createElement('div');
                     self.css(self.image.$container, containerStyles);
                     self.css(self.image.$container, {
-                        'z-index': self.options.zIndex
+                        'z-index': self.options.zIndex,
                     }); // fix for IE https://github.com/nk-o/jarallax/issues/110
 
                     if (isIE) {
                         self.css(self.image.$container, {
-                            opacity: 0.9999
+                            opacity: 0.9999,
                         });
                     }
 
-                    self.image.$container.setAttribute('id', "jarallax-container-".concat(self.instanceID));
+                    self.image.$container.setAttribute('id', 'jarallax-container-'.concat(self.instanceID));
                     self.$item.appendChild(self.image.$container); // use img tag
 
                     if (self.image.useImgTag) {
@@ -858,8 +856,8 @@
                             'object-fit': self.options.imgSize,
                             'object-position': self.options.imgPosition,
                             // support for plugin https://github.com/bfred-it/object-fit-images
-                            'font-family': "object-fit: ".concat(self.options.imgSize, "; object-position: ").concat(self.options.imgPosition, ";"),
-                            'max-width': 'none'
+                            'font-family': 'object-fit: '.concat(self.options.imgSize, '; object-position: ').concat(self.options.imgPosition, ';'),
+                            'max-width': 'none',
                         }, containerStyles, imageStyles); // use div with background image
                     } else {
                         self.image.$item = document.createElement('div');
@@ -869,7 +867,7 @@
                                 'background-position': self.options.imgPosition,
                                 'background-size': self.options.imgSize,
                                 'background-repeat': self.options.imgRepeat,
-                                'background-image': self.image.bgImage || "url(\"".concat(self.image.src, "\")")
+                                'background-image': self.image.bgImage || 'url("'.concat(self.image.src, '")'),
                             }, containerStyles, imageStyles);
                         }
                     }
@@ -882,10 +880,10 @@
 
 
                     if ('fixed' === self.image.position) {
-                        var $parents = getParents(self.$item).filter(function(el) {
-                            var styles = global__WEBPACK_IMPORTED_MODULE_1__["window"].getComputedStyle(el);
-                            var parentTransform = styles['-webkit-transform'] || styles['-moz-transform'] || styles.transform;
-                            var overflowRegex = /(auto|scroll)/;
+                        const $parents = getParents(self.$item).filter(function(el) {
+                            const styles = global__WEBPACK_IMPORTED_MODULE_1__['window'].getComputedStyle(el);
+                            const parentTransform = styles['-webkit-transform'] || styles['-moz-transform'] || styles.transform;
+                            const overflowRegex = /(auto|scroll)/;
                             return parentTransform && 'none' !== parentTransform || overflowRegex.test(styles.overflow + styles['overflow-y'] + styles['overflow-x']);
                         });
                         self.image.position = $parents.length ? 'absolute' : 'fixed';
@@ -907,42 +905,42 @@
 
                     if ('none' !== self.css(self.$item, 'background-image')) {
                         self.css(self.$item, {
-                            'background-image': 'none'
+                            'background-image': 'none',
                         });
                     }
 
                     self.addToParallaxList();
-                } // add to parallax instances list
+                }, // add to parallax instances list
 
             }, {
-                key: "addToParallaxList",
+                key: 'addToParallaxList',
                 value: function addToParallaxList() {
                     jarallaxList.push({
-                        instance: this
+                        instance: this,
                     });
 
                     if (1 === jarallaxList.length) {
-                        global__WEBPACK_IMPORTED_MODULE_1__["window"].requestAnimationFrame(updateParallax);
+                        global__WEBPACK_IMPORTED_MODULE_1__['window'].requestAnimationFrame(updateParallax);
                     }
-                } // remove from parallax instances list
+                }, // remove from parallax instances list
 
             }, {
-                key: "removeFromParallaxList",
+                key: 'removeFromParallaxList',
                 value: function removeFromParallaxList() {
-                    var self = this;
+                    const self = this;
                     jarallaxList.forEach(function(data, key) {
                         if (data.instance.instanceID === self.instanceID) {
                             jarallaxList.splice(key, 1);
                         }
                     });
-                }
+                },
             }, {
-                key: "destroy",
+                key: 'destroy',
                 value: function destroy() {
-                    var self = this;
+                    const self = this;
                     self.removeFromParallaxList(); // return styles on container as before jarallax init
 
-                    var originalStylesTag = self.$item.getAttribute('data-jarallax-original-styles');
+                    const originalStylesTag = self.$item.getAttribute('data-jarallax-original-styles');
                     self.$item.removeAttribute('data-jarallax-original-styles'); // null occurs if there is no style tag before jarallax init
 
                     if (!originalStylesTag) {
@@ -953,7 +951,7 @@
 
                     if (self.image.useImgTag) {
                         // return styles on img tag as before jarallax init
-                        var originalStylesImgTag = self.image.$item.getAttribute('data-jarallax-original-styles');
+                        const originalStylesImgTag = self.image.$item.getAttribute('data-jarallax-original-styles');
                         self.image.$item.removeAttribute('data-jarallax-original-styles'); // null occurs if there is no style tag before jarallax init
 
                         if (!originalStylesImgTag) {
@@ -984,51 +982,51 @@
 
 
                     delete self.$item.jarallax;
-                } // it will remove some image overlapping
+                }, // it will remove some image overlapping
                 // overlapping occur due to an image position fixed inside absolute position element
 
             }, {
-                key: "clipContainer",
+                key: 'clipContainer',
                 value: function clipContainer() {
                     // needed only when background in fixed position
                     if ('fixed' !== this.image.position) {
                         return;
                     }
 
-                    var self = this;
-                    var rect = self.image.$container.getBoundingClientRect();
-                    var width = rect.width,
+                    const self = this;
+                    const rect = self.image.$container.getBoundingClientRect();
+                    const width = rect.width,
                         height = rect.height;
 
                     if (!self.$clipStyles) {
                         self.$clipStyles = document.createElement('style');
                         self.$clipStyles.setAttribute('type', 'text/css');
-                        self.$clipStyles.setAttribute('id', "jarallax-clip-".concat(self.instanceID));
-                        var head = document.head || document.getElementsByTagName('head')[0];
+                        self.$clipStyles.setAttribute('id', 'jarallax-clip-'.concat(self.instanceID));
+                        const head = document.head || document.getElementsByTagName('head')[0];
                         head.appendChild(self.$clipStyles);
                     } // clip is used for old browsers.
                     // clip-path for modern browsers (also fixes Safari v14 bug https://github.com/nk-o/jarallax/issues/181 ).
 
 
-                    var styles = "#jarallax-container-".concat(self.instanceID, " {\n            clip: rect(0 ").concat(width, "px ").concat(height, "px 0);\n            clip: rect(0, ").concat(width, "px, ").concat(height, "px, 0);\n            -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);\n            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);\n        }"); // add clip styles inline (this method need for support IE8 and less browsers)
+                    const styles = '#jarallax-container-'.concat(self.instanceID, ' {\n            clip: rect(0 ').concat(width, 'px ').concat(height, 'px 0);\n            clip: rect(0, ').concat(width, 'px, ').concat(height, 'px, 0);\n            -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);\n            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);\n        }'); // add clip styles inline (this method need for support IE8 and less browsers)
 
                     if (self.$clipStyles.styleSheet) {
                         self.$clipStyles.styleSheet.cssText = styles;
                     } else {
                         self.$clipStyles.innerHTML = styles;
                     }
-                }
+                },
             }, {
-                key: "coverImage",
+                key: 'coverImage',
                 value: function coverImage() {
-                    var self = this;
-                    var rect = self.image.$container.getBoundingClientRect();
-                    var contH = rect.height;
-                    var speed = self.options.speed;
-                    var isScroll = 'scroll' === self.options.type || 'scroll-opacity' === self.options.type;
-                    var scrollDist = 0;
-                    var resultH = contH;
-                    var resultMT = 0; // scroll parallax
+                    const self = this;
+                    const rect = self.image.$container.getBoundingClientRect();
+                    const contH = rect.height;
+                    const speed = self.options.speed;
+                    const isScroll = 'scroll' === self.options.type || 'scroll-opacity' === self.options.type;
+                    let scrollDist = 0;
+                    let resultH = contH;
+                    let resultMT = 0; // scroll parallax
 
                     if (isScroll) {
                         // scroll distance and height for image
@@ -1065,10 +1063,10 @@
 
 
                     self.css(self.image.$item, {
-                        height: "".concat(resultH, "px"),
-                        marginTop: "".concat(resultMT, "px"),
-                        left: 'fixed' === self.image.position ? "".concat(rect.left, "px") : '0',
-                        width: "".concat(rect.width, "px")
+                        height: ''.concat(resultH, 'px'),
+                        marginTop: ''.concat(resultMT, 'px'),
+                        left: 'fixed' === self.image.position ? ''.concat(rect.left, 'px') : '0',
+                        width: ''.concat(rect.width, 'px'),
                     }); // call onCoverImage event
 
                     if (self.options.onCoverImage) {
@@ -1079,47 +1077,47 @@
                     return {
                         image: {
                             height: resultH,
-                            marginTop: resultMT
+                            marginTop: resultMT,
                         },
-                        container: rect
+                        container: rect,
                     };
-                }
+                },
             }, {
-                key: "isVisible",
+                key: 'isVisible',
                 value: function isVisible() {
                     return this.isElementInViewport || false;
-                }
+                },
             }, {
-                key: "onScroll",
+                key: 'onScroll',
                 value: function onScroll(force) {
-                    var self = this;
-                    var rect = self.$item.getBoundingClientRect();
-                    var contT = rect.top;
-                    var contH = rect.height;
-                    var styles = {}; // check if in viewport
+                    const self = this;
+                    const rect = self.$item.getBoundingClientRect();
+                    const contT = rect.top;
+                    const contH = rect.height;
+                    const styles = {}; // check if in viewport
 
-                    var viewportRect = rect;
+                    let viewportRect = rect;
 
                     if (self.options.elementInViewport) {
                         viewportRect = self.options.elementInViewport.getBoundingClientRect();
                     }
 
-                    self.isElementInViewport = 0 <= viewportRect.bottom && 0 <= viewportRect.right && viewportRect.top <= wndH && viewportRect.left <= global__WEBPACK_IMPORTED_MODULE_1__["window"].innerWidth; // stop calculations if item is not in viewport
+                    self.isElementInViewport = 0 <= viewportRect.bottom && 0 <= viewportRect.right && viewportRect.top <= wndH && viewportRect.left <= global__WEBPACK_IMPORTED_MODULE_1__['window'].innerWidth; // stop calculations if item is not in viewport
 
                     if (force ? false : !self.isElementInViewport) {
                         return;
                     } // calculate parallax helping variables
 
 
-                    var beforeTop = Math.max(0, contT);
-                    var beforeTopEnd = Math.max(0, contH + contT);
-                    var afterTop = Math.max(0, -contT);
-                    var beforeBottom = Math.max(0, contT + contH - wndH);
-                    var beforeBottomEnd = Math.max(0, contH - (contT + contH - wndH));
-                    var afterBottom = Math.max(0, -contT + wndH - contH);
-                    var fromViewportCenter = 1 - 2 * ((wndH - contT) / (wndH + contH)); // calculate on how percent of section is visible
+                    const beforeTop = Math.max(0, contT);
+                    const beforeTopEnd = Math.max(0, contH + contT);
+                    const afterTop = Math.max(0, -contT);
+                    const beforeBottom = Math.max(0, contT + contH - wndH);
+                    const beforeBottomEnd = Math.max(0, contH - (contT + contH - wndH));
+                    const afterBottom = Math.max(0, -contT + wndH - contH);
+                    const fromViewportCenter = 1 - 2 * ((wndH - contT) / (wndH + contH)); // calculate on how percent of section is visible
 
-                    var visiblePercent = 1;
+                    let visiblePercent = 1;
 
                     if (contH < wndH) {
                         visiblePercent = 1 - (afterTop || beforeBottom) / contH;
@@ -1137,7 +1135,7 @@
 
 
                     if ('scale' === self.options.type || 'scale-opacity' === self.options.type) {
-                        var scale = 1;
+                        let scale = 1;
 
                         if (0 > self.options.speed) {
                             scale -= self.options.speed * visiblePercent;
@@ -1145,18 +1143,18 @@
                             scale += self.options.speed * (1 - visiblePercent);
                         }
 
-                        styles.transform = "scale(".concat(scale, ") translate3d(0,0,0)");
+                        styles.transform = 'scale('.concat(scale, ') translate3d(0,0,0)');
                     } // scroll
 
 
                     if ('scroll' === self.options.type || 'scroll-opacity' === self.options.type) {
-                        var positionY = self.parallaxScrollDistance * fromViewportCenter; // fix if parallax block in absolute position
+                        let positionY = self.parallaxScrollDistance * fromViewportCenter; // fix if parallax block in absolute position
 
                         if ('absolute' === self.image.position) {
                             positionY -= contT;
                         }
 
-                        styles.transform = "translate3d(0,".concat(positionY, "px,0)");
+                        styles.transform = 'translate3d(0,'.concat(positionY, 'px,0)');
                     }
 
                     self.css(self.image.$item, styles); // call onScroll event
@@ -1171,32 +1169,32 @@
                             beforeBottomEnd: beforeBottomEnd,
                             afterBottom: afterBottom,
                             visiblePercent: visiblePercent,
-                            fromViewportCenter: fromViewportCenter
+                            fromViewportCenter: fromViewportCenter,
                         });
                     }
-                }
+                },
             }, {
-                key: "onResize",
+                key: 'onResize',
                 value: function onResize() {
                     this.coverImage();
                     this.clipContainer();
-                }
+                },
             }]);
 
             return Jarallax;
         }(); // global definition
 
 
-        var plugin = function plugin(items, options) {
+        const plugin = function plugin(items, options) {
             // check for dom element
             // thanks: http://stackoverflow.com/questions/384286/javascript-isdom-how-do-you-check-if-a-javascript-object-is-a-dom-object
-            if ('object' === (typeof HTMLElement === "undefined" ? "undefined" : _typeof(HTMLElement)) ? items instanceof HTMLElement : items && 'object' === _typeof(items) && null !== items && 1 === items.nodeType && 'string' === typeof items.nodeName) {
+            if ('object' === (typeof HTMLElement === 'undefined' ? 'undefined' : _typeof(HTMLElement)) ? items instanceof HTMLElement : items && 'object' === _typeof(items) && null !== items && 1 === items.nodeType && 'string' === typeof items.nodeName) {
                 items = [items];
             }
 
-            var len = items.length;
-            var k = 0;
-            var ret;
+            const len = items.length;
+            let k = 0;
+            let ret;
 
             for (var _len2 = arguments.length, args = new Array(_len2 > 2 ? _len2 - 2 : 0), _key2 = 2; _key2 < _len2; _key2++) {
                 args[_key2 - 2] = arguments[_key2];
@@ -1222,9 +1220,9 @@
 
         plugin.constructor = Jarallax;
         /* harmony default export */
-        __webpack_exports__["default"] = (plugin);
+        __webpack_exports__['default'] = (plugin);
 
         /***/
-    })
+    }),
     /******/
 ]);

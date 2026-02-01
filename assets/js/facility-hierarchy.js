@@ -43,7 +43,7 @@
         // Mexico FIRs
         'MMFR', 'MMFO',
         // Caribbean & Central American FIRs
-        'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'
+        'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL',
     ];
 
     // ===========================================
@@ -67,7 +67,7 @@
         'ZUA': ['PGZU'],           // Guam CERAP
         'ZAN': ['PAZA'],           // Anchorage ARTCC
         'ZAP': ['PAZN'],           // Anchorage Oceanic
-        'ZHN': ['PHZH']            // Honolulu
+        'ZHN': ['PHZH'],            // Honolulu
     };
 
     // Build reverse alias lookup (alias -> canonical)
@@ -89,57 +89,57 @@
             artccs: ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
             color: '#ec791b',  // Orange
             bgColor: 'rgba(253, 126, 20, 0.15)',
-            textClass: 'text-warning'
+            textClass: 'text-warning',
         },
         'SOUTHEAST': {
             name: 'Southeast',
             artccs: ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
             color: '#ffc107',  // Yellow
             bgColor: 'rgba(255, 193, 7, 0.15)',
-            textClass: 'text-warning'
+            textClass: 'text-warning',
         },
         'NORTHEAST': {
             name: 'Northeast',
             artccs: ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
             color: '#007bff',  // Blue
             bgColor: 'rgba(0, 123, 255, 0.15)',
-            textClass: 'text-primary'
+            textClass: 'text-primary',
         },
         'MIDWEST': {
             name: 'Midwest',
             artccs: ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
             color: '#28a745',  // Green
             bgColor: 'rgba(40, 167, 69, 0.15)',
-            textClass: 'text-success'
+            textClass: 'text-success',
         },
         'WEST': {
             name: 'West',
             artccs: ['ZAK', 'ZAN', 'ZAP', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE', 'ZUA'],
             color: '#dc3545',  // Red
             bgColor: 'rgba(220, 53, 69, 0.15)',
-            textClass: 'text-danger'
+            textClass: 'text-danger',
         },
         'CANADA': {
             name: 'Canada',
             artccs: ['CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'],
             color: '#6f42c1',  // Purple
             bgColor: 'rgba(111, 66, 193, 0.15)',
-            textClass: 'text-purple'
+            textClass: 'text-purple',
         },
         'MEXICO': {
             name: 'Mexico',
             artccs: ['MMFR', 'MMFO'],  // Mexico FIR, Mazatlán Oceanic
             color: '#8B4513',  // Brown
             bgColor: 'rgba(139, 69, 19, 0.15)',
-            textClass: 'text-brown'
+            textClass: 'text-brown',
         },
         'CARIBBEAN': {
             name: 'Caribbean',
             artccs: ['TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
             color: '#e83e8c',  // Pink
             bgColor: 'rgba(232, 62, 140, 0.15)',
-            textClass: 'text-pink'
-        }
+            textClass: 'text-pink',
+        },
     };
 
     // ===========================================
@@ -180,7 +180,7 @@
         'CZQM': '5️⃣',  // 5 - Moncton
         'CZQX': '6️⃣',  // 6 - Gander Domestic
         'CZQO': '7️⃣',  // 7 - Gander Oceanic
-        'CZUL': '8️⃣'   // 8 - Montreal
+        'CZUL': '8️⃣',   // 8 - Montreal
     };
 
     // Reverse mapping: emoji to facility code
@@ -198,33 +198,33 @@
         '6WEST': {
             name: '6 West',
             description: 'Six southwestern ARTCCs',
-            artccs: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE']
+            artccs: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE'],
         },
         '10WEST': {
             name: '10 West',
             description: 'Ten western ARTCCs',
-            artccs: ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE']
+            artccs: ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE'],
         },
         '12WEST': {
             name: '12 West',
             description: 'Twelve western/central ARTCCs',
-            artccs: ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE']
+            artccs: ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE'],
         },
         'GULF': {
             name: 'Gulf',
             description: 'Gulf region',
-            artccs: ['ZJX', 'ZMA', 'ZHU']
+            artccs: ['ZJX', 'ZMA', 'ZHU'],
         },
         'CANWEST': {
             name: 'Canada West',
             description: 'Western Canadian FIRs',
-            artccs: ['CZVR', 'CZEG']
+            artccs: ['CZVR', 'CZEG'],
         },
         'CANEAST': {
             name: 'Canada East',
             description: 'Eastern Canadian FIRs',
-            artccs: ['CZWG', 'CZYZ', 'CZUL', 'CZQM']
-        }
+            artccs: ['CZWG', 'CZYZ', 'CZUL', 'CZQM'],
+        },
     };
 
     // ===========================================
@@ -235,37 +235,37 @@
         'US_CONUS': {
             name: 'CONUS (Lower 48)',
             artccs: ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-                     'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL']
+                'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'],
         },
         'US_ALL': {
             name: 'All US (incl. AK/HI/Oceanic)',
             artccs: ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU', 'ZID',
-                     'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB',
-                     'ZSE', 'ZTL', 'ZHO', 'ZMO', 'ZWY', 'ZAK', 'ZAP', 'ZUA']
+                'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB',
+                'ZSE', 'ZTL', 'ZHO', 'ZMO', 'ZWY', 'ZAK', 'ZAP', 'ZUA'],
         },
         'US_CANADA': {
             name: 'All US + Canada',
             artccs: ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU', 'ZID',
-                     'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB',
-                     'ZSE', 'ZTL', 'ZHO', 'ZMO', 'ZWY', 'ZAK', 'ZAP', 'ZUA',
-                     'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL']
+                'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB',
+                'ZSE', 'ZTL', 'ZHO', 'ZMO', 'ZWY', 'ZAK', 'ZAP', 'ZUA',
+                'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'],
         },
         '6WEST': {
             name: '6 West',
-            artccs: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE']
+            artccs: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE'],
         },
         '10WEST': {
             name: '10 West',
-            artccs: ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE']
+            artccs: ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE'],
         },
         '12WEST': {
             name: '12 West',
-            artccs: ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE']
+            artccs: ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE'],
         },
         'GULF': {
             name: 'Gulf',
-            artccs: ['ZJX', 'ZMA', 'ZHU']
-        }
+            artccs: ['ZJX', 'ZMA', 'ZHU'],
+        },
     };
 
     // ===========================================
@@ -273,10 +273,10 @@
     // Populated dynamically based on CSV columns
     // ===========================================
 
-    let AIRPORT_GROUPS = {
+    const AIRPORT_GROUPS = {
         'CORE30': { name: 'Core 30', airports: [] },
         'OEP35': { name: 'OEP 35', airports: [] },
-        'ASPM77': { name: 'ASPM 77', airports: [] }
+        'ASPM77': { name: 'ASPM 77', airports: [] },
     };
 
     // ===========================================
@@ -294,11 +294,11 @@
     // Hierarchy Storage (populated from apts.csv)
     // ===========================================
 
-    let FACILITY_HIERARCHY = {};  // artcc/tracon -> [child facilities]
-    let TRACON_TO_ARTCC = {};     // tracon -> parent artcc
-    let AIRPORT_TO_TRACON = {};   // airport -> parent tracon
-    let AIRPORT_TO_ARTCC = {};    // airport -> parent artcc
-    let ALL_TRACONS = new Set();
+    const FACILITY_HIERARCHY = {};  // artcc/tracon -> [child facilities]
+    const TRACON_TO_ARTCC = {};     // tracon -> parent artcc
+    const AIRPORT_TO_TRACON = {};   // airport -> parent tracon
+    const AIRPORT_TO_ARTCC = {};    // airport -> parent artcc
+    const ALL_TRACONS = new Set();
     let hierarchyLoaded = false;
     let hierarchyLoadPromise = null;
 
@@ -328,7 +328,7 @@
 
     function parseFacilityHierarchy(csvText) {
         const lines = csvText.split('\n');
-        if (lines.length < 2) return;
+        if (lines.length < 2) {return;}
 
         // Parse header to find column indices
         const header = lines[0].split(',');
@@ -343,7 +343,7 @@
             dccRegion: header.indexOf('DCC REGION'),
             core30: header.indexOf('Core30'),
             oep35: header.indexOf('OEP35'),
-            aspm77: header.indexOf('ASPM77')
+            aspm77: header.indexOf('ASPM77'),
         };
 
         // Initialize ARTCC entries
@@ -354,7 +354,7 @@
         // Parse each airport line
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
-            if (!line) continue;
+            if (!line) {continue;}
 
             const cols = parseCSVLine(line);
             const arptId = (cols[colIdx.arptId] || '').trim().toUpperCase();
@@ -363,25 +363,25 @@
 
             // Get TRACON - check multiple columns
             let tracon = (cols[colIdx.approachId] || '').trim().toUpperCase();
-            if (!tracon) tracon = (cols[colIdx.depId] || '').trim().toUpperCase();
-            if (!tracon) tracon = (cols[colIdx.apDepId] || '').trim().toUpperCase();
+            if (!tracon) {tracon = (cols[colIdx.depId] || '').trim().toUpperCase();}
+            if (!tracon) {tracon = (cols[colIdx.apDepId] || '').trim().toUpperCase();}
 
             // Skip if no ARTCC or not in our list
-            if (!artcc) continue;
+            if (!artcc) {continue;}
 
             // Resolve aliases to canonical form
             const canonicalArtcc = ALIAS_TO_CANONICAL[artcc] || artcc;
-            if (!ARTCCS.includes(canonicalArtcc) && !ARTCCS.includes(artcc)) continue;
+            if (!ARTCCS.includes(canonicalArtcc) && !ARTCCS.includes(artcc)) {continue;}
 
             // Add TRACON to ARTCC's children if valid
             if (tracon && tracon.length >= 2 && tracon.length <= 4 && !ARTCCS.includes(tracon)) {
-                if (!FACILITY_HIERARCHY[canonicalArtcc]) FACILITY_HIERARCHY[canonicalArtcc] = new Set();
+                if (!FACILITY_HIERARCHY[canonicalArtcc]) {FACILITY_HIERARCHY[canonicalArtcc] = new Set();}
                 FACILITY_HIERARCHY[canonicalArtcc].add(tracon);
                 TRACON_TO_ARTCC[tracon] = canonicalArtcc;
                 ALL_TRACONS.add(tracon);
 
                 // Initialize TRACON's children set
-                if (!FACILITY_HIERARCHY[tracon]) FACILITY_HIERARCHY[tracon] = new Set();
+                if (!FACILITY_HIERARCHY[tracon]) {FACILITY_HIERARCHY[tracon] = new Set();}
             }
 
             // Add airport to appropriate parent
@@ -393,7 +393,7 @@
                     FACILITY_HIERARCHY[tracon].add(airportCode);
                 } else {
                     // Add directly to ARTCC if no TRACON
-                    if (!FACILITY_HIERARCHY[canonicalArtcc]) FACILITY_HIERARCHY[canonicalArtcc] = new Set();
+                    if (!FACILITY_HIERARCHY[canonicalArtcc]) {FACILITY_HIERARCHY[canonicalArtcc] = new Set();}
                     FACILITY_HIERARCHY[canonicalArtcc].add(airportCode);
                 }
 
@@ -425,7 +425,7 @@
     // ===========================================
 
     function loadHierarchy() {
-        if (hierarchyLoadPromise) return hierarchyLoadPromise;
+        if (hierarchyLoadPromise) {return hierarchyLoadPromise;}
 
         hierarchyLoadPromise = fetch('assets/data/apts.csv')
             .then(response => response.text())
@@ -437,7 +437,7 @@
                     airports: Object.keys(AIRPORT_TO_ARTCC).length,
                     core30: AIRPORT_GROUPS.CORE30.airports.length,
                     oep35: AIRPORT_GROUPS.OEP35.airports.length,
-                    aspm77: AIRPORT_GROUPS.ASPM77.airports.length
+                    aspm77: AIRPORT_GROUPS.ASPM77.airports.length,
                 });
                 return true;
             })
@@ -548,9 +548,9 @@
 
     function getParentArtcc(code) {
         const upper = resolveAlias(code);
-        if (ARTCCS.includes(upper)) return upper;
-        if (TRACON_TO_ARTCC[upper]) return TRACON_TO_ARTCC[upper];
-        if (AIRPORT_TO_ARTCC[upper]) return AIRPORT_TO_ARTCC[upper];
+        if (ARTCCS.includes(upper)) {return upper;}
+        if (TRACON_TO_ARTCC[upper]) {return TRACON_TO_ARTCC[upper];}
+        if (AIRPORT_TO_ARTCC[upper]) {return AIRPORT_TO_ARTCC[upper];}
         return null;
     }
 
@@ -593,7 +593,7 @@
         isArtcc: isArtcc,
         isTracon: isTracon,
         getParentArtcc: getParentArtcc,
-        getChildren: getChildFacilities
+        getChildren: getChildFacilities,
     };
 
 })(typeof window !== 'undefined' ? window : this);

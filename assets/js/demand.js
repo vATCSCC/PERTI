@@ -19,7 +19,7 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
         return `ARR: ${arrPart} | DEP: ${depPart}`;
     }
 
-    if (!configName) return '--';
+    if (!configName) {return '--';}
 
     // Check if it's a simple descriptive name
     const flowKeywords = ['Flow', 'Config', 'Standard', 'Primary', 'Secondary', 'Alternate'];
@@ -90,7 +90,7 @@ window.DemandChartCore = (function() {
         'exempt': '#6b7280',
         'uncontrolled': '#94a3b8',
         // Unknown/other
-        'unknown': '#9333ea'
+        'unknown': '#9333ea',
     };
 
     // Phase labels - use shared config if available
@@ -112,14 +112,14 @@ window.DemandChartCore = (function() {
         'gdp': 'GDP',
         'exempt': 'Exempt',
         'uncontrolled': 'Uncontrolled',
-        'unknown': 'Unknown'
+        'unknown': 'Unknown',
     };
 
     // Phase stacking order (bottom to top) - use shared config if available
-    const PHASE_ORDER = (typeof window.PHASE_STACK_ORDER !== 'undefined') ? window.PHASE_STACK_ORDER : 
-        ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 
-         'uncontrolled', 'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs', 
-         'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
+    const PHASE_ORDER = (typeof window.PHASE_STACK_ORDER !== 'undefined') ? window.PHASE_STACK_ORDER :
+        ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile',
+            'uncontrolled', 'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs',
+            'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
 
     /**
      * Get granularity in minutes
@@ -223,15 +223,15 @@ window.DemandChartCore = (function() {
                 focus: 'series',
                 itemStyle: {
                     shadowBlur: 2,
-                    shadowColor: 'rgba(0,0,0,0.2)'
-                }
+                    shadowColor: 'rgba(0,0,0,0.2)',
+                },
             },
             itemStyle: {
                 color: color,
                 borderColor: type === 'departures' ? 'rgba(255,255,255,0.5)' : 'transparent',
-                borderWidth: type === 'departures' ? 1 : 0
+                borderWidth: type === 'departures' ? 1 : 0,
             },
-            data: data
+            data: data,
         };
 
         // Add diagonal hatching pattern for departures (FSM/TBFM style)
@@ -242,7 +242,7 @@ window.DemandChartCore = (function() {
                 rotation: Math.PI / 4,
                 color: 'rgba(255,255,255,0.4)',
                 dashArrayX: [1, 0],
-                dashArrayY: [3, 5]
+                dashArrayY: [3, 5],
             };
         }
 
@@ -264,7 +264,7 @@ window.DemandChartCore = (function() {
             lineStyle: {
                 color: markerColor,
                 width: 2,
-                type: 'solid'
+                type: 'solid',
             },
             label: {
                 show: true,
@@ -278,8 +278,8 @@ window.DemandChartCore = (function() {
                 padding: [2, 6],
                 borderRadius: 2,
                 borderColor: markerColor,
-                borderWidth: 1
-            }
+                borderWidth: 1,
+            },
         };
     }
 
@@ -307,9 +307,9 @@ window.DemandChartCore = (function() {
                 aar: { type: 'solid', width: 2 },
                 adr: { type: 'dashed', width: 2 },
                 aar_custom: { type: 'dotted', width: 2 },
-                adr_custom: { type: 'dotted', width: 2 }
+                adr_custom: { type: 'dotted', width: 2 },
             },
-            label: { position: 'end', fontSize: 10, fontWeight: 'bold' }
+            label: { position: 'end', fontSize: 10, fontWeight: 'bold' },
         };
 
         // Determine style: custom (override), suggested, or active
@@ -320,7 +320,7 @@ window.DemandChartCore = (function() {
         let labelIndex = 0;
 
         const addLine = function(value, source, rateType, label) {
-            if (!value) return;
+            if (!value) {return;}
 
             const sourceStyle = cfg[styleKey][source];
             // Use dotted line style for custom/dynamic rates
@@ -340,7 +340,7 @@ window.DemandChartCore = (function() {
                 lineStyle: {
                     color: sourceStyle.color,
                     width: lineTypeStyle.width,
-                    type: lineTypeStyle.type
+                    type: lineTypeStyle.type,
                 },
                 label: {
                     show: true,
@@ -356,8 +356,8 @@ window.DemandChartCore = (function() {
                     padding: [2, 6],
                     borderRadius: 3,
                     borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                    borderWidth: 1
-                }
+                    borderWidth: 1,
+                },
             });
         };
 
@@ -457,44 +457,44 @@ window.DemandChartCore = (function() {
             timeRangeEnd: options.timeRangeEnd !== undefined ? options.timeRangeEnd : 14,
             lastData: null,
             rateData: null,
-            showRateLines: options.showRateLines !== false
+            showRateLines: options.showRateLines !== false,
         };
 
         // Handle window resize
-        var resizeHandler = function() {
-            if (state.chart) state.chart.resize();
+        const resizeHandler = function() {
+            if (state.chart) {state.chart.resize();}
         };
         window.addEventListener('resize', resizeHandler);
 
         return {
-        load: function(airport, opts) {
-        opts = opts || {};
-        if (!airport) {
-        this.clear();
-        return Promise.resolve({ success: false, error: 'No airport specified' });
-        }
+            load: function(airport, opts) {
+                opts = opts || {};
+                if (!airport) {
+                    this.clear();
+                    return Promise.resolve({ success: false, error: 'No airport specified' });
+                }
 
-        state.airport = airport;
-        if (opts.direction) state.direction = opts.direction;
-        if (opts.granularity) state.granularity = opts.granularity;
-        if (opts.timeBasis) state.timeBasis = opts.timeBasis;
-        if (opts.programId !== undefined) state.programId = opts.programId;
-                if (opts.timeRangeStart !== undefined) state.timeRangeStart = opts.timeRangeStart;
-        if (opts.timeRangeEnd !== undefined) state.timeRangeEnd = opts.timeRangeEnd;
+                state.airport = airport;
+                if (opts.direction) {state.direction = opts.direction;}
+                if (opts.granularity) {state.granularity = opts.granularity;}
+                if (opts.timeBasis) {state.timeBasis = opts.timeBasis;}
+                if (opts.programId !== undefined) {state.programId = opts.programId;}
+                if (opts.timeRangeStart !== undefined) {state.timeRangeStart = opts.timeRangeStart;}
+                if (opts.timeRangeEnd !== undefined) {state.timeRangeEnd = opts.timeRangeEnd;}
 
-        var now = new Date();
-                var start = new Date(now.getTime() + state.timeRangeStart * 60 * 60 * 1000);
-        var end = new Date(now.getTime() + state.timeRangeEnd * 60 * 60 * 1000);
+                const now = new Date();
+                const start = new Date(now.getTime() + state.timeRangeStart * 60 * 60 * 1000);
+                const end = new Date(now.getTime() + state.timeRangeEnd * 60 * 60 * 1000);
 
-        var params = new URLSearchParams({
-        airport: airport,
-        granularity: state.granularity,
-        direction: state.direction,
-            start: start.toISOString(),
+                const params = new URLSearchParams({
+                    airport: airport,
+                    granularity: state.granularity,
+                    direction: state.direction,
+                    start: start.toISOString(),
                     end: end.toISOString(),
-                    time_basis: state.timeBasis
+                    time_basis: state.timeBasis,
                 });
-                
+
                 // Add program_id if specified (for TMI-specific filtering)
                 if (state.programId) {
                     params.append('program_id', state.programId);
@@ -502,13 +502,13 @@ window.DemandChartCore = (function() {
 
                 state.chart.showLoading({ text: 'Loading...', maskColor: 'rgba(255,255,255,0.8)', textColor: '#333' });
 
-                var self = this;
-                var demandPromise = fetch('api/demand/airport.php?' + params.toString()).then(function(r) { return r.json(); });
-                var ratesPromise = fetch('api/demand/rates.php?airport=' + encodeURIComponent(airport)).then(function(r) { return r.json(); }).catch(function() { return null; });
+                const self = this;
+                const demandPromise = fetch('api/demand/airport.php?' + params.toString()).then(function(r) { return r.json(); });
+                const ratesPromise = fetch('api/demand/rates.php?airport=' + encodeURIComponent(airport)).then(function(r) { return r.json(); }).catch(function() { return null; });
 
                 return Promise.all([demandPromise, ratesPromise]).then(function(results) {
-                    var demandResponse = results[0];
-                    var ratesResponse = results[1];
+                    const demandResponse = results[0];
+                    const ratesResponse = results[1];
                     state.chart.hideLoading();
 
                     if (!demandResponse.success) {
@@ -529,86 +529,86 @@ window.DemandChartCore = (function() {
             },
 
             render: function() {
-                if (!state.chart || !state.lastData) return;
+                if (!state.chart || !state.lastData) {return;}
 
-                var data = state.lastData;
-                var arrivals = data.data.arrivals || [];
-                var departures = data.data.departures || [];
-                var direction = state.direction;
+                const data = state.lastData;
+                const arrivals = data.data.arrivals || [];
+                const departures = data.data.departures || [];
+                const direction = state.direction;
 
                 console.log('[DemandChart] render - timeBasis:', state.timeBasis, 'arrivals:', arrivals.length, 'departures:', departures.length);
 
-                var timeBins = generateAllTimeBins(state.granularity, state.timeRangeStart, state.timeRangeEnd);
+                const timeBins = generateAllTimeBins(state.granularity, state.timeRangeStart, state.timeRangeEnd);
 
-                var arrivalsByBin = {};
+                const arrivalsByBin = {};
                 arrivals.forEach(function(d) { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
 
-                var departuresByBin = {};
+                const departuresByBin = {};
                 departures.forEach(function(d) { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
-                
+
                 // Debug: Log first breakdown to see what keys are available
                 if (arrivals.length > 0 && arrivals[0].breakdown) {
                     console.log('[DemandChart] Sample breakdown keys:', Object.keys(arrivals[0].breakdown));
                 }
 
-                var series = [];
-                
+                const series = [];
+
                 // When time_basis=ctd, only show TMI status breakdown (not flight phases)
                 // to avoid double-counting controlled flights
-                var phasesToRender;
+                let phasesToRender;
                 if (state.timeBasis === 'ctd') {
                     // TMI status phases only - no regular flight phases to avoid double-counting
                     phasesToRender = [
                         'uncontrolled',  // Flights not controlled by any TMI
                         'exempt',        // Exempt from TMI
                         'actual_gs', 'simulated_gs', 'proposed_gs',     // Ground Stop statuses
-                        'actual_gdp', 'simulated_gdp', 'proposed_gdp'   // GDP statuses
+                        'actual_gdp', 'simulated_gdp', 'proposed_gdp',   // GDP statuses
                     ];
                 } else {
                     // Standard flight phases when using ETA
-                    phasesToRender = ['arrived', 'disconnected', 'descending', 'enroute', 
-                                      'departed', 'taxiing', 'prefile', 'unknown'];
+                    phasesToRender = ['arrived', 'disconnected', 'descending', 'enroute',
+                        'departed', 'taxiing', 'prefile', 'unknown'];
                 }
                 console.log('[DemandChart] phasesToRender:', phasesToRender);
 
                 if (direction === 'arr' || direction === 'both') {
                     phasesToRender.forEach(function(phase) {
-                        var suffix = direction === 'both' ? ' (Arr)' : '';
+                        const suffix = direction === 'both' ? ' (Arr)' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction, state.granularity));
                     });
                 }
 
                 if (direction === 'dep' || direction === 'both') {
                     phasesToRender.forEach(function(phase) {
-                        var suffix = direction === 'both' ? ' (Dep)' : '';
+                        const suffix = direction === 'both' ? ' (Dep)' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction, state.granularity));
                     });
                 }
 
-                var timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
-                var rateMarkLines = buildRateMarkLinesForChart(state.rateData, direction, state.showRateLines);
+                const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+                const rateMarkLines = buildRateMarkLinesForChart(state.rateData, direction, state.showRateLines);
 
                 if (series.length > 0) {
-                    var markLineData = [];
-                    if (timeMarkLineData) markLineData.push(timeMarkLineData);
-                    if (rateMarkLines && rateMarkLines.length > 0) markLineData.push.apply(markLineData, rateMarkLines);
+                    const markLineData = [];
+                    if (timeMarkLineData) {markLineData.push(timeMarkLineData);}
+                    if (rateMarkLines && rateMarkLines.length > 0) {markLineData.push.apply(markLineData, rateMarkLines);}
 
                     if (markLineData.length > 0) {
                         series[0].markLine = { silent: true, symbol: ['none', 'none'], data: markLineData };
                     }
                 }
 
-                var intervalMs = getGranularityMinutes(state.granularity) * 60 * 1000;
-                var chartTitle = buildChartTitle(data.airport, data.last_adl_update);
-                var gran = state.granularity;
+                const intervalMs = getGranularityMinutes(state.granularity) * 60 * 1000;
+                const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+                const gran = state.granularity;
 
-                var option = {
+                const option = {
                     backgroundColor: '#ffffff',
                     title: {
                         text: chartTitle,
                         left: 'center',
                         top: 10,
-                        textStyle: { fontSize: 13, fontWeight: 'bold', color: '#333', fontFamily: '"Inconsolata", "SF Mono", monospace' }
+                        textStyle: { fontSize: 13, fontWeight: 'bold', color: '#333', fontFamily: '"Inconsolata", "SF Mono", monospace' },
                     },
                     tooltip: {
                         trigger: 'axis',
@@ -619,13 +619,13 @@ window.DemandChartCore = (function() {
                         padding: [8, 12],
                         textStyle: { color: '#333', fontSize: 11 },
                         formatter: function(params) {
-                            if (!params || params.length === 0) return '';
-                            var timestamp = params[0].value[0];
-                            var timeStr = formatTimeLabelFromTimestamp(timestamp, gran);
-                            var tooltip = '<strong style="font-size:12px;">' + timeStr + '</strong><br/>';
-                            var total = 0;
+                            if (!params || params.length === 0) {return '';}
+                            const timestamp = params[0].value[0];
+                            const timeStr = formatTimeLabelFromTimestamp(timestamp, gran);
+                            let tooltip = '<strong style="font-size:12px;">' + timeStr + '</strong><br/>';
+                            let total = 0;
                             params.forEach(function(p) {
-                                var val = p.value[1] || 0;
+                                const val = p.value[1] || 0;
                                 if (val > 0) {
                                     tooltip += p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong><br/>';
                                     total += val;
@@ -634,19 +634,19 @@ window.DemandChartCore = (function() {
                             tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ' + total + '</strong>';
                             // Add rate information if available
                             if (state.rateData && state.rateData.rates) {
-                                var rates = state.rateData.rates;
-                                var proRateFactor = getGranularityMinutes(state.granularity) / 60;
-                                var aar = rates.vatsim_aar ? Math.round(rates.vatsim_aar * proRateFactor) : null;
-                                var adr = rates.vatsim_adr ? Math.round(rates.vatsim_adr * proRateFactor) : null;
+                                const rates = state.rateData.rates;
+                                const proRateFactor = getGranularityMinutes(state.granularity) / 60;
+                                const aar = rates.vatsim_aar ? Math.round(rates.vatsim_aar * proRateFactor) : null;
+                                const adr = rates.vatsim_adr ? Math.round(rates.vatsim_adr * proRateFactor) : null;
                                 if (aar || adr) {
                                     tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/>';
-                                    if (aar) tooltip += '<span style="color:#000;">AAR: <strong>' + aar + '</strong></span>';
-                                    if (aar && adr) tooltip += ' / ';
-                                    if (adr) tooltip += '<span style="color:#000;">ADR: <strong>' + adr + '</strong></span>';
+                                    if (aar) {tooltip += '<span style="color:#000;">AAR: <strong>' + aar + '</strong></span>';}
+                                    if (aar && adr) {tooltip += ' / ';}
+                                    if (adr) {tooltip += '<span style="color:#000;">ADR: <strong>' + adr + '</strong></span>';}
                                 }
                             }
                             return tooltip;
-                        }
+                        },
                     },
                     legend: direction === 'both' ? [
                         {
@@ -660,7 +660,7 @@ window.DemandChartCore = (function() {
                             itemGap: 10,   // Space between items
                             textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                             data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
-                            formatter: function(name) { return name.replace(' (Arr)', ''); }
+                            formatter: function(name) { return name.replace(' (Arr)', ''); },
                         },
                         {
                             // Departures row
@@ -674,8 +674,8 @@ window.DemandChartCore = (function() {
                             textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                             icon: 'rect',
                             data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
-                            formatter: function(name) { return name.replace(' (Dep)', ''); }
-                        }
+                            formatter: function(name) { return name.replace(' (Dep)', ''); },
+                        },
                     ] : {
                         bottom: 5,
                         left: 'center',
@@ -684,7 +684,7 @@ window.DemandChartCore = (function() {
                         itemWidth: 12,
                         itemHeight: 8,
                         itemGap: 10,   // Space between items
-                        textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' }
+                        textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                     },
                     grid: { left: 50, right: 70, bottom: 100, top: 45, containLabel: false },  // Extra room for wrapped legend
                     xAxis: {
@@ -701,13 +701,13 @@ window.DemandChartCore = (function() {
                             color: '#333',
                             fontFamily: '"Inconsolata", "SF Mono", monospace',
                             formatter: function(value) {
-                                var d = new Date(value);
+                                const d = new Date(value);
                                 return d.getUTCHours().toString().padStart(2, '0') + d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
-                            }
+                            },
                         },
                         splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
                         min: new Date(timeBins[0]).getTime(),
-                        max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
+                        max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs,
                     },
                     yAxis: {
                         type: 'value',
@@ -719,17 +719,17 @@ window.DemandChartCore = (function() {
                         axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
                         axisTick: { show: true, lineStyle: { color: '#666' } },
                         axisLabel: { fontSize: 10, color: '#333', fontFamily: '"Inconsolata", monospace' },
-                        splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } }
+                        splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } },
                     },
-                    series: series
+                    series: series,
                 };
 
                 state.chart.setOption(option, true);
             },
 
             update: function(opts) {
-                var needsReload = false;
-                var needsRender = false;
+                let needsReload = false;
+                let needsRender = false;
 
                 if (opts.direction && opts.direction !== state.direction) {
                     state.direction = opts.direction;
@@ -768,7 +768,7 @@ window.DemandChartCore = (function() {
                 state.lastData = null;
                 state.rateData = null;
                 state.airport = null;
-                if (state.chart) state.chart.clear();
+                if (state.chart) {state.chart.clear();}
             },
 
             getRateData: function() { return state.rateData; },
@@ -780,14 +780,14 @@ window.DemandChartCore = (function() {
                     timeBasis: state.timeBasis,
                     programId: state.programId,
                     timeRangeStart: state.timeRangeStart,
-                    timeRangeEnd: state.timeRangeEnd
+                    timeRangeEnd: state.timeRangeEnd,
                 };
             },
             dispose: function() {
                 window.removeEventListener('resize', resizeHandler);
                 if (state.chart) { state.chart.dispose(); state.chart = null; }
             },
-            resize: function() { if (state.chart) state.chart.resize(); }
+            resize: function() { if (state.chart) {state.chart.resize();} },
         };
     }
 
@@ -810,7 +810,7 @@ window.DemandChartCore = (function() {
         // Constants
         PHASE_COLORS: PHASE_COLORS,
         PHASE_LABELS: PHASE_LABELS,
-        PHASE_ORDER: PHASE_ORDER
+        PHASE_ORDER: PHASE_ORDER,
     };
 })();
 
@@ -819,7 +819,7 @@ window.DemandChart = {
     create: window.DemandChartCore.createChart,
     PHASE_COLORS: window.DemandChartCore.PHASE_COLORS,
     PHASE_LABELS: window.DemandChartCore.PHASE_LABELS,
-    PHASE_ORDER: window.DemandChartCore.PHASE_ORDER
+    PHASE_ORDER: window.DemandChartCore.PHASE_ORDER,
 };
 
 // ============================================================================
@@ -827,7 +827,7 @@ window.DemandChart = {
 // ============================================================================
 
 // Global state
-let DEMAND_STATE = {
+const DEMAND_STATE = {
     selectedAirport: null,
     granularity: 'hourly',
     timeRangeStart: -2, // hours before now (null if custom)
@@ -876,13 +876,13 @@ let DEMAND_STATE = {
         active: true,       // ACTIVE - departed/enroute/descending (airborne)
         arrived: true,      // ARRIVED - landed at destination
         disconnected: true, // DISCONNECTED - disconnected mid-flight
-        unknown: false      // UNKNOWN - other/unknown (hidden by default)
+        unknown: false,      // UNKNOWN - other/unknown (hidden by default)
     },
     atisData: null, // Store ATIS data from API
     // Cache management
     cacheTimestamp: null, // When data was last loaded from API
     cacheValidityMs: 15000, // Cache is valid for 15 seconds
-    summaryLoaded: false // Whether summary breakdown data has been loaded
+    summaryLoaded: false, // Whether summary breakdown data has been loaded
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -895,7 +895,7 @@ const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : 
     'departed': '#f87171',      // Light Red - Just took off from origin
     'taxiing': '#22c55e',       // Green - Taxiing at origin airport
     'prefile': '#3b82f6',       // Blue - Filed flight plan
-    'unknown': '#9333ea'        // Purple - Unknown/other phase (top)
+    'unknown': '#9333ea',        // Purple - Unknown/other phase (top)
 };
 
 // Phase labels - use shared config if available
@@ -907,7 +907,7 @@ const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : 
     'departed': 'Departed',
     'taxiing': 'Taxiing',
     'prefile': 'Prefile',
-    'unknown': 'Unknown'
+    'unknown': 'Unknown',
 };
 
 // Phase group mapping - maps logical UI groups to database phase values
@@ -917,7 +917,7 @@ const PHASE_GROUP_MAP = {
     active: ['departed', 'enroute', 'descending'],
     arrived: ['arrived'],
     disconnected: ['disconnected'],
-    unknown: ['unknown']
+    unknown: ['unknown'],
 };
 
 // Reverse lookup - maps database phase to UI group
@@ -929,7 +929,7 @@ const PHASE_TO_GROUP = {
     descending: 'active',
     arrived: 'arrived',
     disconnected: 'disconnected',
-    unknown: 'unknown'
+    unknown: 'unknown',
 };
 
 // ARTCC colors for origin breakdown visualization
@@ -939,7 +939,7 @@ const ARTCC_COLORS = {
     'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
     'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
     'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
-    'ZAN': '#e7298a', 'ZHN': '#66a61e'
+    'ZAN': '#e7298a', 'ZHN': '#66a61e',
 };
 
 // Generate a color for unknown ARTCCs
@@ -963,63 +963,63 @@ const AIRCRAFT_MANUFACTURERS = {
         order: 1,
         prefixes: ['B7', 'B3'],  // B737, B747, B757, B767, B777, B787, B38M, etc.
         types: ['B712', 'B717', 'B721', 'B722', 'B727', 'B731', 'B732', 'B733', 'B734', 'B735', 'B736', 'B737', 'B738', 'B739',
-                'B37M', 'B38M', 'B39M', 'B3XM', 'B741', 'B742', 'B743', 'B744', 'B748', 'B74D', 'B74R', 'B74S',
-                'B752', 'B753', 'B762', 'B763', 'B764', 'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X']
+            'B37M', 'B38M', 'B39M', 'B3XM', 'B741', 'B742', 'B743', 'B744', 'B748', 'B74D', 'B74R', 'B74S',
+            'B752', 'B753', 'B762', 'B763', 'B764', 'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X'],
     },
     'Airbus': {
         order: 2,
         prefixes: ['A1', 'A2', 'A3', 'A4'],  // All Airbus start with A followed by digit
         types: ['A124', 'A148', 'A158', 'A19N', 'A20N', 'A21N', 'A22X', 'A225',
-                'A306', 'A30B', 'A310', 'A318', 'A319', 'A320', 'A321', 'A332', 'A333', 'A337', 'A338', 'A339',
-                'A342', 'A343', 'A345', 'A346', 'A359', 'A35K', 'A388', 'A3ST']
+            'A306', 'A30B', 'A310', 'A318', 'A319', 'A320', 'A321', 'A332', 'A333', 'A337', 'A338', 'A339',
+            'A342', 'A343', 'A345', 'A346', 'A359', 'A35K', 'A388', 'A3ST'],
     },
     'Embraer': {
         order: 3,
         prefixes: ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E9'],
         types: ['E110', 'E120', 'E121', 'E135', 'E145', 'E170', 'E175', 'E190', 'E195', 'E290', 'E295',
-                'E35L', 'E50P', 'E55P', 'EGRT', 'LEGH', 'LJ35', 'PHNM', 'PHPR']
+            'E35L', 'E50P', 'E55P', 'EGRT', 'LEGH', 'LJ35', 'PHNM', 'PHPR'],
     },
     'Bombardier': {
         order: 4,
         prefixes: ['CRJ', 'CL', 'GL', 'BD', 'CH'],
         types: ['BD10', 'BD70', 'CL30', 'CL35', 'CL60', 'CRJ1', 'CRJ2', 'CRJ7', 'CRJ9', 'CRJX',
-                'GL5T', 'GL7T', 'GLEX', 'GLXS', 'CH30', 'CH35', 'C25A', 'C25B', 'C25C', 'C500', 'C510',
-                'C525', 'C550', 'C560', 'C56X', 'C650', 'C680', 'C68A', 'C750']
+            'GL5T', 'GL7T', 'GLEX', 'GLXS', 'CH30', 'CH35', 'C25A', 'C25B', 'C25C', 'C500', 'C510',
+            'C525', 'C550', 'C560', 'C56X', 'C650', 'C680', 'C68A', 'C750'],
     },
     'McDonnell Douglas': {
         order: 5,
         prefixes: ['MD', 'DC'],
         types: ['DC10', 'DC3', 'DC6', 'DC85', 'DC86', 'DC87', 'DC9', 'DC93', 'DC94', 'DC95',
-                'MD10', 'MD11', 'MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'MD90']
+            'MD10', 'MD11', 'MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'MD90'],
     },
     'ATR/De Havilland': {
         order: 6,
         prefixes: ['AT', 'DH', 'DHC'],
         types: ['AT43', 'AT44', 'AT45', 'AT46', 'AT72', 'AT73', 'AT75', 'AT76',
-                'DH8A', 'DH8B', 'DH8C', 'DH8D', 'DHC2', 'DHC3', 'DHC4', 'DHC5', 'DHC6', 'DHC7']
+            'DH8A', 'DH8B', 'DH8C', 'DH8D', 'DHC2', 'DHC3', 'DHC4', 'DHC5', 'DHC6', 'DHC7'],
     },
     'Chinese': {
         order: 7,
         prefixes: ['C9', 'ARJ'],
-        types: ['ARJ2', 'ARJ21', 'C919', 'MA60', 'Y12']
+        types: ['ARJ2', 'ARJ21', 'C919', 'MA60', 'Y12'],
     },
     'Russian': {
         order: 8,
         prefixes: ['IL', 'TU', 'AN', 'SSJ', 'SU', 'YK'],
         types: ['AN12', 'AN24', 'AN26', 'AN28', 'AN30', 'AN32', 'AN72', 'AN74', 'AN12', 'AN14', 'AN22', 'AN22', 'A124', 'A225',
-                'IL14', 'IL18', 'IL62', 'IL76', 'IL86', 'IL96', 'SSJ1', 'SU95', 'TU14', 'TU15', 'TU16', 'TU20', 'TU22', 'TU34',
-                'TU54', 'T134', 'T144', 'T154', 'T204', 'T214', 'YK40', 'YK42']
+            'IL14', 'IL18', 'IL62', 'IL76', 'IL86', 'IL96', 'SSJ1', 'SU95', 'TU14', 'TU15', 'TU16', 'TU20', 'TU22', 'TU34',
+            'TU54', 'T134', 'T144', 'T154', 'T204', 'T214', 'YK40', 'YK42'],
     },
     'Concorde': {
         order: 9,
         prefixes: ['CONC'],
-        types: ['CONC']
-    }
+        types: ['CONC'],
+    },
 };
 
 // Get manufacturer for an aircraft type
 function getAircraftManufacturer(acType) {
-    if (!acType) return 'Other';
+    if (!acType) {return 'Other';}
     const upper = acType.toUpperCase();
 
     // Check exact type matches first
@@ -1089,7 +1089,7 @@ function getDCCRegionColor(artcc) {
         // Caribbean - Pink
         'TJZS': '#e83e8c', 'MKJK': '#e83e8c', 'MUFH': '#e83e8c', 'MYNA': '#e83e8c',
         // International oceanic regions
-        'ASIA': '#e83e8c', 'EURO': '#6f42c1', 'INTL': '#8B4513', 'YPAC': '#17a2b8'
+        'ASIA': '#e83e8c', 'EURO': '#6f42c1', 'INTL': '#8B4513', 'YPAC': '#17a2b8',
     };
 
     if (DCC_REGION_COLORS[artcc]) {
@@ -1116,17 +1116,17 @@ const DCC_REGION_ORDER = {
     'CANADA': 6,
     'MEXICO': 7,
     'CARIBBEAN': 8,
-    'Other': 99
+    'Other': 99,
 };
 
 // Get DCC region name for an ARTCC (uses global FacilityHierarchy if available)
 function getARTCCRegion(artcc) {
-    if (!artcc) return 'Other';
+    if (!artcc) {return 'Other';}
 
     // Use global FacilityHierarchy if available
     if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
         const region = FacilityHierarchy.getRegion(artcc);
-        if (region) return region;
+        if (region) {return region;}
     }
 
     return 'Other';
@@ -1188,7 +1188,7 @@ function hideChartLoading() {
  * Shows a brief loading state to provide visual feedback on filter changes
  */
 function renderWithLoading() {
-    if (!DEMAND_STATE.lastDemandData) return;
+    if (!DEMAND_STATE.lastDemandData) {return;}
 
     showChartLoading();
 
@@ -1236,7 +1236,7 @@ const TIME_RANGE_OPTIONS = [
     { value: 'T-6/+6', label: '+/- 6H', start: -6, end: 6 },
     { value: 'T-12/+12', label: '+/- 12H', start: -12, end: 12 },
     { value: 'T-24/+24', label: '+/- 24H', start: -24, end: 24 },
-    { value: 'custom', label: 'Custom...', start: null, end: null }
+    { value: 'custom', label: 'Custom...', start: null, end: null },
 ];
 
 // ARTCC tier data (loaded from JSON)
@@ -1259,12 +1259,12 @@ function mergeWithTmiConfig(rateData, tmiConfig) {
 
     // Override with TMI CONFIG values
     if (tmiConfig.aar !== null && tmiConfig.aar !== undefined) {
-        if (!merged.rates) merged.rates = {};
+        if (!merged.rates) {merged.rates = {};}
         merged.rates.vatsim_aar = tmiConfig.aar;
     }
 
     if (tmiConfig.adr !== null && tmiConfig.adr !== undefined) {
-        if (!merged.rates) merged.rates = {};
+        if (!merged.rates) {merged.rates = {};}
         merged.rates.vatsim_adr = tmiConfig.adr;
     }
 
@@ -1315,14 +1315,14 @@ function buildRateDataFromTmiConfig(tmiConfig) {
         weather_category: tmiConfig.weather_category || 'VMC',
         rates: {
             vatsim_aar: tmiConfig.aar,
-            vatsim_adr: tmiConfig.adr
+            vatsim_adr: tmiConfig.adr,
         },
         is_suggested: false,
         has_override: false,
         rate_source: 'TMI',
         match_type: 'TMI',
         tmi_source: true,
-        tmi_config: tmiConfig
+        tmi_config: tmiConfig,
     };
 }
 
@@ -1678,7 +1678,7 @@ function initPhaseFilterFloatingPanel() {
     const $panelHeader = $floatingPanel.find('.panel-header');
 
     // Default position (near top-right of chart area)
-    let panelPos = { x: window.innerWidth - 200, y: 200 };
+    const panelPos = { x: window.innerWidth - 200, y: 200 };
 
     // Pop out to floating panel
     $popoutBtn.on('click', function() {
@@ -1692,7 +1692,7 @@ function initPhaseFilterFloatingPanel() {
         // Position and show floating panel
         $floatingPanel.css({
             left: panelPos.x + 'px',
-            top: panelPos.y + 'px'
+            top: panelPos.y + 'px',
         }).addClass('visible');
     });
 
@@ -1728,7 +1728,7 @@ function initPhaseFilterFloatingPanel() {
 
     // Dragging functionality
     let isDragging = false;
-    let dragOffset = { x: 0, y: 0 };
+    const dragOffset = { x: 0, y: 0 };
 
     // Helper to restore normal state after drag ends
     function endDrag() {
@@ -1744,7 +1744,7 @@ function initPhaseFilterFloatingPanel() {
     }
 
     $panelHeader.on('mousedown', function(e) {
-        if ($(e.target).closest('.panel-btn').length) return; // Don't drag when clicking buttons
+        if ($(e.target).closest('.panel-btn').length) {return;} // Don't drag when clicking buttons
         isDragging = true;
         // For position:fixed elements, use CSS left/top values (viewport-relative)
         // to match e.clientX/clientY (also viewport-relative)
@@ -1758,7 +1758,7 @@ function initPhaseFilterFloatingPanel() {
     });
 
     $(document).on('mousemove', function(e) {
-        if (!isDragging) return;
+        if (!isDragging) {return;}
 
         let newX = e.clientX - dragOffset.x;
         let newY = e.clientY - dragOffset.y;
@@ -1771,7 +1771,7 @@ function initPhaseFilterFloatingPanel() {
 
         $floatingPanel.css({
             left: newX + 'px',
-            top: newY + 'px'
+            top: newY + 'px',
         });
     });
 
@@ -1783,7 +1783,7 @@ function initPhaseFilterFloatingPanel() {
 
     // Handle window resize - keep panel in bounds
     $(window).on('resize', function() {
-        if (!$floatingPanel.hasClass('visible')) return;
+        if (!$floatingPanel.hasClass('visible')) {return;}
 
         const panelWidth = $floatingPanel.outerWidth();
         const panelHeight = $floatingPanel.outerHeight();
@@ -1795,7 +1795,7 @@ function initPhaseFilterFloatingPanel() {
 
         $floatingPanel.css({
             left: currentX + 'px',
-            top: currentY + 'px'
+            top: currentY + 'px',
         });
     });
 }
@@ -1829,9 +1829,9 @@ function updateTierOptions() {
             }
         }
 
-        if (hasInternal) select.append(`<option value="${internalCode}">Internal</option>`);
-        if (has1stTier) select.append(`<option value="${tier1Code}">1st Tier</option>`);
-        if (has2ndTier) select.append(`<option value="${tier2Code}">2nd Tier</option>`);
+        if (hasInternal) {select.append(`<option value="${internalCode}">Internal</option>`);}
+        if (has1stTier) {select.append(`<option value="${tier1Code}">1st Tier</option>`);}
+        if (has2ndTier) {select.append(`<option value="${tier2Code}">2nd Tier</option>`);}
     }
 }
 
@@ -1897,7 +1897,7 @@ function loadDemandData() {
         granularity: DEMAND_STATE.granularity,
         direction: DEMAND_STATE.direction,
         start: start.toISOString(),
-        end: end.toISOString()
+        end: end.toISOString(),
     });
 
     // Show loading state
@@ -2060,8 +2060,8 @@ function updateRateInfoDisplay(rateData) {
     let tooltip = configName;
     if (rateData.arr_runways || rateData.dep_runways) {
         tooltip += '\n';
-        if (rateData.arr_runways) tooltip += `ARR: ${rateData.arr_runways}\n`;
-        if (rateData.dep_runways) tooltip += `DEP: ${rateData.dep_runways}`;
+        if (rateData.arr_runways) {tooltip += `ARR: ${rateData.arr_runways}\n`;}
+        if (rateData.dep_runways) {tooltip += `DEP: ${rateData.dep_runways}`;}
     }
     // Add override info to tooltip
     if (rateData.has_override && rateData.override_reason) {
@@ -2071,8 +2071,8 @@ function updateRateInfoDisplay(rateData) {
     if (rateData.tmi_source && rateData.tmi_config) {
         const tmi = rateData.tmi_config;
         tooltip += '\n\n--- TMI Published Config ---';
-        if (tmi.aar_type) tooltip += `\nAAR Type: ${tmi.aar_type}`;
-        if (tmi.created_by_name) tooltip += `\nPublished by: ${tmi.created_by_name}`;
+        if (tmi.aar_type) {tooltip += `\nAAR Type: ${tmi.aar_type}`;}
+        if (tmi.created_by_name) {tooltip += `\nPublished by: ${tmi.created_by_name}`;}
         if (tmi.valid_from) {
             const validFrom = new Date(tmi.valid_from);
             tooltip += `\nValid from: ${validFrom.toUTCString().replace('GMT', 'Z')}`;
@@ -2131,7 +2131,7 @@ function updateRateInfoDisplay(rateData) {
             'VMC_FALLBACK': 'Fallback',
             'DETECTED_TRACKS': 'Detected',
             'MANUAL': 'Manual',
-            'TMI': 'TMI' // Active TMI CONFIG entry
+            'TMI': 'TMI', // Active TMI CONFIG entry
         };
         sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
 
@@ -2159,8 +2159,8 @@ function updateRateInfoDisplay(rateData) {
  * Get age badge color based on minutes
  */
 function getAgeBadgeColor(ageMins) {
-    if (ageMins < 15) return '#10b981'; // green - fresh
-    if (ageMins < 30) return '#f59e0b'; // amber - getting stale
+    if (ageMins < 15) {return '#10b981';} // green - fresh
+    if (ageMins < 30) {return '#f59e0b';} // amber - getting stale
     return '#ef4444'; // red - stale
 }
 
@@ -2168,9 +2168,9 @@ function getAgeBadgeColor(ageMins) {
  * Format age text for display
  */
 function formatAgeText(ageMins) {
-    if (ageMins === null || ageMins === undefined) return '--';
-    if (ageMins < 1) return '<1m';
-    if (ageMins < 60) return ageMins + 'm';
+    if (ageMins === null || ageMins === undefined) {return '--';}
+    if (ageMins < 1) {return '<1m';}
+    if (ageMins < 60) {return ageMins + 'm';}
     return Math.floor(ageMins / 60) + 'h';
 }
 
@@ -2178,7 +2178,7 @@ function formatAgeText(ageMins) {
  * Build HTML for a single ATIS badge
  */
 function buildAtisBadge(atis, type, labelPrefix) {
-    if (!atis) return '';
+    if (!atis) {return '';}
 
     const code = atis.atis_code || '?';
     const ageMins = atis.age_mins || 0;
@@ -2263,7 +2263,7 @@ function updateAtisDisplay(atisData) {
  * Build HTML for a single ATIS section in the modal
  */
 function buildAtisSection(atis, typeLabel, typeBadgeColor) {
-    if (!atis) return '';
+    if (!atis) {return '';}
 
     let fetchedTime = '--';
     if (atis.fetched_utc) {
@@ -2303,7 +2303,7 @@ function showAtisModal() {
             title: 'No ATIS Available',
             text: 'No ATIS information is currently available for this airport.',
             timer: 3000,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
         return;
     }
@@ -2343,8 +2343,8 @@ function showAtisModal() {
             atisSectionsHtml += buildAtisSection(atisDep, 'DEPARTURE', '#f97316');
         }
         const codes = [];
-        if (atisArr?.atis_code) codes.push('A:' + atisArr.atis_code);
-        if (atisDep?.atis_code) codes.push('D:' + atisDep.atis_code);
+        if (atisArr?.atis_code) {codes.push('A:' + atisArr.atis_code);}
+        if (atisDep?.atis_code) {codes.push('D:' + atisDep.atis_code);}
         titleSuffix = codes.join(' / ');
     } else if (effectiveSource === 'ARR_ONLY' && atisArr) {
         // Arrival only
@@ -2370,7 +2370,7 @@ function showAtisModal() {
         'COMB': 'Combined ATIS',
         'ARR_DEP': 'Separate ARR/DEP ATIS',
         'ARR_ONLY': 'Arrival ATIS Only',
-        'DEP_ONLY': 'Departure ATIS Only'
+        'DEP_ONLY': 'Departure ATIS Only',
     }[effectiveSource] || 'Unknown';
 
     Swal.fire({
@@ -2399,8 +2399,8 @@ function showAtisModal() {
         showCloseButton: true,
         showConfirmButton: false,
         customClass: {
-            popup: 'text-left'
-        }
+            popup: 'text-left',
+        },
     });
 }
 
@@ -2452,7 +2452,7 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Arr)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction)
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction),
             );
         });
     }
@@ -2466,7 +2466,7 @@ function renderChart(data) {
         phaseOrder.forEach(phase => {
             const suffix = direction === 'both' ? ' (Dep)' : '';
             series.push(
-                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction)
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction),
             );
         });
     }
@@ -2500,7 +2500,7 @@ function renderChart(data) {
             series[0].markLine = {
                 silent: true,
                 symbol: ['none', 'none'],
-                data: markLineData
+                data: markLineData,
             };
         }
     }
@@ -2517,16 +2517,16 @@ function renderChart(data) {
     // Calculate max demand from data series
     let maxDemand = 0;
     const countDemandInBin = (breakdown) => {
-        if (!breakdown) return 0;
+        if (!breakdown) {return 0;}
         return Object.values(breakdown).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
     };
     arrivals.forEach(d => {
         const binTotal = countDemandInBin(d.breakdown);
-        if (binTotal > maxDemand) maxDemand = binTotal;
+        if (binTotal > maxDemand) {maxDemand = binTotal;}
     });
     departures.forEach(d => {
         const binTotal = countDemandInBin(d.breakdown);
-        if (binTotal > maxDemand) maxDemand = binTotal;
+        if (binTotal > maxDemand) {maxDemand = binTotal;}
     });
     // If showing both directions stacked, consider combined total
     if (direction === 'both') {
@@ -2546,7 +2546,7 @@ function renderChart(data) {
             });
             return countDemandInBin(arrData?.breakdown) + countDemandInBin(depData?.breakdown);
         }));
-        if (combinedMax > maxDemand) maxDemand = combinedMax;
+        if (combinedMax > maxDemand) {maxDemand = combinedMax;}
     }
 
     // Calculate max rate (pro-rated for granularity)
@@ -2557,7 +2557,7 @@ function renderChart(data) {
             (rates.vatsim_aar || 0) * proRateFactor,
             (rates.vatsim_adr || 0) * proRateFactor,
             (rates.rw_aar || 0) * proRateFactor,
-            (rates.rw_adr || 0) * proRateFactor
+            (rates.rw_adr || 0) * proRateFactor,
         );
     }
 
@@ -2588,15 +2588,15 @@ function renderChart(data) {
                 fontSize: 14,
                 fontWeight: 'bold',
                 color: '#333',
-                fontFamily: '"Inconsolata", "SF Mono", monospace'
-            }
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+            },
         },
         tooltip: {
             trigger: 'axis',
             confine: true,  // Keep tooltip within chart area
             axisPointer: {
                 type: 'shadow',
-                z: 10  // Keep axisPointer below dataZoom sliders
+                z: 10,  // Keep axisPointer below dataZoom sliders
             },
             z: 50,  // Keep tooltip below dataZoom sliders (z: 100)
             backgroundColor: 'rgba(255, 255, 255, 0.98)',
@@ -2605,10 +2605,10 @@ function renderChart(data) {
             padding: [8, 12],
             textStyle: {
                 color: '#333',
-                fontSize: 12
+                fontSize: 12,
             },
             formatter: function(params) {
-                if (!params || params.length === 0) return '';
+                if (!params || params.length === 0) {return '';}
                 // Extract timestamp from first param
                 const timestamp = params[0].value[0];
                 const timeStr = formatTimeLabelFromTimestamp(timestamp);
@@ -2626,12 +2626,12 @@ function renderChart(data) {
                 const rates = getRatesForTimestamp(timestamp);
                 if (rates && (rates.aar || rates.adr)) {
                     tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/>`;
-                    if (rates.aar) tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;
-                    if (rates.aar && rates.adr) tooltip += ` / `;
-                    if (rates.adr) tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;
+                    if (rates.aar) {tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;}
+                    if (rates.aar && rates.adr) {tooltip += ` / `;}
+                    if (rates.adr) {tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;}
                 }
                 return tooltip;
-            }
+            },
         },
         legend: direction === 'both' ? [
             {
@@ -2645,7 +2645,7 @@ function renderChart(data) {
                 itemGap: 12,   // Space between items
                 textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
                 data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Arr)', ''); }
+                formatter: function(name) { return name.replace(' (Arr)', ''); },
             },
             {
                 // Departures row (rectangles)
@@ -2659,8 +2659,8 @@ function renderChart(data) {
                 textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
                 icon: 'rect',
                 data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Dep)', ''); }
-            }
+                formatter: function(name) { return name.replace(' (Dep)', ''); },
+            },
         ] : {
             bottom: 70,  // Single row - no overlap issue
             left: 'center',
@@ -2669,7 +2669,7 @@ function renderChart(data) {
             itemWidth: 14,
             itemHeight: 10,
             itemGap: 12,   // Space between items
-            textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' }
+            textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
         },
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
@@ -2678,7 +2678,7 @@ function renderChart(data) {
             right: 70,   // Room for AAR/ADR labels
             bottom: direction === 'both' ? 165 : 140, // Extra room for 2 legend rows
             top: 55,
-            containLabel: false
+            containLabel: false,
         },
         xAxis: {
             type: 'time',
@@ -2688,20 +2688,20 @@ function renderChart(data) {
             nameTextStyle: {
                 fontSize: 11,
                 color: '#333',
-                fontWeight: 500
+                fontWeight: 500,
             },
             maxInterval: 3600 * 1000,  // Maximum 1 hour between labels
             axisLine: {
                 lineStyle: {
                     color: '#333',
-                    width: 1
-                }
+                    width: 1,
+                },
             },
             axisTick: {
                 alignWithLabel: true,
                 lineStyle: {
-                    color: '#666'
-                }
+                    color: '#666',
+                },
             },
             axisLabel: {
                 fontSize: 11,
@@ -2719,17 +2719,17 @@ function renderChart(data) {
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
                     // AADC style: "1200Z", "1300Z", etc.
                     return h + m + 'Z';
-                }
+                },
             },
             splitLine: {
                 show: true,
                 lineStyle: {
                     color: '#f0f0f0',
-                    type: 'solid'
-                }
+                    type: 'solid',
+                },
             },
             min: new Date(timeBins[0]).getTime(),
-            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs,
         },
         yAxis: {
             type: 'value',
@@ -2739,7 +2739,7 @@ function renderChart(data) {
             nameTextStyle: {
                 fontSize: 12,
                 color: '#333',
-                fontWeight: 500
+                fontWeight: 500,
             },
             minInterval: 1,
             min: 0,
@@ -2748,29 +2748,29 @@ function renderChart(data) {
                 show: true,
                 lineStyle: {
                     color: '#333',
-                    width: 1
-                }
+                    width: 1,
+                },
             },
             axisTick: {
                 show: true,
                 lineStyle: {
-                    color: '#666'
-                }
+                    color: '#666',
+                },
             },
             axisLabel: {
                 fontSize: 11,
                 color: '#333',
-                fontFamily: '"Inconsolata", monospace'
+                fontFamily: '"Inconsolata", monospace',
             },
             splitLine: {
                 show: true,
                 lineStyle: {
                     color: '#e8e8e8',
-                    type: 'dashed'
-                }
-            }
+                    type: 'dashed',
+                },
+            },
         },
-        series: series
+        series: series,
     };
 
     DEMAND_STATE.chart.setOption(option, true);
@@ -2840,7 +2840,7 @@ function renderOriginChart() {
 
     activeRegions.forEach((region, idx) => {
         const artccs = regionGroups[region];
-        if (artccs.length === 0) return;
+        if (artccs.length === 0) {return;}
 
         legendRows.push({
             bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
@@ -2853,9 +2853,9 @@ function renderOriginChart() {
             itemGap: 8,
             textStyle: {
                 fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif'
+                fontFamily: '"Segoe UI", sans-serif',
             },
-            data: artccs
+            data: artccs,
         });
     });
 
@@ -2878,9 +2878,9 @@ function renderOriginChart() {
                 right: 70,
                 bottom: gridBottom,
                 top: 55,
-                containLabel: false
-            }
-        }
+                containLabel: false,
+            },
+        },
     );
 }
 
@@ -2956,7 +2956,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         categoryList = order.filter(cat => allCategories.has(cat));
         // Add any categories not in order
         allCategories.forEach(cat => {
-            if (!categoryList.includes(cat)) categoryList.push(cat);
+            if (!categoryList.includes(cat)) {categoryList.push(cat);}
         });
     } else {
         categoryList = Array.from(allCategories).sort();
@@ -2979,14 +2979,14 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     let totalArrivedPlusDisconnected = 0;
     let totalAllPhases = 0;
     let totalCount = 0;
-    let mismatches = [];
+    const mismatches = [];
 
     Object.keys(breakdown).forEach(binKey => {
         const binData = breakdown[binKey];
-        if (!Array.isArray(binData)) return;
+        if (!Array.isArray(binData)) {return;}
 
         binData.forEach(entry => {
-            if (!entry.phases) return;
+            if (!entry.phases) {return;}
 
             // Calculate various sums for this entry
             const phaseValues = Object.entries(entry.phases)
@@ -3021,7 +3021,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         totalAllPhases,
         totalCount,
         'arrivedOnly + disconnectedOnly': totalArrivedOnly + totalDisconnectedOnly,
-        mismatches: mismatches.length > 0 ? mismatches.slice(0, 5) : 'None'
+        mismatches: mismatches.length > 0 ? mismatches.slice(0, 5) : 'None',
     });
 
     const series = categoryList.map(category => {
@@ -3053,7 +3053,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                             enabledPhases,
                             filteredValue: value,
                             phaseSum,
-                            mismatch: catEntry.count !== phaseSum ? 'COUNT != PHASE SUM!' : 'OK'
+                            mismatch: catEntry.count !== phaseSum ? 'COUNT != PHASE SUM!' : 'OK',
                         });
                     }
                 } else {
@@ -3076,15 +3076,15 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 focus: 'series',
                 itemStyle: {
                     shadowBlur: 2,
-                    shadowColor: 'rgba(0,0,0,0.2)'
-                }
+                    shadowColor: 'rgba(0,0,0,0.2)',
+                },
             },
             itemStyle: {
                 color: colorFn(category),
                 borderColor: 'transparent',
-                borderWidth: 0
+                borderWidth: 0,
             },
-            data: seriesData
+            data: seriesData,
         };
     });
 
@@ -3098,15 +3098,15 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     if (series.length > 0) {
         const markLineData = [];
         // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
-        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) markLineData.push(...tmiProgramMarkLines);
-        if (timeMarkLineData) markLineData.push(timeMarkLineData);
-        if (rateMarkLines && rateMarkLines.length > 0) markLineData.push(...rateMarkLines);
+        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {markLineData.push(...tmiProgramMarkLines);}
+        if (timeMarkLineData) {markLineData.push(timeMarkLineData);}
+        if (rateMarkLines && rateMarkLines.length > 0) {markLineData.push(...rateMarkLines);}
 
         if (markLineData.length > 0) {
             series[0].markLine = {
                 silent: true,
                 symbol: ['none', 'none'],
-                data: markLineData
+                data: markLineData,
             };
         }
     }
@@ -3126,7 +3126,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                     binTotal += s.data[i][1] || 0;
                 }
             });
-            if (binTotal > maxDemand) maxDemand = binTotal;
+            if (binTotal > maxDemand) {maxDemand = binTotal;}
         }
     }
 
@@ -3139,7 +3139,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             (rates.vatsim_aar || 0) * proRateFactor,
             (rates.vatsim_adr || 0) * proRateFactor,
             (rates.rw_aar || 0) * proRateFactor,
-            (rates.rw_adr || 0) * proRateFactor
+            (rates.rw_adr || 0) * proRateFactor,
         );
     }
 
@@ -3169,12 +3169,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 fontSize: 14,
                 fontWeight: 'bold',
                 color: '#333',
-                fontFamily: '"Inconsolata", "SF Mono", monospace'
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
             },
             subtextStyle: {
                 fontSize: 11,
-                color: '#666'
-            }
+                color: '#666',
+            },
         },
         tooltip: {
             trigger: 'axis',
@@ -3185,7 +3185,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             padding: [8, 12],
             textStyle: { color: '#333', fontSize: 12 },
             formatter: function(params) {
-                if (!params || params.length === 0) return '';
+                if (!params || params.length === 0) {return '';}
                 const timestamp = params[0].value[0];
                 const timeStr = formatTimeLabelFromTimestamp(timestamp);
                 let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
@@ -3203,12 +3203,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 const rates = getRatesForTimestamp(timestamp);
                 if (rates && (rates.aar || rates.adr)) {
                     tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/>`;
-                    if (rates.aar) tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;
-                    if (rates.aar && rates.adr) tooltip += ` / `;
-                    if (rates.adr) tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;
+                    if (rates.aar) {tooltip += `<span style="color:#000;">AAR: <strong>${rates.aar}</strong></span>`;}
+                    if (rates.aar && rates.adr) {tooltip += ` / `;}
+                    if (rates.adr) {tooltip += `<span style="color:#000;">ADR: <strong>${rates.adr}</strong></span>`;}
                 }
                 return tooltip;
-            }
+            },
         },
         legend: (extraOptions && extraOptions.legend) ? extraOptions.legend : {
             bottom: 75,  // Above sliders
@@ -3220,8 +3220,8 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             itemGap: 12,   // Space between items
             textStyle: {
                 fontSize: 11,
-                fontFamily: '"Segoe UI", sans-serif'
-            }
+                fontFamily: '"Segoe UI", sans-serif',
+            },
         },
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
@@ -3230,7 +3230,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             right: 70,   // Room for AAR/ADR labels
             bottom: 145, // Room for slider + legend (with wrapping)
             top: 55,
-            containLabel: false
+            containLabel: false,
         },
         xAxis: {
             type: 'time',
@@ -3255,11 +3255,11 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                     const h = d.getUTCHours().toString().padStart(2, '0');
                     const m = d.getUTCMinutes().toString().padStart(2, '0');
                     return h + m + 'Z';
-                }
+                },
             },
             splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
             min: new Date(timeBins[0]).getTime(),
-            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs,
         },
         yAxis: {
             type: 'value',
@@ -3273,9 +3273,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
             axisTick: { show: true, lineStyle: { color: '#666' } },
             axisLabel: { fontSize: 11, color: '#333', fontFamily: '"Inconsolata", monospace' },
-            splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } }
+            splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } },
         },
-        series: series
+        series: series,
     };
 
     DEMAND_STATE.chart.setOption(option, true);
@@ -3303,7 +3303,7 @@ function renderDestChart() {
     // Dest breakdown only makes sense for departures (where are they going?)
     // For arrivals-only, show empty state
     if (direction === 'arr') {
-        if (!DEMAND_STATE.chart) return;
+        if (!DEMAND_STATE.chart) {return;}
         const data = DEMAND_STATE.lastDemandData;
         const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
         DEMAND_STATE.chart.setOption({
@@ -3314,7 +3314,7 @@ function renderDestChart() {
                 left: 'center',
                 top: 5,
                 textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-                subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' }
+                subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' },
             },
             xAxis: { show: false },
             yAxis: { show: false },
@@ -3327,9 +3327,9 @@ function renderDestChart() {
                     text: 'Destination ARTCC breakdown shows where departures go.\nSwitch direction to "Dep" or "Both" to view.',
                     fontSize: 14,
                     fill: '#999',
-                    textAlign: 'center'
-                }
-            }
+                    textAlign: 'center',
+                },
+            },
         }, true);
         return;
     }
@@ -3371,7 +3371,7 @@ function renderDestChart() {
 
     activeRegions.forEach((region, idx) => {
         const artccs = regionGroups[region];
-        if (artccs.length === 0) return;
+        if (artccs.length === 0) {return;}
 
         legendRows.push({
             bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
@@ -3384,9 +3384,9 @@ function renderDestChart() {
             itemGap: 8,
             textStyle: {
                 fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif'
+                fontFamily: '"Segoe UI", sans-serif',
             },
-            data: artccs
+            data: artccs,
         });
     });
 
@@ -3408,9 +3408,9 @@ function renderDestChart() {
                 right: 70,
                 bottom: gridBottom,
                 top: 55,
-                containLabel: false
-            }
-        }
+                containLabel: false,
+            },
+        },
     );
 }
 
@@ -3453,7 +3453,7 @@ function renderCarrierChart() {
             return '#6c757d';
         },
         null,  // No label function - just show ICAO code
-        sortedCarriers  // Order by flight count
+        sortedCarriers,  // Order by flight count
     );
 }
 
@@ -3489,7 +3489,7 @@ function renderWeightChart() {
             const labels = { 'J': 'Super', 'H': 'Heavy', 'L': 'Large', 'S': 'Small' };
             return labels[wc] || wc;
         },
-        order
+        order,
     );
 }
 
@@ -3535,7 +3535,7 @@ function renderEquipmentChart() {
 
     sortedMfrs.forEach((mfr, idx) => {
         const types = mfrGroups[mfr];
-        if (types.length === 0) return;
+        if (types.length === 0) {return;}
 
         legendRows.push({
             bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
@@ -3548,12 +3548,12 @@ function renderEquipmentChart() {
             itemGap: 8,
             textStyle: {
                 fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif'
+                fontFamily: '"Segoe UI", sans-serif',
             },
             data: types,
             formatter: function(name) {
                 return name;  // Just show the aircraft type code
-            }
+            },
         });
     });
 
@@ -3580,9 +3580,9 @@ function renderEquipmentChart() {
                 right: 70,
                 bottom: gridBottom,
                 top: 55,
-                containLabel: false
-            }
-        }
+                containLabel: false,
+            },
+        },
     );
 }
 
@@ -3618,7 +3618,7 @@ function renderRuleChart() {
             const labels = { 'I': 'IFR', 'V': 'VFR' };
             return labels[rule] || rule;
         },
-        order
+        order,
     );
 }
 
@@ -3626,7 +3626,7 @@ function renderRuleChart() {
  * Show empty state for direction-restricted breakdown views
  */
 function showDirectionRestrictedEmptyState(viewName, requiredDirection, requiredLabel) {
-    if (!DEMAND_STATE.chart) return;
+    if (!DEMAND_STATE.chart) {return;}
     const data = DEMAND_STATE.lastDemandData;
     const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
     const dirText = requiredDirection === 'arr' ? '"Arr" or "Both"' : '"Dep" or "Both"';
@@ -3638,7 +3638,7 @@ function showDirectionRestrictedEmptyState(viewName, requiredDirection, required
             left: 'center',
             top: 5,
             textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-            subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' }
+            subtextStyle: { fontSize: 11, color: '#999', fontStyle: 'italic' },
         },
         xAxis: { show: false },
         yAxis: { show: false },
@@ -3651,9 +3651,9 @@ function showDirectionRestrictedEmptyState(viewName, requiredDirection, required
                 text: `${viewName} only applies to ${requiredDirection === 'arr' ? 'arrivals' : 'departures'}.\nSwitch direction to ${dirText} to view.`,
                 fontSize: 14,
                 fill: '#999',
-                textAlign: 'center'
-            }
-        }
+                textAlign: 'center',
+            },
+        },
     }, true);
 }
 
@@ -3681,7 +3681,7 @@ function renderDepFixChart() {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
             // Fallback: generate color from hash
-            if (!fix) return '#6c757d';
+            if (!fix) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < fix.length; i++) {
                 hash = fix.charCodeAt(i) + ((hash << 5) - hash);
@@ -3690,7 +3690,7 @@ function renderDepFixChart() {
             return `hsl(${hue}, 65%, 45%)`;
         },
         null,
-        null
+        null,
     );
 }
 
@@ -3718,7 +3718,7 @@ function renderArrFixChart() {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
             // Fallback: generate color from hash
-            if (!fix) return '#6c757d';
+            if (!fix) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < fix.length; i++) {
                 hash = fix.charCodeAt(i) + ((hash << 5) - hash);
@@ -3727,7 +3727,7 @@ function renderArrFixChart() {
             return `hsl(${hue}, 65%, 45%)`;
         },
         null,
-        null
+        null,
     );
 }
 
@@ -3755,7 +3755,7 @@ function renderDPChart() {
                 return FILTER_CONFIG.procedure.getColor(dp);
             }
             // Fallback: generate color from hash
-            if (!dp) return '#6c757d';
+            if (!dp) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < dp.length; i++) {
                 hash = dp.charCodeAt(i) + ((hash << 5) - hash);
@@ -3764,7 +3764,7 @@ function renderDPChart() {
             return `hsl(${hue}, 70%, 50%)`;
         },
         null,
-        null
+        null,
     );
 }
 
@@ -3792,7 +3792,7 @@ function renderSTARChart() {
                 return FILTER_CONFIG.procedure.getColor(star);
             }
             // Fallback: generate color from hash
-            if (!star) return '#6c757d';
+            if (!star) {return '#6c757d';}
             let hash = 0;
             for (let i = 0; i < star.length; i++) {
                 hash = star.charCodeAt(i) + ((hash << 5) - hash);
@@ -3801,7 +3801,7 @@ function renderSTARChart() {
             return `hsl(${hue}, 70%, 50%)`;
         },
         null,
-        null
+        null,
     );
 }
 
@@ -3876,14 +3876,14 @@ function buildStatusSeries(name, timeBins, dataByBin, status, type) {
         barWidth: '60%',
         barGap: '10%',
         emphasis: {
-            focus: 'series'
+            focus: 'series',
         },
         itemStyle: {
             color: color,
             borderColor: '#fff',
-            borderWidth: 0.5
+            borderWidth: 0.5,
         },
-        data: data
+        data: data,
     };
 }
 
@@ -3938,15 +3938,15 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDi
             focus: 'series',
             itemStyle: {
                 shadowBlur: 2,
-                shadowColor: 'rgba(0,0,0,0.2)'
-            }
+                shadowColor: 'rgba(0,0,0,0.2)',
+            },
         },
         itemStyle: {
             color: color,
             borderColor: type === 'departures' ? 'rgba(255,255,255,0.5)' : 'transparent',
-            borderWidth: type === 'departures' ? 1 : 0
+            borderWidth: type === 'departures' ? 1 : 0,
         },
-        data: data
+        data: data,
     };
 
     // Add diagonal hatching pattern for departures (FSM/TBFM style)
@@ -3957,7 +3957,7 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDi
             rotation: Math.PI / 4,  // 45-degree diagonal lines
             color: 'rgba(255,255,255,0.4)',  // White lines for contrast
             dashArrayX: [1, 0],
-            dashArrayY: [3, 5]  // Line thickness and spacing
+            dashArrayY: [3, 5],  // Line thickness and spacing
         };
     }
 
@@ -3993,15 +3993,15 @@ function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
             focus: 'series',
             itemStyle: {
                 shadowBlur: 2,
-                shadowColor: 'rgba(0,0,0,0.2)'
-            }
+                shadowColor: 'rgba(0,0,0,0.2)',
+            },
         },
         itemStyle: {
             color: color,
             borderColor: 'transparent', // No borders - AADC style
-            borderWidth: 0
+            borderWidth: 0,
         },
-        data: data
+        data: data,
     };
 }
 
@@ -4052,10 +4052,10 @@ function getCurrentTimeMarkLineForTimeAxis() {
         // Collect all TMI marker timestamps
         const tmiMarkerTimes = [];
         DEMAND_STATE.tmiPrograms.forEach(program => {
-            if (program.start_utc) tmiMarkerTimes.push(new Date(program.start_utc).getTime());
-            if (program.was_updated && program.updated_at) tmiMarkerTimes.push(new Date(program.updated_at).getTime());
-            if (program.status === 'PURGED' && program.purged_at) tmiMarkerTimes.push(new Date(program.purged_at).getTime());
-            else if (program.end_utc) tmiMarkerTimes.push(new Date(program.end_utc).getTime());
+            if (program.start_utc) {tmiMarkerTimes.push(new Date(program.start_utc).getTime());}
+            if (program.was_updated && program.updated_at) {tmiMarkerTimes.push(new Date(program.updated_at).getTime());}
+            if (program.status === 'PURGED' && program.purged_at) {tmiMarkerTimes.push(new Date(program.purged_at).getTime());}
+            else if (program.end_utc) {tmiMarkerTimes.push(new Date(program.end_utc).getTime());}
         });
 
         // Count how many TMI markers are within proximity of current time
@@ -4077,7 +4077,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
         lineStyle: {
             color: markerColor,
             width: 2,
-            type: 'solid'
+            type: 'solid',
         },
         label: {
             show: true,
@@ -4092,8 +4092,8 @@ function getCurrentTimeMarkLineForTimeAxis() {
             padding: [2, 6],
             borderRadius: 2,
             borderColor: markerColor,
-            borderWidth: 1
-        }
+            borderWidth: 1,
+        },
     };
 }
 
@@ -4118,7 +4118,7 @@ function getRatesForTimestamp(timestamp) {
                     aar: config.aar ? Math.round(config.aar * proRateFactor) : null,
                     adr: config.adr ? Math.round(config.adr * proRateFactor) : null,
                     weather: config.weather || null,
-                    source: 'TMI'
+                    source: 'TMI',
                 };
             }
         }
@@ -4131,7 +4131,7 @@ function getRatesForTimestamp(timestamp) {
             aar: rates.vatsim_aar ? Math.round(rates.vatsim_aar * proRateFactor) : null,
             adr: rates.vatsim_adr ? Math.round(rates.vatsim_adr * proRateFactor) : null,
             weather: DEMAND_STATE.rateData.weather || null,
-            source: 'VATSIM'
+            source: 'VATSIM',
         };
     }
 
@@ -4151,7 +4151,7 @@ function buildRateMarkLinesForChart() {
 
     const rateData = DEMAND_STATE.rateData;
     const rates = rateData.rates;
-    if (!rates) return [];
+    if (!rates) {return [];}
 
     const lines = [];
     const direction = DEMAND_STATE.direction;
@@ -4165,27 +4165,27 @@ function buildRateMarkLinesForChart() {
     const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
         active: {
             vatsim: { color: '#000000' },
-            rw: { color: '#00FFFF' }
+            rw: { color: '#00FFFF' },
         },
         suggested: {
             vatsim: { color: '#6b7280' },
-            rw: { color: '#0d9488' }
+            rw: { color: '#0d9488' },
         },
         custom: {
             vatsim: { color: '#000000' },
-            rw: { color: '#00FFFF' }
+            rw: { color: '#00FFFF' },
         },
         lineStyle: {
             aar: { type: 'solid', width: 2 },
             adr: { type: 'dashed', width: 2 },
             aar_custom: { type: 'dotted', width: 2 },
-            adr_custom: { type: 'dotted', width: 2 }
+            adr_custom: { type: 'dotted', width: 2 },
         },
         label: {
             position: 'end',
             fontSize: 10,
-            fontWeight: 'bold'
-        }
+            fontWeight: 'bold',
+        },
     };
 
     // Always use 'active' style - consistent symbology regardless of override/suggested status
@@ -4197,7 +4197,7 @@ function buildRateMarkLinesForChart() {
 
     // Helper to create a rate line
     const addLine = (value, source, rateType, label) => {
-        if (!value) return;
+        if (!value) {return;}
 
         // Apply pro-rate factor for sub-hourly granularity
         const proRatedValue = Math.round(value * proRateFactor * 10) / 10; // Round to 1 decimal
@@ -4226,7 +4226,7 @@ function buildRateMarkLinesForChart() {
             lineStyle: {
                 color: sourceStyle.color,
                 width: lineTypeStyle.width,
-                type: lineTypeStyle.type
+                type: lineTypeStyle.type,
             },
             label: {
                 show: true,
@@ -4242,20 +4242,20 @@ function buildRateMarkLinesForChart() {
                 padding: [2, 6],
                 borderRadius: 3,
                 borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                borderWidth: 1
-            }
+                borderWidth: 1,
+            },
         });
     };
 
     // Add lines based on direction filter AND individual visibility toggles
     if (direction === 'both' || direction === 'arr') {
-        if (DEMAND_STATE.showVatsimAar) addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
-        if (DEMAND_STATE.showRwAar) addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+        if (DEMAND_STATE.showVatsimAar) {addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');}
+        if (DEMAND_STATE.showRwAar) {addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');}
     }
 
     if (direction === 'both' || direction === 'dep') {
-        if (DEMAND_STATE.showVatsimAdr) addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
-        if (DEMAND_STATE.showRwAdr) addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+        if (DEMAND_STATE.showVatsimAdr) {addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');}
+        if (DEMAND_STATE.showRwAdr) {addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');}
     }
 
     return lines;
@@ -4273,7 +4273,7 @@ function buildTimeBoundedRateMarkLines() {
     }
 
     const configs = DEMAND_STATE.scheduledConfigs;
-    if (!configs || configs.length === 0) return [];
+    if (!configs || configs.length === 0) {return [];}
 
     const lines = [];
     const direction = DEMAND_STATE.direction;
@@ -4290,16 +4290,16 @@ function buildTimeBoundedRateMarkLines() {
     const cfg = (typeof RATE_LINE_CONFIG !== 'undefined') ? RATE_LINE_CONFIG : {
         active: {
             vatsim: { color: '#000000' },
-            rw: { color: '#00FFFF' }
+            rw: { color: '#00FFFF' },
         },
         lineStyle: {
             aar: { type: 'solid', width: 2 },
-            adr: { type: 'dashed', width: 2 }
+            adr: { type: 'dashed', width: 2 },
         },
         label: {
             fontSize: 10,
-            fontWeight: 'bold'
-        }
+            fontWeight: 'bold',
+        },
     };
 
     // === Smart label positioning to avoid collisions ===
@@ -4314,7 +4314,7 @@ function buildTimeBoundedRateMarkLines() {
     const allRateValues = [
         ...configs.map(c => c.aar).filter(v => v),
         ...configs.map(c => c.adr).filter(v => v),
-        rateValues.vatsim_aar, rateValues.vatsim_adr, rateValues.rw_aar, rateValues.rw_adr
+        rateValues.vatsim_aar, rateValues.vatsim_adr, rateValues.rw_aar, rateValues.rw_adr,
     ].filter(v => v && !isNaN(v));
     const maxRateValue = allRateValues.length > 0 ? Math.max(...allRateValues) : 50;
     const Y_PROXIMITY_THRESHOLD = Math.max(3, Math.round(maxRateValue * 0.12));  // 12% of max, min 3
@@ -4363,7 +4363,7 @@ function buildTimeBoundedRateMarkLines() {
         const segmentEnd = Math.min(configEnd, chartEnd);
 
         // Skip if segment is outside visible range
-        if (segmentStart >= segmentEnd) return;
+        if (segmentStart >= segmentEnd) {return;}
 
         // Add AAR line segment (arrivals) - uses VATSIM visibility toggle
         if ((direction === 'both' || direction === 'arr') && config.aar && DEMAND_STATE.showVatsimAar) {
@@ -4386,7 +4386,7 @@ function buildTimeBoundedRateMarkLines() {
             lines.push([
                 {
                     xAxis: segmentStart,
-                    yAxis: proRatedValue
+                    yAxis: proRatedValue,
                 },
                 {
                     xAxis: segmentEnd,
@@ -4394,7 +4394,7 @@ function buildTimeBoundedRateMarkLines() {
                     lineStyle: {
                         color: sourceStyle.color,
                         width: lineTypeStyle.width,
-                        type: lineTypeStyle.type
+                        type: lineTypeStyle.type,
                     },
                     label: {
                         show: true,
@@ -4410,9 +4410,9 @@ function buildTimeBoundedRateMarkLines() {
                         padding: [2, 6],
                         borderRadius: 3,
                         borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                        borderWidth: 1
-                    }
-                }
+                        borderWidth: 1,
+                    },
+                },
             ]);
         }
 
@@ -4436,7 +4436,7 @@ function buildTimeBoundedRateMarkLines() {
             lines.push([
                 {
                     xAxis: segmentStart,
-                    yAxis: proRatedValue
+                    yAxis: proRatedValue,
                 },
                 {
                     xAxis: segmentEnd,
@@ -4444,7 +4444,7 @@ function buildTimeBoundedRateMarkLines() {
                     lineStyle: {
                         color: sourceStyle.color,
                         width: lineTypeStyle.width,
-                        type: lineTypeStyle.type
+                        type: lineTypeStyle.type,
                     },
                     label: {
                         show: true,
@@ -4460,9 +4460,9 @@ function buildTimeBoundedRateMarkLines() {
                         padding: [2, 6],
                         borderRadius: 3,
                         borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                        borderWidth: 1
-                    }
-                }
+                        borderWidth: 1,
+                    },
+                },
             ]);
         }
     });
@@ -4536,7 +4536,7 @@ function buildTimeBoundedRateMarkLines() {
                         lineStyle: {
                             color: vatsimStyle.color,
                             width: 2,
-                            type: 'solid'  // Solid for AAR
+                            type: 'solid',  // Solid for AAR
                         },
                         label: {
                             show: showLabel,
@@ -4552,9 +4552,9 @@ function buildTimeBoundedRateMarkLines() {
                             padding: [2, 6],
                             borderRadius: 3,
                             borderColor: 'rgba(255,255,255,0.3)',
-                            borderWidth: 1
-                        }
-                    }
+                            borderWidth: 1,
+                        },
+                    },
                 ]);
             }
 
@@ -4580,7 +4580,7 @@ function buildTimeBoundedRateMarkLines() {
                         lineStyle: {
                             color: vatsimStyle.color,
                             width: 2,
-                            type: 'dashed'  // Dashed for ADR
+                            type: 'dashed',  // Dashed for ADR
                         },
                         label: {
                             show: showLabel,
@@ -4596,9 +4596,9 @@ function buildTimeBoundedRateMarkLines() {
                             padding: [2, 6],
                             borderRadius: 3,
                             borderColor: 'rgba(255,255,255,0.3)',
-                            borderWidth: 1
-                        }
-                    }
+                            borderWidth: 1,
+                        },
+                    },
                 ]);
             }
         });
@@ -4627,7 +4627,7 @@ function buildTimeBoundedRateMarkLines() {
                     lineStyle: {
                         color: rwStyle.color,
                         width: 2,
-                        type: 'solid'  // Solid for AAR
+                        type: 'solid',  // Solid for AAR
                     },
                     label: {
                         show: true,
@@ -4643,9 +4643,9 @@ function buildTimeBoundedRateMarkLines() {
                         padding: [2, 6],
                         borderRadius: 3,
                         borderColor: 'rgba(0,0,0,0.2)',
-                        borderWidth: 1
-                    }
-                }
+                        borderWidth: 1,
+                    },
+                },
             ]);
         }
 
@@ -4668,7 +4668,7 @@ function buildTimeBoundedRateMarkLines() {
                     lineStyle: {
                         color: rwStyle.color,
                         width: 2,
-                        type: 'dashed'  // Dashed for ADR
+                        type: 'dashed',  // Dashed for ADR
                     },
                     label: {
                         show: true,
@@ -4684,9 +4684,9 @@ function buildTimeBoundedRateMarkLines() {
                         padding: [2, 6],
                         borderRadius: 3,
                         borderColor: 'rgba(0,0,0,0.2)',
-                        borderWidth: 1
-                    }
-                }
+                        borderWidth: 1,
+                    },
+                },
             ]);
         }
     }
@@ -4720,7 +4720,7 @@ function buildTmiProgramMarkLines() {
 
     // Helper to format time as HHMMZ
     const formatTimeZ = (isoString) => {
-        if (!isoString) return '';
+        if (!isoString) {return '';}
         const d = new Date(isoString);
         return d.getUTCHours().toString().padStart(2, '0') +
                d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
@@ -4754,7 +4754,7 @@ function buildTmiProgramMarkLines() {
                 timestamp: program.start_utc,
                 label: `${prefix} Start: ${formatTimeZ(program.start_utc)}`,
                 color: color,
-                isDashed: false
+                isDashed: false,
             });
         }
 
@@ -4764,7 +4764,7 @@ function buildTmiProgramMarkLines() {
                 timestamp: program.updated_at,
                 label: `${prefix} Update: ${formatTimeZ(program.updated_at)}`,
                 color: color,
-                isDashed: true
+                isDashed: true,
             });
         }
 
@@ -4774,14 +4774,14 @@ function buildTmiProgramMarkLines() {
                 timestamp: program.purged_at,
                 label: `${prefix} CNX: ${formatTimeZ(program.purged_at)}`,
                 color: color,
-                isDashed: false
+                isDashed: false,
             });
         } else if (program.end_utc) {
             markersToAdd.push({
                 timestamp: program.end_utc,
                 label: `${prefix} End: ${formatTimeZ(program.end_utc)}`,
                 color: color,
-                isDashed: false
+                isDashed: false,
             });
         }
     });
@@ -4797,7 +4797,7 @@ function buildTmiProgramMarkLines() {
         const timeMs = new Date(marker.timestamp).getTime();
 
         // Skip if outside visible range
-        if (timeMs < chartStart || timeMs > chartEnd) return;
+        if (timeMs < chartStart || timeMs > chartEnd) {return;}
 
         // Calculate offset for this marker
         const labelOffset = calculateLabelOffset(timeMs);
@@ -4811,7 +4811,7 @@ function buildTmiProgramMarkLines() {
             lineStyle: {
                 color: marker.color,
                 width: 2,
-                type: marker.isDashed ? 'dashed' : 'solid'
+                type: marker.isDashed ? 'dashed' : 'solid',
             },
             label: {
                 show: true,
@@ -4826,8 +4826,8 @@ function buildTmiProgramMarkLines() {
                 padding: [2, 6],
                 borderRadius: 2,
                 borderColor: 'rgba(0,0,0,0.3)',
-                borderWidth: 1
-            }
+                borderWidth: 1,
+            },
         });
     });
 
@@ -4911,7 +4911,7 @@ function generateAllTimeBins() {
  * Find the index of the time bin closest to current time
  */
 function findCurrentTimeIndex(timeBins) {
-    if (!timeBins || timeBins.length === 0) return -1;
+    if (!timeBins || timeBins.length === 0) {return -1;}
 
     const now = new Date().getTime();
     let closestIndex = 0;
@@ -4933,7 +4933,7 @@ function findCurrentTimeIndex(timeBins) {
  */
 function getCurrentTimeMarkLine(timeBins) {
     const currentIndex = findCurrentTimeIndex(timeBins);
-    if (currentIndex < 0) return null;
+    if (currentIndex < 0) {return null;}
 
     const now = new Date();
     const hours = now.getUTCHours().toString().padStart(2, '0');
@@ -4945,7 +4945,7 @@ function getCurrentTimeMarkLine(timeBins) {
         lineStyle: {
             color: '#000000',
             width: 2,
-            type: 'solid'
+            type: 'solid',
         },
         label: {
             show: true,
@@ -4953,9 +4953,9 @@ function getCurrentTimeMarkLine(timeBins) {
             position: 'start',
             color: '#000000',
             fontWeight: 'bold',
-            fontSize: 10
+            fontSize: 10,
         },
-        data: [{ xAxis: currentIndex }]
+        data: [{ xAxis: currentIndex }],
     };
 }
 
@@ -4994,7 +4994,7 @@ function getGranularityMinutes() {
  * Check if cached data is still valid (within 15 seconds of last load)
  */
 function isCacheValid() {
-    if (!DEMAND_STATE.cacheTimestamp) return false;
+    if (!DEMAND_STATE.cacheTimestamp) {return false;}
     const now = Date.now();
     return (now - DEMAND_STATE.cacheTimestamp) < DEMAND_STATE.cacheValidityMs;
 }
@@ -5012,7 +5012,7 @@ function invalidateCache() {
  * This avoids API calls when switching between views
  */
 function renderCurrentView() {
-    if (!DEMAND_STATE.lastDemandData) return;
+    if (!DEMAND_STATE.lastDemandData) {return;}
 
     switch (DEMAND_STATE.chartView) {
         case 'origin':
@@ -5071,19 +5071,19 @@ function getDataZoomConfig() {
             handleStyle: {
                 color: '#007bff',
                 borderColor: '#0056b3',
-                borderWidth: 1
+                borderWidth: 1,
             },
             moveHandleSize: 10,           // Size of the move handle (middle bar)
             emphasis: {
                 handleStyle: {
                     color: '#0056b3',
-                    borderColor: '#003d82'
-                }
+                    borderColor: '#003d82',
+                },
             },
             textStyle: {
                 color: '#333',
                 fontSize: 10,
-                fontFamily: '"Inconsolata", monospace'
+                fontFamily: '"Inconsolata", monospace',
             },
             labelFormatter: function(value) {
                 const d = new Date(value);
@@ -5092,7 +5092,7 @@ function getDataZoomConfig() {
             },
             brushSelect: false,
             z: 100,                       // Ensure slider is above tooltip elements
-            zLevel: 100                   // Ensure slider is above other elements
+            zLevel: 100,                   // Ensure slider is above other elements
         },
         {
             // Vertical slider (demand axis) - on the right side
@@ -5109,21 +5109,21 @@ function getDataZoomConfig() {
             handleStyle: {
                 color: '#28a745',
                 borderColor: '#1e7e34',
-                borderWidth: 1
+                borderWidth: 1,
             },
             emphasis: {
                 handleStyle: {
                     color: '#1e7e34',
-                    borderColor: '#155d27'
-                }
+                    borderColor: '#155d27',
+                },
             },
             textStyle: {
                 color: '#333',
-                fontSize: 10
+                fontSize: 10,
             },
             brushSelect: false,
             z: 100,                       // Ensure slider is above tooltip elements
-            zLevel: 100
+            zLevel: 100,
         },
         {
             // Inside zoom for time axis (mouse scroll/drag)
@@ -5131,8 +5131,8 @@ function getDataZoomConfig() {
             xAxisIndex: 0,
             zoomOnMouseWheel: 'shift', // Shift+scroll to zoom
             moveOnMouseMove: false,
-            moveOnMouseWheel: false
-        }
+            moveOnMouseWheel: false,
+        },
     ];
 }
 
@@ -5193,7 +5193,7 @@ function showLoading() {
             text: 'Loading...',
             color: '#007bff',
             textColor: '#000',
-            maskColor: 'rgba(255, 255, 255, 0.8)'
+            maskColor: 'rgba(255, 255, 255, 0.8)',
         });
     }
 }
@@ -5212,9 +5212,9 @@ function showError(message) {
                 top: 'middle',
                 textStyle: {
                     color: '#dc3545',
-                    fontSize: 16
-                }
-            }
+                    fontSize: 16,
+                },
+            },
         });
     }
 
@@ -5227,7 +5227,7 @@ function showError(message) {
             title: 'Error',
             text: message,
             timer: 5000,
-            showConfirmButton: false
+            showConfirmButton: false,
         });
     }
 }
@@ -5262,14 +5262,14 @@ function stopAutoRefresh() {
  */
 function loadFlightSummary(renderOriginChartAfter) {
     const airport = DEMAND_STATE.selectedAirport;
-    if (!airport) return;
+    if (!airport) {return;}
 
     const params = new URLSearchParams({
         airport: airport,
         start: DEMAND_STATE.currentStart,
         end: DEMAND_STATE.currentEnd,
         direction: DEMAND_STATE.direction,
-        granularity: getGranularityMinutes()  // Pass granularity for time bin breakdown
+        granularity: getGranularityMinutes(),  // Pass granularity for time bin breakdown
     });
 
     console.log('[Demand] Summary API call - granularity:', getGranularityMinutes(), 'URL:', params.toString());
@@ -5300,7 +5300,7 @@ function loadFlightSummary(renderOriginChartAfter) {
                 console.log('[Demand] Summary API response (granularity=' + getGranularityMinutes() + '):',
                     'carrier bins:', carrierKeys.length,
                     'sample keys:', carrierKeys.slice(0, 5),
-                    'expected interval:', getGranularityMinutes() + 'min'
+                    'expected interval:', getGranularityMinutes() + 'min',
                 );
 
                 // Auto-expand the summary section if it has data
@@ -5393,7 +5393,7 @@ function updateTopCarriers(carriers) {
  */
 function showFlightDetails(timeBin, clickedSeries) {
     const airport = DEMAND_STATE.selectedAirport;
-    if (!airport) return;
+    if (!airport) {return;}
 
     // Adjust timestamp back to bin start (subtract half interval)
     const intervalMs = getGranularityMinutes() * 60 * 1000;
@@ -5405,7 +5405,7 @@ function showFlightDetails(timeBin, clickedSeries) {
         airport: airport,
         time_bin: actualTimeBin,
         direction: DEMAND_STATE.direction,
-        granularity: getGranularityMinutes()
+        granularity: getGranularityMinutes(),
     });
 
     // Show loading in modal
@@ -5425,20 +5425,20 @@ function showFlightDetails(timeBin, clickedSeries) {
                     if (response.success && response.flights) {
                         const html = buildFlightListHtml(response.flights, clickedSeries);
                         Swal.update({
-                            html: html
+                            html: html,
                         });
                     } else {
                         Swal.update({
-                            html: '<p class="text-muted">No flights found for this time period.</p>'
+                            html: '<p class="text-muted">No flights found for this time period.</p>',
                         });
                     }
                 })
                 .fail(function() {
                     Swal.update({
-                        html: '<p class="text-danger">Failed to load flight details.</p>'
+                        html: '<p class="text-danger">Failed to load flight details.</p>',
                     });
                 });
-        }
+        },
     });
 }
 
@@ -5515,8 +5515,8 @@ function buildFlightListHtml(flights, clickedSeries) {
 
     // Time column header based on direction
     let timeHeader = 'Time';
-    if (direction === 'arr') timeHeader = 'ETA';
-    else if (direction === 'dep') timeHeader = 'ETD';
+    if (direction === 'arr') {timeHeader = 'ETA';}
+    else if (direction === 'dep') {timeHeader = 'ETD';}
 
     let html = `
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -5667,7 +5667,7 @@ function getCarrierColor(carrier) {
         'AAL': '#c41230', 'DAL': '#003366', 'UAL': '#002244', 'SWA': '#f9a825',
         'JBU': '#003876', 'ASA': '#00205b', 'FFT': '#00467f', 'SKW': '#1a1a1a',
         'RPA': '#00467f', 'ENY': '#c41230', 'PDT': '#c41230', 'PSA': '#c41230',
-        'NKS': '#ffd700', 'AAY': '#ff6600', 'FDX': '#4d148c', 'UPS': '#351c15'
+        'NKS': '#ffd700', 'AAY': '#ff6600', 'FDX': '#4d148c', 'UPS': '#351c15',
     };
 
     if (CARRIER_COLORS[carrier]) {
@@ -5685,7 +5685,7 @@ function getWeightClassColor(weightClass) {
         'LARGE': '#3b82f6',
         'B757': '#f59e0b',
         'HEAVY': '#ef4444',
-        'SUPER': '#9333ea'
+        'SUPER': '#9333ea',
     };
     return WEIGHT_COLORS[weightClass] || '#6b7280';
 }
@@ -5694,7 +5694,7 @@ function getWeightClassColor(weightClass) {
  * Generate consistent color from any string value
  */
 function getHashColor(str) {
-    if (!str) return '#6b7280';
+    if (!str) {return '#6b7280';}
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         hash = str.charCodeAt(i) + ((hash << 5) - hash);

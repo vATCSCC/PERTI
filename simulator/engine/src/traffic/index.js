@@ -5,5 +5,5 @@
 const TrafficGenerator = require('./TrafficGenerator');
 
 module.exports = {
-    TrafficGenerator
+    TrafficGenerator,
 };

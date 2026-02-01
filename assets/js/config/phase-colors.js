@@ -5,9 +5,9 @@
  * Edit colors here to update them everywhere (demand, status, etc.)
  *
  * STACKING ORDER (bottom to top on chart):
- *   arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> prefile -> 
+ *   arrived -> disconnected -> descending -> enroute -> departed -> taxiing -> prefile ->
  *   actual_gs -> simulated_gs -> proposed_gs -> actual_gdp -> simulated_gdp -> proposed_gdp -> unknown
- * 
+ *
  * GS/GDP Status Colors (FAA-style):
  *   - Actual: EDCT has been issued
  *   - Simulated: Model run but not issued
@@ -24,27 +24,27 @@ const PHASE_COLORS = {
     'departed': '#f87171',          // Light Red - Just took off from origin
     'taxiing': '#22c55e',           // Green - Taxiing at airport
     'prefile': '#3b82f6',           // Blue - Filed flight plan
-    
+
     // Ground Stop statuses (yellow spectrum)
     'actual_gs': '#eab308',         // Yellow - EDCT issued (FAA style)
     'simulated_gs': '#fef08a',      // Light Yellow - Simulated but not issued
     'proposed_gs': '#ca8a04',       // Dark Yellow/Gold - Proposed but not modeled
     'gs': '#eab308',                // Yellow - Generic GS (same as actual)
-    
+
     // Ground Delay Program statuses (brown spectrum)
     'actual_gdp': '#92400e',        // Brown - EDCT issued (FAA style)
     'simulated_gdp': '#d4a574',     // Light Brown/Tan - Simulated but not issued
     'proposed_gdp': '#78350f',      // Dark Brown - Proposed but not modeled
     'gdp': '#92400e',               // Brown - Generic GDP (same as actual)
-    
+
     // Exempt flights
     'exempt': '#6b7280',            // Gray - Exempt from TMI
-    
+
     // Uncontrolled (not assigned to any TMI)
     'uncontrolled': '#94a3b8',      // Light Gray - Not controlled by any TMI
-    
+
     // Unknown/other
-    'unknown': '#9333ea'            // Purple - Unknown/other phase (changed from yellow)
+    'unknown': '#9333ea',            // Purple - Unknown/other phase (changed from yellow)
 };
 
 // Phase display names for legend/tooltips
@@ -66,7 +66,7 @@ const PHASE_LABELS = {
     'gdp': 'GDP',
     'exempt': 'Exempt',
     'uncontrolled': 'Uncontrolled',
-    'unknown': 'Unknown'
+    'unknown': 'Unknown',
 };
 
 // Phase descriptions for tooltips/legends
@@ -88,28 +88,28 @@ const PHASE_DESCRIPTIONS = {
     'gdp': 'GDP controlled',
     'exempt': 'exempt',
     'uncontrolled': 'not controlled',
-    'unknown': ''
+    'unknown': '',
 };
 
 // Phase stacking order for main chart (bottom to top)
 // TMI statuses appear on top of normal flight phases
 const PHASE_STACK_ORDER = [
-    'arrived', 
-    'disconnected', 
-    'descending', 
-    'enroute', 
-    'departed', 
-    'taxiing', 
+    'arrived',
+    'disconnected',
+    'descending',
+    'enroute',
+    'departed',
+    'taxiing',
     'prefile',
     'uncontrolled',
     'exempt',
     'actual_gs',
-    'simulated_gs', 
+    'simulated_gs',
     'proposed_gs',
     'actual_gdp',
     'simulated_gdp',
     'proposed_gdp',
-    'unknown'
+    'unknown',
 ];
 
 // Phases displayed on separate axis (not stacked with main phases)
@@ -138,7 +138,7 @@ const PHASE_BADGE_CLASSES = {
     'gdp': 'badge-warning',
     'exempt': 'badge-secondary',
     'uncontrolled': 'badge-light',
-    'unknown': 'badge-secondary'
+    'unknown': 'badge-secondary',
 };
 
 // TMI status mapping for normalizing various status strings
@@ -150,55 +150,55 @@ const TMI_STATUS_MAP = {
     'GS': 'gs',
     'GROUND_STOP': 'gs',
     'GROUNDSTOP': 'gs',
-    
+
     // GDP variations
     'PROPOSED_GDP': 'proposed_gdp',
     'SIMULATED_GDP': 'simulated_gdp',
     'ACTUAL_GDP': 'actual_gdp',
     'GDP': 'gdp',
     'GROUND_DELAY': 'gdp',
-    
+
     // Exempt
     'EXEMPT': 'exempt',
-    'EXEMPTED': 'exempt'
+    'EXEMPTED': 'exempt',
 };
 
 // Helper function to normalize TMI status to phase key
 function normalizeTmiStatus(status) {
-    if (!status) return null;
-    var upper = String(status).toUpperCase().trim();
+    if (!status) {return null;}
+    const upper = String(status).toUpperCase().trim();
     return TMI_STATUS_MAP[upper] || null;
 }
 
 // Helper function to get phase color
 function getPhaseColor(phase) {
-    if (!phase) return PHASE_COLORS['unknown'];
-    var normalized = String(phase).toLowerCase().trim();
+    if (!phase) {return PHASE_COLORS['unknown'];}
+    const normalized = String(phase).toLowerCase().trim();
     // Check direct match
-    if (PHASE_COLORS[normalized]) return PHASE_COLORS[normalized];
+    if (PHASE_COLORS[normalized]) {return PHASE_COLORS[normalized];}
     // Check TMI status map
-    var tmiPhase = normalizeTmiStatus(phase);
-    if (tmiPhase && PHASE_COLORS[tmiPhase]) return PHASE_COLORS[tmiPhase];
+    const tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_COLORS[tmiPhase]) {return PHASE_COLORS[tmiPhase];}
     return PHASE_COLORS['unknown'] || '#9333ea';
 }
 
 // Helper function to get phase label
 function getPhaseLabel(phase) {
-    if (!phase) return 'Unknown';
-    var normalized = String(phase).toLowerCase().trim();
-    if (PHASE_LABELS[normalized]) return PHASE_LABELS[normalized];
-    var tmiPhase = normalizeTmiStatus(phase);
-    if (tmiPhase && PHASE_LABELS[tmiPhase]) return PHASE_LABELS[tmiPhase];
+    if (!phase) {return 'Unknown';}
+    const normalized = String(phase).toLowerCase().trim();
+    if (PHASE_LABELS[normalized]) {return PHASE_LABELS[normalized];}
+    const tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_LABELS[tmiPhase]) {return PHASE_LABELS[tmiPhase];}
     return phase;
 }
 
 // Helper function to get phase badge class
 function getPhaseBadgeClass(phase) {
-    if (!phase) return 'badge-secondary';
-    var normalized = String(phase).toLowerCase().trim();
-    if (PHASE_BADGE_CLASSES[normalized]) return PHASE_BADGE_CLASSES[normalized];
-    var tmiPhase = normalizeTmiStatus(phase);
-    if (tmiPhase && PHASE_BADGE_CLASSES[tmiPhase]) return PHASE_BADGE_CLASSES[tmiPhase];
+    if (!phase) {return 'badge-secondary';}
+    const normalized = String(phase).toLowerCase().trim();
+    if (PHASE_BADGE_CLASSES[normalized]) {return PHASE_BADGE_CLASSES[normalized];}
+    const tmiPhase = normalizeTmiStatus(phase);
+    if (tmiPhase && PHASE_BADGE_CLASSES[tmiPhase]) {return PHASE_BADGE_CLASSES[tmiPhase];}
     return 'badge-secondary';
 }
 
@@ -226,6 +226,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getPhaseColor,
         getPhaseLabel,
         getPhaseBadgeClass,
-        lightenColor
+        lightenColor,
     };
 }
