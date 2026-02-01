@@ -10,9 +10,6 @@ const TMICompliance = {
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
-    // Number of spacing reference guides to show on diagram (minimum 1)
-    spacingGuideCount: 3,
-
     // Filters for TMI results
     filters: {
         requestor: '',      // Filter by requestor facility
@@ -877,10 +874,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const diagramHeight = 120;
         const hasGaps = gapHours.size > 0;
 
-        // Build SVG content in layers: defs -> background -> guides -> gap markers -> lines -> labels -> dots (on top)
+        // Build SVG content in layers: defs -> background -> gap markers -> lines -> labels -> dots (on top)
         let defsContent = '';
         let bgContent = '';
-        let guideContent = '';
         let gapContent = '';
         let lineContent = '';
         let labelContent = '';
@@ -900,34 +896,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Background track
         const trackEndX = positions[positions.length - 1] || padding;
         bgContent += `<rect x="${padding}" y="45" width="${trackEndX - padding}" height="30" fill="#f8f9fa" rx="4"/>`;
-
-        // Draw spacing reference guides (vertical lines at required spacing intervals)
-        const guideCount = Math.max(1, this.spacingGuideCount || 3);
-        const guideSpacingPx = required * pixelsPerUnit;
-        const isWideInterval = guideSpacingPx >= 80; // Wide enough for 3 labels
-
-        if (guideSpacingPx > 20) { // Only show guides if they'd be visible
-            for (let g = 1; g <= guideCount; g++) {
-                const guideX = padding + (g * guideSpacingPx);
-                const prevGuideX = padding + ((g - 1) * guideSpacingPx);
-
-                if (guideX < trackEndX + 20) {
-                    // Vertical dashed line (above the track to avoid overlapping the flow)
-                    guideContent += `<line x1="${guideX}" y1="10" x2="${guideX}" y2="40" stroke="#adb5bd" stroke-width="1" stroke-dasharray="3,3" opacity="0.7"/>`;
-
-                    if (isWideInterval) {
-                        // Wide interval: show 3 labels (start edge, midpoint, end edge)
-                        const midX = (prevGuideX + guideX) / 2;
-                        guideContent += `<text x="${prevGuideX + 5}" y="8" text-anchor="start" font-size="8" fill="#868e96">${(g - 1) * required}${unitLabel}</text>`;
-                        guideContent += `<text x="${midX}" y="8" text-anchor="middle" font-size="8" fill="#adb5bd">${((g - 0.5) * required).toFixed(1)}${unitLabel}</text>`;
-                        guideContent += `<text x="${guideX - 5}" y="8" text-anchor="end" font-size="8" fill="#868e96">${g * required}${unitLabel}</text>`;
-                    } else {
-                        // Thin interval: single label at the guide line
-                        guideContent += `<text x="${guideX}" y="8" text-anchor="middle" font-size="8" fill="#868e96">${g * required}${unitLabel}</text>`;
-                    }
-                }
-            }
-        }
 
         // Draw segments and collect dot info
         crossings.forEach((c, i) => {
@@ -977,20 +945,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             </g>`;
         });
 
-        // Assemble SVG: defs, background, guides, gap markers, lines, labels, then dots on top
-        const svgContent = defsContent + bgContent + guideContent + gapContent + lineContent + labelContent + dotContent;
+        // Assemble SVG: defs, background, gap markers, lines, labels, then dots on top
+        const svgContent = defsContent + bgContent + gapContent + lineContent + labelContent + dotContent;
 
         // Legend as HTML element outside SVG (sticky positioned)
         const gapLegendItem = hasGaps
             ? `<span class="legend-item"><span class="legend-box" style="background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(245,159,0,0.4) 2px, rgba(245,159,0,0.4) 4px);"></span> Data Gap</span>`
             : '';
-        const guideControlHtml = `
-            <span class="legend-item ml-2" style="border-left: 1px solid #dee2e6; padding-left: 8px;">
-                Guides: <select onchange="TMICompliance.setGuideCount(parseInt(this.value))" style="font-size: 11px; padding: 1px 4px; border: 1px solid #ced4da; border-radius: 3px;">
-                    ${[1,2,3,4,5].map(n => `<option value="${n}" ${n === guideCount ? 'selected' : ''}>${n}</option>`).join('')}
-                </select>
-            </span>
-        `;
         const legendHtml = `
             <div class="spacing-diagram-legend">
                 <span class="legend-item"><span class="legend-line" style="background:#000;"></span> Req: ${required}${unitLabel}</span>
@@ -1000,7 +961,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <span class="legend-item"><span class="legend-box" style="background:#ffc107;"></span> Gap</span>
                 <span class="legend-item"><span class="legend-line legend-dashed"></span> Exempt</span>
                 ${gapLegendItem}
-                ${guideControlHtml}
             </div>
         `;
 
@@ -1023,12 +983,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     setExemptViewMode: function(mode, diagramId) {
         this.exemptViewMode = mode;
         // Re-render the results to update the diagram
-        this.renderResults();
-    },
-
-    // Set number of spacing reference guides (minimum 1)
-    setGuideCount: function(count) {
-        this.spacingGuideCount = Math.max(1, count || 1);
         this.renderResults();
     },
 
