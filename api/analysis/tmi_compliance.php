@@ -288,7 +288,9 @@ function format_results($results) {
                 'origins' => $r['origins'] ?? [],
                 'provider' => $r['provider'] ?? '',
                 'requestor' => $r['requestor'] ?? '',
-                'is_multiple' => $r['is_multiple'] ?? false
+                'is_multiple' => $r['is_multiple'] ?? false,
+                // Flight trajectory data for map rendering
+                'trajectories' => $r['trajectories'] ?? []
             ];
         }
     }

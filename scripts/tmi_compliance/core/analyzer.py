@@ -1480,6 +1480,26 @@ class TMIComplianceAnalyzer:
             'traffic_direction': tmi.traffic_direction.value if tmi.traffic_direction else None,
         }
 
+        # Add trajectory data for flights that crossed (for map rendering)
+        trajectories = {}
+        for crossing in sorted_crossings:
+            callsign = crossing.callsign
+            if callsign not in trajectories and callsign in self._trajectory_cache:
+                traj_points = self._trajectory_cache[callsign]
+                if traj_points:
+                    # Convert to GeoJSON-compatible coordinates [lon, lat]
+                    coords = [[round(p['lon'], 4), round(p['lat'], 4)] for p in traj_points]
+                    trajectories[callsign] = {
+                        'type': 'LineString',
+                        'coordinates': coords,
+                        'properties': {
+                            'callsign': callsign,
+                            'dept': self._trajectory_metadata.get(callsign, {}).get('dept', ''),
+                            'dest': self._trajectory_metadata.get(callsign, {}).get('dest', '')
+                        }
+                    }
+        result['trajectories'] = trajectories
+
         # Add traffic filter details if present
         if tmi.traffic_filter:
             result['traffic_filter'] = {

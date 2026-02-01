@@ -1923,6 +1923,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for map data (keyed by requestor_provider_fix)
     mapDataCache: {},
 
+    // Cache for flight trajectories (keyed by mapId)
+    trajectoryCache: {},
+
     // Track active maps for cleanup
     activeMaps: {},
 
@@ -1935,6 +1938,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const fix = (r.fix || '').replace(/'/g, "\\'");
         const destinations = r.destinations || [];
         const origins = r.origins || [];
+
+        // Cache trajectories if available (for smooth flight track rendering)
+        if (r.trajectories && Object.keys(r.trajectories).length > 0) {
+            this.trajectoryCache[mapId] = r.trajectories;
+            console.log(`Cached ${Object.keys(r.trajectories).length} trajectories for ${mapId}`);
+        }
 
         if (!requestor && !provider) {
             return ''; // No facilities to show
@@ -2301,11 +2310,125 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
             }
 
+            // Add flight trajectories (smoothed curves)
+            const trajectories = TMICompliance.trajectoryCache[mapId];
+            if (trajectories && Object.keys(trajectories).length > 0) {
+                const features = [];
+                Object.entries(trajectories).forEach(([callsign, traj]) => {
+                    if (traj.coordinates && traj.coordinates.length >= 2) {
+                        // Apply Catmull-Rom spline smoothing
+                        const smoothed = TMICompliance.smoothTrajectory(traj.coordinates);
+                        features.push({
+                            type: 'Feature',
+                            properties: {
+                                callsign: callsign,
+                                dept: traj.properties?.dept || '',
+                                dest: traj.properties?.dest || ''
+                            },
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: smoothed
+                            }
+                        });
+                    }
+                });
+
+                if (features.length > 0) {
+                    map.addSource('flight-tracks', {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: features }
+                    });
+
+                    // Add glow effect layer (below main line)
+                    map.addLayer({
+                        id: 'flight-tracks-glow',
+                        type: 'line',
+                        source: 'flight-tracks',
+                        layout: {
+                            'line-cap': 'round',
+                            'line-join': 'round'
+                        },
+                        paint: {
+                            'line-color': '#4dabf7',
+                            'line-width': 4,
+                            'line-opacity': 0.3,
+                            'line-blur': 3
+                        }
+                    });
+
+                    // Main flight track line
+                    map.addLayer({
+                        id: 'flight-tracks',
+                        type: 'line',
+                        source: 'flight-tracks',
+                        layout: {
+                            'line-cap': 'round',
+                            'line-join': 'round'
+                        },
+                        paint: {
+                            'line-color': '#74c0fc',
+                            'line-width': 1.5,
+                            'line-opacity': 0.8
+                        }
+                    });
+
+                    console.log(`Added ${features.length} flight tracks to map`);
+                }
+            }
+
             // Fit bounds
             if (mapData.bounds) {
                 map.fitBounds(mapData.bounds, { padding: 30, maxZoom: 8 });
             }
         });
+    },
+
+    /**
+     * Smooth trajectory using Catmull-Rom spline interpolation
+     * Creates natural-looking curves through waypoints
+     */
+    smoothTrajectory: function(coords, segments = 5) {
+        if (!coords || coords.length < 2) return coords;
+        if (coords.length === 2) return coords;
+
+        const result = [];
+        const n = coords.length;
+
+        // Add first point
+        result.push(coords[0]);
+
+        for (let i = 0; i < n - 1; i++) {
+            // Get four control points (P0, P1, P2, P3)
+            const p0 = coords[Math.max(0, i - 1)];
+            const p1 = coords[i];
+            const p2 = coords[Math.min(n - 1, i + 1)];
+            const p3 = coords[Math.min(n - 1, i + 2)];
+
+            // Interpolate between P1 and P2 using Catmull-Rom
+            for (let j = 1; j <= segments; j++) {
+                const t = j / segments;
+                const t2 = t * t;
+                const t3 = t2 * t;
+
+                // Catmull-Rom spline formula
+                const lon = 0.5 * (
+                    (2 * p1[0]) +
+                    (-p0[0] + p2[0]) * t +
+                    (2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]) * t2 +
+                    (-p0[0] + 3*p1[0] - 3*p2[0] + p3[0]) * t3
+                );
+                const lat = 0.5 * (
+                    (2 * p1[1]) +
+                    (-p0[1] + p2[1]) * t +
+                    (2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]) * t2 +
+                    (-p0[1] + 3*p1[1] - 3*p2[1] + p3[1]) * t3
+                );
+
+                result.push([lon, lat]);
+            }
+        }
+
+        return result;
     },
 
     showMapError: function(mapId, message) {
