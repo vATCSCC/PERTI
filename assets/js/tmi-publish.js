@@ -8818,6 +8818,8 @@
                     entry_type: 'REROUTE',
                     req_facility: $('#rr_facility').val() || 'DCC',
                     name: $('#rr_name').val() || '',
+                    route_type: $('#rr_route_type').val() || 'ROUTE',
+                    compliance: $('#rr_compliance').val() || 'RQD',
                     constrained_area: $('#rr_constrained_area').val() || '',
                     reason: $('#rr_reason').val() || 'WEATHER',
                     include_traffic: $('#rr_include_traffic').val() || '',

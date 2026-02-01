@@ -126,7 +126,8 @@ class TMIComplianceAnalyzer:
 
         # Count points with meaningful groundspeed (enroute, not on ground)
         # This is the PRIMARY check - flights with only ground positions are invalid
-        enroute_points = [p for p in trajectory if p.get('gs', 0) > 50]
+        # Use gs_valid flag if available (new format), otherwise check raw gs value
+        enroute_points = [p for p in trajectory if p.get('gs_valid', p.get('gs', 0) > 50)]
         if len(enroute_points) < self.MIN_ENROUTE_POINTS:
             return False, f"only_{len(enroute_points)}_enroute_points"
 
@@ -352,7 +353,10 @@ class TMIComplianceAnalyzer:
                 'timestamp': normalize_datetime(ts),
                 'lat': float(lat),
                 'lon': float(lon),
-                'gs': float(gs) if gs and 100 < gs < 600 else 250,
+                # Store RAW groundspeed for validation (0/NULL means no enroute data)
+                # Fallback to 250 only used AFTER validation when calculating spacing
+                'gs': float(gs) if gs else 0,
+                'gs_valid': bool(gs and 100 < gs < 600),  # Flag for validation
                 'alt': float(alt) if alt else 0
             })
 
@@ -727,7 +731,9 @@ class TMIComplianceAnalyzer:
                     'timestamp': normalize_datetime(ts),
                     'lat': float(lat),
                     'lon': float(lon),
-                    'gs': float(gs) if gs and 100 < gs < 600 else 250,
+                    # Store RAW groundspeed for validation consistency
+                    'gs': float(gs) if gs else 0,
+                    'gs_valid': bool(gs and 100 < gs < 600),
                     'alt': float(alt) if alt else 0
                 })
                 if cs not in flight_metadata:
@@ -745,6 +751,13 @@ class TMIComplianceAnalyzer:
             trajectory = flight_trajectories.get(callsign, [])
             if len(trajectory) < 2:
                 continue
+
+            # Validate trajectory quality for on-demand loaded data
+            if not self._trajectory_cache_loaded:
+                is_valid, reason = self._validate_trajectory_quality(callsign, trajectory)
+                if not is_valid:
+                    logger.debug(f"  Skipping {callsign}: low quality trajectory ({reason})")
+                    continue
 
             # Get cached boundary crossings or compute on-demand
             if callsign in self._crossing_cache:
@@ -958,14 +971,18 @@ class TMIComplianceAnalyzer:
                 crossing_time = prev_time + timedelta(seconds=time_diff * seg_frac)
 
                 # Interpolate GS and altitude
-                crossing_gs = prev['gs'] + (curr['gs'] - prev['gs']) * seg_frac
+                # Use raw gs values, but fallback to 250 if invalid (for spacing calculation)
+                prev_gs = prev['gs'] if prev.get('gs_valid', prev['gs'] > 100) else 250
+                curr_gs = curr['gs'] if curr.get('gs_valid', curr['gs'] > 100) else 250
+                crossing_gs = prev_gs + (curr_gs - prev_gs) * seg_frac
                 crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
 
                 return crossing_time, crossing_gs, crossing_alt
 
         # Default to last point
         last = trajectory[-1]
-        return last['timestamp'], last['gs'], last['alt']
+        last_gs = last['gs'] if last.get('gs_valid', last['gs'] > 100) else 250
+        return last['timestamp'], last_gs, last['alt']
 
     def _estimate_route_length(self, trajectory: List[dict]) -> float:
         """Estimate total route length in nm from trajectory points"""
