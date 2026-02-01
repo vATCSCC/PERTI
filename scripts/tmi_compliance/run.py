@@ -170,9 +170,16 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             else:
                 dest_list = destinations
 
-            # Handle origins (for CFR "X Departures" format)
+            # Handle origins (for CFR "X Departures" format, or GS DEP FACILITIES)
             origin = pt.get('origin', '')
-            origins = [origin] if origin else []
+            provider = pt.get('provider', '')
+            # For GS, the 'provider' (DEP FACILITIES INCLUDED) is actually the origin constraint
+            if tmi_type == TMIType.GS and provider and not origin:
+                origins = [provider]
+            elif origin:
+                origins = [origin]
+            else:
+                origins = []
 
             tmi = TMI(
                 tmi_id=f'{tmi_type.value}_{fix}_{dest}',
