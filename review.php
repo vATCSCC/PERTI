@@ -735,6 +735,44 @@ include("sessions/handler.php");
             border-radius: 4px;
             font-size: 0.75rem;
         }
+        /* Layer toggle controls */
+        .tmi-map-layer-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 6px 10px;
+            background: #252540;
+            border-radius: 4px 4px 0 0;
+            align-items: center;
+        }
+        .tmi-map-layer-controls .layer-label {
+            font-size: 0.7rem;
+            color: #9090a0;
+            margin-right: 4px;
+        }
+        .tmi-map-layer-controls .layer-btn {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border: 1px solid #4a4a6a;
+            background: transparent;
+            color: #8080a0;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tmi-map-layer-controls .layer-btn:hover {
+            border-color: #6a6a8a;
+            color: #b0b0d0;
+        }
+        .tmi-map-layer-controls .layer-btn.active {
+            background: #4dabf7;
+            border-color: #4dabf7;
+            color: #fff;
+        }
+        .tmi-map-layer-controls .layer-divider {
+            color: #4a4a6a;
+            margin: 0 4px;
+        }
     </style>
 </head>
 
