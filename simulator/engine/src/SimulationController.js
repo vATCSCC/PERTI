@@ -1,6 +1,6 @@
 /**
  * SimulationController - Manages simulation instances
- * 
+ *
  * Each simulation contains:
  * - Multiple aircraft
  * - Simulation time tracking
@@ -20,7 +20,7 @@ class SimulationController {
         this.aircraftTypes = new Map();
         this.navData = new NavDataClient();
         this.nextSimId = 1;
-        
+
         // Load ARTCC reference data
         this.artccReference = this._loadArtccReference();
     }
@@ -34,18 +34,18 @@ class SimulationController {
         } catch (error) {
             console.warn('Warning: Could not load artccReference.json:', error.message);
         }
-        
+
         // Return minimal default
         return {
             artccs: {},
             regions: { CONUS: [] },
-            majorAirportsByArtcc: {}
+            majorAirportsByArtcc: {},
         };
     }
 
     loadAircraftTypes(aircraftData) {
         const aircraft = aircraftData.aircraft || aircraftData;
-        
+
         for (const ac of aircraft) {
             this.aircraftTypes.set(ac.icao.toUpperCase(), {
                 name: ac.name,
@@ -62,10 +62,10 @@ class SimulationController {
                 maxSpeed: ac.speed?.max || 500,
                 cruiseSpeed: ac.speed?.cruise || 450,
                 cruiseMach: ac.speed?.cruiseM || null,
-                landingSpeed: ac.speed?.landing || 130
+                landingSpeed: ac.speed?.landing || 130,
             });
         }
-        
+
         console.log(`SimulationController: Loaded ${this.aircraftTypes.size} aircraft types`);
     }
 
@@ -75,7 +75,7 @@ class SimulationController {
 
     createSimulation(options = {}) {
         const simId = `sim_${this.nextSimId++}`;
-        
+
         this.simulations.set(simId, {
             id: simId,
             name: options.name || simId,
@@ -85,14 +85,14 @@ class SimulationController {
             tickCount: 0,
             isPaused: false,
             events: [],
-            
+
             // TMI Managers
             groundStopManager: new GroundStopManager(this.artccReference),
-            
+
             // Departure queue (flights waiting to depart)
-            departureQueue: new Map()  // callsign -> { flight, scheduledDep, holdReason }
+            departureQueue: new Map(),  // callsign -> { flight, scheduledDep, holdReason }
         });
-        
+
         console.log(`SimulationController: Created simulation ${simId}`);
         return simId;
     }
@@ -111,7 +111,7 @@ class SimulationController {
             tickCount: sim.tickCount,
             isPaused: sim.isPaused,
             activeGroundStops: sim.groundStopManager.getActiveGroundStops().length,
-            heldFlights: sim.departureQueue.size
+            heldFlights: sim.departureQueue.size,
         }));
     }
 
@@ -120,11 +120,11 @@ class SimulationController {
         if (!sim) {
             throw new Error(`Simulation ${simId} not found`);
         }
-        
+
         if (sim.aircraft.has(params.callsign)) {
             throw new Error(`Aircraft ${params.callsign} already exists in simulation`);
         }
-        
+
         const perfData = this.aircraftTypes.get(params.aircraftType?.toUpperCase());
         const performance = perfData ? {
             ceiling: perfData.ceiling,
@@ -135,19 +135,19 @@ class SimulationController {
             minSpeed: perfData.minSpeed,
             maxSpeed: perfData.maxSpeed,
             cruiseSpeed: perfData.cruiseSpeed,
-            cruiseMach: perfData.cruiseMach
+            cruiseMach: perfData.cruiseMach,
         } : undefined;
-        
+
         const originApt = await this.navData.getAirport(params.origin);
         if (!originApt) {
             throw new Error(`Origin airport ${params.origin} not found`);
         }
-        
+
         // Determine origin ARTCC
         const originArtcc = this._getArtccForAirport(params.origin);
-        
+
         let flightPlan = [];
-        
+
         // Use pre-expanded waypoints if provided
         if (params.waypoints && params.waypoints.length > 0) {
             flightPlan = params.waypoints;
@@ -156,7 +156,7 @@ class SimulationController {
             flightPlan = await this.navData.resolveRoute(
                 params.origin,
                 params.destination,
-                params.route
+                params.route,
             );
         } else {
             // Direct route
@@ -164,20 +164,20 @@ class SimulationController {
             if (destApt) {
                 flightPlan = [
                     { name: params.origin, lat: originApt.lat, lon: originApt.lon, type: 'AIRPORT' },
-                    { name: params.destination, lat: destApt.lat, lon: destApt.lon, type: 'AIRPORT' }
+                    { name: params.destination, lat: destApt.lat, lon: destApt.lon, type: 'AIRPORT' },
                 ];
             }
         }
-        
+
         let initialHeading = params.heading;
         if (initialHeading === undefined && flightPlan.length >= 2) {
             const { bearingTo } = require('./math/flightMath');
             initialHeading = bearingTo(
                 flightPlan[0].lat, flightPlan[0].lon,
-                flightPlan[1].lat, flightPlan[1].lon
+                flightPlan[1].lat, flightPlan[1].lon,
             );
         }
-        
+
         // Create flight data object for TMI checks
         const flightData = {
             callsign: params.callsign,
@@ -186,12 +186,12 @@ class SimulationController {
             destination: params.destination,
             originArtcc: originArtcc,
             engineType: perfData?.engineType || 'J',
-            scheduledDeparture: params.scheduledDeparture || sim.currentTime
+            scheduledDeparture: params.scheduledDeparture || sim.currentTime,
         };
-        
+
         // Check if flight is subject to Ground Stop
         const gsCheck = sim.groundStopManager.canDepart(flightData, sim.currentTime);
-        
+
         if (!gsCheck.canDepart) {
             // Flight is held - add to departure queue
             sim.departureQueue.set(params.callsign, {
@@ -203,11 +203,11 @@ class SimulationController {
                 initialHeading,
                 heldBy: gsCheck.heldBy,
                 gsEndTime: gsCheck.gsEndTime,
-                reason: gsCheck.reason
+                reason: gsCheck.reason,
             });
-            
+
             this._logSimEvent(sim, 'GS_HOLD', `${params.callsign} held at ${params.origin} - GS to ${params.destination}`);
-            
+
             return {
                 callsign: params.callsign,
                 status: 'HELD',
@@ -215,10 +215,10 @@ class SimulationController {
                 gsEndTime: gsCheck.gsEndTime,
                 origin: params.origin,
                 destination: params.destination,
-                reason: gsCheck.reason
+                reason: gsCheck.reason,
             };
         }
-        
+
         // Flight can depart - create aircraft
         const aircraft = new AircraftModel({
             callsign: params.callsign,
@@ -231,27 +231,27 @@ class SimulationController {
             heading: initialHeading ?? 0,
             speed: params.speed ?? 0,
             performance,
-            flightPlan
+            flightPlan,
         });
-        
+
         // Store additional metadata
         aircraft.originArtcc = originArtcc;
         aircraft.gsExempt = gsCheck.exempt || false;
-        
+
         if (params.altitude && params.altitude > 1000) {
             aircraft.targetAltitude = params.cruiseAltitude || params.altitude;
             aircraft.targetSpeed = performance?.cruiseSpeed || 280;
         }
-        
+
         sim.aircraft.set(params.callsign, aircraft);
         this._logSimEvent(sim, 'SPAWN', `${params.callsign} spawned at ${params.origin}${gsCheck.exempt ? ' (GS EXEMPT)' : ''}`);
-        
+
         return aircraft.toStateObject();
     }
 
     _getArtccForAirport(airport) {
         const icao = airport.toUpperCase();
-        
+
         if (this.artccReference.majorAirportsByArtcc) {
             for (const [artcc, airports] of Object.entries(this.artccReference.majorAirportsByArtcc)) {
                 if (airports.includes(icao)) {
@@ -259,14 +259,14 @@ class SimulationController {
                 }
             }
         }
-        
+
         return null;
     }
 
     getAircraft(simId, callsign) {
         const sim = this.simulations.get(simId);
-        if (!sim) return null;
-        
+        if (!sim) {return null;}
+
         // Check if in departure queue (held)
         const held = sim.departureQueue.get(callsign);
         if (held) {
@@ -277,22 +277,22 @@ class SimulationController {
                 destination: held.flightData.destination,
                 heldBy: held.heldBy,
                 gsEndTime: held.gsEndTime,
-                reason: held.reason
+                reason: held.reason,
             };
         }
-        
+
         const aircraft = sim.aircraft.get(callsign);
         return aircraft ? aircraft.toStateObject() : null;
     }
 
     getAllAircraft(simId) {
         const sim = this.simulations.get(simId);
-        if (!sim) return [];
-        
+        if (!sim) {return [];}
+
         const active = Array.from(sim.aircraft.values())
             .filter(ac => ac.isActive)
             .map(ac => ac.toStateObject());
-        
+
         // Include held flights with special status
         for (const [callsign, held] of sim.departureQueue) {
             active.push({
@@ -307,10 +307,10 @@ class SimulationController {
                 lon: held.originApt?.lon,
                 altitude: 0,
                 groundSpeed: 0,
-                phase: 'HELD'
+                phase: 'HELD',
             });
         }
-        
+
         return active;
     }
 
@@ -320,7 +320,7 @@ class SimulationController {
 
     issueGroundStop(simId, params) {
         const sim = this.simulations.get(simId);
-        if (!sim) throw new Error(`Simulation ${simId} not found`);
+        if (!sim) {throw new Error(`Simulation ${simId} not found`);}
 
         const gs = sim.groundStopManager.issueGroundStop({
             airport: params.airport,
@@ -328,58 +328,58 @@ class SimulationController {
             endTime: new Date(params.endTime),
             reason: params.reason,
             scope: params.scope,
-            exemptions: params.exemptions
+            exemptions: params.exemptions,
         });
 
         this._logSimEvent(sim, 'GS_ISSUE', `Ground Stop issued for ${params.airport} until ${gs.endTime.toISOString()}`);
-        
+
         // Re-evaluate existing departure queue
         this._reevaluateDepartureQueue(sim);
-        
+
         return gs;
     }
 
     updateGroundStop(simId, airport, updates) {
         const sim = this.simulations.get(simId);
-        if (!sim) throw new Error(`Simulation ${simId} not found`);
+        if (!sim) {throw new Error(`Simulation ${simId} not found`);}
 
         const gs = sim.groundStopManager.updateGroundStop(airport, updates);
         this._logSimEvent(sim, 'GS_UPDATE', `Ground Stop for ${airport} updated`);
-        
+
         return gs;
     }
 
     purgeGroundStop(simId, airport) {
         const sim = this.simulations.get(simId);
-        if (!sim) throw new Error(`Simulation ${simId} not found`);
+        if (!sim) {throw new Error(`Simulation ${simId} not found`);}
 
         const result = sim.groundStopManager.purgeGroundStop(airport);
         this._logSimEvent(sim, 'GS_PURGE', `Ground Stop for ${airport} purged, ${result.releasedFlights.length} flights released`);
-        
+
         // Release held flights
         this._releaseHeldFlights(sim, airport);
-        
+
         return result;
     }
 
     getGroundStops(simId) {
         const sim = this.simulations.get(simId);
-        if (!sim) return [];
-        
+        if (!sim) {return [];}
+
         return sim.groundStopManager.getActiveGroundStops();
     }
 
     getGroundStop(simId, airport) {
         const sim = this.simulations.get(simId);
-        if (!sim) return null;
-        
+        if (!sim) {return null;}
+
         return sim.groundStopManager.getGroundStop(airport);
     }
 
     getHeldFlights(simId, airport = null) {
         const sim = this.simulations.get(simId);
-        if (!sim) return [];
-        
+        if (!sim) {return [];}
+
         const held = [];
         for (const [callsign, info] of sim.departureQueue) {
             if (!airport || info.flightData.destination.toUpperCase() === airport.toUpperCase()) {
@@ -390,11 +390,11 @@ class SimulationController {
                     aircraftType: info.flightData.aircraftType,
                     heldBy: info.heldBy,
                     gsEndTime: info.gsEndTime,
-                    reason: info.reason
+                    reason: info.reason,
                 });
             }
         }
-        
+
         return held;
     }
 
@@ -412,17 +412,17 @@ class SimulationController {
 
     async _releaseHeldFlights(sim, airport) {
         const toRelease = [];
-        
+
         for (const [callsign, held] of sim.departureQueue) {
             if (held.flightData.destination.toUpperCase() === airport.toUpperCase()) {
                 toRelease.push(callsign);
             }
         }
-        
+
         for (const callsign of toRelease) {
             const held = sim.departureQueue.get(callsign);
             sim.departureQueue.delete(callsign);
-            
+
             // Now spawn the aircraft
             const aircraft = new AircraftModel({
                 callsign: held.flightData.callsign,
@@ -435,20 +435,20 @@ class SimulationController {
                 heading: held.initialHeading ?? 0,
                 speed: 0,
                 performance: held.performance,
-                flightPlan: held.flightPlan
+                flightPlan: held.flightPlan,
             });
-            
+
             aircraft.originArtcc = held.flightData.originArtcc;
-            
+
             if (held.params.altitude && held.params.altitude > 1000) {
                 aircraft.targetAltitude = held.params.cruiseAltitude || held.params.altitude;
                 aircraft.targetSpeed = held.performance?.cruiseSpeed || 280;
             }
-            
+
             sim.aircraft.set(callsign, aircraft);
             this._logSimEvent(sim, 'GS_RELEASE', `${callsign} released from GS hold`);
         }
-        
+
         return toRelease;
     }
 
@@ -458,11 +458,11 @@ class SimulationController {
 
     issueCommand(simId, callsign, command, params = {}) {
         const sim = this.simulations.get(simId);
-        if (!sim) return false;
-        
+        if (!sim) {return false;}
+
         const aircraft = sim.aircraft.get(callsign);
-        if (!aircraft || !aircraft.isActive) return false;
-        
+        if (!aircraft || !aircraft.isActive) {return false;}
+
         switch (command.toUpperCase()) {
             case 'FH':
             case 'FLY_HEADING':
@@ -498,7 +498,7 @@ class SimulationController {
                 console.warn(`Unknown command: ${command}`);
                 return false;
         }
-        
+
         this._logSimEvent(sim, 'CMD', `${callsign}: ${command} ${JSON.stringify(params)}`);
         return true;
     }
@@ -508,27 +508,27 @@ class SimulationController {
         if (!sim || sim.isPaused) {
             return { success: false, reason: sim ? 'paused' : 'not found' };
         }
-        
+
         // Advance time
         sim.currentTime = new Date(sim.currentTime.getTime() + deltaSeconds * 1000);
         sim.tickCount++;
-        
+
         // Process TMI time advancement (check for expired GS)
         const expiredGS = sim.groundStopManager.tick(sim.currentTime);
         for (const { groundStop, releasedFlights } of expiredGS) {
             this._logSimEvent(sim, 'GS_EXPIRE', `Ground Stop for ${groundStop.airport} expired`);
             this._releaseHeldFlights(sim, groundStop.airport);
         }
-        
+
         // Update aircraft
         for (const aircraft of sim.aircraft.values()) {
             if (aircraft.isActive) {
                 aircraft.tick(deltaSeconds);
             }
         }
-        
+
         const aircraftStates = this.getAllAircraft(simId);
-        
+
         return {
             success: true,
             simId,
@@ -538,7 +538,7 @@ class SimulationController {
             aircraftCount: aircraftStates.length,
             aircraft: aircraftStates,
             activeGroundStops: sim.groundStopManager.getActiveGroundStops(),
-            heldFlightCount: sim.departureQueue.size
+            heldFlightCount: sim.departureQueue.size,
         };
     }
 
@@ -547,20 +547,20 @@ class SimulationController {
         if (!sim) {
             return { success: false, reason: 'not found' };
         }
-        
+
         const numTicks = Math.ceil(durationSeconds / tickInterval);
-        
+
         for (let i = 0; i < numTicks; i++) {
             this.tick(simId, tickInterval);
         }
-        
+
         return {
             success: true,
             simId,
             currentTime: sim.currentTime,
             tickCount: sim.tickCount,
             aircraft: this.getAllAircraft(simId),
-            activeGroundStops: sim.groundStopManager.getActiveGroundStops()
+            activeGroundStops: sim.groundStopManager.getActiveGroundStops(),
         };
     }
 
@@ -594,7 +594,7 @@ class SimulationController {
                 this._logSimEvent(sim, 'REMOVE', `${callsign} removed from departure queue`);
                 return;
             }
-            
+
             const aircraft = sim.aircraft.get(callsign);
             if (aircraft) {
                 aircraft.remove();
@@ -631,7 +631,7 @@ class SimulationController {
             spawned: 0,
             held: 0,
             failed: 0,
-            errors: []
+            errors: [],
         };
 
         for (const flight of flights) {
@@ -646,7 +646,7 @@ class SimulationController {
                     cruiseAltitude: flight.cruiseAltitude || flight.altitude || 35000,
                     scheduledDeparture: flight.scheduledDeparture,
                     route: flight.route,
-                    waypoints: flight.waypoints  // Pass pre-expanded waypoints
+                    waypoints: flight.waypoints,  // Pass pre-expanded waypoints
                 });
 
                 if (result.status === 'HELD') {
@@ -658,12 +658,12 @@ class SimulationController {
                 results.failed++;
                 results.errors.push({
                     callsign: flight.callsign,
-                    error: error.message
+                    error: error.message,
                 });
             }
         }
 
-        this._logSimEvent(sim, 'BATCH', 
+        this._logSimEvent(sim, 'BATCH',
             `Batch spawn: ${results.spawned} active, ${results.held} held, ${results.failed} failed`);
 
         return results;
@@ -688,7 +688,7 @@ class SimulationController {
             dest: scenario.dest,
             suggestedAAR: scenario.suggestedAAR,
             reducedAAR: scenario.reducedAAR,
-            loadedAt: new Date()
+            loadedAt: new Date(),
         };
 
         // Convert flights to spawn format with proper times
@@ -702,7 +702,7 @@ class SimulationController {
 
         return {
             scenario: sim.scenario,
-            ...results
+            ...results,
         };
     }
 
@@ -745,7 +745,7 @@ class SimulationController {
                 scheduledArrival: eta,
                 carrier: flight.carrier,
                 route: flight.route,           // Preserve route string
-                waypoints: flight.waypoints    // Preserve pre-expanded waypoints
+                waypoints: flight.waypoints,    // Preserve pre-expanded waypoints
             };
         });
     }
@@ -760,12 +760,12 @@ class SimulationController {
         }
 
         const count = sim.aircraft.size + sim.departureQueue.size;
-        
+
         sim.aircraft.clear();
         sim.departureQueue.clear();
-        
+
         this._logSimEvent(sim, 'CLEAR', `Cleared ${count} aircraft`);
-        
+
         return { cleared: count };
     }
 
@@ -774,8 +774,8 @@ class SimulationController {
      */
     getScenarioInfo(simId) {
         const sim = this.simulations.get(simId);
-        if (!sim) return null;
-        
+        if (!sim) {return null;}
+
         return sim.scenario || null;
     }
 }

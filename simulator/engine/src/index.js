@@ -1,27 +1,27 @@
 /**
  * ATFM Flight Engine - HTTP API Server
- * 
+ *
  * Exposes simulation endpoints for PERTI integration:
- * 
+ *
  * Simulation Management:
  * - POST /simulation/create
  * - GET  /simulation
  * - GET  /simulation/:id
  * - DELETE /simulation/:id
- * 
+ *
  * Aircraft:
  * - POST /simulation/:id/aircraft
  * - GET  /simulation/:id/aircraft
  * - GET  /simulation/:id/aircraft/:callsign
  * - DELETE /simulation/:id/aircraft/:callsign
- * 
+ *
  * Simulation Control:
  * - POST /simulation/:id/tick
  * - POST /simulation/:id/run
  * - POST /simulation/:id/pause
  * - POST /simulation/:id/resume
  * - POST /simulation/:id/command
- * 
+ *
  * TMI - Ground Stop:
  * - POST /simulation/:id/tmi/groundstop
  * - GET  /simulation/:id/tmi/groundstop
@@ -47,7 +47,7 @@ app.use((req, res, next) => {
         'https://perti.vatcscc.org',
         'https://vatcscc.azurewebsites.net',
         'http://localhost',
-        'http://127.0.0.1'
+        'http://127.0.0.1',
     ];
     const origin = req.headers.origin;
     if (allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
@@ -90,7 +90,7 @@ app.get('/health', (req, res) => {
         version: '0.3.0',
         features: ['aircraft', 'ground-stop', 'scenarios', 'traffic-generation', 'historical-replay'],
         simulations: simController.listSimulations().length,
-        aircraftTypes: simController.aircraftTypes.size
+        aircraftTypes: simController.aircraftTypes.size,
     });
 });
 
@@ -102,19 +102,19 @@ app.post('/simulation/create', (req, res) => {
     try {
         const simId = simController.createSimulation({
             name: req.body.name,
-            startTime: req.body.startTime ? new Date(req.body.startTime) : undefined
+            startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
         });
-        
+
         const sim = simController.getSimulation(simId);
-        
+
         res.json({
             success: true,
             simulation: {
                 id: simId,
                 name: sim.name,
                 startTime: sim.startTime,
-                currentTime: sim.currentTime
-            }
+                currentTime: sim.currentTime,
+            },
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -124,17 +124,17 @@ app.post('/simulation/create', (req, res) => {
 app.get('/simulation', (req, res) => {
     res.json({
         success: true,
-        simulations: simController.listSimulations()
+        simulations: simController.listSimulations(),
     });
 });
 
 app.get('/simulation/:id', (req, res) => {
     const sim = simController.getSimulation(req.params.id);
-    
+
     if (!sim) {
         return res.status(404).json({ success: false, error: 'Simulation not found' });
     }
-    
+
     res.json({
         success: true,
         simulation: {
@@ -146,8 +146,8 @@ app.get('/simulation/:id', (req, res) => {
             tickCount: sim.tickCount,
             isPaused: sim.isPaused,
             activeGroundStops: sim.groundStopManager.getActiveGroundStops().length,
-            heldFlights: sim.departureQueue.size
-        }
+            heldFlights: sim.departureQueue.size,
+        },
     });
 });
 
@@ -176,11 +176,11 @@ app.get('/simulation/:id/aircraft', (req, res) => {
 
 app.get('/simulation/:id/aircraft/:callsign', (req, res) => {
     const aircraft = simController.getAircraft(req.params.id, req.params.callsign);
-    
+
     if (!aircraft) {
         return res.status(404).json({ success: false, error: 'Aircraft not found' });
     }
-    
+
     res.json({ success: true, aircraft });
 });
 
@@ -196,27 +196,27 @@ app.delete('/simulation/:id/aircraft/:callsign', (req, res) => {
 app.post('/simulation/:id/tick', (req, res) => {
     const deltaSeconds = req.body.deltaSeconds || req.body.delta_seconds || 1;
     const result = simController.tick(req.params.id, deltaSeconds);
-    
+
     if (!result.success) {
         return res.status(400).json(result);
     }
-    
+
     res.json(result);
 });
 
 app.post('/simulation/:id/run', (req, res) => {
     const { durationSeconds, tickInterval } = req.body;
-    
+
     if (!durationSeconds) {
         return res.status(400).json({ success: false, error: 'durationSeconds required' });
     }
-    
+
     const result = simController.runFor(req.params.id, durationSeconds, tickInterval || 1);
-    
+
     if (!result.success) {
         return res.status(400).json(result);
     }
-    
+
     res.json(result);
 });
 
@@ -236,33 +236,33 @@ app.post('/simulation/:id/resume', (req, res) => {
 
 app.post('/simulation/:id/command', (req, res) => {
     const { callsign, command, params } = req.body;
-    
+
     if (!callsign || !command) {
         return res.status(400).json({ success: false, error: 'callsign and command required' });
     }
-    
+
     const result = simController.issueCommand(req.params.id, callsign, command, params || {});
-    
+
     if (!result) {
         return res.status(400).json({ success: false, error: 'Command failed' });
     }
-    
+
     const aircraft = simController.getAircraft(req.params.id, callsign);
     res.json({ success: true, aircraft });
 });
 
 app.post('/simulation/:id/commands', (req, res) => {
     const { commands } = req.body;
-    
+
     if (!Array.isArray(commands)) {
         return res.status(400).json({ success: false, error: 'commands array required' });
     }
-    
+
     const results = commands.map(cmd => ({
         callsign: cmd.callsign,
-        success: simController.issueCommand(req.params.id, cmd.callsign, cmd.command, cmd.params || {})
+        success: simController.issueCommand(req.params.id, cmd.callsign, cmd.command, cmd.params || {}),
     }));
-    
+
     res.json({ success: true, results });
 });
 
@@ -343,10 +343,10 @@ app.put('/simulation/:id/tmi/groundstop/:airport', (req, res) => {
 app.delete('/simulation/:id/tmi/groundstop/:airport', (req, res) => {
     try {
         const result = simController.purgeGroundStop(req.params.id, req.params.airport);
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             groundStop: result.groundStop,
-            releasedFlights: result.releasedFlights.length
+            releasedFlights: result.releasedFlights.length,
         });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -378,7 +378,7 @@ app.get('/reference/artcc', (req, res) => {
     res.json({
         success: true,
         artccs: simController.artccReference.artccs,
-        regions: simController.artccReference.regions
+        regions: simController.artccReference.regions,
     });
 });
 
@@ -388,7 +388,7 @@ app.get('/reference/artcc', (req, res) => {
 app.get('/reference/artcc/:airport/tiers', (req, res) => {
     const airport = req.params.airport.toUpperCase();
     const artccRef = simController.artccReference;
-    
+
     // Find ARTCC for airport
     let destArtcc = null;
     for (const [artcc, airports] of Object.entries(artccRef.majorAirportsByArtcc || {})) {
@@ -397,13 +397,13 @@ app.get('/reference/artcc/:airport/tiers', (req, res) => {
             break;
         }
     }
-    
+
     if (!destArtcc) {
         return res.status(404).json({ success: false, error: `Airport ${airport} not found in reference data` });
     }
-    
+
     const artccData = artccRef.artccs[destArtcc];
-    
+
     res.json({
         success: true,
         airport,
@@ -411,8 +411,8 @@ app.get('/reference/artcc/:airport/tiers', (req, res) => {
         tiers: {
             internal: [destArtcc],
             tier1: [destArtcc, ...(artccData?.tier1 || [])],
-            tier2: [destArtcc, ...(artccData?.tier1 || []), ...(artccData?.tier2 || [])]
-        }
+            tier2: [destArtcc, ...(artccData?.tier1 || []), ...(artccData?.tier2 || [])],
+        },
     });
 });
 
@@ -443,7 +443,7 @@ app.get('/scenarios', async (req, res) => {
 app.post('/simulation/:id/scenario', async (req, res) => {
     try {
         let scenario;
-        
+
         if (req.body.scenarioId) {
             // Load pre-built scenario
             scenario = await trafficGenerator.loadScenario(req.body.scenarioId);
@@ -468,7 +468,7 @@ app.post('/simulation/:id/scenario', async (req, res) => {
 app.post('/simulation/:id/traffic/generate', async (req, res) => {
     try {
         const { destination, startHour, endHour, targetCount, demandLevel } = req.body;
-        
+
         if (!destination) {
             return res.status(400).json({ success: false, error: 'destination required' });
         }
@@ -478,7 +478,7 @@ app.post('/simulation/:id/traffic/generate', async (req, res) => {
             startHour: startHour || 12,
             endHour: endHour || 18,
             targetCount: targetCount || 60,
-            demandLevel: demandLevel || 'normal'
+            demandLevel: demandLevel || 'normal',
         });
 
         // Load into simulation
@@ -486,7 +486,7 @@ app.post('/simulation/:id/traffic/generate', async (req, res) => {
             id: 'custom',
             name: `Custom ${destination}`,
             dest: destination,
-            flights
+            flights,
         });
 
         res.json({ success: true, ...result });
@@ -502,7 +502,7 @@ app.post('/simulation/:id/traffic/generate', async (req, res) => {
 app.post('/simulation/:id/traffic/historical', async (req, res) => {
     try {
         const { destination, date, startHour, endHour } = req.body;
-        
+
         if (!destination || !date) {
             return res.status(400).json({ success: false, error: 'destination and date required' });
         }
@@ -511,7 +511,7 @@ app.post('/simulation/:id/traffic/historical', async (req, res) => {
             destination,
             date,
             startHour: startHour || 12,
-            endHour: endHour || 18
+            endHour: endHour || 18,
         });
 
         // Load into simulation
@@ -519,14 +519,14 @@ app.post('/simulation/:id/traffic/historical', async (req, res) => {
             id: 'historical',
             name: `Historical ${destination} ${date}`,
             dest: destination,
-            flights: historical.flights
+            flights: historical.flights,
         });
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             source: historical.source,
             date,
-            ...result 
+            ...result,
         });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });

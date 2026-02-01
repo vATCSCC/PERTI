@@ -3154,9 +3154,9 @@ $(document).ready(function() {
             // Northeast
             'N90': 'ZNY', 'A90': 'ZBW', 'PCT': 'ZDC', 'PHL': 'ZNY', 'Y90': 'ZDC',
             // Southeast
-            'A80': 'ZTL', 'C90': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
+            'A80': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
             // Midwest
-            'C90': 'ZAU', 'D21': 'ZMP', 'I90': 'ZAU', 'M98': 'ZMP', 'R90': 'ZKC',
+            'C90': 'ZAU', 'D21': 'ZMP', 'M98': 'ZMP', 'R90': 'ZKC',
             // South Central
             'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
             // West
@@ -3292,19 +3292,15 @@ $(document).ready(function() {
             'VXP': '#e51937', 'SYX': '#ff5a00',
             // US ULCCs
             'AAY': '#f9b612', 'G4': '#6ec8e4',
-            // US Regional - Major
+            // US Regional (own branded colors - these carriers operate for multiple majors)
             'SKW': '#6cace4', 'RPA': '#00b5ad', 'ENY': '#4e79a7', 'ASH': '#003876',
-            // US Regional - AA
-            'PDT': '#76b7b2', 'PSA': '#ff7f0e', 'ENY': '#0078d2',
-            // US Regional - UA
-            'ASQ': '#0033a0', 'GJS': '#0033a0', 'RPA': '#0033a0', 'SKW': '#0033a0',
-            // US Regional - DL
-            'CPZ': '#e01933', 'EDV': '#e01933', 'GJS': '#e01933',
+            'PDT': '#76b7b2', 'PSA': '#ff7f0e', 'ASQ': '#0033a0', 'GJS': '#0033a0',
+            'CPZ': '#e01933', 'EDV': '#e01933',
             // Alaska Group
             'ASA': '#00a8e0', 'HAL': '#5b2e91', 'QXE': '#00a8e0',
             // Cargo - Major
             'FDX': '#ff6600', 'UPS': '#351c15', 'ABX': '#00529b', 'GTI': '#002d72',
-            'ATN': '#e15759', 'CLX': '#003087', 'PAC': '#b07aa1', 'KAL': '#0064d2',
+            'ATN': '#e15759', 'CLX': '#003087', 'PAC': '#b07aa1',
             // Cargo - Regional
             'MTN': '#ffc107', 'SRR': '#28a745', 'WCW': '#17a2b8',
             // International - European
