@@ -709,11 +709,15 @@ include("sessions/handler.php");
             user-select: none;
             padding: 8px 12px;
             background: #2d2d44;
+            color: #e0e0f0;
             border-radius: 4px;
             margin-top: 8px;
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+        .tmi-map-toggle .text-muted {
+            color: #9090a0 !important;
         }
         .tmi-map-toggle:hover {
             background: #3d3d54;
