@@ -10,7 +10,7 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 
 - **Route Expansion**: Parse route strings (e.g., "KDFW BNA KMCO") to waypoint coordinates
 - **Boundary Detection**: Identify ARTCCs, TRACONs, and sectors traversed by routes
-- **Trajectory Crossings**: Detect precise ARTCC/sector boundary crossings along flight paths
+- **Trajectory Crossings**: Detect precise ARTCC/sector/TRACON boundary crossings along flight paths
 - **Boundary Adjacency**: Query boundary neighbor relationships and proximity tiers
 - **Point-in-Polygon**: Determine which boundaries contain a given coordinate
 - **GeoJSON Generation**: Convert routes to GeoJSON for mapping
@@ -52,7 +52,7 @@ The GIS API provides spatial analysis capabilities using PostgreSQL/PostGIS. It 
 |--------|--------|-------------|
 | `trajectory_crossings` | GET | ARTCC boundary crossings along trajectory |
 | `sector_crossings` | GET | Sector boundary crossings along trajectory |
-| `all_crossings` | GET | All boundary crossings (ARTCC + sectors) |
+| `all_crossings` | GET | All boundary crossings (ARTCC + sectors + TRACONs) |
 | `artccs_traversed` | GET | Simple list of ARTCCs crossed |
 | `crossing_etas` | GET | ETAs for upcoming boundary crossings |
 
@@ -731,9 +731,9 @@ GET /api/gis/boundaries.php?action=sector_crossings&waypoints={json}&type={secto
 
 ---
 
-### All Crossings (ARTCC + Sectors)
+### All Crossings (ARTCC + Sectors + TRACONs)
 
-Get all boundary crossings (ARTCC and sectors) along a trajectory.
+Get all boundary crossings (ARTCC, sectors, and TRACONs) along a trajectory.
 
 ```
 GET /api/gis/boundaries.php?action=all_crossings&waypoints={json}
@@ -758,9 +758,17 @@ GET /api/gis/boundaries.php?action=all_crossings&waypoints={json}
       "to": "ZME22",
       "crossing_lat": 34.512,
       "crossing_lon": -91.234
+    },
+    {
+      "boundary_type": "TRACON",
+      "from": null,
+      "to": "D10",
+      "crossing_lat": 32.897,
+      "crossing_lon": -97.038,
+      "crossing_type": "ENTRY"
     }
   ],
-  "count": 2,
+  "count": 3,
   "waypoint_count": 3
 }
 ```
