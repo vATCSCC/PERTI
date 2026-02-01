@@ -151,8 +151,11 @@ const TMICompliance = {
 
                 if (response.success && response.data) {
                     this.results = response.data;
-                    this.renderResults();
-                    $('#tmi_status').text(`Loaded: ${response.data.event}`);
+                    // Check for data gaps before rendering
+                    this.checkDataGaps(() => {
+                        this.renderResults();
+                        $('#tmi_status').text(`Loaded: ${response.data.event}`);
+                    });
                 } else {
                     $('#tmi_status').text(response.message || 'No results found');
                     this.showNoData();
@@ -328,24 +331,32 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const gsCount = response.data.gs_results?.length || 0;
                     const apreqCount = response.data.apreq_results?.length || 0;
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Analysis Complete',
-                        html: `
-                            <div class="text-center">
-                                <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
-                                <div class="mt-3 small" style="color: var(--dark-text-subtle);">
-                                    <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
-                                    <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
-                                    <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
+                    // Check for data gaps before rendering
+                    this.checkDataGaps(() => {
+                        const gapWarning = this.dataGaps?.has_gaps
+                            ? `<div class="mt-2 small text-warning"><i class="fas fa-exclamation-triangle"></i> Data gaps detected - some flights may be missing</div>`
+                            : '';
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Analysis Complete',
+                            html: `
+                                <div class="text-center">
+                                    <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
+                                    <div class="mt-3 small" style="color: var(--dark-text-subtle);">
+                                        <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
+                                        <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
+                                        <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
+                                    </div>
+                                    ${gapWarning}
                                 </div>
-                            </div>
-                        `,
-                        timer: 3000,
-                        showConfirmButton: false,
+                            `,
+                            timer: 4000,
+                            showConfirmButton: false,
+                        });
+                        this.renderResults();
+                        $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
                     });
-                    this.renderResults();
-                    $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -388,6 +399,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         this.detailIdCounter = 0;
         let html = '';
+
+        // Data gap warning (if any)
+        html += this.renderDataGapWarning();
 
         // Summary card
         const summary = this.results.summary || {};
@@ -2678,18 +2692,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         const width75 = Math.max(minArcAngle, rawWidth75);
                         const width90 = Math.max(minArcAngle, rawWidth90);
 
-                        // Compute center of each sector and apply minimum width symmetrically
-                        const center75 = (normalized[p75IdxLow] + normalized[p75Idx]) / 2;
-                        const center90 = (normalized[p90IdxLow] + normalized[p90Idx]) / 2;
-
+                        // Both sectors share the same center line (median bearing)
+                        // Only the sweep angle varies between 75% and 90%
                         const sector75 = {
-                            start_bearing: ((medianBearing + center75 - width75 / 2) + 360) % 360,
-                            end_bearing: ((medianBearing + center75 + width75 / 2) + 360) % 360,
+                            start_bearing: ((medianBearing - width75 / 2) + 360) % 360,
+                            end_bearing: ((medianBearing + width75 / 2) + 360) % 360,
                             width_deg: width75,
                         };
                         const sector90 = {
-                            start_bearing: ((medianBearing + center90 - width90 / 2) + 360) % 360,
-                            end_bearing: ((medianBearing + center90 + width90 / 2) + 360) % 360,
+                            start_bearing: ((medianBearing - width90 / 2) + 360) % 360,
+                            end_bearing: ((medianBearing + width90 / 2) + 360) % 360,
                             width_deg: width90,
                         };
 
@@ -2755,18 +2767,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     return coords;
                 };
 
-                // 90% sector (larger, more transparent)
+                // 90% sector (wider sweep angle, more transparent)
                 sectorFeatures.push({
                     type: 'Feature',
                     properties: { pct: 90 },
                     geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
                 });
 
-                // 75% sector (smaller, more visible)
+                // 75% sector (narrower sweep angle, same length)
                 sectorFeatures.push({
                     type: 'Feature',
                     properties: { pct: 75 },
-                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM * 0.8)] },
+                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
                 });
 
                 map.addSource('traffic-sectors', {
@@ -2914,32 +2926,31 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         },
                     });
 
-                    // Outer pulsing ring
+                    // Outer ring (subtle)
                     map.addLayer({
                         id: 'measurement-pulse',
                         type: 'circle',
                         source: 'measurement-point',
                         paint: {
-                            'circle-radius': 20,
-                            'circle-color': '#ffd43b',
-                            'circle-opacity': 0.3,
-                            'circle-stroke-width': 2,
-                            'circle-stroke-color': '#ffd43b',
-                            'circle-stroke-opacity': 0.6,
+                            'circle-radius': 12,
+                            'circle-color': 'transparent',
+                            'circle-stroke-width': 1.5,
+                            'circle-stroke-color': '#ffffff',
+                            'circle-stroke-opacity': 0.5,
                         },
                     });
 
-                    // Inner solid marker
+                    // Inner marker (smaller, more subtle)
                     map.addLayer({
                         id: 'measurement-center',
                         type: 'circle',
                         source: 'measurement-point',
                         paint: {
-                            'circle-radius': 6,
-                            'circle-color': '#ffd43b',
-                            'circle-opacity': 1,
-                            'circle-stroke-width': 2,
-                            'circle-stroke-color': '#ffffff',
+                            'circle-radius': 4,
+                            'circle-color': '#ffffff',
+                            'circle-opacity': 0.8,
+                            'circle-stroke-width': 1,
+                            'circle-stroke-color': '#333333',
                         },
                     });
 
@@ -3307,6 +3318,158 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     cleanupMaps: function() {
         Object.values(this.activeMaps).forEach(map => { if (map) {map.remove();} });
         this.activeMaps = {};
+    },
+
+    // Data gap tracking
+    dataGaps: null,
+    dataGapsChecked: false,
+
+    /**
+     * Check for trajectory data gaps in the analysis time range
+     */
+    checkDataGaps: function(callback) {
+        // Get event time range from results or form
+        let startDate = this.results?.event_start || $('#tmi_event_start').val();
+        let endDate = this.results?.event_end || $('#tmi_event_end').val();
+
+        if (!startDate || !endDate) {
+            this.dataGapsChecked = true;
+            this.dataGaps = null;
+            if (callback) {callback();}
+            return;
+        }
+
+        // Parse dates and format for API
+        try {
+            // Handle various date formats
+            startDate = this.normalizeDateTime(startDate);
+            endDate = this.normalizeDateTime(endDate);
+        } catch (e) {
+            console.warn('Could not parse dates for gap check:', e);
+            this.dataGapsChecked = true;
+            if (callback) {callback();}
+            return;
+        }
+
+        $.ajax({
+            url: `api/analysis/trajectory_gaps.php?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+            method: 'GET',
+            dataType: 'json',
+            success: (response) => {
+                this.dataGapsChecked = true;
+                if (response.success) {
+                    this.dataGaps = response.has_gaps ? response : null;
+                }
+                if (callback) {callback();}
+            },
+            error: () => {
+                this.dataGapsChecked = true;
+                this.dataGaps = null;
+                if (callback) {callback();}
+            }
+        });
+    },
+
+    /**
+     * Normalize date/time string to ISO format
+     */
+    normalizeDateTime: function(dateStr) {
+        if (!dateStr) {return null;}
+
+        // Already ISO format
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+            return dateStr.split('T')[0];
+        }
+
+        // Format: "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HHMM"
+        const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (match) {
+            return match[1];
+        }
+
+        // Try parsing as Date
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+
+        return dateStr;
+    },
+
+    /**
+     * Render the data gap warning banner
+     */
+    renderDataGapWarning: function() {
+        if (!this.dataGaps || !this.dataGaps.has_gaps) {
+            return '';
+        }
+
+        const gaps = this.dataGaps.gaps || [];
+        const totalHours = this.dataGaps.total_missing_hours || 0;
+
+        // Filter gaps that overlap with event window
+        let relevantGaps = gaps;
+        if (this.results?.event_start && this.results?.event_end) {
+            // For now, show all gaps in range - could enhance to filter by TMI windows
+            relevantGaps = gaps;
+        }
+
+        if (relevantGaps.length === 0) {
+            return '';
+        }
+
+        // Group gaps by date for cleaner display
+        const gapsByDate = {};
+        relevantGaps.forEach(g => {
+            if (!gapsByDate[g.date]) {
+                gapsByDate[g.date] = [];
+            }
+            gapsByDate[g.date].push(g);
+        });
+
+        let gapListHtml = '';
+        Object.keys(gapsByDate).sort().forEach(date => {
+            const dateGaps = gapsByDate[date];
+            const hoursStr = dateGaps.map(g => {
+                if (g.duration_hours === 1) {
+                    return `${String(g.start_hour).padStart(2,'0')}Z`;
+                } else {
+                    return `${String(g.start_hour).padStart(2,'0')}-${String(g.end_hour).padStart(2,'0')}Z`;
+                }
+            }).join(', ');
+            gapListHtml += `<div><strong>${date}</strong>: ${hoursStr}</div>`;
+        });
+
+        return `
+            <div class="tmi-data-gap-warning alert alert-warning mb-3" style="border-left: 4px solid #f0ad4e;">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-exclamation-triangle fa-lg mr-3 mt-1" style="color: #f0ad4e;"></i>
+                    <div class="flex-grow-1">
+                        <strong>Trajectory Data Gaps Detected</strong>
+                        <p class="mb-2 mt-1" style="font-size: 0.9em;">
+                            Flight position data is missing for <strong>${totalHours} hour${totalHours !== 1 ? 's' : ''}</strong>
+                            during the analysis window. This may result in:
+                        </p>
+                        <ul class="mb-2" style="font-size: 0.85em;">
+                            <li>Missing flights in TMI crossing analysis</li>
+                            <li>Underreported traffic counts</li>
+                            <li>Incomplete compliance calculations</li>
+                        </ul>
+                        <div class="small">
+                            <button class="btn btn-sm btn-outline-warning" type="button"
+                                    data-toggle="collapse" data-target="#dataGapDetails" aria-expanded="false">
+                                <i class="fas fa-list"></i> View Gap Details
+                            </button>
+                        </div>
+                        <div class="collapse mt-2" id="dataGapDetails">
+                            <div class="card card-body bg-light small py-2" style="font-family: monospace;">
+                                ${gapListHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     },
 
     showNoData: function() {
