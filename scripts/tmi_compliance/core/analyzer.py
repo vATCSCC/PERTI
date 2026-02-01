@@ -752,8 +752,10 @@ class TMIComplianceAnalyzer:
             if len(trajectory) < 2:
                 continue
 
-            # Validate trajectory quality for on-demand loaded data
-            if not self._trajectory_cache_loaded:
+            # Validate trajectory quality for flights not already validated during caching
+            # If flight was in cache, it was already validated (and would be in _low_quality_flights if invalid)
+            # If flight was loaded on-demand, we need to validate it now
+            if callsign not in self._trajectory_cache:
                 is_valid, reason = self._validate_trajectory_quality(callsign, trajectory)
                 if not is_valid:
                     logger.debug(f"  Skipping {callsign}: low quality trajectory ({reason})")
