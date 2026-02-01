@@ -798,14 +798,22 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granu
 
 /**
  * Get DP/SID breakdown by time bin (departures only)
+ * Groups procedures by base name (strips trailing version digits, e.g., BNFSH2 + BNFSH3 -> BNFSH#)
  */
 function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL();
     $timeBinSQL = getTimeBinSQL('COALESCE(etd_runway_utc, etd_utc)', $granularity);
+    // Strip trailing digits from procedure names to group versions together
+    // BNFSH2 + BNFSH3 -> BNFSH#
+    $dpBaseSQL = "CASE
+        WHEN dp_name IS NULL THEN 'UNKNOWN'
+        WHEN dp_name LIKE '%[0-9]' THEN LEFT(dp_name, LEN(dp_name) - 1) + '#'
+        ELSE dp_name
+    END";
     $sql = "
         SELECT
             {$timeBinSQL} AS time_bin,
-            COALESCE(dp_name, 'UNKNOWN') AS dp,
+            {$dpBaseSQL} AS dp,
             COUNT(*) AS count,
             {$phaseAgg}
         FROM dbo.vw_adl_flights
@@ -813,7 +821,7 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granulari
           AND COALESCE(etd_runway_utc, etd_utc) IS NOT NULL
           AND COALESCE(etd_runway_utc, etd_utc) >= ?
           AND COALESCE(etd_runway_utc, etd_utc) < ?
-        GROUP BY {$timeBinSQL}, COALESCE(dp_name, 'UNKNOWN')
+        GROUP BY {$timeBinSQL}, {$dpBaseSQL}
         ORDER BY time_bin, count DESC
     ";
     $params = [$airport, $startSQL, $endSQL];
@@ -848,14 +856,22 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granulari
 
 /**
  * Get STAR breakdown by time bin (arrivals only)
+ * Groups procedures by base name (strips trailing version digits, e.g., BNFSH2 + BNFSH3 -> BNFSH#)
  */
 function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL();
     $timeBinSQL = getTimeBinSQL('COALESCE(eta_runway_utc, eta_utc)', $granularity);
+    // Strip trailing digits from procedure names to group versions together
+    // BNFSH2 + BNFSH3 -> BNFSH#
+    $starBaseSQL = "CASE
+        WHEN star_name IS NULL THEN 'UNKNOWN'
+        WHEN star_name LIKE '%[0-9]' THEN LEFT(star_name, LEN(star_name) - 1) + '#'
+        ELSE star_name
+    END";
     $sql = "
         SELECT
             {$timeBinSQL} AS time_bin,
-            COALESCE(star_name, 'UNKNOWN') AS star,
+            {$starBaseSQL} AS star,
             COUNT(*) AS count,
             {$phaseAgg}
         FROM dbo.vw_adl_flights
@@ -863,7 +879,7 @@ function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granula
           AND COALESCE(eta_runway_utc, eta_utc) IS NOT NULL
           AND COALESCE(eta_runway_utc, eta_utc) >= ?
           AND COALESCE(eta_runway_utc, eta_utc) < ?
-        GROUP BY {$timeBinSQL}, COALESCE(star_name, 'UNKNOWN')
+        GROUP BY {$timeBinSQL}, {$starBaseSQL}
         ORDER BY time_bin, count DESC
     ";
     $params = [$airport, $startSQL, $endSQL];
