@@ -59,39 +59,14 @@ AS
 BEGIN
     DECLARE @artcc CHAR(3);
 
-    -- Look up from reference data
-    SELECT @artcc = artcc_code
-    FROM dbo.ref_airports
-    WHERE icao_code = @airport_icao;
-
-    -- Fallback: derive from common patterns
-    IF @artcc IS NULL
-    BEGIN
-        SET @artcc = CASE
-            -- Major hubs with known ARTCCs
-            WHEN @airport_icao IN ('KJFK', 'KLGA', 'KEWR', 'KTEB') THEN 'ZNY'
-            WHEN @airport_icao IN ('KBOS', 'KPVD', 'KBDL') THEN 'ZBW'
-            WHEN @airport_icao IN ('KDCA', 'KIAD', 'KBWI', 'KPHL') THEN 'ZDC'
-            WHEN @airport_icao IN ('KATL', 'KCLT', 'KBNA') THEN 'ZTL'
-            WHEN @airport_icao IN ('KMIA', 'KFLL', 'KPBI', 'KMCO') THEN 'ZMA'
-            WHEN @airport_icao IN ('KJAX', 'KTPA', 'KRSW') THEN 'ZJX'
-            WHEN @airport_icao IN ('KORD', 'KMDW', 'KMKE') THEN 'ZAU'
-            WHEN @airport_icao IN ('KDTW', 'KCLE', 'KPIT', 'KCMH') THEN 'ZOB'
-            WHEN @airport_icao IN ('KIND', 'KCVG', 'KSDF') THEN 'ZID'
-            WHEN @airport_icao IN ('KMEM', 'KSTL', 'KLIT') THEN 'ZME'
-            WHEN @airport_icao IN ('KMSP', 'KFAR') THEN 'ZMP'
-            WHEN @airport_icao IN ('KMCI', 'KOMA', 'KDSM') THEN 'ZKC'
-            WHEN @airport_icao IN ('KDFW', 'KDAL', 'KAUS', 'KSAT', 'KHOU') THEN 'ZFW'
-            WHEN @airport_icao IN ('KIAH', 'KMSY', 'KBTR') THEN 'ZHU'
-            WHEN @airport_icao IN ('KDEN', 'KCOS', 'KABQ') THEN 'ZDV'
-            WHEN @airport_icao IN ('KPHX', 'KTUS', 'KELP') THEN 'ZAB'
-            WHEN @airport_icao IN ('KSLC', 'KBOI') THEN 'ZLC'
-            WHEN @airport_icao IN ('KLAX', 'KSAN', 'KLAS', 'KONT', 'KBURBANK') THEN 'ZLA'
-            WHEN @airport_icao IN ('KSFO', 'KOAK', 'KSJC', 'KSMF') THEN 'ZOA'
-            WHEN @airport_icao IN ('KSEA', 'KPDX', 'KGEG') THEN 'ZSE'
-            ELSE NULL
-        END;
-    END
+    -- Look up from FAA apts table (authoritative source)
+    -- Try ICAO_ID first (includes K prefix), then ARPT_ID (FAA code without K)
+    SELECT TOP 1 @artcc = RESP_ARTCC_ID
+    FROM dbo.apts
+    WHERE ICAO_ID = @airport_icao
+       OR ARPT_ID = @airport_icao
+       OR ARPT_ID = SUBSTRING(@airport_icao, 2, 3)  -- Strip K prefix
+       OR ICAO_ID = 'K' + @airport_icao;            -- Add K prefix
 
     RETURN @artcc;
 END

@@ -42,10 +42,11 @@ BEGIN
             BEGIN TRANSACTION;
 
             -- 1. Identify batch of rows to process
+            -- Note: adl_flight_trajectory uses 'recorded_utc', target tables use 'timestamp_utc'
             SELECT TOP (@batch_size)
                 t.trajectory_id,
                 t.flight_uid,
-                t.timestamp_utc,
+                t.recorded_utc AS timestamp_utc,  -- Rename for consistency with target tables
                 t.lat,
                 t.lon,
                 t.altitude_ft,
@@ -56,8 +57,8 @@ BEGIN
                 tier.perti_event_id
             INTO #pending_batch
             FROM dbo.adl_flight_trajectory t
-            CROSS APPLY dbo.fn_ComputeTmiTier(t.flight_uid, t.timestamp_utc) tier
-            WHERE t.timestamp_utc < @cutoff_utc
+            CROSS APPLY dbo.fn_ComputeTmiTier(t.flight_uid, t.recorded_utc) tier
+            WHERE t.recorded_utc < @cutoff_utc
             ORDER BY t.trajectory_id;
 
             IF @@ROWCOUNT = 0
