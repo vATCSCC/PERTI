@@ -89,6 +89,11 @@
 
     // Normalize airport code to 4-letter ICAO
     function normalizeAirport(tok) {
+        // Use FacilityHierarchy.normalizeIcao if available (handles Canada, Alaska, Hawaii, etc.)
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+            return FacilityHierarchy.normalizeIcao(tok);
+        }
+        // Fallback: simple K-prefix for 3-letter codes
         if (!tok) {return tok;}
         tok = tok.toUpperCase().trim();
         if (tok.length === 3 && /^[A-Z]{3}$/.test(tok) && !tok.startsWith('Z')) {

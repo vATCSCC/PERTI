@@ -677,6 +677,143 @@
     };
 
     // ===========================================
+    // ICAO Normalization
+    // Converts 3-letter IATA codes to 4-letter ICAO
+    // Handles regional prefixes (K, CY, PA, PH, TJ, etc.)
+    //
+    // Note: IATA→ICAO is NOT algorithmic for non-CONUS airports.
+    // Must use explicit mappings for Alaska, Hawaii, Pacific, Caribbean.
+    // ===========================================
+
+    // US airports starting with Y (these get K prefix, NOT CY prefix)
+    // Common mistake: YIP is Michigan, not Canadian!
+    const US_Y_AIRPORTS = new Set([
+        'YIP', // Willow Run, MI
+        'YNG', // Youngstown, OH
+        'YUM', // Yuma, AZ
+        'YKM', // Yakima, WA
+        'YKN', // Yankton, SD
+    ]);
+
+    // IATA to ICAO explicit mappings for non-K-prefix airports
+    // Key: IATA 3-letter, Value: ICAO 4-letter
+    const IATA_TO_ICAO = {
+        // Alaska (PA prefix)
+        'ANC': 'PANC', 'FAI': 'PAFA', 'JNU': 'PAJN', 'BET': 'PABE', 'OME': 'PAOM',
+        'OTZ': 'PAOT', 'SCC': 'PASC', 'ADQ': 'PADQ', 'DLG': 'PADL', 'CDV': 'PACV',
+        'AKN': 'PAKN', 'BRW': 'PABR', 'CDB': 'PACD', 'ENA': 'PAEN', 'GST': 'PAGS',
+        'HNS': 'PAHN', 'HOM': 'PAHO', 'KTN': 'PAKT', 'SIT': 'PASI', 'VDZ': 'PAVD',
+        'WRG': 'PAWG', 'YAK': 'PAYA', 'SGY': 'PAGY', 'PSG': 'PAPG',
+
+        // Hawaii (PH prefix)
+        'HNL': 'PHNL', 'OGG': 'PHOG', 'LIH': 'PHLI', 'KOA': 'PHKO', 'ITO': 'PHTO',
+        'MKK': 'PHMK', 'LNY': 'PHNY', 'JHM': 'PHJH', 'HNM': 'PHHN',
+
+        // Pacific territories (PG prefix)
+        'GUM': 'PGUM', 'SPN': 'PGSN', 'ROP': 'PGRO', 'TIQ': 'PGWT',
+
+        // Puerto Rico (TJ prefix)
+        'SJU': 'TJSJ', 'BQN': 'TJBQ', 'PSE': 'TJPS', 'RVR': 'TJRV',
+        'MAZ': 'TJMZ', 'VQS': 'TJVQ', 'CPX': 'TJCP',
+
+        // US Virgin Islands (TI prefix)
+        'STT': 'TIST', 'STX': 'TISX',
+    };
+
+    /**
+     * Normalize airport code to ICAO format.
+     * Converts 3-letter IATA codes to 4-letter ICAO with appropriate prefix.
+     *
+     * Regional prefix rules:
+     * - Canadian: Y** → CY** (YVR → CYVR)
+     * - Alaska: explicit lookup (ANC → PANC)
+     * - Hawaii: explicit lookup (HNL → PHNL)
+     * - Pacific: explicit lookup (GUM → PGUM)
+     * - Puerto Rico: explicit lookup (SJU → TJSJ)
+     * - US Virgin Islands: explicit lookup (STT → TIST)
+     * - CONUS: → K*** (ATL → KATL, 1O1 → K1O1)
+     *
+     * Also handles FAA LIDs with numbers (1O1, F05, 1U7, 3J7, etc.)
+     *
+     * @param {string} code - Airport code (3 or 4 chars, may include numbers)
+     * @returns {string} - ICAO format code
+     */
+    function normalizeIcao(code) {
+        if (!code) {return code;}
+
+        const upper = String(code).toUpperCase().trim();
+
+        // Already 4+ characters, return as-is
+        if (upper.length >= 4) {return upper;}
+
+        // Too short
+        if (upper.length < 3) {return upper;}
+
+        // 3-character codes - determine region
+        if (upper.length === 3) {
+            // Check explicit IATA→ICAO mappings first (Alaska, Hawaii, Pacific, Caribbean)
+            if (IATA_TO_ICAO[upper]) {
+                return IATA_TO_ICAO[upper];
+            }
+
+            // Y-prefix airports: check if US or Canadian
+            if (/^Y[A-Z]{2}$/.test(upper)) {
+                // Check if it's a known US Y-airport (YIP, YNG, YUM, etc.)
+                if (US_Y_AIRPORTS.has(upper)) {
+                    return 'K' + upper;  // KYIP, not CYIP
+                }
+                // Otherwise assume Canadian
+                return 'C' + upper;  // CYYZ, CYVR, etc.
+            }
+
+            // Default: CONUS airports and FAA LIDs get K prefix
+            // Includes alphanumeric codes like 1O1, F05, 1U7, 3J7
+            return 'K' + upper;
+        }
+
+        return upper;
+    }
+
+    // Build reverse lookup (ICAO → IATA)
+    const ICAO_TO_IATA = {};
+    Object.entries(IATA_TO_ICAO).forEach(([iata, icao]) => {
+        ICAO_TO_IATA[icao] = iata;
+    });
+
+    /**
+     * Denormalize ICAO code back to 3-letter IATA format.
+     * Useful for display or matching against IATA-based data.
+     *
+     * @param {string} icao - 4-letter ICAO code
+     * @returns {string} - 3-letter IATA code (or original if not applicable)
+     */
+    function denormalizeIcao(icao) {
+        if (!icao) {return icao;}
+
+        const upper = String(icao).toUpperCase().trim();
+
+        // Must be 4 letters
+        if (upper.length !== 4) {return upper;}
+
+        // Check explicit ICAO→IATA mappings first (Alaska, Hawaii, Pacific, Caribbean)
+        if (ICAO_TO_IATA[upper]) {
+            return ICAO_TO_IATA[upper];
+        }
+
+        // K-prefix CONUS: KJFK → JFK
+        if (upper.startsWith('K')) {
+            return upper.slice(1);
+        }
+
+        // Canadian: CYYZ → YYZ, CZYZ → ZYZ
+        if (upper.startsWith('CY') || upper.startsWith('CZ')) {
+            return upper.slice(1);
+        }
+
+        return upper;
+    }
+
+    // ===========================================
     // Build ARTCC -> Region mapping
     // ===========================================
 
@@ -1067,6 +1204,10 @@
         extractCarrier: extractCarrier,
         getOperatorGroup: getOperatorGroup,
         getOperatorGroupColor: getOperatorGroupColor,
+
+        // ICAO normalization utilities
+        normalizeIcao: normalizeIcao,
+        denormalizeIcao: denormalizeIcao,
     };
 
 })(typeof window !== 'undefined' ? window : this);
