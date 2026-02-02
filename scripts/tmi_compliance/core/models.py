@@ -673,38 +673,36 @@ def normalize_icao(code: str) -> str:
     if len(code) >= 4:
         return code
 
-    # 3-letter codes - determine region
+    # 3-letter codes - determine region using ICAO prefix conventions:
+    # - Canadian airports: Y** → CY** (YVR→CYVR, YYZ→CYYZ)
+    # - Alaska: Start with P (PANC, PAFA)
+    # - Hawaii: Start with PH (PHNL, PHOG)
+    # - Pacific: Start with PG (PGUM)
+    # - Puerto Rico: Start with TJ (TJSJ)
+    # - US Virgin Islands: Start with TI (TIST)
+    # - CONUS: Start with K (KATL, KJFK)
     if len(code) == 3:
-        # Canadian airports get CY prefix (major airports)
-        canadian_airports = [
-            'YVR', 'YYZ', 'YUL', 'YYC', 'YEG', 'YOW', 'YWG', 'YHZ', 'YQB', 'YXE',
-            'YQR', 'YYJ', 'YXX', 'YLW', 'YYT', 'YQT', 'YXU', 'YQM', 'YFC', 'YZF',
-            'YXY', 'YQG', 'YTS', 'YMM', 'YZR', 'YQX', 'YDF', 'YQY', 'YXS', 'YPR',
-        ]
-        if code in canadian_airports or code.startswith('Y'):
+        # Canadian airports: 3-letter codes starting with Y → CY prefix
+        if code.startswith('Y'):
             return 'C' + code
 
-        # Alaska airports start with PA
-        alaska_prefixes = ['ANC', 'FAI', 'JNU', 'BET', 'OME', 'OTZ', 'SCC', 'ADQ', 'DLG', 'CDV']
-        if code in alaska_prefixes:
-            return 'P' + code
+        # Alaska airports: first letter determines P+A prefix
+        if code[0] in 'ABCDFGJKMNOT' and code in ['ANC', 'FAI', 'JNU', 'BET', 'OME', 'OTZ', 'SCC', 'ADQ', 'DLG', 'CDV']:
+            return 'PA' + code[-2:]
 
-        # Hawaii airports start with PH
-        hawaii_prefixes = ['HNL', 'OGG', 'LIH', 'KOA', 'ITO', 'MKK', 'LNY']
-        if code in hawaii_prefixes:
-            return 'PH' + code[-2:] if len(code) == 3 else 'P' + code
+        # Hawaii airports: PH prefix
+        if code in ['HNL', 'OGG', 'LIH', 'KOA', 'ITO', 'MKK', 'LNY']:
+            return 'PH' + code[-2:]
 
-        # Pacific territories
+        # Pacific territories: PG prefix
         if code in ['GUM', 'SPN']:
             return 'PG' + code[-2:]
 
-        # Caribbean/Puerto Rico (TJ prefix)
-        caribbean = ['SJU', 'BQN', 'PSE', 'RVR', 'STT', 'STX']
-        if code in caribbean:
-            if code in ['SJU', 'BQN', 'PSE', 'RVR']:
-                return 'TJ' + code[-2:]  # Puerto Rico
-            else:
-                return 'TI' + code[-2:]  # US Virgin Islands
+        # Caribbean: TJ (Puerto Rico) or TI (US Virgin Islands)
+        if code in ['SJU', 'BQN', 'PSE', 'RVR']:
+            return 'TJ' + code[-2:]
+        if code in ['STT', 'STX']:
+            return 'TI' + code[-2:]
 
         # Default: CONUS airports get K prefix
         return 'K' + code
