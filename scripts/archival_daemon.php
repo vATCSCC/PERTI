@@ -162,24 +162,43 @@ function runArchival(mixed $conn, int $batchSize): array {
     ];
 
     // Step 1: Archive completed flights
-    logMsg("Step 1/4: Archiving completed flights...");
+    logMsg("Step 1/5: Archiving completed flights...");
     $stepResult = runStep($conn, 'EXEC dbo.sp_Archive_CompletedFlights @debug = 0');
     $results['steps']['completed_flights'] = $stepResult;
 
-    // Step 2: Move trajectory to warm tier
-    logMsg("Step 2/4: Moving trajectory to warm tier (batch_size={$batchSize})...");
-    $stepResult = runStep($conn, "EXEC dbo.sp_Archive_Trajectory_ToWarm @batch_size = {$batchSize}, @debug = 0");
-    $results['steps']['trajectory_to_warm'] = $stepResult;
+    // Step 2: TMI-aware trajectory archival (extracts high-res TMI data before downsampling)
+    logMsg("Step 2/5: TMI-aware trajectory archival (batch_size={$batchSize})...");
+    $stepResult = runStep($conn, "EXEC dbo.sp_ArchiveTrajectory_TmiAware @archive_threshold_hours = 1, @batch_size = {$batchSize}");
+    $results['steps']['trajectory_tmi_aware'] = $stepResult;
+    if ($stepResult['success'] && !empty($stepResult['output'])) {
+        $tmiResult = $stepResult['output'][0] ?? [];
+        logMsg("  TMI extraction: {$tmiResult['rows_to_tmi_table']} rows to TMI table, {$tmiResult['rows_to_archive']} to archive");
+    }
 
     // Step 3: Compress warm to cold tier
-    logMsg("Step 3/4: Compressing warm tier to cold...");
+    logMsg("Step 3/5: Compressing warm tier to cold...");
     $stepResult = runStep($conn, 'EXEC dbo.sp_Downsample_Trajectory_ToCold @debug = 0');
     $results['steps']['trajectory_to_cold'] = $stepResult;
 
-    // Step 4: Purge old data
-    logMsg("Step 4/4: Purging old data...");
+    // Step 4: Purge old data (general)
+    logMsg("Step 4/5: Purging old data...");
     $stepResult = runStep($conn, 'EXEC dbo.sp_Purge_OldData @debug = 0');
     $results['steps']['purge'] = $stepResult;
+
+    // Step 5: Purge TMI trajectory (90-day retention) - run during off-peak only
+    $hour = (int)gmdate('G');
+    if ($hour >= 3 && $hour < 6) {
+        logMsg("Step 5/5: Purging TMI trajectory (90-day retention)...");
+        $stepResult = runStep($conn, 'EXEC dbo.sp_PurgeTmiTrajectory @retention_days = 90, @batch_size = 50000');
+        $results['steps']['purge_tmi'] = $stepResult;
+        if ($stepResult['success'] && !empty($stepResult['output'])) {
+            $purgeResult = $stepResult['output'][0] ?? [];
+            logMsg("  TMI purge: {$purgeResult['rows_purged']} rows deleted");
+        }
+    } else {
+        logMsg("Step 5/5: Skipping TMI purge (runs 03:00-06:00 UTC only)");
+        $results['steps']['purge_tmi'] = ['success' => true, 'skipped' => true];
+    }
 
     // Check for any failures
     foreach ($results['steps'] as $step => $stepResult) {
@@ -245,7 +264,8 @@ function getArchivalStats(mixed $conn): array {
             (SELECT COUNT(*) FROM dbo.adl_flight_trajectory WITH (NOLOCK)) AS hot_tier_rows,
             (SELECT COUNT(*) FROM dbo.adl_trajectory_archive WITH (NOLOCK)) AS warm_tier_rows,
             (SELECT COUNT(*) FROM dbo.adl_trajectory_compressed WITH (NOLOCK)) AS cold_tier_rows,
-            (SELECT COUNT(*) FROM dbo.adl_flight_changelog WITH (NOLOCK)) AS changelog_rows
+            (SELECT COUNT(*) FROM dbo.adl_flight_changelog WITH (NOLOCK)) AS changelog_rows,
+            (SELECT COUNT(*) FROM dbo.adl_tmi_trajectory WITH (NOLOCK)) AS tmi_trajectory_rows
     ";
 
     $stmt = sqlsrv_query($conn, $sql);
@@ -344,7 +364,8 @@ logMsg("Database connected");
 $stats = getArchivalStats($conn);
 logMsg("Current stats: hot=" . number_format($stats['hot_tier_rows'] ?? 0) .
        ", warm=" . number_format($stats['warm_tier_rows'] ?? 0) .
-       ", cold=" . number_format($stats['cold_tier_rows'] ?? 0));
+       ", cold=" . number_format($stats['cold_tier_rows'] ?? 0) .
+       ", tmi=" . number_format($stats['tmi_trajectory_rows'] ?? 0));
 
 $runCount = 0;
 
