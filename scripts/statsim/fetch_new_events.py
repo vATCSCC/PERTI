@@ -112,25 +112,70 @@ class StatsimEvent:
         return delta.total_seconds() / 3600
 
     def _detect_category(self) -> str:
-        """Detect event category from name."""
+        """Detect event category from name.
+
+        Uses the same classification logic as sync_perti_events.php:
+        - Name-based patterns for special events (CTP, 24HRSOV, REALOPS, etc.)
+        - VATUSA day-of-week conventions (FNO, SAT, SUN, MWK) for unmatched events
+        - UNKN for truly unclassifiable events
+        """
         name_lower = self.name.lower()
 
+        # Priority 1: Explicit "Not an FNO" exclusion
+        if 'not an fno' in name_lower or 'not a fno' in name_lower:
+            return 'MWK'
+
+        # Priority 2: Cross-division special events (by name)
         patterns = {
+            'CTP': [r'cross the pond', r'cross-the-pond', r'\bctp\b'],
+            'CTL': [r'cross the land', r'cross-the-land', r'\bctl\b'],
+            'WF': [r'worldflight', r'world flight'],
+            '24HRSOV': [r'24hr', r'24 hour', r'sovereignty'],
             'FNO': [r'friday night ops', r'friday night operations', r'\bfno\b'],
-            'CTP': [r'cross the pond', r'\bctp\b'],
-            'SAT': [r'saturday'],
-            'SUN': [r'sunday'],
-            'MWK': [r'midweek', r'tuesday', r'wednesday', r'thursday'],
-            'SPL': [r'special', r'anniversary', r'celebration', r'holiday', r'christmas', r'thanksgiving'],
-            'RGN': [r'regional'],
+            'OMN': [r'open mic', r'\bomn\b'],  # OMN but not KOMN airport
+            'REALOPS': [r'real ops', r'realops', r'real-ops', r'real operations'],
+            'LIVE': [r'\blive\b'],
+            'TRAIN': [r'training', r'exam', r'first wings'],
+            'SPEC': [r'special', r'anniversary', r'celebration', r'holiday',
+                     r'christmas', r'thanksgiving', r'overload', r'screamin'],
         }
 
         for category, pats in patterns.items():
             for pat in pats:
                 if re.search(pat, name_lower):
+                    # Avoid matching KOMN airport code as OMN
+                    if category == 'OMN' and 'komn' in name_lower:
+                        continue
                     return category
 
-        return 'EVT'  # Generic event
+        # Priority 3: SNO detection (Saturday Night Ops)
+        if re.search(r'\bsno\b', name_lower):
+            return 'SAT'
+
+        # Priority 4: VATUSA time-based classification (day-of-week)
+        # This matches the Excel formula logic for VATUSA events
+        day_of_week = self.start_utc.weekday()  # 0=Mon, 6=Sun
+        hour = self.start_utc.hour
+
+        # FNO: Friday 21:00+ or Saturday before 06:00 UTC
+        if day_of_week == 4 and hour >= 21:  # Friday
+            return 'FNO'
+        if day_of_week == 5 and hour < 6:  # Saturday early morning
+            return 'FNO'
+
+        # SAT: Saturday (after 06:00)
+        if day_of_week == 5:
+            return 'SAT'
+
+        # SUN: Sunday
+        if day_of_week == 6:
+            return 'SUN'
+
+        # MWK: Monday through Thursday, or Friday before 21:00
+        if day_of_week in [0, 1, 2, 3] or (day_of_week == 4 and hour < 21):
+            return 'MWK'
+
+        return 'UNKN'  # Fallback for truly unclassifiable events
 
 
 # =============================================================================

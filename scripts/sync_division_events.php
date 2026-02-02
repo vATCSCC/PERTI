@@ -64,21 +64,42 @@ function fetchJson(string $url, int $timeout = 15): ?array
 
 /**
  * Get ADL database connection (where division_events table lives)
+ * LEGACY: This script targets division_events table; prefer sync_perti_events.php
  */
 function getEventsDbConnection(): ?PDO
 {
     global $conn_adl;
 
-    // If already have connection from connect.php
-    if (isset($conn_adl) && $conn_adl) {
+    // If already have PDO connection from connect.php (web context)
+    if (isset($conn_adl) && $conn_adl instanceof PDO) {
         return $conn_adl;
     }
 
-    // Create new connection to VATSIM_ADL
+    // CLI context: try to load config if not already loaded
+    if (!defined('ADL_SQL_HOST')) {
+        $configPath = __DIR__ . '/../load/config.php';
+        if (file_exists($configPath)) {
+            require_once $configPath;
+        }
+    }
+
+    // Get credentials from config constants or environment variables
+    $host = defined('ADL_SQL_HOST') ? ADL_SQL_HOST : (getenv('ADL_SQL_HOST') ?: 'vatsim.database.windows.net');
+    $database = defined('ADL_SQL_DATABASE') ? ADL_SQL_DATABASE : (getenv('ADL_SQL_DATABASE') ?: 'VATSIM_ADL');
+    $username = defined('ADL_SQL_USERNAME') ? ADL_SQL_USERNAME : (getenv('ADL_SQL_USERNAME') ?: getenv('ADL_DB_USER'));
+    $password = defined('ADL_SQL_PASSWORD') ? ADL_SQL_PASSWORD : (getenv('ADL_SQL_PASSWORD') ?: getenv('ADL_DB_PASS'));
+
+    if (!$username || !$password) {
+        error_log("ADL DB connection failed: Missing credentials (set ADL_SQL_USERNAME/ADL_SQL_PASSWORD or environment variables)");
+        return null;
+    }
+
+    // Create new PDO connection to VATSIM_ADL
     try {
-        $dsn = "sqlsrv:server=tcp:vatsim.database.windows.net,1433;Database=VATSIM_ADL;Encrypt=yes;TrustServerCertificate=no";
-        return new PDO($dsn, 'adl_api_user', '***REMOVED***', [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        $dsn = "sqlsrv:server=tcp:{$host},1433;Database={$database};Encrypt=yes;TrustServerCertificate=no";
+        return new PDO($dsn, $username, $password, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]);
     } catch (PDOException $e) {
         error_log("ADL DB connection failed: " . $e->getMessage());
