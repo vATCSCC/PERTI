@@ -2434,6 +2434,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             console.log(`Cached traffic sector for ${mapId}: ${r.traffic_sector.track_count} tracks, ${r.traffic_sector.sector_75.width_deg}° (75%), ${r.traffic_sector.sector_90.width_deg}° (90%), ${r.required}${r.unit} spacing`);
         }
 
+        // Cache pair data for violations/pairs map layers
+        if (r.all_pairs && r.all_pairs.length > 0) {
+            this.pairCache = this.pairCache || {};
+            this.pairCache[mapId] = r.all_pairs;
+            console.log(`Cached ${r.all_pairs.length} pairs for ${mapId}`);
+        }
+
         if (!requestor && !provider) {
             return ''; // No facilities to show
         }
@@ -2463,7 +2470,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="tmi-map-layer-controls" id="${mapId}_controls" style="display: none;">
                         <span class="layer-label">Layers:</span>
                         <button class="layer-btn active" data-layer="artcc" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCC</button>
-                        <button class="layer-btn" data-layer="all-artccs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCCs</button>
                         <button class="layer-btn active" data-layer="tracon" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">TRACON</button>
                         <button class="layer-btn" data-layer="sectors-low" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Low</button>
                         <button class="layer-btn active" data-layer="sectors-high" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">High</button>
@@ -2472,6 +2478,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
                         <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
+                        <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Pairs</button>
+                        <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Violations</button>
                         <span class="layer-divider">|</span>
                         <span class="cone-legend" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: ${FILTER_CONFIG?.map?.ui?.legendText || 'var(--dark-text-muted, #adb5bd)'};">
                             <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['75']?.fill || 'rgba(255,212,59,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['75']?.stroke || '#ffd43b'}; border-radius: 2px;"></span>75%</span>
@@ -4328,81 +4336,144 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
             'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs', 'spacing-arc-labels'],
             'flow-streams': ['flow-streams-fill', 'flow-streams-outline', 'flow-stream-labels', 'flow-merge-zones-fill', 'flow-merge-zones-outline'],
-            'all-artccs': ['all-artccs-fill', 'all-artccs-outline', 'all-artccs-labels'],
+            'pairs': ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'],
+            'violations': ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'],
         };
 
-        // Handle all-artccs layer: load from GeoJSON if not already loaded
-        if (layer === 'all-artccs') {
-            if (isActive && !map.getSource('all-artccs')) {
-                // Load artcc.json and add to map
-                fetch('assets/geojson/artcc.json')
-                    .then(r => r.json())
-                    .then(data => {
-                        // Filter to US ARTCCs (codes starting with Z)
-                        const usArtccs = {
-                            type: 'FeatureCollection',
-                            features: data.features.filter(f =>
-                                f.properties?.ICAOCODE?.match(/^Z[A-Z]{2}$/) ||
-                                f.properties?.FIRname?.match(/^Z[A-Z]{2}$/)
-                            )
-                        };
+        // Handle pairs/violations specially - they share the same source but filter differently
+        if (layer === 'pairs' || layer === 'violations') {
+            const pairData = this.pairCache?.[mapId];
+            if (!pairData || pairData.length === 0) {
+                console.log(`No pair data for ${mapId}`);
+                btn.classList.remove('active');
+                return;
+            }
 
-                        if (!map.getSource('all-artccs')) {
-                            map.addSource('all-artccs', { type: 'geojson', data: usArtccs });
+            // Determine filter: violations only shows UNDER, pairs shows all
+            const filterToViolations = (layer === 'violations');
+            const filteredPairs = filterToViolations
+                ? pairData.filter(p => p.spacing_category === 'UNDER')
+                : pairData;
 
-                            // Add fill layer (very subtle)
-                            map.addLayer({
-                                id: 'all-artccs-fill',
-                                type: 'fill',
-                                source: 'all-artccs',
-                                paint: {
-                                    'fill-color': '#6c757d',
-                                    'fill-opacity': 0.03,
-                                },
-                            }, 'facilities-fill');
+            if (filteredPairs.length === 0) {
+                console.log(`No ${layer} to display for ${mapId}`);
+                btn.classList.remove('active');
+                return;
+            }
 
-                            // Add outline layer
-                            map.addLayer({
-                                id: 'all-artccs-outline',
-                                type: 'line',
-                                source: 'all-artccs',
-                                paint: {
-                                    'line-color': '#adb5bd',
-                                    'line-width': 1,
-                                    'line-opacity': 0.5,
-                                    'line-dasharray': [4, 2],
-                                },
-                            }, 'facilities-fill');
+            // Toggle the other button off if turning this one on
+            const otherLayer = layer === 'pairs' ? 'violations' : 'pairs';
+            const otherBtn = document.querySelector(`.layer-btn[data-layer="${otherLayer}"][data-map="${mapId}"]`);
+            if (isActive && otherBtn?.classList.contains('active')) {
+                otherBtn.classList.remove('active');
+            }
 
-                            // Add labels
-                            map.addLayer({
-                                id: 'all-artccs-labels',
-                                type: 'symbol',
-                                source: 'all-artccs',
-                                layout: {
-                                    'text-field': ['coalesce', ['get', 'ICAOCODE'], ['get', 'FIRname']],
-                                    'text-font': ['Noto Sans Regular'],
-                                    'text-size': 11,
-                                    'text-anchor': 'center',
-                                },
-                                paint: {
-                                    'text-color': '#868e96',
-                                    'text-halo-color': '#000000',
-                                    'text-halo-width': 1,
-                                    'text-opacity': 0.7,
-                                },
-                            });
-
-                            console.log(`Loaded ${usArtccs.features.length} US ARTCC boundaries`);
-                        }
-                    })
-                    .catch(err => console.warn('Failed to load ARTCC boundaries:', err));
-            } else if (map.getSource('all-artccs')) {
-                // Toggle visibility
-                ['all-artccs-fill', 'all-artccs-outline', 'all-artccs-labels'].forEach(layerId => {
+            if (!isActive) {
+                // Hide the layers
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
                     if (map.getLayer(layerId)) {
-                        map.setLayoutProperty(layerId, 'visibility', isActive ? 'visible' : 'none');
+                        map.setLayoutProperty(layerId, 'visibility', 'none');
                     }
+                });
+                return;
+            }
+
+            // Build GeoJSON for the pairs
+            const pairGeoJSON = this.buildPairGeoJSON(filteredPairs);
+
+            if (map.getSource('pair-data')) {
+                // Update existing source
+                map.getSource('pair-data').setData(pairGeoJSON.lines);
+                map.getSource('pair-markers').setData(pairGeoJSON.markers);
+                // Show layers
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
+                    if (map.getLayer(layerId)) {
+                        map.setLayoutProperty(layerId, 'visibility', 'visible');
+                    }
+                });
+            } else {
+                // Create sources and layers
+                map.addSource('pair-data', { type: 'geojson', data: pairGeoJSON.lines });
+                map.addSource('pair-markers', { type: 'geojson', data: pairGeoJSON.markers });
+
+                // Connecting lines - colored by spacing category
+                map.addLayer({
+                    id: 'pair-lines',
+                    type: 'line',
+                    source: 'pair-data',
+                    paint: {
+                        'line-color': ['get', 'color'],
+                        'line-width': 2,
+                        'line-opacity': 0.8,
+                    },
+                });
+
+                // Aircraft markers - previous (leading) aircraft
+                map.addLayer({
+                    id: 'pair-markers-prev',
+                    type: 'circle',
+                    source: 'pair-markers',
+                    filter: ['==', ['get', 'position'], 'prev'],
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': ['get', 'color'],
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-width': 2,
+                    },
+                });
+
+                // Aircraft markers - current (trailing) aircraft
+                map.addLayer({
+                    id: 'pair-markers-curr',
+                    type: 'circle',
+                    source: 'pair-markers',
+                    filter: ['==', ['get', 'position'], 'curr'],
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': ['get', 'color'],
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-width': 2,
+                    },
+                });
+
+                // Labels for previous aircraft
+                map.addLayer({
+                    id: 'pair-labels-prev',
+                    type: 'symbol',
+                    source: 'pair-markers',
+                    filter: ['==', ['get', 'position'], 'prev'],
+                    layout: {
+                        'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
+                        'text-font': ['Noto Sans Regular'],
+                        'text-size': 10,
+                        'text-anchor': 'bottom',
+                        'text-offset': [0, -0.8],
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                        'text-halo-color': ['get', 'color'],
+                        'text-halo-width': 1.5,
+                    },
+                });
+
+                // Labels for current aircraft
+                map.addLayer({
+                    id: 'pair-labels-curr',
+                    type: 'symbol',
+                    source: 'pair-markers',
+                    filter: ['==', ['get', 'position'], 'curr'],
+                    layout: {
+                        'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
+                        'text-font': ['Noto Sans Regular'],
+                        'text-size': 10,
+                        'text-anchor': 'top',
+                        'text-offset': [0, 0.8],
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                        'text-halo-color': ['get', 'color'],
+                        'text-halo-width': 1.5,
+                    },
                 });
             }
             return;
@@ -4448,6 +4519,111 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 }
             });
         }
+    },
+
+    /**
+     * Build GeoJSON for pair visualization (connecting lines and markers)
+     * @param {Array} pairs - Array of pair objects with crossing coordinates
+     * @returns {Object} { lines: GeoJSON, markers: GeoJSON }
+     */
+    buildPairGeoJSON: function(pairs) {
+        const lineFeatures = [];
+        const markerFeatures = [];
+
+        // Color mapping by spacing category
+        const categoryColors = {
+            'UNDER': '#dc3545',  // Red - violation
+            'WITHIN': '#28a745', // Green - within tolerance
+            'OVER': '#17a2b8',   // Cyan - over required
+            'GAP': '#ffc107',    // Yellow - large gap
+        };
+
+        pairs.forEach((p, idx) => {
+            // Skip if missing coordinate data
+            if (!p.prev_crossing_lat || !p.prev_crossing_lon ||
+                !p.curr_crossing_lat || !p.curr_crossing_lon) {
+                return;
+            }
+
+            const color = categoryColors[p.spacing_category] || '#6c757d';
+
+            // Format time as HHMMZ from "HH:MM:SSZ" format
+            const formatTime = (timeStr) => {
+                if (!timeStr) return '';
+                const match = timeStr.match(/(\d{2}):(\d{2}):\d{2}Z/);
+                if (match) {
+                    return match[1] + match[2] + 'Z';
+                }
+                return timeStr.replace(/:/g, '').substring(0, 4) + 'Z';
+            };
+
+            // Line connecting the two aircraft positions
+            lineFeatures.push({
+                type: 'Feature',
+                properties: {
+                    pairIndex: idx,
+                    spacing: p.spacing,
+                    required: p.required,
+                    category: p.spacing_category,
+                    compliance: p.compliance,
+                    color: color,
+                    prev_callsign: p.prev_callsign,
+                    curr_callsign: p.curr_callsign,
+                },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [
+                        [p.prev_crossing_lon, p.prev_crossing_lat],
+                        [p.curr_crossing_lon, p.curr_crossing_lat],
+                    ],
+                },
+            });
+
+            // Marker for previous (leading) aircraft
+            markerFeatures.push({
+                type: 'Feature',
+                properties: {
+                    pairIndex: idx,
+                    position: 'prev',
+                    callsign: p.prev_callsign,
+                    time: formatTime(p.prev_time),
+                    color: color,
+                    category: p.spacing_category,
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [p.prev_crossing_lon, p.prev_crossing_lat],
+                },
+            });
+
+            // Marker for current (trailing) aircraft
+            markerFeatures.push({
+                type: 'Feature',
+                properties: {
+                    pairIndex: idx,
+                    position: 'curr',
+                    callsign: p.curr_callsign,
+                    time: formatTime(p.curr_time),
+                    color: color,
+                    category: p.spacing_category,
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [p.curr_crossing_lon, p.curr_crossing_lat],
+                },
+            });
+        });
+
+        return {
+            lines: {
+                type: 'FeatureCollection',
+                features: lineFeatures,
+            },
+            markers: {
+                type: 'FeatureCollection',
+                features: markerFeatures,
+            },
+        };
     },
 
     cleanupMaps: function() {
