@@ -302,13 +302,13 @@
         // Production mode toggle
         $('#productionMode').on('change', function() {
             if ($(this).is(':checked')) {
-                Swal.fire({
-                    title: 'Enable Production Mode?',
-                    html: '<p class="text-danger"><strong>Warning:</strong> Entries will post directly to LIVE Discord channels!</p>',
+                PERTIDialog.show({
+                    titleKey: 'tmiPublish.enableProdMode.title',
+                    htmlKey: 'tmiPublish.enableProdMode.html',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'Enable Production',
+                    confirmKey: 'tmiPublish.enableProdMode.confirm',
                 }).then((result) => {
                     if (result.isConfirmed) {
                         state.productionMode = true;
@@ -1964,13 +1964,23 @@
     }
 
     function showImportDialog(planOptions) {
-        Swal.fire({
-            title: '<i class="fas fa-file-import text-primary"></i> Import PERTI Plan',
+        const hintText = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.importPlan.selectPlanHint')
+            : 'Select a PERTI Plan to import TMI data into the Operations Plan advisory.';
+        const labelText = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.importPlan.selectPlanLabel')
+            : 'Select Plan';
+        const validationMsg = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.importPlan.pleaseSelectPlan')
+            : 'Please select a plan';
+
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.importPlan.title',
             html: `
                 <div class="text-left">
-                    <p class="small text-muted mb-3">Select a PERTI Plan to import TMI data into the Operations Plan advisory.</p>
+                    <p class="small text-muted mb-3">${hintText}</p>
                     <div class="form-group">
-                        <label class="small font-weight-bold">Select Plan</label>
+                        <label class="small font-weight-bold">${labelText}</label>
                         <select id="importPlanId" class="form-control">${planOptions}</select>
                     </div>
                 </div>
@@ -1979,11 +1989,11 @@
             showCancelButton: true,
             confirmButtonText: '<i class="fas fa-download"></i> Import',
             confirmButtonColor: '#007bff',
-            cancelButtonText: 'Cancel',
+            cancelKey: 'common.cancel',
             preConfirm: () => {
                 const planId = document.getElementById('importPlanId').value;
                 if (!planId) {
-                    Swal.showValidationMessage('Please select a plan');
+                    Swal.showValidationMessage(validationMsg);
                     return false;
                 }
                 return { type: 'id', value: planId };
@@ -2001,12 +2011,7 @@
      * @param {string} value - The value for the lookup
      */
     function fetchPertiPlanData(type, value) {
-        Swal.fire({
-            title: 'Loading...',
-            text: 'Fetching PERTI Plan data',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('dialog.loading');
 
         // Build request params based on type
         const params = {};
@@ -2020,7 +2025,7 @@
             data: params,
             dataType: 'json',
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
 
                 // Handle multiple results from event search
                 if (response.success && response.plans && response.plans.length > 1) {
@@ -2029,10 +2034,10 @@
                     response.plans.forEach(function(plan) {
                         options += `<option value="${plan.id}">${plan.eventName} (${plan.eventDate})</option>`;
                     });
-                    Swal.fire({
-                        title: 'Multiple Plans Found',
+                    PERTIDialog.show({
+                        titleKey: 'tmiPublish.importPlan.multiplePlans',
                         html: `<select id="selectPlan" class="form-control">${options}</select>`,
-                        confirmButtonText: 'Select',
+                        confirmKey: 'common.select',
                         showCancelButton: true,
                         preConfirm: () => document.getElementById('selectPlan').value,
                     }).then((result) => {
@@ -2045,34 +2050,18 @@
 
                 if (response.success && response.plan) {
                     populateOpsPlanFromPerti(response.plan);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Plan Imported',
-                        text: 'PERTI Plan data has been imported into the Ops Plan.',
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
+                    PERTIDialog.success('tmiPublish.importPlan.planImported', 'tmiPublish.importPlan.planImportedText');
                 } else if (response.success && !response.plan) {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'No Plan Found',
-                        text: 'No PERTI Plan was found for the specified criteria.',
-                    });
+                    PERTIDialog.info('tmiPublish.importPlan.noPlanFound', 'tmiPublish.importPlan.noPlanFoundText');
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Import Failed',
-                        text: response.error || 'Failed to fetch PERTI Plan data.',
+                    PERTIDialog.error('tmiPublish.importPlan.importFailed', null, {}, {
+                        text: response.error || PERTII18n.t('tmiPublish.importPlan.importFailedText'),
                     });
                 }
             },
             error: function(xhr, status, error) {
-                Swal.close();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Import Failed',
-                    text: 'Failed to connect to server: ' + error,
-                });
+                PERTIDialog.close();
+                PERTIDialog.error('tmiPublish.importPlan.importFailed', 'error.networkError', { message: error });
             },
         });
     }
@@ -2209,12 +2198,11 @@
                 );
 
                 if (activeHotlines.length === 0) {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'No Active Hotlines',
-                        text: 'There are no active hotline advisories to ' + action.toLowerCase() + '.',
-                        confirmButtonText: 'OK',
-                    }).then(() => {
+                    PERTIDialog.info(
+                        'tmiPublish.noActiveHotlines',
+                        'tmiPublish.hotline.noActiveText',
+                        { action: action.toLowerCase() },
+                    ).then(() => {
                         // Reset to ACTIVATION
                         $('#adv_hotline_action').val('ACTIVATION');
                     });
@@ -2236,13 +2224,26 @@
                     >ADVZY ${advNum} - ${hotlineName}</option>`;
                 }).join('');
 
-                Swal.fire({
-                    title: `<i class="fas fa-phone-alt text-danger"></i> Select Hotline to ${action}`,
+                const selectTitle = typeof PERTII18n !== 'undefined'
+                    ? PERTII18n.t('tmiPublish.hotline.selectToAction', { action })
+                    : `Select Hotline to ${action}`;
+                const selectHint = typeof PERTII18n !== 'undefined'
+                    ? PERTII18n.t('tmiPublish.hotline.selectHint', { action: action.toLowerCase() })
+                    : `Select the active hotline advisory you want to ${action.toLowerCase()}:`;
+                const selectPlaceholder = typeof PERTII18n !== 'undefined'
+                    ? PERTII18n.t('tmiPublish.hotline.selectPlaceholder')
+                    : '-- Select a hotline --';
+                const validationMsg = typeof PERTII18n !== 'undefined'
+                    ? PERTII18n.t('tmiPublish.hotline.pleaseSelect')
+                    : 'Please select a hotline';
+
+                PERTIDialog.show({
+                    title: `<i class="fas fa-phone-alt text-danger"></i> ${selectTitle}`,
                     html: `
                         <div class="text-left">
-                            <p class="small text-muted mb-3">Select the active hotline advisory you want to ${action.toLowerCase()}:</p>
+                            <p class="small text-muted mb-3">${selectHint}</p>
                             <select id="hotlinePickerSelect" class="form-control">
-                                <option value="">-- Select a hotline --</option>
+                                <option value="">${selectPlaceholder}</option>
                                 ${options}
                             </select>
                         </div>
@@ -2251,12 +2252,12 @@
                     showCancelButton: true,
                     confirmButtonText: '<i class="fas fa-check"></i> Select',
                     confirmButtonColor: '#dc3545',
-                    cancelButtonText: 'Cancel',
+                    cancelKey: 'common.cancel',
                     preConfirm: () => {
                         const select = document.getElementById('hotlinePickerSelect');
                         const selectedOption = select.options[select.selectedIndex];
                         if (!select.value) {
-                            Swal.showValidationMessage('Please select a hotline');
+                            Swal.showValidationMessage(validationMsg);
                             return false;
                         }
                         return {
@@ -2280,7 +2281,7 @@
                 });
             },
             error: function() {
-                Swal.fire('Error', 'Failed to fetch active advisories', 'error');
+                PERTIDialog.error('common.error', 'error.fetchFailed', { resource: 'advisories' });
                 $('#adv_hotline_action').val('ACTIVATION');
             },
         });
@@ -2352,13 +2353,13 @@
         $('#adv_hotline_name').trigger('change');
         updateAdvisoryPreview();
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Fields Auto-Filled',
-            text: `Form populated from the selected hotline. Adjust as needed and ${action === 'TERMINATION' ? 'confirm the termination time' : 'make your updates'}.`,
-            timer: 3000,
-            showConfirmButton: false,
-        });
+        const instruction = action === 'TERMINATION' ? 'confirm the termination time' : 'make your updates';
+        PERTIDialog.success(
+            'tmiPublish.fieldsAutoFilled',
+            'tmiPublish.hotline.autoFilledText',
+            { instruction },
+            { timer: 3000 },
+        );
     }
 
     function escapeAttr(str) {
@@ -2826,12 +2827,12 @@
 
         // Basic validation
         if (!ctlElement && type !== 'DELAY') {
-            Swal.fire('Missing Field', 'Please enter an airport or fix', 'warning');
+            PERTIDialog.warning('validation.missingField', 'validation.enterAirportOrFix');
             return;
         }
 
         if (type !== 'DELAY' && type !== 'CONFIG' && (!reqFacility || !provFacility)) {
-            Swal.fire('Missing Facilities', 'Please enter requesting and providing facilities', 'warning');
+            PERTIDialog.warning('validation.missingFacilities', 'validation.enterFacilities');
             return;
         }
 
@@ -2950,12 +2951,9 @@
         // Switch to queue tab
         $('#queue-tab').tab('show');
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Added to Queue',
+        PERTIDialog.success('tmiPublish.queue.addedToQueue', null, null, {
             text: `${type} entry added`,
             timer: 1500,
-            showConfirmButton: false,
         });
     }
 
@@ -3219,12 +3217,9 @@
 
         $('#queue-tab').tab('show');
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Added to Queue',
+        PERTIDialog.success('tmiPublish.queue.addedToQueue', null, null, {
             text: `${type} advisory added`,
             timer: 1500,
-            showConfirmButton: false,
         });
     }
 
@@ -3330,14 +3325,12 @@
     function clearQueue() {
         if (!state.queue || state.queue.length === 0) {return;}
 
-        Swal.fire({
-            title: 'Clear Queue?',
-            text: `Remove all ${state.queue.length} entries from queue?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Clear All',
-        }).then((result) => {
+        PERTIDialog.confirm(
+            'tmiPublish.queue.clearQueue',
+            'tmiPublish.queue.clearQueueText',
+            { count: state.queue.length },
+            { confirmButtonColor: '#dc3545', confirmButtonText: 'Clear All' },
+        ).then((result) => {
             if (result.isConfirmed) {
                 state.queue = [];
                 saveState();
@@ -3373,18 +3366,18 @@
         } else {
             // Publish directly without coordination
             const entryDetailHtml = buildEntryDetailHtml(entry);
-            Swal.fire({
-                title: 'Publish Entry',
+            PERTIDialog.show({
+                titleKey: 'tmiPublish.publish.title',
                 html: `
                     <div class="text-left">
                         ${entryDetailHtml}
-                        <p class="small text-muted mt-2">This entry type does not require coordination and will be published directly.</p>
+                        <p class="small text-muted mt-2">${PERTII18n.t('tmiPublish.publish.noCoordRequired')}</p>
                     </div>
                 `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
-                confirmButtonText: 'Publish',
+                confirmKey: 'tmiPublish.publish.publishBtn',
                 width: '500px',
             }).then((result) => {
                 if (result.isConfirmed) {
@@ -3398,11 +3391,7 @@
      * Publish a single entry directly (no coordination)
      */
     async function publishSingleEntryDirect(entry, queueIndex) {
-        Swal.fire({
-            title: 'Publishing...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('dialog.publishing');
 
         try {
             // Build the publish payload
@@ -3428,27 +3417,15 @@
                 saveState();
                 updateUI();
 
-                Swal.fire({
-                    title: 'Published!',
-                    html: `<p>Entry published to Discord successfully.</p>`,
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false,
-                });
+                PERTIDialog.success('tmiPublish.publish.published', 'tmiPublish.publish.publishedToDiscord');
             } else {
-                const errorMsg = response.error || response.results?.[0]?.error || 'Unknown error';
-                Swal.fire({
-                    title: 'Publish Failed',
-                    html: `<p>${errorMsg}</p>`,
-                    icon: 'error',
-                });
+                const errorMsg = response.error || response.results?.[0]?.error || PERTII18n.t('common.unknown');
+                PERTIDialog.error('tmiPublish.publish.publishFailed', null, {}, { html: `<p>${errorMsg}</p>` });
             }
         } catch (error) {
             console.error('[Direct Publish] Error:', error);
-            Swal.fire({
-                title: 'Publish Failed',
-                html: `<p>${error.responseText || error.message || 'Connection error'}</p>`,
-                icon: 'error',
+            PERTIDialog.error('tmiPublish.publish.publishFailed', null, {}, {
+                html: `<p>${error.responseText || error.message || PERTII18n.t('error.connectionFailed')}</p>`,
             });
         }
     }
@@ -3514,7 +3491,7 @@
         saveState();
         updateUI();
 
-        Swal.fire({
+        PERTIDialog.show({
             title: title,
             html: html,
             icon: icon,
@@ -3556,18 +3533,27 @@
             new Date(existingConfig.validFrom).toLocaleString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false }) + 'Z' :
             'Unknown time';
         const existingStatus = existingConfig.status || 'ACTIVE';
+        const titleText = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.duplicateConfig.title')
+            : 'Duplicate CONFIG';
+        const existingText = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.duplicateConfig.existingText', { airport })
+            : `An active CONFIG already exists for ${airport}:`;
+        const whatToDo = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.duplicateConfig.whatToDo')
+            : 'What would you like to do?';
 
-        Swal.fire({
-            title: `<i class="fas fa-exclamation-triangle text-warning"></i> Duplicate CONFIG`,
+        PERTIDialog.show({
+            title: `<i class="fas fa-exclamation-triangle text-warning"></i> ${titleText}`,
             html: `
                 <div class="text-left">
-                    <p>An active CONFIG already exists for <strong>${airport}</strong>:</p>
+                    <p>${existingText}</p>
                     <div class="alert alert-secondary">
                         <strong>Status:</strong> ${existingStatus}<br>
                         <strong>Posted:</strong> ${existingTime}<br>
                         <strong>ID:</strong> #${existingConfig.entityId}
                     </div>
-                    <p>What would you like to do?</p>
+                    <p>${whatToDo}</p>
                 </div>
             `,
             icon: 'warning',
@@ -3577,7 +3563,7 @@
             confirmButtonColor: '#007bff',
             denyButtonText: '<i class="fas fa-plus"></i> Create New Anyway',
             denyButtonColor: '#6c757d',
-            cancelButtonText: 'Cancel',
+            cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 // Cancel the old one and create new
@@ -3594,11 +3580,7 @@
         const userCid = CONFIG.userCid || null;
         const userName = CONFIG.userName || 'Unknown';
 
-        Swal.fire({
-            title: 'Cancelling old CONFIG...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.cancelTmi.cancelling');
 
         $.ajax({
             url: 'api/mgt/tmi/cancel.php',
@@ -3612,17 +3594,17 @@
                 userName: userName,
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
                     // Now add the new CONFIG
                     addNtmlToQueue(type, true);
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to cancel old CONFIG', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.cancelTmi.failed') });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', 'Failed to cancel old CONFIG: ' + (xhr.responseJSON?.error || 'Unknown error'), 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: PERTII18n.t('tmiPublish.cancelTmi.failed') + ': ' + (xhr.responseJSON?.error || PERTII18n.t('common.unknown')) });
             },
         });
     }
@@ -3636,12 +3618,11 @@
 
         // Check if profile is complete
         if (!isProfileComplete()) {
-            Swal.fire({
+            PERTIDialog.show({
                 icon: 'warning',
-                title: 'Profile Required',
-                html: `<p>You must set up your profile before publishing TMIs.</p>
-                       <p class="small text-muted">Click the User Profile card to set your name, CID, operating initials, and home facility.</p>`,
-                confirmButtonText: 'Set Up Profile',
+                titleKey: 'tmiPublish.profile.required',
+                htmlKey: 'tmiPublish.profile.requiredHtml',
+                confirmKey: 'tmiPublish.profile.setup',
                 showCancelButton: true,
             }).then((result) => {
                 if (result.isConfirmed) {
@@ -3659,15 +3640,16 @@
             showCoordinationDialog();
         } else {
             // Staging - direct submit
-            Swal.fire({
-                title: `Submit to ${mode}?`,
-                html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
-                       <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745',
-                confirmButtonText: `Submit to ${mode}`,
-            }).then((result) => {
+            PERTIDialog.confirm(
+                null, null, {},
+                {
+                    title: `Submit to ${mode}?`,
+                    html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
+                           <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
+                    confirmButtonColor: '#28a745',
+                    confirmButtonText: `Submit to ${mode}`,
+                },
+            ).then((result) => {
                 if (result.isConfirmed) {
                     performSubmit();
                 }
@@ -3698,15 +3680,15 @@
         // If no entries require coordination, skip the dialog and publish directly
         if (entriesRequiringCoord.length === 0) {
             console.log('[Coordination] No entries require coordination, publishing directly');
-            Swal.fire({
-                title: 'Publish to Production',
-                html: `<p>Post <strong>${state.queue.length}</strong> entry(ies) directly to Discord.</p>
-                       <p class="small text-muted">These entry types do not require facility coordination.</p>`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745',
-                confirmButtonText: 'Publish',
-            }).then((result) => {
+            PERTIDialog.confirm(
+                'tmiPublish.publish.publishNow', null, {},
+                {
+                    html: `<p>Post <strong>${state.queue.length}</strong> entry(ies) directly to Discord.</p>
+                           <p class="small text-muted">${typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.publish.noCoordRequired') : 'These entry types do not require facility coordination.'}</p>`,
+                    confirmButtonColor: '#28a745',
+                    confirmKey: 'tmiPublish.publish.publishBtn',
+                },
+            ).then((result) => {
                 if (result.isConfirmed) {
                     performSubmit();
                 }
@@ -3727,8 +3709,8 @@
         }
         message += `<p>How would you like to proceed?</p>`;
 
-        Swal.fire({
-            title: 'Submit for Coordination',
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.submit.title',
             html: message,
             icon: 'question',
             showCancelButton: true,
@@ -3737,8 +3719,8 @@
             denyButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
             confirmButtonText: 'Verify Each Entry',
-            denyButtonText: 'Quick Submit (Same Facilities)',
-            cancelButtonText: 'Cancel',
+            denyButtonText: typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.quickSubmit') : 'Quick Submit (Same Facilities)',
+            cancelKey: 'common.cancel',
             width: '500px',
         }).then((result) => {
             if (result.isConfirmed) {
@@ -4248,8 +4230,8 @@
         const totalDirect = entriesToPublishDirect.length;
         const results = { success: [], failed: [], discordFailed: [], directPublished: [] };
 
-        Swal.fire({
-            title: 'Submitting...',
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.submit.submitting',
             html: `<p>Processing <strong>0 / ${totalCoord}</strong> proposals</p>`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
@@ -4456,8 +4438,8 @@
         const totalDirect = entriesToPublishDirect.length;
         const results = { success: [], failed: [], discordFailed: [], directPublished: [] };
 
-        Swal.fire({
-            title: 'Submitting...',
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.submit.submitting',
             html: `<p>Processing <strong>0 / ${totalCoord + totalDirect}</strong> entries</p>`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
@@ -4557,7 +4539,7 @@
             }
         }
 
-        Swal.close();
+        PERTIDialog.close();
 
         // Clear queue and show results
         state.queue = [];
@@ -4582,18 +4564,14 @@
             if (directCount > 0) {
                 html += `<p><strong>${directCount}</strong> entry(ies) published directly.</p>`;
             }
-            Swal.fire({
-                icon: 'success',
-                title: 'Submission Complete',
+            PERTIDialog.success('tmiPublish.submit.complete', null, {}, {
                 html: html,
                 timer: 5000,
                 showConfirmButton: true,
             });
         } else if (successCount === 0 && discordFailedCount === 0 && directCount === 0) {
             // All failed
-            Swal.fire({
-                icon: 'error',
-                title: 'All Submissions Failed',
+            PERTIDialog.error('tmiPublish.submit.allFailed', null, {}, {
                 html: `<p>Failed to submit <strong>${failedCount}</strong> proposal(s).</p>
                        <p class="small text-danger">${results.failed[0]?.error || 'Unknown error'}</p>`,
             });
@@ -4615,9 +4593,9 @@
                 html += `<p class="text-danger"><strong>${failedCount}</strong> failed to submit</p>`;
             }
 
-            Swal.fire({
+            PERTIDialog.show({
                 icon: discordFailedCount > 0 || failedCount > 0 ? 'warning' : 'success',
-                title: 'Submission Results',
+                titleKey: 'tmiPublish.submit.results',
                 html: html,
             });
         }
@@ -4631,12 +4609,7 @@
         };
 
         // Show loading
-        Swal.fire({
-            title: 'Submitting...',
-            text: 'Posting entries to Discord',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.submit.submitting', 'Posting entries to Discord');
 
         $.ajax({
             url: 'api/mgt/tmi/publish.php',
@@ -4644,7 +4617,7 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
 
                 if (response.success) {
                     // Clear queue on success
@@ -4654,19 +4627,15 @@
 
                     showSubmitResults(response);
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Submit Failed',
+                    PERTIDialog.error('tmiPublish.submit.failed', null, {}, {
                         text: response.error || 'Unknown error occurred',
                     });
                 }
             },
             error: function(xhr, status, error) {
-                Swal.close();
+                PERTIDialog.close();
                 console.error('Submit error:', xhr.responseText);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Error',
+                PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
                     html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`,
                 });
             },
@@ -4685,9 +4654,9 @@
             html += '</ul>';
         }
 
-        Swal.fire({
+        PERTIDialog.show({
             icon: (response.summary?.failed || 0) === 0 ? 'success' : 'warning',
-            title: 'Submit Complete',
+            titleKey: 'tmiPublish.submitComplete',
             html: html,
         });
 
@@ -4826,26 +4795,23 @@
     }
 
     function viewTmiDetails(id, entityType) {
-        Swal.fire({
-            title: 'TMI Details',
-            text: `${entityType || 'Entry'} #${id} - Details view coming soon`,
-            icon: 'info',
-        });
+        PERTIDialog.info(
+            'tmiPublish.tmiDetails', null, {},
+            { text: `${entityType || 'Entry'} #${id} - Details view coming soon` },
+        );
     }
 
     function cancelTmi(id, entityType) {
-        Swal.fire({
-            title: 'Cancel TMI?',
-            text: `This will cancel ${(entityType || 'entry').toLowerCase()} #${id}`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Cancel TMI',
-        }).then((result) => {
+        PERTIDialog.confirm(
+            'tmiPublish.cancelTmi.title', null, {},
+            {
+                text: `This will cancel ${(entityType || 'entry').toLowerCase()} #${id}`,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Cancel TMI',
+            },
+        ).then((result) => {
             if (result.isConfirmed) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Coming Soon',
+                PERTIDialog.info('tmiPublish.comingSoon', null, {}, {
                     text: 'Cancel functionality will be implemented shortly',
                 });
             }
@@ -4911,15 +4877,15 @@
     }
 
     function promoteEntry(entityType, entityId, orgs) {
-        Swal.fire({
-            title: 'Promote to Production?',
-            html: `<p>Publish this ${(entityType || 'entry').toLowerCase()} to production channels?</p>
-                   <p class="text-danger">This will post to LIVE channels.</p>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#28a745',
-            confirmButtonText: 'Promote',
-        }).then((result) => {
+        PERTIDialog.confirm(
+            'tmiPublish.promote.title', null, {},
+            {
+                html: `<p>Publish this ${(entityType || 'entry').toLowerCase()} to production channels?</p>
+                       <p class="text-danger">This will post to LIVE channels.</p>`,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Promote',
+            },
+        ).then((result) => {
             if (result.isConfirmed) {
                 performPromotion(entityType, entityId, orgs);
             }
@@ -4940,28 +4906,19 @@
             }),
             success: function(response) {
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Promoted!',
+                    PERTIDialog.success('tmiPublish.promote.promoted', null, {}, {
                         text: 'Entry published to production channels.',
                         timer: 2000,
-                        showConfirmButton: false,
                     });
                     loadStagedEntries();
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Promotion Failed',
+                    PERTIDialog.error('tmiPublish.promote.failed', null, {}, {
                         text: response.results?.[0]?.error || response.error || 'Unknown error',
                     });
                 }
             },
             error: function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to connect to server',
-                });
+                PERTIDialog.error('common.error', 'error.connectionFailed');
             },
         });
     }
@@ -5416,12 +5373,7 @@
     function copyAdvisoryToClipboard() {
         const text = $('#adv_preview').text();
         navigator.clipboard.writeText(text).then(() => {
-            Swal.fire({
-                icon: 'success',
-                title: 'Copied!',
-                timer: 1000,
-                showConfirmButton: false,
-            });
+            PERTIDialog.success('common.copied', null, {}, { timer: 1000 });
         });
     }
 
@@ -5539,19 +5491,19 @@
 
         // If editable, name and cid are required
         if (nameEditable && !name) {
-            Swal.fire('Name Required', 'Please enter your name.', 'warning');
+            PERTIDialog.warning('validation.nameRequired', 'validation.enterName');
             return;
         }
         if (cidEditable && !cid) {
-            Swal.fire('CID Required', 'Please enter your VATSIM CID.', 'warning');
+            PERTIDialog.warning('validation.cidRequired', 'validation.enterCid');
             return;
         }
         if (!oi || oi.length < 2 || oi.length > 3) {
-            Swal.fire('Invalid OI', 'Operating initials must be 2-3 characters', 'warning');
+            PERTIDialog.warning('validation.invalidOI', 'validation.oiLength');
             return;
         }
         if (!facility) {
-            Swal.fire('Facility Required', 'Please select your home facility.', 'warning');
+            PERTIDialog.warning('validation.facilityRequired', 'validation.selectFacility');
             return;
         }
 
@@ -5589,13 +5541,7 @@
             $('#ntml_req_facility').val(facility);
         }
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Profile Saved',
-            text: 'Your settings have been saved.',
-            timer: 1500,
-            showConfirmButton: false,
-        });
+        PERTIDialog.success('tmiPublish.profile.saved', 'tmiPublish.profile.savedText');
     }
 
     function getUserFacility() {
@@ -5678,7 +5624,7 @@
         // Batch publish all approved proposals
         $('#batchPublishApproved').on('click', function() {
             if (!isUserLoggedIn()) {
-                Swal.fire('Login Required', 'You must be logged in to publish proposals.', 'warning');
+                PERTIDialog.warning('validation.loginRequired', 'validation.mustBeLoggedIn');
                 return;
             }
             handleBatchPublish();
@@ -5686,8 +5632,8 @@
     }
 
     function handleReopenProposal(proposalId) {
-        Swal.fire({
-            title: 'Reopen Proposal?',
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.reopen.title',
             html: `<p>Reopen Proposal #${proposalId} for coordination?</p>
                    <p class="small text-muted">This will reset all facility approvals and set status back to PENDING.</p>
                    <div class="form-group text-left mt-3">
@@ -5698,7 +5644,7 @@
             showCancelButton: true,
             confirmButtonColor: '#f0ad4e',
             confirmButtonText: '<i class="fas fa-undo mr-1"></i> Reopen',
-            cancelButtonText: 'Cancel',
+            cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 const reason = $('#reopen_reason').val();
@@ -5708,11 +5654,7 @@
     }
 
     function submitReopenProposal(proposalId, reason) {
-        Swal.fire({
-            title: 'Reopening...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.reopen.reopening');
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -5726,22 +5668,20 @@
                 reason: reason,
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Proposal Reopened',
+                    PERTIDialog.success('tmiPublish.reopen.reopened', null, {}, {
                         text: `Proposal #${proposalId} is now pending coordination.`,
                         timer: 2000,
                     });
                     loadProposals();
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to reopen', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
             },
         });
     }
@@ -5751,8 +5691,12 @@
     // =========================================
 
     function handlePublishProposal(proposalId, entryType, ctlElement) {
-        Swal.fire({
-            title: '<i class="fas fa-broadcast-tower text-success"></i> Publish to Discord?',
+        const publishTitle = typeof PERTII18n !== 'undefined'
+            ? PERTII18n.t('tmiPublish.publish.publishToDiscord')
+            : 'Publish to Discord?';
+
+        PERTIDialog.show({
+            title: `<i class="fas fa-broadcast-tower text-success"></i> ${publishTitle}`,
             html: `
                 <div class="text-left">
                     <p>Ready to publish <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> to production Discord channels?</p>
@@ -5766,7 +5710,7 @@
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
-            cancelButtonText: 'Cancel',
+            cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 submitPublishProposal(proposalId);
@@ -5775,12 +5719,7 @@
     }
 
     function submitPublishProposal(proposalId) {
-        Swal.fire({
-            title: 'Publishing...',
-            html: '<p>Creating TMI entry and posting to Discord...</p>',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.publish.publishing');
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -5793,12 +5732,10 @@
                 user_name: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
                     const activation = response.activation || {};
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Published!',
+                    PERTIDialog.success('tmiPublish.publish.published', null, {}, {
                         html: `
                             <p>TMI published successfully.</p>
                             ${activation.tmi_entry_id ? `<p class="small text-muted">Entry ID: #${activation.tmi_entry_id}</p>` : ''}
@@ -5808,12 +5745,12 @@
                     });
                     loadProposals(); // Refresh the list
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to publish', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.publish.publishFailed') });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
             },
         });
     }
@@ -5823,23 +5760,17 @@
     // =========================================
 
     function handlePublishNow(proposalId, entryType, ctlElement) {
-        Swal.fire({
-            title: 'Publish Now?',
-            html: `<p>Immediately publish this scheduled ${entryType} to Discord?</p>
-                   <p class="small text-muted">The proposal will be activated and posted to the advisories channel.</p>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#28a745',
-            confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
-            cancelButtonText: 'Cancel',
-        }).then((result) => {
+        PERTIDialog.confirm(
+            'tmiPublish.publish.publishNow', null, {},
+            {
+                html: `<p>Immediately publish this scheduled ${entryType} to Discord?</p>
+                       <p class="small text-muted">The proposal will be activated and posted to the advisories channel.</p>`,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
+            },
+        ).then((result) => {
             if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Publishing...',
-                    html: '<p>Posting to Discord...</p>',
-                    allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading(),
-                });
+                PERTIDialog.loading('tmiPublish.publish.publishing');
 
                 $.ajax({
                     url: 'api/mgt/tmi/coordinate.php',
@@ -5853,23 +5784,21 @@
                         user_name: CONFIG.userName || 'DCC',
                     }),
                     success: function(response) {
-                        Swal.close();
+                        PERTIDialog.close();
                         if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Published!',
+                            PERTIDialog.success('tmiPublish.publish.published', null, {}, {
                                 html: `<p>${entryType} published to Discord.</p>`,
                                 timer: 3000,
                                 showConfirmButton: true,
                             });
                             loadProposals(); // Refresh the list
                         } else {
-                            Swal.fire('Error', response.error || 'Failed to publish', 'error');
+                            PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.publish.publishFailed') });
                         }
                     },
                     error: function(xhr) {
-                        Swal.close();
-                        Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+                        PERTIDialog.close();
+                        PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
                     },
                 });
             }
@@ -5892,11 +5821,11 @@
         });
 
         if (approvedIds.length === 0) {
-            Swal.fire('No Approved Proposals', 'There are no approved proposals to publish.', 'info');
+            PERTIDialog.info('validation.noApprovedProposals', 'validation.noApprovedProposalsText');
             return;
         }
 
-        Swal.fire({
+        PERTIDialog.show({
             title: '<i class="fas fa-broadcast-tower text-success"></i> Batch Publish?',
             html: `
                 <div class="text-left">
@@ -5914,7 +5843,7 @@
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             confirmButtonText: `<i class="fas fa-broadcast-tower mr-1"></i> Publish All (${approvedIds.length})`,
-            cancelButtonText: 'Cancel',
+            cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
                 submitBatchPublish(approvedIds);
@@ -5923,8 +5852,8 @@
     }
 
     function submitBatchPublish(proposalIds) {
-        Swal.fire({
-            title: 'Publishing...',
+        PERTIDialog.show({
+            titleKey: 'tmiPublish.publish.publishing',
             html: `<p>Publishing ${proposalIds.length} proposal(s)...</p><p class="small text-muted" id="batchPublishProgress">Starting...</p>`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
@@ -5941,11 +5870,9 @@
                 user_name: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Batch Publish Complete!',
+                    PERTIDialog.success('tmiPublish.publish.batchComplete', null, {}, {
                         html: `
                             <p><strong>${response.published || 0}</strong> of <strong>${response.total || 0}</strong> proposals published.</p>
                             ${response.failed > 0 ? `<p class="text-warning small">${response.failed} failed</p>` : ''}
@@ -5958,9 +5885,12 @@
                     // Partial success
                     const successCount = response.published || 0;
                     const failCount = response.failed || 0;
-                    Swal.fire({
+                    const title = typeof PERTII18n !== 'undefined'
+                        ? (successCount > 0 ? PERTII18n.t('tmiPublish.publish.partialSuccess') : PERTII18n.t('tmiPublish.publish.batchFailed'))
+                        : (successCount > 0 ? 'Partial Success' : 'Batch Publish Failed');
+                    PERTIDialog.show({
                         icon: successCount > 0 ? 'warning' : 'error',
-                        title: successCount > 0 ? 'Partial Success' : 'Batch Publish Failed',
+                        title: title,
                         html: `
                             <p><strong>${successCount}</strong> published, <strong>${failCount}</strong> failed</p>
                             ${Object.entries(response.results || {}).map(([id, r]) =>
@@ -5974,14 +5904,14 @@
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', xhr.responseJSON?.error || 'Batch publish request failed', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.submitFailed', { resource: 'batch publish' }) });
             },
         });
     }
 
     function handleCancelProposal(proposalId, entryType, ctlElement) {
-        Swal.fire({
+        PERTIDialog.show({
             title: '<i class="fas fa-trash text-danger"></i> Cancel Proposal?',
             html: `
                 <div class="text-left">
@@ -6010,11 +5940,7 @@
     }
 
     function submitCancelProposal(proposalId, reason) {
-        Swal.fire({
-            title: 'Cancelling...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.cancelTmi.cancelling');
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -6028,22 +5954,20 @@
                 reason: reason,
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Proposal Cancelled',
+                    PERTIDialog.success('dialog.success.deleted', null, {}, {
                         text: `Proposal #${proposalId} has been cancelled.`,
                         timer: 2000,
                     });
                     loadProposals();
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to cancel', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.cancelTmi.failed') });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', xhr.responseJSON?.error || 'Request failed', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
             },
         });
     }
@@ -6054,27 +5978,23 @@
 
     function handleEditProposal(proposalId) {
         // First, fetch the full proposal data
-        Swal.fire({
-            title: 'Loading...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('dialog.loading');
 
         $.ajax({
             url: `api/mgt/tmi/coordinate.php?proposal_id=${proposalId}`,
             method: 'GET',
             dataType: 'json',
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success && response.proposal) {
                     showEditProposalDialog(response.proposal, response.facilities || []);
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to load proposal', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.loadFailed', { resource: 'proposal' }) });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', 'Failed to load proposal data', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', 'error.loadFailed', { resource: 'proposal data' });
             },
         });
     }
@@ -6230,12 +6150,7 @@
     }
 
     function submitProposalEdit(proposalId, updates) {
-        Swal.fire({
-            title: 'Saving...',
-            html: 'Updating proposal and restarting coordination',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.saving', 'Updating proposal and restarting coordination');
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -6249,23 +6164,26 @@
                 user_name: CONFIG.userName || 'Unknown',
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Proposal Updated',
-                        html: `<p>Proposal #${proposalId} has been updated.</p>
-                               <p class="small text-muted">All facility approvals have been cleared and coordination has restarted.</p>`,
+                    const updatedText = typeof PERTII18n !== 'undefined'
+                        ? PERTII18n.t('tmiPublish.proposal.updatedText', { id: proposalId })
+                        : `Proposal #${proposalId} has been updated.`;
+                    const approvalsCleared = typeof PERTII18n !== 'undefined'
+                        ? PERTII18n.t('tmiPublish.proposal.approvalsCleared')
+                        : 'All facility approvals have been cleared and coordination has restarted.';
+                    PERTIDialog.success('tmiPublish.proposal.updated', null, {}, {
+                        html: `<p>${updatedText}</p><p class="small text-muted">${approvalsCleared}</p>`,
                         timer: 3000,
                     });
                     loadProposals();
                 } else {
-                    Swal.fire('Error', response.error || 'Failed to update proposal', 'error');
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
                 }
             },
             error: function(xhr) {
-                Swal.close();
-                Swal.fire('Error', xhr.responseJSON?.error || 'Failed to update proposal', 'error');
+                PERTIDialog.close();
+                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
             },
         });
     }
@@ -6614,11 +6532,7 @@
     }
 
     function extendDeadline(proposalId, newDeadline) {
-        Swal.fire({
-            title: 'Extending...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-        });
+        PERTIDialog.loading('tmiPublish.deadline.extending');
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -6631,28 +6545,22 @@
                 user_name: CONFIG.userName || 'Unknown',
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Deadline Extended',
+                    PERTIDialog.success('tmiPublish.deadline.extended', null, {}, {
                         text: `New deadline: ${formatDateTime(response.new_deadline)}`,
                         timer: 3000,
                     });
                     loadProposals(); // Refresh the list
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Extension Failed',
+                    PERTIDialog.error('tmiPublish.deadline.extendFailed', null, {}, {
                         text: response.error || 'Unknown error',
                     });
                 }
             },
             error: function(xhr, status, error) {
-                Swal.close();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Error',
+                PERTIDialog.close();
+                PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
                     text: error || 'Failed to extend deadline',
                 });
             },
@@ -6679,7 +6587,7 @@
     }
 
     function submitProposalAction(proposalId, action) {
-        Swal.fire({
+        PERTIDialog.show({
             title: `${action === 'APPROVE' ? 'Approving' : 'Denying'}...`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
@@ -6697,27 +6605,20 @@
                 discord_username: CONFIG.userName || 'DCC',
             }),
             success: function(response) {
-                Swal.close();
+                PERTIDialog.close();
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: `Proposal ${action === 'APPROVE' ? 'Approved' : 'Denied'}`,
-                        timer: 2000,
-                    });
+                    const successKey = action === 'APPROVE' ? 'tmiPublish.proposal.approved' : 'tmiPublish.proposal.denied';
+                    PERTIDialog.success(successKey, null, {}, { timer: 2000 });
                     loadProposals();
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Action Failed',
+                    PERTIDialog.error('tmiPublish.proposal.actionFailed', null, {}, {
                         text: response.error || 'Unknown error',
                     });
                 }
             },
             error: function(xhr, status, error) {
-                Swal.close();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Error',
+                PERTIDialog.close();
+                PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
                     text: error || 'Failed to process action',
                 });
             },
@@ -7097,10 +6998,7 @@
             });
 
             if ($selectedRows.length === 0) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'No Routes Selected',
-                    text: 'Please select one or more routes to make mandatory.',
+                PERTIDialog.info('reroute.noRoutesSelected', 'reroute.selectRoutesMandatory', {}, {
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -7118,10 +7016,11 @@
             $('.rr-route-select').prop('checked', false);
             $('#rr_select_all_routes').prop('checked', false);
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Routes Made Mandatory',
-                text: `Applied mandatory markers to ${$selectedRows.length} route(s).`,
+            const successText = typeof PERTII18n !== 'undefined'
+                ? PERTII18n.t('reroute.appliedMandatory', { count: $selectedRows.length })
+                : `Applied mandatory markers to ${$selectedRows.length} route(s).`;
+            PERTIDialog.success('reroute.routesMadeMandatory', null, {}, {
+                text: successText,
                 timer: 2000,
                 showConfirmButton: false,
             });
@@ -7178,10 +7077,7 @@
         groupRoutes: function() {
             const routes = this.collectRoutes();
             if (routes.length < 2) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Nothing to Group',
-                    text: 'Need at least 2 routes to group.',
+                PERTIDialog.info('reroute.nothingToGroup', 'reroute.needTwoRoutes', {}, {
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -7228,10 +7124,7 @@
             })).filter(r => r.route); // Remove empty routes
 
             if (grouped.length === routes.length) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'No Grouping Possible',
-                    text: 'All routes have unique route strings.',
+                PERTIDialog.info('reroute.noGroupingPossible', 'reroute.allRoutesUnique', {}, {
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -7241,10 +7134,11 @@
             // Update the table
             this.populateRoutesTable(grouped);
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Routes Grouped',
-                text: `Consolidated ${routes.length} routes into ${grouped.length} groups.`,
+            const groupedText = typeof PERTII18n !== 'undefined'
+                ? PERTII18n.t('reroute.consolidated', { from: routes.length, to: grouped.length })
+                : `Consolidated ${routes.length} routes into ${grouped.length} groups.`;
+            PERTIDialog.success('reroute.routesGrouped', null, {}, {
+                text: groupedText,
                 timer: 2000,
                 showConfirmButton: false,
             });
@@ -7261,10 +7155,7 @@
         autoDetectFilters: async function() {
             const routes = this.collectRoutes();
             if (routes.length < 2) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Not Enough Routes',
-                    text: 'Need at least 2 routes to detect filters.',
+                PERTIDialog.info('reroute.notEnoughRoutes', 'reroute.needTwoRoutesFilters', {}, {
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -7276,10 +7167,7 @@
                 if (typeof FacilityHierarchy !== 'undefined') {
                     await FacilityHierarchy.load();
                 } else {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Cannot Auto-Detect',
-                        text: 'Facility hierarchy data not available.',
+                    PERTIDialog.warning('reroute.cannotAutoDetect', 'reroute.hierarchyNotAvailable', {}, {
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -8788,12 +8676,12 @@
             const facilities = this.getSelectedFacilities();
 
             if (!routes.length) {
-                Swal.fire('Error', 'At least one route is required.', 'error');
+                PERTIDialog.error('common.error', 'validation.routeRequired');
                 return;
             }
 
             if (!facilities.length) {
-                Swal.fire('Error', 'Select at least one facility for coordination.', 'error');
+                PERTIDialog.error('common.error', 'validation.facilityCoordRequired');
                 return;
             }
 

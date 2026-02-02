@@ -12,6 +12,11 @@
  *   - Actual: EDCT has been issued
  *   - Simulated: Model run but not issued
  *   - Proposed: Created but not modeled
+ *
+ * i18n Support:
+ *   - PHASE_LABEL_KEYS maps phases to i18n keys
+ *   - getPhaseLabel() uses PERTII18n.t() when available
+ *   - Fallback to hardcoded PHASE_LABELS if i18n not loaded
  */
 
 // Flight phase colors for visualization
@@ -47,7 +52,7 @@ const PHASE_COLORS = {
     'unknown': '#9333ea',            // Purple - Unknown/other phase (changed from yellow)
 };
 
-// Phase display names for legend/tooltips
+// Phase display names for legend/tooltips (fallback if i18n not loaded)
 const PHASE_LABELS = {
     'arrived': 'Arrived',
     'disconnected': 'Disconnected',
@@ -67,6 +72,28 @@ const PHASE_LABELS = {
     'exempt': 'Exempt',
     'uncontrolled': 'Uncontrolled',
     'unknown': 'Unknown',
+};
+
+// i18n keys for phase labels (used when PERTII18n is available)
+const PHASE_LABEL_KEYS = {
+    'arrived': 'phase.arrived',
+    'disconnected': 'phase.disconnected',
+    'descending': 'phase.descending',
+    'enroute': 'phase.enroute',
+    'departed': 'phase.departed',
+    'taxiing': 'phase.taxiing',
+    'prefile': 'phase.prefile',
+    'actual_gs': 'tmi.actualGs',
+    'simulated_gs': 'tmi.simulatedGs',
+    'proposed_gs': 'tmi.proposedGs',
+    'gs': 'tmi.gs',
+    'actual_gdp': 'tmi.actualGdp',
+    'simulated_gdp': 'tmi.simulatedGdp',
+    'proposed_gdp': 'tmi.proposedGdp',
+    'gdp': 'tmi.gdpShort',
+    'exempt': 'tmi.exempt',
+    'uncontrolled': 'tmi.uncontrolled',
+    'unknown': 'common.unknown',
 };
 
 // Phase descriptions for tooltips/legends
@@ -182,10 +209,31 @@ function getPhaseColor(phase) {
     return PHASE_COLORS['unknown'] || '#9333ea';
 }
 
-// Helper function to get phase label
+// Helper function to get phase label (with i18n support)
 function getPhaseLabel(phase) {
-    if (!phase) {return 'Unknown';}
+    if (!phase) {
+        // Use i18n if available, otherwise fallback
+        if (typeof PERTII18n !== 'undefined') {
+            return PERTII18n.t('common.unknown');
+        }
+        return 'Unknown';
+    }
     const normalized = String(phase).toLowerCase().trim();
+
+    // Try i18n first if available
+    if (typeof PERTII18n !== 'undefined') {
+        const i18nKey = PHASE_LABEL_KEYS[normalized];
+        if (i18nKey) {
+            return PERTII18n.t(i18nKey);
+        }
+        // Check TMI status map
+        const tmiPhase = normalizeTmiStatus(phase);
+        if (tmiPhase && PHASE_LABEL_KEYS[tmiPhase]) {
+            return PERTII18n.t(PHASE_LABEL_KEYS[tmiPhase]);
+        }
+    }
+
+    // Fallback to hardcoded labels
     if (PHASE_LABELS[normalized]) {return PHASE_LABELS[normalized];}
     const tmiPhase = normalizeTmiStatus(phase);
     if (tmiPhase && PHASE_LABELS[tmiPhase]) {return PHASE_LABELS[tmiPhase];}
@@ -217,6 +265,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PHASE_COLORS,
         PHASE_LABELS,
+        PHASE_LABEL_KEYS,
         PHASE_DESCRIPTIONS,
         PHASE_ORDER,
         PHASE_STACK_ORDER,

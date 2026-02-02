@@ -1,8 +1,10 @@
 <?php
 /**
- * Division Events Sync Daemon
+ * PERTI Events Sync Daemon
  *
- * Long-running daemon that syncs events from VATUSA, VATCAN, and VATSIM APIs.
+ * Long-running daemon that syncs events from VATUSA, VATCAN, and VATSIM APIs
+ * into the perti_events table for TMI compliance analysis and position logging.
+ *
  * Runs every 6 hours by default.
  *
  * Usage:
@@ -13,17 +15,20 @@
  *   --interval=N    Seconds between sync cycles (default: 21600 = 6 hours)
  *   --once          Run once and exit (for testing)
  *
+ * Target Table: dbo.perti_events (VATSIM_ADL)
+ *
  * @package PERTI\Scripts
- * @version 1.0.0
- * @since 2026-01-31
+ * @version 2.0.0
+ * @since 2026-02-02 (migrated from division_events to perti_events)
  */
 
 // Parse command line arguments
 $options = getopt('', ['loop', 'interval::', 'once', 'help']);
 
 if (isset($options['help'])) {
-    echo "Division Events Sync Daemon\n";
-    echo "===========================\n";
+    echo "PERTI Events Sync Daemon\n";
+    echo "========================\n";
+    echo "Syncs VATUSA, VATCAN, and VATSIM events to perti_events table.\n\n";
     echo "Usage: php event_sync_daemon.php --loop [--interval=21600]\n\n";
     echo "Options:\n";
     echo "  --loop          Run continuously as daemon\n";
@@ -43,8 +48,8 @@ if (!$loopMode && !$onceMode) {
     exit(1);
 }
 
-// Include the sync functions
-require_once __DIR__ . '/sync_division_events.php';
+// Include the sync functions (uses perti_events table)
+require_once __DIR__ . '/sync_perti_events.php';
 
 /**
  * Log message with timestamp
@@ -60,10 +65,10 @@ function daemon_log(string $message): void
  */
 function runSyncCycle(): array
 {
-    daemon_log("Starting event sync cycle...");
+    daemon_log("Starting perti_events sync cycle...");
     $startTime = microtime(true);
 
-    $results = sync_division_events('ALL');
+    $results = sync_perti_events('ALL');
 
     $elapsed = round(microtime(true) - $startTime, 2);
 
@@ -86,7 +91,8 @@ function runSyncCycle(): array
 }
 
 // Main execution
-daemon_log("=== Division Events Sync Daemon ===");
+daemon_log("=== PERTI Events Sync Daemon ===");
+daemon_log("Target: dbo.perti_events (VATSIM_ADL)");
 daemon_log("Mode: " . ($loopMode ? "daemon (interval: {$interval}s)" : "single run"));
 
 if ($onceMode) {

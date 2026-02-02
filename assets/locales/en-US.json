@@ -1,0 +1,449 @@
+{
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "yesDelete": "Yes, delete it",
+    "yesCancel": "Yes, cancel it",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info",
+    "submit": "Submit",
+    "apply": "Apply",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "select": "Select",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "add": "Add",
+    "remove": "Remove",
+    "edit": "Edit",
+    "update": "Update",
+    "view": "View",
+    "details": "Details",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "none": "None",
+    "all": "All",
+    "other": "Other",
+    "unknown": "Unknown"
+  },
+
+  "status": {
+    "active": "Active",
+    "pending": "Pending",
+    "cancelled": "Cancelled",
+    "expired": "Expired",
+    "draft": "Draft",
+    "proposed": "Proposed",
+    "simulated": "Simulated",
+    "actual": "Actual",
+    "published": "Published",
+    "coordinating": "Coordinating",
+    "complete": "Complete",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+
+  "phase": {
+    "arrived": "Arrived",
+    "departed": "Departed",
+    "enroute": "Enroute",
+    "taxiing": "Taxiing",
+    "prefile": "Prefile",
+    "descending": "Descending",
+    "disconnected": "Disconnected",
+    "unknown": "Unknown"
+  },
+
+  "phaseDesc": {
+    "arrived": "landed",
+    "departed": "climbing",
+    "enroute": "cruising",
+    "taxiing": "at origin",
+    "prefile": "filed",
+    "descending": "approach",
+    "disconnected": "disconnected"
+  },
+
+  "tmi": {
+    "gdp": "Ground Delay Program",
+    "gdpShort": "GDP",
+    "gs": "Ground Stop",
+    "gsShort": "GS",
+    "edct": "EDCT",
+    "reroute": "Reroute",
+    "mit": "Miles-In-Trail",
+    "minit": "Minutes-In-Trail",
+    "afp": "Airspace Flow Program",
+    "ctop": "CTOP",
+    "exempt": "Exempt",
+    "uncontrolled": "Uncontrolled",
+    "actualGdp": "GDP (EDCT)",
+    "simulatedGdp": "GDP (Simulated)",
+    "proposedGdp": "GDP (Proposed)",
+    "actualGs": "GS (EDCT)",
+    "simulatedGs": "GS (Simulated)",
+    "proposedGs": "GS (Proposed)"
+  },
+
+  "weightClass": {
+    "J": "Super",
+    "H": "Heavy",
+    "L": "Large",
+    "S": "Small",
+    "unknown": "Unknown"
+  },
+
+  "flightRule": {
+    "I": "IFR",
+    "V": "VFR"
+  },
+
+  "dccRegion": {
+    "west": "West",
+    "southCentral": "South Central",
+    "midwest": "Midwest",
+    "southeast": "Southeast",
+    "northeast": "Northeast",
+    "canadaEast": "Canada East",
+    "canadaWest": "Canada West"
+  },
+
+  "sua": {
+    "moa": "MOA",
+    "restricted": "Restricted",
+    "prohibited": "Prohibited",
+    "warning": "Warning",
+    "alert": "Alert",
+    "tfr": "TFR",
+    "atcaa": "ATCAA",
+    "sua": "SUA"
+  },
+
+  "dialog": {
+    "loading": "Loading...",
+    "submitting": "Submitting...",
+    "publishing": "Publishing...",
+    "saving": "Saving...",
+    "processing": "Processing...",
+
+    "confirmDelete": {
+      "title": "Delete?",
+      "text": "Are you sure you want to delete this? This action cannot be undone."
+    },
+    "confirmCancel": {
+      "title": "Cancel?",
+      "text": "Are you sure you want to cancel?"
+    },
+    "confirmClear": {
+      "title": "Clear?",
+      "text": "Are you sure you want to clear all items?"
+    },
+
+    "success": {
+      "saved": "Saved!",
+      "deleted": "Deleted!",
+      "updated": "Updated!",
+      "copied": "Copied!",
+      "published": "Published!",
+      "submitted": "Submitted!"
+    },
+
+    "error": {
+      "generic": "An error occurred",
+      "network": "Network error",
+      "validation": "Validation error",
+      "unauthorized": "Unauthorized",
+      "notFound": "Not found"
+    }
+  },
+
+  "tmiPublish": {
+    "enableProdMode": {
+      "title": "Enable Production Mode?",
+      "text": "Entries will post directly to LIVE Discord channels!",
+      "html": "<p class=\"text-danger\"><strong>Warning:</strong> Entries will post directly to LIVE Discord channels!</p>",
+      "confirm": "Enable Production"
+    },
+    "importPlan": {
+      "title": "Import PERTI Plan",
+      "selectPlanLabel": "Select Plan",
+      "selectPlanHint": "Select a PERTI Plan to import TMI data into the Operations Plan advisory.",
+      "noPlansLoaded": "-- No plans loaded --",
+      "selectPlan": "-- Select a plan --",
+      "multiplePlans": "Multiple Plans Found",
+      "planImported": "Plan Imported",
+      "planImportedText": "PERTI Plan data has been imported into the Ops Plan.",
+      "noPlanFound": "No Plan Found",
+      "noPlanFoundText": "No PERTI Plan was found for the specified criteria.",
+      "importFailed": "Import Failed",
+      "importFailedText": "Failed to fetch PERTI Plan data.",
+      "pleaseSelectPlan": "Please select a plan"
+    },
+    "hotline": {
+      "selectToAction": "Select Hotline to {action}",
+      "selectHint": "Select the active hotline advisory you want to {action}:",
+      "selectPlaceholder": "-- Select a hotline --",
+      "pleaseSelect": "Please select a hotline",
+      "noActiveText": "There are no active hotline advisories to {action}.",
+      "autoFilledText": "Form populated from the selected hotline. Adjust as needed and {instruction}."
+    },
+    "queue": {
+      "addedToQueue": "Added to Queue",
+      "clearQueue": "Clear Queue?",
+      "clearQueueText": "Remove all entries from the queue?"
+    },
+    "publish": {
+      "title": "Publish Entry",
+      "publishing": "Publishing...",
+      "published": "Published!",
+      "publishFailed": "Publish Failed",
+      "publishToDiscord": "Publish to Discord?",
+      "publishNow": "Publish Now?",
+      "publishBtn": "Publish",
+      "noCoordRequired": "This entry type does not require coordination and will be published directly.",
+      "publishedToDiscord": "Entry published to Discord successfully.",
+      "batchComplete": "Batch Publish Complete!",
+      "partialSuccess": "Partial Success",
+      "batchFailed": "Batch Publish Failed"
+    },
+    "submit": {
+      "title": "Submit for Coordination",
+      "submitting": "Submitting...",
+      "complete": "Submission Complete",
+      "allFailed": "All Submissions Failed",
+      "results": "Submission Results",
+      "failed": "Submit Failed",
+      "connectionError": "Connection Error"
+    },
+    "profile": {
+      "required": "Profile Required",
+      "requiredHtml": "<p>You must set up your profile before publishing TMIs.</p><p class=\"small text-muted\">Click the User Profile card to set your name, CID, operating initials, and home facility.</p>",
+      "setup": "Set Up Profile",
+      "saved": "Profile Saved",
+      "savedText": "Your settings have been saved."
+    },
+    "promote": {
+      "title": "Promote to Production?",
+      "promoted": "Promoted!",
+      "failed": "Promotion Failed"
+    },
+    "reopen": {
+      "title": "Reopen Proposal?",
+      "reopening": "Reopening...",
+      "reopened": "Proposal Reopened"
+    },
+    "cancelTmi": {
+      "title": "Cancel TMI?",
+      "cancelling": "Cancelling...",
+      "failed": "Failed to cancel"
+    },
+    "duplicateConfig": {
+      "title": "Duplicate CONFIG",
+      "existingText": "An active CONFIG already exists for {airport}:",
+      "whatToDo": "What would you like to do?",
+      "updateExisting": "Update Existing",
+      "createNewAnyway": "Create New Anyway"
+    },
+    "fieldsAutoFilled": "Fields Auto-Filled",
+    "noActiveHotlines": "No Active Hotlines",
+    "tmiDetails": "TMI Details",
+    "comingSoon": "Coming Soon",
+    "quickSubmit": "Quick Submit - Same Facilities",
+    "deadline": {
+      "extend": "Extend Deadline",
+      "extending": "Extending...",
+      "extended": "Deadline Extended",
+      "extendFailed": "Extension Failed"
+    },
+    "proposal": {
+      "cancelled": "Proposal Cancelled",
+      "approved": "Proposal Approved",
+      "denied": "Proposal Denied",
+      "actionFailed": "Action Failed",
+      "updated": "Proposal Updated",
+      "updatedText": "Proposal #{id} has been updated.",
+      "approvalsCleared": "All facility approvals have been cleared and coordination has restarted.",
+      "approveConfirm": "Approve Proposal?",
+      "denyConfirm": "Deny Proposal?",
+      "actionDesc": "Are you sure you want to {action} Proposal #{id}?",
+      "dccOverride": "This is a DCC override action."
+    },
+    "submitComplete": "Submit Complete",
+    "coordinating": "Coordinating...",
+    "saving": "Saving...",
+    "coordDeadline": "Coordination Deadline",
+    "deadlineHint": "Set deadline for facility approvals:",
+    "submittedForCoord": "Submitted for Coordination",
+    "autoApproved": "Auto-approved (internal TMI)",
+    "awaitingApprovals": "Awaiting facility approvals on Discord.",
+    "viewInCoordTab": "View in Coordination Tab"
+  },
+
+  "reroute": {
+    "noRoutesSelected": "No Routes Selected",
+    "selectRoutesMandatory": "Please select one or more routes to make mandatory.",
+    "routesMadeMandatory": "Routes Made Mandatory",
+    "appliedMandatory": "Applied mandatory markers to {count} route(s).",
+    "nothingToGroup": "Nothing to Group",
+    "needTwoRoutes": "Need at least 2 routes to group.",
+    "noGroupingPossible": "No Grouping Possible",
+    "allRoutesUnique": "All routes have unique route strings.",
+    "routesGrouped": "Routes Grouped",
+    "consolidated": "Consolidated {from} routes into {to} groups.",
+    "notEnoughRoutes": "Not Enough Routes",
+    "needTwoRoutesFilters": "Need at least 2 routes to detect filters.",
+    "cannotAutoDetect": "Cannot Auto-Detect",
+    "hierarchyNotAvailable": "Facility hierarchy data not available.",
+    "filtersDetected": "Filters Detected",
+    "appliedFilters": "Applied {count} automatic filter(s) to overlapping routes.",
+    "noFiltersNeeded": "No Filters Needed",
+    "noOverlapping": "No overlapping ARTCC/airport routes detected.",
+    "needMoreRoutes": "Need More Routes",
+    "needTwoRoutesSegments": "Need at least 2 routes to detect common segments.",
+    "pivotsDetected": "{count} Pivot Waypoint(s) Detected",
+    "foundPivots": "Found {count} pivot waypoint(s) across {routes} routes.",
+    "routesNoMatch": "{count} routes don't match any pivot.",
+    "useSplitFormat": "Use Split Format",
+    "noPivotsFound": "No Pivot Waypoints Found",
+    "noPivotsText": "No waypoint found in at least 3 routes (or 30% of {count} routes).",
+    "routesGroupedFallback": "Routes will be displayed grouped by origin and destination.",
+    "draftSaved": "Draft Saved",
+    "draftLoaded": "Draft Loaded",
+    "deleteDraft": "Delete Draft?",
+    "cannotUndo": "This cannot be undone.",
+    "noPreview": "No Preview",
+    "generatePreviewFirst": "Generate a preview first before copying.",
+    "copyFailed": "Copy Failed",
+    "copyFailedText": "Could not copy to clipboard. Please select and copy manually.",
+    "resetForm": "Reset Form?",
+    "clearAllFields": "This will clear all fields."
+  },
+
+  "gdt": {
+    "advisoryPreview": {
+      "notFound": "Advisory preview not found.",
+      "empty": "Advisory preview is empty."
+    },
+    "copy": {
+      "failed": "Failed to copy advisory. Please select and copy manually."
+    },
+    "edct": {
+      "check": "EDCT Check for {callsign}",
+      "update": "EDCT Update for {callsign}",
+      "ctd": "CTD",
+      "eta": "ETA",
+      "cta": "CTA",
+      "delay": "Delay"
+    },
+    "flight": {
+      "detail": "Flight Detail",
+      "orig": "Orig",
+      "dest": "Dest"
+    }
+  },
+
+  "plan": {
+    "loadFailed": "Failed to load plan data",
+    "saveFailed": "Failed to save plan",
+    "saveSuccess": "Plan saved successfully"
+  },
+
+  "sua": {
+    "cancelActivation": {
+      "title": "Cancel Activation?",
+      "confirm": "Yes, cancel it"
+    },
+    "loadFailed": "Failed to load SUA data"
+  },
+
+  "error": {
+    "loadFailed": "Failed to load {resource}",
+    "saveFailed": "Failed to save {resource}",
+    "deleteFailed": "Failed to delete {resource}",
+    "updateFailed": "Failed to update {resource}",
+    "fetchFailed": "Failed to fetch {resource}",
+    "submitFailed": "Failed to submit {resource}",
+    "networkError": "Network error: {message}",
+    "serverError": "Server error: {message}",
+    "connectionFailed": "Failed to connect to server",
+    "invalidInput": "Invalid input",
+    "requiredField": "This field is required",
+    "invalidFormat": "Invalid format",
+    "notFound": "{resource} not found",
+    "unauthorized": "You are not authorized to perform this action",
+    "timeout": "Request timed out"
+  },
+
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidNumber": "Invalid number",
+    "minLength": "Minimum {min} characters required",
+    "maxLength": "Maximum {max} characters allowed",
+    "minValue": "Value must be at least {min}",
+    "maxValue": "Value must be at most {max}",
+    "missingField": "Missing Field",
+    "enterAirportOrFix": "Please enter an airport or fix",
+    "missingFacilities": "Missing Facilities",
+    "enterFacilities": "Please enter requesting and providing facilities",
+    "nameRequired": "Name Required",
+    "enterName": "Please enter your name.",
+    "cidRequired": "CID Required",
+    "enterCid": "Please enter your VATSIM CID.",
+    "invalidOI": "Invalid OI",
+    "oiLength": "Operating initials must be 2-3 characters",
+    "facilityRequired": "Facility Required",
+    "selectFacility": "Please select your home facility.",
+    "loginRequired": "Login Required",
+    "mustBeLoggedIn": "You must be logged in to publish proposals.",
+    "noApprovedProposals": "No Approved Proposals",
+    "noApprovedProposalsText": "There are no approved proposals to publish.",
+    "routeRequired": "At least one route is required.",
+    "facilityCoordRequired": "Select at least one facility for coordination."
+  },
+
+  "units": {
+    "nm": "NM",
+    "ft": "ft",
+    "fl": "FL",
+    "kts": "kts",
+    "min": "min",
+    "hr": "hr"
+  },
+
+  "time": {
+    "now": "Now",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "minutes": "{count} minutes",
+    "hours": "{count} hours",
+    "ago": "{time} ago",
+    "remaining": "{time} remaining"
+  },
+
+  "flight": {
+    "one": "{count} flight",
+    "other": "{count} flights"
+  },
+
+  "aircraft": {
+    "one": "{count} aircraft",
+    "other": "{count} aircraft"
+  }
+}
