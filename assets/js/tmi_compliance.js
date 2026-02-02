@@ -2388,7 +2388,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     renderMapSection: function(r, mapId) {
         const requestor = (r.requestor || '').replace(/'/g, "\\'");
         const provider = (r.provider || '').replace(/'/g, "\\'");
-        const fix = (r.fix || '').replace(/'/g, "\\'");
+        // Use airway field if available, then measurement_point, then fix
+        // Airway is explicitly set when fix is an airway identifier (Y290, J48, etc.)
+        const fix = (r.airway || r.measurement_point || r.fix || '').replace(/'/g, "\\'");
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
@@ -2461,6 +2463,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="tmi-map-layer-controls" id="${mapId}_controls" style="display: none;">
                         <span class="layer-label">Layers:</span>
                         <button class="layer-btn active" data-layer="artcc" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCC</button>
+                        <button class="layer-btn" data-layer="all-artccs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCCs</button>
                         <button class="layer-btn active" data-layer="tracon" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">TRACON</button>
                         <button class="layer-btn" data-layer="sectors-low" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Low</button>
                         <button class="layer-btn active" data-layer="sectors-high" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">High</button>
@@ -2544,6 +2547,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Load map data from API and render
      */
     loadMapData: function(mapId, requestor, provider, fix, destinations, origins) {
+        console.log(`loadMapData: fix="${fix}", isAirway=${this.isAirway(fix)}`);
         const cacheKey = `${requestor}_${provider}_${fix}`;
 
         // Check cache first
@@ -3572,6 +3576,34 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             // Apply smoothing twice for extra smoothness
                             const smoothedPoints = smoothCenterline(smoothCenterline(centerlinePoints));
 
+                            // ───────────────────────────────────────────────────────────
+                            // MONOTONIC CONVERGENCE: Ensure cone narrows toward fix
+                            // Process from farthest to nearest, cap width at previous
+                            // ───────────────────────────────────────────────────────────
+                            const enforceMonotonic = (points) => {
+                                if (points.length < 2) return points;
+
+                                // Sort by distance descending (farthest first)
+                                const sorted = [...points].sort((a, b) => b.dist - a.dist);
+
+                                // Walk from farthest to nearest, cap widths
+                                let maxWidth75 = sorted[0].width75;
+                                let maxWidth90 = sorted[0].width90;
+
+                                sorted.forEach(cp => {
+                                    // Width can never exceed the width at farther distances
+                                    cp.width75 = Math.min(cp.width75, maxWidth75);
+                                    cp.width90 = Math.min(cp.width90, maxWidth90);
+                                    maxWidth75 = cp.width75;
+                                    maxWidth90 = cp.width90;
+                                });
+
+                                // Return sorted by distance ascending (for polygon building)
+                                return sorted.sort((a, b) => a.dist - b.dist);
+                            };
+
+                            const convergentPoints = enforceMonotonic(smoothedPoints);
+
                             // Build buffer polygon for this stream using smoothed points
                             const buildBufferPolygon = (points, widthKey) => {
                                 const leftEdge = [];
@@ -3597,11 +3629,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                             allStreamCones.push({
                                 streamIdx,
-                                polygon_75: buildBufferPolygon(smoothedPoints, 'width75'),
-                                polygon_90: buildBufferPolygon(smoothedPoints, 'width90'),
+                                polygon_75: buildBufferPolygon(convergentPoints, 'width75'),
+                                polygon_90: buildBufferPolygon(convergentPoints, 'width90'),
                                 bearing: stream.bearing,
                                 trackCount: stream.trackCount,
-                                centerlinePoints: smoothedPoints
+                                centerlinePoints: convergentPoints
                             });
                         }
                     });
@@ -4296,7 +4328,85 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
             'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs', 'spacing-arc-labels'],
             'flow-streams': ['flow-streams-fill', 'flow-streams-outline', 'flow-stream-labels', 'flow-merge-zones-fill', 'flow-merge-zones-outline'],
+            'all-artccs': ['all-artccs-fill', 'all-artccs-outline', 'all-artccs-labels'],
         };
+
+        // Handle all-artccs layer: load from GeoJSON if not already loaded
+        if (layer === 'all-artccs') {
+            if (isActive && !map.getSource('all-artccs')) {
+                // Load artcc.json and add to map
+                fetch('assets/geojson/artcc.json')
+                    .then(r => r.json())
+                    .then(data => {
+                        // Filter to US ARTCCs (codes starting with Z)
+                        const usArtccs = {
+                            type: 'FeatureCollection',
+                            features: data.features.filter(f =>
+                                f.properties?.ICAOCODE?.match(/^Z[A-Z]{2}$/) ||
+                                f.properties?.FIRname?.match(/^Z[A-Z]{2}$/)
+                            )
+                        };
+
+                        if (!map.getSource('all-artccs')) {
+                            map.addSource('all-artccs', { type: 'geojson', data: usArtccs });
+
+                            // Add fill layer (very subtle)
+                            map.addLayer({
+                                id: 'all-artccs-fill',
+                                type: 'fill',
+                                source: 'all-artccs',
+                                paint: {
+                                    'fill-color': '#6c757d',
+                                    'fill-opacity': 0.03,
+                                },
+                            }, 'facilities-fill');
+
+                            // Add outline layer
+                            map.addLayer({
+                                id: 'all-artccs-outline',
+                                type: 'line',
+                                source: 'all-artccs',
+                                paint: {
+                                    'line-color': '#adb5bd',
+                                    'line-width': 1,
+                                    'line-opacity': 0.5,
+                                    'line-dasharray': [4, 2],
+                                },
+                            }, 'facilities-fill');
+
+                            // Add labels
+                            map.addLayer({
+                                id: 'all-artccs-labels',
+                                type: 'symbol',
+                                source: 'all-artccs',
+                                layout: {
+                                    'text-field': ['coalesce', ['get', 'ICAOCODE'], ['get', 'FIRname']],
+                                    'text-font': ['Noto Sans Regular'],
+                                    'text-size': 11,
+                                    'text-anchor': 'center',
+                                },
+                                paint: {
+                                    'text-color': '#868e96',
+                                    'text-halo-color': '#000000',
+                                    'text-halo-width': 1,
+                                    'text-opacity': 0.7,
+                                },
+                            });
+
+                            console.log(`Loaded ${usArtccs.features.length} US ARTCC boundaries`);
+                        }
+                    })
+                    .catch(err => console.warn('Failed to load ARTCC boundaries:', err));
+            } else if (map.getSource('all-artccs')) {
+                // Toggle visibility
+                ['all-artccs-fill', 'all-artccs-outline', 'all-artccs-labels'].forEach(layerId => {
+                    if (map.getLayer(layerId)) {
+                        map.setLayoutProperty(layerId, 'visibility', isActive ? 'visible' : 'none');
+                    }
+                });
+            }
+            return;
+        }
 
         // Handle ARTCC/TRACON specially since they share the facilities source
         if (layer === 'artcc' || layer === 'tracon') {
