@@ -4546,22 +4546,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
 
                 // Labels for previous aircraft (only unclustered)
+                // Use colored text with dark background halo for better readability
                 map.addLayer({
                     id: 'pair-labels-prev',
                     type: 'symbol',
                     source: 'pair-markers',
                     filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'prev']],
+                    minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Regular'],
-                        'text-size': 10,
+                        'text-font': ['Noto Sans Bold'],
+                        'text-size': 11,
                         'text-anchor': 'bottom',
                         'text-offset': [0, -0.8],
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
                     },
                     paint: {
-                        'text-color': '#ffffff',
-                        'text-halo-color': ['get', 'color'],
-                        'text-halo-width': 1.5,
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': 'rgba(20, 20, 35, 0.9)',
+                        'text-halo-width': 2,
+                        'text-halo-blur': 0.5,
                     },
                 });
 
@@ -4571,17 +4576,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     type: 'symbol',
                     source: 'pair-markers',
                     filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'curr']],
+                    minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Regular'],
-                        'text-size': 10,
+                        'text-font': ['Noto Sans Bold'],
+                        'text-size': 11,
                         'text-anchor': 'top',
                         'text-offset': [0, 0.8],
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
                     },
                     paint: {
-                        'text-color': '#ffffff',
-                        'text-halo-color': ['get', 'color'],
-                        'text-halo-width': 1.5,
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': 'rgba(20, 20, 35, 0.9)',
+                        'text-halo-width': 2,
+                        'text-halo-blur': 0.5,
                     },
                 });
 
