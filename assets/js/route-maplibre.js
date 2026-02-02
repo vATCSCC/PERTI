@@ -539,8 +539,14 @@ $(document).ready(function() {
         // TRACON/facility codes like N90, A80, L30 – don't touch them
         if (/^[A-Z]\d{2}$/.test(t)) {return t;}
 
-        // 3-letter non-Z tokens: treat as IATA and map to ICAO (BWI → KBWI)
-        if (/^[A-Z]{3}$/.test(t) && !t.startsWith('Z')) {return 'K' + t;}
+        // 3-letter tokens: use FacilityHierarchy for proper regional prefixes
+        if (t.length === 3) {
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+                return FacilityHierarchy.normalizeIcao(t);
+            }
+            // Fallback: simple K-prefix (but not for Z-prefix ARTCC codes)
+            if (!t.startsWith('Z')) {return 'K' + t;}
+        }
 
         return t;
     }

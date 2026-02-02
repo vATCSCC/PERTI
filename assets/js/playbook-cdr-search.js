@@ -496,9 +496,13 @@ const PlaybookCDRSearch = (function() {
     }
 
     function normalizeAirportCode(code) {
+        // Use FacilityHierarchy.normalizeIcao if available (handles Canada, Alaska, Hawaii, etc.)
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+            return FacilityHierarchy.normalizeIcao(code);
+        }
+        // Fallback: simple K-prefix for 3-letter codes
         if (!code) {return '';}
         code = code.toUpperCase().trim();
-        // Add K prefix if 3-letter code
         if (code.length === 3 && /^[A-Z]{3}$/.test(code)) {
             return 'K' + code;
         }

@@ -1255,6 +1255,10 @@ window.PublicRoutes = (function() {
                 }
 
                 // Otherwise it's likely a 3-letter FAA airport code - convert to ICAO
+                // Use FacilityHierarchy.normalizeIcao for proper regional prefixes
+                if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+                    return { type: 'airport', value: FacilityHierarchy.normalizeIcao(tok) };
+                }
                 return { type: 'airport', value: 'K' + tok };
             }
 
