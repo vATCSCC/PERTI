@@ -292,7 +292,11 @@ function format_results($results) {
                 'requestor' => $r['requestor'] ?? '',
                 'is_multiple' => $r['is_multiple'] ?? false,
                 // Flight trajectory data for map rendering
-                'trajectories' => $r['trajectories'] ?? []
+                'trajectories' => $r['trajectories'] ?? [],
+                // Traffic flow sector data (for flow cone visualization)
+                'traffic_sector' => $r['traffic_sector'] ?? null,
+                // Fix coordinate data (for measurement point marker)
+                'fix_info' => $r['fix_info'] ?? null
             ];
         }
     }

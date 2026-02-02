@@ -2505,6 +2505,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.trafficSectorCache = this.trafficSectorCache || {};
             this.trafficSectorCache[mapId] = {
                 ...r.traffic_sector,
+                // Map measurement_point to fix_point (Python uses measurement_point, JS rendering uses fix_point)
+                fix_point: r.traffic_sector.measurement_point || r.traffic_sector.fix_point,
                 required_spacing: r.required || 0,
                 unit: r.unit || 'nm',
             };
@@ -4051,51 +4053,67 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             // Add measurement point emphasis (pulsing marker at fix location)
+            // Try mapData.fixes first, then fallback to traffic_sector.measurement_point
+            let measurementCoords = null;
+            let measurementName = 'Measurement Point';
+
             if (mapData.fixes?.length) {
-                const measurementFix = mapData.fixes[0];  // Primary fix is measurement point
+                const measurementFix = mapData.fixes[0];
                 if (measurementFix?.geometry?.coordinates) {
-                    const [lon, lat] = measurementFix.geometry.coordinates;
-
-                    // Create pulsing ring effect
-                    map.addSource('measurement-point', {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: { type: 'Point', coordinates: [lon, lat] },
-                            properties: { name: measurementFix.properties?.name || 'Measurement Point' },
-                        },
-                    });
-
-                    // Outer ring (subtle)
-                    map.addLayer({
-                        id: 'measurement-pulse',
-                        type: 'circle',
-                        source: 'measurement-point',
-                        paint: {
-                            'circle-radius': 12,
-                            'circle-color': 'transparent',
-                            'circle-stroke-width': 1.5,
-                            'circle-stroke-color': '#ffffff',
-                            'circle-stroke-opacity': 0.5,
-                        },
-                    });
-
-                    // Inner marker (smaller, more subtle)
-                    map.addLayer({
-                        id: 'measurement-center',
-                        type: 'circle',
-                        source: 'measurement-point',
-                        paint: {
-                            'circle-radius': 4,
-                            'circle-color': '#ffffff',
-                            'circle-opacity': 0.8,
-                            'circle-stroke-width': 1,
-                            'circle-stroke-color': '#333333',
-                        },
-                    });
-
-                    console.log(`Added measurement point marker at ${measurementFix.properties?.name || 'fix'}`);
+                    measurementCoords = measurementFix.geometry.coordinates;
+                    measurementName = measurementFix.properties?.name || 'Measurement Point';
                 }
+            }
+
+            // Fallback: use traffic_sector.measurement_point from analysis
+            if (!measurementCoords && sectorData?.measurement_point) {
+                measurementCoords = sectorData.measurement_point;  // [lon, lat]
+                measurementName = 'Measurement Point';
+                console.log(`Using traffic_sector measurement_point: [${measurementCoords.join(', ')}]`);
+            }
+
+            if (measurementCoords) {
+                const [lon, lat] = measurementCoords;
+
+                // Create pulsing ring effect
+                map.addSource('measurement-point', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [lon, lat] },
+                        properties: { name: measurementName },
+                    },
+                });
+
+                // Outer ring (subtle)
+                map.addLayer({
+                    id: 'measurement-pulse',
+                    type: 'circle',
+                    source: 'measurement-point',
+                    paint: {
+                        'circle-radius': 12,
+                        'circle-color': 'transparent',
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-opacity': 0.5,
+                    },
+                });
+
+                // Inner marker (smaller, more subtle)
+                map.addLayer({
+                    id: 'measurement-center',
+                    type: 'circle',
+                    source: 'measurement-point',
+                    paint: {
+                        'circle-radius': 4,
+                        'circle-color': '#ffffff',
+                        'circle-opacity': 0.8,
+                        'circle-stroke-width': 1,
+                        'circle-stroke-color': '#333333',
+                    },
+                });
+
+                console.log(`Added measurement point marker at ${measurementName}`);
             }
 
             // Show layer controls
