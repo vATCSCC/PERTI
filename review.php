@@ -1328,6 +1328,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 
 <?php } ?>
 
+<!-- Configuration Scripts -->
+<script src="assets/js/config/phase-colors.js"></script>
+<script src="assets/js/config/filter-colors.js"></script>
+
 <!-- Insert review.js Script -->
 <script src="assets/js/review.js"></script>
 <script src="assets/js/tmi_compliance.js"></script>
