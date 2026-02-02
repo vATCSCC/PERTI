@@ -10,8 +10,9 @@
  *
  * Data sources:
  * - adl/migrations/topology/002_artcc_topology_seed.sql
- * - assets/data/apts.csv (Core30, OEP35, ASPM77 columns)
+ * - assets/data/apts.csv (airport→ARTCC mappings)
  * - jatoc.php FIR definitions
+ * - FAA OPSNET/ASPM (airport tier lists - Core30, OEP35, ASPM77)
  *
  * Usage: Include this file before any scripts that need facility data
  *
@@ -567,14 +568,41 @@
     };
 
     // ===========================================
-    // Airport Groups (loaded from apts.csv)
-    // Populated dynamically based on CSV columns
+    // Airport Groups (FAA operational performance tiers)
+    // Source: FAA OPSNET/ASPM - rarely changes
     // ===========================================
 
     const AIRPORT_GROUPS = {
-        'CORE30': { name: 'Core 30', airports: [] },
-        'OEP35': { name: 'OEP 35', airports: [] },
-        'ASPM77': { name: 'ASPM 77', airports: [] },
+        'CORE30': {
+            name: 'Core 30',
+            airports: [
+                'KATL', 'KBOS', 'KBWI', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW', 'KEWR', 'KFLL',
+                'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO', 'KMDW', 'KMEM', 'KMIA',
+                'KMSP', 'KORD', 'KPHL', 'KPHX', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KTPA', 'PHNL',
+            ],
+        },
+        'OEP35': {
+            name: 'OEP 35',
+            airports: [
+                'KATL', 'KBOS', 'KBWI', 'KCLE', 'KCLT', 'KCVG', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
+                'KEWR', 'KFLL', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO', 'KMDW',
+                'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPDX', 'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA',
+                'KSFO', 'KSLC', 'KSTL', 'KTPA', 'PHNL',
+            ],
+        },
+        'ASPM77': {
+            name: 'ASPM 77',
+            airports: [
+                'KABQ', 'KATL', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBOS', 'KBUF', 'KBUR', 'KBWI',
+                'KCLE', 'KCLT', 'KCVG', 'KDAL', 'KDAY', 'KDCA', 'KDEN', 'KDFW', 'KDTW', 'KEWR',
+                'KFLL', 'KGYY', 'KHOU', 'KHPN', 'KIAD', 'KIAH', 'KIND', 'KISP', 'KJAX', 'KJFK',
+                'KLAS', 'KLAX', 'KLGA', 'KLGB', 'KMCI', 'KMCO', 'KMDW', 'KMEM', 'KMHT', 'KMIA',
+                'KMKE', 'KMSP', 'KMSY', 'KOAK', 'KOMA', 'KONT', 'KORD', 'KOXR', 'KPBI', 'KPDX',
+                'KPHL', 'KPHX', 'KPIT', 'KPSP', 'KPVD', 'KRDU', 'KRFD', 'KRSW', 'KSAN', 'KSAT',
+                'KSDF', 'KSEA', 'KSFO', 'KSJC', 'KSLC', 'KSMF', 'KSNA', 'KSTL', 'KSWF', 'KTEB',
+                'KTPA', 'KTUS', 'KVNY', 'PANC', 'PHNL', 'PHOG', 'TJSJ',
+            ],
+        },
     };
 
     // ===========================================
@@ -710,9 +738,6 @@
             depId: header.indexOf('Departure ID'),
             apDepId: header.indexOf('Approach/Departure ID'),
             dccRegion: header.indexOf('DCC REGION'),
-            core30: header.indexOf('Core30'),
-            oep35: header.indexOf('OEP35'),
-            aspm77: header.indexOf('ASPM77'),
         };
 
         // Initialize ARTCC entries
@@ -766,16 +791,6 @@
                     FACILITY_HIERARCHY[canonicalArtcc].add(airportCode);
                 }
 
-                // Populate airport groups
-                if (colIdx.core30 >= 0 && cols[colIdx.core30]?.toUpperCase() === 'TRUE') {
-                    AIRPORT_GROUPS.CORE30.airports.push(airportCode);
-                }
-                if (colIdx.oep35 >= 0 && cols[colIdx.oep35]?.toUpperCase() === 'TRUE') {
-                    AIRPORT_GROUPS.OEP35.airports.push(airportCode);
-                }
-                if (colIdx.aspm77 >= 0 && cols[colIdx.aspm77]?.toUpperCase() === 'TRUE') {
-                    AIRPORT_GROUPS.ASPM77.airports.push(airportCode);
-                }
             }
         }
 
@@ -804,9 +819,6 @@
                     artccs: ARTCCS.length,
                     tracons: ALL_TRACONS.size,
                     airports: Object.keys(AIRPORT_TO_ARTCC).length,
-                    core30: AIRPORT_GROUPS.CORE30.airports.length,
-                    oep35: AIRPORT_GROUPS.OEP35.airports.length,
-                    aspm77: AIRPORT_GROUPS.ASPM77.airports.length,
                 });
                 return true;
             })
@@ -929,7 +941,6 @@
 
     /**
      * Get airport tier (CORE30, OEP35, ASPM77, or OTHER)
-     * Uses apts.csv data loaded dynamically
      * @param {string} icao - Airport ICAO code
      * @returns {string} - Tier name
      */
