@@ -178,7 +178,7 @@ function swim_mark_stale_flights_inactive($conn_swim) {
  * Fetch only flights that changed since last sync from VATSIM_ADL
  * Uses position_updated_utc, times_updated_utc, tmi_updated_utc as change indicators
  *
- * @param resource $conn_adl VATSIM_ADL connection
+ * @param PDO $conn_adl VATSIM_ADL PDO connection
  * @param DateTime|null $lastSync Last sync timestamp
  * @return array|false Flight data array or false on error
  */
@@ -234,16 +234,16 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
           )
     ";
 
-    $params = [$syncTime, $syncTime, $syncTime, $syncTime];
-    $stmt = sqlsrv_query($conn_adl, $sql, $params);
-
-    if ($stmt === false) {
-        error_log('SWIM delta query failed: ' . print_r(sqlsrv_errors(), true));
+    try {
+        $stmt = $conn_adl->prepare($sql);
+        $stmt->execute([$syncTime, $syncTime, $syncTime, $syncTime]);
+    } catch (PDOException $e) {
+        error_log('SWIM delta query failed: ' . $e->getMessage());
         return false;
     }
 
     $flights = [];
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         // Generate GUFI
         $row['gufi'] = swim_generate_gufi_sync(
             $row['callsign'],
@@ -261,7 +261,6 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
 
         $flights[] = $row;
     }
-    sqlsrv_free_stmt($stmt);
 
     return $flights;
 }
@@ -378,53 +377,57 @@ function swim_sync_from_adl_legacy(array $flights, array $stats) {
 
 /**
  * Fetch all relevant flights from VATSIM_ADL normalized tables
+ *
+ * @param PDO $conn_adl VATSIM_ADL PDO connection
+ * @return array|false Flight data array or false on error
  */
 function fetch_adl_flights($conn_adl) {
     $sql = "
-        SELECT 
+        SELECT
             c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
             c.phase, c.is_active,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             c.current_artcc, c.current_tracon, c.current_zone,
-            
+
             pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
             pos.vertical_rate_fpm, pos.dist_to_dest_nm, pos.dist_flown_nm, pos.pct_complete,
-            
+
             fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_alt_icao,
             fp.fp_altitude_ft, fp.fp_tas_kts, fp.fp_route, fp.fp_remarks, fp.fp_rule,
             fp.fp_dept_artcc, fp.fp_dest_artcc, fp.fp_dept_tracon, fp.fp_dest_tracon,
             fp.dfix, fp.dp_name, fp.afix, fp.star_name, fp.dep_runway, fp.arr_runway,
             fp.gcd_nm, fp.route_total_nm, fp.aircraft_type,
-            
+
             t.eta_utc, t.eta_runway_utc, t.eta_source, t.eta_method, t.etd_utc,
             t.out_utc, t.off_utc, t.on_utc, t.in_utc, t.ete_minutes,
             t.ctd_utc, t.cta_utc, t.edct_utc,
-            
+
             tmi.gs_held, tmi.gs_release_utc, tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
             tmi.is_exempt, tmi.exempt_reason, tmi.slot_time_utc, tmi.slot_status,
             tmi.program_id, tmi.slot_id, tmi.delay_minutes, tmi.delay_status,
-            
+
             ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
             ac.engine_type, ac.airline_icao, ac.airline_name
-            
+
         FROM dbo.adl_flight_core c
         LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
         LEFT JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
-        WHERE c.is_active = 1 
+        WHERE c.is_active = 1
            OR c.last_seen_utc > DATEADD(HOUR, -2, GETUTCDATE())
     ";
-    
-    $stmt = sqlsrv_query($conn_adl, $sql);
-    if ($stmt === false) {
-        error_log('SWIM sync - ADL query failed: ' . print_r(sqlsrv_errors(), true));
+
+    try {
+        $stmt = $conn_adl->query($sql);
+    } catch (PDOException $e) {
+        error_log('SWIM sync - ADL query failed: ' . $e->getMessage());
         return false;
     }
-    
+
     $flights = [];
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         // Generate GUFI
         $row['gufi'] = swim_generate_gufi_sync(
             $row['callsign'],
@@ -432,18 +435,17 @@ function fetch_adl_flights($conn_adl) {
             $row['fp_dest_icao'],
             $row['first_seen_utc']
         );
-        
+
         // Format datetime fields for JSON
         foreach ($row as $key => $value) {
             if ($value instanceof DateTime) {
                 $row[$key] = $value->format('Y-m-d H:i:s');
             }
         }
-        
+
         $flights[] = $row;
     }
-    sqlsrv_free_stmt($stmt);
-    
+
     return $flights;
 }
 
