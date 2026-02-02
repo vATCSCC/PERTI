@@ -493,6 +493,16 @@ const FILTER_CONFIG = {
             { stop: 0.85, color: '#e26952' },  // Red-orange
             { stop: 1.0, color: '#b40426' },   // Dark red (busy)
         ],
+        // Airway visualization (for route-based TMIs)
+        airway: {
+            stroke: '#00ff88',            // Bright green
+            strokeWidth: 3,
+            glowColor: '#00ff88',
+            glowWidth: 10,
+            glowOpacity: 0.25,
+            labelColor: '#00ff88',
+            labelHalo: '#000000',
+        },
         // UI text colors
         ui: {
             legendText: 'var(--dark-text-muted, #adb5bd)',

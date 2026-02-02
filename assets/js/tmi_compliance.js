@@ -1537,8 +1537,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const streamFlights = r.crossings || r.total_crossings || 0;
         const analyzedCallsigns = new Set();
         allPairs.forEach(p => {
-            if (p.leader) analyzedCallsigns.add(p.leader);
-            if (p.trailer) analyzedCallsigns.add(p.trailer);
+            if (p.prev_callsign) analyzedCallsigns.add(p.prev_callsign);
+            if (p.curr_callsign) analyzedCallsigns.add(p.curr_callsign);
         });
         const analyzedFlights = analyzedCallsigns.size;
         html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, streamFlights, analyzedFlights);
@@ -2047,6 +2047,81 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for flow stream analysis from PostGIS API (keyed by mapId)
     flowStreamCache: {},
 
+    // Cache for airway geometry (keyed by airway name)
+    airwayCache: {},
+
+    /**
+     * Check if a string looks like an airway identifier
+     * Supports global formats: J###, V###, Q###, T###, Y###, A###,
+     * UL###, L/M/N###, AR###, G###, B###, W###, R###
+     *
+     * @param {string} name - Fix/route identifier to check
+     * @returns {boolean} - True if it matches an airway pattern
+     */
+    isAirway: function(name) {
+        if (!name) return false;
+        const upper = String(name).toUpperCase().trim();
+        // Global airway patterns:
+        // J### - Jet routes (US)
+        // V### - Victor routes (US)
+        // Q### - RNAV high altitude (US/Global)
+        // T### - RNAV low altitude (US)
+        // Y### - RNAV routes (Global)
+        // A### - Oceanic routes
+        // UL/UA/UB/UM/UN### - Upper European/International
+        // L/M/N### - European
+        // AR### - Area Navigation
+        // G### - GNSS routes
+        // B### - Control area routes
+        // W### - Low level routes
+        // R### - RNAV routes (regional)
+        return /^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+$/.test(upper);
+    },
+
+    /**
+     * Fetch airway geometry from API
+     *
+     * @param {string} airwayName - Airway identifier (e.g., Y290, J48)
+     * @returns {Promise<Object|null>} - Airway data with geojson or null
+     */
+    fetchAirwayGeometry: async function(airwayName) {
+        if (!airwayName || !this.isAirway(airwayName)) {
+            return null;
+        }
+
+        const upper = airwayName.toUpperCase().trim();
+
+        // Check cache
+        if (this.airwayCache[upper]) {
+            console.log(`Airway cache hit: ${upper}`);
+            return this.airwayCache[upper];
+        }
+
+        try {
+            const response = await fetch(`api/adl/airway.php?airway=${encodeURIComponent(upper)}`);
+            if (!response.ok) {
+                console.warn(`Airway API error: ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+            if (data.success && data.airways?.[upper]?.found) {
+                const airway = data.airways[upper];
+                this.airwayCache[upper] = airway;
+                console.log(`Fetched airway ${upper}: ${airway.segment_count} segments, ${airway.total_distance_nm}nm`);
+                return airway;
+            } else {
+                console.warn(`Airway ${upper} not found in database`);
+                // Cache negative result to avoid repeated lookups
+                this.airwayCache[upper] = { name: upper, found: false };
+                return null;
+            }
+        } catch (err) {
+            console.warn(`Airway fetch failed for ${upper}:`, err);
+            return null;
+        }
+    },
+
     /**
      * Fetch flow stream analysis from the PostGIS track density API
      * Uses DBSCAN clustering to identify distinct traffic streams and merge zones
@@ -2529,6 +2604,31 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         }
                     }
 
+                    // Load airway geometry if fix is an airway identifier
+                    if (fix && this.isAirway(fix)) {
+                        console.log(`Detected airway: ${fix}, fetching geometry...`);
+                        const airwayData = await this.fetchAirwayGeometry(fix);
+                        if (airwayData?.found && airwayData.geojson) {
+                            mapData.airway = airwayData;
+                            console.log(`Loaded airway ${fix}: ${airwayData.segment_count} segments, ${airwayData.total_distance_nm}nm`);
+
+                            // Extend bounds to include airway
+                            if (airwayData.geojson.geometry?.coordinates) {
+                                const coords = airwayData.geojson.geometry.coordinates;
+                                if (coords.length > 0 && mapData.bounds) {
+                                    let [minLon, minLat, maxLon, maxLat] = mapData.bounds;
+                                    coords.forEach(([lon, lat]) => {
+                                        minLon = Math.min(minLon, lon);
+                                        minLat = Math.min(minLat, lat);
+                                        maxLon = Math.max(maxLon, lon);
+                                        maxLat = Math.max(maxLat, lat);
+                                    });
+                                    mapData.bounds = [minLon, minLat, maxLon, maxLat];
+                                }
+                            }
+                        }
+                    }
+
                     // Cache the data
                     this.mapDataCache[cacheKey] = mapData;
                     this.renderMap(mapId, mapData);
@@ -2787,6 +2887,74 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-dasharray': [2, 1],
                     },
                 });
+            }
+
+            // Add airway line (for route-based TMIs like Y290, J48, etc.)
+            if (mapData.airway?.geojson) {
+                const airway = mapData.airway;
+                console.log(`Rendering airway ${airway.name}: ${airway.type}`);
+
+                // Use centralized colors from FILTER_CONFIG with fallbacks
+                const airwayColors = FILTER_CONFIG?.map?.airway || {
+                    stroke: '#00ff88',
+                    strokeWidth: 3,
+                    glowColor: '#00ff88',
+                    glowWidth: 10,
+                    glowOpacity: 0.25,
+                    labelColor: '#00ff88',
+                    labelHalo: '#000000',
+                };
+
+                map.addSource('tmi-airway', {
+                    type: 'geojson',
+                    data: airway.geojson,
+                });
+
+                // Airway glow (background)
+                map.addLayer({
+                    id: 'tmi-airway-glow',
+                    type: 'line',
+                    source: 'tmi-airway',
+                    paint: {
+                        'line-color': airwayColors.glowColor,
+                        'line-width': airwayColors.glowWidth || 10,
+                        'line-opacity': airwayColors.glowOpacity || 0.25,
+                        'line-blur': 3,
+                    },
+                });
+
+                // Airway main line
+                map.addLayer({
+                    id: 'tmi-airway-line',
+                    type: 'line',
+                    source: 'tmi-airway',
+                    paint: {
+                        'line-color': airwayColors.stroke,
+                        'line-width': airwayColors.strokeWidth || 3,
+                        'line-opacity': 0.9,
+                    },
+                });
+
+                // Airway label
+                map.addLayer({
+                    id: 'tmi-airway-label',
+                    type: 'symbol',
+                    source: 'tmi-airway',
+                    layout: {
+                        'symbol-placement': 'line-center',
+                        'text-field': airway.name,
+                        'text-font': ['Noto Sans Bold'],
+                        'text-size': 14,
+                        'text-offset': [0, -1],
+                    },
+                    paint: {
+                        'text-color': airwayColors.labelColor || airwayColors.stroke,
+                        'text-halo-color': airwayColors.labelHalo || '#000000',
+                        'text-halo-width': 2,
+                    },
+                });
+
+                console.log(`Added airway ${airway.name} layer to map`);
             }
 
             // Add fixes
@@ -3098,8 +3266,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 TMICompliance.addFlowStreamLayers(mapId, flowData);
             }
 
-            // Compute centerline-based traffic flow corridor from trajectory data
-            // This creates a path-following buffer instead of a simple wedge
+            // Compute multi-stream flow corridors from trajectory data
+            // First clusters trajectories by approach direction, then computes per-stream cones
             if (!TMICompliance.trafficSectorCache?.[mapId] && TMICompliance.trajectoryCache[mapId] && mapData.fixes?.length) {
                 const trajectories = TMICompliance.trajectoryCache[mapId];
                 const measurementFix = mapData.fixes[0];
@@ -3141,139 +3309,245 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
                     };
 
+                    // Angular difference helper (handles wrap-around)
+                    const angularDiff = (a, b) => {
+                        let diff = a - b;
+                        while (diff > 180) diff -= 360;
+                        while (diff < -180) diff += 360;
+                        return diff;
+                    };
+
                     // Get required spacing from TMI metadata
                     const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
                     const requiredSpacing = tmiMeta.required || 15;
-                    const maxDistance = Math.max(75, requiredSpacing * 4); // Show at least 4 spacing intervals
-                    const BIN_SIZE = 3; // Sample every 3nm for smooth centerline
+                    const maxDistance = Math.max(75, requiredSpacing * 4);
+                    const BIN_SIZE = 3;
 
-                    // Sample all trajectories by distance from fix
-                    // distanceBins[dist] = [{ bearing, lon, lat, callsign }]
-                    const distanceBins = {};
+                    // ═══════════════════════════════════════════════════════════════════════
+                    // STEP 1: Compute approach bearing for each trajectory
+                    // Use the bearing of the point closest to the fix (within 30nm)
+                    // ═══════════════════════════════════════════════════════════════════════
+                    const trajectoryApproach = {}; // callsign -> { bearing, minDist }
 
                     Object.entries(trajectories).forEach(([callsign, traj]) => {
                         if (!traj.coordinates || traj.coordinates.length < 2) return;
 
-                        // Track visited bins to avoid counting same flight multiple times per bin
-                        const visitedBins = new Set();
+                        let minDist = Infinity;
+                        let approachBearing = null;
 
                         traj.coordinates.forEach(coord => {
                             const [lon, lat] = coord;
                             const dist = distanceNm(lon, lat, fixLon, fixLat);
-                            const bearing = bearingTo(fixLon, fixLat, lon, lat);
-                            const bin = Math.round(dist / BIN_SIZE) * BIN_SIZE;
-
-                            if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
-                                visitedBins.add(bin);
-                                distanceBins[bin] = distanceBins[bin] || [];
-                                distanceBins[bin].push({ bearing, lon, lat, callsign });
+                            if (dist < minDist && dist < 30) {
+                                minDist = dist;
+                                approachBearing = bearingTo(fixLon, fixLat, lon, lat);
                             }
                         });
+
+                        if (approachBearing !== null) {
+                            trajectoryApproach[callsign] = { bearing: approachBearing, minDist };
+                        }
                     });
 
-                    // Compute centerline and widths at each distance bin
-                    const centerlinePoints = [];
-                    const sortedBins = Object.keys(distanceBins).map(Number).sort((a, b) => a - b);
+                    // ═══════════════════════════════════════════════════════════════════════
+                    // STEP 2: Cluster trajectories by approach bearing
+                    // Use 45° bins, then merge adjacent sparse bins
+                    // ═══════════════════════════════════════════════════════════════════════
+                    const CLUSTER_WIDTH = 45; // Degrees per initial bin
+                    const bearingBins = {}; // bin_center -> [callsigns]
 
-                    sortedBins.forEach(dist => {
-                        const points = distanceBins[dist];
-                        if (points.length < 3) return; // Need enough samples for percentiles
+                    Object.entries(trajectoryApproach).forEach(([callsign, data]) => {
+                        const binCenter = Math.round(data.bearing / CLUSTER_WIDTH) * CLUSTER_WIDTH;
+                        bearingBins[binCenter] = bearingBins[binCenter] || [];
+                        bearingBins[binCenter].push(callsign);
+                    });
 
-                        // Compute median bearing (centerline direction at this distance)
-                        const bearings = points.map(p => p.bearing).sort((a, b) => a - b);
-                        const medianBearing = bearings[Math.floor(bearings.length / 2)];
+                    // Filter out bins with fewer than 2 aircraft (noise)
+                    const significantBins = Object.entries(bearingBins)
+                        .filter(([, callsigns]) => callsigns.length >= 2)
+                        .sort((a, b) => b[1].length - a[1].length); // Sort by count descending
 
-                        // Normalize bearings relative to median to handle wrap-around
-                        const normalized = bearings.map(b => {
-                            let diff = b - medianBearing;
-                            if (diff > 180) diff -= 360;
-                            if (diff < -180) diff += 360;
-                            return diff;
-                        }).sort((a, b) => a - b);
+                    // Merge adjacent bins that are within 45° of each other
+                    const streams = []; // { bearing, callsigns }
+                    const usedBins = new Set();
 
-                        // Compute percentile widths (half-widths from centerline)
-                        const p75Hi = Math.ceil(normalized.length * 0.875) - 1;
-                        const p75Lo = Math.floor(normalized.length * 0.125);
-                        const p90Hi = Math.ceil(normalized.length * 0.95) - 1;
-                        const p90Lo = Math.floor(normalized.length * 0.05);
+                    significantBins.forEach(([binStr, callsigns]) => {
+                        const bin = Number(binStr);
+                        if (usedBins.has(bin)) return;
 
-                        const width75 = Math.max(3, Math.max(Math.abs(normalized[p75Hi]), Math.abs(normalized[p75Lo])));
-                        const width90 = Math.max(5, Math.max(Math.abs(normalized[p90Hi]), Math.abs(normalized[p90Lo])));
+                        // Start a new stream
+                        let streamCallsigns = [...callsigns];
+                        let sumBearing = bin * callsigns.length;
+                        let count = callsigns.length;
+                        usedBins.add(bin);
 
-                        // Compute centerline point at this distance
-                        const centerPoint = pointAtBearing(fixLon, fixLat, medianBearing, dist);
+                        // Try to merge adjacent bins
+                        significantBins.forEach(([adjBinStr, adjCallsigns]) => {
+                            const adjBin = Number(adjBinStr);
+                            if (usedBins.has(adjBin)) return;
 
-                        centerlinePoints.push({
-                            dist,
-                            coords: centerPoint,
-                            bearing: medianBearing,
-                            width75,
-                            width90,
-                            trackCount: points.length,
+                            const diff = Math.abs(angularDiff(bin, adjBin));
+                            if (diff <= CLUSTER_WIDTH && diff > 0) {
+                                streamCallsigns = streamCallsigns.concat(adjCallsigns);
+                                sumBearing += adjBin * adjCallsigns.length;
+                                count += adjCallsigns.length;
+                                usedBins.add(adjBin);
+                            }
+                        });
+
+                        const avgBearing = sumBearing / count;
+                        streams.push({
+                            bearing: avgBearing,
+                            callsigns: streamCallsigns,
+                            trackCount: streamCallsigns.length
                         });
                     });
 
-                    if (centerlinePoints.length >= 2) {
-                        // Build path-following buffer polygons
-                        const buildBufferPolygon = (widthKey) => {
-                            const leftEdge = []; // Points on left side of centerline
-                            const rightEdge = []; // Points on right side of centerline
+                    console.log(`Detected ${streams.length} distinct streams from ${Object.keys(trajectoryApproach).length} trajectories`);
+                    streams.forEach((s, i) => console.log(`  Stream ${i + 1}: ${s.trackCount} tracks, bearing ${s.bearing.toFixed(0)}°`));
 
-                            centerlinePoints.forEach(cp => {
-                                const halfWidth = cp[widthKey];
-                                // Left edge: bearing + 90 degrees (perpendicular left)
-                                const leftBearing = (cp.bearing + 90) % 360;
-                                // Right edge: bearing - 90 degrees (perpendicular right)
-                                const rightBearing = (cp.bearing - 90 + 360) % 360;
+                    // ═══════════════════════════════════════════════════════════════════════
+                    // STEP 3: Compute per-stream centerlines and cones
+                    // ═══════════════════════════════════════════════════════════════════════
+                    const allStreamCones = []; // Array of { polygon_75, polygon_90, bearing, trackCount }
 
-                                // Convert angular width to approximate linear distance at this range
-                                // At distance d, angular width θ covers arc length ≈ d * sin(θ)
-                                const linearWidth = cp.dist * Math.sin(halfWidth * Math.PI / 180);
+                    streams.forEach((stream, streamIdx) => {
+                        const streamCallsigns = new Set(stream.callsigns);
 
-                                leftEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], leftBearing, linearWidth));
-                                rightEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], rightBearing, linearWidth));
+                        // Sample this stream's trajectories by distance from fix
+                        const distanceBins = {};
+
+                        Object.entries(trajectories).forEach(([callsign, traj]) => {
+                            if (!streamCallsigns.has(callsign)) return;
+                            if (!traj.coordinates || traj.coordinates.length < 2) return;
+
+                            const visitedBins = new Set();
+
+                            traj.coordinates.forEach(coord => {
+                                const [lon, lat] = coord;
+                                const dist = distanceNm(lon, lat, fixLon, fixLat);
+                                const bearing = bearingTo(fixLon, fixLat, lon, lat);
+                                const bin = Math.round(dist / BIN_SIZE) * BIN_SIZE;
+
+                                if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
+                                    visitedBins.add(bin);
+                                    distanceBins[bin] = distanceBins[bin] || [];
+                                    distanceBins[bin].push({ bearing, lon, lat, callsign });
+                                }
                             });
+                        });
 
-                            // Build closed polygon: fix -> right edge (near to far) -> left edge (far to near) -> fix
-                            const polygon = [[fixLon, fixLat]];
-                            rightEdge.forEach(pt => polygon.push(pt));
-                            leftEdge.reverse().forEach(pt => polygon.push(pt));
-                            polygon.push([fixLon, fixLat]); // Close polygon
+                        // Compute centerline for this stream
+                        const centerlinePoints = [];
+                        const sortedBins = Object.keys(distanceBins).map(Number).sort((a, b) => a - b);
 
-                            return polygon;
-                        };
+                        sortedBins.forEach(dist => {
+                            const points = distanceBins[dist];
+                            if (points.length < 2) return;
 
-                        // Also store legacy sector data for compatibility with labels
-                        const avgWidth75 = centerlinePoints.reduce((sum, cp) => sum + cp.width75, 0) / centerlinePoints.length;
-                        const avgWidth90 = centerlinePoints.reduce((sum, cp) => sum + cp.width90, 0) / centerlinePoints.length;
-                        const medianBearing = centerlinePoints[Math.floor(centerlinePoints.length / 2)].bearing;
+                            const bearings = points.map(p => p.bearing).sort((a, b) => a - b);
+                            const medianBearing = bearings[Math.floor(bearings.length / 2)];
+
+                            const normalized = bearings.map(b => {
+                                let diff = b - medianBearing;
+                                if (diff > 180) diff -= 360;
+                                if (diff < -180) diff += 360;
+                                return diff;
+                            }).sort((a, b) => a - b);
+
+                            const p75Hi = Math.min(Math.ceil(normalized.length * 0.875) - 1, normalized.length - 1);
+                            const p75Lo = Math.max(Math.floor(normalized.length * 0.125), 0);
+                            const p90Hi = Math.min(Math.ceil(normalized.length * 0.95) - 1, normalized.length - 1);
+                            const p90Lo = Math.max(Math.floor(normalized.length * 0.05), 0);
+
+                            const width75 = Math.max(3, Math.max(Math.abs(normalized[p75Hi] || 0), Math.abs(normalized[p75Lo] || 0)));
+                            const width90 = Math.max(5, Math.max(Math.abs(normalized[p90Hi] || 0), Math.abs(normalized[p90Lo] || 0)));
+
+                            const centerPoint = pointAtBearing(fixLon, fixLat, medianBearing, dist);
+
+                            centerlinePoints.push({
+                                dist,
+                                coords: centerPoint,
+                                bearing: medianBearing,
+                                width75,
+                                width90,
+                                trackCount: points.length,
+                            });
+                        });
+
+                        if (centerlinePoints.length >= 2) {
+                            // Build buffer polygon for this stream
+                            const buildBufferPolygon = (widthKey) => {
+                                const leftEdge = [];
+                                const rightEdge = [];
+
+                                centerlinePoints.forEach(cp => {
+                                    const halfWidth = cp[widthKey];
+                                    const leftBearing = (cp.bearing + 90) % 360;
+                                    const rightBearing = (cp.bearing - 90 + 360) % 360;
+                                    const linearWidth = cp.dist * Math.sin(halfWidth * Math.PI / 180);
+
+                                    leftEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], leftBearing, linearWidth));
+                                    rightEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], rightBearing, linearWidth));
+                                });
+
+                                const polygon = [[fixLon, fixLat]];
+                                rightEdge.forEach(pt => polygon.push(pt));
+                                leftEdge.reverse().forEach(pt => polygon.push(pt));
+                                polygon.push([fixLon, fixLat]);
+
+                                return polygon;
+                            };
+
+                            allStreamCones.push({
+                                streamIdx,
+                                polygon_75: buildBufferPolygon('width75'),
+                                polygon_90: buildBufferPolygon('width90'),
+                                bearing: stream.bearing,
+                                trackCount: stream.trackCount,
+                                centerlinePoints
+                            });
+                        }
+                    });
+
+                    // ═══════════════════════════════════════════════════════════════════════
+                    // STEP 4: Store results (backwards compatible + multi-stream)
+                    // ═══════════════════════════════════════════════════════════════════════
+                    if (allStreamCones.length > 0) {
+                        // For backwards compatibility, use first/largest stream for single-cone rendering
+                        const primaryStream = allStreamCones[0];
+                        const avgWidth75 = primaryStream.centerlinePoints.reduce((sum, cp) => sum + cp.width75, 0) / primaryStream.centerlinePoints.length;
+                        const avgWidth90 = primaryStream.centerlinePoints.reduce((sum, cp) => sum + cp.width90, 0) / primaryStream.centerlinePoints.length;
 
                         TMICompliance.trafficSectorCache = TMICompliance.trafficSectorCache || {};
                         TMICompliance.trafficSectorCache[mapId] = {
                             fix_point: [fixLon, fixLat],
-                            centerline: centerlinePoints,
-                            polygon_75: buildBufferPolygon('width75'),
-                            polygon_90: buildBufferPolygon('width90'),
-                            // Legacy sector format for spacing arcs (use average widths)
+                            // Multi-stream data
+                            streams: allStreamCones,
+                            stream_count: allStreamCones.length,
+                            // Primary stream for backwards compatibility
+                            centerline: primaryStream.centerlinePoints,
+                            polygon_75: primaryStream.polygon_75,
+                            polygon_90: primaryStream.polygon_90,
                             sector_75: {
-                                start_bearing: ((medianBearing - avgWidth75) + 360) % 360,
-                                end_bearing: ((medianBearing + avgWidth75) + 360) % 360,
+                                start_bearing: ((primaryStream.bearing - avgWidth75) + 360) % 360,
+                                end_bearing: ((primaryStream.bearing + avgWidth75) + 360) % 360,
                                 width_deg: avgWidth75 * 2,
                             },
                             sector_90: {
-                                start_bearing: ((medianBearing - avgWidth90) + 360) % 360,
-                                end_bearing: ((medianBearing + avgWidth90) + 360) % 360,
+                                start_bearing: ((primaryStream.bearing - avgWidth90) + 360) % 360,
+                                end_bearing: ((primaryStream.bearing + avgWidth90) + 360) % 360,
                                 width_deg: avgWidth90 * 2,
                             },
                             track_count: Object.keys(trajectories).length,
                             required_spacing: requiredSpacing,
                             unit: tmiMeta.unit || 'nm',
                             max_distance: maxDistance,
-                            // Flag for centerline-based rendering
                             use_centerline: true,
+                            multi_stream: allStreamCones.length > 1,
                         };
 
-                        console.log(`Computed centerline-based flow corridor from ${Object.keys(trajectories).length} tracks: ${centerlinePoints.length} distance samples, avg width 75%: ${avgWidth75.toFixed(1)}°, 90%: ${avgWidth90.toFixed(1)}°`);
+                        console.log(`Computed ${allStreamCones.length} stream cones from ${Object.keys(trajectories).length} tracks`);
                     }
                 }
             }
@@ -3324,8 +3598,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 };
 
                 // Use centerline-based polygons if available, otherwise fall back to wedge
-                if (sectorData.use_centerline && sectorData.polygon_90 && sectorData.polygon_75) {
-                    // Centerline-following buffer polygons
+                if (sectorData.use_centerline && sectorData.streams?.length > 0) {
+                    // Multi-stream: draw separate cones for each stream
+                    sectorData.streams.forEach((stream, idx) => {
+                        if (stream.polygon_90) {
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 90, streamIdx: idx, trackCount: stream.trackCount },
+                                geometry: { type: 'Polygon', coordinates: [stream.polygon_90] },
+                            });
+                        }
+                        if (stream.polygon_75) {
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 75, streamIdx: idx, trackCount: stream.trackCount },
+                                geometry: { type: 'Polygon', coordinates: [stream.polygon_75] },
+                            });
+                        }
+                    });
+                    console.log(`Rendering ${sectorData.streams.length} stream cones`);
+                } else if (sectorData.use_centerline && sectorData.polygon_90 && sectorData.polygon_75) {
+                    // Single-stream centerline-following buffer polygons
                     sectorFeatures.push({
                         type: 'Feature',
                         properties: { pct: 90 },
