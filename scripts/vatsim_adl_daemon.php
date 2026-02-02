@@ -154,6 +154,12 @@ $config = [
     'websocket_enabled'   => true,
     'websocket_positions' => false,  // Position updates (high volume - disabled by default)
 
+    // Event position logging (TMI compliance analysis)
+    // Captures controller positions during active event logging windows
+    // Data stored in event_position_log table, linked to perti_events
+    'event_logging_enabled' => true,
+    'event_logging_interval' => 4,    // Check every N cycles (4 = every 60s during events)
+
     // Flight stats scheduled jobs
     // Calls sp_ProcessFlightStatsJobs to run hourly/daily/monthly aggregation jobs
     // The SP checks job schedules internally and only runs jobs that are due
@@ -1252,6 +1258,150 @@ function runAtisCleanup($conn): ?array {
 }
 
 // ============================================================================
+// EVENT POSITION LOGGING (TMI Compliance Analysis)
+// ============================================================================
+
+/**
+ * Check if any event is currently in its logging window.
+ * Returns array of active event IDs and details, or empty array if none.
+ */
+function getActiveEventLogging($conn): array {
+    // Use the helper function from migration 004
+    $sql = "SELECT event_id, event_name, event_type, featured_airports
+            FROM dbo.fn_GetActiveEventIds(DEFAULT)";
+
+    $stmt = @sqlsrv_query($conn, $sql);
+    if ($stmt === false) {
+        return [];
+    }
+
+    $events = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $events[] = [
+            'event_id' => $row['event_id'],
+            'event_name' => $row['event_name'],
+            'event_type' => $row['event_type'],
+            'featured_airports' => $row['featured_airports'],
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    return $events;
+}
+
+/**
+ * Extract controller positions from VATSIM datafeed.
+ * Excludes ATIS positions (separate table) and OBS-only positions.
+ */
+function extractControllersFromJson(array $data): array {
+    $controllers = [];
+
+    foreach ($data['controllers'] ?? [] as $ctrl) {
+        $callsign = $ctrl['callsign'] ?? '';
+
+        // Skip ATIS connections (handled separately)
+        if (stripos($callsign, '_ATIS') !== false) {
+            continue;
+        }
+
+        // Skip OBS-only connections without real callsigns
+        if (empty($callsign) || preg_match('/^OBS\d*$/i', $callsign)) {
+            continue;
+        }
+
+        $controllers[] = [
+            'cid' => $ctrl['cid'] ?? 0,
+            'callsign' => $callsign,
+            'frequency' => $ctrl['frequency'] ?? null,
+            'visual_range' => $ctrl['visual_range'] ?? null,
+            'rating' => $ctrl['rating'] ?? null,
+            'logon_time' => $ctrl['logon_time'] ?? null,
+            'latitude' => $ctrl['latitude'] ?? null,
+            'longitude' => $ctrl['longitude'] ?? null,
+            'text_atis' => isset($ctrl['text_atis']) && is_array($ctrl['text_atis'])
+                ? implode(' ', $ctrl['text_atis'])
+                : null,
+        ];
+    }
+
+    return $controllers;
+}
+
+/**
+ * Log controller positions for active events using bulk SP.
+ *
+ * @param resource $conn Database connection
+ * @param array $events Active events from getActiveEventLogging()
+ * @param array $controllers Controllers from extractControllersFromJson()
+ * @return array Results by event
+ */
+function logEventPositions($conn, array $events, array $controllers): array {
+    if (empty($events) || empty($controllers)) {
+        return [];
+    }
+
+    $results = [];
+    $controllersJson = json_encode($controllers, JSON_UNESCAPED_UNICODE);
+
+    foreach ($events as $event) {
+        $eventId = $event['event_id'];
+
+        // Filter controllers by featured airports if specified
+        $filteredJson = $controllersJson;
+        if (!empty($event['featured_airports'])) {
+            $featuredAirports = json_decode($event['featured_airports'], true);
+            if (is_array($featuredAirports) && !empty($featuredAirports)) {
+                // Filter controllers whose callsign starts with any featured airport
+                $filteredControllers = array_filter($controllers, function($c) use ($featuredAirports) {
+                    foreach ($featuredAirports as $apt) {
+                        // Remove K prefix for matching (KJFK -> JFK matches JFK_TWR)
+                        $aptCode = ltrim($apt, 'K');
+                        if (stripos($c['callsign'], $aptCode) === 0) {
+                            return true;
+                        }
+                        if (stripos($c['callsign'], $apt) === 0) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+                // If no matches, log all controllers for event
+                if (!empty($filteredControllers)) {
+                    $filteredJson = json_encode(array_values($filteredControllers), JSON_UNESCAPED_UNICODE);
+                }
+            }
+        }
+
+        // Call bulk SP
+        $sql = "EXEC dbo.sp_LogEventPositionsBulk @event_id = ?, @json = ?";
+        $stmt = @sqlsrv_query($conn, $sql, [$eventId, $filteredJson]);
+
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            $results[$eventId] = [
+                'event_name' => $event['event_name'],
+                'positions_logged' => $row['positions_logged'] ?? 0,
+            ];
+            sqlsrv_free_stmt($stmt);
+        } else {
+            $errors = sqlsrv_errors();
+            logWarn("Event position logging failed", [
+                'event_id' => $eventId,
+                'error' => json_encode($errors),
+            ]);
+            $results[$eventId] = [
+                'event_name' => $event['event_name'],
+                'positions_logged' => 0,
+                'error' => true,
+            ];
+        }
+    }
+
+    return $results;
+}
+
+// ============================================================================
 // BOUNDARY & CROSSINGS BACKGROUND PROCESSING
 // ============================================================================
 
@@ -1576,6 +1726,9 @@ function runDaemon(array $config): void {
         // Flight stats job stats
         'fstats_runs'          => 0,
         'fstats_total_ms'      => 0,
+        // Event position logging stats
+        'event_log_runs'       => 0,
+        'event_positions_total'=> 0,
         // V9.0 Staging stats
         'total_staging_ms'     => 0,
         'total_insert_ms'      => 0,
@@ -1702,6 +1855,34 @@ function runDaemon(array $config): void {
                     $atisImported = $atisResult['imported'];
                     $atisParsed = $atisResult['parsed'];
                     $atisSkipped = $atisResult['skipped'] ?? 0;
+                }
+            }
+
+            // 5a. Event position logging (TMI compliance)
+            // Captures controller positions during active event logging windows
+            $eventLogResult = null;
+            $eventPositionsLogged = 0;
+            if ($config['event_logging_enabled'] && $vatsimData && $stats['runs'] % $config['event_logging_interval'] === 0) {
+                $activeEvents = getActiveEventLogging($conn);
+                if (!empty($activeEvents)) {
+                    $controllers = extractControllersFromJson($vatsimData);
+                    if (!empty($controllers)) {
+                        $eventLogResult = logEventPositions($conn, $activeEvents, $controllers);
+                        foreach ($eventLogResult as $evtResult) {
+                            $eventPositionsLogged += $evtResult['positions_logged'] ?? 0;
+                        }
+
+                        if ($eventPositionsLogged > 0) {
+                            $stats['event_log_runs']++;
+                            $stats['event_positions_total'] += $eventPositionsLogged;
+
+                            logInfo("Event positions logged", [
+                                'events' => count($activeEvents),
+                                'positions' => $eventPositionsLogged,
+                                'controllers' => count($controllers),
+                            ]);
+                        }
+                    }
                 }
             }
 
@@ -1949,6 +2130,8 @@ function runDaemon(array $config): void {
                 'ws_runs'       => $stats['ws_runs'],
                 'ws_events'     => $stats['ws_events'],
                 'fstats_runs'   => $stats['fstats_runs'],
+                'evt_log_runs'  => $stats['event_log_runs'],
+                'evt_positions' => $stats['event_positions_total'],
             ];
 
             // Add V9.0/V9.2 staging stats if enabled
