@@ -29,17 +29,26 @@ const FILTER_CONFIG = {
         order: ['J', 'H', 'L', 'S', 'UNKNOWN'],
     },
 
-    // Flight Rules (IFR/VFR)
+    // Flight Rules (IFR/VFR/DVFR/SVFR)
+    // FAA flight plan types + special VFR categories
     flightRule: {
         colors: {
             'I': '#007bff',  // IFR - Blue
-            'V': '#28a745',   // VFR - Green
+            'V': '#28a745',  // VFR - Green
+            'Y': '#fd7e14',  // Y-IFR (IFR then VFR) - Orange
+            'Z': '#e83e8c',  // Z-VFR (VFR then IFR) - Pink
+            'D': '#9c27b0',  // DVFR (Defense VFR) - Purple
+            'S': '#17a2b8',  // SVFR (Special VFR) - Cyan
         },
         labels: {
             'I': 'IFR',
             'V': 'VFR',
+            'Y': 'Y-IFR',
+            'Z': 'Z-VFR',
+            'D': 'DVFR',
+            'S': 'SVFR',
         },
-        order: ['I', 'V'],
+        order: ['I', 'V', 'Y', 'Z', 'D', 'S'],
     },
 
     // Major Carriers
@@ -523,6 +532,10 @@ const FILTER_I18N_KEYS = {
     flightRule: {
         'I': 'flightRule.I',
         'V': 'flightRule.V',
+        'Y': 'flightRule.Y',
+        'Z': 'flightRule.Z',
+        'D': 'flightRule.D',
+        'S': 'flightRule.S',
     },
     dccRegion: {
         'WEST': 'dccRegion.west',

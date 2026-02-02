@@ -57,12 +57,16 @@ const PERTIColors = (function() {
 
     // ========================================
     // FLIGHT RULES
+    // FAA flight plan types: I=IFR, V=VFR, Y=IFR/VFR, Z=VFR/IFR
+    // Special VFR types: D=DVFR (Defense), S=SVFR (Special)
     // ========================================
     const flightRules = {
         I: '#007bff',    // IFR - Blue
         V: '#28a745',    // VFR - Green
-        Y: '#fd7e14',    // Y-IFR - Orange
-        Z: '#e83e8c',    // Z-VFR - Pink
+        Y: '#fd7e14',    // Y-IFR (IFR then VFR) - Orange
+        Z: '#e83e8c',    // Z-VFR (VFR then IFR) - Pink
+        D: '#9c27b0',    // DVFR (Defense VFR) - Purple
+        S: '#17a2b8',    // SVFR (Special VFR) - Cyan
     };
 
     // ========================================
@@ -124,6 +128,19 @@ const PERTIColors = (function() {
         CZQM: 'CANADA_EAST', CZQX: 'CANADA_EAST', CZQO: 'CANADA_EAST',
         // Canada West (Pink)
         CZWG: 'CANADA_WEST', CZEG: 'CANADA_WEST', CZVR: 'CANADA_WEST',
+    };
+
+    // ========================================
+    // OPERATOR GROUPS
+    // Classification by carrier type
+    // ========================================
+    const operatorGroup = {
+        MAJOR: '#dc3545',      // Red - Major carriers (AAL, UAL, DAL, etc.)
+        REGIONAL: '#28a745',   // Green - Regional carriers (SKW, RPA, etc.)
+        FREIGHT: '#007bff',    // Blue - Freight/cargo (FDX, UPS, etc.)
+        GA: '#ffc107',         // Yellow - General aviation
+        MILITARY: '#6f42c1',   // Purple - Military (RCH, REACH, etc.)
+        OTHER: '#6c757d',      // Gray - Unclassified
     };
 
     // ========================================
@@ -405,6 +422,15 @@ const PERTIColors = (function() {
     }
 
     /**
+     * Get color for operator group
+     * @param {string} group - MAJOR, REGIONAL, FREIGHT, GA, MILITARY, OTHER
+     * @returns {string} Hex color
+     */
+    function forOperatorGroup(group) {
+        return operatorGroup[group] || operatorGroup.OTHER;
+    }
+
+    /**
      * Get color from categorical palette by index
      * @param {number} index
      * @returns {string} Hex color
@@ -434,6 +460,7 @@ const PERTIColors = (function() {
         phase,
         region,
         regionMapping,  // ARTCC/FIR to DCC region mapping
+        operatorGroup,  // Carrier group colors (MAJOR, REGIONAL, etc.)
         weather,
         radarDbz,
         rate,
@@ -455,8 +482,9 @@ const PERTIColors = (function() {
         forWeightClass,
         forPhase,
         forRegion,
-        forARTCC,      // Get DCC region color for ARTCC
-        getRegion,     // Get DCC region name for ARTCC
+        forARTCC,         // Get DCC region color for ARTCC
+        getRegion,        // Get DCC region name for ARTCC
+        forOperatorGroup, // Get color for operator group
         forWeather,
         forAirspace,
         categorical,
