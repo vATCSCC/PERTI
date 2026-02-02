@@ -3428,29 +3428,35 @@
     const OEP35_AIRPORTS = { includes: apt => getAirportTierLists().OEP35.includes(apt) };
     const ASPM77_AIRPORTS = { includes: apt => getAirportTierLists().ASPM77.includes(apt) };
 
-    // Aircraft Manufacturer Patterns (for aircraft_type color mode)
-    const AIRCRAFT_MANUFACTURER_PATTERNS = {
-        'AIRBUS':     /^A[0-9]{3}|^A[0-9]{2}[NK]/i,
-        'BOEING':     /^B7[0-9]{2}|^B3[0-9]M|^B3XM|^B77[A-Z]|^B74[A-Z]|^B74[0-9][A-Z]|^B78X/i,
-        'EMBRAER':    /^E[0-9]{3}|^ERJ|^EMB|^E[0-9][0-9][A-Z]/i,
-        'BOMBARDIER': /^CRJ|^CL[0-9]{2}|^BD[0-9]{3}|^GL[0-9]{2}|^DHC|^BCS[0-9]|^Q[0-9]{3}/i,
-        'MD_DC':      /^MD[0-9]{2}|^DC[0-9]{1,2}|^L10|^L101|^C130|^C17/i,
-        'SAAB_OTHER': /^SF34|^SB20|^F[0-9]{2,3}|^D[0-9]{3}|^BAE|^B?146|^RJ[0-9]{2}|^AT[0-9]{2}|^PC[0-9]{2}/i,
-        'RUSSIAN':    /^AN[0-9]{2,3}|^IL[0-9]{2,3}|^TU[0-9]{3}|^SU[0-9]{2}|^YAK|^BE20[0-9]/i,
-        'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i,
-    };
+    // Aircraft Manufacturer Patterns and Colors
+    // Use PERTIAircraft as source of truth with fallback for load order
+    const AIRCRAFT_MANUFACTURER_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.PATTERNS)
+        ? PERTIAircraft.PATTERNS
+        : {
+            // Note: A12x/A14x/A15x/A22x are Antonov, not Airbus
+            'AIRBUS':     /^A3[0-9]{2}|^A3[0-9][A-Z]|^A[0-9]{2}[NK]/i,
+            'BOEING':     /^B7[0-9]{2}|^B3[0-9]M|^B3XM|^B77[A-Z]|^B74[A-Z]|^B74[0-9][A-Z]|^B78X/i,
+            'EMBRAER':    /^E[0-9]{3}|^ERJ|^EMB|^E[0-9][0-9][A-Z]/i,
+            'BOMBARDIER': /^CRJ|^CL[0-9]{2}|^BD[0-9]{3}|^GL[0-9]{2}|^DHC|^BCS[0-9]|^Q[0-9]{3}/i,
+            'MD_DC':      /^MD[0-9]{2}|^DC[0-9]{1,2}/i,
+            'REGIONAL':   /^SF34|^SB20|^F[0-9]{2,3}|^D[0-9]{3}|^BAE|^B?146|^RJ[0-9]{2}|^AT[0-9]{2}|^PC[0-9]{2}|^L10|^C13[0-9]|^C17/i,
+            'RUSSIAN':    /^AN[0-9]{2,3}|^A12[0-9]|^A14[0-9]|^A15[0-9]|^A22[0-9]|^IL[0-9]{2,3}|^TU[0-9]{3}|^SU[0-9]{2}|^YAK|^SSJ/i,
+            'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i,
+        };
 
-    const AIRCRAFT_MANUFACTURER_COLORS = {
-        'AIRBUS': '#e15759',       // Red
-        'BOEING': '#4e79a7',       // Blue
-        'EMBRAER': '#59a14f',      // Green
-        'BOMBARDIER': '#f28e2b',   // Orange
-        'MD_DC': '#b07aa1',        // Purple
-        'SAAB_OTHER': '#76b7b2',   // Teal
-        'RUSSIAN': '#9c755f',      // Brown
-        'CHINESE': '#edc948',      // Yellow
-        'OTHER': '#6c757d',         // Gray
-    };
+    const AIRCRAFT_MANUFACTURER_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.COLORS)
+        ? PERTIAircraft.COLORS
+        : {
+            'AIRBUS': '#e15759',       // Red
+            'BOEING': '#4e79a7',       // Blue
+            'EMBRAER': '#59a14f',      // Green
+            'BOMBARDIER': '#f28e2b',   // Orange
+            'MD_DC': '#b07aa1',        // Purple
+            'REGIONAL': '#76b7b2',     // Teal
+            'RUSSIAN': '#9c755f',      // Brown
+            'CHINESE': '#edc948',      // Yellow
+            'OTHER': '#6c757d',        // Gray
+        };
 
     // Aircraft Configuration Patterns (order matters - first match wins)
     const AIRCRAFT_CONFIG_PATTERNS = {
