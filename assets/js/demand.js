@@ -3414,7 +3414,7 @@ function renderEquipmentChart() {
         }
     }
 
-    // Group aircraft types by manufacturer
+    // Group aircraft types by manufacturer for sorting
     const mfrGroups = {};
     allTypes.forEach(acType => {
         const mfr = getAircraftManufacturer(acType);
@@ -3430,39 +3430,13 @@ function renderEquipmentChart() {
         mfrGroups[mfr].sort();
     });
 
-    // Build legend array - one row per manufacturer
-    const legendRows = [];
-    const baseBottom = 75;  // Base position for first legend row
-    const rowHeight = 22;   // Height between legend rows
-    const numRows = sortedMfrs.length;
-
-    sortedMfrs.forEach((mfr, idx) => {
-        const types = mfrGroups[mfr];
-        if (types.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: types,
-            formatter: function(name) {
-                return name;  // Just show the aircraft type code
-            },
-        });
+    // Build flat sorted list of all aircraft types (manufacturer-grouped order)
+    const sortedTypes = [];
+    sortedMfrs.forEach(mfr => {
+        sortedTypes.push(...mfrGroups[mfr]);
     });
 
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
-
+    // Use standard scrolling legend like other charts
     renderBreakdownChart(
         DEMAND_STATE.equipmentBreakdown,
         `${dirLabel} by Aircraft Type`,
@@ -3477,14 +3451,10 @@ function renderEquipmentChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: sortedTypes,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -3583,14 +3553,7 @@ function renderDepFixChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
-            // Fallback: generate color from hash
-            if (!fix) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < fix.length; i++) {
-                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 65%, 45%)`;
+            return getCategoricalColor(fix);
         },
         null,
         null,
@@ -3620,14 +3583,7 @@ function renderArrFixChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
-            // Fallback: generate color from hash
-            if (!fix) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < fix.length; i++) {
-                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 65%, 45%)`;
+            return getCategoricalColor(fix);
         },
         null,
         null,
@@ -3657,14 +3613,7 @@ function renderDPChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(dp);
             }
-            // Fallback: generate color from hash
-            if (!dp) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < dp.length; i++) {
-                hash = dp.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 70%, 50%)`;
+            return getCategoricalColor(dp);
         },
         null,
         null,
@@ -3694,14 +3643,7 @@ function renderSTARChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(star);
             }
-            // Fallback: generate color from hash
-            if (!star) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < star.length; i++) {
-                hash = star.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 70%, 50%)`;
+            return getCategoricalColor(star);
         },
         null,
         null,
@@ -5078,6 +5020,69 @@ function getStandardGridConfig() {
         top: 55,
         containLabel: false,
     };
+}
+
+/**
+ * Curated categorical color palette for fixes, DPs, STARs
+ * Designed for maximum visual distinction between adjacent items
+ * Based on ColorBrewer qualitative palettes with aviation-friendly tones
+ */
+const CATEGORICAL_COLORS = [
+    '#1f77b4', // blue
+    '#ff7f0e', // orange
+    '#2ca02c', // green
+    '#d62728', // red
+    '#9467bd', // purple
+    '#8c564b', // brown
+    '#e377c2', // pink
+    '#17becf', // cyan
+    '#bcbd22', // olive
+    '#7f7f7f', // gray
+    '#aec7e8', // light blue
+    '#ffbb78', // light orange
+    '#98df8a', // light green
+    '#ff9896', // light red
+    '#c5b0d5', // light purple
+    '#c49c94', // light brown
+    '#f7b6d2', // light pink
+    '#9edae5', // light cyan
+    '#dbdb8d', // light olive
+    '#393b79', // dark blue
+    '#637939', // dark olive
+    '#8c6d31', // dark tan
+    '#843c39', // dark red-brown
+    '#7b4173', // dark magenta
+];
+
+/**
+ * Get a consistent color for a category name (fix, DP, STAR)
+ * Uses curated palette with hash-based selection for consistency
+ * @param {string} name - Category name
+ * @param {number} index - Optional index for sequential coloring
+ * @returns {string} - Hex color code
+ */
+function getCategoricalColor(name, index) {
+    if (!name) return '#6c757d';
+
+    // If UNKNOWN, use a distinct gray
+    if (name === 'UNKNOWN' || name === 'UNK') {
+        return '#6c757d';
+    }
+
+    // Use index if provided, otherwise hash the name for consistent colors
+    let idx;
+    if (typeof index === 'number') {
+        idx = index;
+    } else {
+        // Hash the name to get a consistent index
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        idx = Math.abs(hash);
+    }
+
+    return CATEGORICAL_COLORS[idx % CATEGORICAL_COLORS.length];
 }
 
 /**
