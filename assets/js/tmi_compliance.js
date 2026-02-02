@@ -3769,6 +3769,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Add traffic flow sectors (75% and 90% capture zones)
             const sectorData = TMICompliance.trafficSectorCache?.[mapId];
+            console.log(`Flow cone rendering for ${mapId}:`, sectorData ? {
+                has_fix_point: !!sectorData.fix_point,
+                fix_point: sectorData.fix_point,
+                has_sector_75: !!sectorData.sector_75,
+                has_sector_90: !!sectorData.sector_90,
+                use_centerline: sectorData.use_centerline,
+                has_streams: !!sectorData.streams?.length,
+            } : 'NO SECTOR DATA');
             if (sectorData) {
                 const sectorFeatures = [];
                 // Sector radius: at least 30nm, or enough to show 3 spacing arcs
@@ -3846,16 +3854,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     });
                 } else {
                     // Legacy wedge-based polygons
-                    sectorFeatures.push({
-                        type: 'Feature',
-                        properties: { pct: 90 },
-                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
-                    });
-                    sectorFeatures.push({
-                        type: 'Feature',
-                        properties: { pct: 75 },
-                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
-                    });
+                    try {
+                        if (!sectorData.fix_point) {
+                            console.error(`Flow cone error: fix_point is missing for ${mapId}`);
+                        } else {
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 90 },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
+                            });
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 75 },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Flow cone rendering error for ${mapId}:`, err, sectorData);
+                    }
                 }
 
                 map.addSource('traffic-sectors', {
@@ -3894,6 +3910,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-opacity': 0.6,
                     },
                 }, beforeLayer);
+
+                console.log(`Added flow cone layers for ${mapId}: ${sectorFeatures.length} features`);
 
                 // Add spacing markers (perpendicular lines for centerline, arcs for wedge)
                 if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
