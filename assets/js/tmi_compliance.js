@@ -1533,8 +1533,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         // Add trajectory counts info
-        const detectedFlights = r.crossings || r.total_crossings || 0;
-        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, detectedFlights);
+        // Stream flights = total crossings, Analyzed = unique callsigns in all_pairs (those with trajectory data)
+        const streamFlights = r.crossings || r.total_crossings || 0;
+        const analyzedCallsigns = new Set();
+        allPairs.forEach(p => {
+            if (p.leader) analyzedCallsigns.add(p.leader);
+            if (p.trailer) analyzedCallsigns.add(p.trailer);
+        });
+        const analyzedFlights = analyzedCallsigns.size;
+        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, streamFlights, analyzedFlights);
 
         // Add context map section
         const mapId = `mit_map_${this.detailIdCounter}`;
@@ -1691,8 +1698,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         // Add trajectory counts info
-        const detectedFlights = r.total_flights || 0;
-        html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, detectedFlights);
+        // Stream flights = total, Analyzed = compliant + non-compliant + exempt (those with trajectory data)
+        const streamFlights = r.total_flights || 0;
+        const analyzedFlights = compliantCount + nonCompliantCount + exemptCount;
+        html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, streamFlights, analyzedFlights);
 
         html += '</div>';
         return html;
@@ -1856,8 +1865,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         // Add trajectory counts info
-        const detectedFlights = r.total_flights || 0;
-        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, detectedFlights);
+        // Stream flights = total, Analyzed = exempt + affected + post_tmi (those with trajectory data)
+        const streamFlights = r.total_flights || 0;
+        const analyzedFlights = exemptCount + affectedCount + postTmiCount;
+        html += this.renderTrajectoryCounts(r.tmi_start, r.tmi_end, streamFlights, analyzedFlights);
 
         html += '</div>';
         return html;
@@ -2033,6 +2044,80 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Track active maps for cleanup
     activeMaps: {},
 
+    // Cache for flow stream analysis from PostGIS API (keyed by mapId)
+    flowStreamCache: {},
+
+    /**
+     * Fetch flow stream analysis from the PostGIS track density API
+     * Uses DBSCAN clustering to identify distinct traffic streams and merge zones
+     *
+     * @param {string} mapId - Map identifier for caching
+     * @param {Object} trajectories - Trajectory data from the analysis API
+     * @param {Object} options - Analysis options
+     * @param {Array} options.fixPoint - [lon, lat] of the measurement fix
+     * @param {Array} options.knownFixes - Array of known fixes [{id, lat, lon}]
+     * @param {boolean} options.isArrival - True for arrivals (converging), false for departures
+     */
+    fetchFlowStreams: async function(mapId, trajectories, options = {}) {
+        if (!trajectories || Object.keys(trajectories).length < 3) {
+            console.log(`Skipping flow stream analysis for ${mapId}: insufficient trajectories`);
+            return null;
+        }
+
+        // Check cache first
+        if (this.flowStreamCache[mapId]) {
+            return this.flowStreamCache[mapId];
+        }
+
+        // Convert trajectory data to API format
+        const trajArray = Object.entries(trajectories).map(([callsign, traj]) => ({
+            callsign,
+            coordinates: traj.coordinates || [],
+            properties: traj.properties || {}
+        })).filter(t => t.coordinates.length >= 2);
+
+        if (trajArray.length < 3) {
+            console.log(`Skipping flow stream analysis for ${mapId}: only ${trajArray.length} valid trajectories`);
+            return null;
+        }
+
+        try {
+            const response = await fetch('api/gis/track_density.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'flow_streams',
+                    trajectories: trajArray,
+                    fix_point: options.fixPoint || null,
+                    known_fixes: options.knownFixes || [],
+                    is_arrival: options.isArrival !== false,
+                    cluster_eps_nm: 3,
+                    cluster_min_points: 3,
+                    distance_band_nm: 15
+                })
+            });
+
+            if (!response.ok) {
+                console.warn(`Flow stream API error: ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+            if (data.error) {
+                console.warn(`Flow stream API error: ${data.error}`);
+                return null;
+            }
+
+            // Cache the result
+            this.flowStreamCache[mapId] = data;
+            console.log(`Flow streams for ${mapId}: ${data.streams?.length || 0} streams, ${data.merge_zones?.length || 0} merge zones`);
+            return data;
+        } catch (err) {
+            console.warn(`Flow stream fetch failed for ${mapId}:`, err);
+            return null;
+        }
+    },
+
     /**
      * Render a collapsible map section for a TMI
      */
@@ -2053,6 +2138,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (r.trajectories && Object.keys(r.trajectories).length > 0) {
             this.trajectoryCache[mapId] = r.trajectories;
             console.log(`Cached ${Object.keys(r.trajectories).length} trajectories for ${mapId}`);
+
+            // Trigger async flow stream analysis (populates cache for later map render)
+            // Extract fix point and known fixes for context-aware stream naming
+            const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
+            const fixPoint = fixInfo?.geometry?.coordinates || null;
+            const knownFixes = (r.known_fixes || r.approach_fixes || []).map(f => ({
+                id: f.id || f.name || f.fix,
+                lat: f.lat || f.latitude || f.geometry?.coordinates?.[1],
+                lon: f.lon || f.lng || f.longitude || f.geometry?.coordinates?.[0]
+            })).filter(f => f.lat && f.lon);
+
+            // Fire and forget - cache will be ready when map renders
+            this.fetchFlowStreams(mapId, r.trajectories, {
+                fixPoint,
+                knownFixes,
+                isArrival: r.direction !== 'departure'
+            });
         }
 
         // Cache traffic sector data if available (include required spacing for arc rendering)
@@ -2101,6 +2203,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn" data-layer="sectors-superhigh" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Super High</button>
                         <span class="layer-divider">|</span>
                         <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
+                        <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
                         <span class="layer-divider">|</span>
                         <span class="cone-legend" style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
@@ -2564,9 +2667,64 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
             }
 
-            // Add flight trajectories with gap visualization
+            // Add flight trajectories with gap visualization and density-based coloring
             const trajectories = TMICompliance.trajectoryCache[mapId];
             if (trajectories && Object.keys(trajectories).length > 0) {
+                // Build density grid from all trajectories
+                // Grid resolution: ~0.05 degrees (about 3nm at mid-latitudes)
+                const GRID_RES = 0.05;
+                const densityGrid = {};
+
+                // First pass: count unique flights per grid cell
+                Object.entries(trajectories).forEach(([callsign, traj]) => {
+                    if (!traj.coordinates || traj.coordinates.length < 2) return;
+                    const visitedCells = new Set();
+
+                    traj.coordinates.forEach(coord => {
+                        const cellX = Math.floor(coord[0] / GRID_RES);
+                        const cellY = Math.floor(coord[1] / GRID_RES);
+                        const cellKey = `${cellX},${cellY}`;
+
+                        if (!visitedCells.has(cellKey)) {
+                            visitedCells.add(cellKey);
+                            densityGrid[cellKey] = (densityGrid[cellKey] || 0) + 1;
+                        }
+                    });
+                });
+
+                // Find max density for normalization
+                const maxDensity = Math.max(...Object.values(densityGrid), 1);
+
+                // Helper: get density at a point (normalized 0-1)
+                const getDensity = (lon, lat) => {
+                    const cellX = Math.floor(lon / GRID_RES);
+                    const cellY = Math.floor(lat / GRID_RES);
+                    const cellKey = `${cellX},${cellY}`;
+                    return (densityGrid[cellKey] || 0) / maxDensity;
+                };
+
+                // Helper: get average density along a segment
+                const getSegmentDensity = (coords) => {
+                    if (coords.length < 2) return 0;
+                    let totalDensity = 0;
+                    let samples = 0;
+
+                    for (let i = 0; i < coords.length; i++) {
+                        totalDensity += getDensity(coords[i][0], coords[i][1]);
+                        samples++;
+                    }
+
+                    // Also sample midpoints for better coverage
+                    for (let i = 0; i < coords.length - 1; i++) {
+                        const midLon = (coords[i][0] + coords[i + 1][0]) / 2;
+                        const midLat = (coords[i][1] + coords[i + 1][1]) / 2;
+                        totalDensity += getDensity(midLon, midLat);
+                        samples++;
+                    }
+
+                    return samples > 0 ? totalDensity / samples : 0;
+                };
+
                 const solidFeatures = [];  // Normal segments (gaps <= 5 min)
                 const dashedFeatures = []; // Sparse data segments (gaps > 5 min, <= 15 min)
 
@@ -2575,12 +2733,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                 Object.entries(trajectories).forEach(([callsign, traj]) => {
                     if (!traj.coordinates || traj.coordinates.length < 2) {return;}
-
-                    const props = {
-                        callsign: callsign,
-                        dept: traj.properties?.dept || '',
-                        dest: traj.properties?.dest || '',
-                    };
 
                     // Split trajectory into segments based on time gaps
                     let currentSolid = [traj.coordinates[0]];
@@ -2596,27 +2748,45 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         if (gap > GAP_BREAK) {
                             // Gap > 15 min: end current segment, start new one (no connecting line)
                             if (currentSolid.length >= 2) {
+                                const coords = currentSolid.map(c => [c[0], c[1]]);
                                 solidFeatures.push({
                                     type: 'Feature',
-                                    properties: props,
-                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
+                                    properties: {
+                                        callsign: callsign,
+                                        dept: traj.properties?.dept || '',
+                                        dest: traj.properties?.dest || '',
+                                        density: getSegmentDensity(coords),
+                                    },
+                                    geometry: { type: 'LineString', coordinates: coords },
                                 });
                             }
                             currentSolid = [curr];
                         } else if (gap > GAP_DASHED) {
                             // Gap > 5 min: end solid segment, add dashed connector, start new solid
                             if (currentSolid.length >= 2) {
+                                const coords = currentSolid.map(c => [c[0], c[1]]);
                                 solidFeatures.push({
                                     type: 'Feature',
-                                    properties: props,
-                                    geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
+                                    properties: {
+                                        callsign: callsign,
+                                        dept: traj.properties?.dept || '',
+                                        dest: traj.properties?.dest || '',
+                                        density: getSegmentDensity(coords),
+                                    },
+                                    geometry: { type: 'LineString', coordinates: coords },
                                 });
                             }
                             // Add dashed line between last solid point and current
+                            const dashCoords = [[prev[0], prev[1]], [curr[0], curr[1]]];
                             dashedFeatures.push({
                                 type: 'Feature',
-                                properties: props,
-                                geometry: { type: 'LineString', coordinates: [[prev[0], prev[1]], [curr[0], curr[1]]] },
+                                properties: {
+                                    callsign: callsign,
+                                    dept: traj.properties?.dept || '',
+                                    dest: traj.properties?.dest || '',
+                                    density: getSegmentDensity(dashCoords),
+                                },
+                                geometry: { type: 'LineString', coordinates: dashCoords },
                             });
                             currentSolid = [curr];
                         } else {
@@ -2627,13 +2797,36 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Add final solid segment
                     if (currentSolid.length >= 2) {
+                        const coords = currentSolid.map(c => [c[0], c[1]]);
                         solidFeatures.push({
                             type: 'Feature',
-                            properties: props,
-                            geometry: { type: 'LineString', coordinates: currentSolid.map(c => [c[0], c[1]]) },
+                            properties: {
+                                callsign: callsign,
+                                dept: traj.properties?.dept || '',
+                                dest: traj.properties?.dest || '',
+                                density: getSegmentDensity(coords),
+                            },
+                            geometry: { type: 'LineString', coordinates: coords },
                         });
                     }
                 });
+
+                console.log(`Track density: max ${maxDensity} flights per cell, ${Object.keys(densityGrid).length} cells`);
+
+                // Spectral color ramp for density: blue (cold/sparse) -> red (hot/busy)
+                const densityColorExpr = [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'density'],
+                    0.0, '#3b4cc0',   // Blue (sparse)
+                    0.2, '#6788ee',   // Light blue
+                    0.4, '#9abbff',   // Cyan-ish
+                    0.5, '#c9d7f0',   // Light gray-blue (neutral)
+                    0.6, '#edd1c2',   // Light peach
+                    0.7, '#f7a789',   // Orange
+                    0.85, '#e26952',  // Red-orange
+                    1.0, '#b40426',   // Dark red (busy)
+                ];
 
                 // Add solid flight tracks
                 if (solidFeatures.length > 0) {
@@ -2648,9 +2841,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         source: 'flight-tracks-solid',
                         layout: { 'line-cap': 'round', 'line-join': 'round' },
                         paint: {
-                            'line-color': '#4dabf7',
-                            'line-width': 4,
-                            'line-opacity': 0.3,
+                            'line-color': densityColorExpr,
+                            'line-width': 5,
+                            'line-opacity': 0.25,
                             'line-blur': 3,
                         },
                     });
@@ -2661,9 +2854,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         source: 'flight-tracks-solid',
                         layout: { 'line-cap': 'round', 'line-join': 'round' },
                         paint: {
-                            'line-color': '#74c0fc',
-                            'line-width': 1.5,
-                            'line-opacity': 0.8,
+                            'line-color': densityColorExpr,
+                            'line-width': 2,
+                            'line-opacity': 0.85,
                         },
                     });
                 }
@@ -2681,7 +2874,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         source: 'flight-tracks-dashed',
                         layout: { 'line-cap': 'round', 'line-join': 'round' },
                         paint: {
-                            'line-color': '#74c0fc',
+                            'line-color': densityColorExpr,
                             'line-width': 1.5,
                             'line-opacity': 0.5,
                             'line-dasharray': [4, 4],
@@ -2690,6 +2883,173 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 }
 
                 console.log(`Added flight tracks: ${solidFeatures.length} solid, ${dashedFeatures.length} dashed segments`);
+            }
+
+            // Add flow stream visualization (DBSCAN-clustered traffic streams)
+            // This uses PostGIS-computed concave hulls to show distinct traffic flows
+            const flowData = TMICompliance.flowStreamCache?.[mapId];
+            if (flowData?.streams?.length > 0) {
+                // Color palette for streams (distinct hues)
+                const streamColors = [
+                    '#3498db', // Blue
+                    '#e74c3c', // Red
+                    '#2ecc71', // Green
+                    '#9b59b6', // Purple
+                    '#f39c12', // Orange
+                    '#1abc9c', // Teal
+                    '#e67e22', // Dark orange
+                    '#34495e', // Dark gray-blue
+                ];
+
+                // Build stream hull features
+                const streamFeatures = flowData.streams.map((stream, idx) => ({
+                    type: 'Feature',
+                    properties: {
+                        stream_id: stream.stream_id,
+                        display_short: stream.display?.short || stream.stream_id,
+                        display_long: stream.display?.long || stream.stream_id,
+                        track_count: stream.track_count,
+                        is_merge: stream.components?.is_merge || false,
+                        color: streamColors[idx % streamColors.length],
+                    },
+                    geometry: stream.hull
+                }));
+
+                // Build merge zone features
+                const mergeFeatures = (flowData.merge_zones || []).map(mz => ({
+                    type: 'Feature',
+                    properties: {
+                        merge_id: mz.merge_id,
+                        display_short: mz.display?.short || 'Merge',
+                        display_long: mz.display?.long || 'Merge Zone',
+                        parent_streams: mz.stream_addresses?.join(' + ') || '',
+                    },
+                    geometry: mz.hull
+                }));
+
+                // Add stream hulls source
+                map.addSource('flow-streams', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: streamFeatures }
+                });
+
+                // Stream hull fills (subtle, below flight tracks)
+                const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
+
+                map.addLayer({
+                    id: 'flow-streams-fill',
+                    type: 'fill',
+                    source: 'flow-streams',
+                    paint: {
+                        'fill-color': ['get', 'color'],
+                        'fill-opacity': ['case', ['get', 'is_merge'], 0.08, 0.12],
+                    }
+                }, beforeLayer);
+
+                // Stream hull outlines
+                map.addLayer({
+                    id: 'flow-streams-outline',
+                    type: 'line',
+                    source: 'flow-streams',
+                    paint: {
+                        'line-color': ['get', 'color'],
+                        'line-width': ['case', ['get', 'is_merge'], 1.5, 2],
+                        'line-opacity': 0.7,
+                        'line-dasharray': ['case', ['get', 'is_merge'], ['literal', [4, 2]], ['literal', [1, 0]]],
+                    }
+                }, beforeLayer);
+
+                // Stream labels (centroid)
+                const labelFeatures = flowData.streams.map((stream, idx) => ({
+                    type: 'Feature',
+                    properties: {
+                        label: stream.display?.short || stream.stream_id,
+                        track_count: stream.track_count,
+                        color: streamColors[idx % streamColors.length],
+                    },
+                    geometry: stream.centroid
+                }));
+
+                map.addSource('flow-stream-labels', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: labelFeatures }
+                });
+
+                map.addLayer({
+                    id: 'flow-stream-labels',
+                    type: 'symbol',
+                    source: 'flow-stream-labels',
+                    layout: {
+                        'text-field': ['concat', ['get', 'label'], '\n', ['get', 'track_count'], ' ac'],
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 11,
+                        'text-anchor': 'center',
+                        'text-allow-overlap': false,
+                    },
+                    paint: {
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 1.5,
+                    }
+                });
+
+                // Add merge zones if present
+                if (mergeFeatures.length > 0) {
+                    map.addSource('flow-merge-zones', {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: mergeFeatures }
+                    });
+
+                    map.addLayer({
+                        id: 'flow-merge-zones-fill',
+                        type: 'fill',
+                        source: 'flow-merge-zones',
+                        paint: {
+                            'fill-color': '#ff6b6b',
+                            'fill-opacity': 0.15,
+                        }
+                    }, beforeLayer);
+
+                    map.addLayer({
+                        id: 'flow-merge-zones-outline',
+                        type: 'line',
+                        source: 'flow-merge-zones',
+                        paint: {
+                            'line-color': '#ff6b6b',
+                            'line-width': 2,
+                            'line-opacity': 0.8,
+                            'line-dasharray': [2, 2],
+                        }
+                    }, beforeLayer);
+                }
+
+                console.log(`Added flow streams: ${streamFeatures.length} streams, ${mergeFeatures.length} merge zones`);
+
+                // Add hover effect for streams
+                map.on('mouseenter', 'flow-streams-fill', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'flow-streams-fill', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+
+                // Add click popup for stream details
+                map.on('click', 'flow-streams-fill', (e) => {
+                    const props = e.features[0]?.properties || {};
+                    const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+                        .setLngLat(e.lngLat)
+                        .setHTML(`
+                            <div style="font-size: 12px;">
+                                <div style="font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 4px;">
+                                    ${props.display_long || props.stream_id || 'Stream'}
+                                </div>
+                                <div><strong>ID:</strong> ${props.stream_id || 'N/A'}</div>
+                                <div><strong>Aircraft:</strong> ${props.track_count || 0}</div>
+                                ${props.is_merge === 'true' || props.is_merge === true ? '<div style="color: #e74c3c;"><strong>Type:</strong> Merge Zone</div>' : ''}
+                            </div>
+                        `)
+                        .addTo(map);
+                });
             }
 
             // Compute traffic sector from trajectory data if not already cached
@@ -3097,6 +3457,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 updateButtonState('sectors-high', map.getSource('sectors-high'));
                 updateButtonState('sectors-superhigh', map.getSource('sectors-superhigh'));
                 updateButtonState('tracks', map.getSource('flight-tracks-solid') || map.getSource('flight-tracks-dashed'));
+                updateButtonState('flow-streams', map.getSource('flow-streams'));
                 updateButtonState('traffic-sectors', map.getSource('traffic-sectors'));
             }
 
@@ -3390,6 +3751,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             'sectors-superhigh': ['sectors-superhigh-fill', 'sectors-superhigh-outline', 'sectors-superhigh-labels'],
             'tracks': ['flight-tracks-solid-glow', 'flight-tracks-solid', 'flight-tracks-dashed'],
             'traffic-sectors': ['traffic-sectors-fill', 'traffic-sectors-outline', 'spacing-arcs', 'spacing-arc-labels'],
+            'flow-streams': ['flow-streams-fill', 'flow-streams-outline', 'flow-stream-labels', 'flow-merge-zones-fill', 'flow-merge-zones-outline'],
         };
 
         // Handle ARTCC/TRACON specially since they share the facilities source
@@ -3780,22 +4142,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render trajectory counts info for a TMI card
      * @param {string} tmiStart - TMI start time
      * @param {string} tmiEnd - TMI end time
-     * @param {number} detectedFlights - Number of flights detected in compliance analysis
+     * @param {number} streamFlightCount - Number of flights matching TMI stream definition
+     * @param {number} analyzedFlightCount - Number of stream flights with trajectory data (actually analyzed)
      * @returns {string} - HTML for trajectory counts display
      */
-    renderTrajectoryCounts: function(tmiStart, tmiEnd, detectedFlights) {
+    renderTrajectoryCounts: function(tmiStart, tmiEnd, streamFlightCount, analyzedFlightCount) {
         const counts = this.getTMITrajectoryCounts(tmiStart, tmiEnd);
 
-        if (!counts.hasData) {
+        if (!counts.hasData && !analyzedFlightCount) {
             return '';
         }
 
         // Format numbers
         const formatNum = (n) => n.toLocaleString();
-        const streamFlights = detectedFlights || 0;
-        const trajFlights = counts.uniqueFlights || 0;
+        const streamFlights = streamFlightCount || 0;
+        const trajFlights = analyzedFlightCount || 0;
 
-        // Calculate coverage percentage
+        // Calculate coverage percentage (stream flights with trajectories / total stream flights)
         const coveragePct = streamFlights > 0 ? Math.round((trajFlights / streamFlights) * 100) : 0;
         const coverageClass = coveragePct >= 90 ? 'text-success' : coveragePct >= 70 ? 'text-warning' : 'text-danger';
 
@@ -3805,7 +4168,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <strong>${formatNum(streamFlights)}</strong> stream flights
                 </span>
                 <span class="mx-2">|</span>
-                <span title="Flights with trajectory data available during TMI window">
+                <span title="Stream flights with trajectory data available for analysis">
                     <strong>${formatNum(trajFlights)}</strong> w/ trajectories
                 </span>
                 <span class="mx-2">|</span>
