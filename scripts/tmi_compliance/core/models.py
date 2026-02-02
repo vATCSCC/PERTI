@@ -675,6 +675,15 @@ def normalize_icao(code: str) -> str:
 
     # 3-letter codes - determine region
     if len(code) == 3:
+        # Canadian airports get CY prefix (major airports)
+        canadian_airports = [
+            'YVR', 'YYZ', 'YUL', 'YYC', 'YEG', 'YOW', 'YWG', 'YHZ', 'YQB', 'YXE',
+            'YQR', 'YYJ', 'YXX', 'YLW', 'YYT', 'YQT', 'YXU', 'YQM', 'YFC', 'YZF',
+            'YXY', 'YQG', 'YTS', 'YMM', 'YZR', 'YQX', 'YDF', 'YQY', 'YXS', 'YPR',
+        ]
+        if code in canadian_airports or code.startswith('Y'):
+            return 'C' + code
+
         # Alaska airports start with PA
         alaska_prefixes = ['ANC', 'FAI', 'JNU', 'BET', 'OME', 'OTZ', 'SCC', 'ADQ', 'DLG', 'CDV']
         if code in alaska_prefixes:
