@@ -578,6 +578,77 @@
     };
 
     // ===========================================
+    // Airport Tier Colors
+    // ===========================================
+
+    const AIRPORT_TIER_COLORS = {
+        'CORE30': '#dc3545',    // Red - highest priority
+        'OEP35': '#007bff',     // Blue
+        'ASPM77': '#ffc107',    // Yellow
+        'OTHER': '#6c757d',     // Gray
+    };
+
+    // ===========================================
+    // Carrier Classifications
+    // Source: FAA OPSNET, consolidated from nod.js
+    // ===========================================
+
+    const MAJOR_CARRIERS = [
+        'AAL', 'UAL', 'DAL', 'SWA', 'JBU', 'ASA', 'HAL', 'NKS', 'FFT', 'AAY', 'VXP', 'SYX',
+    ];
+
+    const REGIONAL_CARRIERS = [
+        'SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX',
+    ];
+
+    const FREIGHT_CARRIERS = [
+        'FDX', 'UPS', 'ABX', 'GTI', 'ATN', 'CLX', 'PAC', 'KAL', 'MTN', 'SRR', 'WCW', 'CAO',
+    ];
+
+    // Comprehensive military callsign prefixes
+    // US Military + NATO allies
+    const MILITARY_PREFIXES = [
+        // US Air Force
+        'RCH', 'REACH', 'AIO', 'KING', 'JOLLY', 'PEDRO', 'SPAR', 'EVAC', 'BREW', 'SHELL',
+        'DARK', 'HAWK', 'VIPER', 'EAGLE', 'RAPTOR', 'BOLT', 'SLAM', 'BONE', 'DEATH', 'DOOM',
+        'COBRA', 'TIGER', 'WOLF', 'REAPER', 'SHADOW', 'GLOBAL',
+        'USAF', 'ANG', 'AFRC',
+        // US Army
+        'ARMY', 'PAT',
+        // US Navy
+        'NAVY', 'CNV', 'VAQ', 'VFA', 'VAW', 'VRC', 'VRM',
+        // US Marines
+        'MARINE', 'MAR', 'USMC', 'VMM', 'VMA', 'VMFA', 'VMC', 'VMGR', 'HMH', 'HMM', 'HML', 'HMLA',
+        // US Coast Guard
+        'USCG', 'COAST',
+        // US Special Operations
+        'RRR', 'EXEC', 'SAM', 'VENUS',
+        // NATO
+        'NATO', 'ALLIED', 'SENTRY', 'AWACS',
+        // UK RAF
+        'RFR', 'ASCOT', 'TARTAN', 'TALLY',
+        // Canadian Forces
+        'CFC', 'CANFORCE', 'CANAF',
+        // German Luftwaffe
+        'GAF', 'GAM',
+        // French Air Force
+        'FAF', 'CTM', 'COTAM',
+        // Italian Air Force
+        'IAM',
+        // Australian Defence Force
+        'AUSSIE', 'RAAF',
+    ];
+
+    const OPERATOR_GROUP_COLORS = {
+        'MAJOR': '#dc3545',      // Red - major carriers
+        'REGIONAL': '#28a745',   // Green - regional carriers
+        'FREIGHT': '#007bff',    // Blue - freight/cargo
+        'GA': '#ffc107',         // Yellow - general aviation
+        'MILITARY': '#6f42c1',   // Purple - military
+        'OTHER': '#6c757d',      // Gray - unclassified
+    };
+
+    // ===========================================
     // Build ARTCC -> Region mapping
     // ===========================================
 
@@ -856,6 +927,80 @@
         return FACILITY_HIERARCHY[resolveAlias(code)] || [];
     }
 
+    /**
+     * Get airport tier (CORE30, OEP35, ASPM77, or OTHER)
+     * Uses apts.csv data loaded dynamically
+     * @param {string} icao - Airport ICAO code
+     * @returns {string} - Tier name
+     */
+    function getAirportTier(icao) {
+        if (!icao) {return 'OTHER';}
+        const apt = icao.toUpperCase();
+        if (AIRPORT_GROUPS.CORE30.airports.includes(apt)) {return 'CORE30';}
+        if (AIRPORT_GROUPS.OEP35.airports.includes(apt)) {return 'OEP35';}
+        if (AIRPORT_GROUPS.ASPM77.airports.includes(apt)) {return 'ASPM77';}
+        return 'OTHER';
+    }
+
+    /**
+     * Get airport tier color
+     * @param {string} icao - Airport ICAO code
+     * @returns {string} - CSS color
+     */
+    function getAirportTierColor(icao) {
+        const tier = getAirportTier(icao);
+        return AIRPORT_TIER_COLORS[tier] || AIRPORT_TIER_COLORS.OTHER;
+    }
+
+    /**
+     * Extract carrier code from callsign (first 3 chars or word)
+     * @param {string} callsign - Flight callsign
+     * @returns {string} - Carrier code
+     */
+    function extractCarrier(callsign) {
+        if (!callsign) {return '';}
+        const upper = callsign.toUpperCase().trim();
+        // Most callsigns: AAL1234 -> AAL
+        // Some: REACH123 -> REACH
+        const match = upper.match(/^([A-Z]{2,5})/);
+        return match ? match[1].substring(0, 3) : '';
+    }
+
+    /**
+     * Get operator group for a callsign
+     * @param {string} callsign - Flight callsign
+     * @returns {string} - Operator group (MAJOR, REGIONAL, FREIGHT, MILITARY, GA, OTHER)
+     */
+    function getOperatorGroup(callsign) {
+        if (!callsign) {return 'OTHER';}
+        const upper = callsign.toUpperCase();
+        const carrier = extractCarrier(callsign);
+
+        if (MAJOR_CARRIERS.includes(carrier)) {return 'MAJOR';}
+        if (REGIONAL_CARRIERS.includes(carrier)) {return 'REGIONAL';}
+        if (FREIGHT_CARRIERS.includes(carrier)) {return 'FREIGHT';}
+
+        // Check military prefixes
+        for (const prefix of MILITARY_PREFIXES) {
+            if (upper.startsWith(prefix)) {return 'MILITARY';}
+        }
+
+        // GA typically has N-numbers or short callsigns
+        if (/^N[0-9]/.test(upper) || callsign.length <= 5) {return 'GA';}
+
+        return 'OTHER';
+    }
+
+    /**
+     * Get operator group color
+     * @param {string} callsign - Flight callsign
+     * @returns {string} - CSS color
+     */
+    function getOperatorGroupColor(callsign) {
+        const group = getOperatorGroup(callsign);
+        return OPERATOR_GROUP_COLORS[group] || OPERATOR_GROUP_COLORS.OTHER;
+    }
+
     // ===========================================
     // Export to Global Namespace
     // ===========================================
@@ -870,6 +1015,14 @@
         ARTCC_TO_REGION: ARTCC_TO_REGION,
         FACILITY_EMOJI_MAP: FACILITY_EMOJI_MAP,
         EMOJI_TO_FACILITY: EMOJI_TO_FACILITY,
+
+        // Carrier classifications
+        MAJOR_CARRIERS: MAJOR_CARRIERS,
+        REGIONAL_CARRIERS: REGIONAL_CARRIERS,
+        FREIGHT_CARRIERS: FREIGHT_CARRIERS,
+        MILITARY_PREFIXES: MILITARY_PREFIXES,
+        OPERATOR_GROUP_COLORS: OPERATOR_GROUP_COLORS,
+        AIRPORT_TIER_COLORS: AIRPORT_TIER_COLORS,
 
         // Dynamic data (getters)
         get FACILITY_HIERARCHY() { return FACILITY_HIERARCHY; },
@@ -894,6 +1047,15 @@
         getChildren: getChildFacilities,
         getFIR: getInternationalFIR,
         ICAO_FIR_MAP: ICAO_FIR_MAP,
+
+        // Airport tier utilities
+        getAirportTier: getAirportTier,
+        getAirportTierColor: getAirportTierColor,
+
+        // Operator group utilities
+        extractCarrier: extractCarrier,
+        getOperatorGroup: getOperatorGroup,
+        getOperatorGroupColor: getOperatorGroupColor,
     };
 
 })(typeof window !== 'undefined' ? window : this);

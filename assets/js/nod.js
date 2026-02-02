@@ -3344,13 +3344,9 @@
     // Arrival/Departure colors
     const ARR_DEP_COLORS = { 'ARR': '#59a14f', 'DEP': '#4e79a7' };
 
-    // Airport tier colors
-    const AIRPORT_TIER_COLORS = {
-        'CORE30': '#dc3545',    // Red - highest priority
-        'OEP35': '#007bff',     // Blue
-        'ASPM77': '#ffc107',    // Yellow
-        'OTHER': '#6c757d',     // Gray - unclassified
-        '': '#6c757d',
+    // Airport tier colors - use FacilityHierarchy as source of truth
+    const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
+        'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM77': '#ffc107', 'OTHER': '#6c757d',
     };
 
     // ARTCC colors - inherit from DCC region with variations
@@ -3420,28 +3416,17 @@
             '': '#6c757d',
         };
 
-    // Core 30 airports (highest priority)
-    const CORE30_AIRPORTS = [
-        'KATL', 'KBOS', 'KBWI', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
-        'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX',
-        'KLGA', 'KMCO', 'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPHL',
-        'KPHX', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KTPA',
-    ];
-
-    // OEP 35 airports (5 additional beyond Core 30)
-    const OEP35_AIRPORTS = [
-        'KCLE', 'KCVG', 'KPBI', 'KPIT', 'KSTL',
-    ];
-
-    // ASPM 77 airports (additional beyond OEP 35)
-    const ASPM77_AIRPORTS = [
-        'KABQ', 'PANC', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBUF', 'KBUR',
-        'KCHS', 'KCMH', 'KDAL', 'KDAY', 'KDSM', 'KELP', 'KGEG', 'KGRR',
-        'KGSO', 'PHNL', 'KHPN', 'KIND', 'KISP', 'KJAX', 'KLGB', 'KLIT',
-        'KMCI', 'KMKE', 'KMSY', 'KOAK', 'PHOG', 'KOKC', 'KOMA', 'KONT',
-        'KPDX', 'KPVD', 'KRDU', 'KRIC', 'KRNO', 'KRSW', 'KSAT', 'KSDF',
-        'KSJC', 'TJSJ', 'KSMF', 'KSNA', 'KSWF', 'KSYR', 'KTUS',
-    ];
+    // Airport tier lists - use FacilityHierarchy as source of truth (loaded from apts.csv)
+    // These are getters to access dynamically loaded data
+    const getAirportTierLists = () => ({
+        CORE30: FacilityHierarchy.AIRPORT_GROUPS?.CORE30?.airports || [],
+        OEP35: FacilityHierarchy.AIRPORT_GROUPS?.OEP35?.airports || [],
+        ASPM77: FacilityHierarchy.AIRPORT_GROUPS?.ASPM77?.airports || [],
+    });
+    // Legacy accessors for compatibility
+    const CORE30_AIRPORTS = { includes: apt => getAirportTierLists().CORE30.includes(apt) };
+    const OEP35_AIRPORTS = { includes: apt => getAirportTierLists().OEP35.includes(apt) };
+    const ASPM77_AIRPORTS = { includes: apt => getAirportTierLists().ASPM77.includes(apt) };
 
     // Aircraft Manufacturer Patterns (for aircraft_type color mode)
     const AIRCRAFT_MANUFACTURER_PATTERNS = {
@@ -3502,81 +3487,14 @@
         'OTHER': '#6c757d',          // Gray
     };
 
-    // Operator Group definitions
-    const MAJOR_CARRIERS = ['AAL', 'UAL', 'DAL', 'SWA', 'JBU', 'ASA', 'HAL', 'NKS', 'FFT', 'AAY', 'VXP', 'SYX'];
-    const REGIONAL_CARRIERS = ['SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX'];
-    const FREIGHT_CARRIERS = ['FDX', 'UPS', 'ABX', 'GTI', 'ATN', 'CLX', 'PAC', 'KAL', 'MTN', 'SRR', 'WCW', 'CAO'];
-    // Military callsign prefixes - comprehensive list
-    // US Military: Air Force, Army, Navy, Marines, Coast Guard, Air National Guard
-    // NATO and allied nations military aviation
-    const MILITARY_PREFIXES = [
-        // US Air Force
-        'RCH',    // Reach (AMC tanker/transport)
-        'REACH',  // Reach alternate
-        'AIO',    // Air Mobility Command
-        'KING',   // HC-130 rescue
-        'JOLLY',  // HH-60 rescue
-        'PEDRO',  // Pararescue
-        'SPAR',   // Special Operations
-        'EVAC',   // Aeromedical evacuation
-        'BREW',   // KC-135 callsign
-        'SHELL',  // Tanker
-        'DARK',   // Special ops
-        'HAWK',   // F-15/F-16
-        'VIPER',  // F-16
-        'EAGLE',  // F-15
-        'RAPTOR', // F-22
-        'BOLT',   // F-35
-        'SLAM',   // Strike aircraft
-        'BONE',   // B-1 Lancer
-        'DEATH',  // B-2 Spirit
-        'DOOM',   // B-52
-        'COBRA',  // Military
-        'TIGER',  // Military
-        'WOLF',   // Military
-        'REAPER', // MQ-9
-        'SHADOW', // RQ-7
-        'GLOBAL', // RQ-4 Global Hawk
-        // US Air Force standard prefixes (longer codes only - 'AF' handled separately to avoid AFR/AFL conflicts)
-        'USAF', 'ANG', 'AFRC',
-        // US Army
-        'ARMY', 'PAT',  // Patriot Express
-        // US Navy (squadron prefixes - 2-letter ones handled by regex to avoid airline conflicts)
-        'NAVY', 'CNV', 'VAQ', 'VFA', 'VAW', 'VRC', 'VRM',
-        // US Marines (various squadron designators)
-        'MARINE', 'MAR', 'USMC', 'VMM', 'VMA', 'VMFA', 'VMC', 'VMGR', 'HMH', 'HMM', 'HML', 'HMLA',
-        // US Coast Guard (CG + digits handled by regex to avoid airline conflicts)
-        'USCG', 'COAST',
-        // US Special Operations
-        'RRR',    // Rescue
-        'EXEC',   // Executive transport
-        'SAM',    // Special Air Mission (VIP)
-        'VENUS',  // VIP transport
-        // NATO common callsigns
-        'NATO',
-        // UK Royal Air Force
-        'RFR', 'ASCOT', 'TARTAN', 'TALLY',
-        // Canadian Forces
-        'CFC', 'CANFORCE', 'CANAF',
-        // German Luftwaffe
-        'GAF', 'GAM',
-        // French Air Force
-        'FAF', 'CTM', 'COTAM',
-        // Italian Air Force
-        'IAM',
-        // Australian Defence Force
-        'AUSSIE', 'RAAF',
-        // Other NATO/Allied
-        'NATO', 'ALLIED', 'SENTRY', 'AWACS',
-    ];
-
-    const OPERATOR_GROUP_COLORS = {
-        'MAJOR': '#dc3545',      // Red - major carriers
-        'REGIONAL': '#28a745',   // Green - regional carriers
-        'FREIGHT': '#007bff',    // Blue - freight/cargo
-        'GA': '#ffc107',         // Yellow - general aviation
-        'MILITARY': '#6f42c1',   // Purple - military
-        'OTHER': '#6c757d',       // Gray - unclassified
+    // Operator Group definitions - use FacilityHierarchy as source of truth
+    const MAJOR_CARRIERS = FacilityHierarchy.MAJOR_CARRIERS || [];
+    const REGIONAL_CARRIERS = FacilityHierarchy.REGIONAL_CARRIERS || [];
+    const FREIGHT_CARRIERS = FacilityHierarchy.FREIGHT_CARRIERS || [];
+    const MILITARY_PREFIXES = FacilityHierarchy.MILITARY_PREFIXES || [];
+    const OPERATOR_GROUP_COLORS = FacilityHierarchy.OPERATOR_GROUP_COLORS || {
+        'MAJOR': '#dc3545', 'REGIONAL': '#28a745', 'FREIGHT': '#007bff',
+        'GA': '#ffc107', 'MILITARY': '#6f42c1', 'OTHER': '#6c757d',
     };
 
     // =========================================

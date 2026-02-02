@@ -152,12 +152,12 @@
 
     // ===========================================
     // REGIONAL CARRIERS (for filtering)
+    // Use FacilityHierarchy as source of truth, fallback for load order
     // ===========================================
 
-    const REGIONAL_CARRIERS = [
-        'SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ',
-        'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX',
-    ];
+    const REGIONAL_CARRIERS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.REGIONAL_CARRIERS)
+        ? FacilityHierarchy.REGIONAL_CARRIERS
+        : ['SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX'];
 
     // ===========================================
     // HELPER FUNCTIONS
