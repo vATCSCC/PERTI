@@ -1,0 +1,20 @@
+# ADL Raw Data Lake Archive Dependencies
+# Install: pip install -r requirements.txt
+
+# Azure Storage
+azure-storage-blob>=12.19.0
+azure-identity>=1.15.0
+
+# Database connectivity
+pyodbc>=5.0.0
+
+# Parquet/Arrow for columnar storage
+pyarrow>=14.0.0
+pandas>=2.1.0
+
+# Progress bars and CLI
+tqdm>=4.66.0
+click>=8.1.0
+
+# Logging and utilities
+python-dateutil>=2.8.0
