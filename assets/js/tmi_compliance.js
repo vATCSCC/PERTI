@@ -4432,8 +4432,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             if (!isActive) {
-                // Hide the layers
-                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
+                // Hide the layers (including cluster layers)
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr', 'pair-clusters', 'pair-cluster-count'].forEach(layerId => {
                     if (map.getLayer(layerId)) {
                         map.setLayoutProperty(layerId, 'visibility', 'none');
                     }
@@ -4448,8 +4448,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Update existing source
                 map.getSource('pair-data').setData(pairGeoJSON.lines);
                 map.getSource('pair-markers').setData(pairGeoJSON.markers);
-                // Show layers
-                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
+                // Show layers (including cluster layers)
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr', 'pair-clusters', 'pair-cluster-count'].forEach(layerId => {
                     if (map.getLayer(layerId)) {
                         map.setLayoutProperty(layerId, 'visibility', 'visible');
                     }
@@ -4457,7 +4457,53 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             } else {
                 // Create sources and layers
                 map.addSource('pair-data', { type: 'geojson', data: pairGeoJSON.lines });
-                map.addSource('pair-markers', { type: 'geojson', data: pairGeoJSON.markers });
+                map.addSource('pair-markers', {
+                    type: 'geojson',
+                    data: pairGeoJSON.markers,
+                    cluster: true,
+                    clusterMaxZoom: 12,  // Disable clustering at zoom 13+
+                    clusterRadius: 50,   // Cluster points within 50px
+                });
+
+                // Cluster circles - show aggregated markers at low zoom
+                map.addLayer({
+                    id: 'pair-clusters',
+                    type: 'circle',
+                    source: 'pair-markers',
+                    filter: ['has', 'point_count'],
+                    paint: {
+                        'circle-color': [
+                            'step', ['get', 'point_count'],
+                            '#f28cb1', 10,   // Pink for < 10 points
+                            '#f1a340', 25,   // Orange for < 25 points
+                            '#d73027',       // Red for 25+ points
+                        ],
+                        'circle-radius': [
+                            'step', ['get', 'point_count'],
+                            18, 10,  // 18px for < 10 points
+                            24, 25,  // 24px for < 25 points
+                            30,      // 30px for 25+ points
+                        ],
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-width': 2,
+                    },
+                });
+
+                // Cluster count labels
+                map.addLayer({
+                    id: 'pair-cluster-count',
+                    type: 'symbol',
+                    source: 'pair-markers',
+                    filter: ['has', 'point_count'],
+                    layout: {
+                        'text-field': '{point_count_abbreviated}',
+                        'text-font': ['Noto Sans Bold'],
+                        'text-size': 12,
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                    },
+                });
 
                 // Connecting lines - colored by spacing category
                 map.addLayer({
@@ -4471,12 +4517,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Aircraft markers - previous (leading) aircraft
+                // Aircraft markers - previous (leading) aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-markers-prev',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'prev'],
+                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'prev']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4485,12 +4531,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Aircraft markers - current (trailing) aircraft
+                // Aircraft markers - current (trailing) aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-markers-curr',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'curr'],
+                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'curr']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4499,12 +4545,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Labels for previous aircraft
+                // Labels for previous aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-labels-prev',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'prev'],
+                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'prev']],
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
                         'text-font': ['Noto Sans Regular'],
@@ -4519,12 +4565,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Labels for current aircraft
+                // Labels for current aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-labels-curr',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'curr'],
+                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'curr']],
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
                         'text-font': ['Noto Sans Regular'],
@@ -4537,6 +4583,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'text-halo-color': ['get', 'color'],
                         'text-halo-width': 1.5,
                     },
+                });
+
+                // Click on cluster to zoom in and expand
+                map.on('click', 'pair-clusters', (e) => {
+                    const features = map.queryRenderedFeatures(e.point, { layers: ['pair-clusters'] });
+                    if (!features.length) return;
+                    const clusterId = features[0].properties.cluster_id;
+                    map.getSource('pair-markers').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({
+                            center: features[0].geometry.coordinates,
+                            zoom: zoom,
+                        });
+                    });
+                });
+
+                // Pointer cursor on clusters
+                map.on('mouseenter', 'pair-clusters', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'pair-clusters', () => {
+                    map.getCanvas().style.cursor = '';
                 });
             }
             return;
