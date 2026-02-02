@@ -21,6 +21,13 @@ const TMICompliance = {
         tmiType: '',         // 'MIT', 'MINIT', or '' for all
     },
 
+    // Progressive disclosure layout state (v2 UI)
+    useProgressiveLayout: true,  // Enable new master-detail layout
+    selectedTmiId: null,         // Currently selected TMI in list
+    listGrouping: 'type',        // 'type', 'chronological', 'volume', 'noncompliant'
+    listOrdering: 'chronological', // 'chronological', 'volume', 'alpha'
+    expandedSections: {},        // Track which detail sections are expanded
+
     init: function() {
         // Get plan ID from URL
         const uri = window.location.href.split('?');
@@ -397,6 +404,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return;
         }
 
+        // Use progressive disclosure layout (v2 UI) if enabled
+        if (this.useProgressiveLayout) {
+            this.renderProgressiveLayout();
+            return;
+        }
+
+        // Legacy layout below
         this.detailIdCounter = 0;
         let html = '';
 
@@ -5165,6 +5179,738 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <i class="fas fa-exclamation-circle"></i> ${message}
             </div>
         `);
+    },
+
+    // ========================================
+    // PROGRESSIVE DISCLOSURE LAYOUT (v2 UI)
+    // Master-detail layout with L1/L2/L3 layers
+    // ========================================
+
+    /**
+     * Render the progressive disclosure layout (new v2 UI)
+     * L1: Summary Header - 5-second answer
+     * L2: TMI List Panel - scannable index
+     * L3: Detail Panel - selected TMI details
+     */
+    renderProgressiveLayout: function() {
+        const html = `
+            <div class="tmi-analysis-wrapper">
+                ${this.renderSummaryHeaderV2()}
+                <div class="tmi-analysis-container">
+                    <div class="tmi-list-panel">
+                        ${this.renderListPanelV2()}
+                    </div>
+                    <div class="tmi-detail-panel" id="tmi-detail-panel">
+                        <div class="tmi-detail-empty">
+                            Select a TMI from the list to view details
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('#tmi_results_container').html(html);
+        this.bindProgressiveLayoutEvents();
+
+        // Auto-select first TMI if available
+        const firstItem = $('.tmi-list-item').first();
+        if (firstItem.length) {
+            this.selectTmi(firstItem.data('tmi-id'));
+        }
+    },
+
+    /**
+     * L1: Summary Header - The 5-second answer
+     */
+    renderSummaryHeaderV2: function() {
+        const r = this.results;
+        const summary = r.summary || {};
+
+        // Get all TMI results
+        const mitResults = r.mit_results || {};
+        const gsResults = r.gs_results || {};
+        const apreqResults = r.apreq_results || {};
+        const delayResults = r.delay_results || [];
+
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+
+        // Calculate NTML entry counts
+        const mitCount = mitArray.length;
+        const mitPairs = mitArray.reduce((sum, m) => sum + (m.pairs || 0), 0);
+        const mitNonCompliant = mitArray.reduce((sum, m) => {
+            const allPairs = m.all_pairs || [];
+            return sum + allPairs.filter(p => p.spacing_category === 'UNDER').length;
+        }, 0);
+
+        const gsCount = gsArray.length;
+        const stopViolations = gsArray.reduce((sum, g) => {
+            return sum + (g.departures_during_stop || 0);
+        }, 0);
+
+        const apreqCount = apreqArray.length;
+
+        // Calculate trajectory coverage
+        const trajCoverage = this.calculateTrajectoryCoverageV2();
+
+        // Format event window
+        const eventStart = r.event_start || '';
+        const eventEnd = r.event_end || '';
+
+        // NTML Entries summary
+        let ntmlLines = '';
+        if (mitCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>MIT/MINIT:</strong> ${mitPairs} pairs analyzed, ${mitNonCompliant} non-compliant</div>`;
+        }
+        if (apreqCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>APREQ/CFR:</strong> ${apreqCount} tracked</div>`;
+        }
+        if (gsCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
+        }
+
+        // Advisories summary (GS as advisory context)
+        let advisoryLines = '';
+        if (gsCount > 0) {
+            advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
+        }
+
+        // Data gap information
+        let gapInfo = '';
+        if (this.dataGaps && this.dataGaps.length > 0) {
+            const gapTimes = this.dataGaps.map(g => {
+                const start = g.start_hour.toString().padStart(2, '0') + ':00Z';
+                const end = (g.end_hour + 1).toString().padStart(2, '0') + ':00Z';
+                return `${start}–${end}`;
+            }).join(', ');
+            gapInfo = ` | <span class="gap-warning">Gaps: ${gapTimes}</span>`;
+        }
+
+        return `
+            <div class="tmi-summary-header">
+                <div class="event-identity">Plan ${r.plan_id || this.planId || '?'} — TMI Analysis</div>
+                <div class="event-window">${eventStart} – ${eventEnd}</div>
+
+                <div class="tmi-summary-entries">
+                    <div class="tmi-summary-group">
+                        <h4>NTML Entries</h4>
+                        ${ntmlLines || '<div class="tmi-summary-line text-muted">None configured</div>'}
+                    </div>
+                    ${advisoryLines ? `
+                    <div class="tmi-summary-group">
+                        <h4>Advisories</h4>
+                        ${advisoryLines}
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="tmi-data-quality">
+                    Data: ${trajCoverage}% trajectory coverage${gapInfo}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Calculate trajectory coverage percentage
+     */
+    calculateTrajectoryCoverageV2: function() {
+        const mitResults = this.results?.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+
+        let totalCrossings = 0;
+        let withTrajectories = 0;
+
+        mitArray.forEach(m => {
+            totalCrossings += (m.crossings || m.total_crossings || 0);
+            // Estimate trajectory coverage from analyzed pairs
+            withTrajectories += (m.pairs || 0) * 2; // Each pair involves 2 flights
+        });
+
+        if (totalCrossings === 0) return 100;
+        return Math.min(100, Math.round((withTrajectories / totalCrossings) * 100));
+    },
+
+    /**
+     * L2: TMI List Panel - Scannable index
+     */
+    renderListPanelV2: function() {
+        const allTmis = this.getAllTmisForList();
+
+        if (allTmis.length === 0) {
+            return `<div class="tmi-list-empty">No TMIs to display</div>`;
+        }
+
+        // Group by type
+        const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+
+        let html = `
+            <div class="tmi-list-header">
+                <div class="tmi-list-controls">
+                    <select id="tmi-list-ordering" title="Sort order">
+                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>Chronological</option>
+                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>By Volume</option>
+                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>Non-compliant First</option>
+                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>Alphabetical</option>
+                    </select>
+                </div>
+            </div>
+        `;
+
+        // Sort TMIs based on current ordering
+        const sortedNtml = this.sortTmiList(ntmlEntries);
+        const sortedAdvisories = this.sortTmiList(advisories);
+
+        // NTML Entries section
+        if (sortedNtml.length > 0) {
+            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            sortedNtml.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Advisories section
+        if (sortedAdvisories.length > 0) {
+            html += '<div class="tmi-list-section-label">Advisories</div>';
+            sortedAdvisories.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        return html;
+    },
+
+    /**
+     * Get all TMIs in a normalized format for the list
+     */
+    getAllTmisForList: function() {
+        const tmis = [];
+        const r = this.results;
+
+        // MIT/MINIT
+        const mitResults = r.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        mitArray.forEach((m, i) => {
+            const pairs = m.pairs || 0;
+            const allPairs = m.all_pairs || [];
+            const nonCompliant = allPairs.filter(p => p.spacing_category === 'UNDER').length;
+            const isMinit = m.unit === 'min';
+            const displayName = (m.fix && !['ALL', 'ANY', ''].includes(m.fix.toUpperCase()))
+                ? m.fix
+                : (m.destinations?.join(',') || 'Unknown');
+
+            tmis.push({
+                id: `mit_${i}`,
+                type: isMinit ? 'MINIT' : 'MIT',
+                identifier: displayName,
+                typeValue: `${m.required || 0}${isMinit ? 'MINIT' : 'MIT'}`,
+                metric: `${pairs}p`,
+                metricValue: pairs,
+                nonCompliant: nonCompliant,
+                startTime: m.tmi_start,
+                data: m,
+            });
+        });
+
+        // Ground Stops
+        const gsResults = r.gs_results || {};
+        const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        gsArray.forEach((g, i) => {
+            const departures = g.departures_during_stop || 0;
+            tmis.push({
+                id: `gs_${i}`,
+                type: 'GS',
+                identifier: g.destination || 'GS',
+                typeValue: 'GS',
+                metric: `${departures}/${g.total_stops || 1}`,
+                metricValue: g.total_stops || 1,
+                nonCompliant: departures,
+                startTime: g.gs_start,
+                data: g,
+            });
+        });
+
+        // APREQ
+        const apreqResults = r.apreq_results || {};
+        const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        apreqArray.forEach((a, i) => {
+            tmis.push({
+                id: `apreq_${i}`,
+                type: 'APREQ',
+                identifier: a.fix || a.destinations?.join(',') || 'APREQ',
+                typeValue: 'APREQ',
+                metric: `${a.flights?.length || 0}`,
+                metricValue: a.flights?.length || 0,
+                nonCompliant: 0,
+                startTime: a.tmi_start,
+                data: a,
+            });
+        });
+
+        return tmis;
+    },
+
+    /**
+     * Sort TMI list based on current ordering
+     */
+    sortTmiList: function(tmis) {
+        const sorted = [...tmis];
+
+        switch (this.listOrdering) {
+            case 'volume':
+                sorted.sort((a, b) => b.metricValue - a.metricValue);
+                break;
+            case 'noncompliant':
+                sorted.sort((a, b) => b.nonCompliant - a.nonCompliant);
+                break;
+            case 'alpha':
+                sorted.sort((a, b) => a.identifier.localeCompare(b.identifier));
+                break;
+            case 'chronological':
+            default:
+                // Already in chronological order from data
+                break;
+        }
+
+        return sorted;
+    },
+
+    /**
+     * Render a single list item
+     */
+    renderListItemV2: function(tmi) {
+        const hasNonCompliant = tmi.nonCompliant > 0;
+        const selectedClass = this.selectedTmiId === tmi.id ? 'selected' : '';
+
+        return `
+            <div class="tmi-list-item ${selectedClass}" data-tmi-id="${tmi.id}" onclick="TMICompliance.selectTmi('${tmi.id}')">
+                <div class="identifier">
+                    ${hasNonCompliant ? '<span class="tmi-nc-dot"></span>' : ''}
+                    ${tmi.identifier}
+                </div>
+                <div class="type-value">${tmi.typeValue}</div>
+                <div class="metric">${tmi.metric}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Select a TMI and show its details
+     */
+    selectTmi: function(tmiId) {
+        this.selectedTmiId = tmiId;
+
+        // Update list selection state
+        $('.tmi-list-item').removeClass('selected');
+        $(`.tmi-list-item[data-tmi-id="${tmiId}"]`).addClass('selected');
+
+        // Find TMI data
+        const tmi = this.findTmiById(tmiId);
+        if (!tmi) return;
+
+        // Render detail panel
+        $('#tmi-detail-panel').html(this.renderDetailPanelV2(tmi));
+
+        // On mobile, scroll to detail
+        if (window.innerWidth < 1000) {
+            $('#tmi-detail-panel')[0].scrollIntoView({ behavior: 'smooth' });
+        }
+    },
+
+    /**
+     * Find TMI data by ID
+     */
+    findTmiById: function(tmiId) {
+        const allTmis = this.getAllTmisForList();
+        return allTmis.find(t => t.id === tmiId);
+    },
+
+    /**
+     * L3: Detail Panel - Full details for selected TMI
+     */
+    renderDetailPanelV2: function(tmi) {
+        if (!tmi) {
+            return '<div class="tmi-detail-empty">Select a TMI from the list</div>';
+        }
+
+        const data = tmi.data;
+        let html = '';
+
+        // Back link for mobile
+        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">← Back to list</a>';
+
+        // Detail header
+        html += `
+            <div class="tmi-detail-header">
+                <div class="tmi-identity">${tmi.identifier} ${tmi.typeValue}</div>
+                <div class="tmi-standardized">${this.formatStandardizedTMI(data)}</div>
+            </div>
+        `;
+
+        // Render type-specific content
+        if (tmi.type === 'MIT' || tmi.type === 'MINIT') {
+            html += this.renderMitDetailV2(data);
+        } else if (tmi.type === 'GS') {
+            html += this.renderGsDetailV2(data);
+        } else if (tmi.type === 'APREQ') {
+            html += this.renderApreqDetailV2(data);
+        }
+
+        return html;
+    },
+
+    /**
+     * Render MIT/MINIT detail content
+     */
+    renderMitDetailV2: function(data) {
+        const allPairs = data.all_pairs || [];
+        const nonCompliant = allPairs.filter(p => p.spacing_category === 'UNDER');
+        const pairs = data.pairs || 0;
+        const required = data.required || 0;
+        const unitLabel = data.unit === 'min' ? 'min' : 'nm';
+
+        // Calculate spacing stats
+        const minSpacing = data.spacing_stats?.min || data.min_spacing || 0;
+        const maxSpacing = data.spacing_stats?.max || data.max_spacing || 0;
+        const avgSpacing = data.spacing_stats?.avg || data.avg_spacing || 0;
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.crossings || data.total_crossings || 0}</div>
+                    <div class="stat-label">Crossings</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${pairs}</div>
+                    <div class="stat-label">Pairs Analyzed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${nonCompliant.length}</div>
+                    <div class="stat-label">Non-compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="spacing-range">${minSpacing.toFixed(1)}–${maxSpacing.toFixed(1)}${unitLabel}</div>
+                    <div class="stat-label">Spacing Range</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${avgSpacing.toFixed(1)}${unitLabel}</div>
+                    <div class="stat-label">Avg Spacing</div>
+                </div>
+            </div>
+        `;
+
+        // Expandable sections
+        const diagramId = `diagram_${data.fix || 'mit'}_${Date.now()}`;
+
+        // Spacing Diagram section
+        html += this.renderExpandableSectionV2('spacing-diagram', 'Spacing Diagram', '', () => {
+            return this.renderSpacingDiagramV2(allPairs, required, data.unit);
+        });
+
+        // All Pairs section
+        html += this.renderExpandableSectionV2('all-pairs', 'All Pairs', `(${pairs})`, () => {
+            return this.renderPairsTableV2(allPairs, required, unitLabel);
+        });
+
+        // Non-Compliant section (if any)
+        if (nonCompliant.length > 0) {
+            html += this.renderExpandableSectionV2('non-compliant', 'Non-Compliant', `(${nonCompliant.length})`, () => {
+                return this.renderPairsTableV2(nonCompliant, required, unitLabel);
+            });
+        }
+
+        return html;
+    },
+
+    /**
+     * Render GS detail content
+     */
+    renderGsDetailV2: function(data) {
+        const departures = data.departures_during_stop || 0;
+        const totalFlights = data.flights?.length || 0;
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.gs_start} - ${data.gs_end}</div>
+                    <div class="stat-label">Stop Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${departures}</div>
+                    <div class="stat-label">Departures During Stop</div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    },
+
+    /**
+     * Render APREQ detail content
+     */
+    renderApreqDetailV2: function(data) {
+        const flights = data.flights || [];
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.tmi_start} - ${data.tmi_end}</div>
+                    <div class="stat-label">Active Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${flights.length}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+            </div>
+            <div class="text-muted small mt-3">
+                <i class="fas fa-info-circle"></i> APREQ/CFR is tracked for awareness only. Compliance is determined by coordination between facilities.
+            </div>
+        `;
+
+        return html;
+    },
+
+    /**
+     * Render an expandable section
+     */
+    renderExpandableSectionV2: function(sectionId, title, count, contentFn) {
+        const isExpanded = this.expandedSections[sectionId] || false;
+        const expandedClass = isExpanded ? 'expanded' : '';
+
+        return `
+            <div class="tmi-section ${expandedClass}" data-section-id="${sectionId}">
+                <div class="tmi-section-header" onclick="TMICompliance.toggleSectionV2('${sectionId}')">
+                    <span class="chevron">▸</span>
+                    <span class="section-title">${title}</span>
+                    <span class="section-count">${count}</span>
+                </div>
+                <div class="tmi-section-content">
+                    ${isExpanded ? contentFn() : ''}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Toggle section expansion
+     */
+    toggleSectionV2: function(sectionId) {
+        this.expandedSections[sectionId] = !this.expandedSections[sectionId];
+
+        const section = $(`.tmi-section[data-section-id="${sectionId}"]`);
+        const content = section.find('.tmi-section-content');
+
+        if (this.expandedSections[sectionId]) {
+            section.addClass('expanded');
+            // Re-render content when expanding
+            const tmi = this.findTmiById(this.selectedTmiId);
+            if (tmi) {
+                let contentHtml = '';
+                if (sectionId === 'spacing-diagram') {
+                    const data = tmi.data;
+                    contentHtml = this.renderSpacingDiagramV2(data.all_pairs || [], data.required || 0, data.unit);
+                } else if (sectionId === 'all-pairs') {
+                    const data = tmi.data;
+                    contentHtml = this.renderPairsTableV2(data.all_pairs || [], data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                } else if (sectionId === 'non-compliant') {
+                    const data = tmi.data;
+                    const nonCompliant = (data.all_pairs || []).filter(p => p.spacing_category === 'UNDER');
+                    contentHtml = this.renderPairsTableV2(nonCompliant, data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                }
+                content.html(contentHtml);
+            }
+        } else {
+            section.removeClass('expanded');
+        }
+    },
+
+    /**
+     * Simplified spacing diagram (v2)
+     */
+    renderSpacingDiagramV2: function(allPairs, required, unit) {
+        if (!allPairs || allPairs.length === 0) {
+            return '<div class="text-muted">No pairs to display</div>';
+        }
+
+        const unitLabel = unit === 'min' ? 'min' : 'nm';
+
+        // Build flight sequence
+        const flights = [];
+        if (allPairs.length > 0) {
+            flights.push({
+                callsign: allPairs[0].prev_callsign,
+                time: allPairs[0].prev_time,
+            });
+            allPairs.forEach(p => {
+                flights.push({
+                    callsign: p.curr_callsign,
+                    time: p.curr_time,
+                    spacing: p.spacing,
+                    category: p.spacing_category,
+                });
+            });
+        }
+
+        let html = '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
+
+        let lastTime = null;
+        let lastTimeMs = null;
+
+        for (let i = 0; i < flights.length; i++) {
+            const flight = flights[i];
+
+            // Parse time for gap detection
+            let flightTimeMs = null;
+            if (flight.time) {
+                const match = flight.time.match(/(\d{2}):?(\d{2})/);
+                if (match) {
+                    flightTimeMs = parseInt(match[1]) * 60 + parseInt(match[2]);
+                }
+            }
+
+            // Check for gap (>10 min between flights)
+            if (lastTimeMs !== null && flightTimeMs !== null) {
+                let gapMinutes = flightTimeMs - lastTimeMs;
+                if (gapMinutes < 0) gapMinutes += 24 * 60; // Handle day wrap
+
+                if (gapMinutes > 10) {
+                    html += `<div class="tmi-spacing-gap">${gapMinutes} min</div>`;
+                } else if (flight.spacing !== undefined) {
+                    // Render segment line between consecutive flights
+                    const isNonCompliant = flight.category === 'UNDER';
+                    html += `
+                        <div class="tmi-spacing-segment">
+                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                            <div class="tmi-spacing-value">${flight.spacing?.toFixed(1) || '?'}${unitLabel}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Render flight dot
+            const isNonCompliant = flight.category === 'UNDER';
+            html += `
+                <div class="tmi-spacing-flight">
+                    <div class="tmi-spacing-dot ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                    <div class="tmi-spacing-callsign">${flight.callsign}</div>
+                    <div class="tmi-spacing-time">${flight.time || ''}</div>
+                </div>
+            `;
+
+            lastTime = flight.time;
+            lastTimeMs = flightTimeMs;
+        }
+
+        html += '</div>';
+
+        // Scale bar
+        html += `
+            <div class="tmi-spacing-scale">
+                <div class="tmi-spacing-scale-bar"></div>
+                <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+            </div>
+        `;
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Pairs table (v2)
+     */
+    renderPairsTableV2: function(pairs, required, unitLabel) {
+        if (!pairs || pairs.length === 0) {
+            return '<div class="text-muted">No pairs to display</div>';
+        }
+
+        let html = `
+            <table class="tmi-pairs-table">
+                <thead>
+                    <tr>
+                        <th>Lead</th>
+                        <th>Trail</th>
+                        <th>Gap (mm:ss)</th>
+                        <th>Spacing</th>
+                        <th class="spacing-bar-cell">Visual</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        pairs.forEach(p => {
+            const isNonCompliant = p.spacing_category === 'UNDER';
+            const spacing = p.spacing || 0;
+            const diff = spacing - required;
+            const diffStr = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+
+            // Calculate gap in mm:ss format
+            const gapStr = this.formatGapMmSs(p.gap_minutes || p.time_gap || 0);
+
+            // Calculate bar width (cap at 150% of required)
+            const barPct = Math.min((spacing / (required * 1.5)) * 100, 100);
+
+            html += `
+                <tr>
+                    <td class="flight-cell">
+                        <div class="callsign">${p.prev_callsign}</div>
+                        <div class="crossing-time">${p.prev_time || ''}</div>
+                    </td>
+                    <td class="flight-cell">
+                        <div class="callsign">${p.curr_callsign}</div>
+                        <div class="crossing-time">${p.curr_time || ''}</div>
+                    </td>
+                    <td class="gap-cell">${gapStr}</td>
+                    <td class="spacing-cell">${spacing.toFixed(1)}${unitLabel}</td>
+                    <td class="spacing-bar-cell">
+                        <div class="tmi-spacing-bar-inline">
+                            <div class="tmi-spacing-bar-track">
+                                <div class="tmi-spacing-bar-fill ${isNonCompliant ? 'non-compliant' : ''}" style="width: ${barPct}%"></div>
+                            </div>
+                            <span class="tmi-spacing-diff">(${diffStr})</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        return html;
+    },
+
+    /**
+     * Format gap as mm:ss (always 2 digits each)
+     */
+    formatGapMmSs: function(decimalMinutes) {
+        const totalSeconds = Math.round((decimalMinutes || 0) * 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.abs(totalSeconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    },
+
+    /**
+     * Scroll to list (mobile)
+     */
+    scrollToList: function() {
+        $('.tmi-list-panel')[0]?.scrollIntoView({ behavior: 'smooth' });
+    },
+
+    /**
+     * Bind events for progressive layout
+     */
+    bindProgressiveLayoutEvents: function() {
+        const self = this;
+
+        // List ordering change
+        $('#tmi-list-ordering').off('change').on('change', function() {
+            self.listOrdering = $(this).val();
+            // Re-render list panel
+            $('.tmi-list-panel').html(self.renderListPanelV2());
+        });
     },
 };
 

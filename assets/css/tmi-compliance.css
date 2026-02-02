@@ -1,0 +1,890 @@
+/**
+ * TMI Compliance Analysis Styles
+ * ==============================
+ * Progressive disclosure UI with master-detail layout
+ *
+ * Layout Structure:
+ *   L1: Summary Header (5-second answer)
+ *   L2: TMI List Panel (scannable index)
+ *   L3: Detail Panel (selected TMI details)
+ *
+ * Color tokens from perti-colors.css:
+ *   --tmi-data-neutral, --tmi-data-attention, --tmi-scale-bar, --tmi-gap-indicator
+ */
+
+/* ===========================================
+ * MASTER LAYOUT
+ * =========================================== */
+
+.tmi-analysis-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 600px;
+}
+
+.tmi-analysis-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--light-bg-page);
+}
+
+.tmi-list-panel {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--light-border);
+    overflow-y: auto;
+    background: var(--light-bg-surface);
+}
+
+.tmi-detail-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-width: 0;
+}
+
+/* ===========================================
+ * L1: SUMMARY HEADER
+ * =========================================== */
+
+.tmi-summary-header {
+    padding: 20px 24px;
+    background: var(--light-bg-surface);
+    border-bottom: 1px solid var(--light-border);
+    margin-bottom: 0;
+}
+
+.tmi-summary-header .event-identity {
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    margin-bottom: 4px;
+}
+
+.tmi-summary-header .event-window {
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+    margin-bottom: 16px;
+}
+
+.tmi-summary-entries {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+}
+
+.tmi-summary-group {
+    min-width: 200px;
+}
+
+.tmi-summary-group h4 {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--light-text-muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.tmi-summary-line {
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: var(--light-text-secondary);
+}
+
+.tmi-summary-line strong {
+    color: var(--light-text-primary);
+    font-weight: 600;
+}
+
+.tmi-data-quality {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--light-border);
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-data-quality .gap-warning {
+    color: var(--status-warning);
+}
+
+/* ===========================================
+ * L2: LIST PANEL
+ * =========================================== */
+
+.tmi-list-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--light-border);
+    background: var(--light-bg-page);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.tmi-list-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.tmi-list-controls select {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    background: var(--light-bg-page);
+    color: var(--light-text-secondary);
+    cursor: pointer;
+}
+
+.tmi-list-controls select:hover {
+    border-color: var(--light-border-strong);
+}
+
+.tmi-list-section-label {
+    padding: 8px 16px;
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--light-text-muted);
+    background: var(--light-bg-subtle);
+    font-weight: 600;
+    position: sticky;
+    top: 45px;
+    z-index: 1;
+}
+
+.tmi-list-item {
+    display: grid;
+    grid-template-columns: 1fr 70px 45px;
+    gap: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.85em;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.tmi-list-item:hover {
+    background: var(--light-bg-hover);
+}
+
+.tmi-list-item.selected {
+    background: rgba(118, 109, 244, 0.08);
+    border-left-color: var(--brand-primary);
+}
+
+.tmi-list-item .identifier {
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    color: var(--light-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tmi-list-item .type-value {
+    color: var(--light-text-secondary);
+    text-align: right;
+}
+
+.tmi-list-item .metric {
+    text-align: right;
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+}
+
+/* Non-compliant indicator dot */
+.tmi-nc-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tmi-data-attention);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Empty state for list */
+.tmi-list-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+}
+
+/* ===========================================
+ * L3: DETAIL PANEL
+ * =========================================== */
+
+.tmi-detail-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--light-text-muted);
+    font-size: 0.95em;
+}
+
+.tmi-detail-header {
+    margin-bottom: 20px;
+}
+
+.tmi-detail-header .tmi-identity {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    margin-bottom: 6px;
+}
+
+.tmi-detail-header .tmi-standardized {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+/* Overview stats */
+.tmi-detail-overview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    padding: 20px;
+    background: var(--light-bg-subtle);
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.tmi-detail-overview .stat {
+    text-align: center;
+    min-width: 80px;
+}
+
+.tmi-detail-overview .stat-value {
+    font-size: 1.75em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    line-height: 1.2;
+}
+
+.tmi-detail-overview .stat-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--light-text-muted);
+    margin-top: 4px;
+}
+
+.tmi-detail-overview .spacing-range {
+    font-size: 0.9em;
+    color: var(--light-text-secondary);
+}
+
+/* ===========================================
+ * EXPANDABLE SECTIONS
+ * =========================================== */
+
+.tmi-section {
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.tmi-section-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--light-bg-page);
+    transition: background 0.15s;
+}
+
+.tmi-section-header:hover {
+    background: var(--light-bg-subtle);
+}
+
+.tmi-section-header .chevron {
+    width: 16px;
+    margin-right: 10px;
+    color: var(--light-text-muted);
+    transition: transform 0.2s ease;
+}
+
+.tmi-section.expanded .tmi-section-header .chevron {
+    transform: rotate(90deg);
+}
+
+.tmi-section-header .section-title {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--light-text-primary);
+}
+
+.tmi-section-header .section-count {
+    margin-left: 8px;
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-section-content {
+    padding: 16px;
+    border-top: 1px solid var(--light-border);
+    display: none;
+    background: var(--light-bg-page);
+}
+
+.tmi-section.expanded .tmi-section-content {
+    display: block;
+}
+
+/* ===========================================
+ * SPACING DIAGRAM
+ * =========================================== */
+
+.tmi-spacing-diagram {
+    padding: 20px 0;
+    overflow-x: auto;
+}
+
+.tmi-spacing-timeline {
+    display: flex;
+    align-items: flex-start;
+    min-width: max-content;
+    padding: 10px 0;
+}
+
+.tmi-spacing-flight {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+}
+
+.tmi-spacing-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--tmi-data-neutral);
+    flex-shrink: 0;
+}
+
+.tmi-spacing-dot.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+.tmi-spacing-callsign {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.75em;
+    font-weight: 600;
+    margin-top: 6px;
+    color: var(--light-text-primary);
+}
+
+.tmi-spacing-time {
+    font-size: 0.65em;
+    color: var(--light-text-muted);
+    margin-top: 2px;
+}
+
+.tmi-spacing-segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 4px;
+    min-width: 50px;
+}
+
+.tmi-spacing-line {
+    height: 2px;
+    background: var(--tmi-data-neutral);
+    width: 100%;
+    min-width: 40px;
+    margin-top: 4px;
+}
+
+.tmi-spacing-line.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+.tmi-spacing-value {
+    font-size: 0.7em;
+    color: var(--light-text-secondary);
+    margin-top: 6px;
+    white-space: nowrap;
+}
+
+/* Gap indicator between non-consecutive flights */
+.tmi-spacing-gap {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    color: var(--tmi-gap-indicator);
+    font-size: 0.75em;
+    white-space: nowrap;
+    margin-top: 4px;
+}
+
+.tmi-spacing-gap::before,
+.tmi-spacing-gap::after {
+    content: '';
+    width: 12px;
+    height: 1px;
+    background: var(--tmi-gap-indicator);
+}
+
+.tmi-spacing-gap::before {
+    margin-right: 6px;
+}
+
+.tmi-spacing-gap::after {
+    margin-left: 6px;
+}
+
+/* Scale bar (map-style reference) */
+.tmi-spacing-scale {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-left: 10px;
+}
+
+.tmi-spacing-scale-bar {
+    width: 60px;
+    height: 4px;
+    background: var(--tmi-scale-bar);
+    border-radius: 2px;
+}
+
+.tmi-spacing-scale-label {
+    font-size: 0.75em;
+    color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * PAIRS TABLE
+ * =========================================== */
+
+.tmi-pairs-table {
+    width: 100%;
+    font-size: 0.85em;
+    border-collapse: collapse;
+}
+
+.tmi-pairs-table th {
+    font-weight: 600;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--light-text-muted);
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--light-border);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tmi-pairs-table th.sortable {
+    cursor: pointer;
+}
+
+.tmi-pairs-table th.sortable:hover {
+    color: var(--light-text-secondary);
+}
+
+.tmi-pairs-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--light-border);
+    vertical-align: middle;
+}
+
+.tmi-pairs-table tbody tr:hover {
+    background: var(--light-bg-subtle);
+}
+
+.tmi-pairs-table .flight-cell {
+    line-height: 1.4;
+}
+
+.tmi-pairs-table .callsign {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-pairs-table .crossing-time {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-pairs-table .gap-cell {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    color: var(--light-text-secondary);
+}
+
+.tmi-pairs-table .spacing-cell {
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-pairs-table .spacing-bar-cell {
+    min-width: 140px;
+}
+
+/* Inline spacing bar in table */
+.tmi-spacing-bar-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tmi-spacing-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--light-bg-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 60px;
+}
+
+.tmi-spacing-bar-fill {
+    height: 100%;
+    background: var(--tmi-data-neutral);
+    border-radius: 4px;
+    transition: width 0.2s ease;
+}
+
+.tmi-spacing-bar-fill.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+.tmi-spacing-diff {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    white-space: nowrap;
+    min-width: 55px;
+}
+
+/* ===========================================
+ * CONTEXT MAP (placeholder for future)
+ * =========================================== */
+
+.tmi-context-map {
+    height: 300px;
+    background: var(--light-bg-subtle);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * CONFIGURATION PANEL
+ * =========================================== */
+
+.tmi-config-panel {
+    margin-bottom: 16px;
+}
+
+.tmi-config-panel.collapsed .tmi-config-content {
+    display: none;
+}
+
+.tmi-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--light-bg-surface);
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.tmi-config-panel:not(.collapsed) .tmi-config-header {
+    border-radius: 6px 6px 0 0;
+    border-bottom: none;
+}
+
+.tmi-config-header .config-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-config-header .chevron {
+    transition: transform 0.2s;
+}
+
+.tmi-config-panel:not(.collapsed) .tmi-config-header .chevron {
+    transform: rotate(180deg);
+}
+
+.tmi-config-content {
+    padding: 20px;
+    background: var(--light-bg-surface);
+    border: 1px solid var(--light-border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.tmi-config-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.tmi-config-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.tmi-config-field label {
+    display: block;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-bottom: 6px;
+}
+
+.tmi-config-field input,
+.tmi-config-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.tmi-config-field textarea {
+    min-height: 120px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+.tmi-config-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--light-border);
+}
+
+.tmi-config-status {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tmi-config-status.saved {
+    color: var(--status-success);
+}
+
+/* ===========================================
+ * LOADING & EMPTY STATES
+ * =========================================== */
+
+.tmi-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--light-text-muted);
+}
+
+.tmi-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--light-border);
+    border-top-color: var(--brand-primary);
+    border-radius: 50%;
+    animation: tmi-spin 0.8s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes tmi-spin {
+    to { transform: rotate(360deg); }
+}
+
+.tmi-loading .progress-text {
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+.tmi-loading .progress-bar {
+    width: 200px;
+    height: 6px;
+    background: var(--light-bg-subtle);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.tmi-loading .progress-fill {
+    height: 100%;
+    background: var(--brand-primary);
+    transition: width 0.3s ease;
+}
+
+.tmi-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--light-text-muted);
+}
+
+.tmi-empty-state .icon {
+    font-size: 2.5em;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.tmi-empty-state .title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-bottom: 8px;
+}
+
+.tmi-empty-state .description {
+    font-size: 0.9em;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* ===========================================
+ * RESPONSIVE BEHAVIOR
+ * =========================================== */
+
+@media (max-width: 1400px) {
+    .tmi-list-panel {
+        width: 240px;
+    }
+
+    .tmi-list-item {
+        grid-template-columns: 1fr 60px 40px;
+        padding: 8px 12px;
+    }
+
+    .tmi-detail-overview {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .tmi-analysis-container {
+        flex-direction: column;
+    }
+
+    .tmi-list-panel {
+        width: 100%;
+        max-height: 300px;
+        border-right: none;
+        border-bottom: 1px solid var(--light-border);
+    }
+
+    .tmi-detail-panel {
+        padding: 16px;
+    }
+
+    .tmi-summary-entries {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* Back to list link for mobile */
+    .tmi-detail-back {
+        display: block;
+        margin-bottom: 16px;
+        font-size: 0.85em;
+        color: var(--brand-primary);
+        cursor: pointer;
+    }
+
+    .tmi-detail-back:hover {
+        text-decoration: underline;
+    }
+}
+
+@media (min-width: 1001px) {
+    .tmi-detail-back {
+        display: none;
+    }
+}
+
+/* ===========================================
+ * DARK THEME SUPPORT
+ * =========================================== */
+
+.dark-theme .tmi-analysis-container,
+.dark-theme .tmi-config-header,
+.dark-theme .tmi-config-content {
+    background: var(--dark-bg-surface);
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-list-panel {
+    background: var(--dark-bg-panel);
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-summary-header {
+    background: var(--dark-bg-surface);
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-list-item.selected {
+    background: rgba(118, 109, 244, 0.15);
+}
+
+.dark-theme .tmi-section {
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-section-header {
+    background: var(--dark-bg-panel);
+}
+
+.dark-theme .tmi-section-header:hover {
+    background: var(--dark-bg-hover);
+}
+
+.dark-theme .tmi-section-content {
+    background: var(--dark-bg-surface);
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-pairs-table th,
+.dark-theme .tmi-pairs-table td {
+    border-color: var(--dark-border);
+}
+
+.dark-theme .tmi-pairs-table tbody tr:hover {
+    background: var(--dark-bg-hover);
+}
+
+.dark-theme .tmi-spacing-bar-track {
+    background: var(--dark-bg-panel);
+}
+
+.dark-theme .tmi-detail-overview {
+    background: var(--dark-bg-panel);
+}
+
+.dark-theme .tmi-config-field input,
+.dark-theme .tmi-config-field textarea {
+    background: var(--dark-bg-panel);
+    border-color: var(--dark-border);
+    color: var(--dark-text-primary);
+}
