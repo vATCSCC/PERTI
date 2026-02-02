@@ -3325,27 +3325,56 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // ═══════════════════════════════════════════════════════════════════════
                     // STEP 1: Compute approach bearing for each trajectory
-                    // Use the bearing of the point closest to the fix (within 30nm)
+                    // Find where traffic is COMING FROM by detecting the approach phase
+                    // (when aircraft is getting closer to fix) and computing direction
                     // ═══════════════════════════════════════════════════════════════════════
                     const trajectoryApproach = {}; // callsign -> { bearing, minDist }
 
                     Object.entries(trajectories).forEach(([callsign, traj]) => {
                         if (!traj.coordinates || traj.coordinates.length < 2) return;
 
-                        let minDist = Infinity;
-                        let approachBearing = null;
+                        let bestApproachPoint = null;
+                        let bestApproachDist = Infinity;
 
-                        traj.coordinates.forEach(coord => {
-                            const [lon, lat] = coord;
-                            const dist = distanceNm(lon, lat, fixLon, fixLat);
-                            if (dist < minDist && dist < 30) {
-                                minDist = dist;
-                                approachBearing = bearingTo(fixLon, fixLat, lon, lat);
+                        // Find approach segments (where distance to fix is DECREASING)
+                        // and use a point from the approach phase to determine direction
+                        for (let i = 1; i < traj.coordinates.length; i++) {
+                            const prev = traj.coordinates[i - 1];
+                            const curr = traj.coordinates[i];
+
+                            const prevDist = distanceNm(prev[0], prev[1], fixLon, fixLat);
+                            const currDist = distanceNm(curr[0], curr[1], fixLon, fixLat);
+
+                            // Is this segment approaching? (getting closer to fix)
+                            if (currDist < prevDist) {
+                                // Use the upstream point (prev) as the approach reference
+                                // Prefer points 10-40nm out for stable bearing calculation
+                                if (prevDist >= 10 && prevDist <= 40 && prevDist < bestApproachDist) {
+                                    bestApproachDist = prevDist;
+                                    bestApproachPoint = prev;
+                                }
                             }
-                        });
+                        }
 
-                        if (approachBearing !== null) {
-                            trajectoryApproach[callsign] = { bearing: approachBearing, minDist };
+                        // Fallback: if no good approach point found, try any approaching point within 50nm
+                        if (!bestApproachPoint) {
+                            for (let i = 1; i < traj.coordinates.length; i++) {
+                                const prev = traj.coordinates[i - 1];
+                                const curr = traj.coordinates[i];
+                                const prevDist = distanceNm(prev[0], prev[1], fixLon, fixLat);
+                                const currDist = distanceNm(curr[0], curr[1], fixLon, fixLat);
+
+                                if (currDist < prevDist && prevDist <= 50 && prevDist < bestApproachDist) {
+                                    bestApproachDist = prevDist;
+                                    bestApproachPoint = prev;
+                                }
+                            }
+                        }
+
+                        if (bestApproachPoint) {
+                            // Bearing FROM fix TO the approach point = direction traffic comes FROM
+                            const approachBearing = bearingTo(fixLon, fixLat, bestApproachPoint[0], bestApproachPoint[1]);
+                            trajectoryApproach[callsign] = { bearing: approachBearing, minDist: bestApproachDist };
                         }
                     });
 
@@ -3415,6 +3444,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         const streamCallsigns = new Set(stream.callsigns);
 
                         // Sample this stream's trajectories by distance from fix
+                        // ONLY use points from APPROACH phase (getting closer to fix)
                         const distanceBins = {};
 
                         Object.entries(trajectories).forEach(([callsign, traj]) => {
@@ -3423,18 +3453,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                             const visitedBins = new Set();
 
-                            traj.coordinates.forEach(coord => {
-                                const [lon, lat] = coord;
-                                const dist = distanceNm(lon, lat, fixLon, fixLat);
-                                const bearing = bearingTo(fixLon, fixLat, lon, lat);
-                                const bin = Math.round(dist / BIN_SIZE) * BIN_SIZE;
+                            // Only sample points from approach phase (distance decreasing)
+                            for (let i = 1; i < traj.coordinates.length; i++) {
+                                const prev = traj.coordinates[i - 1];
+                                const curr = traj.coordinates[i];
 
-                                if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
-                                    visitedBins.add(bin);
-                                    distanceBins[bin] = distanceBins[bin] || [];
-                                    distanceBins[bin].push({ bearing, lon, lat, callsign });
+                                const prevDist = distanceNm(prev[0], prev[1], fixLon, fixLat);
+                                const currDist = distanceNm(curr[0], curr[1], fixLon, fixLat);
+
+                                // Only use this point if approaching (getting closer)
+                                if (currDist < prevDist) {
+                                    const [lon, lat] = prev;
+                                    const dist = prevDist;
+                                    const bearing = bearingTo(fixLon, fixLat, lon, lat);
+                                    const bin = Math.round(dist / BIN_SIZE) * BIN_SIZE;
+
+                                    if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
+                                        visitedBins.add(bin);
+                                        distanceBins[bin] = distanceBins[bin] || [];
+                                        distanceBins[bin].push({ bearing, lon, lat, callsign });
+                                    }
                                 }
-                            });
+                            }
                         });
 
                         // Compute centerline for this stream
