@@ -326,13 +326,23 @@ function buildTempTables(PDO $gis, array $trajectories): void
         ), 4326))
     ");
 
-    foreach ($trajectories as $callsign => $traj) {
+    foreach ($trajectories as $key => $traj) {
+        // Handle both array format (from JS: [{callsign, coordinates}])
+        // and associative format (legacy: {callsign: {coordinates}})
+        $callsign = isset($traj['callsign']) ? $traj['callsign'] : $key;
+
         if (!isset($traj['coordinates']) || !is_array($traj['coordinates']) || count($traj['coordinates']) < 2) {
             continue;
         }
 
         $coords = $traj['coordinates'];
         for ($i = 0; $i < count($coords); $i++) {
+            // Validate coordinate point has required lon/lat values
+            if (!is_array($coords[$i]) || count($coords[$i]) < 2 ||
+                !is_numeric($coords[$i][0]) || !is_numeric($coords[$i][1])) {
+                continue;
+            }
+
             $insertPointStmt->execute([
                 ':callsign' => $callsign,
                 ':seq' => $i,
@@ -341,6 +351,12 @@ function buildTempTables(PDO $gis, array $trajectories): void
             ]);
 
             if ($i < count($coords) - 1) {
+                // Validate next point too before creating segment
+                if (!is_array($coords[$i + 1]) || count($coords[$i + 1]) < 2 ||
+                    !is_numeric($coords[$i + 1][0]) || !is_numeric($coords[$i + 1][1])) {
+                    continue;
+                }
+
                 $insertSegStmt->execute([
                     ':callsign' => $callsign,
                     ':seg_idx' => $i,
@@ -510,11 +526,15 @@ function matchStreamsToFixes(PDO $gis, array $streams, array $knownFixes): array
         $nearestDist = PHP_INT_MAX;
 
         foreach ($knownFixes as $fix) {
+            if (!is_array($fix)) continue;
+
             $fixId = $fix['id'] ?? $fix['name'] ?? 'UNKNOWN';
             $fixLat = $fix['lat'] ?? $fix['latitude'] ?? null;
             $fixLon = $fix['lon'] ?? $fix['lng'] ?? $fix['longitude'] ?? null;
 
-            if ($fixLat === null || $fixLon === null) continue;
+            // Validate fix has valid numeric coordinates
+            if ($fixLat === null || $fixLon === null ||
+                !is_numeric($fixLat) || !is_numeric($fixLon)) continue;
 
             // Calculate distance
             $distQuery = $gis->prepare("
@@ -1043,7 +1063,10 @@ function calculateSegmentDensity(PDO $gis, array $trajectories, float $proximity
 
     $enrichedTrajectories = [];
 
-    foreach ($trajectories as $callsign => $traj) {
+    foreach ($trajectories as $key => $traj) {
+        // Handle both array format and associative format
+        $callsign = isset($traj['callsign']) ? $traj['callsign'] : $key;
+
         $enrichedTraj = $traj;
         $densities = [];
 
@@ -1183,12 +1206,21 @@ function calculateGridDensity(PDO $gis, array $trajectories, float $gridSize): a
     }
 
     $enrichedTrajectories = [];
-    foreach ($trajectories as $callsign => $traj) {
+    foreach ($trajectories as $key => $traj) {
+        // Handle both array format and associative format
+        $callsign = isset($traj['callsign']) ? $traj['callsign'] : $key;
+
         $enrichedTraj = $traj;
         $densities = [];
 
         if (isset($traj['coordinates']) && is_array($traj['coordinates'])) {
             foreach ($traj['coordinates'] as $coord) {
+                // Validate coordinate point
+                if (!is_array($coord) || count($coord) < 2 ||
+                    !is_numeric($coord[0]) || !is_numeric($coord[1])) {
+                    $densities[] = 0;
+                    continue;
+                }
                 $posKey = round($coord[0], 3) . ',' . round($coord[1], 3);
                 $density = $pointDensities[$callsign][$posKey] ?? 0;
                 $densities[] = $density / $maxDensity;
