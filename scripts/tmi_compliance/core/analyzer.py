@@ -851,13 +851,29 @@ class TMIComplianceAnalyzer:
 
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        # Query both live (adl_flight_trajectory) and archive (adl_trajectory_archive) tables
-        # Live table uses recorded_utc and needs join to get callsign
-        # Archive table has callsign and uses timestamp_utc
+        # Query TMI trajectory, archive, and live tables for complete coverage
+        # TMI trajectory has high-res event data (15s/30s/60s resolution)
+        # Archive table has downsampled historical data
+        # Live table has recent real-time data
         query = self.adl.format_query(f"""
             SELECT callsign, flight_uid, timestamp_utc, lat, lon, groundspeed_kts, altitude_ft,
                    fp_dept_icao, fp_dest_icao
             FROM (
+                -- TMI trajectory table (high-res event data - PRIORITY)
+                SELECT c.callsign, t.flight_uid, t.timestamp_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao
+                FROM dbo.adl_tmi_trajectory t
+                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s
+                  AND t.timestamp_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                  AND t.lat BETWEEN %s AND %s
+                  AND t.lon BETWEEN %s AND %s
+
+                UNION ALL
+
                 -- Archive table (older data)
                 SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
@@ -888,6 +904,11 @@ class TMIComplianceAnalyzer:
             ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
+            # TMI trajectory table params
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
+            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin,
+            fix_lon - lon_margin, fix_lon + lon_margin,
             # Archive table params
             tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
             tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
@@ -902,7 +923,7 @@ class TMIComplianceAnalyzer:
 
         positions = cursor.fetchall()
         cursor.close()
-        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (live+archive)")
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (tmi+archive+live)")
 
         # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
