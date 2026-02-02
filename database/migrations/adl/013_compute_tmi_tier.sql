@@ -30,17 +30,16 @@ RETURNS @result TABLE (
 AS
 BEGIN
     DECLARE @dept_icao CHAR(4), @dest_icao CHAR(4);
-    DECLARE @dept_artcc CHAR(3), @dest_artcc CHAR(3), @current_artcc CHAR(3);
+    DECLARE @dept_artcc CHAR(3), @dest_artcc CHAR(3);
     DECLARE @current_lat DECIMAL(10,7), @current_lon DECIMAL(11,7);
-    DECLARE @event_id INT, @tier TINYINT;
+    DECLARE @event_id INT;
 
-    -- Get flight info
+    -- Get flight info (route-based tier determination)
     SELECT
         @dept_icao = p.fp_dept_icao,
         @dest_icao = p.fp_dest_icao,
         @current_lat = pos.lat,
-        @current_lon = pos.lon,
-        @current_artcc = pos.current_artcc
+        @current_lon = pos.lon
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
     LEFT JOIN dbo.adl_flight_position pos ON c.flight_uid = pos.flight_uid
@@ -57,7 +56,7 @@ BEGIN
         RETURN;
     END
 
-    -- Find active event that matches this flight
+    -- Find active event that matches this flight (route-based: dept/dest airports or their ARTCCs)
     SELECT TOP 1 @event_id = e.event_id
     FROM dbo.perti_events e
     WHERE @timestamp_utc BETWEEN e.logging_start_utc AND e.logging_end_utc
@@ -73,10 +72,10 @@ BEGIN
               SELECT 1 FROM OPENJSON(e.featured_airports) fa
               WHERE fa.value IN (@dest_icao, 'K' + SUBSTRING(@dest_icao, 2, 3), SUBSTRING(@dest_icao, 2, 3))
           )
-          -- OR traversing parent ARTCC of featured airports
+          -- OR route traverses parent ARTCC of featured airports
           OR EXISTS (
               SELECT 1 FROM OPENJSON(e.featured_airports) fa
-              WHERE dbo.fn_GetAirportArtcc(fa.value) IN (@dept_artcc, @dest_artcc, @current_artcc)
+              WHERE dbo.fn_GetAirportArtcc(fa.value) IN (@dept_artcc, @dest_artcc)
           )
       )
     ORDER BY e.event_id;  -- Prefer earliest event if multiple overlap
@@ -97,7 +96,7 @@ BEGIN
         WHERE @timestamp_utc BETWEEN e.logging_start_utc AND e.logging_end_utc
           AND e.logging_enabled = 1
           AND adj.hop_distance IN (1, 2)  -- Tier 1 or 2 neighbors
-          AND adj.neighbor_code IN (@dept_artcc, @dest_artcc, @current_artcc)
+          AND adj.neighbor_code IN (@dept_artcc, @dest_artcc)
     )
     BEGIN
         INSERT INTO @result (tmi_tier, perti_event_id) VALUES (1, NULL);
@@ -124,6 +123,7 @@ RETURNS TABLE
 AS
 RETURN
 (
+    -- Route-based tier determination (uses dept/dest ARTCCs, not current position)
     WITH ActiveEvents AS (
         SELECT
             e.event_id,
@@ -152,13 +152,12 @@ RETURN
     SELECT
         c.flight_uid,
         CASE
-            -- T-0: Event traffic (arr/dep from featured OR in featured ARTCC)
+            -- T-0: Event traffic (route intersects featured ARTCC)
             WHEN EXISTS (
                 SELECT 1 FROM FeaturedArtccs fa
                 WHERE fa.artcc_code IN (
                     dbo.fn_GetAirportArtcc(p.fp_dept_icao),
-                    dbo.fn_GetAirportArtcc(p.fp_dest_icao),
-                    pos.current_artcc
+                    dbo.fn_GetAirportArtcc(p.fp_dest_icao)
                 )
             ) THEN CAST(0 AS TINYINT)
 
@@ -167,8 +166,7 @@ RETURN
                 SELECT 1 FROM AdjacentArtccs aa
                 WHERE aa.artcc_code IN (
                     dbo.fn_GetAirportArtcc(p.fp_dept_icao),
-                    dbo.fn_GetAirportArtcc(p.fp_dest_icao),
-                    pos.current_artcc
+                    dbo.fn_GetAirportArtcc(p.fp_dest_icao)
                 )
             ) THEN CAST(1 AS TINYINT)
 
