@@ -661,7 +661,7 @@ window.DemandChartCore = (function() {
                         itemGap: 10,   // Space between items
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                     },
-                    grid: { left: 50, right: 70, bottom: 100, top: 45, containLabel: false },  // Extra room for wrapped legend
+                    grid: { left: 50, right: 100, bottom: 100, top: 45, containLabel: false },  // Room for dataZoom slider + rate labels
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -5097,7 +5097,7 @@ function getStandardLegendConfig(visible) {
 function getStandardGridConfig() {
     return {
         left: 55,
-        right: 40,   // Reduced from 70 - no longer need room for rate labels
+        right: 100,  // Room for vertical dataZoom slider (30px) + rate labels (70px)
         bottom: 115, // Fixed: room for legend area + dataZoom slider
         top: 55,
         containLabel: false,
