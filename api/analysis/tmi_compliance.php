@@ -283,6 +283,8 @@ function format_results($results) {
                 // Measurement metadata (boundary vs fix)
                 'measurement_type' => $r['measurement_type'] ?? 'FIX',
                 'measurement_point' => $r['measurement_point'] ?? ($r['fix'] ?? ''),
+                // Airway identifier if fix is an airway (for map display)
+                'airway' => preg_match('/^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+$/i', $r['fix'] ?? '') ? strtoupper($r['fix']) : null,
                 // Additional TMI metadata
                 'destinations' => $r['destinations'] ?? [],
                 'origins' => $r['origins'] ?? [],
