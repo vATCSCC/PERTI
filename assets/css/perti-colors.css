@@ -166,6 +166,21 @@
   --weather-panel-border: #555555;
 
   /* ===========================================
+   * TMI COMPLIANCE ANALYSIS
+   * Neutral data distinction (not judgmental)
+   * =========================================== */
+
+  --tmi-data-neutral:      #6b7280;    /* Compliant pairs - baseline gray */
+  --tmi-data-attention:    #374151;    /* Non-compliant - darker, draws eye */
+  --tmi-scale-bar:         #374151;    /* Required spacing reference */
+  --tmi-gap-indicator:     #9ca3af;    /* Time gaps between non-consecutive flights */
+
+  /* TMI flow visualization */
+  --tmi-flow-cone-fill:    rgba(107, 114, 128, 0.12);
+  --tmi-flow-cone-border:  rgba(107, 114, 128, 0.35);
+  --tmi-stream-highlight:  #4b5563;
+
+  /* ===========================================
    * CHART & DATA VISUALIZATION
    * =========================================== */
 
