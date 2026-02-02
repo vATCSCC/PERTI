@@ -3125,24 +3125,39 @@ $(document).ready(function() {
         };
 
         // ─────────────────────────────────────────────────────────────────────
-        // DCC REGION DEFINITIONS (5 regions per user spec)
+        // DCC REGION COLORS - Uses FacilityHierarchy as single source of truth
+        // See: assets/js/facility-hierarchy.js DCC_REGIONS
         // ─────────────────────────────────────────────────────────────────────
-        const DCC_REGIONS = {
-            'WEST':         ['ZAK', 'ZAN', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE'],
-            'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
-            'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
-            'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-        };
 
-        const DCC_REGION_COLORS = {
-            'WEST': '#e15759',           // Red
-            'SOUTH_CENTRAL': '#f28e2b',  // Orange
-            'MIDWEST': '#59a14f',        // Green
-            'SOUTHEAST': '#edc948',      // Yellow
-            'NORTHEAST': '#4e79a7',      // Blue
-            '': '#6c757d',
-        };
+        /**
+         * Get DCC region color for an ARTCC code
+         * @param {string} artcc - ARTCC code (e.g., 'ZNY')
+         * @returns {string} Hex color code
+         */
+        function getDccRegionColor(artcc) {
+            const FH = window.FacilityHierarchy;
+            if (FH && FH.DCC_REGIONS) {
+                for (const [region, regionData] of Object.entries(FH.DCC_REGIONS)) {
+                    if (regionData.artccs && regionData.artccs.includes(artcc)) {
+                        return regionData.color || '#6c757d';
+                    }
+                }
+            }
+            return '#6c757d';  // Default gray
+        }
+
+        /**
+         * Get color for a specific DCC region name
+         * @param {string} regionName - Region key (e.g., 'NORTHEAST')
+         * @returns {string} Hex color code
+         */
+        function getDccRegionColorByName(regionName) {
+            const FH = window.FacilityHierarchy;
+            if (FH && FH.DCC_REGIONS && FH.DCC_REGIONS[regionName]) {
+                return FH.DCC_REGIONS[regionName].color || '#6c757d';
+            }
+            return '#6c757d';  // Default gray
+        }
 
         // ARTCC colors - inherit from DCC region with variations
         const CENTER_COLORS = {
@@ -3936,10 +3951,7 @@ $(document).ready(function() {
                 }
                 case 'dcc_region': {
                     const center = getAirportCenter(flight.fp_dept_icao) || getAirportCenter(flight.fp_dest_icao);
-                    for (const [region, centers] of Object.entries(DCC_REGIONS)) {
-                        if (centers.includes(center)) {return DCC_REGION_COLORS[region];}
-                    }
-                    return DCC_REGION_COLORS[''];
+                    return getDccRegionColor(center);
                 }
                 case 'dep_airport': {
                     const depTier = getAirportTier(flight.fp_dept_icao);
@@ -4211,20 +4223,20 @@ $(document).ready(function() {
                 case 'dep_tracon':
                 case 'arr_tracon':
                     items = [
-                        { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                        { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'S.Central' },
-                        { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                        { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: 'West' },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'S.Central' },
+                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
                     ];
                     break;
                 case 'dcc_region':
                     items = [
-                        { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                        { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                        { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                        { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: 'West' },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'South Central' },
+                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
                     ];
                     break;
                 case 'dep_airport':

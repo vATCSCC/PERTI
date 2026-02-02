@@ -4312,62 +4312,21 @@
         showCoordinationResults(results, totalCoord, totalDirect);
     }
 
-    // Airport to ARTCC mapping for auto-selecting coordination facilities
-    const AIRPORT_TO_ARTCC = {
-        // ZNY - New York Center
-        'JFK': 'ZNY', 'KJFK': 'ZNY', 'LGA': 'ZNY', 'KLGA': 'ZNY', 'EWR': 'ZNY', 'KEWR': 'ZNY',
-        'TEB': 'ZNY', 'KTEB': 'ZNY', 'ISP': 'ZNY', 'KISP': 'ZNY', 'HPN': 'ZNY', 'KHPN': 'ZNY',
-        'SWF': 'ZNY', 'KSWF': 'ZNY', 'ACY': 'ZNY', 'KACY': 'ZNY',
-        // ZDC - Washington Center
-        'DCA': 'ZDC', 'KDCA': 'ZDC', 'IAD': 'ZDC', 'KIAD': 'ZDC', 'BWI': 'ZDC', 'KBWI': 'ZDC',
-        'PHL': 'ZDC', 'KPHL': 'ZDC', 'RIC': 'ZDC', 'KRIC': 'ZDC', 'ORF': 'ZDC', 'KORF': 'ZDC',
-        'CLT': 'ZDC', 'KCLT': 'ZDC',
-        // ZBW - Boston Center
-        'BOS': 'ZBW', 'KBOS': 'ZBW', 'BDL': 'ZBW', 'KBDL': 'ZBW', 'PVD': 'ZBW', 'KPVD': 'ZBW',
-        'MHT': 'ZBW', 'KMHT': 'ZBW', 'PWM': 'ZBW', 'KPWM': 'ZBW',
-        // ZTL - Atlanta Center
-        'ATL': 'ZTL', 'KATL': 'ZTL', 'BNA': 'ZTL', 'KBNA': 'ZTL', 'GSO': 'ZTL', 'KGSO': 'ZTL',
-        'RDU': 'ZTL', 'KRDU': 'ZTL', 'CHS': 'ZTL', 'KCHS': 'ZTL',
-        // ZJX - Jacksonville Center
-        'JAX': 'ZJX', 'KJAX': 'ZJX', 'MCO': 'ZJX', 'KMCO': 'ZJX', 'TPA': 'ZJX', 'KTPA': 'ZJX',
-        'SRQ': 'ZJX', 'KSRQ': 'ZJX', 'PBI': 'ZJX', 'KPBI': 'ZJX', 'FLL': 'ZJX', 'KFLL': 'ZJX',
-        // ZMA - Miami Center
-        'MIA': 'ZMA', 'KMIA': 'ZMA',
-        // ZHU - Houston Center
-        'IAH': 'ZHU', 'KIAH': 'ZHU', 'HOU': 'ZHU', 'KHOU': 'ZHU', 'AUS': 'ZHU', 'KAUS': 'ZHU',
-        'SAT': 'ZHU', 'KSAT': 'ZHU', 'MSY': 'ZHU', 'KMSY': 'ZHU',
-        // ZFW - Fort Worth Center
-        'DFW': 'ZFW', 'KDFW': 'ZFW', 'DAL': 'ZFW', 'KDAL': 'ZFW', 'OKC': 'ZFW', 'KOKC': 'ZFW',
-        // ZAU - Chicago Center
-        'ORD': 'ZAU', 'KORD': 'ZAU', 'MDW': 'ZAU', 'KMDW': 'ZAU', 'MKE': 'ZAU', 'KMKE': 'ZAU',
-        // ZOB - Cleveland Center
-        'CLE': 'ZOB', 'KCLE': 'ZOB', 'PIT': 'ZOB', 'KPIT': 'ZOB', 'CMH': 'ZOB', 'KCMH': 'ZOB',
-        'BUF': 'ZOB', 'KBUF': 'ZOB', 'DTW': 'ZOB', 'KDTW': 'ZOB',
-        // ZID - Indianapolis Center
-        'IND': 'ZID', 'KIND': 'ZID', 'CVG': 'ZID', 'KCVG': 'ZID', 'SDF': 'ZID', 'KSDF': 'ZID',
-        'DAY': 'ZID', 'KDAY': 'ZID',
-        // ZKC - Kansas City Center
-        'MCI': 'ZKC', 'KMCI': 'ZKC', 'STL': 'ZKC', 'KSTL': 'ZKC', 'ICT': 'ZKC', 'KICT': 'ZKC',
-        // ZMP - Minneapolis Center
-        'MSP': 'ZMP', 'KMSP': 'ZMP', 'DSM': 'ZMP', 'KDSM': 'ZMP', 'OMA': 'ZMP', 'KOMA': 'ZMP',
-        // ZME - Memphis Center
-        'MEM': 'ZME', 'KMEM': 'ZME', 'LIT': 'ZME', 'KLIT': 'ZME', 'TUL': 'ZME', 'KTUL': 'ZME',
-        // ZDV - Denver Center
-        'DEN': 'ZDV', 'KDEN': 'ZDV', 'COS': 'ZDV', 'KCOS': 'ZDV', 'ABQ': 'ZDV', 'KABQ': 'ZDV',
-        // ZAB - Albuquerque Center
-        'PHX': 'ZAB', 'KPHX': 'ZAB', 'TUS': 'ZAB', 'KTUS': 'ZAB', 'ELP': 'ZAB', 'KELP': 'ZAB',
-        // ZLA - Los Angeles Center
-        'LAX': 'ZLA', 'KLAX': 'ZLA', 'SAN': 'ZLA', 'KSAN': 'ZLA', 'ONT': 'ZLA', 'KONT': 'ZLA',
-        'BUR': 'ZLA', 'KBUR': 'ZLA', 'LGB': 'ZLA', 'KLGB': 'ZLA', 'SNA': 'ZLA', 'KSNA': 'ZLA',
-        'LAS': 'ZLA', 'KLAS': 'ZLA',
-        // ZOA - Oakland Center
-        'SFO': 'ZOA', 'KSFO': 'ZOA', 'OAK': 'ZOA', 'KOAK': 'ZOA', 'SJC': 'ZOA', 'KSJC': 'ZOA',
-        'SMF': 'ZOA', 'KSMF': 'ZOA', 'RNO': 'ZOA', 'KRNO': 'ZOA',
-        // ZSE - Seattle Center
-        'SEA': 'ZSE', 'KSEA': 'ZSE', 'PDX': 'ZSE', 'KPDX': 'ZSE', 'GEG': 'ZSE', 'KGEG': 'ZSE',
-        // ZLC - Salt Lake Center
-        'SLC': 'ZLC', 'KSLC': 'ZLC', 'BOI': 'ZLC', 'KBOI': 'ZLC',
-    };
+    // Airport to ARTCC mapping - uses FacilityHierarchy loaded from apts.csv
+    // See: assets/js/facility-hierarchy.js AIRPORT_TO_ARTCC
+
+    /**
+     * Get ARTCC for an airport code
+     * @param {string} airport - Airport code (FAA or ICAO)
+     * @returns {string|null} ARTCC code or null
+     */
+    function getAirportARTCC(airport) {
+        const FH = window.FacilityHierarchy;
+        if (FH && FH.AIRPORT_TO_ARTCC) {
+            return FH.AIRPORT_TO_ARTCC[airport.toUpperCase()] || null;
+        }
+        return null;
+    }
 
     function buildFacilityCheckboxes() {
         // Get PROVIDING facilities from queue entries (facilities that need to approve)
@@ -4387,7 +4346,7 @@
             // Only fall back to airport ARTCC mapping if no providing facility was explicitly specified
             else if (data.ctl_element) {
                 const airport = data.ctl_element.toUpperCase();
-                const artcc = AIRPORT_TO_ARTCC[airport];
+                const artcc = getAirportARTCC(airport);
                 if (artcc) {
                     detectedFacilities.add(artcc);
                 }
