@@ -597,16 +597,113 @@
 }
 
 /* ===========================================
- * CONTEXT MAP (placeholder for future)
+ * CONTEXT MAP
  * =========================================== */
 
-.tmi-context-map {
-    height: 300px;
-    background: var(--light-bg-subtle);
-    border-radius: 6px;
+.tmi-map-section {
+    margin-top: 16px;
+}
+
+.tmi-map-toggle {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--light-bg-subtle);
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--light-text-primary);
+    transition: all 0.15s ease;
+}
+
+.tmi-map-toggle:hover {
+    background: var(--light-bg-hover);
+    border-color: var(--brand-primary);
+}
+
+.tmi-map-toggle i.fa-chevron-down {
+    transition: transform 0.2s ease;
+    font-size: 0.8em;
+    color: var(--light-text-muted);
+}
+
+.tmi-map-toggle:not(.collapsed) i.fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.tmi-map-toggle .small {
+    color: var(--light-text-muted);
+    font-weight: normal;
+}
+
+.tmi-map-collapse {
+    border: 1px solid var(--light-border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+}
+
+.tmi-map-layer-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--light-bg-elevated);
+    border-bottom: 1px solid var(--light-border);
+}
+
+.tmi-map-layer-controls .layer-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-right: 4px;
+}
+
+.tmi-map-layer-controls .layer-btn {
+    padding: 4px 10px;
+    font-size: 0.75em;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    background: var(--light-bg-primary);
+    color: var(--light-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tmi-map-layer-controls .layer-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+}
+
+.tmi-map-layer-controls .layer-btn.active {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: white;
+}
+
+.tmi-map-layer-controls .layer-divider {
+    color: var(--light-border);
+    margin: 0 4px;
+}
+
+.tmi-map-container {
+    height: 400px;
+    background: var(--light-bg-subtle);
+    position: relative;
+}
+
+.tmi-map-container .leaflet-container {
+    height: 100%;
+    width: 100%;
+    background: var(--light-bg-subtle);
+}
+
+/* Loading state */
+.tmi-map-container > div {
+    height: 100%;
     color: var(--light-text-muted);
 }
 
