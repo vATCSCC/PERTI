@@ -1607,8 +1607,15 @@ const NODDemandLayer = (function() {
     /**
      * Normalize airport code to ICAO format
      * JFK -> KJFK, LAX -> KLAX, KJFK -> KJFK
+     * YVR -> CYVR (Canadian), etc.
      */
     function normalizeAirportCode(code) {
+        // Use FacilityHierarchy.normalizeIcao if available (handles Canada, Alaska, Hawaii, etc.)
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+            return FacilityHierarchy.normalizeIcao(code);
+        }
+
+        // Fallback: basic normalization
         code = code.toUpperCase();
 
         // Already 4 chars starting with K/C/P - likely ICAO
