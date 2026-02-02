@@ -497,11 +497,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT)</h6>';
 
-            // Apply filters and render
+            // Group TMIs by pair count for collapsible sections
+            const groups = {
+                high: { label: '20+ pairs', min: 20, max: Infinity, items: [], expanded: true },
+                medium: { label: '5-19 pairs', min: 5, max: 19, items: [], expanded: true },
+                low: { label: '1-4 pairs', min: 1, max: 4, items: [], expanded: false },
+                none: { label: '0 pairs', min: 0, max: 0, items: [], expanded: false }
+            };
+
+            // Apply filters and categorize
             let visibleCount = 0;
             let filteredCount = 0;
             for (const r of mitResultsArray) {
-                // Skip entries with no data
+                // Skip entries with no data message
                 if (r.pairs === 0 && r.message) {continue;}
 
                 // Apply filters
@@ -511,7 +519,51 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 }
 
                 visibleCount++;
-                html += this.renderMitCard(r);
+                const pairs = r.pairs || 0;
+
+                // Categorize by pair count
+                if (pairs >= 20) {
+                    groups.high.items.push(r);
+                } else if (pairs >= 5) {
+                    groups.medium.items.push(r);
+                } else if (pairs >= 1) {
+                    groups.low.items.push(r);
+                } else {
+                    groups.none.items.push(r);
+                }
+            }
+
+            // Render each group as collapsible section
+            for (const [groupKey, group] of Object.entries(groups)) {
+                if (group.items.length === 0) continue;
+
+                const groupId = `tmi-group-${groupKey}`;
+                const chevron = group.expanded ? 'fa-chevron-down' : 'fa-chevron-right';
+                const displayStyle = group.expanded ? '' : 'display:none;';
+
+                html += `
+                    <div class="tmi-group mb-3">
+                        <div class="tmi-group-header d-flex align-items-center py-2 px-3"
+                             style="background:rgba(255,255,255,0.05);border-radius:6px;cursor:pointer;border-left:3px solid var(--primary);"
+                             onclick="TMICompliance.toggleGroup('${groupId}')">
+                            <i class="fas ${chevron} mr-2" id="${groupId}-chevron" style="width:14px;"></i>
+                            <span class="font-weight-bold">${group.label}</span>
+                            <span class="badge badge-primary ml-2">${group.items.length} TMI${group.items.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="tmi-group-content mt-2" id="${groupId}" style="${displayStyle}">
+                `;
+
+                // Sort items by pair count descending within group
+                group.items.sort((a, b) => (b.pairs || 0) - (a.pairs || 0));
+
+                for (const r of group.items) {
+                    html += this.renderMitCard(r);
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
             }
 
             // Show filter status if some are hidden
@@ -633,6 +685,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             tmiType: '',
         };
         this.renderResults();
+    },
+
+    // Toggle TMI group expand/collapse
+    toggleGroup: function(groupId) {
+        const content = document.getElementById(groupId);
+        const chevron = document.getElementById(groupId + '-chevron');
+        if (!content || !chevron) return;
+
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? '' : 'none';
+        chevron.className = isHidden ? 'fas fa-chevron-down mr-2' : 'fas fa-chevron-right mr-2';
     },
 
     // Bind filter change events
