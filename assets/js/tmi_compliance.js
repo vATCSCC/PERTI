@@ -5245,7 +5245,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         const gsCount = gsArray.length;
         const stopViolations = gsArray.reduce((sum, g) => {
-            return sum + (g.departures_during_stop || 0);
+            return sum + (g.non_compliant_count || 0);
         }, 0);
 
         const apreqCount = apreqArray.length;
@@ -5417,15 +5417,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const gsResults = r.gs_results || {};
         const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
         gsArray.forEach((g, i) => {
-            const departures = g.departures_during_stop || 0;
+            const nonCompliant = g.non_compliant_count || 0;
+            const totalFlights = g.total_flights || 0;
+            const identifier = (g.destinations && g.destinations.length > 0)
+                ? g.destinations.join(',')
+                : 'GS';
             tmis.push({
                 id: `gs_${i}`,
                 type: 'GS',
-                identifier: g.destination || 'GS',
+                identifier: identifier,
                 typeValue: 'GS',
-                metric: `${departures}/${g.total_stops || 1}`,
-                metricValue: g.total_stops || 1,
-                nonCompliant: departures,
+                metric: `${nonCompliant}/${totalFlights}`,
+                metricValue: totalFlights,
+                nonCompliant: nonCompliant,
                 startTime: g.gs_start,
                 data: g,
             });
@@ -5435,13 +5439,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const apreqResults = r.apreq_results || {};
         const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
         apreqArray.forEach((a, i) => {
+            const flightCount = a.total_flights || a.affected_count || 0;
             tmis.push({
                 id: `apreq_${i}`,
                 type: 'APREQ',
                 identifier: a.fix || a.destinations?.join(',') || 'APREQ',
                 typeValue: 'APREQ',
-                metric: `${a.flights?.length || 0}`,
-                metricValue: a.flights?.length || 0,
+                metric: `${flightCount}`,
+                metricValue: flightCount,
                 nonCompliant: 0,
                 startTime: a.tmi_start,
                 data: a,
@@ -5627,13 +5632,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render GS detail content
      */
     renderGsDetailV2: function(data) {
-        const departures = data.departures_during_stop || 0;
-        const totalFlights = data.flights?.length || 0;
+        const nonCompliant = data.non_compliant_count || 0;
+        const totalFlights = data.total_flights || 0;
+        const compliant = data.compliant_count || 0;
+        const exempt = data.exempt_count || 0;
 
         let html = `
             <div class="tmi-detail-overview">
                 <div class="stat">
-                    <div class="stat-value">${data.gs_start} - ${data.gs_end}</div>
+                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'}</div>
                     <div class="stat-label">Stop Window</div>
                 </div>
                 <div class="stat">
@@ -5641,8 +5648,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="stat-label">Flights Tracked</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value">${departures}</div>
-                    <div class="stat-label">Departures During Stop</div>
+                    <div class="stat-value">${compliant}</div>
+                    <div class="stat-label">Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${nonCompliant}</div>
+                    <div class="stat-label">Non-compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${exempt}</div>
+                    <div class="stat-label">Exempt</div>
                 </div>
             </div>
         `;
@@ -5654,17 +5669,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render APREQ detail content
      */
     renderApreqDetailV2: function(data) {
-        const flights = data.flights || [];
+        const totalFlights = data.total_flights || 0;
+        const affectedCount = data.affected_count || 0;
+        const exemptCount = data.exempt_count || 0;
+        const postTmiCount = data.post_tmi_count || 0;
 
         let html = `
             <div class="tmi-detail-overview">
                 <div class="stat">
-                    <div class="stat-value">${data.tmi_start} - ${data.tmi_end}</div>
+                    <div class="stat-value">${data.tmi_start || '?'} - ${data.tmi_end || '?'}</div>
                     <div class="stat-label">Active Window</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value">${flights.length}</div>
+                    <div class="stat-value">${totalFlights}</div>
                     <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${affectedCount}</div>
+                    <div class="stat-label">Affected</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${exemptCount}</div>
+                    <div class="stat-label">Exempt</div>
                 </div>
             </div>
             <div class="text-muted small mt-3">
@@ -5848,8 +5874,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const diff = spacing - required;
             const diffStr = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
 
-            // Calculate gap in mm:ss format
-            const gapStr = this.formatGapMmSs(p.gap_minutes || p.time_gap || 0);
+            // Calculate gap in mm:ss format (time_min is the gap in minutes from Python analyzer)
+            const gapStr = this.formatGapMmSs(p.time_min || 0);
 
             // Calculate bar width (cap at 150% of required)
             const barPct = Math.min((spacing / (required * 1.5)) * 100, 100);
