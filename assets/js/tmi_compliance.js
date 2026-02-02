@@ -3775,7 +3775,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                         console.log(`Computed ${allStreamCones.length} stream cones from ${Object.keys(trajectories).length} tracks`);
                     }
-                }
             }
 
             // Add traffic flow sectors (75% and 90% capture zones)
