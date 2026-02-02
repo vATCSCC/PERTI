@@ -2111,11 +2111,200 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             // Cache the result
             this.flowStreamCache[mapId] = data;
             console.log(`Flow streams for ${mapId}: ${data.streams?.length || 0} streams, ${data.merge_zones?.length || 0} merge zones`);
+
+            // If map already exists (user opened it before API returned), add layers now
+            if (this.activeMaps[mapId] && data.streams?.length > 0) {
+                console.log(`Map ${mapId} already open - adding flow stream layers dynamically`);
+                this.addFlowStreamLayers(mapId, data);
+            }
+
             return data;
         } catch (err) {
             console.warn(`Flow stream fetch failed for ${mapId}:`, err);
             return null;
         }
+    },
+
+    /**
+     * Add flow stream visualization layers to an existing map
+     * Extracted to allow adding layers either during initial map load or after async API returns
+     *
+     * @param {string} mapId - Map identifier
+     * @param {Object} flowData - Flow stream data from the API
+     */
+    addFlowStreamLayers: function(mapId, flowData) {
+        const map = this.activeMaps[mapId];
+        if (!map || !flowData?.streams?.length) {
+            return;
+        }
+
+        // Skip if layers already exist
+        if (map.getSource('flow-streams')) {
+            console.log(`Flow stream layers already exist for ${mapId}`);
+            return;
+        }
+
+        // Color palette for streams (distinct hues)
+        const streamColors = [
+            '#3498db', // Blue
+            '#e74c3c', // Red
+            '#2ecc71', // Green
+            '#9b59b6', // Purple
+            '#f39c12', // Orange
+            '#1abc9c', // Teal
+            '#e67e22', // Dark orange
+            '#34495e', // Dark gray-blue
+        ];
+
+        // Build stream hull features
+        const streamFeatures = flowData.streams.map((stream, idx) => ({
+            type: 'Feature',
+            properties: {
+                stream_id: stream.stream_id,
+                display_short: stream.display?.short || stream.stream_id,
+                display_long: stream.display?.long || stream.stream_id,
+                track_count: stream.track_count,
+                is_merge: stream.components?.is_merge || false,
+                color: streamColors[idx % streamColors.length],
+            },
+            geometry: stream.hull
+        }));
+
+        // Build merge zone features
+        const mergeFeatures = (flowData.merge_zones || []).map(mz => ({
+            type: 'Feature',
+            properties: {
+                merge_id: mz.merge_id,
+                display_short: mz.display?.short || 'Merge',
+                display_long: mz.display?.long || 'Merge Zone',
+                parent_streams: mz.stream_addresses?.join(' + ') || '',
+            },
+            geometry: mz.geometry
+        }));
+
+        // Add stream hulls source
+        map.addSource('flow-streams', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: streamFeatures }
+        });
+
+        // Stream hull fills (subtle, below flight tracks)
+        const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
+
+        map.addLayer({
+            id: 'flow-streams-fill',
+            type: 'fill',
+            source: 'flow-streams',
+            paint: {
+                'fill-color': ['get', 'color'],
+                'fill-opacity': ['case', ['get', 'is_merge'], 0.08, 0.12],
+            }
+        }, beforeLayer);
+
+        // Stream hull outlines
+        map.addLayer({
+            id: 'flow-streams-outline',
+            type: 'line',
+            source: 'flow-streams',
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['case', ['get', 'is_merge'], 1.5, 2],
+                'line-opacity': 0.7,
+                'line-dasharray': ['case', ['get', 'is_merge'], ['literal', [4, 2]], ['literal', [1, 0]]],
+            }
+        }, beforeLayer);
+
+        // Stream labels (centroid)
+        const labelFeatures = flowData.streams.map((stream, idx) => ({
+            type: 'Feature',
+            properties: {
+                label: stream.display?.short || stream.stream_id,
+                track_count: stream.track_count,
+                color: streamColors[idx % streamColors.length],
+            },
+            geometry: stream.centroid
+        }));
+
+        map.addSource('flow-stream-labels', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: labelFeatures }
+        });
+
+        map.addLayer({
+            id: 'flow-stream-labels',
+            type: 'symbol',
+            source: 'flow-stream-labels',
+            layout: {
+                'text-field': ['concat', ['get', 'label'], '\n', ['get', 'track_count'], ' ac'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 11,
+                'text-anchor': 'center',
+                'text-allow-overlap': false,
+            },
+            paint: {
+                'text-color': ['get', 'color'],
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+            }
+        });
+
+        // Add merge zones if present
+        if (mergeFeatures.length > 0) {
+            map.addSource('flow-merge-zones', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: mergeFeatures }
+            });
+
+            map.addLayer({
+                id: 'flow-merge-zones-fill',
+                type: 'fill',
+                source: 'flow-merge-zones',
+                paint: {
+                    'fill-color': '#ff6b6b',
+                    'fill-opacity': 0.15,
+                }
+            }, beforeLayer);
+
+            map.addLayer({
+                id: 'flow-merge-zones-outline',
+                type: 'line',
+                source: 'flow-merge-zones',
+                paint: {
+                    'line-color': '#ff6b6b',
+                    'line-width': 2,
+                    'line-opacity': 0.8,
+                    'line-dasharray': [2, 2],
+                }
+            }, beforeLayer);
+        }
+
+        console.log(`Added flow streams: ${streamFeatures.length} streams, ${mergeFeatures.length} merge zones`);
+
+        // Add hover effect for streams
+        map.on('mouseenter', 'flow-streams-fill', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'flow-streams-fill', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        // Add click popup for stream details
+        map.on('click', 'flow-streams-fill', (e) => {
+            const props = e.features[0]?.properties || {};
+            new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                    <div style="font-size: 12px;">
+                        <div style="font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 4px;">
+                            ${props.display_long || props.stream_id || 'Stream'}
+                        </div>
+                        <div><strong>ID:</strong> ${props.stream_id || 'N/A'}</div>
+                        <div><strong>Aircraft:</strong> ${props.track_count || 0}</div>
+                        ${props.is_merge === 'true' || props.is_merge === true ? '<div style="color: #e74c3c;"><strong>Type:</strong> Merge Zone</div>' : ''}
+                    </div>
+                `)
+                .addTo(map);
+        });
     },
 
     /**
@@ -2886,170 +3075,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             // Add flow stream visualization (DBSCAN-clustered traffic streams)
-            // This uses PostGIS-computed concave hulls to show distinct traffic flows
+            // Uses the extracted addFlowStreamLayers function which can also be called
+            // dynamically when the API returns after the map has already loaded
             const flowData = TMICompliance.flowStreamCache?.[mapId];
             if (flowData?.streams?.length > 0) {
-                // Color palette for streams (distinct hues)
-                const streamColors = [
-                    '#3498db', // Blue
-                    '#e74c3c', // Red
-                    '#2ecc71', // Green
-                    '#9b59b6', // Purple
-                    '#f39c12', // Orange
-                    '#1abc9c', // Teal
-                    '#e67e22', // Dark orange
-                    '#34495e', // Dark gray-blue
-                ];
-
-                // Build stream hull features
-                const streamFeatures = flowData.streams.map((stream, idx) => ({
-                    type: 'Feature',
-                    properties: {
-                        stream_id: stream.stream_id,
-                        display_short: stream.display?.short || stream.stream_id,
-                        display_long: stream.display?.long || stream.stream_id,
-                        track_count: stream.track_count,
-                        is_merge: stream.components?.is_merge || false,
-                        color: streamColors[idx % streamColors.length],
-                    },
-                    geometry: stream.hull
-                }));
-
-                // Build merge zone features
-                const mergeFeatures = (flowData.merge_zones || []).map(mz => ({
-                    type: 'Feature',
-                    properties: {
-                        merge_id: mz.merge_id,
-                        display_short: mz.display?.short || 'Merge',
-                        display_long: mz.display?.long || 'Merge Zone',
-                        parent_streams: mz.stream_addresses?.join(' + ') || '',
-                    },
-                    geometry: mz.hull
-                }));
-
-                // Add stream hulls source
-                map.addSource('flow-streams', {
-                    type: 'geojson',
-                    data: { type: 'FeatureCollection', features: streamFeatures }
-                });
-
-                // Stream hull fills (subtle, below flight tracks)
-                const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
-
-                map.addLayer({
-                    id: 'flow-streams-fill',
-                    type: 'fill',
-                    source: 'flow-streams',
-                    paint: {
-                        'fill-color': ['get', 'color'],
-                        'fill-opacity': ['case', ['get', 'is_merge'], 0.08, 0.12],
-                    }
-                }, beforeLayer);
-
-                // Stream hull outlines
-                map.addLayer({
-                    id: 'flow-streams-outline',
-                    type: 'line',
-                    source: 'flow-streams',
-                    paint: {
-                        'line-color': ['get', 'color'],
-                        'line-width': ['case', ['get', 'is_merge'], 1.5, 2],
-                        'line-opacity': 0.7,
-                        'line-dasharray': ['case', ['get', 'is_merge'], ['literal', [4, 2]], ['literal', [1, 0]]],
-                    }
-                }, beforeLayer);
-
-                // Stream labels (centroid)
-                const labelFeatures = flowData.streams.map((stream, idx) => ({
-                    type: 'Feature',
-                    properties: {
-                        label: stream.display?.short || stream.stream_id,
-                        track_count: stream.track_count,
-                        color: streamColors[idx % streamColors.length],
-                    },
-                    geometry: stream.centroid
-                }));
-
-                map.addSource('flow-stream-labels', {
-                    type: 'geojson',
-                    data: { type: 'FeatureCollection', features: labelFeatures }
-                });
-
-                map.addLayer({
-                    id: 'flow-stream-labels',
-                    type: 'symbol',
-                    source: 'flow-stream-labels',
-                    layout: {
-                        'text-field': ['concat', ['get', 'label'], '\n', ['get', 'track_count'], ' ac'],
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 11,
-                        'text-anchor': 'center',
-                        'text-allow-overlap': false,
-                    },
-                    paint: {
-                        'text-color': ['get', 'color'],
-                        'text-halo-color': '#ffffff',
-                        'text-halo-width': 1.5,
-                    }
-                });
-
-                // Add merge zones if present
-                if (mergeFeatures.length > 0) {
-                    map.addSource('flow-merge-zones', {
-                        type: 'geojson',
-                        data: { type: 'FeatureCollection', features: mergeFeatures }
-                    });
-
-                    map.addLayer({
-                        id: 'flow-merge-zones-fill',
-                        type: 'fill',
-                        source: 'flow-merge-zones',
-                        paint: {
-                            'fill-color': '#ff6b6b',
-                            'fill-opacity': 0.15,
-                        }
-                    }, beforeLayer);
-
-                    map.addLayer({
-                        id: 'flow-merge-zones-outline',
-                        type: 'line',
-                        source: 'flow-merge-zones',
-                        paint: {
-                            'line-color': '#ff6b6b',
-                            'line-width': 2,
-                            'line-opacity': 0.8,
-                            'line-dasharray': [2, 2],
-                        }
-                    }, beforeLayer);
-                }
-
-                console.log(`Added flow streams: ${streamFeatures.length} streams, ${mergeFeatures.length} merge zones`);
-
-                // Add hover effect for streams
-                map.on('mouseenter', 'flow-streams-fill', () => {
-                    map.getCanvas().style.cursor = 'pointer';
-                });
-                map.on('mouseleave', 'flow-streams-fill', () => {
-                    map.getCanvas().style.cursor = '';
-                });
-
-                // Add click popup for stream details
-                map.on('click', 'flow-streams-fill', (e) => {
-                    const props = e.features[0]?.properties || {};
-                    const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
-                        .setLngLat(e.lngLat)
-                        .setHTML(`
-                            <div style="font-size: 12px;">
-                                <div style="font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 4px;">
-                                    ${props.display_long || props.stream_id || 'Stream'}
-                                </div>
-                                <div><strong>ID:</strong> ${props.stream_id || 'N/A'}</div>
-                                <div><strong>Aircraft:</strong> ${props.track_count || 0}</div>
-                                ${props.is_merge === 'true' || props.is_merge === true ? '<div style="color: #e74c3c;"><strong>Type:</strong> Merge Zone</div>' : ''}
-                            </div>
-                        `)
-                        .addTo(map);
-                });
+                TMICompliance.addFlowStreamLayers(mapId, flowData);
             }
 
             // Compute traffic sector from trajectory data if not already cached
