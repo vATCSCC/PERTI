@@ -143,6 +143,301 @@
     };
 
     // ===========================================
+    // International FIR Mapping (ICAO prefix → FIR)
+    // Based on ICAO region letter assignments
+    //
+    // Authoritative Sources (for verification):
+    // - https://github.com/vatsimnetwork/vatspy-data-project (VATSpy.dat [Airports] section)
+    // - https://github.com/vatsimnetwork/simaware-tracon-project (TRACON boundaries)
+    // - https://vatsim.dev/api/aip-api/get-airport (VATSIM AIP API)
+    // ===========================================
+
+    const ICAO_FIR_MAP = {
+        // North America - US (K prefix handled by apts.csv)
+        'K': { fir: null, region: 'US', note: 'Use apts.csv RESP_ARTCC_ID' },
+
+        // North America - Canada (CY/CZ prefixes)
+        'CY': { fir: null, region: 'Canada', note: 'Use apts.csv or FIR lookup' },
+        'CZ': { fir: null, region: 'Canada', note: 'Canadian FIR codes' },
+
+        // North America - Mexico
+        'MM': { fir: 'MMFR', region: 'Mexico', name: 'Mexico FIR' },
+
+        // Caribbean & Central America
+        'MK': { fir: 'MKJK', region: 'Caribbean', name: 'Kingston FIR (Jamaica)' },
+        'MU': { fir: 'MUFH', region: 'Caribbean', name: 'Havana FIR (Cuba)' },
+        'MY': { fir: 'MYNA', region: 'Caribbean', name: 'Nassau FIR (Bahamas)' },
+        'MD': { fir: 'MDCS', region: 'Caribbean', name: 'Santo Domingo FIR' },
+        'MT': { fir: 'MTEG', region: 'Caribbean', name: 'Port-au-Prince FIR (Haiti)' },
+        'TN': { fir: 'TNCF', region: 'Caribbean', name: 'Curaçao FIR' },
+        'TT': { fir: 'TTZP', region: 'Caribbean', name: 'Piarco FIR (Trinidad)' },
+        'TJ': { fir: 'TJZS', region: 'Caribbean', name: 'San Juan FIR (Puerto Rico)' },
+        'MH': { fir: 'MHCC', region: 'Caribbean', name: 'Central America FIR (Honduras)' },
+        'MP': { fir: 'MPZL', region: 'Caribbean', name: 'Panama FIR' },
+        'MG': { fir: 'MGGT', region: 'Caribbean', name: 'Guatemala FIR' },
+        'MN': { fir: 'MNMG', region: 'Caribbean', name: 'Managua FIR (Nicaragua)' },
+        'MR': { fir: 'MRPV', region: 'Caribbean', name: 'San José FIR (Costa Rica)' },
+        'MS': { fir: 'MSLP', region: 'Caribbean', name: 'San Salvador FIR' },
+        'TB': { fir: 'TBPB', region: 'Caribbean', name: 'Barbados FIR' },
+
+        // South America
+        'SA': { fir: 'SACF', region: 'South America', name: 'Argentina FIR' },
+        'SB': { fir: 'SBCW', region: 'South America', name: 'Brazil FIR (Curitiba)' },
+        'SC': { fir: 'SCFZ', region: 'South America', name: 'Chile FIR' },
+        'SE': { fir: 'SEGU', region: 'South America', name: 'Ecuador FIR (Guayaquil)' },
+        'SK': { fir: 'SKED', region: 'South America', name: 'Colombia FIR (Bogotá)' },
+        'SL': { fir: 'SLVR', region: 'South America', name: 'Bolivia FIR' },
+        'SM': { fir: 'SMPM', region: 'South America', name: 'Suriname FIR' },
+        'SP': { fir: 'SPIM', region: 'South America', name: 'Peru FIR (Lima)' },
+        'SV': { fir: 'SVZM', region: 'South America', name: 'Venezuela FIR (Maiquetía)' },
+        'SY': { fir: 'SYGC', region: 'South America', name: 'Guyana FIR' },
+        'SU': { fir: 'SUEO', region: 'South America', name: 'Uruguay FIR (Montevideo)' },
+
+        // North Atlantic
+        'BI': { fir: 'BIRD', region: 'North Atlantic', name: 'Reykjavik FIR (Iceland)' },
+        'BG': { fir: 'BGGL', region: 'North Atlantic', name: 'Sondrestrom FIR (Greenland)' },
+        'EK': { fir: 'EKDK', region: 'North Atlantic', name: 'Copenhagen FIR (Denmark)' },
+
+        // Europe - Northern
+        'EG': { fir: 'EGTT', region: 'Europe', name: 'London FIR (UK)' },
+        'EI': { fir: 'EISN', region: 'Europe', name: 'Shannon FIR (Ireland)' },
+        'EN': { fir: 'ENOR', region: 'Europe', name: 'Norway FIR' },
+        'ES': { fir: 'ESAA', region: 'Europe', name: 'Sweden FIR' },
+        'EF': { fir: 'EFIN', region: 'Europe', name: 'Finland FIR' },
+        'EE': { fir: 'EETT', region: 'Europe', name: 'Tallinn FIR (Estonia)' },
+        'EV': { fir: 'EVRR', region: 'Europe', name: 'Riga FIR (Latvia)' },
+        'EY': { fir: 'EYVL', region: 'Europe', name: 'Vilnius FIR (Lithuania)' },
+
+        // Europe - Central
+        'ED': { fir: 'EDGG', region: 'Europe', name: 'Germany FIR' },
+        'EH': { fir: 'EHAA', region: 'Europe', name: 'Amsterdam FIR (Netherlands)' },
+        'EB': { fir: 'EBBU', region: 'Europe', name: 'Brussels FIR (Belgium)' },
+        'EL': { fir: 'ELLX', region: 'Europe', name: 'Luxembourg FIR' },
+        'EP': { fir: 'EPWW', region: 'Europe', name: 'Warsaw FIR (Poland)' },
+        'LK': { fir: 'LKAA', region: 'Europe', name: 'Prague FIR (Czech Republic)' },
+        'LO': { fir: 'LOVV', region: 'Europe', name: 'Vienna FIR (Austria)' },
+        'LS': { fir: 'LSAS', region: 'Europe', name: 'Switzerland FIR' },
+        'LH': { fir: 'LHCC', region: 'Europe', name: 'Budapest FIR (Hungary)' },
+        'LZ': { fir: 'LZBB', region: 'Europe', name: 'Bratislava FIR (Slovakia)' },
+
+        // Europe - Southern
+        'LF': { fir: 'LFFF', region: 'Europe', name: 'Paris FIR (France)' },
+        'LE': { fir: 'LECM', region: 'Europe', name: 'Madrid FIR (Spain)' },
+        'LP': { fir: 'LPPC', region: 'Europe', name: 'Lisbon FIR (Portugal)' },
+        'LI': { fir: 'LIRR', region: 'Europe', name: 'Rome FIR (Italy)' },
+        'LG': { fir: 'LGGG', region: 'Europe', name: 'Athens FIR (Greece)' },
+        'LT': { fir: 'LTAA', region: 'Europe', name: 'Ankara FIR (Turkey)' },
+        'LC': { fir: 'LCCC', region: 'Europe', name: 'Nicosia FIR (Cyprus)' },
+        'LM': { fir: 'LMMM', region: 'Europe', name: 'Malta FIR' },
+        'LA': { fir: 'LAAA', region: 'Europe', name: 'Tirana FIR (Albania)' },
+        'LY': { fir: 'LYBA', region: 'Europe', name: 'Belgrade FIR (Serbia)' },
+        'LD': { fir: 'LDZO', region: 'Europe', name: 'Zagreb FIR (Croatia)' },
+        'LJ': { fir: 'LJLA', region: 'Europe', name: 'Ljubljana FIR (Slovenia)' },
+        'LW': { fir: 'LWSK', region: 'Europe', name: 'Skopje FIR (N. Macedonia)' },
+        'LQ': { fir: 'LQSB', region: 'Europe', name: 'Sarajevo FIR (Bosnia)' },
+        'LU': { fir: 'LUUU', region: 'Europe', name: 'Chisinau FIR (Moldova)' },
+        'LR': { fir: 'LRBB', region: 'Europe', name: 'Bucharest FIR (Romania)' },
+        'LB': { fir: 'LBSR', region: 'Europe', name: 'Sofia FIR (Bulgaria)' },
+
+        // Europe - Eastern / Russia
+        'UK': { fir: 'UKBV', region: 'Europe', name: 'Kyiv FIR (Ukraine)' },
+        'UL': { fir: 'ULMM', region: 'Russia', name: 'Murmansk FIR' },
+        'UU': { fir: 'UUWV', region: 'Russia', name: 'Moscow FIR' },
+        'UR': { fir: 'URRV', region: 'Russia', name: 'Rostov FIR' },
+        'UW': { fir: 'UWWW', region: 'Russia', name: 'Samara FIR' },
+        'US': { fir: 'USSS', region: 'Russia', name: 'Yekaterinburg FIR' },
+        'UN': { fir: 'UNNT', region: 'Russia', name: 'Novosibirsk FIR' },
+        'UH': { fir: 'UHHH', region: 'Russia', name: 'Khabarovsk FIR' },
+
+        // Middle East
+        'OE': { fir: 'OEJD', region: 'Middle East', name: 'Jeddah FIR (Saudi Arabia)' },
+        'OO': { fir: 'OOMM', region: 'Middle East', name: 'Muscat FIR (Oman)' },
+        'OM': { fir: 'OMAE', region: 'Middle East', name: 'Emirates FIR (UAE)' },
+        'OB': { fir: 'OBBB', region: 'Middle East', name: 'Bahrain FIR' },
+        'OK': { fir: 'OKAC', region: 'Middle East', name: 'Kuwait FIR' },
+        'OT': { fir: 'OTBD', region: 'Middle East', name: 'Doha FIR (Qatar)' },
+        'OI': { fir: 'OIIX', region: 'Middle East', name: 'Tehran FIR (Iran)' },
+        'OJ': { fir: 'OJAC', region: 'Middle East', name: 'Amman FIR (Jordan)' },
+        'OS': { fir: 'OSTT', region: 'Middle East', name: 'Damascus FIR (Syria)' },
+        'OL': { fir: 'OLBB', region: 'Middle East', name: 'Beirut FIR (Lebanon)' },
+        'OR': { fir: 'ORBB', region: 'Middle East', name: 'Baghdad FIR (Iraq)' },
+        'LL': { fir: 'LLLL', region: 'Middle East', name: 'Tel Aviv FIR (Israel)' },
+        'OY': { fir: 'OYSC', region: 'Middle East', name: 'Sana\'a FIR (Yemen)' },
+
+        // Africa - North
+        'HE': { fir: 'HECC', region: 'Africa', name: 'Cairo FIR (Egypt)' },
+        'HL': { fir: 'HLLL', region: 'Africa', name: 'Tripoli FIR (Libya)' },
+        'DT': { fir: 'DTTC', region: 'Africa', name: 'Tunis FIR (Tunisia)' },
+        'DA': { fir: 'DAAA', region: 'Africa', name: 'Algiers FIR (Algeria)' },
+        'GM': { fir: 'GMMM', region: 'Africa', name: 'Casablanca FIR (Morocco)' },
+        'GC': { fir: 'GCCC', region: 'Africa', name: 'Canarias FIR (Spain)' },
+
+        // Africa - West
+        'GO': { fir: 'GOOO', region: 'Africa', name: 'Dakar FIR (Senegal)' },
+        'GU': { fir: 'GUCY', region: 'Africa', name: 'Conakry FIR (Guinea)' },
+        'GF': { fir: 'GFLL', region: 'Africa', name: 'Freetown FIR (Sierra Leone)' },
+        'GL': { fir: 'GLRB', region: 'Africa', name: 'Roberts FIR (Liberia)' },
+        'DG': { fir: 'DGAC', region: 'Africa', name: 'Accra FIR (Ghana)' },
+        'DB': { fir: 'DBBB', region: 'Africa', name: 'Cotonou FIR (Benin)' },
+        'DN': { fir: 'DNKK', region: 'Africa', name: 'Kano FIR (Nigeria)' },
+        'DF': { fir: 'DRRR', region: 'Africa', name: 'Niamey FIR (Niger)' },
+        'DX': { fir: 'DXXX', region: 'Africa', name: 'Lomé FIR (Togo)' },
+
+        // Africa - Central
+        'FT': { fir: 'FTTT', region: 'Africa', name: 'N\'Djamena FIR (Chad)' },
+        'FK': { fir: 'FKKK', region: 'Africa', name: 'Douala FIR (Cameroon)' },
+        'FG': { fir: 'FGSL', region: 'Africa', name: 'Malabo FIR (Equatorial Guinea)' },
+        'FO': { fir: 'FOON', region: 'Africa', name: 'Brazzaville FIR (Congo)' },
+        'FZ': { fir: 'FZZA', region: 'Africa', name: 'Kinshasa FIR (DR Congo)' },
+        'FC': { fir: 'FCCC', region: 'Africa', name: 'Central African Republic FIR' },
+
+        // Africa - East
+        'HA': { fir: 'HAAA', region: 'Africa', name: 'Addis Ababa FIR (Ethiopia)' },
+        'HK': { fir: 'HKNA', region: 'Africa', name: 'Nairobi FIR (Kenya)' },
+        'HU': { fir: 'HUEN', region: 'Africa', name: 'Entebbe FIR (Uganda)' },
+        'HR': { fir: 'HRYR', region: 'Africa', name: 'Kigali FIR (Rwanda)' },
+        'HT': { fir: 'HTDC', region: 'Africa', name: 'Dar es Salaam FIR (Tanzania)' },
+        'HS': { fir: 'HSSS', region: 'Africa', name: 'Khartoum FIR (Sudan)' },
+        'HD': { fir: 'HDAL', region: 'Africa', name: 'Djibouti FIR' },
+        'HC': { fir: 'HCSM', region: 'Africa', name: 'Mogadishu FIR (Somalia)' },
+
+        // Africa - Southern
+        'FA': { fir: 'FAJA', region: 'Africa', name: 'Johannesburg FIR (South Africa)' },
+        'FQ': { fir: 'FQBE', region: 'Africa', name: 'Beira FIR (Mozambique)' },
+        'FV': { fir: 'FVHA', region: 'Africa', name: 'Harare FIR (Zimbabwe)' },
+        'FB': { fir: 'FBGR', region: 'Africa', name: 'Gaborone FIR (Botswana)' },
+        'FW': { fir: 'FWLL', region: 'Africa', name: 'Lilongwe FIR (Malawi)' },
+        'FL': { fir: 'FLFI', region: 'Africa', name: 'Lusaka FIR (Zambia)' },
+        'FY': { fir: 'FYWH', region: 'Africa', name: 'Windhoek FIR (Namibia)' },
+        'FX': { fir: 'FXMM', region: 'Africa', name: 'Lesotho FIR' },
+        'FD': { fir: 'FDMS', region: 'Africa', name: 'Eswatini FIR' },
+        'FM': { fir: 'FMMI', region: 'Africa', name: 'Antananarivo FIR (Madagascar)' },
+        'FN': { fir: 'FNLU', region: 'Africa', name: 'Luanda FIR (Angola)' },
+        'FH': { fir: 'FHAW', region: 'Africa', name: 'Ascension FIR' },
+
+        // Indian Ocean
+        'FI': { fir: 'FIMM', region: 'Indian Ocean', name: 'Mauritius FIR' },
+        'FS': { fir: 'FSSS', region: 'Indian Ocean', name: 'Seychelles FIR' },
+        'FR': { fir: 'FRRR', region: 'Indian Ocean', name: 'Réunion FIR' },
+        'VR': { fir: 'VRMF', region: 'Indian Ocean', name: 'Maldives FIR' },
+
+        // South Asia
+        'VA': { fir: 'VABF', region: 'South Asia', name: 'Mumbai FIR (India)' },
+        'VE': { fir: 'VECF', region: 'South Asia', name: 'Kolkata FIR (India)' },
+        'VI': { fir: 'VIDF', region: 'South Asia', name: 'Delhi FIR (India)' },
+        'VO': { fir: 'VOMF', region: 'South Asia', name: 'Chennai FIR (India)' },
+        'VC': { fir: 'VCCF', region: 'South Asia', name: 'Colombo FIR (Sri Lanka)' },
+        'VN': { fir: 'VNKT', region: 'South Asia', name: 'Kathmandu FIR (Nepal)' },
+        'VQ': { fir: 'VQPR', region: 'South Asia', name: 'Bhutan FIR' },
+        'VG': { fir: 'VGFR', region: 'South Asia', name: 'Dhaka FIR (Bangladesh)' },
+        'OP': { fir: 'OPLR', region: 'South Asia', name: 'Lahore FIR (Pakistan)' },
+
+        // Southeast Asia
+        'VT': { fir: 'VTBB', region: 'Southeast Asia', name: 'Bangkok FIR (Thailand)' },
+        'VL': { fir: 'VLVT', region: 'Southeast Asia', name: 'Vientiane FIR (Laos)' },
+        'VV': { fir: 'VVHN', region: 'Southeast Asia', name: 'Hanoi FIR (Vietnam)' },
+        'VY': { fir: 'VYYY', region: 'Southeast Asia', name: 'Yangon FIR (Myanmar)' },
+        'WM': { fir: 'WMFC', region: 'Southeast Asia', name: 'Kuala Lumpur FIR (Malaysia)' },
+        'WS': { fir: 'WSJC', region: 'Southeast Asia', name: 'Singapore FIR' },
+        'WI': { fir: 'WIIF', region: 'Southeast Asia', name: 'Jakarta FIR (Indonesia)' },
+        'WA': { fir: 'WAAF', region: 'Southeast Asia', name: 'Ujung Pandang FIR (Indonesia)' },
+        'WB': { fir: 'WBFC', region: 'Southeast Asia', name: 'Kota Kinabalu FIR (Malaysia)' },
+        'WR': { fir: 'WRRR', region: 'Southeast Asia', name: 'Bali FIR (Indonesia)' },
+        'RP': { fir: 'RPHI', region: 'Southeast Asia', name: 'Manila FIR (Philippines)' },
+
+        // East Asia
+        'Z': { fir: null, region: 'China', note: 'Multiple FIRs - use 2-letter prefix' },
+        'ZB': { fir: 'ZBPE', region: 'East Asia', name: 'Beijing FIR (China)' },
+        'ZS': { fir: 'ZSHA', region: 'East Asia', name: 'Shanghai FIR (China)' },
+        'ZG': { fir: 'ZGZU', region: 'East Asia', name: 'Guangzhou FIR (China)' },
+        'ZH': { fir: 'ZHWH', region: 'East Asia', name: 'Wuhan FIR (China)' },
+        'ZU': { fir: 'ZUUU', region: 'East Asia', name: 'Chengdu FIR (China)' },
+        'ZY': { fir: 'ZYSH', region: 'East Asia', name: 'Shenyang FIR (China)' },
+        'ZL': { fir: 'ZLHW', region: 'East Asia', name: 'Lanzhou FIR (China)' },
+        'ZK': { fir: 'ZKPY', region: 'East Asia', name: 'Pyongyang FIR (North Korea)' },
+        'RK': { fir: 'RKRR', region: 'East Asia', name: 'Incheon FIR (South Korea)' },
+        'RJ': { fir: 'RJJJ', region: 'East Asia', name: 'Tokyo FIR (Japan)' },
+        'RO': { fir: 'RORK', region: 'East Asia', name: 'Naha FIR (Okinawa/Japan)' },
+        'RC': { fir: 'RCAA', region: 'East Asia', name: 'Taipei FIR (Taiwan)' },
+        'VH': { fir: 'VHHK', region: 'East Asia', name: 'Hong Kong FIR' },
+        'VM': { fir: 'VMMC', region: 'East Asia', name: 'Macau FIR' },
+        'UB': { fir: 'UBRR', region: 'East Asia', name: 'Ulaanbaatar FIR (Mongolia)' },
+
+        // Pacific
+        'PH': { fir: 'ZHN', region: 'Pacific', name: 'Honolulu FIR (Hawaii)' },
+        'PA': { fir: 'ZAN', region: 'Pacific', name: 'Anchorage FIR (Alaska)' },
+        'PG': { fir: 'PGUM', region: 'Pacific', name: 'Guam FIR' },
+        'PW': { fir: 'PWUZ', region: 'Pacific', name: 'Wake Island FIR' },
+        'PK': { fir: 'PKMJ', region: 'Pacific', name: 'Marshall Islands FIR' },
+        'PT': { fir: 'PTAA', region: 'Pacific', name: 'Palau FIR' },
+        'NF': { fir: 'NFFF', region: 'Pacific', name: 'Nadi FIR (Fiji)' },
+        'NW': { fir: 'NWWW', region: 'Pacific', name: 'Noumea FIR (New Caledonia)' },
+        'NC': { fir: 'NCRG', region: 'Pacific', name: 'Rarotonga FIR (Cook Islands)' },
+        'NS': { fir: 'NSFA', region: 'Pacific', name: 'Samoa FIR' },
+        'NI': { fir: 'NIUE', region: 'Pacific', name: 'Niue FIR' },
+        'NT': { fir: 'NTTT', region: 'Pacific', name: 'Tahiti FIR (French Polynesia)' },
+        'NZ': { fir: 'NZZO', region: 'Pacific', name: 'Auckland FIR (New Zealand)' },
+
+        // Australia
+        'Y': { fir: null, region: 'Australia', note: 'Multiple FIRs - use 2-letter prefix' },
+        'YM': { fir: 'YMMM', region: 'Australia', name: 'Melbourne FIR' },
+        'YB': { fir: 'YBBB', region: 'Australia', name: 'Brisbane FIR' },
+
+        // Default catch-all for unknown prefixes
+        'DEFAULT': { fir: null, region: 'Unknown', note: 'Unknown ICAO prefix' },
+    };
+
+    /**
+     * Get FIR code for an airport based on ICAO code
+     * @param {string} icao - ICAO airport code (e.g., 'EGLL', 'KJFK')
+     * @returns {object} { fir: string, region: string, name: string, source: string }
+     */
+    function getInternationalFIR(icao) {
+        if (!icao || typeof icao !== 'string') {
+            return { fir: null, region: 'Unknown', name: null, source: 'invalid' };
+        }
+
+        const upper = icao.toUpperCase().trim();
+
+        // First check if it's in our domestic data (US/Canada airports)
+        if (AIRPORT_TO_ARTCC[upper]) {
+            const artcc = AIRPORT_TO_ARTCC[upper];
+            return {
+                fir: artcc,
+                region: ARTCC_TO_REGION[artcc] || 'US',
+                name: null,
+                source: 'apts.csv'
+            };
+        }
+
+        // Try 2-letter prefix first (more specific)
+        const prefix2 = upper.substring(0, 2);
+        if (ICAO_FIR_MAP[prefix2]) {
+            const data = ICAO_FIR_MAP[prefix2];
+            return {
+                fir: data.fir,
+                region: data.region,
+                name: data.name,
+                source: 'icao_prefix'
+            };
+        }
+
+        // Fall back to 1-letter prefix
+        const prefix1 = upper.substring(0, 1);
+        if (ICAO_FIR_MAP[prefix1]) {
+            const data = ICAO_FIR_MAP[prefix1];
+            return {
+                fir: data.fir,
+                region: data.region,
+                name: data.name || data.note,
+                source: 'icao_prefix'
+            };
+        }
+
+        return { fir: null, region: 'Unknown', name: null, source: 'not_found' };
+    }
+
+    // ===========================================
     // Facility Emoji Mapping (for Discord reactions)
     // Alternate method for TMI coordination approvals
     // Regional indicators for US, number emojis for Canada
@@ -594,6 +889,8 @@
         isTracon: isTracon,
         getParentArtcc: getParentArtcc,
         getChildren: getChildFacilities,
+        getFIR: getInternationalFIR,
+        ICAO_FIR_MAP: ICAO_FIR_MAP,
     };
 
 })(typeof window !== 'undefined' ? window : this);
