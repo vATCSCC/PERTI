@@ -3359,11 +3359,22 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Compute multi-stream flow corridors from trajectory data
             // First clusters trajectories by approach direction, then computes per-stream cones
-            if (!TMICompliance.trafficSectorCache?.[mapId] && TMICompliance.trajectoryCache[mapId] && mapData.fixes?.length) {
+            // Enhancement runs when: we have trajectories AND (no enhanced sector yet OR basic sector from Python)
+            const existingSector = TMICompliance.trafficSectorCache?.[mapId];
+            const needsEnhancement = !existingSector?.use_centerline; // Python provides basic sector without centerline
+            const hasTrajectories = !!TMICompliance.trajectoryCache[mapId];
+            // Get fix coordinates: prefer GIS-resolved fix, fallback to Python's measurement_point
+            let fixLon, fixLat;
+            if (mapData.fixes?.length && mapData.fixes[0]?.geometry?.coordinates) {
+                [fixLon, fixLat] = mapData.fixes[0].geometry.coordinates;
+            } else if (existingSector?.fix_point) {
+                [fixLon, fixLat] = existingSector.fix_point;
+                console.log(`Using cached measurement_point for cone enhancement: [${fixLon}, ${fixLat}]`);
+            }
+
+            if (needsEnhancement && hasTrajectories && fixLon !== undefined) {
                 const trajectories = TMICompliance.trajectoryCache[mapId];
-                const measurementFix = mapData.fixes[0];
-                if (measurementFix?.geometry?.coordinates) {
-                    const [fixLon, fixLat] = measurementFix.geometry.coordinates;
+                // Fix coordinates already set above
 
                     // Compute distance between two points in nm
                     const distanceNm = (lon1, lat1, lon2, lat2) => {
