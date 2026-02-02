@@ -34,7 +34,7 @@ class DatabaseIndexer {
         ],
         'VATSIM_ADL' => [
             'type' => 'sqlsrv',
-            'description' => 'Aeronautical Data Library - live flight data, tracks, crossings',
+            'description' => 'Aggregate Demand List - live flight data, tracks, crossings',
             'constants' => ['ADL_SQL_HOST', 'ADL_SQL_DATABASE', 'ADL_SQL_USERNAME', 'ADL_SQL_PASSWORD']
         ],
         'VATSIM_TMI' => [

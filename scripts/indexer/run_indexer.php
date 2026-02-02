@@ -312,7 +312,7 @@ function generateAgentContext(array $results, string $rootPath): string {
 
         $domainDescriptions = [
             'tmi' => 'Traffic Management Initiatives (GDPs, Ground Stops, Reroutes)',
-            'adl' => 'Aeronautical Data Library (flight data, tracks)',
+            'adl' => 'Aggregate Demand List (flight data, tracks)',
             'data' => 'Data management (plans, configs, crossings)',
             'gis' => 'Geographic queries (boundaries, routes)',
             'splits' => 'Sector/position configuration',
