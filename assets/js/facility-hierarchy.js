@@ -378,10 +378,13 @@
         'NT': { fir: 'NTTT', region: 'Pacific', name: 'Tahiti FIR (French Polynesia)' },
         'NZ': { fir: 'NZZO', region: 'Pacific', name: 'Auckland FIR (New Zealand)' },
 
-        // Australia
+        // Australia (Y prefix, second letter indicates state/region)
         'Y': { fir: null, region: 'Australia', note: 'Multiple FIRs - use 2-letter prefix' },
         'YM': { fir: 'YMMM', region: 'Australia', name: 'Melbourne FIR' },
         'YB': { fir: 'YBBB', region: 'Australia', name: 'Brisbane FIR' },
+        'YS': { fir: 'YMMM', region: 'Australia', name: 'Sydney FIR (Melbourne)' },
+        'YP': { fir: 'YMMM', region: 'Australia', name: 'Perth FIR (Melbourne)' },
+        'YC': { fir: 'YBBB', region: 'Australia', name: 'Canberra FIR (Brisbane)' },
 
         // Default catch-all for unknown prefixes
         'DEFAULT': { fir: null, region: 'Unknown', note: 'Unknown ICAO prefix' },
