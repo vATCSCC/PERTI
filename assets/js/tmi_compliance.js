@@ -2558,14 +2558,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Pairs</button>
                         <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Violations</button>
                         <span class="layer-divider">|</span>
-                        <span class="cone-legend" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: ${FILTER_CONFIG?.map?.ui?.legendText || 'var(--dark-text-muted, #adb5bd)'};">
-                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['75']?.fill || 'rgba(255,212,59,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['75']?.stroke || '#ffd43b'}; border-radius: 2px;"></span>75%</span>
-                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['90']?.fill || 'rgba(255,146,43,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['90']?.stroke || '#ff922b'}; border-radius: 2px;"></span>90%</span>
+                        <span class="cone-legend">
+                            <span class="legend-item"><span class="legend-swatch cone-75"></span>75%</span>
+                            <span class="legend-item"><span class="legend-swatch cone-90"></span>90%</span>
                         </span>
                     </div>
-                    <div class="tmi-map-container mt-2" id="${mapId}_container">
-                        <div class="d-flex align-items-center justify-content-center h-100" style="color: var(--dark-text-subtle);">
-                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading map...
+                    <div class="tmi-map-container" id="${mapId}_container">
+                        <div class="tmi-map-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading map...
                         </div>
                     </div>
                 </div>
