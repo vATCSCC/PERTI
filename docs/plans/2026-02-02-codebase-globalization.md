@@ -72,10 +72,13 @@ WEST: '#dc3545', MIDWEST: '#28a745', SOUTHEAST: '#ffc107', NORTHEAST: '#007bff'
 | `tmi-publish.js:4316-4370` | 75 airports hardcoded | ❌ PHL→ZDC is wrong |
 | Python `facility_hierarchy.py:54-67` | Override system for PHL→ZNY | ✅ Yes |
 
-**PHL Edge Case:**
-- Geographic containment: ZDC (Philadelphia is within ZDC's lateral boundaries)
-- Operational control: ZNY (N90 TRACON reports to ZNY)
-- **Correct answer: ZNY** (operational hierarchy takes precedence)
+**PHL Example (and similar edge cases):**
+
+- `apts.csv` shows: `RESP_ARTCC_ID=ZNY`, `Approach=PHILADELPHIA`, `Approach ID=PHL`
+- PHL TRACON (Philadelphia Approach) owns KPHL
+- ZNY owns PHL TRACON
+- **Correct answer: ZNY** (per apts.csv - the authoritative source)
+- Note: Other airports may have similar situations where geographic location differs from operational control. The apts.csv `RESP_ARTCC_ID` column is always authoritative.
 
 #### Carrier Classifications
 
@@ -139,17 +142,18 @@ WEST: '#dc3545', MIDWEST: '#28a745', SOUTHEAST: '#ffc107', NORTHEAST: '#007bff'
 - `route-maplibre.js` must adopt these colors
 - Other files should reference `FacilityHierarchy.DCC_REGIONS[region].color`
 
-### 2.3 PHL ARTCC Assignment
+### 2.3 Airport→ARTCC Authority
 
-**Decision:** PHL → ZNY (not ZDC)
+**Decision:** Use `apts.csv` `RESP_ARTCC_ID` column as the single source of truth
 
 **Rationale:**
-- N90 TRACON controls PHL approach
-- N90 reports to ZNY
-- This matches Python `facility_hierarchy.py` overrides
-- Operational hierarchy > geographic containment
 
-**Migration:** Fix `tmi-publish.js:4323` to remove hardcoded mapping, use FacilityHierarchy
+- `apts.csv` already contains correct assignments (e.g., PHL → ZNY via PHL TRACON)
+- No need for override systems - the data is already accurate
+- FacilityHierarchy already loads from this file
+- Eliminates hardcoded mappings that can become stale
+
+**Migration:** Remove hardcoded `AIRPORT_TO_ARTCC` from `tmi-publish.js`, use `FacilityHierarchy.AIRPORT_TO_ARTCC` instead
 
 ### 2.4 Module Structure
 
