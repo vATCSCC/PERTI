@@ -3194,8 +3194,7 @@
             'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
             'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
             'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-            'CANADA_EAST':  ['CZYZ', 'CZUL', 'CZZV', 'CZQM', 'CZQX', 'CZQO'],
-            'CANADA_WEST':  ['CZWG', 'CZEG', 'CZVR'],
+            'CANADA':       ['CZYZ', 'CZUL', 'CZZV', 'CZQM', 'CZQX', 'CZQO', 'CZWG', 'CZEG', 'CZVR'],
         };
     })();
 
@@ -3208,8 +3207,7 @@
             'MIDWEST': '#28a745',        // Green
             'SOUTHEAST': '#ffc107',      // Yellow (bright amber, distinct from orange)
             'NORTHEAST': '#007bff',      // Blue
-            'CANADA_EAST': '#9b59b6',    // Purple
-            'CANADA_WEST': '#ff69b4',    // Pink
+            'CANADA': '#6f42c1',         // Purple (matches facility-hierarchy.js)
             '': '#6c757d',
         };
 
