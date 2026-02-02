@@ -102,8 +102,7 @@ const PERTIColors = (function() {
         MIDWEST: '#28a745',        // Green
         SOUTHEAST: '#ffc107',      // Yellow
         NORTHEAST: '#007bff',      // Blue
-        CANADA_EAST: '#9b59b6',    // Purple
-        CANADA_WEST: '#ff69b4',    // Pink
+        CANADA: '#6f42c1',         // Purple (matches facility-hierarchy.js)
         OTHER: '#6c757d',          // Gray fallback
     };
 
@@ -123,11 +122,10 @@ const PERTIColors = (function() {
         // DCC Northeast (Blue)
         ZBW: 'NORTHEAST', ZDC: 'NORTHEAST', ZNY: 'NORTHEAST',
         ZOB: 'NORTHEAST', ZWY: 'NORTHEAST',
-        // Canada East (Purple)
-        CZYZ: 'CANADA_EAST', CZUL: 'CANADA_EAST', CZZV: 'CANADA_EAST',
-        CZQM: 'CANADA_EAST', CZQX: 'CANADA_EAST', CZQO: 'CANADA_EAST',
-        // Canada West (Pink)
-        CZWG: 'CANADA_WEST', CZEG: 'CANADA_WEST', CZVR: 'CANADA_WEST',
+        // Canada (Purple)
+        CZYZ: 'CANADA', CZUL: 'CANADA', CZZV: 'CANADA',
+        CZQM: 'CANADA', CZQX: 'CANADA', CZQO: 'CANADA',
+        CZWG: 'CANADA', CZEG: 'CANADA', CZVR: 'CANADA',
     };
 
     // ========================================
@@ -406,7 +404,7 @@ const PERTIColors = (function() {
     /**
      * Get DCC region name for an ARTCC/FIR code
      * @param {string} artcc - ARTCC or FIR code
-     * @returns {string} Region name (e.g., 'NORTHEAST', 'CANADA_EAST')
+     * @returns {string} Region name (e.g., 'NORTHEAST', 'CANADA')
      */
     function getRegion(artcc) {
         return regionMapping[artcc] || 'OTHER';

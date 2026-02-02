@@ -328,15 +328,14 @@ const FILTER_CONFIG = {
             'MIDWEST': '#28a745',        // Green - ZAU, ZDV, ZKC, ZMP
             'SOUTHEAST': '#ffc107',      // Yellow - ZID, ZJX, ZMA, ZMO, ZTL
             'NORTHEAST': '#007bff',      // Blue - ZBW, ZDC, ZNY, ZOB, ZWY
-            'CANADA_EAST': '#9b59b6',    // Purple - CZYZ, CZUL, CZZV, CZQM, CZQX, CZQO
-            'CANADA_WEST': '#ff69b4',    // Pink - CZWG, CZEG, CZVR
+            'CANADA': '#6f42c1',         // Purple - all Canadian FIRs (matches facility-hierarchy.js)
             'OTHER': '#6c757d',
             'UNKNOWN': '#adb5bd',
         },
         labels: {
             'WEST': 'West', 'SOUTH_CENTRAL': 'South Central', 'MIDWEST': 'Midwest',
             'SOUTHEAST': 'Southeast', 'NORTHEAST': 'Northeast',
-            'CANADA_EAST': 'Canada East', 'CANADA_WEST': 'Canada West',
+            'CANADA': 'Canada',
             'OTHER': 'Other', 'UNKNOWN': 'Unknown',
         },
         // Map ARTCCs/FIRs to DCC regions
@@ -355,11 +354,10 @@ const FILTER_CONFIG = {
             // DCC Northeast (Blue)
             'ZBW': 'NORTHEAST', 'ZDC': 'NORTHEAST', 'ZNY': 'NORTHEAST',
             'ZOB': 'NORTHEAST', 'ZWY': 'NORTHEAST',
-            // Canada East (Purple)
-            'CZYZ': 'CANADA_EAST', 'CZUL': 'CANADA_EAST', 'CZZV': 'CANADA_EAST',
-            'CZQM': 'CANADA_EAST', 'CZQX': 'CANADA_EAST', 'CZQO': 'CANADA_EAST',
-            // Canada West (Pink)
-            'CZWG': 'CANADA_WEST', 'CZEG': 'CANADA_WEST', 'CZVR': 'CANADA_WEST',
+            // Canada (Purple)
+            'CZYZ': 'CANADA', 'CZUL': 'CANADA', 'CZZV': 'CANADA',
+            'CZQM': 'CANADA', 'CZQX': 'CANADA', 'CZQO': 'CANADA',
+            'CZWG': 'CANADA', 'CZEG': 'CANADA', 'CZVR': 'CANADA',
         },
     },
 
@@ -543,8 +541,7 @@ const FILTER_I18N_KEYS = {
         'MIDWEST': 'dccRegion.midwest',
         'SOUTHEAST': 'dccRegion.southeast',
         'NORTHEAST': 'dccRegion.northeast',
-        'CANADA_EAST': 'dccRegion.canadaEast',
-        'CANADA_WEST': 'dccRegion.canadaWest',
+        'CANADA': 'dccRegion.canada',
         'OTHER': 'common.other',
         'UNKNOWN': 'common.unknown',
     },
