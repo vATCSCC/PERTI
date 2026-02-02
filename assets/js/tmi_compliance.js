@@ -3516,12 +3516,68 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         });
 
                         if (centerlinePoints.length >= 2) {
-                            // Build buffer polygon for this stream
-                            const buildBufferPolygon = (widthKey) => {
+                            // ───────────────────────────────────────────────────────────
+                            // SMOOTHING: Apply weighted moving average to reduce jagged edges
+                            // Uses a Gaussian-like weighting with window size 3
+                            // ───────────────────────────────────────────────────────────
+                            const smoothCenterline = (points) => {
+                                if (points.length < 3) return points;
+
+                                const WINDOW = 3; // Number of neighbors on each side
+                                const smoothed = [];
+
+                                for (let i = 0; i < points.length; i++) {
+                                    const cp = points[i];
+
+                                    // Gather neighbors for averaging (handle edges)
+                                    const neighbors = [];
+                                    for (let j = Math.max(0, i - WINDOW); j <= Math.min(points.length - 1, i + WINDOW); j++) {
+                                        // Weight: closer neighbors have more influence
+                                        const dist = Math.abs(j - i);
+                                        const weight = 1 / (1 + dist);
+                                        neighbors.push({ cp: points[j], weight });
+                                    }
+
+                                    const totalWeight = neighbors.reduce((sum, n) => sum + n.weight, 0);
+
+                                    // Smooth bearing using circular mean (handles wraparound)
+                                    let sinSum = 0, cosSum = 0;
+                                    neighbors.forEach(n => {
+                                        const rad = n.cp.bearing * Math.PI / 180;
+                                        sinSum += Math.sin(rad) * n.weight;
+                                        cosSum += Math.cos(rad) * n.weight;
+                                    });
+                                    const smoothBearing = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
+
+                                    // Smooth widths (simple weighted average)
+                                    const smoothWidth75 = neighbors.reduce((sum, n) => sum + n.cp.width75 * n.weight, 0) / totalWeight;
+                                    const smoothWidth90 = neighbors.reduce((sum, n) => sum + n.cp.width90 * n.weight, 0) / totalWeight;
+
+                                    // Recompute coords from smoothed bearing
+                                    const smoothCoords = pointAtBearing(fixLon, fixLat, smoothBearing, cp.dist);
+
+                                    smoothed.push({
+                                        dist: cp.dist,
+                                        coords: smoothCoords,
+                                        bearing: smoothBearing,
+                                        width75: smoothWidth75,
+                                        width90: smoothWidth90,
+                                        trackCount: cp.trackCount,
+                                    });
+                                }
+
+                                return smoothed;
+                            };
+
+                            // Apply smoothing twice for extra smoothness
+                            const smoothedPoints = smoothCenterline(smoothCenterline(centerlinePoints));
+
+                            // Build buffer polygon for this stream using smoothed points
+                            const buildBufferPolygon = (points, widthKey) => {
                                 const leftEdge = [];
                                 const rightEdge = [];
 
-                                centerlinePoints.forEach(cp => {
+                                points.forEach(cp => {
                                     const halfWidth = cp[widthKey];
                                     const leftBearing = (cp.bearing + 90) % 360;
                                     const rightBearing = (cp.bearing - 90 + 360) % 360;
@@ -3541,11 +3597,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                             allStreamCones.push({
                                 streamIdx,
-                                polygon_75: buildBufferPolygon('width75'),
-                                polygon_90: buildBufferPolygon('width90'),
+                                polygon_75: buildBufferPolygon(smoothedPoints, 'width75'),
+                                polygon_90: buildBufferPolygon(smoothedPoints, 'width90'),
                                 bearing: stream.bearing,
                                 trackCount: stream.trackCount,
-                                centerlinePoints
+                                centerlinePoints: smoothedPoints
                             });
                         }
                     });
