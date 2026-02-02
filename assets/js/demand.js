@@ -1123,6 +1123,88 @@ function getRegionOrder(region) {
 }
 
 /**
+ * Normalize a procedure name (DP/STAR) by replacing version number and suffix with placeholders
+ * Examples:
+ *   - CINDY2D, CINDY8S → CINDY#?    (international format: NAME + digit + letter)
+ *   - MARUN2D, MARUN6E → MARUN#?
+ *   - KERAX4D, KERAX5D → KERAX#?
+ *   - SKORR4, SKORR5 → SKORR#      (US format: NAME + digit)
+ *   - RNAV procedures often have numbers in the name, so we match trailing digit+letter
+ * @param {string} name - Procedure name
+ * @returns {string} Normalized procedure name
+ */
+function normalizeProcedureName(name) {
+    if (!name || name === 'UNKNOWN') return name;
+
+    // Pattern: Base name (letters) + digit(s) + optional single letter suffix
+    // Match: CINDY2D, MARUN6E, KERAX5D, SKORR4, DEBHI1C, EMPAX5C
+    // The pattern looks for: letters followed by one or more digits, optionally followed by a single letter at end
+    const match = name.match(/^([A-Z]+)(\d+)([A-Z])?$/);
+    if (match) {
+        const base = match[1];
+        const suffix = match[3]; // May be undefined for US procedures
+        if (suffix) {
+            return `${base}#?`;  // International: CINDY#?, KERAX#?
+        } else {
+            return `${base}#`;   // US: SKORR#
+        }
+    }
+
+    return name; // No match, return original
+}
+
+/**
+ * Normalize breakdown data by grouping procedures with the same base name
+ * @param {Object} breakdown - Breakdown data keyed by time bin
+ * @param {string} categoryKey - Key to read/write the category (e.g., 'dp', 'star')
+ * @returns {Object} Normalized breakdown with grouped procedures
+ */
+function normalizeBreakdownByProcedure(breakdown, categoryKey) {
+    if (!breakdown) return breakdown;
+
+    const normalized = {};
+
+    for (const timeBin in breakdown) {
+        const items = breakdown[timeBin];
+        if (!Array.isArray(items)) {
+            normalized[timeBin] = items;
+            continue;
+        }
+
+        // Group items by normalized procedure name
+        const grouped = {};
+        items.forEach(item => {
+            const originalName = item[categoryKey];
+            const normalizedName = normalizeProcedureName(originalName);
+
+            if (!grouped[normalizedName]) {
+                grouped[normalizedName] = {
+                    [categoryKey]: normalizedName,
+                    count: 0,
+                    phases: {},
+                };
+            }
+
+            // Sum counts
+            grouped[normalizedName].count += item.count || 0;
+
+            // Merge phase breakdowns
+            if (item.phases) {
+                for (const phase in item.phases) {
+                    grouped[normalizedName].phases[phase] =
+                        (grouped[normalizedName].phases[phase] || 0) + item.phases[phase];
+                }
+            }
+        });
+
+        // Convert back to array
+        normalized[timeBin] = Object.values(grouped);
+    }
+
+    return normalized;
+}
+
+/**
  * Check if a specific phase is enabled based on phase group selections
  * @param {string} phase - Phase name (e.g., 'enroute', 'taxiing', 'arrived')
  * @returns {boolean} True if the phase should be displayed
@@ -5318,8 +5400,8 @@ function loadFlightSummary(renderOriginChartAfter) {
                 DEMAND_STATE.ruleBreakdown = response.rule_breakdown || {};
                 DEMAND_STATE.depFixBreakdown = response.dep_fix_breakdown || {};
                 DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
-                DEMAND_STATE.dpBreakdown = response.dp_breakdown || {};
-                DEMAND_STATE.starBreakdown = response.star_breakdown || {};
+                DEMAND_STATE.dpBreakdown = normalizeBreakdownByProcedure(response.dp_breakdown || {}, 'dp');
+                DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(response.star_breakdown || {}, 'star');
 
                 // Mark summary data as loaded (for caching)
                 DEMAND_STATE.summaryLoaded = true;
