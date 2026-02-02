@@ -151,8 +151,8 @@ nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=
 DISCORD_Q_PID=$!
 echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
 
-# Start the division events sync daemon (VATUSA, VATCAN, VATSIM events)
-# Syncs every 6 hours to populate division_events table for Extended Outlook
+# Start the PERTI events sync daemon (VATUSA, VATCAN, VATSIM events)
+# Syncs every 6 hours to populate perti_events table for TMI compliance & position logging
 echo "Starting event_sync_daemon.php (sync every 6h)..."
 nohup php "${WWWROOT}/scripts/event_sync_daemon.php" --loop --interval=21600 >> /home/LogFiles/event_sync.log 2>&1 &
 EVENT_SYNC_PID=$!

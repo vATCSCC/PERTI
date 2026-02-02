@@ -2,6 +2,11 @@
  * PERTI Filter Configuration
  * Unified color scheme for all filter/breakdown dimensions across pages.
  * Single source of truth for: demand.php, route.php, nod.php, gdt.php
+ *
+ * i18n Support:
+ *   - FILTER_I18N_KEYS maps filter values to i18n keys
+ *   - getFilterLabel() uses PERTII18n.t() when available
+ *   - Carrier/ARTCC names are proper nouns and not translated
  */
 
 const FILTER_CONFIG = {
@@ -399,6 +404,127 @@ const FILTER_CONFIG = {
             return `hsl(${hue}, 65%, 45%)`;
         },
     },
+
+    // Map Visualization Colors
+    map: {
+        // Facility boundary colors (ARTCC/TRACON)
+        facility: {
+            provider: {
+                fill: '#4dabf7',      // Blue
+                fillOpacity: 0.1,
+                stroke: '#4dabf7',
+                strokeWidth: 2,
+            },
+            requestor: {
+                fill: '#ff6b6b',      // Red
+                fillOpacity: 0.1,
+                stroke: '#ff6b6b',
+                strokeWidth: 2,
+            },
+            default: {
+                fill: '#888888',      // Gray
+                fillOpacity: 0.1,
+                stroke: '#888888',
+                strokeWidth: 1,
+            },
+        },
+        // Sector boundary colors by altitude
+        sector: {
+            low: {
+                fill: '#868e96',      // Gray
+                fillOpacity: 0.08,
+                stroke: '#868e96',
+                strokeWidth: 1,
+                strokeDash: [4, 2],
+            },
+            high: {
+                fill: '#4dabf7',      // Blue
+                fillOpacity: 0.08,
+                stroke: '#4dabf7',
+                strokeWidth: 1.5,
+            },
+            superhigh: {
+                fill: '#228be6',      // Dark blue
+                fillOpacity: 0.06,
+                stroke: '#228be6',
+                strokeWidth: 1,
+                strokeDash: [2, 2],
+            },
+        },
+        // Flow Cone (Traffic Sector) colors
+        flowCone: {
+            '75': {
+                fill: 'rgba(255, 212, 59, 0.15)',  // Yellow with transparency
+                stroke: '#ffd43b',                  // Solid yellow border
+                strokeWidth: 2,
+            },
+            '90': {
+                fill: 'rgba(255, 146, 43, 0.10)',  // Orange with transparency
+                stroke: '#ff922b',                  // Solid orange border
+                strokeWidth: 1,
+            },
+        },
+        // Spacing markers (arcs/crossings)
+        spacing: {
+            line: '#ffffff',
+            lineOpacity: 0.6,
+            label: '#ffffff',
+            labelHalo: '#000000',
+        },
+        // Flow stream colors (DBSCAN clustered streams)
+        streamPalette: [
+            '#3498db', // Blue
+            '#e74c3c', // Red
+            '#2ecc71', // Green
+            '#9b59b6', // Purple
+            '#f39c12', // Orange
+            '#1abc9c', // Teal
+            '#e67e22', // Dark orange
+            '#34495e', // Dark gray-blue
+        ],
+        // Track density color ramp (blue-cold to red-hot)
+        densityRamp: [
+            { stop: 0.0, color: '#3b4cc0' },   // Blue (sparse)
+            { stop: 0.2, color: '#6788ee' },   // Light blue
+            { stop: 0.4, color: '#9abbff' },   // Cyan-ish
+            { stop: 0.5, color: '#c9d7f0' },   // Light gray-blue (neutral)
+            { stop: 0.6, color: '#edd1c2' },   // Light peach
+            { stop: 0.7, color: '#f7a789' },   // Orange
+            { stop: 0.85, color: '#e26952' },  // Red-orange
+            { stop: 1.0, color: '#b40426' },   // Dark red (busy)
+        ],
+        // UI text colors
+        ui: {
+            legendText: 'var(--dark-text-muted, #adb5bd)',
+            mutedText: 'var(--dark-text-subtle, #6c757d)',
+        },
+    },
+};
+
+// i18n keys for translatable filter labels
+const FILTER_I18N_KEYS = {
+    weightClass: {
+        'J': 'weightClass.J',
+        'H': 'weightClass.H',
+        'L': 'weightClass.L',
+        'S': 'weightClass.S',
+        'UNKNOWN': 'common.unknown',
+    },
+    flightRule: {
+        'I': 'flightRule.I',
+        'V': 'flightRule.V',
+    },
+    dccRegion: {
+        'WEST': 'dccRegion.west',
+        'SOUTH_CENTRAL': 'dccRegion.southCentral',
+        'MIDWEST': 'dccRegion.midwest',
+        'SOUTHEAST': 'dccRegion.southeast',
+        'NORTHEAST': 'dccRegion.northeast',
+        'CANADA_EAST': 'dccRegion.canadaEast',
+        'CANADA_WEST': 'dccRegion.canadaWest',
+        'OTHER': 'common.other',
+        'UNKNOWN': 'common.unknown',
+    },
 };
 
 // Helper functions
@@ -413,6 +539,16 @@ function getFilterColor(category, value) {
 function getFilterLabel(category, value) {
     const cfg = FILTER_CONFIG[category];
     if (!cfg || !cfg.labels) {return value || 'Unknown';}
+
+    // Try i18n first if available
+    if (typeof PERTII18n !== 'undefined' && FILTER_I18N_KEYS[category]) {
+        const i18nKey = FILTER_I18N_KEYS[category][value];
+        if (i18nKey) {
+            return PERTII18n.t(i18nKey);
+        }
+    }
+
+    // Fallback to hardcoded labels
     return cfg.labels[value] || value;
 }
 
@@ -441,6 +577,7 @@ function getDCCRegion(artcc) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         FILTER_CONFIG,
+        FILTER_I18N_KEYS,
         getFilterColor,
         getFilterLabel,
         getDCCRegionColor,

@@ -109,7 +109,8 @@ $_conn_cache = [
 if (!function_exists('get_conn_adl')) {
     /**
      * Get ADL database connection (lazy loaded)
-     * @return resource|false|null Connection resource, false on failure, null if not configured
+     * Uses PDO with sqlsrv driver for Azure SQL compatibility with API endpoints
+     * @return PDO|false|null PDO connection, false on failure, null if not configured
      */
     function get_conn_adl() {
         global $_conn_cache;
@@ -130,23 +131,23 @@ if (!function_exists('get_conn_adl')) {
             return null;
         }
 
-        if (!function_exists('sqlsrv_connect')) {
-            error_log("ADL SQL connection skipped: sqlsrv extension is not loaded.");
+        // Prefer PDO with pdo_sqlsrv driver for consistent API usage
+        if (!extension_loaded('pdo_sqlsrv')) {
+            error_log("ADL SQL connection skipped: pdo_sqlsrv extension is not loaded.");
             $_conn_cache['adl'] = false;
             return null;
         }
 
-        $connectionInfo = [
-            "Database" => ADL_SQL_DATABASE,
-            "UID"      => ADL_SQL_USERNAME,
-            "PWD"      => ADL_SQL_PASSWORD,
-            "ConnectionPooling" => 1
-        ];
-
-        $_conn_cache['adl'] = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
-
-        if ($_conn_cache['adl'] === false) {
-            error_log("ADL SQL connection failed: " . adl_sql_error_message());
+        try {
+            // Build PDO DSN for Azure SQL
+            $dsn = "sqlsrv:server=tcp:" . ADL_SQL_HOST . ",1433;Database=" . ADL_SQL_DATABASE . ";Encrypt=yes;TrustServerCertificate=no";
+            $_conn_cache['adl'] = new PDO($dsn, ADL_SQL_USERNAME, ADL_SQL_PASSWORD, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+        } catch (PDOException $e) {
+            error_log("ADL SQL connection failed: " . $e->getMessage());
+            $_conn_cache['adl'] = false;
             return null;
         }
 

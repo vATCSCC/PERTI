@@ -2144,8 +2144,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return;
         }
 
-        // Color palette for streams (distinct hues)
-        const streamColors = [
+        // Color palette for streams - use centralized config with fallbacks
+        const streamColors = FILTER_CONFIG?.map?.streamPalette || [
             '#3498db', // Blue
             '#e74c3c', // Red
             '#2ecc71', // Green
@@ -2395,9 +2395,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
                         <span class="layer-divider">|</span>
-                        <span class="cone-legend" style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
-                            <span style="display: flex; align-items: center; gap: 3px;"><span style="width: 12px; height: 12px; background: rgba(255,212,59,0.3); border: 1px solid #ffd43b; border-radius: 2px;"></span> 75%</span>
-                            <span style="display: flex; align-items: center; gap: 3px;"><span style="width: 12px; height: 12px; background: rgba(255,146,43,0.3); border: 1px solid #ff922b; border-radius: 2px;"></span> 90%</span>
+                        <span class="cone-legend" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: ${FILTER_CONFIG?.map?.ui?.legendText || 'var(--dark-text-muted, #adb5bd)'};">
+                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['75']?.fill || 'rgba(255,212,59,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['75']?.stroke || '#ffd43b'}; border-radius: 2px;"></span>75%</span>
+                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['90']?.fill || 'rgba(255,146,43,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['90']?.stroke || '#ff922b'}; border-radius: 2px;"></span>90%</span>
                         </span>
                     </div>
                     <div class="tmi-map-container mt-2" id="${mapId}_container">
@@ -2612,16 +2612,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     data: { type: 'FeatureCollection', features: mapData.facilities },
                 });
 
+                // Use centralized colors from FILTER_CONFIG with fallbacks
+                const facilityColors = FILTER_CONFIG?.map?.facility || {
+                    provider: { fill: '#4dabf7', fillOpacity: 0.1, stroke: '#4dabf7', strokeWidth: 2 },
+                    requestor: { fill: '#ff6b6b', fillOpacity: 0.1, stroke: '#ff6b6b', strokeWidth: 2 },
+                    default: { fill: '#888888', fillOpacity: 0.1, stroke: '#888888', strokeWidth: 1 },
+                };
+
                 map.addLayer({
                     id: 'facilities-fill',
                     type: 'fill',
                     source: 'facilities',
                     paint: {
                         'fill-color': ['case',
-                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
-                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
-                            '#888888'],
-                        'fill-opacity': 0.1,
+                            ['==', ['get', 'role'], 'provider'], facilityColors.provider.fill,
+                            ['==', ['get', 'role'], 'requestor'], facilityColors.requestor.fill,
+                            facilityColors.default.fill],
+                        'fill-opacity': facilityColors.provider.fillOpacity || 0.1,
                     },
                 });
 
@@ -2631,13 +2638,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     paint: {
                         'line-color': ['case',
-                            ['==', ['get', 'role'], 'provider'], '#4dabf7',
-                            ['==', ['get', 'role'], 'requestor'], '#ff6b6b',
-                            '#888888'],
+                            ['==', ['get', 'role'], 'provider'], facilityColors.provider.stroke,
+                            ['==', ['get', 'role'], 'requestor'], facilityColors.requestor.stroke,
+                            facilityColors.default.stroke],
                         // Thicker line for provider (manages the stream)
                         'line-width': ['case',
-                            ['==', ['get', 'role'], 'provider'], 3,
-                            1.5],
+                            ['==', ['get', 'role'], 'provider'], facilityColors.provider.strokeWidth || 3,
+                            facilityColors.requestor.strokeWidth || 1.5],
                         'line-opacity': 0.6,
                     },
                 });
@@ -2664,11 +2671,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Add sector boundaries by altitude type (low, high, superhigh)
             if (mapData.sectors?.length) {
-                // Colors for each altitude type
+                // Use centralized colors from FILTER_CONFIG with fallbacks
+                const sectorConfig = FILTER_CONFIG?.map?.sector || {
+                    low: { fill: '#868e96', fillOpacity: 0.08, stroke: '#868e96', strokeWidth: 1 },
+                    high: { fill: '#4dabf7', fillOpacity: 0.08, stroke: '#4dabf7', strokeWidth: 1.5 },
+                    superhigh: { fill: '#228be6', fillOpacity: 0.06, stroke: '#228be6', strokeWidth: 1 },
+                };
                 const altitudeColors = {
-                    low: { fill: '#74c0fc', line: '#74c0fc' },    // Light blue
-                    high: { fill: '#4dabf7', line: '#4dabf7' },   // Blue
-                    superhigh: { fill: '#228be6', line: '#228be6' }, // Dark blue
+                    low: { fill: sectorConfig.low.fill, line: sectorConfig.low.stroke, opacity: sectorConfig.low.fillOpacity || 0.08, width: sectorConfig.low.strokeWidth || 1 },
+                    high: { fill: sectorConfig.high.fill, line: sectorConfig.high.stroke, opacity: sectorConfig.high.fillOpacity || 0.08, width: sectorConfig.high.strokeWidth || 1.5 },
+                    superhigh: { fill: sectorConfig.superhigh.fill, line: sectorConfig.superhigh.stroke, opacity: sectorConfig.superhigh.fillOpacity || 0.06, width: sectorConfig.superhigh.strokeWidth || 1 },
                 };
 
                 // Insert below facilities if they exist
@@ -3003,18 +3015,22 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 console.log(`Track density: max ${maxDensity} flights per cell, ${Object.keys(densityGrid).length} cells`);
 
                 // Spectral color ramp for density: blue (cold/sparse) -> red (hot/busy)
+                // Use centralized config with fallbacks
+                const densityRamp = FILTER_CONFIG?.map?.densityRamp || [
+                    { stop: 0.0, color: '#3b4cc0' },
+                    { stop: 0.2, color: '#6788ee' },
+                    { stop: 0.4, color: '#9abbff' },
+                    { stop: 0.5, color: '#c9d7f0' },
+                    { stop: 0.6, color: '#edd1c2' },
+                    { stop: 0.7, color: '#f7a789' },
+                    { stop: 0.85, color: '#e26952' },
+                    { stop: 1.0, color: '#b40426' },
+                ];
                 const densityColorExpr = [
                     'interpolate',
                     ['linear'],
                     ['get', 'density'],
-                    0.0, '#3b4cc0',   // Blue (sparse)
-                    0.2, '#6788ee',   // Light blue
-                    0.4, '#9abbff',   // Cyan-ish
-                    0.5, '#c9d7f0',   // Light gray-blue (neutral)
-                    0.6, '#edd1c2',   // Light peach
-                    0.7, '#f7a789',   // Orange
-                    0.85, '#e26952',  // Red-orange
-                    1.0, '#b40426',   // Dark red (busy)
+                    ...densityRamp.flatMap(r => [r.stop, r.color]),
                 ];
 
                 // Add solid flight tracks
@@ -3082,7 +3098,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 TMICompliance.addFlowStreamLayers(mapId, flowData);
             }
 
-            // Compute traffic sector from trajectory data if not already cached
+            // Compute centerline-based traffic flow corridor from trajectory data
+            // This creates a path-following buffer instead of a simple wedge
             if (!TMICompliance.trafficSectorCache?.[mapId] && TMICompliance.trajectoryCache[mapId] && mapData.fixes?.length) {
                 const trajectories = TMICompliance.trajectoryCache[mapId];
                 const measurementFix = mapData.fixes[0];
@@ -3124,58 +3141,46 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
                     };
 
-                    // Get required spacing from TMI metadata (for measuring width at 1 interval upstream)
+                    // Get required spacing from TMI metadata
                     const tmiMeta = TMICompliance.tmiMetadataCache?.[mapId] || {};
                     const requiredSpacing = tmiMeta.required || 15;
-                    const measureDist = requiredSpacing; // Measure width at 1 interval upstream
-                    const tolerance = Math.max(5, requiredSpacing * 0.3); // ±30% tolerance
+                    const maxDistance = Math.max(75, requiredSpacing * 4); // Show at least 4 spacing intervals
+                    const BIN_SIZE = 3; // Sample every 3nm for smooth centerline
 
-                    // Collect approach bearings for all trajectories
-                    const approachBearings = [];
+                    // Sample all trajectories by distance from fix
+                    // distanceBins[dist] = [{ bearing, lon, lat, callsign }]
+                    const distanceBins = {};
 
                     Object.entries(trajectories).forEach(([callsign, traj]) => {
                         if (!traj.coordinates || traj.coordinates.length < 2) return;
 
-                        // Find the closest point to the fix (within 15nm threshold)
-                        let closestIdx = -1;
-                        let closestDist = 15; // 15nm threshold
+                        // Track visited bins to avoid counting same flight multiple times per bin
+                        const visitedBins = new Set();
 
-                        for (let i = 0; i < traj.coordinates.length; i++) {
-                            const [lon, lat] = traj.coordinates[i];
+                        traj.coordinates.forEach(coord => {
+                            const [lon, lat] = coord;
                             const dist = distanceNm(lon, lat, fixLon, fixLat);
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestIdx = i;
-                            }
-                        }
+                            const bearing = bearingTo(fixLon, fixLat, lon, lat);
+                            const bin = Math.round(dist / BIN_SIZE) * BIN_SIZE;
 
-                        if (closestIdx > 0) {
-                            // Find point at ~1 interval upstream from fix for width measurement
-                            // This is where we measure the traffic spread for 75%/90% capture
-                            let approachIdx = closestIdx - 1;
-                            let bestDiff = Infinity;
-                            for (let i = closestIdx - 1; i >= 0; i--) {
-                                const [lon, lat] = traj.coordinates[i];
-                                const dist = distanceNm(lon, lat, fixLon, fixLat);
-                                const diff = Math.abs(dist - measureDist);
-                                if (diff < bestDiff && diff <= tolerance) {
-                                    bestDiff = diff;
-                                    approachIdx = i;
-                                }
+                            if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
+                                visitedBins.add(bin);
+                                distanceBins[bin] = distanceBins[bin] || [];
+                                distanceBins[bin].push({ bearing, lon, lat, callsign });
                             }
-
-                            // Calculate bearing FROM the fix looking back toward where traffic came from
-                            const [aLon, aLat] = traj.coordinates[approachIdx];
-                            const bearing = bearingTo(fixLon, fixLat, aLon, aLat);
-                            approachBearings.push({ callsign, bearing });
-                        }
+                        });
                     });
 
-                    if (approachBearings.length >= 3) {
-                        // Sort bearings and compute sectors
-                        const bearings = approachBearings.map(b => b.bearing).sort((a, b) => a - b);
+                    // Compute centerline and widths at each distance bin
+                    const centerlinePoints = [];
+                    const sortedBins = Object.keys(distanceBins).map(Number).sort((a, b) => a - b);
 
-                        // Find the center bearing (median) and compute spread
+                    sortedBins.forEach(dist => {
+                        const points = distanceBins[dist];
+                        if (points.length < 3) return; // Need enough samples for percentiles
+
+                        // Compute median bearing (centerline direction at this distance)
+                        const bearings = points.map(p => p.bearing).sort((a, b) => a - b);
                         const medianBearing = bearings[Math.floor(bearings.length / 2)];
 
                         // Normalize bearings relative to median to handle wrap-around
@@ -3186,47 +3191,89 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             return diff;
                         }).sort((a, b) => a - b);
 
-                        // Compute percentile ranges (symmetric around median)
-                        const p75Idx = Math.ceil(normalized.length * 0.875) - 1; // 87.5th percentile (captures 75% centered)
-                        const p90Idx = Math.ceil(normalized.length * 0.95) - 1;  // 95th percentile (captures 90% centered)
-                        const p75IdxLow = Math.floor(normalized.length * 0.125);
-                        const p90IdxLow = Math.floor(normalized.length * 0.05);
+                        // Compute percentile widths (half-widths from centerline)
+                        const p75Hi = Math.ceil(normalized.length * 0.875) - 1;
+                        const p75Lo = Math.floor(normalized.length * 0.125);
+                        const p90Hi = Math.ceil(normalized.length * 0.95) - 1;
+                        const p90Lo = Math.floor(normalized.length * 0.05);
 
-                        const rawWidth75 = (normalized[p75Idx] - normalized[p75IdxLow]) || 30;
-                        const rawWidth90 = (normalized[p90Idx] - normalized[p90IdxLow]) || 45;
-                        const minArcAngle = 5;
-                        const width75 = Math.max(minArcAngle, rawWidth75);
-                        const width90 = Math.max(minArcAngle, rawWidth90);
+                        const width75 = Math.max(3, Math.max(Math.abs(normalized[p75Hi]), Math.abs(normalized[p75Lo])));
+                        const width90 = Math.max(5, Math.max(Math.abs(normalized[p90Hi]), Math.abs(normalized[p90Lo])));
 
-                        // Both sectors share the same center line (median bearing)
-                        // Only the sweep angle varies between 75% and 90%
-                        const sector75 = {
-                            start_bearing: ((medianBearing - width75 / 2) + 360) % 360,
-                            end_bearing: ((medianBearing + width75 / 2) + 360) % 360,
-                            width_deg: width75,
+                        // Compute centerline point at this distance
+                        const centerPoint = pointAtBearing(fixLon, fixLat, medianBearing, dist);
+
+                        centerlinePoints.push({
+                            dist,
+                            coords: centerPoint,
+                            bearing: medianBearing,
+                            width75,
+                            width90,
+                            trackCount: points.length,
+                        });
+                    });
+
+                    if (centerlinePoints.length >= 2) {
+                        // Build path-following buffer polygons
+                        const buildBufferPolygon = (widthKey) => {
+                            const leftEdge = []; // Points on left side of centerline
+                            const rightEdge = []; // Points on right side of centerline
+
+                            centerlinePoints.forEach(cp => {
+                                const halfWidth = cp[widthKey];
+                                // Left edge: bearing + 90 degrees (perpendicular left)
+                                const leftBearing = (cp.bearing + 90) % 360;
+                                // Right edge: bearing - 90 degrees (perpendicular right)
+                                const rightBearing = (cp.bearing - 90 + 360) % 360;
+
+                                // Convert angular width to approximate linear distance at this range
+                                // At distance d, angular width θ covers arc length ≈ d * sin(θ)
+                                const linearWidth = cp.dist * Math.sin(halfWidth * Math.PI / 180);
+
+                                leftEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], leftBearing, linearWidth));
+                                rightEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], rightBearing, linearWidth));
+                            });
+
+                            // Build closed polygon: fix -> right edge (near to far) -> left edge (far to near) -> fix
+                            const polygon = [[fixLon, fixLat]];
+                            rightEdge.forEach(pt => polygon.push(pt));
+                            leftEdge.reverse().forEach(pt => polygon.push(pt));
+                            polygon.push([fixLon, fixLat]); // Close polygon
+
+                            return polygon;
                         };
-                        const sector90 = {
-                            start_bearing: ((medianBearing - width90 / 2) + 360) % 360,
-                            end_bearing: ((medianBearing + width90 / 2) + 360) % 360,
-                            width_deg: width90,
-                        };
 
-                        // Compute upstream measurement point for reference (cone renders from fix)
-                        // medianBearing points toward upstream (where traffic came from)
-                        const [upstreamLon, upstreamLat] = pointAtBearing(fixLon, fixLat, medianBearing, requiredSpacing);
+                        // Also store legacy sector data for compatibility with labels
+                        const avgWidth75 = centerlinePoints.reduce((sum, cp) => sum + cp.width75, 0) / centerlinePoints.length;
+                        const avgWidth90 = centerlinePoints.reduce((sum, cp) => sum + cp.width90, 0) / centerlinePoints.length;
+                        const medianBearing = centerlinePoints[Math.floor(centerlinePoints.length / 2)].bearing;
 
                         TMICompliance.trafficSectorCache = TMICompliance.trafficSectorCache || {};
                         TMICompliance.trafficSectorCache[mapId] = {
-                            measurement_point: [upstreamLon, upstreamLat], // Where width was measured (1 interval upstream)
-                            fix_point: [fixLon, fixLat], // Cone vertex (fix location)
-                            sector_75: sector75,
-                            sector_90: sector90,
-                            track_count: approachBearings.length,
+                            fix_point: [fixLon, fixLat],
+                            centerline: centerlinePoints,
+                            polygon_75: buildBufferPolygon('width75'),
+                            polygon_90: buildBufferPolygon('width90'),
+                            // Legacy sector format for spacing arcs (use average widths)
+                            sector_75: {
+                                start_bearing: ((medianBearing - avgWidth75) + 360) % 360,
+                                end_bearing: ((medianBearing + avgWidth75) + 360) % 360,
+                                width_deg: avgWidth75 * 2,
+                            },
+                            sector_90: {
+                                start_bearing: ((medianBearing - avgWidth90) + 360) % 360,
+                                end_bearing: ((medianBearing + avgWidth90) + 360) % 360,
+                                width_deg: avgWidth90 * 2,
+                            },
+                            track_count: Object.keys(trajectories).length,
                             required_spacing: requiredSpacing,
                             unit: tmiMeta.unit || 'nm',
+                            max_distance: maxDistance,
+                            // Flag for centerline-based rendering
+                            use_centerline: true,
                         };
 
-                        console.log(`Computed traffic sector from ${approachBearings.length} tracks: 75% (${width75.toFixed(1)}°), 90% (${width90.toFixed(1)}°), median bearing: ${medianBearing.toFixed(1)}°, width measured at ${requiredSpacing}nm upstream, cone rendered from fix`);
+                        console.log(`Computed centerline-based flow corridor from ${Object.keys(trajectories).length} tracks: ${centerlinePoints.length} distance samples, avg width 75%: ${avgWidth75.toFixed(1)}°, 90%: ${avgWidth90.toFixed(1)}°`);
                     }
                 }
             }
@@ -3276,19 +3323,32 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     return coords;
                 };
 
-                // 90% sector (wider sweep angle, more transparent)
-                sectorFeatures.push({
-                    type: 'Feature',
-                    properties: { pct: 90 },
-                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
-                });
-
-                // 75% sector (narrower sweep angle, same length)
-                sectorFeatures.push({
-                    type: 'Feature',
-                    properties: { pct: 75 },
-                    geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
-                });
+                // Use centerline-based polygons if available, otherwise fall back to wedge
+                if (sectorData.use_centerline && sectorData.polygon_90 && sectorData.polygon_75) {
+                    // Centerline-following buffer polygons
+                    sectorFeatures.push({
+                        type: 'Feature',
+                        properties: { pct: 90 },
+                        geometry: { type: 'Polygon', coordinates: [sectorData.polygon_90] },
+                    });
+                    sectorFeatures.push({
+                        type: 'Feature',
+                        properties: { pct: 75 },
+                        geometry: { type: 'Polygon', coordinates: [sectorData.polygon_75] },
+                    });
+                } else {
+                    // Legacy wedge-based polygons
+                    sectorFeatures.push({
+                        type: 'Feature',
+                        properties: { pct: 90 },
+                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
+                    });
+                    sectorFeatures.push({
+                        type: 'Feature',
+                        properties: { pct: 75 },
+                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
+                    });
+                }
 
                 map.addSource('traffic-sectors', {
                     type: 'geojson',
@@ -3298,13 +3358,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Insert below flight tracks if they exist
                 const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
 
+                // Use centralized colors from FILTER_CONFIG with fallbacks
+                const coneColors = FILTER_CONFIG?.map?.flowCone || {
+                    '75': { fill: 'rgba(255,212,59,0.15)', stroke: '#ffd43b', strokeWidth: 2 },
+                    '90': { fill: 'rgba(255,146,43,0.10)', stroke: '#ff922b', strokeWidth: 1 },
+                };
+
                 // Sector fills
                 map.addLayer({
                     id: 'traffic-sectors-fill',
                     type: 'fill',
                     source: 'traffic-sectors',
                     paint: {
-                        'fill-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
+                        'fill-color': ['case', ['==', ['get', 'pct'], 75], coneColors['75'].stroke, coneColors['90'].stroke],
                         'fill-opacity': ['case', ['==', ['get', 'pct'], 75], 0.15, 0.1],
                     },
                 }, beforeLayer);
@@ -3315,63 +3381,122 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     type: 'line',
                     source: 'traffic-sectors',
                     paint: {
-                        'line-color': ['case', ['==', ['get', 'pct'], 75], '#ffd43b', '#ff922b'],
-                        'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
+                        'line-color': ['case', ['==', ['get', 'pct'], 75], coneColors['75'].stroke, coneColors['90'].stroke],
+                        'line-width': ['case', ['==', ['get', 'pct'], 75], coneColors['75'].strokeWidth || 2, coneColors['90'].strokeWidth || 1],
                         'line-opacity': 0.6,
                     },
                 }, beforeLayer);
 
-                // Add spacing arcs within the 90% sector
+                // Add spacing markers (perpendicular lines for centerline, arcs for wedge)
                 if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
                     const arcFeatures = [];
                     const labelFeatures = [];
-                    const [originLon, originLat] = sectorData.fix_point; // Arcs radiate from fix
+                    const [originLon, originLat] = sectorData.fix_point;
                     const sector = sectorData.sector_90;
 
-                    // Build arc at given radius, return coords and label points (start, mid, end)
-                    const buildArc = (radius) => {
-                        const coords = [];
-                        const startBearing = sector.start_bearing;
-                        let endBearing = sector.end_bearing;
-                        if (endBearing < startBearing) endBearing += 360;
+                    // Use centerline-following perpendicular lines if available
+                    if (sectorData.use_centerline && sectorData.centerline?.length > 0) {
+                        // Build perpendicular crossing line at a centerline point
+                        const buildCrossing = (centerlinePoint) => {
+                            const { coords, bearing, width90, dist } = centerlinePoint;
+                            // Convert angular width to linear distance at this range
+                            const linearWidth = dist * Math.sin(width90 * Math.PI / 180);
+                            // Perpendicular bearings (±90° from centerline direction)
+                            const leftBearing = (bearing + 90) % 360;
+                            const rightBearing = (bearing - 90 + 360) % 360;
 
-                        const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3));
-                        for (let i = 0; i <= arcPoints; i++) {
-                            const bearing = startBearing + (endBearing - startBearing) * i / arcPoints;
-                            coords.push(pointAtBearing(originLon, originLat, bearing % 360, radius));
-                        }
+                            const leftPt = pointAtBearing(coords[0], coords[1], leftBearing, linearWidth);
+                            const rightPt = pointAtBearing(coords[0], coords[1], rightBearing, linearWidth);
 
-                        // Compute label positions: start, midpoint, end
-                        const midBearing = (startBearing + endBearing) / 2;
-                        const startPt = pointAtBearing(originLon, originLat, startBearing % 360, radius);
-                        const midPt = pointAtBearing(originLon, originLat, midBearing % 360, radius);
-                        const endPt = pointAtBearing(originLon, originLat, endBearing % 360, radius);
+                            return {
+                                coords: [leftPt, coords, rightPt],
+                                labelPoints: [leftPt, coords, rightPt],
+                            };
+                        };
 
-                        return { coords, labelPoints: [startPt, midPt, endPt] };
-                    };
+                        // Generate crossings at spacing intervals
+                        const minCrossings = 3;
+                        const maxDist = sectorData.max_distance || Math.max(SECTOR_RADIUS_NM, spacing * minCrossings);
 
-                    // Generate arcs at spacing intervals (up to sector radius, at least 3)
-                    const minArcs = 3;
-                    const maxDist = Math.max(SECTOR_RADIUS_NM, spacing * minArcs);
-                    for (let dist = spacing; dist <= maxDist; dist += spacing) {
-                        const { coords, labelPoints } = buildArc(dist);
-                        arcFeatures.push({
-                            type: 'Feature',
-                            properties: { distance: dist },
-                            geometry: { type: 'LineString', coordinates: coords },
-                        });
-
-                        // Add label points at start, middle, and end of arc
-                        labelPoints.forEach(pt => {
-                            labelFeatures.push({
-                                type: 'Feature',
-                                properties: { label: `${dist}nm` },
-                                geometry: { type: 'Point', coordinates: pt },
+                        for (let targetDist = spacing; targetDist <= maxDist; targetDist += spacing) {
+                            // Find closest centerline point to this distance
+                            let closestCp = null;
+                            let closestDiff = Infinity;
+                            sectorData.centerline.forEach(cp => {
+                                const diff = Math.abs(cp.dist - targetDist);
+                                if (diff < closestDiff) {
+                                    closestDiff = diff;
+                                    closestCp = cp;
+                                }
                             });
-                        });
+
+                            if (closestCp && closestDiff < spacing / 2) {
+                                const { coords, labelPoints } = buildCrossing(closestCp);
+                                arcFeatures.push({
+                                    type: 'Feature',
+                                    properties: { distance: targetDist },
+                                    geometry: { type: 'LineString', coordinates: coords },
+                                });
+
+                                // Add label at center of crossing
+                                labelFeatures.push({
+                                    type: 'Feature',
+                                    properties: { label: `${targetDist}nm` },
+                                    geometry: { type: 'Point', coordinates: labelPoints[1] },
+                                });
+                            }
+                        }
+                    } else {
+                        // Legacy: radial arcs from fix point
+                        const buildArc = (radius) => {
+                            const coords = [];
+                            const startBearing = sector.start_bearing;
+                            let endBearing = sector.end_bearing;
+                            if (endBearing < startBearing) endBearing += 360;
+
+                            const arcPoints = Math.max(10, Math.ceil(sector.width_deg / 3));
+                            for (let i = 0; i <= arcPoints; i++) {
+                                const bearing = startBearing + (endBearing - startBearing) * i / arcPoints;
+                                coords.push(pointAtBearing(originLon, originLat, bearing % 360, radius));
+                            }
+
+                            const midBearing = (startBearing + endBearing) / 2;
+                            const startPt = pointAtBearing(originLon, originLat, startBearing % 360, radius);
+                            const midPt = pointAtBearing(originLon, originLat, midBearing % 360, radius);
+                            const endPt = pointAtBearing(originLon, originLat, endBearing % 360, radius);
+
+                            return { coords, labelPoints: [startPt, midPt, endPt] };
+                        };
+
+                        const minArcs = 3;
+                        const maxDist = Math.max(SECTOR_RADIUS_NM, spacing * minArcs);
+                        for (let dist = spacing; dist <= maxDist; dist += spacing) {
+                            const { coords, labelPoints } = buildArc(dist);
+                            arcFeatures.push({
+                                type: 'Feature',
+                                properties: { distance: dist },
+                                geometry: { type: 'LineString', coordinates: coords },
+                            });
+
+                            labelPoints.forEach(pt => {
+                                labelFeatures.push({
+                                    type: 'Feature',
+                                    properties: { label: `${dist}nm` },
+                                    geometry: { type: 'Point', coordinates: pt },
+                                });
+                            });
+                        }
                     }
 
                     if (arcFeatures.length > 0) {
+                        // Use centralized spacing colors from FILTER_CONFIG
+                        const spacingColors = FILTER_CONFIG?.map?.spacing || {
+                            line: '#ffffff',
+                            lineOpacity: 0.6,
+                            label: '#ffffff',
+                            labelHalo: '#000000',
+                        };
+
                         map.addSource('spacing-arcs', {
                             type: 'geojson',
                             data: { type: 'FeatureCollection', features: arcFeatures },
@@ -3382,9 +3507,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             type: 'line',
                             source: 'spacing-arcs',
                             paint: {
-                                'line-color': '#ffffff',
+                                'line-color': spacingColors.line,
                                 'line-width': 1,
-                                'line-opacity': 0.6,
+                                'line-opacity': spacingColors.lineOpacity || 0.6,
                                 'line-dasharray': [2, 2],
                             },
                         }, beforeLayer);
@@ -3406,8 +3531,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 'text-allow-overlap': true,
                             },
                             paint: {
-                                'text-color': '#ffffff',
-                                'text-halo-color': '#000000',
+                                'text-color': spacingColors.label,
+                                'text-halo-color': spacingColors.labelHalo,
                                 'text-halo-width': 1.5,
                             },
                         }, beforeLayer);
