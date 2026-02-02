@@ -5666,6 +5666,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
+        // Context Map section (reuse existing map rendering)
+        const mapId = `map_v2_${data.fix || 'mit'}_${Date.now()}`;
+        html += this.renderMapSection(data, mapId);
+
         return html;
     },
 
@@ -5702,6 +5706,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             </div>
         `;
+
+        // Context Map section for GS
+        const mapId = `map_v2_gs_${Date.now()}`;
+        html += this.renderMapSection(data, mapId);
 
         return html;
     },
