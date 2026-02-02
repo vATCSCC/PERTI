@@ -178,7 +178,7 @@ function swim_mark_stale_flights_inactive($conn_swim) {
  * Fetch only flights that changed since last sync from VATSIM_ADL
  * Uses position_updated_utc, times_updated_utc, tmi_updated_utc as change indicators
  *
- * @param PDO $conn_adl VATSIM_ADL PDO connection
+ * @param resource $conn_adl VATSIM_ADL sqlsrv connection
  * @param DateTime|null $lastSync Last sync timestamp
  * @return array|false Flight data array or false on error
  */
@@ -234,16 +234,17 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
           )
     ";
 
-    try {
-        $stmt = $conn_adl->prepare($sql);
-        $stmt->execute([$syncTime, $syncTime, $syncTime, $syncTime]);
-    } catch (PDOException $e) {
-        error_log('SWIM delta query failed: ' . $e->getMessage());
+    // Use sqlsrv (not PDO) - $conn_adl is a sqlsrv resource
+    $params = [$syncTime, $syncTime, $syncTime, $syncTime];
+    $stmt = @sqlsrv_query($conn_adl, $sql, $params);
+
+    if ($stmt === false) {
+        error_log('SWIM delta query failed: ' . print_r(sqlsrv_errors(), true));
         return false;
     }
 
     $flights = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         // Generate GUFI
         $row['gufi'] = swim_generate_gufi_sync(
             $row['callsign'],
@@ -262,6 +263,7 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
         $flights[] = $row;
     }
 
+    sqlsrv_free_stmt($stmt);
     return $flights;
 }
 
@@ -378,7 +380,7 @@ function swim_sync_from_adl_legacy(array $flights, array $stats) {
 /**
  * Fetch all relevant flights from VATSIM_ADL normalized tables
  *
- * @param PDO $conn_adl VATSIM_ADL PDO connection
+ * @param resource $conn_adl VATSIM_ADL sqlsrv connection
  * @return array|false Flight data array or false on error
  */
 function fetch_adl_flights($conn_adl) {
@@ -419,15 +421,16 @@ function fetch_adl_flights($conn_adl) {
            OR c.last_seen_utc > DATEADD(HOUR, -2, GETUTCDATE())
     ";
 
-    try {
-        $stmt = $conn_adl->query($sql);
-    } catch (PDOException $e) {
-        error_log('SWIM sync - ADL query failed: ' . $e->getMessage());
+    // Use sqlsrv (not PDO) - $conn_adl is a sqlsrv resource
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+
+    if ($stmt === false) {
+        error_log('SWIM sync - ADL query failed: ' . print_r(sqlsrv_errors(), true));
         return false;
     }
 
     $flights = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         // Generate GUFI
         $row['gufi'] = swim_generate_gufi_sync(
             $row['callsign'],
@@ -446,6 +449,7 @@ function fetch_adl_flights($conn_adl) {
         $flights[] = $row;
     }
 
+    sqlsrv_free_stmt($stmt);
     return $flights;
 }
 
