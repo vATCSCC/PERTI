@@ -3113,15 +3113,18 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // COLOR SCHEMES (FSM/TSD Standard + Extended)
+        // Use PERTIAircraft as source of truth with fallback for load order
         // ─────────────────────────────────────────────────────────────────────
 
-        const WEIGHT_CLASS_COLORS = {
-            'SUPER': '#ffc107', 'J': '#ffc107',  // Amber/Gold for Jumbo
-            'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
-            'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
-            'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
-            '': '#6c757d',
-        };
+        const WEIGHT_CLASS_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.WEIGHT_CLASS_COLORS)
+            ? PERTIAircraft.WEIGHT_CLASS_COLORS
+            : {
+                'SUPER': '#ffc107', 'J': '#ffc107',  // Amber/Gold for Jumbo
+                'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
+                'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
+                'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
+                '': '#6c757d',
+            };
 
         const AIRCRAFT_CATEGORY_COLORS = {
             'J': '#dc3545', 'JET': '#dc3545',
@@ -3257,31 +3260,41 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // AIRCRAFT CONFIGURATION COLORS
+        // Use PERTIAircraft as source of truth with fallback for load order
         // ─────────────────────────────────────────────────────────────────────
-        const AIRCRAFT_CONFIG_PATTERNS = {
-            'A380':        /^A38[0-9]/i,
-            'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96/i,
-            'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]/i,
-            'TRI_JET':     /^MD11|^DC10|^L101|^TU154/i,
-            'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
-            'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
-            'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
-            'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i,
-        };
+        const AIRCRAFT_CONFIG_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_PATTERNS)
+            ? PERTIAircraft.CONFIG_PATTERNS
+            : {
+                'A380':        /^A38[0-9]/i,
+                'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96/i,
+                'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]/i,
+                'TRI_JET':     /^MD11|^DC10|^L101|^TU154/i,
+                'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
+                'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
+                'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
+                'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i,
+            };
 
-        const AIRCRAFT_CONFIG_COLORS = {
-            'A380': '#9c27b0',          // Deep Purple
-            'QUAD_JET': '#e15759',      // Red
-            'HEAVY_TWIN': '#f28e2b',    // Orange
-            'TRI_JET': '#edc948',       // Yellow
-            'TWIN_JET': '#59a14f',      // Green
-            'REGIONAL_JET': '#4e79a7',  // Blue
-            'TURBOPROP': '#76b7b2',     // Teal
-            'PROP': '#17a2b8',          // Cyan
-            'OTHER': '#6c757d',          // Gray
-        };
+        const AIRCRAFT_CONFIG_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_COLORS)
+            ? PERTIAircraft.CONFIG_COLORS
+            : {
+                'A380': '#9c27b0',          // Deep Purple
+                'QUAD_JET': '#e15759',      // Red
+                'HEAVY_TWIN': '#f28e2b',    // Orange
+                'TRI_JET': '#edc948',       // Yellow
+                'TWIN_JET': '#59a14f',      // Green
+                'REGIONAL_JET': '#4e79a7',  // Blue
+                'TURBOPROP': '#76b7b2',     // Teal
+                'PROP': '#17a2b8',          // Cyan
+                'OTHER': '#6c757d',          // Gray
+            };
 
         function getAircraftConfig(acType) {
+            // Use PERTIAircraft if available
+            if (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.getConfig) {
+                return PERTIAircraft.getConfig(acType);
+            }
+            // Fallback
             if (!acType) {return 'OTHER';}
             const type = acType.toUpperCase();
             for (const [cfg, pattern] of Object.entries(AIRCRAFT_CONFIG_PATTERNS)) {

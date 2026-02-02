@@ -3234,73 +3234,63 @@
         };
 
     // FAA RECAT Wake Turbulence Categories (6-category system)
-    // Based on FAA Order 7110.659 and JO 7110.65BB
-    // Categories A-F based on wingspan and MTOW
-    const RECAT_COLORS = {
-        'A': '#9c27b0',  // Purple - Super (A380-800)
-        'B': '#dc3545',  // Red - Upper Heavy (747, 777, A340, A350, C-5, AN-124)
-        'C': '#f28e2b',  // Orange - Lower Heavy (767, 787, A300, A330, MD-11, DC-10)
-        'D': '#edc948',  // Yellow - Upper Large (757, MD-80/90, A320, 737, CRJ-900)
-        'E': '#28a745',  // Green - Lower Large (ERJ, CRJ, ATR, DHC-8, Beech 1900)
-        'F': '#17a2b8',  // Cyan - Small (Light aircraft < 15,500 lbs)
-        '': '#6c757d',    // Gray - Unknown
-    };
+    // Use PERTIAircraft as source of truth with fallback for load order
+    const RECAT_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.RECAT_COLORS)
+        ? PERTIAircraft.RECAT_COLORS
+        : {
+            'A': '#9c27b0',  // Purple - Super (A380-800)
+            'B': '#dc3545',  // Red - Upper Heavy (747, 777, A340, A350, C-5, AN-124)
+            'C': '#f28e2b',  // Orange - Lower Heavy (767, 787, A300, A330, MD-11, DC-10)
+            'D': '#edc948',  // Yellow - Upper Large (757, MD-80/90, A320, 737, CRJ-900)
+            'E': '#28a745',  // Green - Lower Large (ERJ, CRJ, ATR, DHC-8, Beech 1900)
+            'F': '#17a2b8',  // Cyan - Small (Light aircraft < 15,500 lbs)
+            '': '#6c757d',    // Gray - Unknown
+        };
 
-    // FAA RECAT aircraft type to category mapping
-    // Based on FAA RECAT 1.5 Phase I/II/III implementation
-    const RECAT_PATTERNS = {
-        // Cat A: Super - A380 only (wingspan > 245ft, MTOW > 560,000 lbs)
-        'A': /^A38[0-9]/i,
-
-        // Cat B: Upper Heavy (wingspan 175-245ft, MTOW 300,000-560,000 lbs)
-        // 747 variants, 777 variants, A340, A350-1000, MD-11, DC-10-30/40, C-5, AN-124, AN-225
-        'B': /^B74[0-9]|^B77[0-9]|^B77[A-Z]|^A34[0-9]|^A35K|^MD11|^DC10|^C5|^C5M|^AN12|^A124|^AN225|^IL96|^A300B4|^KC10|^KC135|^E3|^E4|^E6|^VC25/i,
-
-        // Cat C: Lower Heavy (wingspan 125-175ft, MTOW 200,000-300,000 lbs)
-        // 787, 767, A350-900, A330, A300, L-1011, DC-8, IL-62, IL-86, TU-154M
-        'C': /^B78[0-9]|^B78X|^B76[0-9]|^A35[0-9]|^A33[0-9]|^A30[0-9]|^A310|^L101|^DC8|^IL62|^IL86|^TU15|^C17|^KC46|^P8/i,
-
-        // Cat D: Upper Large (wingspan 90-125ft, MTOW 41,000-200,000 lbs)
-        // 757, 737-700/800/900/MAX, A321, A320, A319, A318, MD-80/90, 717, C-130, P-3, Gulfstream
-        'D': /^B75[0-9]|^B73[789]|^B38M|^B39M|^B3XM|^A32[0-1]|^A31[89]|^MD[89][0-9]|^B712|^B717|^C130|^C160|^P3|^G[56][0-9]{2}|^GLF[456]|^F900|^FA[78]X|^CL60|^GL[57]T|^GLEX|^BCS[13]/i,
-
-        // Cat E: Lower Large (wingspan 65-90ft, MTOW 15,500-41,000 lbs)
-        // CRJ-200/700, ERJ-145/170/175, E-Jets, ATR 42/72, DHC-8, Saab 340/2000, Beech 1900
-        'E': /^CRJ[12789]|^ERJ|^E[0-9]{3}|^E1[0-9]{2}|^E75|^E90|^E95|^AT[47][0-9]|^ATR|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^BE20|^BE30|^BE35|^C208|^DHC[67]|^F[27]0|^F100|^BA46|^B146|^RJ[0-9]{2}/i,
-
-        // Cat F: Small (wingspan < 65ft, MTOW < 15,500 lbs)
-        // Light GA, Cessna singles/twins, Piper, Cirrus, Diamond, Beech Bonanza, etc.
-        'F': /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]|^BE3[56]|^A36|^G36|^TB[0-9]{2}|^TBM|^PC6|^ULAC/i,
-    };
+    const RECAT_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.RECAT_PATTERNS)
+        ? PERTIAircraft.RECAT_PATTERNS
+        : {
+            'A': /^A38[0-9]/i,
+            'B': /^B74[0-9]|^B77[0-9]|^B77[A-Z]|^A34[0-9]|^A35K|^MD11|^DC10|^C5|^C5M|^AN12|^A124|^AN225|^IL96|^A300B4|^KC10|^KC135|^E3|^E4|^E6|^VC25/i,
+            'C': /^B78[0-9]|^B78X|^B76[0-9]|^A35[0-9]|^A33[0-9]|^A30[0-9]|^A310|^L101|^DC8|^IL62|^IL86|^TU15|^C17|^KC46|^P8/i,
+            'D': /^B75[0-9]|^B73[789]|^B38M|^B39M|^B3XM|^A32[0-1]|^A31[89]|^MD[89][0-9]|^B712|^B717|^C130|^C160|^P3|^G[56][0-9]{2}|^GLF[456]|^F900|^FA[78]X|^CL60|^GL[57]T|^GLEX|^BCS[13]/i,
+            'E': /^CRJ[12789]|^ERJ|^E[0-9]{3}|^E1[0-9]{2}|^E75|^E90|^E95|^AT[47][0-9]|^ATR|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^BE20|^BE30|^BE35|^C208|^DHC[67]|^F[27]0|^F100|^BA46|^B146|^RJ[0-9]{2}/i,
+            'F': /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]|^BE3[56]|^A36|^G36|^TB[0-9]{2}|^TBM|^PC6|^ULAC/i,
+        };
 
     /**
      * Get FAA RECAT wake turbulence category (A-F) from aircraft type
      * Falls back to weight class if no pattern match
      */
     function getRecatCategory(flight) {
+        // Use PERTIAircraft if available
+        if (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.getRecatCategory) {
+            const acType = flight.aircraft_icao || flight.aircraft_type || '';
+            const wc = getWeightClass(flight);
+            return PERTIAircraft.getRecatCategory(acType, wc);
+        }
+
+        // Fallback implementation
         const acType = stripAircraftSuffixes(flight.aircraft_icao || flight.aircraft_type || '');
         if (!acType) {
-            // Fallback to weight class mapping
             const wc = getWeightClass(flight);
             if (wc === 'SUPER') {return 'A';}
-            if (wc === 'HEAVY') {return 'B';}  // Conservative - assume upper heavy
-            if (wc === 'LARGE') {return 'D';}  // Most large are Cat D
+            if (wc === 'HEAVY') {return 'B';}
+            if (wc === 'LARGE') {return 'D';}
             if (wc === 'SMALL') {return 'F';}
             return '';
         }
 
-        // Check patterns in order (A is most restrictive)
         for (const [cat, pattern] of Object.entries(RECAT_PATTERNS)) {
             if (pattern.test(acType)) {return cat;}
         }
 
-        // Fallback to weight class if no pattern match
         const wc = getWeightClass(flight);
         if (wc === 'SUPER') {return 'A';}
-        if (wc === 'HEAVY') {return 'C';}  // Default heavy to Cat C (lower heavy)
+        if (wc === 'HEAVY') {return 'C';}
         if (wc === 'LARGE') {return 'D';}
         if (wc === 'SMALL') {return 'F';}
-        return 'D';  // Default to Cat D (most common)
+        return 'D';
     }
 
     // Altitude block colors - spectral gradient (cool=low, warm=high)
@@ -3458,40 +3448,36 @@
             'OTHER': '#6c757d',        // Gray
         };
 
-    // Aircraft Configuration Patterns (order matters - first match wins)
-    const AIRCRAFT_CONFIG_PATTERNS = {
-        // Supersonic
-        'CONC':        /^CONC|^T144|^TU144/i,
-        // Super Heavy (A380, AN-225, AN-124)
-        'A380':        /^A38[0-9]|^A225|^AN225|^A124|^AN124/i,
-        // Quad Jets (747, A340, IL-96, DC-8, VC10)
-        'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96|^DC8|^VC10/i,
-        // Heavy Twins (777, 787, A330, A350, 767, A300, A310, IL-86, IL-62)
-        'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]|^A30[0-9]|^A310|^IL86|^IL62/i,
-        // Tri-Jets (MD-11, DC-10, L-1011, TU-154, 727, Yak-42, TU-134, Falcon 900/7X)
-        'TRI_JET':     /^MD11|^DC10|^L101|^L10|^TU15|^B72[0-9]|^R72[0-9]|^YK42|^YAK42|^TU13|^F900|^FA7X|^FA8X/i,
-        // Twin Jets - Narrowbody (A320 fam, 737 fam, 757, MD-80/90, 717, Fokker, BAe, TU-204, C919, SSJ, ARJ)
-        'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]|^B712|^B717|^F100|^F70|^F28|^B146|^RJ[0-9]{2}|^BA46|^AVRO|^TU20|^TU21|^C919|^SSJ|^SU95|^ARJ|^CRJX/i,
-        // Regional Jets (CRJ, ERJ, E-Jets)
-        'REGIONAL_JET': /^CRJ[0-9]|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]|^E1[0-9]{2}|^E75|^E90|^E95/i,
-        // Turboprops (ATR, DHC-8/Q, Saab, Beech 1900, Jetstream, PC-12/24, Caravan, L-410, MA60, Y-12)
-        'TURBOPROP':   /^AT[0-9]{2}|^ATR|^DH8|^DHC[0-9]|^Q[0-9]{3}|^SF34|^SB20|^SAAB|^B190|^BE19|^JS[0-9]{2}|^J31|^J32|^J41|^PC12|^PC24|^C208|^C212|^L410|^MA60|^Y12|^AN[23][0-9]|^DO[0-9]{2}|^D328/i,
-        // Props/GA (Cessna 1xx/2xx, Piper, Cirrus, Diamond, Mooney, Beech Bonanza, Robin, Socata)
-        'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^PA[0-9][0-9]T|^SR2[0-9]|^SR22|^DA[0-9]{2}|^DA4[0-9]|^M20|^M20[A-Z]|^BE[0-9]{2}[^0-9]|^BE3[0-9]|^BE36|^A36|^G36|^DR[0-9]{2}|^TB[0-9]{2}|^TBM|^RV[0-9]|^AAA|^AA5|^GLST|^ULAC|^TRIN|^COL[0-9]|^EVOT/i,
-    };
+    // Aircraft Configuration Patterns and Colors
+    // Use PERTIAircraft as source of truth with fallback for load order
+    const AIRCRAFT_CONFIG_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_PATTERNS)
+        ? PERTIAircraft.CONFIG_PATTERNS
+        : {
+            'CONC':        /^CONC|^T144|^TU144/i,
+            'A380':        /^A38[0-9]|^A225|^AN225|^A124|^AN124/i,
+            'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96|^DC8|^VC10/i,
+            'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]|^A30[0-9]|^A310|^IL86|^IL62/i,
+            'TRI_JET':     /^MD11|^DC10|^L101|^L10|^TU15|^B72[0-9]|^R72[0-9]|^YK42|^YAK42|^TU13|^F900|^FA7X|^FA8X/i,
+            'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]|^B712|^B717|^F100|^F70|^F28|^B146|^RJ[0-9]{2}|^BA46|^AVRO|^TU20|^TU21|^C919|^SSJ|^SU95|^ARJ|^CRJX/i,
+            'REGIONAL_JET': /^CRJ[0-9]|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]|^E1[0-9]{2}|^E75|^E90|^E95/i,
+            'TURBOPROP':   /^AT[0-9]{2}|^ATR|^DH8|^DHC[0-9]|^Q[0-9]{3}|^SF34|^SB20|^SAAB|^B190|^BE19|^JS[0-9]{2}|^J31|^J32|^J41|^PC12|^PC24|^C208|^C212|^L410|^MA60|^Y12|^AN[23][0-9]|^DO[0-9]{2}|^D328/i,
+            'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^C3[0-9]{2}|^C4[0-9]{2}|^P28|^PA[0-9]{2}|^PA[0-9][0-9]T|^SR2[0-9]|^SR22|^DA[0-9]{2}|^DA4[0-9]|^M20|^M20[A-Z]|^BE[0-9]{2}[^0-9]|^BE3[0-9]|^BE36|^A36|^G36|^DR[0-9]{2}|^TB[0-9]{2}|^TBM|^RV[0-9]|^AAA|^AA5|^GLST|^ULAC|^TRIN|^COL[0-9]|^EVOT/i,
+        };
 
-    const AIRCRAFT_CONFIG_COLORS = {
-        'CONC': '#ff1493',          // Deep Pink - Supersonic
-        'A380': '#9c27b0',          // Deep Purple - Super Heavy
-        'QUAD_JET': '#e15759',      // Red
-        'HEAVY_TWIN': '#f28e2b',    // Orange
-        'TRI_JET': '#edc948',       // Yellow
-        'TWIN_JET': '#59a14f',      // Green
-        'REGIONAL_JET': '#4e79a7',  // Blue
-        'TURBOPROP': '#76b7b2',     // Teal
-        'PROP': '#17a2b8',          // Cyan
-        'OTHER': '#6c757d',          // Gray
-    };
+    const AIRCRAFT_CONFIG_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_COLORS)
+        ? PERTIAircraft.CONFIG_COLORS
+        : {
+            'CONC': '#ff1493',          // Deep Pink - Supersonic
+            'A380': '#9c27b0',          // Deep Purple - Super Heavy
+            'QUAD_JET': '#e15759',      // Red
+            'HEAVY_TWIN': '#f28e2b',    // Orange
+            'TRI_JET': '#edc948',       // Yellow
+            'TWIN_JET': '#59a14f',      // Green
+            'REGIONAL_JET': '#4e79a7',  // Blue
+            'TURBOPROP': '#76b7b2',     // Teal
+            'PROP': '#17a2b8',          // Cyan
+            'OTHER': '#6c757d',          // Gray
+        };
 
     // Operator Group definitions - use FacilityHierarchy as source of truth
     const MAJOR_CARRIERS = FacilityHierarchy.MAJOR_CARRIERS || [];
