@@ -975,9 +975,9 @@ include('load/nav.php');
                                         <div class="row">
                                             <div class="col-md-4">
                                                 <div class="form-group">
-                                                    <label class="small">Destinations (comma-separated)</label>
+                                                    <label class="small">Facilities (comma-separated)</label>
                                                     <input type="text" class="form-control form-control-sm" id="tmi_destinations"
-                                                           placeholder="KLAS, KVGT, KHND">
+                                                           placeholder="ZLA, A80, KLAS">
                                                 </div>
                                                 <div class="form-group">
                                                     <label class="small">Event Start (UTC)</label>
