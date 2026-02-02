@@ -5219,6 +5219,48 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Format a datetime string for human-readable display
+     * Input: ISO format "2026-01-30T23:59:00" or "2026-01-30 23:59:00"
+     * Output: Aviation format "2026-01-30 2359Z"
+     */
+    formatEventTime: function(datetime) {
+        if (!datetime) return '';
+
+        // Parse ISO or space-separated datetime
+        const dt = new Date(datetime.replace(' ', 'T'));
+        if (isNaN(dt.getTime())) return datetime; // Return original if parse fails
+
+        const year = dt.getUTCFullYear();
+        const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dt.getUTCDate()).padStart(2, '0');
+        const hours = String(dt.getUTCHours()).padStart(2, '0');
+        const mins = String(dt.getUTCMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}${mins}Z`;
+    },
+
+    /**
+     * Format event window for display
+     * Shows full date on start, just time on end if same day
+     */
+    formatEventWindow: function(startDt, endDt) {
+        const start = this.formatEventTime(startDt);
+        const end = this.formatEventTime(endDt);
+
+        if (!start || !end) return `${start || '?'} – ${end || '?'}`;
+
+        // Check if same date - show just time for end
+        const startDate = start.split(' ')[0];
+        const endDate = end.split(' ')[0];
+        const endTime = end.split(' ')[1];
+
+        if (startDate === endDate) {
+            return `${start} – ${endTime}`;
+        }
+        return `${start} – ${end}`;
+    },
+
+    /**
      * L1: Summary Header - The 5-second answer
      */
     renderSummaryHeaderV2: function() {
@@ -5253,9 +5295,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Calculate trajectory coverage
         const trajCoverage = this.calculateTrajectoryCoverageV2();
 
-        // Format event window
-        const eventStart = r.event_start || '';
-        const eventEnd = r.event_end || '';
+        // Format event window (human-readable)
+        const eventWindow = this.formatEventWindow(r.event_start, r.event_end);
 
         // NTML Entries summary
         let ntmlLines = '';
@@ -5289,7 +5330,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         return `
             <div class="tmi-summary-header">
                 <div class="event-identity">Plan ${r.plan_id || this.planId || '?'} — TMI Analysis</div>
-                <div class="event-window">${eventStart} – ${eventEnd}</div>
+                <div class="event-window">${eventWindow}</div>
 
                 <div class="tmi-summary-entries">
                     <div class="tmi-summary-group">
@@ -5854,6 +5895,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return '<div class="text-muted">No pairs to display</div>';
         }
 
+        // Required marker position: at 66.67% since bar represents 150% of required
+        const requiredMarkerPct = (1 / 1.5) * 100; // ≈ 66.67%
+
         let html = `
             <table class="tmi-pairs-table">
                 <thead>
@@ -5862,7 +5906,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <th>Trail</th>
                         <th>Gap (mm:ss)</th>
                         <th>Spacing</th>
-                        <th class="spacing-bar-cell">Visual</th>
+                        <th class="spacing-bar-cell">
+                            <span class="visual-header">
+                                <span class="required-label">${required}${unitLabel} req</span>
+                            </span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -5896,6 +5944,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-spacing-bar-inline">
                             <div class="tmi-spacing-bar-track">
                                 <div class="tmi-spacing-bar-fill ${isNonCompliant ? 'non-compliant' : ''}" style="width: ${barPct}%"></div>
+                                <div class="tmi-required-marker" style="left: ${requiredMarkerPct}%" title="${required}${unitLabel} required"></div>
                             </div>
                             <span class="tmi-spacing-diff">(${diffStr})</span>
                         </div>
@@ -5927,16 +5976,60 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
     /**
      * Bind events for progressive layout
+     * Uses event delegation to survive re-renders
      */
     bindProgressiveLayoutEvents: function() {
         const self = this;
 
-        // List ordering change
-        $('#tmi-list-ordering').off('change').on('change', function() {
+        // List ordering change - use event delegation on parent container
+        $('.tmi-analysis-wrapper').off('change', '#tmi-list-ordering').on('change', '#tmi-list-ordering', function() {
             self.listOrdering = $(this).val();
-            // Re-render list panel
-            $('.tmi-list-panel').html(self.renderListPanelV2());
+            // Re-render just the list items, not the header with dropdown
+            self.refreshListItems();
         });
+    },
+
+    /**
+     * Refresh only the list items without replacing the dropdown
+     */
+    refreshListItems: function() {
+        const allTmis = this.getAllTmisForList();
+
+        // Group by type
+        const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+
+        // Sort TMIs based on current ordering
+        const sortedNtml = this.sortTmiList(ntmlEntries);
+        const sortedAdvisories = this.sortTmiList(advisories);
+
+        // Build list HTML
+        let html = '';
+
+        // NTML Entries section
+        if (sortedNtml.length > 0) {
+            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            sortedNtml.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Advisories section
+        if (sortedAdvisories.length > 0) {
+            html += '<div class="tmi-list-section-label">Advisories</div>';
+            sortedAdvisories.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Replace just the list content (after header)
+        $('.tmi-list-panel .tmi-list-section-label, .tmi-list-panel .tmi-list-item').remove();
+        $('.tmi-list-panel .tmi-list-header').after(html);
+
+        // Re-select the currently selected item
+        if (this.selectedTmiId) {
+            $(`.tmi-list-item[data-tmi-id="${this.selectedTmiId}"]`).addClass('selected');
+        }
     },
 };
 
