@@ -3197,44 +3197,15 @@ $(document).ready(function() {
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // AIRPORT TIER COLORS
+        // AIRPORT TIER COLORS - use FacilityHierarchy as source of truth
+        // Tier lists loaded from apts.csv via FacilityHierarchy.AIRPORT_GROUPS
         // ─────────────────────────────────────────────────────────────────────
-        const CORE30_AIRPORTS = [
-            'KATL', 'KBOS', 'KBWI', 'KCLE', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
-            'KEWR', 'KFLL', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO',
-            'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPHL', 'KPHX', 'KSAN', 'KSEA',
-            'KSFO', 'KSLC', 'KTPA',
-        ];
-
-        const OEP35_AIRPORTS = [
-            ...CORE30_AIRPORTS,
-            'KSTL', 'KPDX', 'KHON', 'KPIT', 'KCVG',
-        ];
-
-        const ASPM77_AIRPORTS = [
-            ...OEP35_AIRPORTS,
-            'KABQ', 'KAUS', 'KBDL', 'KBNA', 'KBUF', 'KBURB', 'KCMH', 'KDAL',
-            'KHOU', 'KIND', 'KJAX', 'KMCI', 'KMKE', 'KMSY', 'KOAK', 'KOMA',
-            'KONT', 'KPBI', 'KPVD', 'KRDU', 'KRNO', 'KRSW', 'KSAT', 'KSDF',
-            'KSJC', 'KSMF', 'KSNA', 'KSTL', 'KTUL', 'KAUS', 'KBHM', 'KELP',
-            'KGSO', 'KICT', 'KLIT', 'KLUBB', 'KOKC', 'KRIC', 'KSAV', 'KSYR',
-        ];
-
-        const AIRPORT_TIER_COLORS = {
-            'CORE30': '#e15759',    // Red
-            'OEP35': '#4e79a7',     // Blue
-            'ASPM77': '#edc948',    // Yellow
-            'OTHER': '#59a14f',     // Green
-            '': '#6c757d',
+        const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
+            'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM77': '#ffc107', 'OTHER': '#6c757d',
         };
 
         function getAirportTier(icao) {
-            if (!icao) {return 'OTHER';}
-            const apt = icao.toUpperCase();
-            if (CORE30_AIRPORTS.includes(apt)) {return 'CORE30';}
-            if (OEP35_AIRPORTS.includes(apt)) {return 'OEP35';}
-            if (ASPM77_AIRPORTS.includes(apt)) {return 'ASPM77';}
-            return 'OTHER';
+            return FacilityHierarchy.getAirportTier ? FacilityHierarchy.getAirportTier(icao) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3355,35 +3326,15 @@ $(document).ready(function() {
         };
 
         // ─────────────────────────────────────────────────────────────────────
-        // OPERATOR GROUP COLORS
+        // OPERATOR GROUP COLORS - use FacilityHierarchy as source of truth
         // ─────────────────────────────────────────────────────────────────────
-        const MAJOR_CARRIERS = ['AAL', 'UAL', 'DAL', 'SWA', 'JBU', 'ASA', 'HAL', 'NKS', 'FFT', 'AAY', 'VXP', 'SYX'];
-        const REGIONAL_CARRIERS = ['SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX'];
-        const FREIGHT_CARRIERS = ['FDX', 'UPS', 'ABX', 'GTI', 'ATN', 'CLX', 'PAC', 'KAL', 'MTN', 'SRR', 'WCW', 'CAO'];
-        const MILITARY_PREFIXES = ['AIO', 'RCH', 'RRR', 'CNV', 'PAT', 'NAVY', 'ARMY', 'USAF', 'USCG', 'EXEC'];
-
-        const OPERATOR_GROUP_COLORS = {
-            'MAJOR': '#4e79a7',      // Blue
-            'REGIONAL': '#59a14f',   // Green
-            'FREIGHT': '#f28e2b',    // Orange
-            'GA': '#76b7b2',         // Teal
-            'MILITARY': '#556b2f',   // Olive
-            'OTHER': '#6c757d',       // Gray
+        const OPERATOR_GROUP_COLORS = FacilityHierarchy.OPERATOR_GROUP_COLORS || {
+            'MAJOR': '#dc3545', 'REGIONAL': '#28a745', 'FREIGHT': '#007bff',
+            'GA': '#ffc107', 'MILITARY': '#6f42c1', 'OTHER': '#6c757d',
         };
 
         function getOperatorGroup(callsign) {
-            if (!callsign) {return 'OTHER';}
-            const carrier = extractCarrier(callsign);
-            if (MAJOR_CARRIERS.includes(carrier)) {return 'MAJOR';}
-            if (REGIONAL_CARRIERS.includes(carrier)) {return 'REGIONAL';}
-            if (FREIGHT_CARRIERS.includes(carrier)) {return 'FREIGHT';}
-            // Check military prefixes
-            for (const prefix of MILITARY_PREFIXES) {
-                if (callsign.toUpperCase().startsWith(prefix)) {return 'MILITARY';}
-            }
-            // GA typically has N-numbers or short callsigns
-            if (/^N[0-9]/.test(callsign.toUpperCase()) || callsign.length <= 5) {return 'GA';}
-            return 'OTHER';
+            return FacilityHierarchy.getOperatorGroup ? FacilityHierarchy.getOperatorGroup(callsign) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
