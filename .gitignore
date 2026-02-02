@@ -71,3 +71,7 @@ load/azure_config.json
 load/azure_perti_config.json
 # Git worktrees (isolated workspaces)
 .worktrees/
+nul
+.claude/settings.local.json
+brightline_sno_flights.json
+2026-01-30-northeast-corridor-fno.json
