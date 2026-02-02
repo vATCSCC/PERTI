@@ -548,8 +548,8 @@
     height: 8px;
     background: var(--light-bg-subtle);
     border-radius: 4px;
-    overflow: hidden;
     min-width: 60px;
+    position: relative;
 }
 
 .tmi-spacing-bar-fill {
@@ -563,11 +563,37 @@
     background: var(--tmi-data-attention);
 }
 
+/* Required value marker line on the bar */
+.tmi-required-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--light-text-secondary);
+    border-radius: 1px;
+    opacity: 0.7;
+    z-index: 1;
+}
+
 .tmi-spacing-diff {
     font-size: 0.85em;
     color: var(--light-text-muted);
     white-space: nowrap;
     min-width: 55px;
+}
+
+/* Required label in header */
+.visual-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.visual-header .required-label {
+    font-size: 0.75em;
+    font-weight: normal;
+    color: var(--light-text-muted);
 }
 
 /* ===========================================
