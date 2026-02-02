@@ -309,31 +309,19 @@ window.DemandChartCore = (function() {
                 aar_custom: { type: 'dotted', width: 2 },
                 adr_custom: { type: 'dotted', width: 2 },
             },
-            label: { position: 'end', fontSize: 10, fontWeight: 'bold' },
         };
 
         // Determine style: custom (override), suggested, or active
         const isCustom = rateData.has_override;
         const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
-        // Track label index for vertical stacking
-        let labelIndex = 0;
-
-        const addLine = function(value, source, rateType, label) {
+        const addLine = function(value, source, rateType) {
             if (!value) {return;}
 
             const sourceStyle = cfg[styleKey][source];
             // Use dotted line style for custom/dynamic rates
             const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
             const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
-
-            // Use line color as background, contrasting text for readability
-            const bgColor = sourceStyle.color;
-            const textColor = getContrastTextColor(bgColor);
-
-            // Stack labels vertically at the right edge
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
 
             lines.push({
                 yAxis: value,
@@ -343,32 +331,19 @@ window.DemandChartCore = (function() {
                     type: lineTypeStyle.type,
                 },
                 label: {
-                    show: true,
-                    formatter: `${label} ${value}`,
-                    position: 'end',
-                    distance: 5,
-                    offset: [0, verticalOffset],
-                    color: textColor,
-                    fontSize: cfg.label.fontSize || 10,
-                    fontWeight: cfg.label.fontWeight || 'bold',
-                    fontFamily: '"Roboto Mono", monospace',
-                    backgroundColor: bgColor,
-                    padding: [2, 6],
-                    borderRadius: 3,
-                    borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                    borderWidth: 1,
+                    show: false,  // Labels moved to chart header
                 },
             });
         };
 
         if (direction === 'both' || direction === 'arr') {
-            addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
-            addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+            addLine(rates.vatsim_aar, 'vatsim', 'aar');
+            addLine(rates.rw_aar, 'rw', 'aar');
         }
 
         if (direction === 'both' || direction === 'dep') {
-            addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
-            addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+            addLine(rates.vatsim_adr, 'vatsim', 'adr');
+            addLine(rates.rw_adr, 'rw', 'adr');
         }
 
         return lines;
@@ -883,6 +858,8 @@ const DEMAND_STATE = {
     cacheTimestamp: null, // When data was last loaded from API
     cacheValidityMs: 15000, // Cache is valid for 15 seconds
     summaryLoaded: false, // Whether summary breakdown data has been loaded
+    // Legend visibility (persisted in localStorage)
+    legendVisible: localStorage.getItem('demand_legend_visible') !== 'false', // default true
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -1634,21 +1611,25 @@ function setupEventHandlers() {
     // Rate line visibility toggles
     $('#rate_vatsim_aar').on('change', function() {
         DEMAND_STATE.showVatsimAar = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_vatsim_adr').on('change', function() {
         DEMAND_STATE.showVatsimAdr = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_rw_aar').on('change', function() {
         DEMAND_STATE.showRwAar = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_rw_adr').on('change', function() {
         DEMAND_STATE.showRwAdr = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
@@ -1659,6 +1640,24 @@ function setupEventHandlers() {
             renderWithLoading();
         });
     });
+
+    // Legend toggle button
+    $('#demand_legend_toggle_btn').on('click', function() {
+        toggleLegendVisibility();
+    });
+
+    // Initialize legend toggle button state from localStorage
+    const toggleText = document.getElementById('legend_toggle_text');
+    const toggleBtn = document.getElementById('demand_legend_toggle_btn');
+    if (toggleText && toggleBtn) {
+        if (DEMAND_STATE.legendVisible) {
+            toggleText.textContent = 'Hide Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
+        } else {
+            toggleText.textContent = 'Show Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye';
+        }
+    }
 
     // Initialize floating phase filter panel
     initPhaseFilterFloatingPanel();
@@ -1839,9 +1838,14 @@ function updateTierOptions() {
  * Show prompt to select an airport
  */
 function showSelectAirportPrompt() {
-    // Show empty state, hide chart
+    // Show empty state, hide chart and legend toggle
     $('#demand_empty_state').show();
     $('#demand_chart').hide();
+    $('#demand_legend_toggle_area').hide();
+
+    // Hide header rate display
+    $('#demand_header_aar_row').hide();
+    $('#demand_header_adr_row').hide();
 
     // Reset info bar
     $('#demand_selected_airport').text('----');
@@ -1875,9 +1879,10 @@ function loadDemandData() {
     $('#demand_selected_airport').text(airport);
     $('#demand_airport_name').text(airportName);
 
-    // Hide empty state, show chart
+    // Hide empty state, show chart and legend toggle
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
+    $('#demand_legend_toggle_area').show();
 
     // Calculate time range - use custom values or preset offsets
     let start, end;
@@ -2041,6 +2046,8 @@ function updateRateInfoDisplay(rateData) {
         $('#rate_override_badge').hide();
         $('#rate_arr_runways').text('--');
         $('#rate_dep_runways').text('--');
+        // Also clear header rate display
+        updateHeaderRateDisplay(null);
         return;
     }
 
@@ -2153,6 +2160,9 @@ function updateRateInfoDisplay(rateData) {
         sourceText = 'Suggested';
     }
     $('#rate_source').text(sourceText);
+
+    // Also update header rate display
+    updateHeaderRateDisplay(rateData);
 }
 
 /**
@@ -2633,53 +2643,15 @@ function renderChart(data) {
                 return tooltip;
             },
         },
-        legend: direction === 'both' ? [
-            {
-                // Arrivals row (circles)
-                bottom: 115,
-                left: 'center',
-                width: '85%',  // Allow wrapping
-                type: 'scroll',
-                itemWidth: 14,
-                itemHeight: 10,
-                itemGap: 12,   // Space between items
-                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-                data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Arr)', ''); },
-            },
-            {
-                // Departures row (rectangles)
-                bottom: 90,
-                left: 'center',
-                width: '85%',  // Allow wrapping
-                type: 'scroll',
-                itemWidth: 14,
-                itemHeight: 10,
-                itemGap: 12,   // Space between items
-                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-                icon: 'rect',
-                data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Dep)', ''); },
-            },
-        ] : {
-            bottom: 70,  // Single row - no overlap issue
-            left: 'center',
-            width: '85%',  // Allow wrapping
-            type: 'scroll',
-            itemWidth: 14,
-            itemHeight: 10,
-            itemGap: 12,   // Space between items
-            textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-        },
+        legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible),
+            direction === 'both' ? {
+                // For both directions, we'd need two legends but ECharts scroll handles it
+                // Just use single legend with all series for simplicity
+            } : {}
+        ),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
-        grid: {
-            left: 55,
-            right: 70,   // Room for AAR/ADR labels
-            bottom: direction === 'both' ? 165 : 140, // Extra room for 2 legend rows
-            top: 55,
-            containLabel: false,
-        },
+        grid: getStandardGridConfig(),
         xAxis: {
             type: 'time',
             name: getXAxisLabel(),
@@ -2831,38 +2803,15 @@ function renderOriginChart() {
         regionGroups[region].sort();
     });
 
-    // Build legend array - one row per region (only for regions with ARTCCs)
-    const legendRows = [];
-    const baseBottom = 75;
-    const rowHeight = 22;
+    // Build single legend with all ARTCCs (using standard config for fixed height)
+    // The scroll feature will handle overflow for many items
+    const allArtccs = [];
     const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
-    const numRows = activeRegions.length;
-
-    activeRegions.forEach((region, idx) => {
-        const artccs = regionGroups[region];
-        if (artccs.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: artccs,
-        });
+    activeRegions.forEach(region => {
+        allArtccs.push(...regionGroups[region]);
     });
 
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
-
-    // Use shared renderBreakdownChart with DCC regional colors and custom legend
+    // Use shared renderBreakdownChart with DCC regional colors and standard legend
     renderBreakdownChart(
         DEMAND_STATE.originBreakdown,
         `${dirLabel} by Origin ARTCC`,
@@ -2872,14 +2821,11 @@ function renderOriginChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            // Use standard legend config - scroll handles overflow
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: allArtccs,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -3210,28 +3156,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 return tooltip;
             },
         },
-        legend: (extraOptions && extraOptions.legend) ? extraOptions.legend : {
-            bottom: 75,  // Above sliders
-            left: 'center',
-            width: '85%',  // Allow wrapping
-            type: 'scroll',
-            itemWidth: 14,
-            itemHeight: 10,
-            itemGap: 12,   // Space between items
-            textStyle: {
-                fontSize: 11,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-        },
+        legend: (extraOptions && extraOptions.legend)
+            ? Object.assign({}, extraOptions.legend, { show: DEMAND_STATE.legendVisible })
+            : getStandardLegendConfig(DEMAND_STATE.legendVisible),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
-        grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : {
-            left: 55,
-            right: 70,   // Room for AAR/ADR labels
-            bottom: 145, // Room for slider + legend (with wrapping)
-            top: 55,
-            containLabel: false,
-        },
+        grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : getStandardGridConfig(),
         xAxis: {
             type: 'time',
             name: getXAxisLabel(),
@@ -3362,36 +3292,12 @@ function renderDestChart() {
         regionGroups[region].sort();
     });
 
-    // Build legend array - one row per region (only for regions with ARTCCs)
-    const legendRows = [];
-    const baseBottom = 75;
-    const rowHeight = 22;
+    // Build single legend with all ARTCCs (using standard config for fixed height)
+    const allArtccs = [];
     const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
-    const numRows = activeRegions.length;
-
-    activeRegions.forEach((region, idx) => {
-        const artccs = regionGroups[region];
-        if (artccs.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: artccs,
-        });
+    activeRegions.forEach(region => {
+        allArtccs.push(...regionGroups[region]);
     });
-
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
 
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
@@ -3402,14 +3308,11 @@ function renderDestChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            // Use standard legend config - scroll handles overflow
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: allArtccs,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -5137,6 +5040,127 @@ function getDataZoomConfig() {
 }
 
 /**
+ * Get the standard legend configuration for demand charts
+ * Uses fixed positioning and scroll for overflow, with visibility toggle support
+ * @param {boolean} visible - Whether the legend should be visible
+ * @returns {Object} ECharts legend configuration
+ */
+function getStandardLegendConfig(visible) {
+    return {
+        show: visible,
+        bottom: 50,  // Fixed position above dataZoom slider
+        left: 'center',
+        width: '90%',
+        type: 'scroll',
+        itemWidth: 14,
+        itemHeight: 10,
+        itemGap: 12,
+        pageButtonItemGap: 5,
+        pageButtonGap: 10,
+        pageIconSize: 12,
+        textStyle: {
+            fontSize: 11,
+            fontFamily: '"Segoe UI", sans-serif',
+        },
+    };
+}
+
+/**
+ * Get the standard grid configuration for demand charts
+ * Uses fixed bottom padding (no longer varies based on legend content)
+ * @returns {Object} ECharts grid configuration
+ */
+function getStandardGridConfig() {
+    return {
+        left: 55,
+        right: 40,   // Reduced from 70 - no longer need room for rate labels
+        bottom: 115, // Fixed: room for legend area + dataZoom slider
+        top: 55,
+        containLabel: false,
+    };
+}
+
+/**
+ * Toggle legend visibility and update chart
+ */
+function toggleLegendVisibility() {
+    DEMAND_STATE.legendVisible = !DEMAND_STATE.legendVisible;
+    localStorage.setItem('demand_legend_visible', DEMAND_STATE.legendVisible);
+
+    // Update toggle button text
+    const toggleText = document.getElementById('legend_toggle_text');
+    const toggleBtn = document.getElementById('demand_legend_toggle_btn');
+    if (toggleText && toggleBtn) {
+        if (DEMAND_STATE.legendVisible) {
+            toggleText.textContent = 'Hide Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
+        } else {
+            toggleText.textContent = 'Show Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye';
+        }
+    }
+
+    // Re-render current chart view to apply legend visibility
+    if (DEMAND_STATE.chart && DEMAND_STATE.lastDemandData) {
+        renderCurrentView();
+    }
+}
+
+/**
+ * Update the header rate display with current rate values
+ * @param {Object} rateData - Rate data object with rates property
+ */
+function updateHeaderRateDisplay(rateData) {
+    const aarRow = document.getElementById('demand_header_aar_row');
+    const adrRow = document.getElementById('demand_header_adr_row');
+
+    if (!aarRow || !adrRow) return;
+
+    // Get current rate values
+    const rates = rateData && rateData.rates ? rateData.rates : null;
+    const direction = DEMAND_STATE.direction;
+
+    // Check which rates are enabled
+    const showVatsimAar = DEMAND_STATE.showVatsimAar;
+    const showVatsimAdr = DEMAND_STATE.showVatsimAdr;
+    const showRwAar = DEMAND_STATE.showRwAar;
+    const showRwAdr = DEMAND_STATE.showRwAdr;
+
+    // Show/hide rows based on direction
+    const showAar = direction === 'both' || direction === 'arr';
+    const showAdr = direction === 'both' || direction === 'dep';
+
+    aarRow.style.display = showAar && rates ? '' : 'none';
+    adrRow.style.display = showAdr && rates ? '' : 'none';
+
+    if (!rates) return;
+
+    // Update AAR row values
+    const vatsimAarEl = document.getElementById('header_vatsim_aar');
+    const rwAarEl = document.getElementById('header_rw_aar');
+    if (vatsimAarEl) {
+        vatsimAarEl.textContent = (showVatsimAar && rates.vatsim_aar) ? rates.vatsim_aar : '--';
+        vatsimAarEl.style.opacity = (showVatsimAar && rates.vatsim_aar) ? '1' : '0.4';
+    }
+    if (rwAarEl) {
+        rwAarEl.textContent = (showRwAar && rates.rw_aar) ? rates.rw_aar : '--';
+        rwAarEl.style.opacity = (showRwAar && rates.rw_aar) ? '1' : '0.4';
+    }
+
+    // Update ADR row values
+    const vatsimAdrEl = document.getElementById('header_vatsim_adr');
+    const rwAdrEl = document.getElementById('header_rw_adr');
+    if (vatsimAdrEl) {
+        vatsimAdrEl.textContent = (showVatsimAdr && rates.vatsim_adr) ? rates.vatsim_adr : '--';
+        vatsimAdrEl.style.opacity = (showVatsimAdr && rates.vatsim_adr) ? '1' : '0.4';
+    }
+    if (rwAdrEl) {
+        rwAdrEl.textContent = (showRwAdr && rates.rw_adr) ? rates.rw_adr : '--';
+        rwAdrEl.style.opacity = (showRwAdr && rates.rw_adr) ? '1' : '0.4';
+    }
+}
+
+/**
  * Build chart title in FSM/TBFM style
  * Format: "KATL          01/10/2026          16:30Z"
  * Airport code (left), ADL date (center), ADL time (right)
@@ -5182,9 +5206,10 @@ function updateLastUpdateDisplay(adlUpdate) {
  * Show loading indicator on chart
  */
 function showLoading() {
-    // Make sure chart is visible
+    // Make sure chart and legend toggle are visible
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
+    $('#demand_legend_toggle_area').show();
 
     // Resize chart in case it was hidden
     if (DEMAND_STATE.chart) {
