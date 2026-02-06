@@ -6,6 +6,9 @@ server {
     server_name _;
     port_in_redirect off;
 
+    # Allow large POST bodies (trajectory data can exceed 1MB default)
+    client_max_body_size 50m;
+
     # Disable automatic directory slash redirect
     absolute_redirect off;
 
