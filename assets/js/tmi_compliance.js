@@ -2127,6 +2127,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for airway geometry (keyed by airway name)
     airwayCache: {},
 
+    // Cache for branch corridor data from PHP middleware (keyed by mapId)
+    branchCorridorCache: {},
+
+    // Track active branch panel states (keyed by mapId)
+    branchPanelState: {},
+
     /**
      * Check if a string looks like an airway identifier
      * Supports global formats: J###, V###, Q###, T###, Y###, A###,
@@ -2522,6 +2528,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             console.log(`Cached ${r.all_pairs.length} pairs for ${mapId}`);
         }
 
+        // Cache branch corridor data if available (from PHP middleware branch analysis)
+        if (r.branch_corridors && r.branch_corridors.branches?.length > 0) {
+            this.branchCorridorCache[mapId] = r.branch_corridors;
+            console.log(`Cached ${r.branch_corridors.branch_count} branches for ${mapId}`);
+        }
+
         if (!requestor && !provider) {
             return ''; // No facilities to show
         }
@@ -2559,6 +2571,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
                         <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
+                        <button class="layer-btn branch-toggle-btn" data-map="${mapId}" onclick="TMICompliance.toggleBranches(this)" style="display:none"><i class="fas fa-code-branch"></i> Branches</button>
                         <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Pairs</button>
                         <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Violations</button>
                         <span class="layer-divider">|</span>
@@ -2567,6 +2580,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             <span class="legend-item"><span class="legend-swatch cone-90"></span>90%</span>
                         </span>
                     </div>
+                    <div class="branch-panel" id="${mapId}_branch_panel" style="display: none;"></div>
                     <div class="tmi-map-container" id="${mapId}_container">
                         <div class="tmi-map-loading">
                             <i class="fas fa-spinner fa-spin"></i> Loading map...
@@ -4221,6 +4235,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 updateButtonState('tracks', map.getSource('flight-tracks-solid') || map.getSource('flight-tracks-dashed'));
                 updateButtonState('flow-streams', map.getSource('flow-streams'));
                 updateButtonState('traffic-sectors', map.getSource('traffic-sectors'));
+
+                // Show branches button if branch corridor data is available
+                const branchBtn = controls.querySelector('.branch-toggle-btn');
+                if (branchBtn && TMICompliance.branchCorridorCache[mapId]) {
+                    branchBtn.style.display = '';
+                }
             }
 
             // Fit bounds
@@ -6139,6 +6159,552 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (this.selectedTmiId) {
             $(`.tmi-list-item[data-tmi-id="${this.selectedTmiId}"]`).addClass('selected');
         }
+    },
+
+    // =========================================================================
+    // BRANCH CORRIDOR ANALYSIS
+    // Progressive disclosure: Flow Cone → Show Branches → Select/Compare
+    // =========================================================================
+
+    /**
+     * Toggle branch analysis panel and layers.
+     * On first activation, computes per-branch corridors and renders the panel.
+     */
+    toggleBranches: function(btn) {
+        const mapId = btn.dataset.map;
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const isActive = btn.classList.toggle('active');
+        const panel = document.getElementById(`${mapId}_branch_panel`);
+
+        if (isActive) {
+            // First activation: compute and render
+            if (!this.branchPanelState[mapId]?.initialized) {
+                this.initBranchAnalysis(mapId);
+            }
+
+            // Show panel
+            if (panel) panel.style.display = '';
+
+            // Show branch layers
+            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+                if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+            });
+
+            // Dim flow cone to 50%
+            if (map.getLayer('traffic-sectors-fill')) {
+                map.setPaintProperty('traffic-sectors-fill', 'fill-opacity',
+                    ['case', ['==', ['get', 'pct'], 75], 0.07, 0.05]);
+            }
+            if (map.getLayer('traffic-sectors-outline')) {
+                map.setPaintProperty('traffic-sectors-outline', 'line-opacity', 0.3);
+            }
+            if (map.getLayer('spacing-arcs')) {
+                map.setPaintProperty('spacing-arcs', 'line-opacity', 0.3);
+            }
+        } else {
+            // Hide panel
+            if (panel) panel.style.display = 'none';
+
+            // Hide branch layers
+            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+                if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+            });
+
+            // Restore flow cone opacity
+            if (map.getLayer('traffic-sectors-fill')) {
+                map.setPaintProperty('traffic-sectors-fill', 'fill-opacity',
+                    ['case', ['==', ['get', 'pct'], 75], 0.15, 0.1]);
+            }
+            if (map.getLayer('traffic-sectors-outline')) {
+                map.setPaintProperty('traffic-sectors-outline', 'line-opacity', 0.6);
+            }
+            if (map.getLayer('spacing-arcs')) {
+                map.setPaintProperty('spacing-arcs', 'line-opacity', 0.6);
+            }
+        }
+    },
+
+    /**
+     * Initialize branch analysis: compute corridors, render panel and map layers.
+     */
+    initBranchAnalysis: function(mapId) {
+        const branchData = this.branchCorridorCache[mapId];
+        const trajectories = this.trajectoryCache[mapId];
+        const sectorData = this.trafficSectorCache?.[mapId];
+
+        if (!branchData || !trajectories || !sectorData?.fix_point) {
+            console.warn('Missing data for branch analysis:', {
+                hasBranch: !!branchData, hasTraj: !!trajectories, hasSector: !!sectorData,
+            });
+            return;
+        }
+
+        const [fixLon, fixLat] = sectorData.fix_point;
+        const required = sectorData.required_spacing || 15;
+        const binSize = required >= 20 ? 5 : 3; // MIT-aligned bins
+        const maxDistance = Math.max(75, required * 4);
+        const metrics = branchData.branch_metrics || {};
+
+        // Compute corridor polygons for each branch
+        const branchCorridors = [];
+
+        branchData.branches.forEach((branch, idx) => {
+            const callsignSet = new Set(branch.callsigns || []);
+            if (callsignSet.size < 2) return;
+
+            // Approach bearing: opposite of bearing_to_fix (direction traffic comes FROM)
+            const approachBearing = ((branch.bearing_to_fix || 0) + 180) % 360;
+
+            const corridor = this.computeBranchCorridor(
+                trajectories, callsignSet, fixLon, fixLat,
+                approachBearing, binSize, maxDistance
+            );
+
+            if (corridor) {
+                const branchMetrics = metrics[branch.branch_id] || {};
+                branchCorridors.push({
+                    branchId: branch.branch_id,
+                    branchIdx: idx,
+                    shortName: branch.display?.short || `Branch ${idx + 1}`,
+                    longName: branch.display?.long || branch.branch_id,
+                    trackCount: branch.track_count || callsignSet.size,
+                    compliancePct: branchMetrics.compliance_pct ?? 100,
+                    pairs: branchMetrics.pairs || 0,
+                    violations: (branchMetrics.violations || []).length,
+                    polygon75: corridor.polygon_75,
+                    polygon90: corridor.polygon_90,
+                    selected: true,
+                });
+            }
+        });
+
+        if (branchCorridors.length === 0) {
+            console.warn('No branch corridors computed for', mapId);
+            return;
+        }
+
+        this.branchPanelState[mapId] = {
+            initialized: true,
+            corridors: branchCorridors,
+        };
+
+        this.renderBranchPanel(mapId);
+        this.renderBranchLayers(mapId);
+        console.log(`Branch analysis: ${branchCorridors.length} corridors computed for ${mapId}`);
+    },
+
+    /**
+     * Compute corridor polygons for a single branch's callsigns.
+     * Reuses the same algorithm as flow cone: distance bins → centerline →
+     * Gaussian smoothing → monotonic convergence → buffer polygons.
+     */
+    computeBranchCorridor: function(trajectories, callsignSet, fixLon, fixLat, streamBearing, binSize, maxDistance) {
+        // Geo utility functions (same as flow cone computation)
+        const distanceNm = (lon1, lat1, lon2, lat2) => {
+            const R = 3440.065;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        const bearingTo = (lon1, lat1, lon2, lat2) => {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1r = lat1 * Math.PI / 180;
+            const lat2r = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2r);
+            const x = Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLon);
+            return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+        };
+
+        const pointAtBearing = (lon, lat, bearingDeg, distNm) => {
+            const R = 3440.065;
+            const bearing = bearingDeg * Math.PI / 180;
+            const lat1 = lat * Math.PI / 180;
+            const lon1 = lon * Math.PI / 180;
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distNm / R) +
+                Math.cos(lat1) * Math.sin(distNm / R) * Math.cos(bearing));
+            const lon2 = lon1 + Math.atan2(
+                Math.sin(bearing) * Math.sin(distNm / R) * Math.cos(lat1),
+                Math.cos(distNm / R) - Math.sin(lat1) * Math.sin(lat2)
+            );
+            return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
+        };
+
+        const angularDiff = (a, b) => {
+            let diff = a - b;
+            while (diff > 180) diff -= 360;
+            while (diff < -180) diff += 360;
+            return diff;
+        };
+
+        // Step 1: Sample approach-phase points into distance bins
+        const distanceBins = {};
+
+        Object.entries(trajectories).forEach(([callsign, traj]) => {
+            if (!callsignSet.has(callsign)) return;
+            if (!traj.coordinates || traj.coordinates.length < 2) return;
+
+            const visitedBins = new Set();
+            for (let i = 1; i < traj.coordinates.length; i++) {
+                const prev = traj.coordinates[i - 1];
+                const curr = traj.coordinates[i];
+                const prevDist = distanceNm(prev[0], prev[1], fixLon, fixLat);
+                const currDist = distanceNm(curr[0], curr[1], fixLon, fixLat);
+
+                if (currDist < prevDist) {
+                    const [lon, lat] = prev;
+                    const dist = prevDist;
+                    const bearing = bearingTo(fixLon, fixLat, lon, lat);
+                    const bin = Math.round(dist / binSize) * binSize;
+
+                    if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
+                        visitedBins.add(bin);
+                        distanceBins[bin] = distanceBins[bin] || [];
+                        distanceBins[bin].push({ bearing, lon, lat, callsign });
+                    }
+                }
+            }
+        });
+
+        // Step 2: Compute centerline from distance bins
+        const centerlinePoints = [];
+        const sortedBins = Object.keys(distanceBins).map(Number).sort((a, b) => a - b);
+
+        sortedBins.forEach(dist => {
+            const points = distanceBins[dist];
+            if (points.length < 2) return;
+
+            const bearings = points.map(p => p.bearing).sort((a, b) => a - b);
+            const medianBearing = bearings[Math.floor(bearings.length / 2)];
+
+            const normalized = bearings.map(b => {
+                let diff = b - medianBearing;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+                return diff;
+            }).sort((a, b) => a - b);
+
+            const p75Hi = Math.min(Math.ceil(normalized.length * 0.875) - 1, normalized.length - 1);
+            const p75Lo = Math.max(Math.floor(normalized.length * 0.125), 0);
+            const p90Hi = Math.min(Math.ceil(normalized.length * 0.95) - 1, normalized.length - 1);
+            const p90Lo = Math.max(Math.floor(normalized.length * 0.05), 0);
+
+            const width75 = Math.max(3, Math.max(Math.abs(normalized[p75Hi] || 0), Math.abs(normalized[p75Lo] || 0)));
+            const width90 = Math.max(5, Math.max(Math.abs(normalized[p90Hi] || 0), Math.abs(normalized[p90Lo] || 0)));
+
+            centerlinePoints.push({
+                dist,
+                coords: pointAtBearing(fixLon, fixLat, medianBearing, dist),
+                bearing: medianBearing,
+                width75, width90,
+                trackCount: points.length,
+            });
+        });
+
+        if (centerlinePoints.length < 2) return null;
+
+        // Step 3: Outlier rejection (>60° from branch stream bearing)
+        const MAX_DEVIATION = 60;
+        for (let i = 0; i < centerlinePoints.length; i++) {
+            const cp = centerlinePoints[i];
+            const dev = Math.abs(angularDiff(cp.bearing, streamBearing));
+            if (dev > MAX_DEVIATION) {
+                let prevGood = null, nextGood = null;
+                for (let j = i - 1; j >= 0; j--) {
+                    if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                        prevGood = centerlinePoints[j]; break;
+                    }
+                }
+                for (let j = i + 1; j < centerlinePoints.length; j++) {
+                    if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                        nextGood = centerlinePoints[j]; break;
+                    }
+                }
+
+                let newBearing;
+                if (prevGood && nextGood) {
+                    const rad1 = prevGood.bearing * Math.PI / 180;
+                    const rad2 = nextGood.bearing * Math.PI / 180;
+                    newBearing = ((Math.atan2(
+                        Math.sin(rad1) + Math.sin(rad2),
+                        Math.cos(rad1) + Math.cos(rad2)
+                    ) * 180 / Math.PI) + 360) % 360;
+                } else if (prevGood) {
+                    newBearing = prevGood.bearing;
+                } else if (nextGood) {
+                    newBearing = nextGood.bearing;
+                } else {
+                    newBearing = streamBearing;
+                }
+
+                cp.bearing = newBearing;
+                cp.coords = pointAtBearing(fixLon, fixLat, newBearing, cp.dist);
+            }
+        }
+
+        // Step 4: Gaussian smoothing (window=3, applied twice)
+        const smoothCenterline = (points) => {
+            if (points.length < 3) return points;
+            const WINDOW = 3;
+            const smoothed = [];
+
+            for (let i = 0; i < points.length; i++) {
+                const neighbors = [];
+                for (let j = Math.max(0, i - WINDOW); j <= Math.min(points.length - 1, i + WINDOW); j++) {
+                    const weight = 1 / (1 + Math.abs(j - i));
+                    neighbors.push({ cp: points[j], weight });
+                }
+
+                const totalWeight = neighbors.reduce((sum, n) => sum + n.weight, 0);
+                let sinSum = 0, cosSum = 0;
+                neighbors.forEach(n => {
+                    const rad = n.cp.bearing * Math.PI / 180;
+                    sinSum += Math.sin(rad) * n.weight;
+                    cosSum += Math.cos(rad) * n.weight;
+                });
+
+                const smoothBearing = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
+                const smoothWidth75 = neighbors.reduce((sum, n) => sum + n.cp.width75 * n.weight, 0) / totalWeight;
+                const smoothWidth90 = neighbors.reduce((sum, n) => sum + n.cp.width90 * n.weight, 0) / totalWeight;
+
+                smoothed.push({
+                    dist: points[i].dist,
+                    coords: pointAtBearing(fixLon, fixLat, smoothBearing, points[i].dist),
+                    bearing: smoothBearing,
+                    width75: smoothWidth75,
+                    width90: smoothWidth90,
+                    trackCount: points[i].trackCount,
+                });
+            }
+            return smoothed;
+        };
+
+        const smoothedPoints = smoothCenterline(smoothCenterline(centerlinePoints));
+
+        // Step 5: Monotonic convergence (cone narrows toward fix)
+        const sorted = [...smoothedPoints].sort((a, b) => b.dist - a.dist);
+        let maxW75 = sorted[0].width75, maxW90 = sorted[0].width90;
+        sorted.forEach(cp => {
+            cp.width75 = Math.min(cp.width75, maxW75);
+            cp.width90 = Math.min(cp.width90, maxW90);
+            maxW75 = cp.width75;
+            maxW90 = cp.width90;
+        });
+        const convergentPoints = sorted.sort((a, b) => a.dist - b.dist);
+
+        // Step 6: Build buffer polygons (perpendicular offsets from centerline)
+        const buildBufferPolygon = (points, widthKey) => {
+            const leftEdge = [];
+            const rightEdge = [];
+
+            points.forEach(cp => {
+                const halfWidth = cp[widthKey];
+                const leftBearing = (cp.bearing + 90) % 360;
+                const rightBearing = (cp.bearing - 90 + 360) % 360;
+                const linearWidth = cp.dist * Math.sin(halfWidth * Math.PI / 180);
+
+                leftEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], leftBearing, linearWidth));
+                rightEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], rightBearing, linearWidth));
+            });
+
+            const polygon = [[fixLon, fixLat]];
+            rightEdge.forEach(pt => polygon.push(pt));
+            leftEdge.reverse().forEach(pt => polygon.push(pt));
+            polygon.push([fixLon, fixLat]);
+            return polygon;
+        };
+
+        return {
+            polygon_75: buildBufferPolygon(convergentPoints, 'width75'),
+            polygon_90: buildBufferPolygon(convergentPoints, 'width90'),
+            centerlinePoints: convergentPoints,
+        };
+    },
+
+    /**
+     * Get compliance color for a percentage value.
+     */
+    branchComplianceColor: function(pct) {
+        if (pct >= 98) return '#28a745'; // Green - excellent
+        if (pct >= 90) return '#5cb85c'; // Light green - good
+        if (pct >= 80) return '#ffc107'; // Yellow - marginal
+        if (pct >= 65) return '#fd7e14'; // Orange - poor
+        return '#dc3545'; // Red - critical
+    },
+
+    /**
+     * Build GeoJSON features for all branch corridors.
+     */
+    buildBranchFeatures: function(mapId) {
+        const state = this.branchPanelState[mapId];
+        if (!state?.corridors) return [];
+
+        const features = [];
+        state.corridors.forEach(bc => {
+            const color = this.branchComplianceColor(bc.compliancePct);
+
+            if (bc.polygon90) {
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        branchId: bc.branchId, pct: 90,
+                        color, selected: bc.selected,
+                    },
+                    geometry: { type: 'Polygon', coordinates: [bc.polygon90] },
+                });
+            }
+            if (bc.polygon75) {
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        branchId: bc.branchId, pct: 75,
+                        color, selected: bc.selected,
+                    },
+                    geometry: { type: 'Polygon', coordinates: [bc.polygon75] },
+                });
+            }
+        });
+
+        return features;
+    },
+
+    /**
+     * Render branch corridor layers on the map.
+     */
+    renderBranchLayers: function(mapId) {
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const features = this.buildBranchFeatures(mapId);
+        if (features.length === 0) return;
+
+        const geojson = { type: 'FeatureCollection', features };
+
+        if (map.getSource('branch-corridors')) {
+            map.getSource('branch-corridors').setData(geojson);
+        } else {
+            map.addSource('branch-corridors', { type: 'geojson', data: geojson });
+
+            const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
+
+            map.addLayer({
+                id: 'branch-corridors-fill',
+                type: 'fill',
+                source: 'branch-corridors',
+                paint: {
+                    'fill-color': ['get', 'color'],
+                    'fill-opacity': ['case',
+                        ['get', 'selected'],
+                        ['case', ['==', ['get', 'pct'], 75], 0.20, 0.12],
+                        ['case', ['==', ['get', 'pct'], 75], 0.05, 0.03],
+                    ],
+                },
+            }, beforeLayer);
+
+            map.addLayer({
+                id: 'branch-corridors-outline',
+                type: 'line',
+                source: 'branch-corridors',
+                paint: {
+                    'line-color': ['get', 'color'],
+                    'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
+                    'line-opacity': ['case', ['get', 'selected'], 0.7, 0.15],
+                },
+            }, beforeLayer);
+        }
+    },
+
+    /**
+     * Render branch selector panel HTML.
+     */
+    renderBranchPanel: function(mapId) {
+        const panel = document.getElementById(`${mapId}_branch_panel`);
+        const state = this.branchPanelState[mapId];
+        if (!panel || !state?.corridors) return;
+
+        const branchData = this.branchCorridorCache[mapId];
+        const totalFlights = branchData?.total_flights || 0;
+        const ungrouped = branchData?.ungrouped_flights || 0;
+
+        let html = `
+            <div class="branch-panel-header">
+                <span class="branch-panel-title"><i class="fas fa-code-branch mr-1"></i>Traffic Branches</span>
+                <span class="branch-panel-stats">${state.corridors.length} branches, ${totalFlights} flights${ungrouped > 0 ? ` (${ungrouped} ungrouped)` : ''}</span>
+                <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
+                <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
+            </div>
+            <div class="branch-panel-list">
+        `;
+
+        state.corridors.forEach(bc => {
+            const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
+            const color = this.branchComplianceColor(bc.compliancePct);
+
+            html += `
+                <label class="branch-item" title="${bc.longName}">
+                    <input type="checkbox" ${bc.selected ? 'checked' : ''}
+                           data-branch-id="${bc.branchId}" data-map="${mapId}"
+                           onchange="TMICompliance.toggleBranchSelection(this)">
+                    <span class="branch-color-swatch" style="background: ${color}"></span>
+                    <span class="branch-name">${bc.shortName}</span>
+                    <span class="branch-count">${bc.trackCount}<i class="fas fa-plane ml-1" style="font-size:0.7em"></i></span>
+                    <span class="branch-compliance ${compClass}">${bc.compliancePct}%</span>
+                </label>
+            `;
+        });
+
+        html += '</div>';
+        panel.innerHTML = html;
+    },
+
+    /**
+     * Handle branch checkbox selection change.
+     */
+    toggleBranchSelection: function(checkbox) {
+        const branchId = checkbox.dataset.branchId;
+        const mapId = checkbox.dataset.map;
+        const state = this.branchPanelState?.[mapId];
+        if (!state?.corridors) return;
+
+        const corridor = state.corridors.find(c => c.branchId === branchId);
+        if (corridor) corridor.selected = checkbox.checked;
+
+        this.updateBranchFeatures(mapId);
+    },
+
+    /**
+     * Select or deselect all branches.
+     */
+    selectAllBranches: function(mapId, selectAll) {
+        const state = this.branchPanelState?.[mapId];
+        if (!state?.corridors) return;
+
+        state.corridors.forEach(c => c.selected = selectAll);
+
+        const panel = document.getElementById(`${mapId}_branch_panel`);
+        if (panel) {
+            panel.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll);
+        }
+
+        this.updateBranchFeatures(mapId);
+    },
+
+    /**
+     * Update branch corridor features on the map after selection change.
+     */
+    updateBranchFeatures: function(mapId) {
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const source = map.getSource('branch-corridors');
+        if (!source) return;
+
+        const features = this.buildBranchFeatures(mapId);
+        source.setData({ type: 'FeatureCollection', features });
     },
 };
 

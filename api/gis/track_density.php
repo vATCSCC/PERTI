@@ -14,6 +14,7 @@
  *   POST ?action=segment_density  - Per-segment proximity density
  *   POST ?action=flow_streams     - DBSCAN clustering with merge zone detection
  *   POST ?action=analyze          - Combined streams + segment density (full analysis)
+ *   POST ?action=branch_analysis  - Multi-level branch identification (O/D + DBSCAN + topology naming)
  *   GET  ?action=get_cached       - Retrieve cached results by cache_key
  *   POST ?action=invalidate       - Invalidate cache for a specific key
  *
@@ -153,6 +154,20 @@ try {
                 'streams' => $streams,
                 'density' => $density
             ];
+            break;
+
+        case 'branch_analysis':
+            $mitDistanceNm = $input['mit_distance_nm'] ?? 15;
+            $maxDistanceNm = $input['max_distance_nm'] ?? 250;
+            $flightMeta = $input['flight_meta'] ?? []; // {callsign: {dept, dest, waypoints[]}}
+            $tmiType = $input['tmi_type'] ?? 'arrival'; // arrival, departure, overflight
+            $result = calculateBranchAnalysis(
+                $gis, $trajectories, $fixPoint,
+                $mitDistanceNm, $maxDistanceNm,
+                $flightMeta, $tmiType,
+                $clusterEpsDeg, $clusterMinPoints,
+                $knownFixes
+            );
             break;
 
         case 'calculate':
@@ -980,6 +995,318 @@ function bearingToCardinal(float $bearing): string
     $directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     $index = (int)round($bearing / 45) % 8;
     return $directions[$index];
+}
+
+// ============================================================================
+// BRANCH ANALYSIS (Multi-level pre-grouping + DBSCAN + Topology naming)
+// ============================================================================
+
+/**
+ * Identify upstream traffic branches converging on a measurement point.
+ *
+ * Uses hybrid O/D + navigational-element + DBSCAN approach:
+ *   1. Pre-group flights by origin/destination (TMI-type dependent)
+ *   2. Within each O/D group, run DBSCAN spatial clustering
+ *   3. Match clusters to known fixes for navigational element naming
+ *   4. Assign type-prefixed topological names (orig:, dest:, thru:, fix:, awy:)
+ *
+ * @param array $trajectories  Flight trajectories [{callsign, coordinates}]
+ * @param array $fixPoint      [lon, lat] of measurement point
+ * @param float $mitDistanceNm Inner sampling bound (MIT requirement)
+ * @param float $maxDistanceNm Outer sampling bound (typically 250nm)
+ * @param array $flightMeta    Per-callsign metadata {callsign: {dept, dest, waypoints[]}}
+ * @param string $tmiType      TMI type: arrival, departure, overflight
+ * @param float $epsDeg        DBSCAN epsilon in degrees
+ * @param int $minPoints       DBSCAN minimum points
+ * @param array $knownFixes    Known fixes near measurement point [{id, lat, lon}]
+ *
+ * @return array Branch analysis results with flight_assignments map
+ */
+function calculateBranchAnalysis(
+    PDO $gis, array $trajectories, ?array $fixPoint,
+    float $mitDistanceNm, float $maxDistanceNm,
+    array $flightMeta, string $tmiType,
+    float $epsDeg, int $minPoints,
+    array $knownFixes
+): array {
+    if (!$fixPoint || count($fixPoint) < 2) {
+        return ['branches' => [], 'flight_assignments' => [], 'error' => 'fix_point required'];
+    }
+
+    $fixLon = (float)$fixPoint[0];
+    $fixLat = (float)$fixPoint[1];
+    $mitDistanceM = $mitDistanceNm * 1852;
+    $maxDistanceM = $maxDistanceNm * 1852;
+
+    // Step 1: Assign O/D group keys to each callsign
+    $callsignGroups = [];
+    foreach ($trajectories as $key => $traj) {
+        $callsign = $traj['callsign'] ?? $key;
+        $meta = $flightMeta[$callsign] ?? [];
+
+        $dept = strtoupper(trim($meta['dept'] ?? 'UNK'));
+        $dest = strtoupper(trim($meta['dest'] ?? 'UNK'));
+
+        // Determine group key based on TMI type
+        switch ($tmiType) {
+            case 'departure':
+                $odKey = "dest:$dest";
+                break;
+            case 'overflight':
+                $odKey = ($dept !== 'UNK' && $dest !== 'UNK')
+                    ? "thru:$dept>$dest"
+                    : 'thru:UNK';
+                break;
+            case 'arrival':
+            default:
+                $odKey = "orig:$dept";
+                break;
+        }
+
+        $callsignGroups[$callsign] = $odKey;
+    }
+
+    // Step 2: Create temp table with group assignments
+    $gis->exec("DROP TABLE IF EXISTS temp_branch_groups");
+    $gis->exec("CREATE TEMP TABLE temp_branch_groups (callsign VARCHAR(20), group_key VARCHAR(100))");
+
+    $insertStmt = $gis->prepare(
+        "INSERT INTO temp_branch_groups (callsign, group_key) VALUES (:cs, :gk)"
+    );
+    foreach ($callsignGroups as $cs => $gk) {
+        $insertStmt->execute([':cs' => $cs, ':gk' => $gk]);
+    }
+
+    // Step 3: Create fix reference point (avoids duplicate param issue in main query)
+    $gis->exec("DROP TABLE IF EXISTS temp_fix_ref");
+    $fixRefStmt = $gis->prepare(
+        "CREATE TEMP TABLE temp_fix_ref AS SELECT ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) as geom"
+    );
+    $fixRefStmt->execute([':lon' => $fixLon, ':lat' => $fixLat]);
+
+    // Step 4: Filter segments in range, join with groups, run DBSCAN per group
+    $clusterStmt = $gis->prepare("
+        WITH filtered_segments AS (
+            SELECT
+                s.callsign,
+                s.seg_idx,
+                s.geom,
+                g.group_key,
+                ST_Distance(s.geom::geography, f.geom::geography) / 1852 as dist_nm
+            FROM temp_traj_segments s
+            JOIN temp_branch_groups g ON s.callsign = g.callsign
+            CROSS JOIN temp_fix_ref f
+            WHERE ST_DWithin(s.geom::geography, f.geom::geography, :max_dist_m)
+              AND ST_Distance(s.geom::geography, f.geom::geography) > :min_dist_m
+        ),
+        clustered AS (
+            SELECT
+                callsign, seg_idx, geom, group_key, dist_nm,
+                ST_ClusterDBSCAN(geom, eps := :eps, minpoints := :minpts)
+                    OVER (PARTITION BY group_key) as cluster_id
+            FROM filtered_segments
+        ),
+        branch_stats AS (
+            SELECT
+                group_key,
+                cluster_id,
+                COUNT(DISTINCT callsign) as track_count,
+                COUNT(*) as segment_count,
+                ST_AsGeoJSON(ST_ConcaveHull(ST_Collect(geom), 0.3)) as hull_geom,
+                ST_AsGeoJSON(ST_Centroid(ST_Collect(geom))) as centroid,
+                string_agg(DISTINCT callsign, ',' ORDER BY callsign) as callsign_list,
+                ST_AsGeoJSON(ST_Centroid(ST_Collect(geom))) as centroid_geom,
+                degrees(ST_Azimuth(
+                    ST_Centroid(ST_Collect(geom)),
+                    (SELECT geom FROM temp_fix_ref)
+                )) as bearing_to_fix,
+                ST_Distance(
+                    ST_Centroid(ST_Collect(geom))::geography,
+                    (SELECT geom FROM temp_fix_ref)::geography
+                ) / 1852 as centroid_dist_nm
+            FROM clustered
+            WHERE cluster_id IS NOT NULL
+            GROUP BY group_key, cluster_id
+            HAVING COUNT(DISTINCT callsign) >= 2
+        )
+        SELECT * FROM branch_stats ORDER BY track_count DESC
+    ");
+
+    $clusterStmt->execute([
+        ':max_dist_m' => $maxDistanceM,
+        ':min_dist_m' => $mitDistanceM,
+        ':eps' => $epsDeg,
+        ':minpts' => $minPoints,
+    ]);
+
+    // Step 5: Build branch metadata and match to known fixes
+    $branches = [];
+    $groupClusters = []; // group_key => [cluster entries]
+
+    while ($row = $clusterStmt->fetch(PDO::FETCH_ASSOC)) {
+        $groupKey = $row['group_key'];
+        $clusterId = (int)$row['cluster_id'];
+        $callsigns = explode(',', $row['callsign_list']);
+        $centroid = json_decode($row['centroid'], true);
+        $bearingToFix = round((float)($row['bearing_to_fix'] ?? 0), 1);
+        $distNm = round((float)($row['centroid_dist_nm'] ?? 0), 1);
+
+        $branch = [
+            'group_key' => $groupKey,
+            'cluster_id' => $clusterId,
+            'callsigns' => $callsigns,
+            'track_count' => (int)$row['track_count'],
+            'segment_count' => (int)$row['segment_count'],
+            'hull' => json_decode($row['hull_geom'], true),
+            'centroid' => $centroid,
+            'bearing_to_fix' => $bearingToFix,
+            'approach_direction' => bearingToCardinal($bearingToFix),
+            'distance_to_fix_nm' => $distNm,
+            'matched_fix' => null,
+        ];
+
+        // Match cluster centroid to known fixes
+        if (!empty($knownFixes) && $centroid && isset($centroid['coordinates'])) {
+            $cLon = $centroid['coordinates'][0];
+            $cLat = $centroid['coordinates'][1];
+            $bestFix = null;
+            $bestDist = 30; // Max match distance in nm
+
+            foreach ($knownFixes as $fix) {
+                $fId = $fix['id'] ?? $fix['name'] ?? 'UNKNOWN';
+                $fLat = $fix['lat'] ?? null;
+                $fLon = $fix['lon'] ?? $fix['lng'] ?? null;
+                if (!is_numeric($fLat) || !is_numeric($fLon)) continue;
+
+                $distQuery = $gis->prepare("
+                    SELECT ST_Distance(
+                        ST_SetSRID(ST_MakePoint(:c_lon, :c_lat), 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(:f_lon, :f_lat), 4326)::geography
+                    ) / 1852 as dist_nm
+                ");
+                $distQuery->execute([
+                    ':c_lon' => $cLon, ':c_lat' => $cLat,
+                    ':f_lon' => $fLon, ':f_lat' => $fLat,
+                ]);
+                $d = (float)$distQuery->fetch(PDO::FETCH_ASSOC)['dist_nm'];
+
+                if ($d < $bestDist) {
+                    $bestDist = $d;
+                    $bestFix = ['id' => $fId, 'distance_nm' => round($d, 1)];
+                }
+            }
+            $branch['matched_fix'] = $bestFix;
+        }
+
+        if (!isset($groupClusters[$groupKey])) {
+            $groupClusters[$groupKey] = [];
+        }
+        $groupClusters[$groupKey][] = $branch;
+        $branches[] = $branch;
+    }
+
+    // Step 6: Assign type-prefixed topological names
+    $flightAssignments = []; // callsign => branch_id
+    $namedBranches = [];
+
+    foreach ($groupClusters as $groupKey => $clusters) {
+        // Sort clusters within group by distance (farthest first for consistent naming)
+        usort($clusters, function ($a, $b) {
+            return $b['distance_to_fix_nm'] <=> $a['distance_to_fix_nm'];
+        });
+
+        foreach ($clusters as $position => $branch) {
+            // Build branch_id: group_key/nav_element/position
+            $navPart = '';
+            if ($branch['matched_fix']) {
+                $navPart = '/fix:' . strtoupper($branch['matched_fix']['id']);
+            } elseif ($branch['approach_direction']) {
+                $navPart = '/' . $branch['approach_direction'];
+            }
+
+            $positionNum = $position + 1;
+            $branchId = $groupKey . $navPart . '/' . $positionNum;
+
+            $branch['branch_id'] = $branchId;
+            $branch['display'] = [
+                'short' => buildBranchShortName($groupKey, $branch['matched_fix'], $positionNum),
+                'long' => buildBranchLongName($groupKey, $branch['matched_fix'], $positionNum, $branch['track_count']),
+            ];
+
+            // Assign callsigns to this branch
+            foreach ($branch['callsigns'] as $cs) {
+                $flightAssignments[$cs] = $branchId;
+            }
+
+            $namedBranches[] = $branch;
+        }
+    }
+
+    // Step 7: Identify ungrouped flights
+    $allCallsigns = [];
+    foreach ($trajectories as $key => $traj) {
+        $allCallsigns[] = $traj['callsign'] ?? $key;
+    }
+    $ungroupedCount = count(array_diff($allCallsigns, array_keys($flightAssignments)));
+
+    // Cleanup temp tables
+    $gis->exec("DROP TABLE IF EXISTS temp_branch_groups");
+    $gis->exec("DROP TABLE IF EXISTS temp_fix_ref");
+
+    return [
+        'branches' => $namedBranches,
+        'flight_assignments' => $flightAssignments,
+        'total_flights' => count($allCallsigns),
+        'branch_count' => count($namedBranches),
+        'ungrouped_flights' => $ungroupedCount,
+        'params' => [
+            'mit_distance_nm' => $mitDistanceNm,
+            'max_distance_nm' => $maxDistanceNm,
+            'tmi_type' => $tmiType,
+            'eps_nm' => $epsDeg * 60,
+            'min_points' => $minPoints,
+        ],
+    ];
+}
+
+/**
+ * Build short display name for a branch (e.g., "ATL-CAMRN-1")
+ */
+function buildBranchShortName(string $groupKey, ?array $matchedFix, int $position): string
+{
+    // Extract the identifier from group key (e.g., "orig:KATL" → "KATL")
+    $parts = explode(':', $groupKey, 2);
+    $id = $parts[1] ?? $parts[0];
+    // For directional thru groups, keep the arrow
+    $id = str_replace('>', '→', $id);
+
+    $fixName = $matchedFix ? $matchedFix['id'] : '';
+    if ($fixName) {
+        return strtoupper($id) . '-' . strtoupper($fixName) . '-' . $position;
+    }
+    return strtoupper($id) . '-' . $position;
+}
+
+/**
+ * Build long display name for a branch (e.g., "ATL departures via CAMRN, Stream 1 (5 flights)")
+ */
+function buildBranchLongName(string $groupKey, ?array $matchedFix, int $position, int $trackCount): string
+{
+    $parts = explode(':', $groupKey, 2);
+    $type = $parts[0] ?? '';
+    $id = $parts[1] ?? $parts[0];
+
+    $typeLabel = match ($type) {
+        'orig' => "$id departures",
+        'dest' => "arrivals to $id",
+        'thru' => str_replace('>', ' → ', $id) . ' transit',
+        default => $id,
+    };
+
+    $fixName = $matchedFix ? $matchedFix['id'] : '';
+    $viaPart = $fixName ? " via $fixName" : '';
+
+    return "$typeLabel$viaPart, Stream $position ($trackCount flights)";
 }
 
 // ============================================================================
