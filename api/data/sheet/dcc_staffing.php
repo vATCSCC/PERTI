@@ -10,20 +10,6 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../../load/config.php");
 include("../../../load/connect.php");
 
-// Check Perms
-$perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = session_get('VATSIM_CID', '');
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check) {
-            $perm = true;
-        }
-    }
-} else {
-    $perm = true;
-}
-
 $p_id = get_input('p_id');
 
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility!='DCC' AND position_facility!='VATCAN' AND position_facility!='ECFMP'")->fetch_assoc();
@@ -44,12 +30,10 @@ if ($c_q['total'] > 0) {
                 echo '<td>'.$data['position_name'].'</td>';
             }
     
-            if ($perm == true) {
-                echo '<td class="w-25"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#edit_dccstaffingModal" data-id="'.$data['id'].'" data-personnel_name="'.$data['personnel_name'].'" data-personnel_ois="'.$data['personnel_ois'].'" data-position_name="'.$data['position_name'].'" data-position_facility="'.$data['position_facility'].'">
-                        <i class="fas fa-pencil-alt"></i> Edit</span></a>';
-                echo '</center></td>';
-            }
+            echo '<td class="w-25"><center>';
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#edit_dccstaffingModal" data-id="'.$data['id'].'" data-personnel_name="'.$data['personnel_name'].'" data-personnel_ois="'.$data['personnel_ois'].'" data-position_name="'.$data['position_name'].'" data-position_facility="'.$data['position_facility'].'">
+                    <i class="fas fa-pencil-alt"></i> Edit</span></a>';
+            echo '</center></td>';
     
         echo '</tr>';
     }

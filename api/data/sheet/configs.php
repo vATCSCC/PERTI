@@ -10,20 +10,6 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../../load/config.php");
 include("../../../load/connect.php");
 
-// Check Perms
-$perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = session_get('VATSIM_CID', '');
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check) {
-            $perm = true;
-        }
-    }
-} else {
-    $perm = true;
-}
-
 $p_id = get_input('p_id');
 
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_configs WHERE p_id='$p_id'")->fetch_assoc();
@@ -55,12 +41,10 @@ if ($c_q['total'] > 0) {
             echo '<td class="text-center" style="width: 10%;">'.$data['adr'].'</td>';
             echo '<td class="text-center">'.$data['comments'].'</td>';
     
-            if ($perm == true) {
-                echo '<td style="width: 15%;"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Config"><span class="badge badge-warning" data-toggle="modal" data-target="#editconfigModal" data-id="'.$data['id'].'" data-airport="'.$data['airport'].'" data-weather="'.$data['weather'].'" data-depart="'.$data['depart'].'" data-arrive="'.$data['arrive'].'" data-aar="'.$data['aar'].'" data-adr="'.$data['adr'].'" data-comments="'.$data['comments'].'">
-                        <i class="fas fa-pencil-alt"></i> Edit</span></a>';
-                echo '</center></td>';
-            }
+            echo '<td style="width: 15%;"><center>';
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Config"><span class="badge badge-warning" data-toggle="modal" data-target="#editconfigModal" data-id="'.$data['id'].'" data-airport="'.$data['airport'].'" data-weather="'.$data['weather'].'" data-depart="'.$data['depart'].'" data-arrive="'.$data['arrive'].'" data-aar="'.$data['aar'].'" data-adr="'.$data['adr'].'" data-comments="'.$data['comments'].'">
+                    <i class="fas fa-pencil-alt"></i> Edit</span></a>';
+            echo '</center></td>';
     
         echo '</tr>';
     }
