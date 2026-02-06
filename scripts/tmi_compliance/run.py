@@ -269,13 +269,26 @@ def main():
     parser.add_argument('--api_url', type=str,
                         default=os.environ.get('PERTI_API_URL', 'https://perti.vatcscc.org/api'),
                         help='PERTI API base URL')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Write JSON results to file instead of stdout')
 
     args = parser.parse_args()
 
     try:
         results = run_analysis(args.plan_id, args.api_url)
-        # Output JSON to stdout
-        print(json.dumps(results, default=str))
+        json_str = json.dumps(results, default=str)
+
+        if args.output:
+            # Write to file (avoids PHP memory issues with large stdout capture)
+            os.makedirs(os.path.dirname(args.output), exist_ok=True)
+            with open(args.output, 'w') as f:
+                f.write(json_str)
+            logger.info(f"Results written to {args.output} ({len(json_str)} bytes)")
+            print(json.dumps({"output_file": args.output, "size": len(json_str)}))
+        else:
+            # Output JSON to stdout
+            print(json_str)
+
         sys.exit(0 if 'error' not in results else 1)
     except Exception as e:
         logger.exception("Analysis failed")
