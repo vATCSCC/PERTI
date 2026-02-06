@@ -63,7 +63,7 @@ server {
         fastcgi_split_path_info ^(.+?\.php)(/.*)$;
         fastcgi_pass 127.0.0.1:9000;
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$uri.php;
+        fastcgi_param SCRIPT_FILENAME $request_filename;
         fastcgi_param QUERY_STRING $query_string;
     }
 
