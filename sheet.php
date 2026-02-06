@@ -14,24 +14,30 @@ include("sessions/handler.php");
     $uri = explode('?', $_SERVER['REQUEST_URI']);
     $id = $uri[1];
 
-    // Check Perms
+    // Check Perms - sheet.php requires login (data.php is the public equivalent)
     $perm = false;
-    if (ENV !== 'dev') {
+    if (!defined('DEV')) {
         if (isset($_SESSION['VATSIM_CID'])) {
 
             // Getting CID Value
             $cid = session_get('VATSIM_CID', '');
-    
+
             $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-    
+
             if ($p_check) {
                 $perm = true;
             }
-    
+
         }
     } else {
         $perm = true;
         $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
+    }
+
+    // Redirect unauthenticated users to the public data page
+    if (!$perm) {
+        header("Location: data?" . $id);
+        exit;
     }
 
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();

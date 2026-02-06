@@ -50,9 +50,21 @@ server {
     }
 
     # Default location block - handle PHP and static files
+    # Falls back to @phpfallback which tries appending .php extension
     location / {
-        # Try to serve file directly, fall back to index files, then 404
-        try_files $uri $uri/ =404;
+        try_files $uri $uri/ @phpfallback;
+    }
+
+    # PHP fallback - try appending .php to the URI
+    # Handles extensionless API routes like api/data/plans.l -> plans.l.php
+    # and any other PHP files not in the explicit rewrite list above
+    location @phpfallback {
+        try_files $uri.php =404;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$uri.php;
+        fastcgi_param QUERY_STRING $query_string;
     }
 
     # PHP file processing
