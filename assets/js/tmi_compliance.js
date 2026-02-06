@@ -2465,9 +2465,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     renderMapSection: function(r, mapId) {
         const requestor = (r.requestor || '').replace(/'/g, "\\'");
         const provider = (r.provider || '').replace(/'/g, "\\'");
-        // Use airway field if available, then measurement_point, then fix
+        // Use airway field if available, then raw fix name for GIS resolution
         // Airway is explicitly set when fix is an airway identifier (Y290, J48, etc.)
-        const fix = (r.airway || r.measurement_point || r.fix || '').replace(/'/g, "\\'");
+        // Note: r.measurement_point is a display label (may include suffixes like "(boundary unavailable)")
+        // and should NOT be used for GIS waypoint resolution
+        const fix = (r.airway || r.fix || '').replace(/'/g, "\\'");
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
@@ -3616,6 +3618,59 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 trackCount: points.length,
                             });
                         });
+
+                        // ───────────────────────────────────────────────────────────
+                        // OUTLIER REJECTION: Replace bearings that deviate wildly from
+                        // the stream's overall direction. Sparse bins can produce extreme
+                        // outliers (e.g., 259° when stream flows at 170°) that distort
+                        // the cone even after smoothing.
+                        // ───────────────────────────────────────────────────────────
+                        if (centerlinePoints.length >= 3) {
+                            const streamBearing = stream.bearing;
+                            const MAX_DEVIATION = 60; // degrees from stream bearing
+
+                            for (let i = 0; i < centerlinePoints.length; i++) {
+                                const cp = centerlinePoints[i];
+                                const dev = Math.abs(angularDiff(cp.bearing, streamBearing));
+                                if (dev > MAX_DEVIATION) {
+                                    // Find nearest non-outlier neighbors for interpolation
+                                    let prevGood = null, nextGood = null;
+                                    for (let j = i - 1; j >= 0; j--) {
+                                        if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                                            prevGood = centerlinePoints[j];
+                                            break;
+                                        }
+                                    }
+                                    for (let j = i + 1; j < centerlinePoints.length; j++) {
+                                        if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                                            nextGood = centerlinePoints[j];
+                                            break;
+                                        }
+                                    }
+
+                                    let newBearing;
+                                    if (prevGood && nextGood) {
+                                        // Circular mean of nearest good neighbors
+                                        const rad1 = prevGood.bearing * Math.PI / 180;
+                                        const rad2 = nextGood.bearing * Math.PI / 180;
+                                        newBearing = ((Math.atan2(
+                                            Math.sin(rad1) + Math.sin(rad2),
+                                            Math.cos(rad1) + Math.cos(rad2)
+                                        ) * 180 / Math.PI) + 360) % 360;
+                                    } else if (prevGood) {
+                                        newBearing = prevGood.bearing;
+                                    } else if (nextGood) {
+                                        newBearing = nextGood.bearing;
+                                    } else {
+                                        newBearing = streamBearing;
+                                    }
+
+                                    console.log(`Outlier rejected at ${cp.dist}nm: ${cp.bearing.toFixed(1)}° → ${newBearing.toFixed(1)}° (stream: ${streamBearing.toFixed(1)}°)`);
+                                    cp.bearing = newBearing;
+                                    cp.coords = pointAtBearing(fixLon, fixLat, newBearing, cp.dist);
+                                }
+                            }
+                        }
 
                         if (centerlinePoints.length >= 2) {
                             // ───────────────────────────────────────────────────────────
