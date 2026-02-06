@@ -1,0 +1,94 @@
+server {
+    listen 8080;
+    listen [::]:8080;
+    root /home/site/wwwroot;
+    index index.php index.html index.htm;
+    server_name _;
+    port_in_redirect off;
+
+    # Disable automatic directory slash redirect
+    absolute_redirect off;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # Logging
+    access_log /home/LogFiles/nginx_access.log;
+    error_log /home/LogFiles/nginx_error.log;
+
+    # PHP-FPM status page (for monitoring)
+    location ~ ^/(fpm-status|fpm-ping)$ {
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+    }
+
+    # Health check endpoint
+    location /healthcheck.php {
+        access_log off;
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Extensionless URL rewrites - map clean URLs to .php files
+    # This prevents nginx from treating these as directories and adding trailing slashes
+    location ~ ^/(advisory-builder|airport_config|airspace-elements|data|demand|event-aar|gdt|jatoc|logout|nod|plan|privacy|reroutes|reroutes_index|review|route|schedule|sheet|simulator|splits|status|sua|swim|swim-doc|swim-docs|swim-keys|tmi-publish|transparency)$ {
+        try_files /$1.php =404;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/$1.php;
+        fastcgi_param QUERY_STRING $args;
+    }
+
+    # Default location block - handle PHP and static files
+    location / {
+        # Try to serve file directly, fall back to index files, then 404
+        try_files $uri $uri/ =404;
+    }
+
+    # PHP file processing
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param QUERY_STRING $query_string;
+
+        # Increase timeouts for long-running scripts (daemons, analysis)
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Deny access to sensitive files
+    location ~ /(config\.php|\.env|\.git|\.htaccess|composer\.(json|lock))$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Static file caching
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml|svg|woff|woff2|ttf|eot)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+}
