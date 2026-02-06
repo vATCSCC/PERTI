@@ -2980,6 +2980,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-dasharray': [2, 1],
                     },
                 });
+
+                // Label the handoff boundary with facility names
+                map.addLayer({
+                    id: 'shared-boundary-label',
+                    type: 'symbol',
+                    source: 'shared-boundary',
+                    layout: {
+                        'symbol-placement': 'line-center',
+                        'text-field': ['concat', ['get', 'facility1'], ' / ', ['get', 'facility2'], ' Boundary'],
+                        'text-font': ['Noto Sans Bold'],
+                        'text-size': 13,
+                        'text-offset': [0, -1.2],
+                        'text-allow-overlap': true,
+                    },
+                    paint: {
+                        'text-color': '#ffd43b',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 2,
+                    },
+                });
             }
 
             // Add airway line (for route-based TMIs like Y290, J48, etc.)

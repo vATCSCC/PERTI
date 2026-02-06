@@ -11,6 +11,11 @@
  *   POST                           - Save compliance results for a plan
  */
 
+// Analysis results can be 20MB+; need extra memory for JSON decode + format
+ini_set('memory_limit', '512M');
+// Python analysis can take 2+ minutes for large events
+set_time_limit(300);
+
 header('Content-Type: application/json');
 
 include("../../load/config.php");
@@ -54,19 +59,8 @@ try {
             $result = call_azure_function($plan_id);
 
             if ($result['success']) {
-                // Save results to file for caching
-                $base_path = realpath(__DIR__ . '/../../data/tmi_compliance');
-                if (!$base_path) {
-                    $base_path = __DIR__ . '/../../data/tmi_compliance';
-                }
-                $results_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
-
-                // Ensure directory exists
-                if (!is_dir($base_path)) {
-                    mkdir($base_path, 0755, true);
-                }
-
-                file_put_contents($results_path, json_encode($result['data'], JSON_PRETTY_PRINT));
+                // Python writes results directly to the cache file via --output flag
+                // No need to re-save here
 
                 $response['data'] = format_results($result['data']);
                 $response['data']['plan_specific'] = true;
@@ -181,6 +175,16 @@ function call_azure_function($plan_id) {
         $python = 'python';
     }
 
+    // Output file: Python writes results here to avoid PHP memory issues with large stdout
+    $output_base = realpath(__DIR__ . '/../../data/tmi_compliance');
+    if (!$output_base) {
+        $output_base = __DIR__ . '/../../data/tmi_compliance';
+    }
+    if (!is_dir($output_base)) {
+        mkdir($output_base, 0755, true);
+    }
+    $output_file = $output_base . '/tmi_compliance_results_' . $plan_id . '.json';
+
     // Build command with environment variables inline (for Linux)
     // This ensures pip-installed packages in /home/.local are found
     $env_prefix = '';
@@ -195,43 +199,59 @@ function call_azure_function($plan_id) {
     }
 
     $cmd = sprintf(
-        '%s%s %s --plan_id %d 2>&1',
+        '%s%s %s --plan_id %d --output %s 2>&1',
         $env_prefix,
         escapeshellcmd($python),
         escapeshellarg($script_path),
-        intval($plan_id)
+        intval($plan_id),
+        escapeshellarg($output_file)
     );
 
-    // Execute with timeout
+    // Execute - Python writes results to file, only status/logs to stdout
     $output = [];
     $return_code = 0;
     exec($cmd, $output, $return_code);
 
-    $json_output = implode("\n", $output);
+    $console_output = implode("\n", $output);
 
-    // Try to extract JSON from output (skip log lines)
-    $lines = explode("\n", $json_output);
-    $json_line = '';
-    foreach (array_reverse($lines) as $line) {
-        $line = trim($line);
-        if (str_starts_with($line, '{') || str_starts_with($line, '[')) {
-            $json_line = $line;
-            break;
+    // Check if output file was written
+    if (!file_exists($output_file)) {
+        // Fall back to parsing stdout for error messages
+        $json_line = '';
+        foreach (array_reverse($output) as $line) {
+            $line = trim($line);
+            if (str_starts_with($line, '{') || str_starts_with($line, '[')) {
+                $json_line = $line;
+                break;
+            }
         }
-    }
 
-    if (empty($json_line)) {
+        if (!empty($json_line)) {
+            $err_data = json_decode($json_line, true);
+            if ($err_data && isset($err_data['error'])) {
+                return ['success' => false, 'error' => $err_data['error']];
+            }
+        }
+
         return [
             'success' => false,
-            'error' => "No JSON output from Python script. Output: " . substr($json_output, 0, 500)
+            'error' => "Python script did not produce output file. Console: " . substr($console_output, 0, 500)
         ];
     }
 
-    $data = json_decode($json_line, true);
+    // Read results from file (much more memory-efficient than capturing stdout)
+    $json_content = file_get_contents($output_file);
+    if ($json_content === false) {
+        return ['success' => false, 'error' => 'Failed to read output file'];
+    }
+
+    $data = json_decode($json_content, true);
+    unset($json_content); // Free memory before format_results
+
     if (json_last_error() !== JSON_ERROR_NONE) {
         return [
             'success' => false,
-            'error' => 'Invalid JSON from Python: ' . json_last_error_msg() . '. Output: ' . substr($json_line, 0, 200)
+            'error' => 'Invalid JSON in output file: ' . json_last_error_msg()
         ];
     }
 
