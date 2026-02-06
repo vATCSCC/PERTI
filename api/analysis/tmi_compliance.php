@@ -13,6 +13,9 @@
 
 header('Content-Type: application/json');
 
+// Large compliance datasets (trajectories) need more than default 128MB
+ini_set('memory_limit', '512M');
+
 include("../../load/config.php");
 
 // ADL Database connection
@@ -69,7 +72,12 @@ try {
                 file_put_contents($results_path, json_encode($result['data'], JSON_PRETTY_PRINT));
 
                 $response['data'] = format_results($result['data']);
-                $response['data'] = enhance_with_branches($response['data'], $conn);
+                try {
+                    $response['data'] = enhance_with_branches($response['data'], $conn);
+                } catch (\Throwable $e) {
+                    // Branch analysis is non-fatal; log and continue
+                    error_log("Branch analysis failed: " . $e->getMessage());
+                }
                 $response['data']['plan_specific'] = true;
                 $response['message'] = 'Analysis completed successfully';
             } else {
@@ -94,7 +102,11 @@ try {
 
                 if ($results) {
                     $response['data'] = format_results($results);
-                    $response['data'] = enhance_with_branches($response['data'], $conn);
+                    try {
+                        $response['data'] = enhance_with_branches($response['data'], $conn);
+                    } catch (\Throwable $e) {
+                        error_log("Branch analysis failed: " . $e->getMessage());
+                    }
                     $response['data']['plan_specific'] = $using_plan_specific;
                     $response['message'] = "Results loaded for plan $plan_id";
                 } else {
@@ -370,6 +382,17 @@ function format_results($results) {
 function enhance_with_branches(array $formatted, $conn): array
 {
     if (empty($formatted['mit_results'])) {
+        return $formatted;
+    }
+
+    // Skip if memory is already above 75% of limit to avoid OOM
+    $memLimitStr = ini_get('memory_limit');
+    $memLimitBytes = (int)$memLimitStr;
+    if (stripos($memLimitStr, 'G') !== false) $memLimitBytes *= 1024 * 1024 * 1024;
+    elseif (stripos($memLimitStr, 'M') !== false) $memLimitBytes *= 1024 * 1024;
+    elseif (stripos($memLimitStr, 'K') !== false) $memLimitBytes *= 1024;
+    if ($memLimitBytes > 0 && memory_get_usage(true) > $memLimitBytes * 0.75) {
+        error_log("Branch analysis skipped: memory usage too high (" . round(memory_get_usage(true) / 1024 / 1024) . "MB)");
         return $formatted;
     }
 
