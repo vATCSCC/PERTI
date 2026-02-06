@@ -244,6 +244,206 @@ include("load/footer.php");
 
 </body>
 
+<!-- Edit DCC Personnel Modal -->
+<div class="modal fade" id="edit_dccstaffingModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Personnel</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="edit_dccstaffing">
+
+                <div class="modal-body">
+
+                    <input type="hidden" name="id" id="id">
+
+                    Facility:
+                    <input type="text" class="form-control" name="position_facility" id="position_facility" readonly required>
+
+                    <hr>
+
+                    Personnel Name:
+                    <input type="text" class="form-control" name="personnel_name" id="personnel_name" maxlength="128" placeholder="Leave Blank for Vacancy">
+
+                    Personnel OIs:
+                    <input type="text" class="form-control" name="personnel_ois" id="personnel_ois" maxlength="2" placeholder="Leave Blank for Vacancy">
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Edit Terminal Staffing Modal -->
+<div class="modal fade" id="edittermstaffingModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Terminal Staffing Entry</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="edittermstaffing">
+
+                <div class="modal-body">
+
+                    <input type="hidden" name="id" id="id">
+
+                    Facility Name:
+                    <input type="text" class="form-control" name="facility_name" id="facility_name" placeholder="SCT - SoCal TRACON" readonly required>
+
+                    Staffing Status:
+                    <select class="form-control" name="staffing_status" id="staffing_status">
+                        <option value="0">Unknown</option>
+                        <option value="3">Understaffed</option>
+                        <option value="1">Top Down</option>
+                        <option value="2">Yes</option>
+                        <option value="4">No</option>
+                    </select>
+
+                    Staffing Quantity:
+                    <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
+
+                    Comments:
+                    <input type="text" class="form-control" name="comments" id="comments">
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Edit Config Modal -->
+<div class="modal fade" id="editconfigModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Config Entry</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="editconfig">
+
+                <div class="modal-body">
+
+                    <input type="hidden" name="id" id="sheet_editconfig_id">
+
+                    <!-- Config Picker Section -->
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="sheet_editconfig_use_adl">
+                            <label class="custom-control-label" for="sheet_editconfig_use_adl">Load from ADL Config</label>
+                        </div>
+                        <div id="sheet_editconfig_picker" style="display: none;">
+                            <select class="form-control mb-2" id="sheet_editconfig_select" disabled>
+                                <option value="">-- Select configuration --</option>
+                            </select>
+                            <small class="text-muted">Select a configuration to load runway info</small>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
+                    Field:
+                    <input type="text" class="form-control" name="airport" id="sheet_editconfig_airport" placeholder="BWI" maxlength="4" readonly required>
+
+                    Meteorological Condition:
+                    <select class="form-control" name="weather" id="sheet_editconfig_weather">
+                        <option value="0">Unknown</option>
+                        <option value="1">VMC</option>
+                        <option value="2">LVMC</option>
+                        <option value="3">IMC</option>
+                        <option value="4">LIMC</option>
+                    </select>
+
+                    Arrival Runways:
+                    <input type="text" class="form-control" name="arrive" id="sheet_editconfig_arrive" placeholder="33L/33R">
+
+                    Departure Runways:
+                    <input type="text" class="form-control" name="depart" id="sheet_editconfig_depart" placeholder="33R/28">
+
+                    Comments:
+                    <input type="text" class="form-control" name="comments" id="sheet_editconfig_comments">
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Edit Enroute Staffing Modal -->
+<div class="modal fade" id="editenroutestaffingModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Enroute Staffing Entry</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post" id="editenroutestaffing">
+
+                <div class="modal-body">
+
+                    <input type="hidden" name="id" id="id">
+
+                    Facility Name:
+                    <input type="text" class="form-control" name="facility_name" id="facility_name" readonly required>
+
+                    Staffing Status:
+                    <select class="form-control" name="staffing_status" id="staffing_status">
+                        <option value="0">Unknown</option>
+                        <option value="2">Understaffed</option>
+                        <option value="1">Yes</option>
+                        <option value="3">No</option>
+                    </select>
+
+                    Staffing Quantity:
+                    <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
+
+                    Comments:
+                    <input type="text" class="form-control" name="comments" id="comments">
+
+                </div>
+                <div class="modal-footer">
+                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                </div>
+        </div>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Insert sheet.js Script -->
 <script src="assets/js/sheet.js"></script>
 
 </html>
