@@ -49,9 +49,18 @@ include("sessions/handler.php");
 
     <link rel="stylesheet" href="assets/css/initiative_timeline.css">
 
+    <script>
+        function tooltips() {
+            $('[data-toggle="tooltip"]').tooltip('dispose');
+
+            $(function () {
+                $('[data-toggle="tooltip"]').tooltip()
+            });
+        }
+    </script>
 </head>
 
-<body class="toolbar-enabled">
+<body>
 
 <?php
 include('load/nav_public.php');
@@ -69,21 +78,165 @@ include('load/nav_public.php');
         </div>
     </section>
 
-    <section class="bg-secondary pb-6 pt-4">
-        <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card border-0 box-shadow">
-                        <div class="card-body">
-                            <div id="sheet-content">
-                                <!-- Content will be loaded here via sheet.js -->
+    <div class="container-fluid mt-3 mb-3">
+        <div class="row">
+            <div class="col-2">
+                <ul class="nav flex-column nav-pills" aria-orientation="vertical">
+                    <li><a class="nav-link active rounded" data-toggle="tab" href="#overview">Overview</a></li>
+                    <hr>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing">DCC Staffing</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
+                </ul>
+            </div>
+            <div class="col-10">
+                <div class="tab-content">
+                    <!-- Tab: Overview -->
+                    <div class="tab-pane fade show active" id="overview">
+                        <div class="row">
+                            <div class="col-6">
+                                <img src="<?= $plan_info['event_banner']; ?>" class="rounded" style="width: 100%;" alt="<?= $plan_info['event_name']; ?> Event Banner">
+
+                                <hr>
+
+                                <h4><b>Operational Goals</b></h4>
+
+                                <table class="table table-bordered">
+                                    <tbody id="goals_table"></tbody>
+                                </table>
+                            </div>
+
+                            <div class="col-6">
+                                <h4><b>Event Information</b></h4>
+                                <table class="table table-striped table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <td><b>Event Name</b></td>
+                                            <td><?= $plan_info['event_name']; ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Event Start Date</b></td>
+                                            <td><?= $plan_info['event_date']; ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Event Start Time</b></td>
+                                            <td><?= $plan_info['event_start']; ?>Z</td>
+                                        </tr>
+                                        <?php if (!empty($plan_info['event_end_date'])): ?>
+                                        <tr>
+                                            <td><b>Event End Date</b></td>
+                                            <td><?= $plan_info['event_end_date']; ?></td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <?php if (!empty($plan_info['event_end_time'])): ?>
+                                        <tr>
+                                            <td><b>Event End Time</b></td>
+                                            <td><?= $plan_info['event_end_time']; ?>Z</td>
+                                        </tr>
+                                        <?php endif; ?>
+                                        <tr>
+                                            <td><b>TMU OpLevel</b></td>
+                                            <?php
+                                                if ($plan_info['oplevel'] == 1) {
+                                                    echo '<td class="text-dark">'.$plan_info['oplevel'].' - Steady State</td>';
+                                                }
+                                                elseif ($plan_info['oplevel'] == 2) {
+                                                    echo '<td class="text-success">'.$plan_info['oplevel'].' - Localized Impact</td>';
+                                                }
+                                                elseif ($plan_info['oplevel'] == 3) {
+                                                    echo '<td class="text-warning">'.$plan_info['oplevel'].' - Regional Impact</td>';
+                                                }
+                                                elseif ($plan_info['oplevel'] == 4) {
+                                                    echo '<td class="text-danger">'.$plan_info['oplevel'].' - NAS-Wide Impact</td>';
+                                                }
+                                            ?>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <hr>
+
+                                <h4><b>Resources</b></h4>
+                                <ul>
+                                    <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
+                                    <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
+                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
+                                    <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
+                                        <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
+                                    <?php if (stripos($plan_info['hotline'] ?? '', 'Canada') !== false): ?>
+                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.</li>
+                                    <?php else: ?>
+                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline'] ?? ''; ?></b></span> Hotline for real-time operational coordination.</li>
+                                    <?php endif; ?>
+                                </ul>
+
                             </div>
                         </div>
                     </div>
+
+                    <!-- Tab: DCC Staffing -->
+                    <div class="tab-pane fade" id="dcc_staffing">
+                        <center><table class="table table-striped table-bordered w-75">
+                            <thead>
+                                <th class="text-center"><b>Facility</b></th>
+                                <th class="text-center"><b>OIs</b></th>
+                                <th><b>Personnel Name</b></th>
+                                <th></th>
+                            </thead>
+                            <tbody id="dcc_staffing_table"></tbody>
+                        </table></center>
+                    </div>
+
+                    <!-- Tab: Terminal Staffing -->
+                    <div class="tab-pane fade" id="t_staffing">
+                        <center><table class="table table-sm table-striped table-bordered w-75">
+                            <thead>
+                                <th class="text-center"><b>Facility Name</b></th>
+                                <th class="text-center"><b>Status</b></th>
+                                <th class="text-center"><b>Quantity</b></th>
+                                <th class="text-center"><b>Comments</b></th>
+                                <th></th>
+                            </thead>
+                            <tbody id="term_staffing_table"></tbody>
+                        </table></center>
+                    </div>
+
+                    <!-- Tab: Field Configs -->
+                    <div class="tab-pane fade" id="configs">
+                        <center><table class="table table-sm table-striped table-bordered w-75">
+                            <thead>
+                                <th class="text-center"><b>Field</b></th>
+                                <th class="text-center"><b>Conditions</b></th>
+                                <th class="text-center"><b>Arriving</b></th>
+                                <th class="text-center"><b>Departing</b></th>
+                                <th class="text-center"><b>AAR</b></th>
+                                <th class="text-center"><b>ADR</b></th>
+                                <th class="text-center"><b>Comments</b></th>
+                                <th></th>
+                            </thead>
+                            <tbody id="configs_table"></tbody>
+                        </table></center>
+                    </div>
+
+                    <!-- Tab: Enroute Staffing -->
+                    <div class="tab-pane fade" id="e_staffing">
+                        <center><table class="table table-sm table-striped table-bordered w-75">
+                            <thead>
+                                <th class="text-center"><b>Facility Name</b></th>
+                                <th class="text-center"><b>Status</b></th>
+                                <th class="text-center"><b>Quantity</b></th>
+                                <th class="text-center"><b>Comments</b></th>
+                                <th></th>
+                            </thead>
+                            <tbody id="enroute_staffing_table"></tbody>
+                        </table></center>
+                    </div>
+
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 
 <?php
 include("load/footer.php");
