@@ -69,6 +69,7 @@ try {
                 file_put_contents($results_path, json_encode($result['data'], JSON_PRETTY_PRINT));
 
                 $response['data'] = format_results($result['data']);
+                $response['data'] = enhance_with_branches($response['data'], $conn);
                 $response['data']['plan_specific'] = true;
                 $response['message'] = 'Analysis completed successfully';
             } else {
@@ -93,6 +94,7 @@ try {
 
                 if ($results) {
                     $response['data'] = format_results($results);
+                    $response['data'] = enhance_with_branches($response['data'], $conn);
                     $response['data']['plan_specific'] = $using_plan_specific;
                     $response['message'] = "Results loaded for plan $plan_id";
                 } else {
@@ -351,4 +353,293 @@ function format_results($results) {
     }
 
     return $formatted;
+}
+
+/**
+ * Enhance formatted results with branch corridor analysis.
+ *
+ * For each MIT result with sufficient trajectory data, calls the GIS
+ * branch_analysis API to identify upstream traffic branches, then computes
+ * per-branch compliance metrics from all_pairs data.
+ *
+ * Adds a 'branch_corridors' object to each MIT result containing:
+ *   - branches: Array of identified branches with metadata
+ *   - flight_assignments: Callsign → branch_id mapping
+ *   - branch_metrics: Per-branch compliance stats
+ */
+function enhance_with_branches(array $formatted, $conn): array
+{
+    if (empty($formatted['mit_results'])) {
+        return $formatted;
+    }
+
+    foreach ($formatted['mit_results'] as &$mit) {
+        $trajectories = $mit['trajectories'] ?? [];
+        if (empty($trajectories) || count($trajectories) < 3) {
+            continue; // Need at least 3 flights for meaningful branching
+        }
+
+        // Get fix coordinates from fix_info
+        $fixInfo = $mit['fix_info'] ?? null;
+        if (!$fixInfo || !isset($fixInfo['lat'], $fixInfo['lon'])) {
+            continue;
+        }
+
+        // Look up flight O/D metadata from ADL (graceful fallback)
+        $callsigns = [];
+        foreach ($trajectories as $key => $traj) {
+            $callsigns[] = $traj['callsign'] ?? $key;
+        }
+        $flightMeta = lookup_flight_meta($conn, $callsigns);
+
+        // Build trajectories array for GIS API (ensure callsign + coordinates format)
+        $gisTrajectories = [];
+        foreach ($trajectories as $key => $traj) {
+            $cs = $traj['callsign'] ?? $key;
+            $coords = $traj['coordinates'] ?? [];
+            if (count($coords) < 2) continue;
+            $gisTrajectories[] = ['callsign' => $cs, 'coordinates' => $coords];
+        }
+
+        if (count($gisTrajectories) < 3) continue;
+
+        // Build known fixes from fix_info (the measurement point itself)
+        $knownFixes = [];
+        $fixName = $mit['fix'] ?? $mit['measurement_point'] ?? '';
+        if ($fixName && isset($fixInfo['lat'], $fixInfo['lon'])) {
+            $knownFixes[] = [
+                'id' => $fixName,
+                'lat' => (float)$fixInfo['lat'],
+                'lon' => (float)$fixInfo['lon'],
+            ];
+        }
+
+        // Call GIS branch_analysis API
+        $gisPayload = [
+            'trajectories' => $gisTrajectories,
+            'fix_point' => [(float)$fixInfo['lon'], (float)$fixInfo['lat']],
+            'mit_distance_nm' => (float)($mit['required'] ?? 15),
+            'max_distance_nm' => 250,
+            'flight_meta' => $flightMeta,
+            'tmi_type' => 'arrival',
+            'cluster_eps_nm' => 3,
+            'cluster_min_points' => 3,
+            'known_fixes' => $knownFixes,
+        ];
+
+        $gisResult = call_gis_branch_analysis($gisPayload);
+        if (!$gisResult || empty($gisResult['branches'])) {
+            continue;
+        }
+
+        // Compute per-branch compliance metrics from all_pairs
+        $branchMetrics = compute_branch_metrics(
+            $mit['all_pairs'] ?? [],
+            $gisResult['flight_assignments'] ?? []
+        );
+
+        // Add branch_corridors to this MIT result
+        $mit['branch_corridors'] = [
+            'branches' => $gisResult['branches'],
+            'flight_assignments' => $gisResult['flight_assignments'],
+            'branch_metrics' => $branchMetrics,
+            'total_flights' => $gisResult['total_flights'] ?? count($callsigns),
+            'branch_count' => $gisResult['branch_count'] ?? count($gisResult['branches']),
+            'ungrouped_flights' => $gisResult['ungrouped_flights'] ?? 0,
+        ];
+    }
+
+    return $formatted;
+}
+
+/**
+ * Look up flight O/D metadata from ADL for branch grouping.
+ * Returns {callsign: {dept, dest}} or empty values if not found.
+ */
+function lookup_flight_meta($conn, array $callsigns): array
+{
+    if (empty($callsigns) || !$conn) {
+        return [];
+    }
+
+    $meta = [];
+
+    // Build parameterized IN clause for sqlsrv
+    $params = [];
+    $placeholders = [];
+    foreach ($callsigns as $i => $cs) {
+        $placeholders[] = '?';
+        $params[] = $cs;
+    }
+    $inClause = implode(',', $placeholders);
+
+    // Query normalized tables (active flights)
+    $sql = "
+        SELECT c.callsign, p.fp_dept_icao, p.fp_dest_icao
+        FROM adl_flight_core c
+        JOIN adl_flight_plan p ON c.flight_uid = p.flight_uid
+        WHERE c.callsign IN ($inClause)
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $cs = $row['callsign'];
+            if (!isset($meta[$cs])) {
+                $meta[$cs] = [
+                    'dept' => $row['fp_dept_icao'] ?? 'UNK',
+                    'dest' => $row['fp_dest_icao'] ?? 'UNK',
+                ];
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // For callsigns not found in active flights, try legacy table
+    $missing = array_diff($callsigns, array_keys($meta));
+    if (!empty($missing)) {
+        $params2 = [];
+        $placeholders2 = [];
+        foreach ($missing as $cs) {
+            $placeholders2[] = '?';
+            $params2[] = $cs;
+        }
+        $inClause2 = implode(',', $placeholders2);
+
+        $sql2 = "
+            SELECT callsign, fp_dept_icao, fp_dest_icao
+            FROM adl_flights
+            WHERE callsign IN ($inClause2)
+        ";
+
+        $stmt2 = sqlsrv_query($conn, $sql2, $params2);
+        if ($stmt2) {
+            while ($row = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC)) {
+                $cs = $row['callsign'];
+                if (!isset($meta[$cs])) {
+                    $meta[$cs] = [
+                        'dept' => $row['fp_dept_icao'] ?? 'UNK',
+                        'dest' => $row['fp_dest_icao'] ?? 'UNK',
+                    ];
+                }
+            }
+            sqlsrv_free_stmt($stmt2);
+        }
+    }
+
+    return $meta;
+}
+
+/**
+ * Call the GIS track_density API for branch analysis.
+ * Uses server-side HTTP request to the same host.
+ */
+function call_gis_branch_analysis(array $payload): ?array
+{
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+    $url = "$protocol://$host/api/gis/track_density.php?action=branch_analysis";
+
+    $jsonPayload = json_encode($payload);
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\nContent-Length: " . strlen($jsonPayload) . "\r\n",
+            'content' => $jsonPayload,
+            'timeout' => 30,
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!$data || !($data['success'] ?? false)) {
+        return null;
+    }
+
+    return $data['data'] ?? null;
+}
+
+/**
+ * Compute per-branch compliance metrics from all_pairs data.
+ *
+ * For each branch, filters pairs where BOTH flights belong to the same
+ * branch and computes compliance statistics.
+ *
+ * @param array $allPairs           All flight pairs with spacing data
+ * @param array $flightAssignments  Callsign → branch_id mapping
+ * @return array Branch_id → metrics mapping
+ */
+function compute_branch_metrics(array $allPairs, array $flightAssignments): array
+{
+    if (empty($allPairs) || empty($flightAssignments)) {
+        return [];
+    }
+
+    $branchPairs = []; // branch_id => [pairs]
+
+    foreach ($allPairs as $pair) {
+        $lead = $pair['prev_callsign'] ?? $pair['lead_callsign'] ?? '';
+        $trail = $pair['curr_callsign'] ?? $pair['trail_callsign'] ?? '';
+
+        $leadBranch = $flightAssignments[$lead] ?? null;
+        $trailBranch = $flightAssignments[$trail] ?? null;
+
+        // Only count intra-branch pairs (both flights in same branch)
+        if ($leadBranch && $leadBranch === $trailBranch) {
+            if (!isset($branchPairs[$leadBranch])) {
+                $branchPairs[$leadBranch] = [];
+            }
+            $branchPairs[$leadBranch][] = $pair;
+        }
+    }
+
+    $metrics = [];
+    foreach ($branchPairs as $branchId => $pairs) {
+        $totalPairs = count($pairs);
+        $compliantPairs = 0;
+        $spacings = [];
+        $violations = [];
+
+        foreach ($pairs as $pair) {
+            $compliance = $pair['compliance'] ?? '';
+            $spacing = (float)($pair['spacing'] ?? 0);
+            $spacings[] = $spacing;
+
+            if (strtoupper($compliance) === 'COMPLIANT') {
+                $compliantPairs++;
+            } else {
+                $violations[] = [
+                    'lead' => $pair['prev_callsign'] ?? $pair['lead_callsign'] ?? '',
+                    'trail' => $pair['curr_callsign'] ?? $pair['trail_callsign'] ?? '',
+                    'spacing' => $spacing,
+                    'shortfall_pct' => (float)($pair['shortfall_pct'] ?? 0),
+                ];
+            }
+        }
+
+        $compliancePct = $totalPairs > 0 ? round(($compliantPairs / $totalPairs) * 100, 1) : 100;
+
+        $metrics[$branchId] = [
+            'pairs' => $totalPairs,
+            'compliant_pairs' => $compliantPairs,
+            'compliance_pct' => $compliancePct,
+            'violations' => $violations,
+            'spacing_stats' => [
+                'min' => !empty($spacings) ? round(min($spacings), 1) : 0,
+                'avg' => !empty($spacings) ? round(array_sum($spacings) / count($spacings), 1) : 0,
+                'max' => !empty($spacings) ? round(max($spacings), 1) : 0,
+            ],
+        ];
+    }
+
+    return $metrics;
 }
