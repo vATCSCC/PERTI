@@ -67,9 +67,8 @@ require_once(__DIR__ . '/../../load/connect.php');
 // ============================================================================
 
 /**
- * Require authenticated session for write operations.
+ * Require authenticated session for destructive operations (activate, cancel, purge, publish).
  * Sends 401 and exits if not authenticated.
- * Session is already started by the module-level include above.
  * @return string The authenticated user's VATSIM CID
  */
 function gdt_require_auth() {
@@ -81,6 +80,18 @@ function gdt_require_auth() {
     }
 
     return $_SESSION['VATSIM_CID'];
+}
+
+/**
+ * Get authenticated CID if available, otherwise return 'anonymous'.
+ * Use for preview/modeling/simulation endpoints that don't require login.
+ * @return string VATSIM CID or 'anonymous'
+ */
+function gdt_optional_auth() {
+    if (isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID'])) {
+        return $_SESSION['VATSIM_CID'];
+    }
+    return 'anonymous';
 }
 
 /**
