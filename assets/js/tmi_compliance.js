@@ -2327,8 +2327,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (!trajectories || Object.keys(trajectories).length < 3) return null;
         if (this.branchCorridorCache[mapId]) return this.branchCorridorCache[mapId];
 
+        // Resolve fix coordinates: try fix_info, then traffic_sector.measurement_point
+        let fixLat, fixLon;
         const fixInfo = mitResult.fix_info;
-        if (!fixInfo?.lat || !fixInfo?.lon) return null;
+        if (fixInfo?.lat && fixInfo?.lon) {
+            fixLat = parseFloat(fixInfo.lat);
+            fixLon = parseFloat(fixInfo.lon);
+        } else {
+            // Fallback: traffic_sector.measurement_point is [lon, lat]
+            const mp = mitResult.traffic_sector?.measurement_point || mitResult.traffic_sector?.fix_point;
+            if (mp) {
+                fixLon = parseFloat(mp[0]);
+                fixLat = parseFloat(mp[1]);
+            }
+        }
+        if (!fixLat || !fixLon) return null;
 
         const trajArray = Object.entries(trajectories).map(([cs, traj]) => ({
             callsign: cs,
@@ -2343,7 +2356,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     trajectories: trajArray,
-                    fix_point: [parseFloat(fixInfo.lon), parseFloat(fixInfo.lat)],
+                    fix_point: [fixLon, fixLat],
                     mit_distance_nm: parseFloat(mitResult.required || 15),
                     max_distance_nm: 250,
                     tmi_type: 'arrival',
@@ -2654,7 +2667,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Trigger async flow stream analysis (populates cache for later map render)
             const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
-            const fixPoint = fixInfo?.geometry?.coordinates || null;
+            const fixPoint = fixInfo?.geometry?.coordinates
+                || (r.traffic_sector?.measurement_point) // [lon, lat] from Python
+                || null;
             const knownFixes = (r.known_fixes || r.approach_fixes || []).map(f => ({
                 id: f.id || f.name || f.fix,
                 lat: f.lat || f.latitude || f.geometry?.coordinates?.[1],
@@ -4042,6 +4057,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         };
 
                         console.log(`Computed ${allStreamCones.length} stream cones from ${Object.keys(trajectories).length} tracks`);
+                        allStreamCones.forEach((sc, i) => console.log(`  Cone ${i+1}: bearing=${sc.bearing.toFixed(1)}°, tracks=${sc.trackCount}, pts=${sc.centerlinePoints.length}`));
                     }
             }
 
@@ -4132,6 +4148,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     });
                 } else {
                     // Legacy wedge-based polygons
+                    // Python's traffic_sector uses track HEADINGS (direction of flight).
+                    // Flow cone should show APPROACH direction (where traffic comes from),
+                    // so we flip the sector bearings by 180°.
+                    const flipSector = (sector) => ({
+                        start_bearing: (sector.start_bearing + 180) % 360,
+                        end_bearing: (sector.end_bearing + 180) % 360,
+                        width_deg: sector.width_deg,
+                    });
                     try {
                         if (!sectorData.fix_point) {
                             console.error(`Flow cone error: fix_point is missing for ${mapId}`);
@@ -4139,12 +4163,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             sectorFeatures.push({
                                 type: 'Feature',
                                 properties: { pct: 90 },
-                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(flipSector(sectorData.sector_90), SECTOR_RADIUS_NM)] },
                             });
                             sectorFeatures.push({
                                 type: 'Feature',
                                 properties: { pct: 75 },
-                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(flipSector(sectorData.sector_75), SECTOR_RADIUS_NM)] },
                             });
                         }
                     } catch (err) {
