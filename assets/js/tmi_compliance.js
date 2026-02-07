@@ -2389,12 +2389,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 body: JSON.stringify({
                     trajectories: trajArray,
                     fix_point: [fixLon, fixLat],
-                    mit_distance_nm: parseFloat(mitResult.required || 15),
+                    branch_min_distance_nm: 5,           // Inner bound for clustering (NOT MIT distance)
                     max_distance_nm: 250,
                     tmi_type: 'arrival',
                     flight_meta: flightMeta,
-                    cluster_eps_nm: 3,
-                    cluster_min_points: 3
+                    cluster_eps_nm: 6,                   // Phase 1: wider eps for corridor detection
+                    cluster_min_points: 3,
+                    bearing_filter_deg: 90,              // Reject opposite-direction traffic
+                    sub_branch_eps_nm: 3,                // Phase 2: tighter eps for sub-branches
                 })
             });
 
@@ -2416,10 +2418,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 total_flights: gisData.total_flights || trajArray.length,
                 branch_count: gisData.branch_count || gisData.branches.length,
                 ungrouped_flights: gisData.ungrouped_flights || 0,
+                bearing_filter: gisData.bearing_filter || null,
+                corridors_phase1: gisData.corridors_phase1 || 0,
             };
 
             this.branchCorridorCache[mapId] = corridors;
-            console.log(`Branch analysis for ${mapId}: ${corridors.branch_count} branches`);
+            const bf = gisData.bearing_filter;
+            const filterInfo = bf ? ` (bearing filter: ${bf.accepted} accepted, ${bf.rejected} rejected, median ${bf.median_bearing}°)` : '';
+            console.log(`Branch analysis for ${mapId}: ${gisData.corridors_phase1 || '?'} corridors → ${corridors.branch_count} branches${filterInfo}`);
 
             // If map + branch panel already open, refresh it
             if (this.branchPanelState[mapId]?.visible) {
@@ -6534,6 +6540,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     polygon75: corridor.polygon_75,
                     polygon90: corridor.polygon_90,
                     selected: true,
+                    isSubBranch: branch.is_sub_branch || false,
+                    odComposition: branch.od_composition || null,
+                    approachDirection: branch.approach_direction || '',
                 });
             }
         });
@@ -6887,11 +6896,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const branchData = this.branchCorridorCache[mapId];
         const totalFlights = branchData?.total_flights || 0;
         const ungrouped = branchData?.ungrouped_flights || 0;
+        const bearingFilter = branchData?.bearing_filter;
+        const phase1Count = branchData?.corridors_phase1 || 0;
+
+        let filterNote = '';
+        if (bearingFilter && bearingFilter.rejected > 0) {
+            filterNote = `<span class="branch-panel-filter" title="Approach bearing filter: ±${bearingFilter.filter_deg}° from ${bearingFilter.median_bearing}° median"><i class="fas fa-filter mr-1"></i>${bearingFilter.rejected} filtered</span>`;
+        }
 
         let html = `
             <div class="branch-panel-header">
                 <span class="branch-panel-title"><i class="fas fa-code-branch mr-1"></i>Traffic Branches</span>
-                <span class="branch-panel-stats">${state.corridors.length} branches, ${totalFlights} flights${ungrouped > 0 ? ` (${ungrouped} ungrouped)` : ''}</span>
+                <span class="branch-panel-stats">${state.corridors.length} branches, ${totalFlights} flights${ungrouped > 0 ? ` (${ungrouped} ungrouped)` : ''}${phase1Count > state.corridors.length ? ` from ${phase1Count} corridors` : ''}</span>
+                ${filterNote}
                 <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
                 <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
             </div>
@@ -6901,6 +6918,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         state.corridors.forEach(bc => {
             const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
             const color = this.branchComplianceColor(bc.compliancePct);
+            const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90 mr-1" style="font-size:0.65em; opacity:0.6" title="Sub-branch"></i>' : '';
 
             html += `
                 <label class="branch-item" title="${bc.longName}">
@@ -6908,7 +6926,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                            data-branch-id="${bc.branchId}" data-map="${mapId}"
                            onchange="TMICompliance.toggleBranchSelection(this)">
                     <span class="branch-color-swatch" style="background: ${color}"></span>
-                    <span class="branch-name">${bc.shortName}</span>
+                    <span class="branch-name">${subIcon}${bc.shortName}</span>
                     <span class="branch-count">${bc.trackCount}<i class="fas fa-plane ml-1" style="font-size:0.7em"></i></span>
                     <span class="branch-compliance ${compClass}">${bc.compliancePct}%</span>
                 </label>

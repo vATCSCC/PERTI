@@ -1340,6 +1340,16 @@
     flex: 1;
 }
 
+.branch-panel-filter {
+    font-size: 0.68em;
+    color: #6b7280;
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+}
+
 .branch-select-btn {
     padding: 1px 8px;
     font-size: 0.7em;
