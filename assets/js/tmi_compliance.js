@@ -1926,6 +1926,384 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         return html;
     },
 
+    /**
+     * Get Bootstrap badge class for reroute action type
+     */
+    getActionBadgeClass: function(action) {
+        switch ((action || '').toUpperCase()) {
+            case 'RQD': return 'badge-danger';
+            case 'RMD': return 'badge-warning';
+            case 'FYI': return 'badge-info';
+            case 'PLN': return 'badge-secondary';
+            default: return 'badge-light';
+        }
+    },
+
+    /**
+     * Render a reroute compliance card (classic layout)
+     */
+    renderRerouteCard: function(r) {
+        const detailId = `reroute_detail_${++this.detailIdCounter}`;
+        const historyId = `reroute_history_${this.detailIdCounter}`;
+        const routeTableId = `reroute_routes_${this.detailIdCounter}`;
+
+        const action = r.action || (r.mandatory ? 'RQD' : 'FYI');
+        const routeType = r.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const compPct = r.compliance_pct || r.filed_compliance_pct || 0;
+        const compClass = this.getComplianceClass(compPct);
+
+        const filedCompliant = r.filed_compliant || [];
+        const filedNonCompliant = r.filed_non_compliant || [];
+        const flownCompliant = r.flown_compliant || [];
+        const flownNonCompliant = r.flown_non_compliant || [];
+        const allFlights = r.flights || [];
+        const totalFlights = r.total_flights || allFlights.length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRED') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="tmi-card reroute-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                        <span class="tmi-fix-name ml-2">${r.name || 'Reroute'}</span>
+                        <span class="text-muted ml-2">
+                            ${r.start || ''} - ${r.end || ''}
+                        </span>
+                        ${endedBadge}
+                    </div>
+                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                </div>
+        `;
+
+        // Subheader: constrained area, reason, assessment mode
+        const subParts = [];
+        if (r.constrained_area) subParts.push(r.constrained_area);
+        if (r.reason) subParts.push(r.reason);
+        if (r.assessment_mode) {
+            const modeLabel = r.assessment_mode === 'full_compliance' ? 'Full route compliance' :
+                r.assessment_mode === 'fix_only' ? 'Required fix check only' : r.assessment_mode;
+            subParts.push(modeLabel);
+        }
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mb-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Stats row with filed vs flown split
+        html += `
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${totalFlights}</div>
+                        <div class="tmi-stat-label">Total Flights</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${filedCompliant.length}</div>
+                        <div class="tmi-stat-label">Filed Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${flownCompliant.length}</div>
+                        <div class="tmi-stat-label">Flown Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-danger">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                        <div class="tmi-stat-label">Non-Compliant</div>
+                    </div>
+                </div>
+        `;
+
+        // Filed vs flown compliance split
+        const filedPct = r.filed_compliance_pct || 0;
+        const flownPct = r.flown_compliance_pct || 0;
+        html += `
+                <div class="compliance-split">
+                    <div class="filed">
+                        <div class="small text-muted">Filed</div>
+                        <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                    </div>
+                    <div class="flown">
+                        <div class="small text-muted">Flown</div>
+                        <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                        ${r.no_trajectory_count ? `<div class="small text-muted">(${r.no_trajectory_count} no trajectory)</div>` : ''}
+                    </div>
+                </div>
+        `;
+
+        // Program history (collapsible)
+        const history = r.program_history || [];
+        if (history.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${historyId}">
+                        <i class="fas fa-history"></i> Program History (${history.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 program-history" id="${historyId}">
+                    ${history.map(h => `
+                        <div class="history-item">
+                            <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                            <span>${h.type || ''}</span>
+                            ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                            <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Required routes table (collapsible)
+        const requiredRoutes = r.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${routeTableId}">
+                        <i class="fas fa-route"></i> Required Routes (${requiredRoutes.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${routeTableId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped route-table">
+                            <thead class="thead-dark">
+                                <tr><th>Origin</th><th>Dest</th><th>Route</th></tr>
+                            </thead>
+                            <tbody>
+                                ${requiredRoutes.map(rt => {
+                                    // Highlight required fixes in the route string
+                                    let routeStr = rt.route || '';
+                                    const reqFixes = r.required_fixes || [];
+                                    reqFixes.forEach(fix => {
+                                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                                            `<span class="required-segment">${fix}</span>`);
+                                    });
+                                    return `<tr>
+                                        <td><code>${rt.orig || ''}</code></td>
+                                        <td><code>${rt.dest || ''}</code></td>
+                                        <td>${routeStr}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Flight detail table (collapsible)
+        if (allFlights.length > 0) {
+            html += `
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-plane"></i> Flight Details
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped">
+                            <thead class="thead-dark sticky-top">
+                                <tr>
+                                    <th>Callsign</th>
+                                    <th>Origin</th>
+                                    <th>Dest</th>
+                                    <th>Filed %</th>
+                                    <th>Flown %</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allFlights.map(f => {
+                                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                                    return `<tr>
+                                        <td><code>${f.callsign || ''}</code></td>
+                                        <td>${f.dept || ''}</td>
+                                        <td>${f.dest || ''}</td>
+                                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Exemption text
+        if (r.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${r.exemptions}</div>`;
+        }
+
+        // Associated restrictions
+        if (r.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${r.associated_restrictions}</div>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render reroute detail content (V2 progressive layout)
+     */
+    renderRerouteDetailV2: function(data) {
+        const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+        const routeType = data.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const allFlights = data.flights || [];
+        const totalFlights = data.total_flights || allFlights.length;
+        const filedCompliant = data.filed_compliant || [];
+        const filedNonCompliant = data.filed_non_compliant || [];
+        const flownCompliant = data.flown_compliant || [];
+        const flownNonCompliant = data.flown_non_compliant || [];
+        const filedPct = data.filed_compliance_pct || 0;
+        const flownPct = data.flown_compliance_pct || 0;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRED') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="mb-2">
+                <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                ${endedBadge}
+            </div>
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.start || '?'} - ${data.end || '?'}</div>
+                    <div class="stat-label">Active Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedCompliant.length}</div>
+                    <div class="stat-label">Filed Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${flownCompliant.length}</div>
+                    <div class="stat-label">Flown Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                    <div class="stat-label">Non-Compliant</div>
+                </div>
+            </div>
+        `;
+
+        // Subheader info
+        const subParts = [];
+        if (data.constrained_area) subParts.push(data.constrained_area);
+        if (data.reason) subParts.push(data.reason);
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mt-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Filed vs flown compliance split
+        html += `
+            <div class="compliance-split mt-2">
+                <div class="filed">
+                    <div class="small text-muted">Filed Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                </div>
+                <div class="flown">
+                    <div class="small text-muted">Flown Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                    ${data.no_trajectory_count ? `<div class="small text-muted">(${data.no_trajectory_count} no trajectory)</div>` : ''}
+                </div>
+            </div>
+        `;
+
+        // Program history (expandable section)
+        const history = data.program_history || [];
+        if (history.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-history', 'Program History', `(${history.length})`, () => {
+                return `<div class="program-history">${history.map(h => `
+                    <div class="history-item">
+                        <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                        <span>${h.type || ''}</span>
+                        ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                        <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                    </div>
+                `).join('')}</div>`;
+            });
+        }
+
+        // Required routes (expandable section)
+        const requiredRoutes = data.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-routes', 'Required Routes', `(${requiredRoutes.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped route-table">
+                    <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
+                requiredRoutes.forEach(rt => {
+                    let routeStr = rt.route || '';
+                    const reqFixes = data.required_fixes || [];
+                    reqFixes.forEach(fix => {
+                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                            `<span class="required-segment">${fix}</span>`);
+                    });
+                    tbl += `<tr>
+                        <td><code>${rt.orig || ''}</code></td>
+                        <td><code>${rt.dest || ''}</code></td>
+                        <td>${routeStr}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight details (expandable section)
+        if (allFlights.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-flights', 'Flight Details', `(${allFlights.length})`, () => {
+                let tbl = `<div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-striped">
+                        <thead class="thead-dark sticky-top">
+                            <tr><th>Callsign</th><th>Origin</th><th>Dest</th><th>Filed %</th><th>Flown %</th><th>Status</th></tr>
+                        </thead><tbody>`;
+                allFlights.forEach(f => {
+                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                    tbl += `<tr>
+                        <td><code>${f.callsign || ''}</code></td>
+                        <td>${f.dept || ''}</td>
+                        <td>${f.dest || ''}</td>
+                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Exemption text
+        if (data.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${data.exemptions}</div>`;
+        }
+
+        // Associated restrictions
+        if (data.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${data.associated_restrictions}</div>`;
+        }
+
+        return html;
+    },
+
     renderApreqCard: function(r) {
         const detailId = `apreq_detail_${++this.detailIdCounter}`;
         const exemptFlights = r.exempt_flights || [];
