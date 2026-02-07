@@ -1310,44 +1310,92 @@
 }
 
 /* ===========================================
- * BRANCH CORRIDOR ANALYSIS PANEL
+ * FLOW ANALYSIS SECTION (progressive UI)
+ * Overlays the dark map — hardcoded dark colors
  * =========================================== */
 
-/* Branch panel always overlays the dark map — use hardcoded dark colors */
-.branch-panel {
+.flow-analysis-section {
     background: rgba(15, 15, 30, 0.95);
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 6px 10px;
+    padding: 5px 10px;
+    font-size: 0.78em;
 }
 
-.branch-panel-header {
+.fa-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
+    padding: 3px 0;
 }
 
-.branch-panel-title {
-    font-size: 0.8em;
-    font-weight: 600;
-    color: #e0e0e0;
+.fa-row + .fa-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fa-row-icon {
+    color: #6b7280;
+    font-size: 0.85em;
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.fa-row-label {
+    color: #9ca3af;
     white-space: nowrap;
 }
 
-.branch-panel-stats {
-    font-size: 0.72em;
-    color: #9ca3af;
-    flex: 1;
+.fa-stream-badges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
 }
 
-.branch-panel-filter {
-    font-size: 0.68em;
+.fa-stream-badge {
+    font-size: 0.88em;
+    color: #a78bfa;
+    padding: 1px 6px;
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    border-radius: 3px;
+    background: rgba(167, 139, 250, 0.08);
+    white-space: nowrap;
+}
+
+.fa-badge-count {
+    color: #c4b5fd;
+    font-weight: 600;
+}
+
+.fa-filter-badge {
+    font-size: 0.88em;
     color: #6b7280;
     padding: 1px 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.04);
     white-space: nowrap;
+}
+
+.fa-filter-badge i {
+    margin-right: 3px;
+}
+
+.fa-computing {
+    color: #6b7280;
+    font-style: italic;
+    margin-left: auto;
+}
+
+.fa-loading .fa-row-label {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.fa-branch-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0 2px 22px;
 }
 
 .branch-select-btn {
