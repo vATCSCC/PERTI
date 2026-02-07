@@ -618,6 +618,13 @@ include("load/config.php");
                                 <div class="perti-stat-category">Source</div>
                                 <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
                             </div>
+                            <!-- Set Config Button -->
+                            <div class="perti-stat-item d-flex align-items-center">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="set_config_btn"
+                                        title="Set airport configuration" style="display: none; padding: 2px 8px; font-size: 0.7rem;">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1185,6 +1192,13 @@ include("load/config.php");
     }
     setInterval(updateDemandClock, 1000);
     updateDemandClock();
+
+    // User info for config publishing (from session set by nav_public.php)
+    window.DEMAND_USER = {
+        loggedIn: <?= json_encode($logged_in) ?>,
+        cid: <?= json_encode($logged_in ? ($_SESSION['VATSIM_CID'] ?? null) : null) ?>,
+        name: <?= json_encode($logged_in ? (trim(($user_first_name ?? '') . ' ' . ($user_last_name ?? ''))) : null) ?>
+    };
 
 </script>
 
