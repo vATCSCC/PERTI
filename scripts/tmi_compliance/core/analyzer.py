@@ -15,7 +15,9 @@ from .models import (
     TMI, TMIType, EventConfig, CrossingResult, BoundaryCrossing, Compliance,
     SpacingCategory, MeasurementType, categorize_spacing, calculate_shortfall_pct,
     normalize_datetime, normalize_icao_list, CROSSING_RADIUS_NM, MITModifier,
-    TrafficDirection, TrafficFilter
+    TrafficDirection, TrafficFilter,
+    GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
+    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -458,19 +460,37 @@ class TMIComplianceAnalyzer:
                         key = f"{tmi.tmi_type.value}_{tmi.fix}_{time_key}_{tmi.value}"
                         results['mit_results'][key] = result
 
-                # Ground Stop Analysis
-                for tmi in gs_tmis:
-                    result = self._analyze_gs_compliance(tmi)
-                    if result:
-                        key = f"GS_{tmi.provider}_{','.join(tmi.destinations)}_ALL"
-                        results['gs_results'][key] = result
+                # Ground Stop Analysis - prefer programs
+                gs_programs = getattr(self.event, 'gs_programs', [])
+                if gs_programs:
+                    for program in gs_programs:
+                        result = self._analyze_gs_program(program)
+                        if result:
+                            key = f"GS_{program.airport}"
+                            results['gs_results'][key] = result
+                else:
+                    # Fallback to old single-TMI approach
+                    for tmi in gs_tmis:
+                        result = self._analyze_gs_compliance(tmi)
+                        if result:
+                            key = f"GS_{tmi.provider}_{','.join(tmi.destinations)}_ALL"
+                            results['gs_results'][key] = result
 
-                # Reroute Analysis
-                for tmi in reroute_tmis:
-                    result = self._analyze_reroute_compliance(tmi)
-                    if result:
-                        key = tmi.reroute_name or f"REROUTE_{','.join(tmi.origins[:2])}_{','.join(tmi.destinations[:2])}"
-                        results['reroute_results'][key] = result
+                # Reroute Analysis - prefer programs
+                reroute_programs = getattr(self.event, 'reroute_programs', [])
+                if reroute_programs:
+                    for program in reroute_programs:
+                        result = self._analyze_reroute_program(program)
+                        if result:
+                            key = program.name or f"REROUTE_{program.route_type}_{program.action}"
+                            results['reroute_results'][key] = result
+                else:
+                    # Fallback to old single-TMI approach
+                    for tmi in reroute_tmis:
+                        result = self._analyze_reroute_compliance(tmi)
+                        if result:
+                            key = tmi.reroute_name or f"REROUTE_{','.join(tmi.origins[:2])}_{','.join(tmi.destinations[:2])}"
+                            results['reroute_results'][key] = result
 
                 # APREQ Tracking (just count flights, no compliance assessment)
                 for tmi in apreq_tmis:
@@ -1756,6 +1776,186 @@ class TMIComplianceAnalyzer:
             'origins': tmi.origins
         }
 
+    def _analyze_gs_program(self, program: GSProgram) -> Optional[Dict]:
+        """
+        Analyze Ground Stop compliance for a program (chain of advisories).
+
+        Enhancements over _analyze_gs_compliance:
+        1. Uses effective window from program chain
+        2. Uses OOOI times (atd_utc/off_utc) for departure detection, falling back to first_seen
+        3. Phase tracking - tags each flight with which advisory phase it was in
+        4. Per-origin breakdown by DEP FACILITY
+        5. Delay impact calculation (hold time for compliant flights)
+        6. Program timeline for frontend rendering
+        7. Not-in-scope flights (to GS airport but from unlisted facility)
+        """
+        logger.info(f"Analyzing GS Program: {program.airport} ({len(program.advisories)} advisories)")
+
+        # Get all flights to the GS airport
+        # Create a synthetic TMI for flight filtering
+        synthetic_tmi = TMI(
+            tmi_id=f'GS_PROGRAM_{program.airport}',
+            tmi_type=TMIType.GS,
+            destinations=[program.airport],
+            origins=[],
+            start_utc=program.effective_start,
+            end_utc=program.effective_end
+        )
+        flights = self._filter_flights_by_scope(synthetic_tmi)
+
+        if not flights:
+            return None
+
+        gs_start = program.effective_start
+        gs_end = program.effective_end
+        first_issued = program.advisories[0].adl_time if program.advisories else gs_start
+
+        # Map dep_facilities to filter origins
+        dep_facilities = set(f.upper() for f in program.dep_facilities)
+
+        # Build program timeline for frontend
+        program_timeline = []
+        for adv in program.advisories:
+            program_timeline.append({
+                'advzy': adv.advzy_number,
+                'type': adv.advisory_type,
+                'start': adv.gs_period_start.strftime('%H:%MZ') if adv.gs_period_start else None,
+                'end': adv.gs_period_end.strftime('%H:%MZ') if adv.gs_period_end else None,
+                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None
+            })
+
+        exempt = []
+        compliant = []
+        non_compliant = []
+        not_in_scope = []
+        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0})
+        hold_times = []
+
+        for callsign, flight in flights.items():
+            dept = flight.get('dept', 'UNK')
+
+            # Get best departure time: OOOI times > first_seen
+            dep_time = (flight.get('atd_utc') or flight.get('off_utc') or
+                       flight.get('first_seen'))
+            if not dep_time:
+                continue
+
+            dep_time = normalize_datetime(dep_time)
+
+            flight_info = {
+                'callsign': callsign,
+                'dept': dept,
+                'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                'time_source': 'OOOI' if flight.get('atd_utc') or flight.get('off_utc') else 'first_seen'
+            }
+
+            # Check if flight is from a listed DEP FACILITY
+            # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
+            if dep_facilities:
+                # Simple check: is the origin airport's ARTCC in the dep_facilities list?
+                origin_artcc = flight.get('dept_artcc', '').upper()
+                origin_tracon = flight.get('dept_tracon', '').upper()
+                in_scope = (origin_artcc in dep_facilities or
+                           origin_tracon in dep_facilities or
+                           dept.upper() in dep_facilities or
+                           not dep_facilities)  # If no facilities listed, all in scope
+
+                if not in_scope:
+                    flight_info['status'] = 'NOT_IN_SCOPE'
+                    flight_info['reason'] = f'Origin facility not in DEP FACILITIES'
+                    not_in_scope.append(flight_info)
+                    continue
+
+            # Determine which advisory phase this flight's departure falls in
+            phase = None
+            for adv in program.advisories:
+                if adv.advisory_type == 'CNX':
+                    continue
+                if adv.gs_period_start and adv.gs_period_end:
+                    if adv.gs_period_start <= dep_time <= adv.gs_period_end:
+                        phase = adv.advzy_number
+                        break
+
+            flight_info['phase'] = phase
+
+            # Determine compliance
+            if first_issued and dep_time < first_issued:
+                flight_info['status'] = 'EXEMPT'
+                flight_info['reason'] = 'Airborne before GS issued'
+                exempt.append(flight_info)
+                per_origin[dept]['exempt'] += 1
+            elif gs_end and dep_time > gs_end:
+                flight_info['status'] = 'COMPLIANT'
+                flight_info['reason'] = 'Departed after GS ended'
+                compliant.append(flight_info)
+                per_origin[dept]['compliant'] += 1
+                # Calculate hold time (how long they waited)
+                if gs_start:
+                    hold_min = (dep_time - gs_start).total_seconds() / 60
+                    if hold_min > 0:
+                        hold_times.append(hold_min)
+            elif gs_start and dep_time < gs_start:
+                flight_info['status'] = 'EXEMPT'
+                flight_info['reason'] = 'Departed before GS started'
+                exempt.append(flight_info)
+                per_origin[dept]['exempt'] += 1
+            else:
+                flight_info['status'] = 'NON-COMPLIANT'
+                flight_info['reason'] = 'Departed during GS window'
+                if gs_start and gs_end:
+                    gs_duration = (gs_end - gs_start).total_seconds()
+                    into_gs = (dep_time - gs_start).total_seconds()
+                    flight_info['pct_into_gs'] = round(100 * into_gs / gs_duration, 1) if gs_duration > 0 else 0
+                non_compliant.append(flight_info)
+                per_origin[dept]['non_compliant'] += 1
+
+            per_origin[dept]['total'] += 1
+
+        total_applicable = len(compliant) + len(non_compliant)
+        compliance_pct = round(100 * len(compliant) / total_applicable, 1) if total_applicable > 0 else 100
+        avg_hold_time = round(sum(hold_times) / len(hold_times), 1) if hold_times else 0
+
+        # Format per_origin for output
+        per_origin_list = []
+        for origin, counts in sorted(per_origin.items()):
+            origin_applicable = counts['compliant'] + counts['non_compliant']
+            per_origin_list.append({
+                'origin': origin,
+                'total': counts['total'],
+                'compliant': counts['compliant'],
+                'non_compliant': counts['non_compliant'],
+                'exempt': counts['exempt'],
+                'compliance_pct': round(100 * counts['compliant'] / origin_applicable, 1) if origin_applicable > 0 else 100
+            })
+
+        return {
+            'gs_start': gs_start.strftime('%H:%MZ') if gs_start else None,
+            'gs_end': gs_end.strftime('%H:%MZ') if gs_end else None,
+            'gs_issued': first_issued.strftime('%H:%MZ') if first_issued else None,
+            'cancelled': program.is_cancelled(),
+            'ended_by': program.ended_by,
+            'total_flights': len(flights),
+            'exempt': exempt,
+            'compliant': compliant,
+            'non_compliant': non_compliant,
+            'not_in_scope': not_in_scope,
+            'compliance_pct': compliance_pct,
+            'violations': {
+                'total': len(non_compliant),
+                'avg_pct_into_gs': round(sum(f.get('pct_into_gs', 0) for f in non_compliant) / len(non_compliant), 1) if non_compliant else 0
+            },
+            'destinations': [program.airport],
+            'origins': list(program.dep_facilities),
+            # Enhanced program data
+            'program_timeline': program_timeline,
+            'per_origin_breakdown': per_origin_list,
+            'avg_hold_time_min': avg_hold_time,
+            'impacting_condition': program.impacting_condition,
+            'prob_extension': program.prob_extension,
+            'cnx_comments': program.cnx_comments,
+            'dep_facility_tier': program.dep_facility_tier
+        }
+
     def _analyze_reroute_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
         Analyze Reroute/Playbook compliance - both filed AND flown routes.
@@ -2009,6 +2209,331 @@ class TMIComplianceAnalyzer:
             'facilities': tmi.artccs
         }
 
+    def _analyze_reroute_program(self, program: RerouteProgram) -> Optional[Dict]:
+        """
+        Analyze Reroute compliance for a program (chain of advisories).
+
+        Assessment modes based on action:
+        - RQD (full_compliance): Full scoring with COMPLIANT/PARTIAL/NON_COMPLIANT
+        - RMD (usage_tracking): Softer scoring, NON_COMPLIANT shown as MONITORING
+        - PLN (future_planning): All flights marked PENDING
+        - FYI (tracking_only): All flights marked MONITORING
+
+        Uses REROUTE_COMPLIANT_THRESHOLD (95%) and REROUTE_PARTIAL_THRESHOLD (50%).
+        """
+        import re
+
+        name = program.name or 'Unknown Reroute'
+        mode = program.get_assessment_mode()
+        logger.info(f"Analyzing REROUTE Program: {name} (mode={mode}, action={program.action})")
+
+        # Create synthetic TMI for flight filtering
+        synthetic_tmi = TMI(
+            tmi_id=f'REROUTE_PROGRAM_{name}',
+            tmi_type=TMIType.REROUTE,
+            destinations=program.destinations,
+            origins=program.origins,
+            start_utc=program.effective_start,
+            end_utc=program.effective_end
+        )
+        flights_dict = self._filter_flights_by_scope(synthetic_tmi)
+
+        normalized_origs = set(normalize_icao_list(program.origins)) if program.origins else set()
+        normalized_dests = set(normalize_icao_list(program.destinations)) if program.destinations else set()
+
+        if not normalized_origs or not normalized_dests:
+            logger.warning(f"  Skipping reroute program - missing origins or destinations")
+            return None
+
+        # Filter flights to those within the program window and matching OD
+        flights = []
+        for callsign, flight in flights_dict.items():
+            dep_time = (flight.get('atd_utc') or flight.get('off_utc') or flight.get('first_seen'))
+            if not dep_time:
+                continue
+            dep_time = normalize_datetime(dep_time)
+
+            if program.effective_start and program.effective_end:
+                if dep_time >= program.effective_start and dep_time <= program.effective_end:
+                    dept = flight.get('dept', '')
+                    dest = flight.get('dest', '')
+                    if dept in normalized_origs and dest in normalized_dests:
+                        flights.append((callsign, dept, dest, flight.get('fp_route', ''), dep_time, flight.get('last_seen')))
+
+        logger.info(f"  Filtered to {len(flights)} flights in program window")
+
+        # Build program history for frontend
+        program_history = []
+        for adv in program.advisories:
+            program_history.append({
+                'advzy': adv.advzy_number,
+                'type': adv.advisory_type,
+                'route_type': adv.route_type,
+                'action': adv.action,
+                'start': adv.valid_start.strftime('%H:%MZ') if adv.valid_start else None,
+                'end': adv.valid_end.strftime('%H:%MZ') if adv.valid_end else None,
+                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None,
+                'replaces': adv.replaces_advzy
+            })
+
+        if not flights:
+            return {
+                'name': name,
+                'mandatory': program.is_mandatory(),
+                'route_type': program.route_type,
+                'action': program.action,
+                'assessment_mode': mode,
+                'time_type': '',
+                'start': program.effective_start.strftime('%H:%MZ') if program.effective_start else None,
+                'end': program.effective_end.strftime('%H:%MZ') if program.effective_end else None,
+                'ended_by': program.ended_by,
+                'origins': program.origins,
+                'destinations': program.destinations,
+                'required_routes': [{'orig': ','.join(r.origins), 'dest': r.destination, 'route': r.route_string} for r in program.current_routes],
+                'required_fixes': [],
+                'total_flights': 0,
+                'flights': [],
+                'filed_compliant': [], 'filed_non_compliant': [],
+                'flown_compliant': [], 'flown_non_compliant': [],
+                'filed_compliance_pct': 100, 'flown_compliance_pct': 100,
+                'program_history': program_history,
+                'constrained_area': program.constrained_area,
+                'reason': program.reason,
+                'exemptions': program.exemptions,
+                'associated_restrictions': program.associated_restrictions,
+                'note': 'No flights found for reroute program scope'
+            }
+
+        # Build required fixes from current routes
+        required_fixes_by_od = {}  # (orig, dest) -> [fix_list]
+        all_required_fixes = []
+
+        for route in program.current_routes:
+            for orig in route.origins:
+                key = (orig.upper(), route.destination.upper())
+                fixes = route.required_fixes if route.required_fixes else re.findall(r'[A-Z]{3,5}', route.route_string)
+                required_fixes_by_od[key] = fixes
+                all_required_fixes.extend(fixes)
+
+        all_required_fixes = list(set(all_required_fixes))
+
+        # Load fix coordinates
+        fixes_to_load = [f for f in all_required_fixes if f not in self.fix_coords]
+        if fixes_to_load:
+            self._load_fix_coordinates(fixes_to_load)
+
+        # Pre-load trajectories
+        all_callsigns = [row[0] for row in flights]
+        if not self._trajectory_cache_loaded:
+            self._preload_trajectories(all_callsigns)
+
+        # Analyze each flight
+        flight_results = []
+        filed_compliant = []
+        filed_non_compliant = []
+        flown_compliant = []
+        flown_non_compliant = []
+        exempt_flights = []
+
+        for row in flights:
+            callsign, dept, dest, fp_route, dep_time, last_seen = row
+            dep_time = normalize_datetime(dep_time)
+            fp_route = fp_route or ''
+
+            # For PLN/FYI modes, skip compliance scoring
+            if mode == 'future_planning':
+                flight_results.append({
+                    'callsign': callsign, 'dept': dept, 'dest': dest,
+                    'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                    'status': 'PENDING', 'filed_status': 'PENDING', 'flown_status': 'PENDING'
+                })
+                continue
+
+            if mode == 'tracking_only':
+                flight_results.append({
+                    'callsign': callsign, 'dept': dept, 'dest': dest,
+                    'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                    'status': 'MONITORING', 'filed_status': 'MONITORING', 'flown_status': 'MONITORING'
+                })
+                continue
+
+            # Find matching route for this OD pair
+            od_key = (dept.upper(), dest.upper())
+            # Try exact match first, then try with ICAO normalization
+            required_fixes = required_fixes_by_od.get(od_key, [])
+            if not required_fixes:
+                # Try normalized keys
+                for (o, d), fixes in required_fixes_by_od.items():
+                    o_codes = set(normalize_icao_list([o]))
+                    d_codes = set(normalize_icao_list([d]))
+                    if dept.upper() in o_codes and dest.upper() in d_codes:
+                        required_fixes = fixes
+                        break
+
+            if not required_fixes:
+                # No specific route for this OD pair - use all required fixes
+                required_fixes = all_required_fixes
+
+            # === FILED ROUTE ANALYSIS ===
+            route_upper = fp_route.upper()
+
+            # Check fixes in ORDER (sequence validation)
+            filed_matched_fixes = []
+            last_pos = -1
+            for fix in required_fixes:
+                pos = route_upper.find(fix)
+                if pos >= 0 and pos > last_pos:
+                    filed_matched_fixes.append(fix)
+                    last_pos = pos
+                elif pos >= 0:
+                    # Fix present but out of order
+                    filed_matched_fixes.append(fix)
+
+            filed_match_pct = len(filed_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+
+            # Apply thresholds
+            if filed_match_pct >= REROUTE_COMPLIANT_THRESHOLD * 100:
+                filed_status = 'FILED_COMPLIANT'
+            elif filed_match_pct >= REROUTE_PARTIAL_THRESHOLD * 100:
+                filed_status = 'FILED_PARTIAL'
+            else:
+                filed_status = 'FILED_NON_COMPLIANT'
+
+            # For RMD mode, soften NON_COMPLIANT to MONITORING
+            if mode == 'usage_tracking' and filed_status == 'FILED_NON_COMPLIANT':
+                filed_status = 'FILED_MONITORING'
+
+            # === FLOWN ROUTE ANALYSIS ===
+            trajectory = self._trajectory_cache.get(callsign, [])
+            flown_matched_fixes = []
+            flown_fix_details = []
+
+            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
+
+            if has_trajectory:
+                for fix_name in required_fixes:
+                    if fix_name in self.fix_coords:
+                        fix_lat = self.fix_coords[fix_name]['lat']
+                        fix_lon = self.fix_coords[fix_name]['lon']
+
+                        min_dist = float('inf')
+                        crossing_time = None
+                        crossing_alt = None
+
+                        for pt in trajectory:
+                            dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
+                            if dist < min_dist:
+                                min_dist = dist
+                                crossing_time = pt['timestamp']
+                                crossing_alt = pt.get('alt', 0)
+
+                        if min_dist <= CROSSING_RADIUS_NM:
+                            flown_matched_fixes.append(fix_name)
+                            flown_fix_details.append({
+                                'fix': fix_name,
+                                'distance_nm': round(min_dist, 1),
+                                'crossing_time': crossing_time.strftime('%H:%M:%SZ') if crossing_time else None,
+                                'altitude': int(crossing_alt) if crossing_alt else None
+                            })
+
+            flown_match_pct = len(flown_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+
+            if not has_trajectory:
+                flown_status = 'NO_TRAJECTORY'
+            elif flown_match_pct >= REROUTE_COMPLIANT_THRESHOLD * 100:
+                flown_status = 'FLOWN_COMPLIANT'
+            elif flown_match_pct >= REROUTE_PARTIAL_THRESHOLD * 100:
+                flown_status = 'FLOWN_PARTIAL'
+            else:
+                flown_status = 'FLOWN_NON_COMPLIANT'
+
+            if mode == 'usage_tracking' and flown_status == 'FLOWN_NON_COMPLIANT':
+                flown_status = 'FLOWN_MONITORING'
+
+            # Overall status = worst of filed and flown
+            status_priority = {'COMPLIANT': 0, 'PARTIAL': 1, 'MONITORING': 2, 'NON_COMPLIANT': 3}
+            filed_level = filed_status.replace('FILED_', '')
+            flown_level = flown_status.replace('FLOWN_', '') if flown_status != 'NO_TRAJECTORY' else filed_level
+            final_status = max([filed_level, flown_level], key=lambda s: status_priority.get(s, 4))
+
+            flight_info = {
+                'callsign': callsign,
+                'dept': dept,
+                'dest': dest,
+                'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                'filed_route': fp_route[:100] + ('...' if len(fp_route) > 100 else ''),
+                'filed_matched_fixes': filed_matched_fixes,
+                'filed_match_pct': round(filed_match_pct, 1),
+                'filed_status': filed_status,
+                'has_trajectory': has_trajectory,
+                'flown_matched_fixes': flown_matched_fixes,
+                'flown_match_pct': round(flown_match_pct, 1),
+                'flown_status': flown_status,
+                'flown_fix_details': flown_fix_details,
+                'final_status': final_status,
+                'required_fixes': required_fixes
+            }
+
+            flight_results.append(flight_info)
+
+            # Categorize
+            if 'COMPLIANT' in filed_status:
+                filed_compliant.append(flight_info)
+            elif 'PARTIAL' in filed_status:
+                filed_non_compliant.append(flight_info)  # Partial counts as non-compliant for summary
+            else:
+                filed_non_compliant.append(flight_info)
+
+            if 'COMPLIANT' in flown_status:
+                flown_compliant.append(flight_info)
+            elif flown_status not in ('NO_TRAJECTORY',):
+                flown_non_compliant.append(flight_info)
+
+        # Calculate percentages
+        filed_applicable = len(filed_compliant) + len(filed_non_compliant)
+        filed_compliance_pct = round(100 * len(filed_compliant) / filed_applicable, 1) if filed_applicable > 0 else 100
+
+        flown_applicable = len(flown_compliant) + len(flown_non_compliant)
+        flown_compliance_pct = round(100 * len(flown_compliant) / flown_applicable, 1) if flown_applicable > 0 else 100
+
+        no_trajectory_count = sum(1 for f in flight_results if f.get('flown_status') == 'NO_TRAJECTORY')
+
+        return {
+            'name': name,
+            'mandatory': program.is_mandatory(),
+            'route_type': program.route_type,
+            'action': program.action,
+            'assessment_mode': mode,
+            'time_type': '',
+            'start': program.effective_start.strftime('%H:%MZ') if program.effective_start else None,
+            'end': program.effective_end.strftime('%H:%MZ') if program.effective_end else None,
+            'ended_by': program.ended_by,
+            'origins': program.origins,
+            'destinations': program.destinations,
+            'required_routes': [{'orig': ','.join(r.origins), 'dest': r.destination, 'route': r.route_string} for r in program.current_routes],
+            'required_fixes': all_required_fixes,
+            'total_flights': len(flights),
+            'flights': flight_results,
+            'filed_compliant': filed_compliant,
+            'filed_non_compliant': filed_non_compliant,
+            'filed_compliance_pct': filed_compliance_pct,
+            'flown_compliant': flown_compliant,
+            'flown_non_compliant': flown_non_compliant,
+            'flown_compliance_pct': flown_compliance_pct,
+            'no_trajectory_count': no_trajectory_count,
+            # Legacy compat
+            'using_route': filed_compliant,
+            'not_using_route': filed_non_compliant,
+            'compliance_pct': filed_compliance_pct,
+            # Program metadata
+            'program_history': program_history,
+            'constrained_area': program.constrained_area,
+            'reason': program.reason,
+            'exemptions': program.exemptions,
+            'associated_restrictions': program.associated_restrictions,
+            'facilities': program.facilities
+        }
+
     def _track_apreq_flights(self, tmi: TMI) -> Optional[Dict]:
         """
         Track APREQ/CFR flights - returns list of affected flights for manual review.
@@ -2254,6 +2779,14 @@ class TMIComplianceAnalyzer:
             'not_using_route': total_filed_non_compliant,
             'compliance_pct': round(100 * (total_reroute_flights - total_filed_non_compliant) / total_reroute_flights, 1) if total_reroute_flights > 0 else 100
         }
+
+        # Add action breakdown
+        action_counts = {'RQD': 0, 'RMD': 0, 'PLN': 0, 'FYI': 0}
+        for key, rr in results.get('reroute_results', {}).items():
+            action = rr.get('action', 'FYI')
+            if action in action_counts:
+                action_counts[action] += 1
+        summary['reroute']['action_breakdown'] = action_counts
 
         # Overall (including mandatory reroutes - use flown compliance for reroutes)
         # For reroutes, flown compliance is the more accurate measure of what actually happened
