@@ -5815,6 +5815,533 @@ function getHashColor(str) {
     return `hsl(${hue}, 65%, 45%)`;
 }
 
+// ============================================================================
+// Set Airport Config from Demand Page
+// Allows users to publish a CONFIG NTML entry directly from the demand page
+// ============================================================================
+
+(function() {
+    'use strict';
+
+    // State for the config modal
+    let configPresets = [];
+    let defaultAar = null; // Preset default AAR for Strat/Dyn determination
+
+    // ---- Helper functions ----
+
+    function getCurrentDateDDHHMM() {
+        const now = new Date();
+        return String(now.getUTCDate()).padStart(2, '0') + '/' +
+               String(now.getUTCHours()).padStart(2, '0') +
+               String(now.getUTCMinutes()).padStart(2, '0');
+    }
+
+    function formatDateTimeLocalUTC(d) {
+        const year = d.getUTCFullYear();
+        const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const hours = String(d.getUTCHours()).padStart(2, '0');
+        const mins = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${mins}`;
+    }
+
+    function snapEndTimeToQuarter(date) {
+        const d = new Date(date);
+        const mins = d.getUTCMinutes();
+        let snap;
+        if (mins <= 14) {snap = 14;}
+        else if (mins <= 29) {snap = 29;}
+        else if (mins <= 44) {snap = 44;}
+        else {snap = 59;}
+        d.setUTCMinutes(snap);
+        d.setUTCSeconds(0);
+        d.setUTCMilliseconds(0);
+        return d;
+    }
+
+    function getSmartDefaults() {
+        const now = new Date();
+        const start = new Date(now);
+        start.setUTCSeconds(0);
+        start.setUTCMilliseconds(0);
+
+        const end = new Date(start);
+        end.setUTCHours(end.getUTCHours() + 4);
+        const snappedEnd = snapEndTimeToQuarter(end);
+
+        return {
+            start: formatDateTimeLocalUTC(start),
+            end: formatDateTimeLocalUTC(snappedEnd)
+        };
+    }
+
+    function formatValidTimeSuffix(from, until) {
+        if (!from && !until) {return '';}
+        const extractHHMM = (val) => {
+            if (!val || !val.includes('T')) {return '';}
+            const timePart = val.split('T')[1] || '00:00';
+            return timePart.replace(':', '').substring(0, 4);
+        };
+        const fromStr = extractHHMM(from);
+        const untilStr = extractHHMM(until);
+        if (fromStr && untilStr) {return fromStr + '-' + untilStr;}
+        if (untilStr) {return untilStr;}
+        return '';
+    }
+
+    function formatConfigMessage(data) {
+        const logTime = getCurrentDateDDHHMM();
+        const airport = (data.ctl_element || 'N/A').toUpperCase();
+        const weather = (data.weather || 'VMC').toUpperCase();
+        const arrRwys = (data.arr_runways || 'N/A').toUpperCase();
+        const depRwys = (data.dep_runways || 'N/A').toUpperCase();
+        const aar = data.aar || '60';
+        const adr = data.adr || '60';
+        const aarType = data.aar_type || 'Strat';
+        const validSuffix = formatValidTimeSuffix(data.valid_from, data.valid_until);
+
+        let line = `${logTime}    ${airport} ${weather} ARR:${arrRwys} DEP:${depRwys} AAR(${aarType}):${aar}`;
+
+        // Add AAR Adjustment reason if dynamic
+        if (aarType === 'Dyn' && data.aar_adjustment) {
+            line += ` AAR Adjustment:${data.aar_adjustment}`;
+        }
+
+        line += ` ADR:${adr}`;
+
+        if (validSuffix && validSuffix !== 'TFN') {
+            line += ` ${validSuffix}`;
+        }
+
+        return line;
+    }
+
+    // ---- Show/hide button ----
+
+    function updateSetConfigButtonVisibility() {
+        const btn = document.getElementById('set_config_btn');
+        if (!btn) {return;}
+        btn.style.display = DEMAND_STATE.selectedAirport ? '' : 'none';
+    }
+
+    // Hook into airport selection changes
+    $(document).on('change', '#demand_airport', function() {
+        // Small delay to let DEMAND_STATE update
+        setTimeout(updateSetConfigButtonVisibility, 50);
+    });
+
+    // ---- Modal ----
+
+    function showSetConfigModal() {
+        const airport = DEMAND_STATE.selectedAirport;
+        if (!airport) {return;}
+
+        // Collect pre-population data
+        const rd = DEMAND_STATE.rateData;
+        const tmi = DEMAND_STATE.tmiConfig;
+        const atis = DEMAND_STATE.atisData;
+
+        // Prefer TMI config values, then rate data, then defaults
+        let preAar = tmi?.aar ?? rd?.rates?.vatsim_aar ?? '';
+        let preAdr = tmi?.adr ?? rd?.rates?.vatsim_adr ?? '';
+        let preWeather = tmi?.weather_category ?? rd?.weather_category ?? 'VMC';
+        let preArrRwys = tmi?.arr_runways ?? rd?.arr_runways ?? '';
+        let preDepRwys = tmi?.dep_runways ?? rd?.dep_runways ?? '';
+        let preAarType = tmi?.aar_type ?? 'Strat';
+
+        // If ATIS has runway data and no TMI/rate runways, use ATIS
+        if (!preArrRwys && atis?.runways?.arr_runways) {
+            preArrRwys = atis.runways.arr_runways;
+        }
+        if (!preDepRwys && atis?.runways?.dep_runways) {
+            preDepRwys = atis.runways.dep_runways;
+        }
+
+        const defaults = getSmartDefaults();
+        const user = window.DEMAND_USER || {};
+
+        // Store default AAR for Strat/Dyn comparison
+        defaultAar = preAar || null;
+
+        // Load config presets
+        loadConfigPresets(airport, function() {
+            buildAndShowModal(airport, {
+                aar: preAar, adr: preAdr, weather: preWeather,
+                arrRwys: preArrRwys, depRwys: preDepRwys, aarType: preAarType,
+                validFrom: defaults.start, validUntil: defaults.end,
+                user: user
+            });
+        });
+    }
+
+    function loadConfigPresets(airport, callback) {
+        configPresets = [];
+        $.getJSON('api/mgt/tmi/airport_configs.php', {airport: airport, active_only: 1})
+            .done(function(resp) {
+                if (resp.success && resp.configs) {
+                    configPresets = resp.configs;
+                }
+                callback();
+            })
+            .fail(function() { callback(); });
+    }
+
+    function buildAndShowModal(airport, pre) {
+        // Build preset options
+        let presetOptions = '<option value="">-- Select Preset --</option>';
+        configPresets.forEach(function(c) {
+            presetOptions += `<option value="${c.configId}">${c.configName || c.configCode || 'Config #' + c.configId}</option>`;
+        });
+
+        // Determine if AAR adjustment row should show
+        const showAdjustment = pre.aarType === 'Dyn';
+
+        const formHtml = `
+            <div class="text-left" style="font-size: 0.85rem;">
+                <div class="form-group mb-2">
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Config Preset</label>
+                    <select class="form-control form-control-sm" id="sc_preset">${presetOptions}</select>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Weather</label>
+                        <select class="form-control form-control-sm" id="sc_weather">
+                            <option value="VMC"${pre.weather === 'VMC' ? ' selected' : ''}>VMC</option>
+                            <option value="MVFR"${pre.weather === 'MVFR' ? ' selected' : ''}>MVFR</option>
+                            <option value="IMC"${pre.weather === 'IMC' ? ' selected' : ''}>IMC</option>
+                            <option value="LIMC"${pre.weather === 'LIMC' ? ' selected' : ''}>LIMC</option>
+                        </select>
+                    </div>
+                    <div class="col-6">&nbsp;</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Arrival Runways</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_arr_rwys" value="${pre.arrRwys}" placeholder="e.g. 27R">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Departure Runways</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_dep_rwys" value="${pre.depRwys}" placeholder="e.g. 27L/35">
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR</label>
+                        <input type="number" class="form-control form-control-sm" id="sc_aar" value="${pre.aar}" min="0" max="200">
+                    </div>
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">ADR</label>
+                        <input type="number" class="form-control form-control-sm" id="sc_adr" value="${pre.adr}" min="0" max="200">
+                    </div>
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Type</label>
+                        <input type="text" class="form-control form-control-sm bg-light" id="sc_aar_type" value="${pre.aarType}" readonly>
+                    </div>
+                </div>
+                <div class="form-group mb-2" id="sc_adjustment_row" style="display: ${showAdjustment ? '' : 'none'};">
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Adjustment Reason</label>
+                    <input type="text" class="form-control form-control-sm" id="sc_aar_adjustment" placeholder="e.g. XW-TLWD">
+                </div>
+                <hr class="my-2">
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid From (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_from" value="${pre.validFrom}">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid Until (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_until" value="${pre.validUntil}">
+                    </div>
+                </div>
+                ${!pre.user.loggedIn ? `
+                <hr class="my-2">
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Your Name</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_name" placeholder="First Last">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">CID (optional)</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_cid" placeholder="VATSIM CID">
+                    </div>
+                </div>` : ''}
+            </div>
+        `;
+
+        Swal.fire({
+            title: '<i class="fas fa-tachometer-alt"></i> Set Config: ' + airport,
+            html: formHtml,
+            width: 520,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-paper-plane"></i> Publish',
+            confirmButtonColor: '#2c3e50',
+            cancelButtonText: 'Cancel',
+            didOpen: function() {
+                // Preset change handler
+                $('#sc_preset').on('change', function() {
+                    const id = parseInt($(this).val());
+                    const cfg = configPresets.find(c => c.configId === id);
+                    if (!cfg) {return;}
+
+                    $('#sc_arr_rwys').val(cfg.arrRunways || '');
+                    $('#sc_dep_rwys').val(cfg.depRunways || '');
+
+                    const weather = $('#sc_weather').val();
+                    let aar = cfg.rates.vmcAar;
+                    let adr = cfg.rates.vmcAdr;
+                    if (weather === 'IMC' || weather === 'LIMC') {
+                        aar = cfg.rates.imcAar || cfg.rates.vmcAar;
+                        adr = cfg.rates.imcAdr || cfg.rates.vmcAdr;
+                    }
+                    if (aar) {$('#sc_aar').val(aar);}
+                    if (adr) {$('#sc_adr').val(adr);}
+
+                    // Store preset default AAR
+                    defaultAar = aar || null;
+                    updateAarType();
+                });
+
+                // Weather change handler
+                $('#sc_weather').on('change', function() {
+                    const id = parseInt($('#sc_preset').val());
+                    const cfg = configPresets.find(c => c.configId === id);
+                    if (!cfg) {return;}
+
+                    const weather = $(this).val();
+                    let aar = cfg.rates.vmcAar;
+                    let adr = cfg.rates.vmcAdr;
+                    if (weather === 'IMC' || weather === 'LIMC') {
+                        aar = cfg.rates.imcAar || cfg.rates.vmcAar;
+                        adr = cfg.rates.imcAdr || cfg.rates.vmcAdr;
+                    }
+                    if (aar) {$('#sc_aar').val(aar);}
+                    if (adr) {$('#sc_adr').val(adr);}
+
+                    defaultAar = aar || null;
+                    updateAarType();
+                });
+
+                // AAR change handler - auto-determine Strat/Dyn
+                $('#sc_aar').on('input change', function() {
+                    updateAarType();
+                });
+            },
+            preConfirm: function() {
+                return validateAndCollect(airport, pre.user);
+            }
+        }).then(function(result) {
+            if (result.isConfirmed && result.value) {
+                publishConfig(result.value);
+            }
+        });
+    }
+
+    function updateAarType() {
+        const currentAar = parseInt($('#sc_aar').val());
+        const isDyn = defaultAar !== null && !isNaN(currentAar) && currentAar !== parseInt(defaultAar);
+
+        $('#sc_aar_type').val(isDyn ? 'Dyn' : 'Strat');
+        $('#sc_adjustment_row').toggle(isDyn);
+
+        if (!isDyn) {
+            $('#sc_aar_adjustment').val('');
+        }
+    }
+
+    function validateAndCollect(airport, user) {
+        const aar = $('#sc_aar').val();
+        const adr = $('#sc_adr').val();
+        const weather = $('#sc_weather').val();
+        const validFrom = $('#sc_valid_from').val();
+        const validUntil = $('#sc_valid_until').val();
+        const aarType = $('#sc_aar_type').val();
+        const aarAdjustment = $('#sc_aar_adjustment').val()?.trim() || '';
+
+        if (!aar || !adr) {
+            Swal.showValidationMessage('AAR and ADR are required');
+            return false;
+        }
+        if (!validFrom || !validUntil) {
+            Swal.showValidationMessage('Valid From and Valid Until are required');
+            return false;
+        }
+        if (aarType === 'Dyn' && !aarAdjustment) {
+            Swal.showValidationMessage('AAR Adjustment reason is required when AAR differs from default');
+            return false;
+        }
+
+        // Determine user identity
+        let userName, userCid;
+        if (user.loggedIn) {
+            userName = user.name;
+            userCid = user.cid;
+        } else {
+            userName = ($('#sc_user_name').val() || '').trim();
+            userCid = ($('#sc_user_cid').val() || '').trim() || null;
+            if (!userName) {
+                Swal.showValidationMessage('Your name is required');
+                return false;
+            }
+        }
+
+        return {
+            data: {
+                type: 'CONFIG',
+                ctl_element: airport.toUpperCase(),
+                req_facility: '',
+                prov_facility: '',
+                valid_from: validFrom,
+                valid_until: validUntil,
+                qualifiers: [],
+                weather: weather,
+                config_name: undefined,
+                arr_runways: ($('#sc_arr_rwys').val() || '').trim().toUpperCase(),
+                dep_runways: ($('#sc_dep_rwys').val() || '').trim().toUpperCase(),
+                aar: aar,
+                aar_type: aarType,
+                adr: adr,
+                aar_adjustment: aarAdjustment.toUpperCase()
+            },
+            userName: userName,
+            userCid: userCid
+        };
+    }
+
+    // ---- Publish ----
+
+    function publishConfig(collected) {
+        // Check for duplicate CONFIG first
+        checkDuplicateConfig(collected.data.ctl_element, function(existing) {
+            if (existing) {
+                showDuplicatePrompt(collected, existing);
+            } else {
+                doPublish(collected);
+            }
+        });
+    }
+
+    function checkDuplicateConfig(airport, callback) {
+        $.ajax({
+            url: 'api/mgt/tmi/active.php',
+            method: 'GET',
+            data: {type: 'ntml', source: 'ALL'},
+            success: function(response) {
+                if (response.success && response.data) {
+                    const all = [...(response.data.active || []), ...(response.data.scheduled || [])];
+                    const existing = all.find(function(item) {
+                        return item.entryType === 'CONFIG' &&
+                            item.ctlElement &&
+                            item.ctlElement.toUpperCase() === airport.toUpperCase() &&
+                            item.status !== 'CANCELLED';
+                    });
+                    callback(existing || null);
+                } else {
+                    callback(null);
+                }
+            },
+            error: function() { callback(null); }
+        });
+    }
+
+    function showDuplicatePrompt(collected, existing) {
+        const existingTime = existing.validFrom
+            ? new Date(existing.validFrom).toLocaleString('en-US', {timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false}) + 'Z'
+            : 'Unknown';
+
+        Swal.fire({
+            title: '<i class="fas fa-exclamation-triangle text-warning"></i> Existing CONFIG',
+            html: `
+                <div class="text-left">
+                    <p>An active CONFIG already exists for <strong>${collected.data.ctl_element}</strong>:</p>
+                    <div class="alert alert-secondary">
+                        <strong>Status:</strong> ${existing.status || 'ACTIVE'}<br>
+                        <strong>Posted:</strong> ${existingTime}<br>
+                        <strong>ID:</strong> #${existing.entityId}
+                    </div>
+                    <p>Publishing will update the existing entry.</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-edit"></i> Update & Publish',
+            confirmButtonColor: '#2c3e50',
+            cancelButtonText: 'Cancel'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                doPublish(collected);
+            }
+        });
+    }
+
+    function doPublish(collected) {
+        Swal.fire({
+            title: 'Publishing...',
+            allowOutsideClick: false,
+            didOpen: function() { Swal.showLoading(); }
+        });
+
+        const message = formatConfigMessage(collected.data);
+
+        const entry = {
+            id: 'demand_config_' + Date.now(),
+            type: 'ntml',
+            entryType: 'CONFIG',
+            data: collected.data,
+            preview: message,
+            orgs: ['vatcscc'],
+            timestamp: new Date().toISOString()
+        };
+
+        const payload = {
+            production: true,
+            entries: [entry],
+            userCid: collected.userCid,
+            userName: collected.userName
+        };
+
+        $.ajax({
+            url: 'api/mgt/tmi/publish.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload)
+        }).done(function(response) {
+            if (response.success || (response.results && response.results.some(function(r) { return r.success; }))) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Config Published',
+                    text: collected.data.ctl_element + ' configuration published to NTML',
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+
+                // Refresh demand data to pick up new active config
+                if (typeof loadDemandData === 'function') {
+                    setTimeout(function() { loadDemandData(); }, 1000);
+                }
+            } else {
+                const errMsg = response.error || (response.results && response.results[0] && response.results[0].error) || 'Unknown error';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Publish Failed',
+                    html: '<p>' + errMsg + '</p>'
+                });
+            }
+        }).fail(function(xhr) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Publish Failed',
+                html: '<p>' + (xhr.responseText || 'Connection error') + '</p>'
+            });
+        });
+    }
+
+    // ---- Button click handler ----
+    $(document).on('click', '#set_config_btn', function() {
+        showSetConfigModal();
+    });
+
+})();
+
 // Initialize when document is ready (only on demand.php page)
 $(document).ready(function() {
     // Only initialize demand.php-specific code if we're on that page
