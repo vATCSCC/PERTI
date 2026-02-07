@@ -160,16 +160,19 @@ try {
             break;
 
         case 'branch_analysis':
-            $mitDistanceNm = $input['mit_distance_nm'] ?? 15;
+            $branchMinDistanceNm = $input['branch_min_distance_nm'] ?? 5; // Inner bound for branch clustering (NOT MIT distance)
             $maxDistanceNm = $input['max_distance_nm'] ?? 250;
             $flightMeta = $input['flight_meta'] ?? []; // {callsign: {dept, dest, waypoints[]}}
             $tmiType = $input['tmi_type'] ?? 'arrival'; // arrival, departure, overflight
+            $bearingFilterDeg = $input['bearing_filter_deg'] ?? 90; // Max deviation from median approach bearing
+            $subBranchEpsNm = $input['sub_branch_eps_nm'] ?? 3; // Tighter eps for Phase 2 sub-branching
             $result = calculateBranchAnalysis(
                 $gis, $trajectories, $fixPoint,
-                $mitDistanceNm, $maxDistanceNm,
+                $branchMinDistanceNm, $maxDistanceNm,
                 $flightMeta, $tmiType,
                 $clusterEpsDeg, $clusterMinPoints,
-                $knownFixes
+                $knownFixes, $bearingFilterDeg,
+                $subBranchEpsNm / 60.0
             );
             break;
 
@@ -1005,30 +1008,39 @@ function bearingToCardinal(float $bearing): string
 /**
  * Identify upstream traffic branches converging on a measurement point.
  *
- * Uses hybrid O/D + navigational-element + DBSCAN approach:
- *   1. Pre-group flights by origin/destination (TMI-type dependent)
- *   2. Within each O/D group, run DBSCAN spatial clustering
- *   3. Match clusters to known fixes for navigational element naming
- *   4. Assign type-prefixed topological names (orig:, dest:, thru:, fix:, awy:)
+ * Two-phase DBSCAN approach:
+ *   Phase 1: Spatial corridor detection (no O/D partitioning, wider eps)
+ *            Finds major physical corridors regardless of origin/destination.
+ *   Phase 2: Sub-branch detection within multi-origin corridors
+ *            For corridors with diverse O/D composition, runs narrower clustering
+ *            on far-out segments to detect sub-branches (e.g., ATL vs CLT vs FL).
  *
- * @param array $trajectories  Flight trajectories [{callsign, coordinates}]
- * @param array $fixPoint      [lon, lat] of measurement point
- * @param float $mitDistanceNm Inner sampling bound (MIT requirement)
- * @param float $maxDistanceNm Outer sampling bound (typically 250nm)
- * @param array $flightMeta    Per-callsign metadata {callsign: {dept, dest, waypoints[]}}
- * @param string $tmiType      TMI type: arrival, departure, overflight
- * @param float $epsDeg        DBSCAN epsilon in degrees
- * @param int $minPoints       DBSCAN minimum points
- * @param array $knownFixes    Known fixes near measurement point [{id, lat, lon}]
+ * Pre-filter: Approach bearing filter rejects opposite-direction traffic
+ *             before clustering (catches flights transiting the fix area
+ *             in the wrong direction).
+ *
+ * @param array $trajectories    Flight trajectories [{callsign, coordinates}]
+ * @param array $fixPoint        [lon, lat] of measurement point
+ * @param float $minDistanceNm   Inner sampling bound (smaller than MIT for close-in detection)
+ * @param float $maxDistanceNm   Outer sampling bound (typically 250nm)
+ * @param array $flightMeta      Per-callsign metadata {callsign: {dept, dest}}
+ * @param string $tmiType        TMI type: arrival, departure, overflight
+ * @param float $epsDeg          Phase 1 DBSCAN epsilon in degrees (wider, ~6-8nm)
+ * @param int $minPoints         DBSCAN minimum points
+ * @param array $knownFixes      Known fixes near measurement point [{id, lat, lon}]
+ * @param float $bearingFilterDeg Max deviation from median approach bearing (default 90°)
+ * @param float $subBranchEpsDeg  Phase 2 DBSCAN epsilon in degrees (tighter, ~3nm)
  *
  * @return array Branch analysis results with flight_assignments map
  */
 function calculateBranchAnalysis(
     PDO $gis, array $trajectories, ?array $fixPoint,
-    float $mitDistanceNm, float $maxDistanceNm,
+    float $minDistanceNm, float $maxDistanceNm,
     array $flightMeta, string $tmiType,
     float $epsDeg, int $minPoints,
-    array $knownFixes
+    array $knownFixes,
+    float $bearingFilterDeg = 90.0,
+    float $subBranchEpsDeg = 0.05
 ): array {
     if (!$fixPoint || count($fixPoint) < 2) {
         return ['branches' => [], 'flight_assignments' => [], 'error' => 'fix_point required'];
@@ -1036,10 +1048,10 @@ function calculateBranchAnalysis(
 
     $fixLon = (float)$fixPoint[0];
     $fixLat = (float)$fixPoint[1];
-    $mitDistanceM = $mitDistanceNm * 1852;
+    $minDistanceM = $minDistanceNm * 1852;
     $maxDistanceM = $maxDistanceNm * 1852;
 
-    // Step 1: Assign O/D group keys to each callsign
+    // Step 1: Assign O/D group keys to each callsign (used for naming, not Phase 1 clustering)
     $callsignGroups = [];
     foreach ($trajectories as $key => $traj) {
         $callsign = $traj['callsign'] ?? $key;
@@ -1048,7 +1060,6 @@ function calculateBranchAnalysis(
         $dept = strtoupper(trim($meta['dept'] ?? 'UNK'));
         $dest = strtoupper(trim($meta['dest'] ?? 'UNK'));
 
-        // Determine group key based on TMI type
         switch ($tmiType) {
             case 'departure':
                 $odKey = "dest:$dest";
@@ -1067,7 +1078,7 @@ function calculateBranchAnalysis(
         $callsignGroups[$callsign] = $odKey;
     }
 
-    // Step 2: Create temp table with group assignments
+    // Step 2: Create temp tables for group assignments and fix reference
     $gis->exec("DROP TABLE IF EXISTS temp_branch_groups");
     $gis->exec("CREATE TEMP TABLE temp_branch_groups (callsign VARCHAR(20), group_key VARCHAR(100))");
 
@@ -1078,45 +1089,93 @@ function calculateBranchAnalysis(
         $insertStmt->execute([':cs' => $cs, ':gk' => $gk]);
     }
 
-    // Step 3: Create fix reference point (avoids duplicate param issue in main query)
     $gis->exec("DROP TABLE IF EXISTS temp_fix_ref");
     $fixRefStmt = $gis->prepare(
         "CREATE TEMP TABLE temp_fix_ref AS SELECT ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) as geom"
     );
     $fixRefStmt->execute([':lon' => $fixLon, ':lat' => $fixLat]);
 
-    // Step 4: Filter segments in range, join with groups, run DBSCAN per group
-    $clusterStmt = $gis->prepare("
+    // Step 3: Approach bearing filter — compute per-callsign approach bearing,
+    // find the median, and reject flights > bearingFilterDeg from median.
+    // This removes opposite-direction and tangential traffic before clustering.
+    $bearingStmt = $gis->prepare("
+        WITH closest_points AS (
+            SELECT DISTINCT ON (p.callsign)
+                p.callsign,
+                degrees(ST_Azimuth(p.geom, f.geom)) as bearing_to_fix,
+                ST_Distance(p.geom::geography, f.geom::geography) / 1852 as dist_nm
+            FROM temp_traj_points p
+            CROSS JOIN temp_fix_ref f
+            WHERE ST_DWithin(p.geom::geography, f.geom::geography, :max_dist_m)
+            ORDER BY p.callsign, ST_Distance(p.geom::geography, f.geom::geography) ASC
+        )
+        SELECT callsign, bearing_to_fix, dist_nm FROM closest_points
+    ");
+    $bearingStmt->execute([':max_dist_m' => $maxDistanceM]);
+    $approachBearings = $bearingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Compute circular mean of approach bearings
+    $sinSum = 0;
+    $cosSum = 0;
+    foreach ($approachBearings as $ab) {
+        $rad = deg2rad((float)$ab['bearing_to_fix']);
+        $sinSum += sin($rad);
+        $cosSum += cos($rad);
+    }
+    $medianBearing = (rad2deg(atan2($sinSum, $cosSum)) + 360) % 360;
+
+    // Filter: keep only callsigns within bearingFilterDeg of median
+    $validCallsigns = [];
+    $rejectedCallsigns = [];
+    foreach ($approachBearings as $ab) {
+        $diff = abs(fmod(($ab['bearing_to_fix'] - $medianBearing + 540), 360) - 180);
+        if ($diff <= $bearingFilterDeg) {
+            $validCallsigns[] = $ab['callsign'];
+        } else {
+            $rejectedCallsigns[] = $ab['callsign'];
+        }
+    }
+
+    // Create temp table of valid callsigns for filtering
+    $gis->exec("DROP TABLE IF EXISTS temp_valid_callsigns");
+    $gis->exec("CREATE TEMP TABLE temp_valid_callsigns (callsign VARCHAR(20))");
+    if (!empty($validCallsigns)) {
+        $vcInsert = $gis->prepare("INSERT INTO temp_valid_callsigns (callsign) VALUES (:cs)");
+        foreach ($validCallsigns as $cs) {
+            $vcInsert->execute([':cs' => $cs]);
+        }
+    }
+
+    // Step 4: PHASE 1 — Spatial DBSCAN on ALL segments (no O/D partitioning)
+    // Uses wider eps to find major physical corridors
+    $phase1Stmt = $gis->prepare("
         WITH filtered_segments AS (
             SELECT
                 s.callsign,
                 s.seg_idx,
                 s.geom,
-                g.group_key,
                 ST_Distance(s.geom::geography, f.geom::geography) / 1852 as dist_nm
             FROM temp_traj_segments s
-            JOIN temp_branch_groups g ON s.callsign = g.callsign
+            JOIN temp_valid_callsigns vc ON s.callsign = vc.callsign
             CROSS JOIN temp_fix_ref f
             WHERE ST_DWithin(s.geom::geography, f.geom::geography, :max_dist_m)
               AND ST_Distance(s.geom::geography, f.geom::geography) > :min_dist_m
         ),
         clustered AS (
             SELECT
-                callsign, seg_idx, geom, group_key, dist_nm,
+                callsign, seg_idx, geom, dist_nm,
                 ST_ClusterDBSCAN(geom, eps := :eps, minpoints := :minpts)
-                    OVER (PARTITION BY group_key) as cluster_id
+                    OVER () as corridor_id
             FROM filtered_segments
         ),
-        branch_stats AS (
+        corridor_stats AS (
             SELECT
-                group_key,
-                cluster_id,
+                corridor_id,
                 COUNT(DISTINCT callsign) as track_count,
                 COUNT(*) as segment_count,
                 ST_AsGeoJSON(ST_ConcaveHull(ST_Collect(geom), 0.3)) as hull_geom,
                 ST_AsGeoJSON(ST_Centroid(ST_Collect(geom))) as centroid,
                 string_agg(DISTINCT callsign, ',' ORDER BY callsign) as callsign_list,
-                ST_AsGeoJSON(ST_Centroid(ST_Collect(geom))) as centroid_geom,
                 degrees(ST_Azimuth(
                     ST_Centroid(ST_Collect(geom)),
                     (SELECT geom FROM temp_fix_ref)
@@ -1124,117 +1183,258 @@ function calculateBranchAnalysis(
                 ST_Distance(
                     ST_Centroid(ST_Collect(geom))::geography,
                     (SELECT geom FROM temp_fix_ref)::geography
-                ) / 1852 as centroid_dist_nm
+                ) / 1852 as centroid_dist_nm,
+                MIN(dist_nm) as min_dist_nm,
+                MAX(dist_nm) as max_dist_nm
             FROM clustered
-            WHERE cluster_id IS NOT NULL
-            GROUP BY group_key, cluster_id
+            WHERE corridor_id IS NOT NULL
+            GROUP BY corridor_id
             HAVING COUNT(DISTINCT callsign) >= 2
         )
-        SELECT * FROM branch_stats ORDER BY track_count DESC
+        SELECT * FROM corridor_stats ORDER BY track_count DESC
     ");
 
-    $clusterStmt->execute([
+    $phase1Stmt->execute([
         ':max_dist_m' => $maxDistanceM,
-        ':min_dist_m' => $mitDistanceM,
+        ':min_dist_m' => $minDistanceM,
         ':eps' => $epsDeg,
         ':minpts' => $minPoints,
     ]);
 
-    // Step 5: Build branch metadata and match to known fixes
-    $branches = [];
-    $groupClusters = []; // group_key => [cluster entries]
-
-    while ($row = $clusterStmt->fetch(PDO::FETCH_ASSOC)) {
-        $groupKey = $row['group_key'];
-        $clusterId = (int)$row['cluster_id'];
+    $corridors = [];
+    while ($row = $phase1Stmt->fetch(PDO::FETCH_ASSOC)) {
         $callsigns = explode(',', $row['callsign_list']);
-        $centroid = json_decode($row['centroid'], true);
-        $bearingToFix = round((float)($row['bearing_to_fix'] ?? 0), 1);
-        $distNm = round((float)($row['centroid_dist_nm'] ?? 0), 1);
-
-        $branch = [
-            'group_key' => $groupKey,
-            'cluster_id' => $clusterId,
+        $corridors[] = [
+            'corridor_id' => (int)$row['corridor_id'],
             'callsigns' => $callsigns,
             'track_count' => (int)$row['track_count'],
             'segment_count' => (int)$row['segment_count'],
             'hull' => json_decode($row['hull_geom'], true),
-            'centroid' => $centroid,
-            'bearing_to_fix' => $bearingToFix,
-            'approach_direction' => bearingToCardinal($bearingToFix),
-            'distance_to_fix_nm' => $distNm,
-            'matched_fix' => null,
+            'centroid' => json_decode($row['centroid'], true),
+            'bearing_to_fix' => round((float)($row['bearing_to_fix'] ?? 0), 1),
+            'centroid_dist_nm' => round((float)($row['centroid_dist_nm'] ?? 0), 1),
+            'min_dist_nm' => round((float)($row['min_dist_nm'] ?? 0), 1),
+            'max_dist_nm' => round((float)($row['max_dist_nm'] ?? 0), 1),
         ];
-
-        // Match cluster centroid to known fixes
-        if (!empty($knownFixes) && $centroid && isset($centroid['coordinates'])) {
-            $cLon = $centroid['coordinates'][0];
-            $cLat = $centroid['coordinates'][1];
-            $bestFix = null;
-            $bestDist = 30; // Max match distance in nm
-
-            foreach ($knownFixes as $fix) {
-                $fId = $fix['id'] ?? $fix['name'] ?? 'UNKNOWN';
-                $fLat = $fix['lat'] ?? null;
-                $fLon = $fix['lon'] ?? $fix['lng'] ?? null;
-                if (!is_numeric($fLat) || !is_numeric($fLon)) continue;
-
-                $distQuery = $gis->prepare("
-                    SELECT ST_Distance(
-                        ST_SetSRID(ST_MakePoint(:c_lon, :c_lat), 4326)::geography,
-                        ST_SetSRID(ST_MakePoint(:f_lon, :f_lat), 4326)::geography
-                    ) / 1852 as dist_nm
-                ");
-                $distQuery->execute([
-                    ':c_lon' => $cLon, ':c_lat' => $cLat,
-                    ':f_lon' => $fLon, ':f_lat' => $fLat,
-                ]);
-                $d = (float)$distQuery->fetch(PDO::FETCH_ASSOC)['dist_nm'];
-
-                if ($d < $bestDist) {
-                    $bestDist = $d;
-                    $bestFix = ['id' => $fId, 'distance_nm' => round($d, 1)];
-                }
-            }
-            $branch['matched_fix'] = $bestFix;
-        }
-
-        if (!isset($groupClusters[$groupKey])) {
-            $groupClusters[$groupKey] = [];
-        }
-        $groupClusters[$groupKey][] = $branch;
-        $branches[] = $branch;
     }
 
-    // Step 6: Assign type-prefixed topological names
-    $flightAssignments = []; // callsign => branch_id
-    $namedBranches = [];
+    // Step 5: PHASE 2 — Sub-branch detection within multi-origin corridors
+    // For each corridor with diverse O/D composition, check if the far-end
+    // segments separate into distinct sub-branches when clustered by O/D group.
+    $allBranches = [];
+    $flightAssignments = [];
 
-    foreach ($groupClusters as $groupKey => $clusters) {
-        // Sort clusters within group by distance (farthest first for consistent naming)
-        usort($clusters, function ($a, $b) {
+    foreach ($corridors as $corridor) {
+        $corridorCallsigns = $corridor['callsigns'];
+
+        // Determine O/D diversity within this corridor
+        $odGroups = [];
+        foreach ($corridorCallsigns as $cs) {
+            $gk = $callsignGroups[$cs] ?? 'unk:UNK';
+            $odGroups[$gk][] = $cs;
+        }
+
+        $distinctOdCount = count($odGroups);
+        $corridorSpan = $corridor['max_dist_nm'] - $corridor['min_dist_nm'];
+
+        // Only attempt sub-branching if:
+        // - Multiple O/D groups with ≥ 2 flights each
+        // - Corridor spans enough distance for separation to be visible
+        $qualifiedOdGroups = array_filter($odGroups, fn($cs) => count($cs) >= 2);
+        $shouldSubBranch = count($qualifiedOdGroups) >= 2 && $corridorSpan > 30;
+
+        if ($shouldSubBranch) {
+            // Phase 2: Run DBSCAN on far-end segments (outer 60%) partitioned by O/D group
+            $farThresholdNm = $corridor['min_dist_nm'] + $corridorSpan * 0.4;
+            $farThresholdM = $farThresholdNm * 1852;
+
+            // Create temp table with corridor callsigns for this pass
+            $gis->exec("DROP TABLE IF EXISTS temp_corridor_cs");
+            $gis->exec("CREATE TEMP TABLE temp_corridor_cs (callsign VARCHAR(20))");
+            $csInsert = $gis->prepare("INSERT INTO temp_corridor_cs (callsign) VALUES (:cs)");
+            foreach ($corridorCallsigns as $cs) {
+                $csInsert->execute([':cs' => $cs]);
+            }
+
+            $phase2Stmt = $gis->prepare("
+                WITH far_segments AS (
+                    SELECT
+                        s.callsign,
+                        s.seg_idx,
+                        s.geom,
+                        g.group_key,
+                        ST_Distance(s.geom::geography, f.geom::geography) / 1852 as dist_nm
+                    FROM temp_traj_segments s
+                    JOIN temp_corridor_cs cc ON s.callsign = cc.callsign
+                    JOIN temp_branch_groups g ON s.callsign = g.callsign
+                    CROSS JOIN temp_fix_ref f
+                    WHERE ST_DWithin(s.geom::geography, f.geom::geography, :max_dist_m)
+                      AND ST_Distance(s.geom::geography, f.geom::geography) > :far_dist_m
+                ),
+                sub_clustered AS (
+                    SELECT
+                        callsign, seg_idx, geom, group_key, dist_nm,
+                        ST_ClusterDBSCAN(geom, eps := :eps, minpoints := :minpts)
+                            OVER (PARTITION BY group_key) as sub_cluster_id
+                    FROM far_segments
+                ),
+                sub_stats AS (
+                    SELECT
+                        group_key,
+                        sub_cluster_id,
+                        COUNT(DISTINCT callsign) as track_count,
+                        COUNT(*) as segment_count,
+                        ST_AsGeoJSON(ST_ConcaveHull(ST_Collect(geom), 0.3)) as hull_geom,
+                        ST_AsGeoJSON(ST_Centroid(ST_Collect(geom))) as centroid,
+                        string_agg(DISTINCT callsign, ',' ORDER BY callsign) as callsign_list,
+                        degrees(ST_Azimuth(
+                            ST_Centroid(ST_Collect(geom)),
+                            (SELECT geom FROM temp_fix_ref)
+                        )) as bearing_to_fix,
+                        ST_Distance(
+                            ST_Centroid(ST_Collect(geom))::geography,
+                            (SELECT geom FROM temp_fix_ref)::geography
+                        ) / 1852 as centroid_dist_nm
+                    FROM sub_clustered
+                    WHERE sub_cluster_id IS NOT NULL
+                    GROUP BY group_key, sub_cluster_id
+                    HAVING COUNT(DISTINCT callsign) >= 2
+                )
+                SELECT * FROM sub_stats ORDER BY track_count DESC
+            ");
+
+            $phase2Stmt->execute([
+                ':max_dist_m' => $maxDistanceM,
+                ':far_dist_m' => $farThresholdM,
+                ':eps' => $subBranchEpsDeg,
+                ':minpts' => max(2, $minPoints - 1), // Slightly more permissive for sub-branches
+            ]);
+
+            $subBranches = [];
+            $subAssigned = [];
+            while ($row = $phase2Stmt->fetch(PDO::FETCH_ASSOC)) {
+                $subCallsigns = explode(',', $row['callsign_list']);
+                $subBranches[] = [
+                    'group_key' => $row['group_key'],
+                    'callsigns' => $subCallsigns,
+                    'track_count' => (int)$row['track_count'],
+                    'segment_count' => (int)$row['segment_count'],
+                    'hull' => json_decode($row['hull_geom'], true),
+                    'centroid' => json_decode($row['centroid'], true),
+                    'bearing_to_fix' => round((float)($row['bearing_to_fix'] ?? 0), 1),
+                    'centroid_dist_nm' => round((float)($row['centroid_dist_nm'] ?? 0), 1),
+                ];
+                foreach ($subCallsigns as $cs) {
+                    $subAssigned[$cs] = true;
+                }
+            }
+
+            $gis->exec("DROP TABLE IF EXISTS temp_corridor_cs");
+
+            if (count($subBranches) >= 2) {
+                // Sub-branching succeeded — use sub-branches
+                // Any corridor callsigns not in a sub-branch become "main corridor" remainder
+                $remainderCallsigns = array_diff($corridorCallsigns, array_keys($subAssigned));
+
+                foreach ($subBranches as $sb) {
+                    $allBranches[] = array_merge($sb, [
+                        'parent_corridor_id' => $corridor['corridor_id'],
+                        'is_sub_branch' => true,
+                        'approach_direction' => bearingToCardinal($sb['bearing_to_fix']),
+                        'distance_to_fix_nm' => $sb['centroid_dist_nm'],
+                    ]);
+                }
+
+                // If there are leftover callsigns not sub-branched, add them as a catch-all branch
+                if (count($remainderCallsigns) >= 2) {
+                    $allBranches[] = [
+                        'group_key' => 'corridor:' . $corridor['corridor_id'],
+                        'callsigns' => array_values($remainderCallsigns),
+                        'track_count' => count($remainderCallsigns),
+                        'segment_count' => 0,
+                        'hull' => $corridor['hull'],
+                        'centroid' => $corridor['centroid'],
+                        'bearing_to_fix' => $corridor['bearing_to_fix'],
+                        'approach_direction' => bearingToCardinal($corridor['bearing_to_fix']),
+                        'distance_to_fix_nm' => $corridor['centroid_dist_nm'],
+                        'parent_corridor_id' => $corridor['corridor_id'],
+                        'is_sub_branch' => false,
+                    ];
+                }
+                continue;
+            }
+            // Sub-branching didn't produce ≥2 branches; fall through to single-corridor handling
+        }
+
+        // Single corridor (no sub-branching needed or sub-branching failed)
+        // Label by dominant O/D group
+        $dominantOd = '';
+        $maxCount = 0;
+        foreach ($odGroups as $gk => $csArr) {
+            if (count($csArr) > $maxCount) {
+                $maxCount = count($csArr);
+                $dominantOd = $gk;
+            }
+        }
+
+        $allBranches[] = [
+            'group_key' => $dominantOd ?: ('corridor:' . $corridor['corridor_id']),
+            'callsigns' => $corridorCallsigns,
+            'track_count' => $corridor['track_count'],
+            'segment_count' => $corridor['segment_count'],
+            'hull' => $corridor['hull'],
+            'centroid' => $corridor['centroid'],
+            'bearing_to_fix' => $corridor['bearing_to_fix'],
+            'approach_direction' => bearingToCardinal($corridor['bearing_to_fix']),
+            'distance_to_fix_nm' => $corridor['centroid_dist_nm'],
+            'parent_corridor_id' => $corridor['corridor_id'],
+            'is_sub_branch' => false,
+            'od_composition' => array_map(fn($csArr) => count($csArr), $odGroups),
+        ];
+    }
+
+    // Step 6: Match branches to known fixes and assign topological names
+    $namedBranches = [];
+    // Group by approach direction for position numbering
+    $directionGroups = [];
+
+    foreach ($allBranches as &$branch) {
+        // Match centroid to known fixes
+        $branch['matched_fix'] = matchCentroidToFix($gis, $branch['centroid'], $knownFixes);
+
+        $dir = $branch['approach_direction'] ?? 'UNK';
+        $directionGroups[$dir][] = &$branch;
+    }
+    unset($branch);
+
+    // Assign branch IDs and display names
+    foreach ($directionGroups as $dir => $branches) {
+        // Sort by distance (farthest first) for consistent naming
+        usort($branches, function ($a, $b) {
             return $b['distance_to_fix_nm'] <=> $a['distance_to_fix_nm'];
         });
 
-        foreach ($clusters as $position => $branch) {
-            // Build branch_id: group_key/nav_element/position
+        foreach ($branches as $position => $branch) {
+            $positionNum = $position + 1;
+            $groupKey = $branch['group_key'];
+
+            // Build branch_id
             $navPart = '';
             if ($branch['matched_fix']) {
                 $navPart = '/fix:' . strtoupper($branch['matched_fix']['id']);
-            } elseif ($branch['approach_direction']) {
-                $navPart = '/' . $branch['approach_direction'];
+            } elseif ($dir !== 'UNK') {
+                $navPart = '/' . $dir;
             }
 
-            $positionNum = $position + 1;
             $branchId = $groupKey . $navPart . '/' . $positionNum;
 
             $branch['branch_id'] = $branchId;
             $branch['display'] = [
-                'short' => buildBranchShortName($groupKey, $branch['matched_fix'], $positionNum),
-                'long' => buildBranchLongName($groupKey, $branch['matched_fix'], $positionNum, $branch['track_count']),
+                'short' => buildBranchShortName($groupKey, $branch['matched_fix'], $positionNum, $branch['is_sub_branch'] ?? false),
+                'long' => buildBranchLongName($groupKey, $branch['matched_fix'], $positionNum, $branch['track_count'], $branch['od_composition'] ?? null),
             ];
 
-            // Assign callsigns to this branch
+            // Assign callsigns
             foreach ($branch['callsigns'] as $cs) {
                 $flightAssignments[$cs] = $branchId;
             }
@@ -1253,6 +1453,7 @@ function calculateBranchAnalysis(
     // Cleanup temp tables
     $gis->exec("DROP TABLE IF EXISTS temp_branch_groups");
     $gis->exec("DROP TABLE IF EXISTS temp_fix_ref");
+    $gis->exec("DROP TABLE IF EXISTS temp_valid_callsigns");
 
     return [
         'branches' => $namedBranches,
@@ -1260,38 +1461,94 @@ function calculateBranchAnalysis(
         'total_flights' => count($allCallsigns),
         'branch_count' => count($namedBranches),
         'ungrouped_flights' => $ungroupedCount,
+        'bearing_filter' => [
+            'median_bearing' => round($medianBearing, 1),
+            'filter_deg' => $bearingFilterDeg,
+            'accepted' => count($validCallsigns),
+            'rejected' => count($rejectedCallsigns),
+        ],
+        'corridors_phase1' => count($corridors),
         'params' => [
-            'mit_distance_nm' => $mitDistanceNm,
+            'branch_min_distance_nm' => $minDistanceNm,
             'max_distance_nm' => $maxDistanceNm,
             'tmi_type' => $tmiType,
-            'eps_nm' => $epsDeg * 60,
+            'phase1_eps_nm' => $epsDeg * 60,
+            'phase2_eps_nm' => $subBranchEpsDeg * 60,
             'min_points' => $minPoints,
+            'bearing_filter_deg' => $bearingFilterDeg,
         ],
     ];
 }
 
 /**
- * Build short display name for a branch (e.g., "ATL-CAMRN-1")
+ * Match a branch centroid to the nearest known fix within 30nm.
  */
-function buildBranchShortName(string $groupKey, ?array $matchedFix, int $position): string
+function matchCentroidToFix(PDO $gis, ?array $centroid, array $knownFixes): ?array
 {
-    // Extract the identifier from group key (e.g., "orig:KATL" → "KATL")
-    $parts = explode(':', $groupKey, 2);
-    $id = $parts[1] ?? $parts[0];
-    // For directional thru groups, keep the arrow
-    $id = str_replace('>', '→', $id);
+    if (empty($knownFixes) || !$centroid || !isset($centroid['coordinates'])) {
+        return null;
+    }
 
-    $fixName = $matchedFix ? $matchedFix['id'] : '';
+    $cLon = $centroid['coordinates'][0];
+    $cLat = $centroid['coordinates'][1];
+    $bestFix = null;
+    $bestDist = 30; // Max match distance in nm
+
+    foreach ($knownFixes as $fix) {
+        $fId = $fix['id'] ?? $fix['name'] ?? 'UNKNOWN';
+        $fLat = $fix['lat'] ?? null;
+        $fLon = $fix['lon'] ?? $fix['lng'] ?? null;
+        if (!is_numeric($fLat) || !is_numeric($fLon)) continue;
+
+        $distQuery = $gis->prepare("
+            SELECT ST_Distance(
+                ST_SetSRID(ST_MakePoint(:c_lon, :c_lat), 4326)::geography,
+                ST_SetSRID(ST_MakePoint(:f_lon, :f_lat), 4326)::geography
+            ) / 1852 as dist_nm
+        ");
+        $distQuery->execute([
+            ':c_lon' => $cLon, ':c_lat' => $cLat,
+            ':f_lon' => $fLon, ':f_lat' => $fLat,
+        ]);
+        $d = (float)$distQuery->fetch(PDO::FETCH_ASSOC)['dist_nm'];
+
+        if ($d < $bestDist) {
+            $bestDist = $d;
+            $bestFix = ['id' => $fId, 'distance_nm' => round($d, 1)];
+        }
+    }
+    return $bestFix;
+}
+
+/**
+ * Build short display name for a branch (e.g., "ATL-CAMRN-1", "S-2")
+ */
+function buildBranchShortName(string $groupKey, ?array $matchedFix, int $position, bool $isSubBranch = false): string
+{
+    $parts = explode(':', $groupKey, 2);
+    $type = $parts[0] ?? '';
+    $id = $parts[1] ?? $parts[0];
+    $id = str_replace('>', "\u{2192}", $id); // →
+
+    // For corridor-level branches without sub-branching, use direction + fix
+    if ($type === 'corridor') {
+        $fixName = $matchedFix ? strtoupper($matchedFix['id']) : '';
+        return $fixName ? $fixName . '-' . $position : 'Corridor-' . $position;
+    }
+
+    $fixName = $matchedFix ? strtoupper($matchedFix['id']) : '';
     if ($fixName) {
-        return strtoupper($id) . '-' . strtoupper($fixName) . '-' . $position;
+        return strtoupper($id) . '-' . $fixName . '-' . $position;
     }
     return strtoupper($id) . '-' . $position;
 }
 
 /**
- * Build long display name for a branch (e.g., "ATL departures via CAMRN, Stream 1 (5 flights)")
+ * Build long display name for a branch
+ * e.g., "ATL departures via CAMRN, Stream 1 (5 flights)"
+ * e.g., "SW corridor via BOSCO (ATL×3, CLT×2, MCO×1), Stream 1 (6 flights)"
  */
-function buildBranchLongName(string $groupKey, ?array $matchedFix, int $position, int $trackCount): string
+function buildBranchLongName(string $groupKey, ?array $matchedFix, int $position, int $trackCount, ?array $odComposition = null): string
 {
     $parts = explode(':', $groupKey, 2);
     $type = $parts[0] ?? '';
@@ -1301,8 +1558,23 @@ function buildBranchLongName(string $groupKey, ?array $matchedFix, int $position
         'orig' => "$id departures",
         'dest' => "arrivals to $id",
         'thru' => str_replace('>', ' → ', $id) . ' transit',
+        'corridor' => 'Corridor',
         default => $id,
     };
+
+    // If we have O/D composition, show the mix
+    if ($odComposition && count($odComposition) > 1) {
+        $compParts = [];
+        arsort($odComposition);
+        foreach ($odComposition as $gk => $cnt) {
+            $odParts = explode(':', $gk, 2);
+            $odId = $odParts[1] ?? $odParts[0];
+            // Strip ICAO K-prefix for display
+            if (strlen($odId) === 4 && $odId[0] === 'K') $odId = substr($odId, 1);
+            $compParts[] = "$odId×$cnt";
+        }
+        $typeLabel .= ' (' . implode(', ', $compParts) . ')';
+    }
 
     $fixName = $matchedFix ? $matchedFix['id'] : '';
     $viaPart = $fixName ? " via $fixName" : '';
