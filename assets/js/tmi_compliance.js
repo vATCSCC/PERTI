@@ -1632,17 +1632,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const compPct = r.compliance_pct || 0;
         const compClass = this.getComplianceClass(compPct);
         const detailId = `gs_detail_${++this.detailIdCounter}`;
+        const originId = `gs_origin_${this.detailIdCounter}`;
 
         // Handle both naming conventions (exempt_flights OR exempt)
         const exemptFlights = r.exempt_flights || r.exempt || [];
         const compliantFlights = r.compliant_flights || r.compliant || [];
         const nonCompliantFlights = r.non_compliant_flights || r.non_compliant || [];
+        const notInScopeFlights = r.not_in_scope || [];
         const exemptCount = r.exempt_count || exemptFlights.length;
         const compliantCount = r.compliant_count || compliantFlights.length;
         const nonCompliantCount = r.non_compliant_count || r.violations?.total || nonCompliantFlights.length;
+        const notInScopeCount = notInScopeFlights.length;
 
         // Check for data gap overlap
         const gapBadge = this.renderTMIGapBadge(r.gs_start, r.gs_end);
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX' || r.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRED') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
 
         let html = `
             <div class="tmi-card gs-card${gapBadge ? ' has-data-gap' : ''}">
@@ -1654,10 +1665,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${r.gs_start || ''} - ${r.gs_end || ''} |
                             Issued: ${r.gs_issued || 'N/A'}
                         </span>
+                        ${endedBadge}
                         ${gapBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
+        `;
+
+        // Impacting condition
+        if (r.impacting_condition) {
+            html += `<div class="text-muted small mb-1"><i class="fas fa-cloud"></i> ${r.impacting_condition}</div>`;
+        }
+
+        // Program timeline bar (backward compat: only render if present)
+        if (r.program_timeline && r.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(r.program_timeline, r.gs_start, r.gs_end);
+        }
+
+        // Stats row
+        html += `
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.total_flights || 0}</div>
@@ -1675,8 +1701,69 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-value text-danger">${nonCompliantCount}</div>
                         <div class="tmi-stat-label">Violations</div>
                     </div>
-                </div>
         `;
+
+        // Not-in-scope stat
+        if (notInScopeCount > 0) {
+            html += `
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-muted">${notInScopeCount}</div>
+                        <div class="tmi-stat-label">Not In Scope</div>
+                    </div>
+            `;
+        }
+
+        // Avg hold time
+        if (r.avg_hold_time_min && r.avg_hold_time_min > 0) {
+            html += `
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${r.avg_hold_time_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-label">Avg Hold</div>
+                    </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // CNX comments
+        if (r.cnx_comments) {
+            html += `<div class="gs-cnx-comments"><i class="fas fa-info-circle text-info"></i> ${r.cnx_comments}</div>`;
+        }
+
+        // Per-origin breakdown (collapsible)
+        const perOrigin = r.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${originId}">
+                        <i class="fas fa-map-marker-alt"></i> Per-Origin Breakdown (${perOrigin.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 gs-per-origin" id="${originId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead class="thead-dark">
+                                <tr><th>Origin</th><th>Total</th><th>Compliant</th><th>Non-Comp</th><th>Exempt</th><th>Rate</th></tr>
+                            </thead>
+                            <tbody>
+                                ${perOrigin.map(o => {
+                                    const oPct = o.compliance_pct || 0;
+                                    const oClass = this.getComplianceClass(oPct);
+                                    return `<tr>
+                                        <td><code>${o.origin}</code></td>
+                                        <td>${o.total || 0}</td>
+                                        <td class="text-success">${o.compliant || 0}</td>
+                                        <td class="text-danger">${o.non_compliant || 0}</td>
+                                        <td class="text-info">${o.exempt || 0}</td>
+                                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
 
         // Show flight details
         const hasDetails = exemptFlights.length > 0 || compliantFlights.length > 0 || nonCompliantFlights.length > 0;
@@ -1692,15 +1779,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="row">
             `;
 
-            // Non-compliant flights (violations)
+            // Non-compliant flights (violations) - with Phase column if available
             if (nonCompliantFlights.length > 0) {
+                const hasPhase = nonCompliantFlights.some(f => f.phase);
                 html += `
                     <div class="col-md-4">
                         <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}</tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -1709,6 +1797,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                                            ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1726,7 +1815,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -1734,6 +1823,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                            <td><small>${f.reason || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1779,6 +1869,58 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const streamFlights = r.total_flights || 0;
         const analyzedFlights = compliantCount + nonCompliantCount + exemptCount;
         html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, streamFlights, analyzedFlights);
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render GS program timeline bar
+     * Shows advisory phases proportionally on a time axis
+     */
+    renderGsTimelineBar: function(timeline, gsStart, gsEnd) {
+        if (!timeline || timeline.length === 0) return '';
+
+        // Filter to phases with start/end (skip CNX entries which have null times)
+        const phases = timeline.filter(p => p.start && p.end);
+        const cnxEntry = timeline.find(p => (p.type || '').toUpperCase() === 'CNX');
+
+        if (phases.length === 0 && !cnxEntry) return '';
+
+        // Parse time to minutes for proportional sizing
+        const parseTime = (t) => {
+            if (!t) return 0;
+            const match = t.match(/(\d{2}):?(\d{2})/);
+            return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : 0;
+        };
+
+        // Compute total span
+        const allStarts = phases.map(p => parseTime(p.start));
+        const allEnds = phases.map(p => parseTime(p.end));
+        const totalStart = Math.min(...allStarts);
+        const totalEnd = Math.max(...allEnds);
+        const totalSpan = totalEnd - totalStart;
+
+        if (totalSpan <= 0) return '';
+
+        let html = '<div class="gs-timeline">';
+
+        phases.forEach(p => {
+            const pStart = parseTime(p.start);
+            const pEnd = parseTime(p.end);
+            const pct = ((pEnd - pStart) / totalSpan * 100).toFixed(1);
+            const pType = (p.type || '').toUpperCase();
+            let phaseClass = 'phase-initial';
+            if (pType === 'EXTENSION') phaseClass = 'phase-extension';
+            const label = p.advzy ? `ADVZY ${p.advzy}` : pType;
+
+            html += `<div class="phase ${phaseClass}" style="flex: ${pct} 0 0;" title="${label}: ${p.start} - ${p.end}">${label}</div>`;
+        });
+
+        // Small CNX marker at the end
+        if (cnxEntry) {
+            html += `<div class="phase phase-cnx" title="CNX: ${cnxEntry.issued || ''}"></div>`;
+        }
 
         html += '</div>';
         return html;
@@ -5798,15 +5940,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render GS detail content
      */
     renderGsDetailV2: function(data) {
-        const nonCompliant = data.non_compliant_count || 0;
+        const nonCompliantFlights = data.non_compliant_flights || data.non_compliant || [];
+        const exemptFlights = data.exempt_flights || data.exempt || [];
+        const compliantFlights = data.compliant_flights || data.compliant || [];
+        const nonCompliant = data.non_compliant_count || data.violations?.total || nonCompliantFlights.length;
         const totalFlights = data.total_flights || 0;
-        const compliant = data.compliant_count || 0;
-        const exempt = data.exempt_count || 0;
+        const compliant = data.compliant_count || compliantFlights.length;
+        const exempt = data.exempt_count || exemptFlights.length;
+        const notInScope = (data.not_in_scope || []).length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX' || data.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRED') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
 
         let html = `
             <div class="tmi-detail-overview">
                 <div class="stat">
-                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'}</div>
+                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'} ${endedBadge}</div>
                     <div class="stat-label">Stop Window</div>
                 </div>
                 <div class="stat">
@@ -5825,8 +5979,102 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="stat-value">${exempt}</div>
                     <div class="stat-label">Exempt</div>
                 </div>
-            </div>
         `;
+
+        if (notInScope > 0) {
+            html += `
+                <div class="stat">
+                    <div class="stat-value">${notInScope}</div>
+                    <div class="stat-label">Not In Scope</div>
+                </div>
+            `;
+        }
+
+        if (data.avg_hold_time_min && data.avg_hold_time_min > 0) {
+            html += `
+                <div class="stat">
+                    <div class="stat-value">${data.avg_hold_time_min.toFixed(0)}m</div>
+                    <div class="stat-label">Avg Hold</div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // Impacting condition
+        if (data.impacting_condition) {
+            html += `<div class="text-muted small mt-2"><i class="fas fa-cloud"></i> ${data.impacting_condition}</div>`;
+        }
+
+        // Program timeline bar
+        if (data.program_timeline && data.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(data.program_timeline, data.gs_start, data.gs_end);
+        }
+
+        // CNX comments
+        if (data.cnx_comments) {
+            html += `<div class="gs-cnx-comments mt-2"><i class="fas fa-info-circle text-info"></i> ${data.cnx_comments}</div>`;
+        }
+
+        // Per-origin breakdown (expandable section)
+        const perOrigin = data.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            html += this.renderExpandableSectionV2('gs-per-origin', 'Per-Origin Breakdown', `(${perOrigin.length})`, () => {
+                let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Origin</th><th>Total</th><th>Compliant</th><th>Non-Comp</th><th>Exempt</th><th>Rate</th></tr></thead><tbody>`;
+                perOrigin.forEach(o => {
+                    const oPct = o.compliance_pct || 0;
+                    const oClass = this.getComplianceClass(oPct);
+                    tbl += `<tr>
+                        <td><code>${o.origin}</code></td>
+                        <td>${o.total || 0}</td>
+                        <td class="text-success">${o.compliant || 0}</td>
+                        <td class="text-danger">${o.non_compliant || 0}</td>
+                        <td class="text-info">${o.exempt || 0}</td>
+                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight detail expandable sections
+        if (nonCompliantFlights.length > 0) {
+            const hasPhase = nonCompliantFlights.some(f => f.phase);
+            html += this.renderExpandableSectionV2('gs-violations', 'Violations', `(${nonCompliantFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}</tr></thead><tbody>`;
+                nonCompliantFlights.forEach(f => {
+                    tbl += `<tr class="table-danger">
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                        ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        if (exemptFlights.length > 0) {
+            html += this.renderExpandableSectionV2('gs-exempt', 'Exempt Flights', `(${exemptFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr></thead><tbody>`;
+                exemptFlights.forEach(f => {
+                    tbl += `<tr>
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td><small>${f.reason || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
 
         // Context Map section for GS
         const mapId = `map_v2_gs_${Date.now()}`;
@@ -5904,6 +6152,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (this.expandedSections[sectionId]) {
             section.addClass('expanded');
             // Re-render content when expanding
+            // For sections managed by renderExpandableSectionV2 with contentFn,
+            // re-render the full detail panel to invoke the content function
             const tmi = this.findTmiById(this.selectedTmiId);
             if (tmi) {
                 let contentHtml = '';
@@ -5917,6 +6167,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const data = tmi.data;
                     const nonCompliant = (data.all_pairs || []).filter(p => p.spacing_category === 'UNDER');
                     contentHtml = this.renderPairsTableV2(nonCompliant, data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                } else {
+                    // Generic handler: re-render the entire detail panel
+                    // This supports GS per-origin, violations, exempt, reroute sections
+                    $('#tmi-detail-panel').html(this.renderDetailPanelV2(tmi));
+                    return;
                 }
                 content.html(contentHtml);
             }
