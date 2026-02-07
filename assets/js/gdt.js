@@ -582,10 +582,9 @@
                     const type = opt.dataset.type;
                     const val = opt.value;
                     if (type === 'tier' || type === 'special') {
-                    // Use the tier code as the name (e.g., "1stTier", "All+Canada")
-                        selectedNames.push(val);
+                        selectedNames.push(opt.dataset.tierLabel || val);
                     } else if (type === 'fac') {
-                        selectedNames.push(val);
+                        selectedNames.push(opt.dataset.tierLabel || val);
                     } else if (type === 'manual') {
                         selectedNames.push('Manual');
                     }
@@ -1609,6 +1608,7 @@
             const opt = document.createElement('option');
             opt.value = code;
             opt.dataset.type = (code === 'Manual') ? 'manual' : 'special';
+            opt.dataset.tierLabel = code;
             if (entry && entry.label) {
                 opt.textContent = code + ' ' + entry.label;
             } else {
@@ -1634,8 +1634,9 @@
                 opt.value = e.code;
                 opt.dataset.type = 'tier';
                 const label = e.label || e.code;
+                opt.dataset.tierLabel = label.replace(/[()]/g, '');
                 group.appendChild(opt);
-                opt.textContent = fac + ' ' + label.replace(/[()]/g, '');
+                opt.textContent = fac + ' ' + opt.dataset.tierLabel;
             });
             sel.appendChild(group);
         });
@@ -1648,6 +1649,7 @@
                 const opt = document.createElement('option');
                 opt.value = f;
                 opt.dataset.type = 'fac';
+                opt.dataset.tierLabel = f;
                 opt.textContent = f;
                 groupInd.appendChild(opt);
             });
