@@ -423,6 +423,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const gsResults = this.results.gs_results || {};
         const hasGroundStops = Object.keys(gsResults).length > 0 || (Array.isArray(gsResults) && gsResults.length > 0);
         const gsCompliance = hasGroundStops ? (summary.gs?.compliance_pct ?? 100) : null;
+        const rrResults = this.results.reroute_results || {};
+        const rrArray = Array.isArray(rrResults) ? rrResults : Object.values(rrResults);
+        const hasReroutes = rrArray.length > 0;
+        const rrCompliance = hasReroutes ? (rrArray.reduce((s, rr) => s + (rr.filed_compliance_pct || 0), 0) / rrArray.length) : null;
         const overall = summary.overall_compliance_pct || 0;
 
         html += `
@@ -440,6 +444,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${gsCompliance !== null ? this.getComplianceClass(gsCompliance) : 'text-muted'}">${gsCompliance !== null ? gsCompliance.toFixed(1) + '%' : 'N/A'}</div>
                         <div class="tmi-stat-label">Ground Stop Compliance</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value ${rrCompliance !== null ? this.getComplianceClass(rrCompliance) : 'text-muted'}">${rrCompliance !== null ? rrCompliance.toFixed(1) + '%' : 'N/A'}</div>
+                        <div class="tmi-stat-label">Reroute Compliance</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${this.getComplianceClass(overall)}">${overall.toFixed(1)}%</div>
@@ -5923,11 +5931,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const mitResults = r.mit_results || {};
         const gsResults = r.gs_results || {};
         const apreqResults = r.apreq_results || {};
+        const rerouteResults = r.reroute_results || {};
         const delayResults = r.delay_results || [];
 
         const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
         const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
         const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
 
         // Calculate NTML entry counts
         const mitCount = mitArray.length;
@@ -5943,6 +5953,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }, 0);
 
         const apreqCount = apreqArray.length;
+        const rerouteCount = rerouteArray.length;
+        const mandatoryReroutes = rerouteArray.filter(rr => rr.mandatory || rr.action === 'RQD').length;
+        const rerouteFlights = rerouteArray.reduce((sum, rr) => sum + (rr.total_flights || 0), 0);
 
         // Calculate trajectory coverage
         const trajCoverage = this.calculateTrajectoryCoverageV2();
@@ -5962,10 +5975,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
         }
 
-        // Advisories summary (GS as advisory context)
+        // Advisories summary (GS and reroutes as advisory context)
         let advisoryLines = '';
         if (gsCount > 0) {
             advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
+        }
+        if (rerouteCount > 0) {
+            const avgFiledPct = rerouteArray.reduce((sum, rr) => sum + (rr.filed_compliance_pct || 0), 0) / rerouteCount;
+            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, filed ${avgFiledPct.toFixed(0)}% compliant</div>`;
         }
 
         // Data gap information
