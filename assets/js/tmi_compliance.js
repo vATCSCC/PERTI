@@ -158,6 +158,10 @@ const TMICompliance = {
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Start trajectory fetch in parallel (maps will await it)
+                    if (response.data.trajectories_url) {
+                        this.loadTrajectories(this.planId, response.data.trajectories_url);
+                    }
                     // Check for data gaps before rendering
                     this.checkDataGaps(() => {
                         this.renderResults();
@@ -174,6 +178,29 @@ const TMICompliance = {
                 this.showError(`Failed to load results: ${error}`);
             },
         });
+    },
+
+    /**
+     * Fetch trajectory data from the split trajectory endpoint.
+     * Called in parallel with results rendering — maps defer trajectory-dependent
+     * features (flight tracks, flow cones, branch analysis) until this resolves.
+     */
+    loadTrajectories: function(planId, trajectoryUrl) {
+        const url = trajectoryUrl || `api/analysis/tmi_compliance.php?p_id=${planId}&trajectories=true`;
+        this._trajectoryPromise = fetch(url)
+            .then(resp => resp.ok ? resp.json() : null)
+            .then(trajData => {
+                if (trajData) {
+                    this._rawTrajectories = trajData;
+                    console.log(`Loaded trajectory data: ${Object.keys(trajData).length} MIT entries`);
+                }
+                return trajData;
+            })
+            .catch(e => {
+                console.warn('Trajectory fetch failed:', e);
+                return null;
+            });
+        return this._trajectoryPromise;
     },
 
     analysisInProgress: false,
@@ -332,6 +359,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Start trajectory fetch in parallel
+                    if (response.data.trajectories_url) {
+                        this.loadTrajectories(this.planId, response.data.trajectories_url);
+                    }
 
                     // Count results
                     const mitCount = response.data.mit_results?.length || 0;
@@ -2127,8 +2158,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for airway geometry (keyed by airway name)
     airwayCache: {},
 
-    // Cache for branch corridor data from PHP middleware (keyed by mapId)
+    // Cache for branch corridor data (keyed by mapId)
     branchCorridorCache: {},
+
+    // Raw trajectory data keyed by MIT key (loaded from separate endpoint)
+    _rawTrajectories: null,
+    _trajectoryPromise: null,
 
     // Track active branch panel states (keyed by mapId)
     branchPanelState: {},
@@ -2281,6 +2316,131 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             console.warn(`Flow stream fetch failed for ${mapId}:`, err);
             return null;
         }
+    },
+
+    /**
+     * Fetch branch corridor analysis from GIS API (moved from PHP server-side).
+     * Fires alongside fetchFlowStreams when trajectory data is available.
+     * Computes per-branch compliance metrics client-side from pair data.
+     */
+    fetchBranchAnalysis: async function(mapId, trajectories, mitResult) {
+        if (!trajectories || Object.keys(trajectories).length < 3) return null;
+        if (this.branchCorridorCache[mapId]) return this.branchCorridorCache[mapId];
+
+        const fixInfo = mitResult.fix_info;
+        if (!fixInfo?.lat || !fixInfo?.lon) return null;
+
+        const trajArray = Object.entries(trajectories).map(([cs, traj]) => ({
+            callsign: cs,
+            coordinates: (traj.coordinates || []).map(c => [c[0], c[1]]) // strip timestamps
+        })).filter(t => t.coordinates.length >= 2);
+
+        if (trajArray.length < 3) return null;
+
+        try {
+            const response = await fetch('api/gis/track_density.php?action=branch_analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    trajectories: trajArray,
+                    fix_point: [parseFloat(fixInfo.lon), parseFloat(fixInfo.lat)],
+                    mit_distance_nm: parseFloat(mitResult.required || 15),
+                    max_distance_nm: 250,
+                    tmi_type: 'arrival',
+                    cluster_eps_nm: 3,
+                    cluster_min_points: 3
+                })
+            });
+
+            if (!response.ok) return null;
+            const result = await response.json();
+            if (!result.success || !result.data?.branches?.length) return null;
+
+            const gisData = result.data;
+
+            // Compute per-branch compliance metrics from pair data
+            const allPairs = this.pairCache?.[mapId] || mitResult.all_pairs || [];
+            const assignments = gisData.flight_assignments || {};
+            const branchMetrics = this._computeBranchMetrics(allPairs, assignments);
+
+            const corridors = {
+                branches: gisData.branches,
+                flight_assignments: assignments,
+                branch_metrics: branchMetrics,
+                total_flights: gisData.total_flights || trajArray.length,
+                branch_count: gisData.branch_count || gisData.branches.length,
+                ungrouped_flights: gisData.ungrouped_flights || 0,
+            };
+
+            this.branchCorridorCache[mapId] = corridors;
+            console.log(`Branch analysis for ${mapId}: ${corridors.branch_count} branches`);
+
+            // If map + branch panel already open, refresh it
+            if (this.branchPanelState[mapId]?.visible) {
+                this.renderBranchPanel(mapId);
+            }
+
+            return corridors;
+        } catch (err) {
+            console.warn(`Branch analysis failed for ${mapId}:`, err);
+            return null;
+        }
+    },
+
+    /**
+     * Compute per-branch compliance metrics from pair data (moved from PHP).
+     * Filters pairs where both flights belong to the same branch.
+     */
+    _computeBranchMetrics: function(allPairs, flightAssignments) {
+        if (!allPairs?.length || !flightAssignments) return {};
+
+        const branchPairs = {}; // branch_id -> [pairs]
+        for (const pair of allPairs) {
+            const lead = pair.prev_callsign || pair.lead_callsign || '';
+            const trail = pair.curr_callsign || pair.trail_callsign || '';
+            const leadBranch = flightAssignments[lead];
+            const trailBranch = flightAssignments[trail];
+
+            if (leadBranch && leadBranch === trailBranch) {
+                if (!branchPairs[leadBranch]) branchPairs[leadBranch] = [];
+                branchPairs[leadBranch].push(pair);
+            }
+        }
+
+        const metrics = {};
+        for (const [branchId, pairs] of Object.entries(branchPairs)) {
+            let compliant = 0;
+            const spacings = [];
+            const violations = [];
+
+            for (const pair of pairs) {
+                const spacing = parseFloat(pair.spacing || 0);
+                spacings.push(spacing);
+                if ((pair.compliance || '').toUpperCase() === 'COMPLIANT') {
+                    compliant++;
+                } else {
+                    violations.push({
+                        lead: pair.prev_callsign || pair.lead_callsign || '',
+                        trail: pair.curr_callsign || pair.trail_callsign || '',
+                        spacing,
+                        shortfall_pct: parseFloat(pair.shortfall_pct || 0),
+                    });
+                }
+            }
+
+            metrics[branchId] = {
+                pairs: pairs.length,
+                compliant_pairs: compliant,
+                compliance_pct: pairs.length > 0 ? Math.round((compliant / pairs.length) * 1000) / 10 : 100,
+                violations,
+                spacing_stats: {
+                    min: spacings.length ? Math.round(Math.min(...spacings) * 10) / 10 : 0,
+                    avg: spacings.length ? Math.round((spacings.reduce((a, b) => a + b, 0) / spacings.length) * 10) / 10 : 0,
+                    max: spacings.length ? Math.round(Math.max(...spacings) * 10) / 10 : 0,
+                },
+            };
+        }
+        return metrics;
     },
 
     /**
@@ -2486,12 +2646,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         };
 
         // Cache trajectories if available (for flight track rendering)
-        if (r.trajectories && Object.keys(r.trajectories).length > 0) {
-            this.trajectoryCache[mapId] = r.trajectories;
-            console.log(`Cached ${Object.keys(r.trajectories).length} trajectories for ${mapId}`);
+        // Supports both inline (old format) and split (new format via _rawTrajectories)
+        const _cacheAndFetchForMap = (trajectories) => {
+            if (!trajectories || Object.keys(trajectories).length === 0) return;
+            this.trajectoryCache[mapId] = trajectories;
+            console.log(`Cached ${Object.keys(trajectories).length} trajectories for ${mapId}`);
 
             // Trigger async flow stream analysis (populates cache for later map render)
-            // Extract fix point and known fixes for context-aware stream naming
             const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
             const fixPoint = fixInfo?.geometry?.coordinates || null;
             const knownFixes = (r.known_fixes || r.approach_fixes || []).map(f => ({
@@ -2499,13 +2660,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 lat: f.lat || f.latitude || f.geometry?.coordinates?.[1],
                 lon: f.lon || f.lng || f.longitude || f.geometry?.coordinates?.[0]
             })).filter(f => f.lat && f.lon);
-
-            // Fire and forget - cache will be ready when map renders
-            this.fetchFlowStreams(mapId, r.trajectories, {
-                fixPoint,
-                knownFixes,
-                isArrival: r.direction !== 'departure'
+            this.fetchFlowStreams(mapId, trajectories, {
+                fixPoint, knownFixes, isArrival: r.direction !== 'departure'
             });
+            // Also fire branch analysis from JS (was previously PHP server-side)
+            this.fetchBranchAnalysis(mapId, trajectories, r);
+        };
+
+        // Try inline trajectories first (old format / backwards compat)
+        const inlineTrajs = r.trajectories && Object.keys(r.trajectories).length > 0
+            ? r.trajectories : null;
+        if (inlineTrajs) {
+            _cacheAndFetchForMap(inlineTrajs);
+        } else if (r.has_trajectories && r.mit_key) {
+            // New split format: check _rawTrajectories or wait for promise
+            const splitTrajs = this._rawTrajectories?.[r.mit_key];
+            if (splitTrajs && Object.keys(splitTrajs).length > 0) {
+                _cacheAndFetchForMap(splitTrajs);
+            } else if (this._trajectoryPromise) {
+                // Trajectories still loading — defer until ready
+                this._trajectoryPromise.then(() => {
+                    const deferred = this._rawTrajectories?.[r.mit_key];
+                    _cacheAndFetchForMap(deferred);
+                });
+            }
         }
 
         // Cache traffic sector data if available (include required spacing for arc rendering)
@@ -2528,7 +2706,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             console.log(`Cached ${r.all_pairs.length} pairs for ${mapId}`);
         }
 
-        // Cache branch corridor data if available (from PHP middleware branch analysis)
+        // Branch corridors are now fetched via fetchBranchAnalysis() above (fired with trajectories)
+        // Legacy: cache if still present in PHP response (backwards compat)
         if (r.branch_corridors && r.branch_corridors.branches?.length > 0) {
             this.branchCorridorCache[mapId] = r.branch_corridors;
             console.log(`Cached ${r.branch_corridors.branch_count} branches for ${mapId}`);
@@ -4677,7 +4856,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     id: 'pair-markers-prev',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'prev']],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'prev']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4691,7 +4870,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     id: 'pair-markers-curr',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'curr']],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'curr']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4706,7 +4885,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     id: 'pair-labels-prev',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'prev']],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'prev']],
                     minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
@@ -4730,7 +4909,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     id: 'pair-labels-curr',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['all', ['!has', 'point_count'], ['==', ['get', 'position'], 'curr']],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'curr']],
                     minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
@@ -5367,8 +5546,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     formatEventTime: function(datetime) {
         if (!datetime) return '';
 
-        // Parse ISO or space-separated datetime
-        const dt = new Date(datetime.replace(' ', 'T'));
+        // Parse ISO or space-separated datetime; ensure UTC interpretation
+        let isoStr = datetime.replace(' ', 'T');
+        if (!/[Zz+\-]\d{0,4}$/.test(isoStr)) isoStr += 'Z';
+        const dt = new Date(isoStr);
         if (isNaN(dt.getTime())) return datetime; // Return original if parse fails
 
         const year = dt.getUTCFullYear();

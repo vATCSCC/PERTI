@@ -236,6 +236,7 @@ class TMIComplianceAnalyzer:
         self._crossing_cache = {}        # callsign -> list of PostGIS boundary crossings
         self._trajectory_cache_loaded = False
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
+        self._mit_trajectories = {}  # key -> {callsign -> trajectory} for split output
 
     # Trajectory quality thresholds
     MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 50 (enroute, not ground)
@@ -456,6 +457,8 @@ class TMIComplianceAnalyzer:
                         # Use unique key: type_fix_starttime_value to differentiate multiple TMIs per fix
                         time_key = tmi.start_utc.strftime('%H%M') if tmi.start_utc else 'notime'
                         key = f"{tmi.tmi_type.value}_{tmi.fix}_{time_key}_{tmi.value}"
+                        # Extract trajectories for separate file output
+                        self._mit_trajectories[key] = result.pop('_trajectories', {})
                         results['mit_results'][key] = result
 
                 # Ground Stop Analysis
@@ -518,6 +521,9 @@ class TMIComplianceAnalyzer:
                 }
                 for ud in self.event.user_defined_tmis
             ]
+
+        # Attach trajectory data for split file output (popped by run.py)
+        results['_trajectories'] = self._mit_trajectories
 
         return results
 
@@ -1653,7 +1659,10 @@ class TMIComplianceAnalyzer:
                             'dest': self._trajectory_metadata.get(callsign, {}).get('dest', '')
                         }
                     }
-        result['trajectories'] = trajectories
+        # Store trajectory metadata in result (actual data stored separately for split output)
+        result['has_trajectories'] = bool(trajectories)
+        result['trajectory_count'] = len(trajectories)
+        result['_trajectories'] = trajectories  # Popped by analyze() for split file
 
         # Compute traffic flow sectors (angular distribution at measurement point)
         if len(sorted_crossings) >= 3:
