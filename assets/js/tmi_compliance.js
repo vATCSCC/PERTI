@@ -597,6 +597,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
         }
 
+        // Reroute Results - handle both array and object formats
+        const rerouteResults = this.results.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        if (rerouteArray.length > 0) {
+            html += '<h6 class="text-warning mb-3 mt-4"><i class="fas fa-route"></i> Reroutes</h6>';
+
+            for (const r of rerouteArray) {
+                html += this.renderRerouteCard(r);
+            }
+        }
+
         // APREQ Results
         const apreqResults = this.results.apreq_results || {};
         const apreqResultsArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
@@ -6025,7 +6036,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Group by type
         const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
-        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
 
         let html = `
             <div class="tmi-list-header">
@@ -6114,6 +6125,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 nonCompliant: nonCompliant,
                 startTime: g.gs_start,
                 data: g,
+            });
+        });
+
+        // Reroutes
+        const rerouteResults = r.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        rerouteArray.forEach((rr, i) => {
+            const action = rr.action || (rr.mandatory ? 'RQD' : 'FYI');
+            const routeType = rr.route_type || 'ROUTE';
+            const filedNc = (rr.filed_non_compliant || []).length;
+            const flownNc = (rr.flown_non_compliant || []).length;
+            tmis.push({
+                id: `reroute_${i}`,
+                type: 'REROUTE',
+                identifier: rr.name || 'Reroute',
+                typeValue: `${routeType} ${action}`,
+                metric: `${rr.total_flights || 0}`,
+                metricValue: rr.total_flights || 0,
+                nonCompliant: filedNc + flownNc,
+                startTime: rr.start,
+                data: rr,
             });
         });
 
@@ -6227,11 +6259,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Back link for mobile
         html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">← Back to list</a>';
 
-        // Detail header
+        // Detail header - format standardized line based on type
+        let standardizedLine = '';
+        if (tmi.type === 'REROUTE') {
+            const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+            const routeType = data.route_type || 'ROUTE';
+            const parts = [`${routeType} ${action}`];
+            if (data.name) parts.push(data.name);
+            if (data.start || data.end) parts.push(`${data.start || '?'}-${data.end || '?'}`);
+            if (data.constrained_area) parts.push(data.constrained_area);
+            standardizedLine = parts.join(' | ');
+        } else {
+            standardizedLine = this.formatStandardizedTMI(data);
+        }
+
         html += `
             <div class="tmi-detail-header">
                 <div class="tmi-identity">${tmi.identifier} ${tmi.typeValue}</div>
-                <div class="tmi-standardized">${this.formatStandardizedTMI(data)}</div>
+                <div class="tmi-standardized">${standardizedLine}</div>
             </div>
         `;
 
@@ -6240,6 +6285,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += this.renderMitDetailV2(data);
         } else if (tmi.type === 'GS') {
             html += this.renderGsDetailV2(data);
+        } else if (tmi.type === 'REROUTE') {
+            html += this.renderRerouteDetailV2(data);
         } else if (tmi.type === 'APREQ') {
             html += this.renderApreqDetailV2(data);
         }
@@ -6759,7 +6806,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Group by type
         const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
-        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
 
         // Sort TMIs based on current ordering
         const sortedNtml = this.sortTmiList(ntmlEntries);
