@@ -1,7 +1,5 @@
 <?php
-/**
- * OPTIMIZED: Public page - no session handler or DB needed
- */
+include("sessions/handler.php");
 include("load/config.php");
 ?>
 <!DOCTYPE html>
