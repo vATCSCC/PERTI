@@ -47,17 +47,32 @@ function read_request_payload() {
 }
 
 // ============================================================================
+// Session & Database Connections
+// ============================================================================
+
+// Start session BEFORE loading config/connect, because connect.php's closing
+// ?> tag outputs a trailing newline that sends headers, preventing later
+// session_start() calls from succeeding (headers_sent() returns true).
+require_once(__DIR__ . '/../../sessions/handler.php');
+
+// Load core dependencies (same pattern as /api/tmi/helpers.php)
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
+require_once(__DIR__ . '/../../load/config.php');
+require_once(__DIR__ . '/../../load/connect.php');
+
+// ============================================================================
 // Authentication
 // ============================================================================
 
 /**
  * Require authenticated session for write operations.
  * Sends 401 and exits if not authenticated.
+ * Session is already started by the module-level include above.
  * @return string The authenticated user's VATSIM CID
  */
 function gdt_require_auth() {
-    require_once(__DIR__ . '/../../sessions/handler.php');
-
     if (!isset($_SESSION['VATSIM_CID']) || empty($_SESSION['VATSIM_CID'])) {
         respond_json(401, [
             'status' => 'error',
@@ -67,17 +82,6 @@ function gdt_require_auth() {
 
     return $_SESSION['VATSIM_CID'];
 }
-
-// ============================================================================
-// Database Connections
-// ============================================================================
-
-// Load core dependencies (same pattern as /api/tmi/helpers.php)
-if (!defined('PERTI_LOADED')) {
-    define('PERTI_LOADED', true);
-}
-require_once(__DIR__ . '/../../load/config.php');
-require_once(__DIR__ . '/../../load/connect.php');
 
 /**
  * Get TMI database connection (VATSIM_TMI - program/slot management)
