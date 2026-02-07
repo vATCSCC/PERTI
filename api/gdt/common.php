@@ -47,6 +47,28 @@ function read_request_payload() {
 }
 
 // ============================================================================
+// Authentication
+// ============================================================================
+
+/**
+ * Require authenticated session for write operations.
+ * Sends 401 and exits if not authenticated.
+ * @return string The authenticated user's VATSIM CID
+ */
+function gdt_require_auth() {
+    require_once(__DIR__ . '/../../sessions/handler.php');
+
+    if (!isset($_SESSION['VATSIM_CID']) || empty($_SESSION['VATSIM_CID'])) {
+        respond_json(401, [
+            'status' => 'error',
+            'message' => 'Authentication required. Please log in.'
+        ]);
+    }
+
+    return $_SESSION['VATSIM_CID'];
+}
+
+// ============================================================================
 // Database Connections
 // ============================================================================
 
