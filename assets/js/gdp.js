@@ -197,13 +197,37 @@ const GDP = (function() {
     }
 
     function collectHourlyRates() {
-        // TODO: Implement when hourly mode is built out
-        return null;
+        var headerCells = document.querySelectorAll('#gdp_rate_header th');
+        var prCells = document.querySelectorAll('#gdp_rate_pr td');
+        if (!headerCells.length || prCells.length <= 1) return null;
+
+        var rates = {};
+        for (var i = 1; i < headerCells.length; i++) {
+            var hour = headerCells[i].textContent.trim();
+            var input = prCells[i] ? prCells[i].querySelector('input') : null;
+            if (hour && input) {
+                var val = parseInt(input.value, 10);
+                rates[hour] = isNaN(val) ? 0 : val;
+            }
+        }
+        return Object.keys(rates).length > 0 ? rates : null;
     }
 
     function collectHourlyReserves() {
-        // TODO: Implement when hourly mode is built out
-        return null;
+        var headerCells = document.querySelectorAll('#gdp_rate_header th');
+        var reserveCells = document.querySelectorAll('#gdp_rate_reserve td');
+        if (!headerCells.length || reserveCells.length <= 1) return null;
+
+        var reserves = {};
+        for (var i = 1; i < headerCells.length; i++) {
+            var hour = headerCells[i].textContent.trim();
+            var input = reserveCells[i] ? reserveCells[i].querySelector('input') : null;
+            if (hour && input) {
+                var val = parseInt(input.value, 10);
+                reserves[hour] = isNaN(val) ? 0 : val;
+            }
+        }
+        return Object.keys(reserves).length > 0 ? reserves : null;
     }
 
     // =========================================================================
