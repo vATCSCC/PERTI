@@ -2343,10 +2343,42 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
         if (!fixLat || !fixLon) return null;
 
-        const trajArray = Object.entries(trajectories).map(([cs, traj]) => ({
-            callsign: cs,
-            coordinates: (traj.coordinates || []).map(c => [c[0], c[1]]) // strip timestamps
-        })).filter(t => t.coordinates.length >= 2);
+        // Haversine distance in nm (reused from computeBranchCorridor)
+        const distNm = (lon1, lat1, lon2, lat2) => {
+            const R = 3440.065;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        // Filter to upstream-only: for arrivals, keep only points BEFORE closest
+        // approach to fix (where flight is approaching, not departing the fix).
+        const flightMeta = {};
+        const trajArray = Object.entries(trajectories).map(([cs, traj]) => {
+            const coords = traj.coordinates || [];
+
+            // Find index of closest approach to fix
+            let minDist = Infinity, minIdx = 0;
+            for (let i = 0; i < coords.length; i++) {
+                const d = distNm(coords[i][0], coords[i][1], fixLon, fixLat);
+                if (d < minDist) { minDist = d; minIdx = i; }
+            }
+
+            // Keep only points up to and including the closest approach (upstream)
+            const upstream = coords.slice(0, minIdx + 1).map(c => [c[0], c[1]]);
+
+            // Build flight_meta for proper branch naming
+            if (traj.properties) {
+                flightMeta[cs] = {
+                    dept: traj.properties.dept || '',
+                    dest: traj.properties.dest || '',
+                };
+            }
+
+            return { callsign: cs, coordinates: upstream };
+        }).filter(t => t.coordinates.length >= 2);
 
         if (trajArray.length < 3) return null;
 
@@ -2360,6 +2392,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     mit_distance_nm: parseFloat(mitResult.required || 15),
                     max_distance_nm: 250,
                     tmi_type: 'arrival',
+                    flight_meta: flightMeta,
                     cluster_eps_nm: 3,
                     cluster_min_points: 3
                 })
@@ -2567,7 +2600,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             source: 'flow-stream-labels',
             layout: {
                 'text-field': ['concat', ['get', 'label'], '\n', ['get', 'track_count'], ' ac'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': ['Open Sans Bold'],
                 'text-size': 11,
                 'text-anchor': 'center',
                 'text-allow-overlap': false,
@@ -2981,7 +3014,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+                glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -3056,7 +3089,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 12,
                         'text-anchor': 'center',
                     },
@@ -3139,7 +3172,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         layout: {
                             'visibility': altType === 'high' ? 'visible' : 'none',
                             'text-field': ['get', 'code'],
-                            'text-font': ['Noto Sans Regular'],
+                            'text-font': ['Open Sans Regular'],
                             'text-size': 9,
                             'text-anchor': 'center',
                             'text-allow-overlap': false,
@@ -3197,7 +3230,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     layout: {
                         'symbol-placement': 'line-center',
                         'text-field': ['concat', ['get', 'facility1'], ' / ', ['get', 'facility2'], ' Boundary'],
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 13,
                         'text-offset': [0, -1.2],
                         'text-allow-overlap': true,
@@ -3264,7 +3297,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     layout: {
                         'symbol-placement': 'line-center',
                         'text-field': airway.name,
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 14,
                         'text-offset': [0, -1],
                     },
@@ -3303,7 +3336,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'fixes',
                     layout: {
                         'text-field': ['get', 'name'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 11,
                         'text-offset': [0, 1.5],
                         'text-anchor': 'top',
@@ -3344,7 +3377,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'airports',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 10,
                         'text-offset': [0, -1.2],
                         'text-anchor': 'bottom',
@@ -4855,7 +4888,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     filter: ['has', 'point_count'],
                     layout: {
                         'text-field': '{point_count_abbreviated}',
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 12,
                     },
                     paint: {
@@ -4913,7 +4946,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 11,
                         'text-anchor': 'bottom',
                         'text-offset': [0, -0.8],
@@ -4937,7 +4970,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 11,
                         'text-anchor': 'top',
                         'text-offset': [0, 0.8],

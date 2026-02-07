@@ -1313,9 +1313,10 @@
  * BRANCH CORRIDOR ANALYSIS PANEL
  * =========================================== */
 
+/* Branch panel always overlays the dark map — use hardcoded dark colors */
 .branch-panel {
-    background: var(--light-bg-primary, #1a1a2e);
-    border-bottom: 1px solid var(--light-border, #2a2a4a);
+    background: rgba(15, 15, 30, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     padding: 6px 10px;
 }
 
@@ -1329,30 +1330,30 @@
 .branch-panel-title {
     font-size: 0.8em;
     font-weight: 600;
-    color: var(--light-text-primary, #e0e0e0);
+    color: #e0e0e0;
     white-space: nowrap;
 }
 
 .branch-panel-stats {
     font-size: 0.72em;
-    color: var(--light-text-secondary, #888);
+    color: #9ca3af;
     flex: 1;
 }
 
 .branch-select-btn {
     padding: 1px 8px;
     font-size: 0.7em;
-    border: 1px solid var(--light-border, #2a2a4a);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 3px;
     background: transparent;
-    color: var(--light-text-secondary, #888);
+    color: #9ca3af;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .branch-select-btn:hover {
-    border-color: var(--brand-primary, #4dabf7);
-    color: var(--brand-primary, #4dabf7);
+    border-color: #4dabf7;
+    color: #4dabf7;
 }
 
 .branch-panel-list {
@@ -1366,9 +1367,9 @@
     align-items: center;
     gap: 4px;
     padding: 3px 8px;
-    border: 1px solid var(--light-border, #2a2a4a);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
-    background: var(--light-bg-subtle, #141428);
+    background: rgba(25, 25, 45, 0.9);
     cursor: pointer;
     transition: all 0.15s ease;
     margin: 0;
@@ -1376,7 +1377,7 @@
 }
 
 .branch-item:hover {
-    border-color: var(--brand-primary, #4dabf7);
+    border-color: #4dabf7;
 }
 
 .branch-item input[type="checkbox"] {
@@ -1393,7 +1394,7 @@
 
 .branch-name {
     font-weight: 600;
-    color: var(--light-text-primary, #e0e0e0);
+    color: #e0e0e0;
     white-space: nowrap;
     max-width: 120px;
     overflow: hidden;
@@ -1401,7 +1402,7 @@
 }
 
 .branch-count {
-    color: var(--light-text-secondary, #888);
+    color: #9ca3af;
     font-size: 0.9em;
 }
 
