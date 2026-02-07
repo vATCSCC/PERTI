@@ -21,6 +21,9 @@
  * @version 3.0.0
  */
 
+set_time_limit(120); // PostGIS spatial queries can be slow for large trajectory sets
+ini_set('memory_limit', '256M');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -328,60 +331,58 @@ function buildTempTables(PDO $gis, array $trajectories): void
         )
     ");
 
-    $insertPointStmt = $gis->prepare("
-        INSERT INTO temp_traj_points (callsign, seq, geom)
-        VALUES (:callsign, :seq, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
-    ");
-
-    $insertSegStmt = $gis->prepare("
-        INSERT INTO temp_traj_segments (callsign, seg_idx, geom)
-        VALUES (:callsign, :seg_idx, ST_SetSRID(ST_MakeLine(
-            ST_MakePoint(:lon1, :lat1),
-            ST_MakePoint(:lon2, :lat2)
-        ), 4326))
-    ");
+    // Batch insert points and segments for performance (avoids per-row round-trips)
+    $pointValues = [];
+    $segValues = [];
+    $batchSize = 500;
 
     foreach ($trajectories as $key => $traj) {
-        // Handle both array format (from JS: [{callsign, coordinates}])
-        // and associative format (legacy: {callsign: {coordinates}})
         $callsign = isset($traj['callsign']) ? $traj['callsign'] : $key;
-
         if (!isset($traj['coordinates']) || !is_array($traj['coordinates']) || count($traj['coordinates']) < 2) {
             continue;
         }
 
+        $cs = $gis->quote($callsign);
         $coords = $traj['coordinates'];
         for ($i = 0; $i < count($coords); $i++) {
-            // Validate coordinate point has required lon/lat values
             if (!is_array($coords[$i]) || count($coords[$i]) < 2 ||
                 !is_numeric($coords[$i][0]) || !is_numeric($coords[$i][1])) {
                 continue;
             }
 
-            $insertPointStmt->execute([
-                ':callsign' => $callsign,
-                ':seq' => $i,
-                ':lon' => $coords[$i][0],
-                ':lat' => $coords[$i][1]
-            ]);
+            $lon = (float)$coords[$i][0];
+            $lat = (float)$coords[$i][1];
+            $pointValues[] = "($cs, $i, ST_SetSRID(ST_MakePoint($lon, $lat), 4326))";
 
             if ($i < count($coords) - 1) {
-                // Validate next point too before creating segment
                 if (!is_array($coords[$i + 1]) || count($coords[$i + 1]) < 2 ||
                     !is_numeric($coords[$i + 1][0]) || !is_numeric($coords[$i + 1][1])) {
                     continue;
                 }
+                $lon2 = (float)$coords[$i + 1][0];
+                $lat2 = (float)$coords[$i + 1][1];
+                $segValues[] = "($cs, $i, ST_SetSRID(ST_MakeLine(ST_MakePoint($lon, $lat), ST_MakePoint($lon2, $lat2)), 4326))";
+            }
 
-                $insertSegStmt->execute([
-                    ':callsign' => $callsign,
-                    ':seg_idx' => $i,
-                    ':lon1' => $coords[$i][0],
-                    ':lat1' => $coords[$i][1],
-                    ':lon2' => $coords[$i + 1][0],
-                    ':lat2' => $coords[$i + 1][1]
-                ]);
+            // Flush points batch
+            if (count($pointValues) >= $batchSize) {
+                $gis->exec("INSERT INTO temp_traj_points (callsign, seq, geom) VALUES " . implode(',', $pointValues));
+                $pointValues = [];
+            }
+            // Flush segments batch
+            if (count($segValues) >= $batchSize) {
+                $gis->exec("INSERT INTO temp_traj_segments (callsign, seg_idx, geom) VALUES " . implode(',', $segValues));
+                $segValues = [];
             }
         }
+    }
+
+    // Flush remaining
+    if (!empty($pointValues)) {
+        $gis->exec("INSERT INTO temp_traj_points (callsign, seq, geom) VALUES " . implode(',', $pointValues));
+    }
+    if (!empty($segValues)) {
+        $gis->exec("INSERT INTO temp_traj_segments (callsign, seg_idx, geom) VALUES " . implode(',', $segValues));
     }
 
     $gis->exec("CREATE INDEX temp_traj_points_geom_idx ON temp_traj_points USING GIST(geom)");

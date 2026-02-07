@@ -276,18 +276,42 @@ def main():
 
     try:
         results = run_analysis(args.plan_id, args.api_url)
+
+        # Split trajectory data into separate file for memory efficiency
+        # PHP serves trajectories via readfile() (zero json_decode overhead)
+        trajectories = results.pop('_trajectories', {})
+
         json_str = json.dumps(results, default=str)
 
         if args.output:
             # Write to file (avoids PHP memory issues with large stdout capture)
             os.makedirs(os.path.dirname(args.output), exist_ok=True)
-            with open(args.output, 'w') as f:
+
+            # Atomic write: temp file + rename to prevent partial reads
+            tmp_path = args.output + '.tmp'
+            with open(tmp_path, 'w') as f:
                 f.write(json_str)
+            os.replace(tmp_path, args.output)
             logger.info(f"Results written to {args.output} ({len(json_str)} bytes)")
+
+            # Write trajectory file alongside results
+            if trajectories:
+                traj_path = args.output.replace('_results_', '_trajectories_')
+                traj_str = json.dumps(trajectories, default=str)
+                tmp_traj = traj_path + '.tmp'
+                with open(tmp_traj, 'w') as f:
+                    f.write(traj_str)
+                os.replace(tmp_traj, traj_path)
+                logger.info(f"Trajectories written to {traj_path} ({len(traj_str)} bytes)")
+
             print(json.dumps({"output_file": args.output, "size": len(json_str)}))
         else:
-            # Output JSON to stdout
-            print(json_str)
+            # Output JSON to stdout (trajectories included inline for backwards compat)
+            # Re-embed trajectories for stdout mode
+            for key, traj in trajectories.items():
+                if key in results.get('mit_results', {}):
+                    results['mit_results'][key]['trajectories'] = traj
+            print(json.dumps(results, default=str))
 
         sys.exit(0 if 'error' not in results else 1)
     except Exception as e:

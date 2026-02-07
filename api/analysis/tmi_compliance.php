@@ -11,37 +11,59 @@
  *   POST                           - Save compliance results for a plan
  */
 
-// Analysis results can be 20MB+; need extra memory for JSON decode + format
-ini_set('memory_limit', '512M');
+// Results are ~5MB (trajectories split to separate file); 256M is generous headroom
+ini_set('memory_limit', '256M');
 // Python analysis can take 2+ minutes for large events
 set_time_limit(300);
 
 header('Content-Type: application/json');
 
-// Large compliance datasets (trajectories) need more than default 128MB
-ini_set('memory_limit', '512M');
-
 include("../../load/config.php");
 
-// ADL Database connection
-$adl_server = ADL_SQL_HOST;
-$adl_db = ADL_SQL_DATABASE;
-$adl_user = ADL_SQL_USERNAME;
-$adl_pass = ADL_SQL_PASSWORD;
+// Trajectory-only endpoint: streams pre-built trajectory JSON with zero json_decode
+// This handles the bulk data (~22MB) without PHP memory overhead
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['trajectories']) && $_GET['trajectories'] === 'true') {
+    $plan_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
+    if ($plan_id <= 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid plan ID']);
+        exit;
+    }
 
-$connectionInfo = [
-    "Database" => $adl_db,
-    "UID" => $adl_user,
-    "PWD" => $adl_pass,
-    "TrustServerCertificate" => true,
-    "LoginTimeout" => 30
-];
+    $base_path = realpath(__DIR__ . '/../../data/tmi_compliance') ?: __DIR__ . '/../../data/tmi_compliance';
+
+    // Try split trajectory file first (new format)
+    $traj_path = $base_path . '/tmi_compliance_trajectories_' . $plan_id . '.json';
+    if (file_exists($traj_path)) {
+        header('Content-Length: ' . filesize($traj_path));
+        header('Cache-Control: private, max-age=300');
+        readfile($traj_path);
+        exit;
+    }
+
+    // Fallback: extract from old combined results file (backwards compat)
+    $json_path = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+    if (file_exists($json_path)) {
+        ini_set('memory_limit', '512M'); // Old format needs full decode
+        $results = json_decode(file_get_contents($json_path), true);
+        $trajectories = [];
+        if (isset($results['mit_results'])) {
+            foreach ($results['mit_results'] as $key => $r) {
+                if (!empty($r['trajectories'])) {
+                    $trajectories[$key] = $r['trajectories'];
+                }
+            }
+        }
+        echo json_encode($trajectories);
+        exit;
+    }
+
+    http_response_code(404);
+    echo json_encode(['error' => 'No trajectory data found']);
+    exit;
+}
 
 try {
-    $conn = sqlsrv_connect($adl_server, $connectionInfo);
-    if ($conn === false) {
-        throw new Exception("ADL connection failed: " . print_r(sqlsrv_errors(), true));
-    }
 
     $response = [
         'success' => true,
@@ -66,13 +88,8 @@ try {
                 // No need to re-save here
 
                 $response['data'] = format_results($result['data']);
-                try {
-                    $response['data'] = enhance_with_branches($response['data'], $conn);
-                } catch (\Throwable $e) {
-                    // Branch analysis is non-fatal; log and continue
-                    error_log("Branch analysis failed: " . $e->getMessage());
-                }
                 $response['data']['plan_specific'] = true;
+                $response['data']['trajectories_url'] = "api/analysis/tmi_compliance.php?p_id={$plan_id}&trajectories=true";
                 $response['message'] = 'Analysis completed successfully';
             } else {
                 // Return error as normal response (not 500) for user-facing errors
@@ -96,12 +113,8 @@ try {
 
                 if ($results) {
                     $response['data'] = format_results($results);
-                    try {
-                        $response['data'] = enhance_with_branches($response['data'], $conn);
-                    } catch (\Throwable $e) {
-                        error_log("Branch analysis failed: " . $e->getMessage());
-                    }
                     $response['data']['plan_specific'] = $using_plan_specific;
+                    $response['data']['trajectories_url'] = "api/analysis/tmi_compliance.php?p_id={$plan_id}&trajectories=true";
                     $response['message'] = "Results loaded for plan $plan_id";
                 } else {
                     throw new Exception("Failed to parse results JSON");
@@ -132,8 +145,6 @@ try {
         $response['message'] = 'Results saved for plan ' . $plan_id;
         $response['data'] = ['plan_id' => $plan_id];
     }
-
-    sqlsrv_close($conn);
 
     echo json_encode($response, JSON_PRETTY_PRINT);
 
@@ -325,8 +336,10 @@ function format_results($results) {
                 'provider' => $r['provider'] ?? '',
                 'requestor' => $r['requestor'] ?? '',
                 'is_multiple' => $r['is_multiple'] ?? false,
-                // Flight trajectory data for map rendering
-                'trajectories' => $r['trajectories'] ?? [],
+                // Trajectory metadata (actual data served via separate endpoint for memory efficiency)
+                'has_trajectories' => !empty($r['trajectories']) || ($r['has_trajectories'] ?? false),
+                'trajectory_count' => !empty($r['trajectories']) ? count($r['trajectories']) : ($r['trajectory_count'] ?? 0),
+                'mit_key' => $key,
                 // Traffic flow sector data (for flow cone visualization)
                 'traffic_sector' => $r['traffic_sector'] ?? null,
                 // Fix coordinate data (for measurement point marker)
