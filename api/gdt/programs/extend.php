@@ -37,6 +37,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+$auth_cid = gdt_require_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -54,7 +55,7 @@ $conn_tmi = gdt_get_conn_tmi();
 
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
 $new_end_utc = isset($payload['new_end_utc']) ? parse_utc_datetime($payload['new_end_utc']) : null;
-$extended_by = isset($payload['extended_by']) ? trim($payload['extended_by']) : null;
+$extended_by = $auth_cid;
 
 if ($program_id <= 0) {
     respond_json(400, [

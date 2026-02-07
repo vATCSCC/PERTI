@@ -43,6 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+$auth_cid = gdt_require_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -64,7 +65,7 @@ $gdp_end_utc = isset($payload['gdp_end_utc']) ? parse_utc_datetime($payload['gdp
 $program_rate = isset($payload['program_rate']) ? (int)$payload['program_rate'] : 0;
 $reserve_rate = isset($payload['reserve_rate']) ? (int)$payload['reserve_rate'] : null;
 $delay_limit_min = isset($payload['delay_limit_min']) ? (int)$payload['delay_limit_min'] : 180;
-$transitioned_by = isset($payload['transitioned_by']) ? trim($payload['transitioned_by']) : null;
+$transitioned_by = $auth_cid;
 
 if ($gs_program_id <= 0) {
     respond_json(400, [
