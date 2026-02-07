@@ -374,7 +374,6 @@
                 <input type="hidden" id="gdp_origin_airports" value="">
                 <input type="hidden" id="gdp_flt_incl_carrier" value="">
                 <input type="hidden" id="gdp_flt_incl_type" value="ALL">
-                <input type="hidden" id="gdp_adv_number" value="">
                 <input type="hidden" id="gdp_impacting_condition" value="">
                 <input type="hidden" id="gdp_prob_ext" value="">
                 <input type="hidden" id="gdp_distance_nm" value="500">
