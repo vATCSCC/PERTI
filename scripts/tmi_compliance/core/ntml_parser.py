@@ -2258,6 +2258,8 @@ class NTMLParseResult:
     airport_configs: List[AirportConfig]
     cancellations: List[CancelEntry]
     skipped_lines: List[SkippedLine]  # Lines that couldn't be parsed (for user override)
+    gs_programs: List[GSProgram] = field(default_factory=list)
+    reroute_programs: List[RerouteProgram] = field(default_factory=list)
 
 
 def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> NTMLParseResult:
@@ -2613,7 +2615,9 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
         delays=delays,
         airport_configs=airport_configs,
         cancellations=cancellations,
-        skipped_lines=skipped_lines
+        skipped_lines=skipped_lines,
+        gs_programs=parse_result.gs_programs,
+        reroute_programs=parse_result.reroute_programs
     )
 
 
