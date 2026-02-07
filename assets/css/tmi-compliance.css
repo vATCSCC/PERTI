@@ -1309,6 +1309,41 @@
     border-top-color: var(--brand-primary) !important;
 }
 
+/* Reroute and GS timeline - V2 light theme */
+.tmi-analysis-wrapper .reroute-card {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+    border-left: 3px solid #ffc107 !important;
+}
+
+.tmi-analysis-wrapper .reroute-card .compliance-split .filed,
+.tmi-analysis-wrapper .reroute-card .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .compliance-split .filed,
+.tmi-analysis-wrapper .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-timeline {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-cnx-comments,
+.tmi-analysis-wrapper .reroute-card .exemption-box,
+.tmi-analysis-wrapper .exemption-box {
+    background: rgba(23, 162, 184, 0.08) !important;
+}
+
+.tmi-analysis-wrapper .program-history .history-item {
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.12) !important;
+}
+
 /* ===========================================
  * BRANCH CORRIDOR ANALYSIS PANEL
  * =========================================== */
@@ -1439,6 +1474,202 @@
 
 .branch-toggle-btn.active {
     border-style: solid !important;
+}
+
+/* ===========================================
+ * REROUTE CARD STYLES
+ * =========================================== */
+
+.reroute-card {
+    border-left: 3px solid #ffc107;
+    background: var(--light-bg-surface, #1e1e38);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.reroute-card .action-badge {
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.reroute-card .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.reroute-card .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.reroute-card .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.reroute-card .compliance-split .filed,
+.reroute-card .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.reroute-card .program-history {
+    font-size: 0.8rem;
+}
+
+.reroute-card .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.reroute-card .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.reroute-card .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+/* ===========================================
+ * GS PROGRAM TIMELINE
+ * =========================================== */
+
+.gs-timeline {
+    display: flex;
+    height: 24px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.gs-timeline .phase {
+    position: relative;
+    min-width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+}
+
+.gs-timeline .phase-initial {
+    background: #dc3545;
+}
+
+.gs-timeline .phase-extension {
+    background: #fd7e14;
+}
+
+.gs-timeline .phase-cnx {
+    background: #28a745;
+    width: 4px;
+    flex: 0 0 4px;
+}
+
+.gs-per-origin {
+    font-size: 0.85rem;
+}
+
+.gs-per-origin table {
+    width: 100%;
+}
+
+.gs-cnx-comments {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.gs-ended-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.gs-ended-badge.cnx {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.gs-ended-badge.expired {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+/* V2 reroute detail compliance split (outside card context) */
+.tmi-detail-panel .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.tmi-detail-panel .compliance-split .filed,
+.tmi-detail-panel .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.tmi-detail-panel .program-history {
+    font-size: 0.8rem;
+}
+
+.tmi-detail-panel .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.tmi-detail-panel .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.tmi-detail-panel .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.tmi-detail-panel .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.tmi-detail-panel .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
 }
 
 /* ===========================================
