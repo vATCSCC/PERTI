@@ -2311,6 +2311,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 this.addFlowStreamLayers(mapId, data);
             }
 
+            // Update the flow analysis section
+            this.renderFlowAnalysis(mapId);
+
             return data;
         } catch (err) {
             console.warn(`Flow stream fetch failed for ${mapId}:`, err);
@@ -2427,10 +2430,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const filterInfo = bf ? ` (bearing filter: ${bf.accepted} accepted, ${bf.rejected} rejected, median ${bf.median_bearing}°)` : '';
             console.log(`Branch analysis for ${mapId}: ${gisData.corridors_phase1 || '?'} corridors → ${corridors.branch_count} branches${filterInfo}`);
 
-            // If map + branch panel already open, refresh it
-            if (this.branchPanelState[mapId]?.visible) {
-                this.renderBranchPanel(mapId);
+            // Unhide the branch button if map controls already rendered
+            const controls = document.getElementById(`${mapId}_controls`);
+            if (controls) {
+                const branchBtn = controls.querySelector('.branch-toggle-btn');
+                if (branchBtn) branchBtn.style.display = '';
             }
+
+            // Auto-initialize branch corridors if map is already active
+            if (this.activeMaps[mapId]) {
+                this.initBranchAnalysis(mapId);
+            }
+
+            // Update the flow analysis section
+            this.renderFlowAnalysis(mapId);
 
             return corridors;
         } catch (err) {
@@ -2703,6 +2716,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (!trajectories || Object.keys(trajectories).length === 0) return;
             this.trajectoryCache[mapId] = trajectories;
             console.log(`Cached ${Object.keys(trajectories).length} trajectories for ${mapId}`);
+            this.renderFlowAnalysis(mapId);
 
             // Trigger async flow stream analysis (populates cache for later map render)
             const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
@@ -2813,7 +2827,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             <span class="legend-item"><span class="legend-swatch cone-90"></span>90%</span>
                         </span>
                     </div>
-                    <div class="branch-panel" id="${mapId}_branch_panel" style="display: none;"></div>
+                    <div class="flow-analysis-section" id="${mapId}_flow_analysis" style="display: none;"></div>
                     <div class="tmi-map-container" id="${mapId}_container">
                         <div class="tmi-map-loading">
                             <i class="fas fa-spinner fa-spin"></i> Loading map...
@@ -6431,8 +6445,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // =========================================================================
 
     /**
-     * Toggle branch analysis panel and layers.
-     * On first activation, computes per-branch corridors and renders the panel.
+     * Toggle branch analysis layers on the map and expand/collapse branch list.
      */
     toggleBranches: function(btn) {
         const mapId = btn.dataset.map;
@@ -6440,7 +6453,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (!map) return;
 
         const isActive = btn.classList.toggle('active');
-        const panel = document.getElementById(`${mapId}_branch_panel`);
+        const branchList = document.getElementById(`${mapId}_fa_branch_list`);
 
         if (isActive) {
             // First activation: compute and render
@@ -6448,8 +6461,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 this.initBranchAnalysis(mapId);
             }
 
-            // Show panel
-            if (panel) panel.style.display = '';
+            // Expand branch list
+            if (branchList) branchList.style.display = '';
 
             // Show branch layers
             ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
@@ -6468,8 +6481,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 map.setPaintProperty('spacing-arcs', 'line-opacity', 0.3);
             }
         } else {
-            // Hide panel
-            if (panel) panel.style.display = 'none';
+            // Collapse branch list
+            if (branchList) branchList.style.display = 'none';
 
             // Hide branch layers
             ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
@@ -6557,7 +6570,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             corridors: branchCorridors,
         };
 
-        this.renderBranchPanel(mapId);
+        this.renderFlowAnalysis(mapId);
         this.renderBranchLayers(mapId);
         console.log(`Branch analysis: ${branchCorridors.length} corridors computed for ${mapId}`);
     },
@@ -6858,10 +6871,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
 
+            // Start hidden — user clicks Branches toggle to show
+            const branchBtn = document.querySelector(`.branch-toggle-btn[data-map="${mapId}"]`);
+            const initVisible = branchBtn?.classList.contains('active') ? 'visible' : 'none';
+
             map.addLayer({
                 id: 'branch-corridors-fill',
                 type: 'fill',
                 source: 'branch-corridors',
+                layout: { visibility: initVisible },
                 paint: {
                     'fill-color': ['get', 'color'],
                     'fill-opacity': ['case',
@@ -6876,6 +6894,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 id: 'branch-corridors-outline',
                 type: 'line',
                 source: 'branch-corridors',
+                layout: { visibility: initVisible },
                 paint: {
                     'line-color': ['get', 'color'],
                     'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
@@ -6886,55 +6905,117 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
-     * Render branch selector panel HTML.
+     * Render the progressive flow analysis section.
+     * Called whenever new data arrives: streams, branches, or branch corridors.
+     * Progressively builds up: streams → branches → branch list.
      */
-    renderBranchPanel: function(mapId) {
-        const panel = document.getElementById(`${mapId}_branch_panel`);
-        const state = this.branchPanelState[mapId];
-        if (!panel || !state?.corridors) return;
+    renderFlowAnalysis: function(mapId) {
+        const section = document.getElementById(`${mapId}_flow_analysis`);
+        if (!section) return;
 
+        const flowData = this.flowStreamCache[mapId];
         const branchData = this.branchCorridorCache[mapId];
-        const totalFlights = branchData?.total_flights || 0;
-        const ungrouped = branchData?.ungrouped_flights || 0;
-        const bearingFilter = branchData?.bearing_filter;
-        const phase1Count = branchData?.corridors_phase1 || 0;
+        const branchState = this.branchPanelState[mapId];
+        const trajCount = this.trajectoryCache[mapId]
+            ? Object.keys(this.trajectoryCache[mapId]).length : 0;
 
-        let filterNote = '';
-        if (bearingFilter && bearingFilter.rejected > 0) {
-            filterNote = `<span class="branch-panel-filter" title="Approach bearing filter: ±${bearingFilter.filter_deg}° from ${bearingFilter.median_bearing}° median"><i class="fas fa-filter mr-1"></i>${bearingFilter.rejected} filtered</span>`;
+        // Nothing to show yet
+        if (!flowData && !branchData && trajCount === 0) return;
+
+        let html = '';
+
+        // ── Streams row ──
+        if (flowData?.streams?.length > 0) {
+            const streams = flowData.streams;
+            const badges = streams.map(s => {
+                const bearing = Math.round(s.spatial?.bearing_to_fix || s.bearing_to_fix || 0);
+                const count = s.track_count || s.callsigns?.length || 0;
+                const dir = s.spatial?.cardinal || '';
+                return `<span class="fa-stream-badge">${dir ? dir + ' ' : ''}${bearing}° <span class="fa-badge-count">${count}</span></span>`;
+            }).join('');
+            html += `
+                <div class="fa-row fa-row-streams">
+                    <i class="fas fa-water fa-row-icon"></i>
+                    <span class="fa-row-label">${streams.length} stream${streams.length !== 1 ? 's' : ''}</span>
+                    <span class="fa-stream-badges">${badges}</span>
+                </div>`;
         }
 
-        let html = `
-            <div class="branch-panel-header">
-                <span class="branch-panel-title"><i class="fas fa-code-branch mr-1"></i>Traffic Branches</span>
-                <span class="branch-panel-stats">${state.corridors.length} branches, ${totalFlights} flights${ungrouped > 0 ? ` (${ungrouped} ungrouped)` : ''}${phase1Count > state.corridors.length ? ` from ${phase1Count} corridors` : ''}</span>
-                ${filterNote}
-                <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
-                <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
-            </div>
-            <div class="branch-panel-list">
-        `;
+        // ── Branches row ──
+        if (branchData) {
+            const bf = branchData.bearing_filter;
+            const phase1 = branchData.corridors_phase1 || 0;
+            const branchCount = branchState?.corridors?.length || branchData.branch_count || 0;
+            const totalFlights = branchData.total_flights || 0;
+            const ungrouped = branchData.ungrouped_flights || 0;
 
-        state.corridors.forEach(bc => {
-            const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
-            const color = this.branchComplianceColor(bc.compliancePct);
-            const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90 mr-1" style="font-size:0.65em; opacity:0.6" title="Sub-branch"></i>' : '';
+            // Summary stats
+            let statsText = `${branchCount} branch${branchCount !== 1 ? 'es' : ''}`;
+            if (phase1 && phase1 !== branchCount) statsText += ` from ${phase1} corridor${phase1 !== 1 ? 's' : ''}`;
+            statsText += `, ${totalFlights} flights`;
+            if (ungrouped > 0) statsText += ` (${ungrouped} ungrouped)`;
+
+            // Filter badge
+            let filterBadge = '';
+            if (bf && bf.rejected > 0) {
+                filterBadge = `<span class="fa-filter-badge" title="Bearing filter: ±${bf.filter_deg}° from ${bf.median_bearing}° median"><i class="fas fa-filter"></i> ${bf.rejected} filtered</span>`;
+            }
+
+            // Determine if branch list is expanded (Branches button active)
+            const branchBtn = document.querySelector(`.branch-toggle-btn[data-map="${mapId}"]`);
+            const isExpanded = branchBtn?.classList.contains('active');
 
             html += `
-                <label class="branch-item" title="${bc.longName}">
-                    <input type="checkbox" ${bc.selected ? 'checked' : ''}
-                           data-branch-id="${bc.branchId}" data-map="${mapId}"
-                           onchange="TMICompliance.toggleBranchSelection(this)">
-                    <span class="branch-color-swatch" style="background: ${color}"></span>
-                    <span class="branch-name">${subIcon}${bc.shortName}</span>
-                    <span class="branch-count">${bc.trackCount}<i class="fas fa-plane ml-1" style="font-size:0.7em"></i></span>
-                    <span class="branch-compliance ${compClass}">${bc.compliancePct}%</span>
-                </label>
-            `;
-        });
+                <div class="fa-row fa-row-branches">
+                    <i class="fas fa-code-branch fa-row-icon"></i>
+                    <span class="fa-row-label">${statsText}</span>
+                    ${filterBadge}`;
 
-        html += '</div>';
-        panel.innerHTML = html;
+            // Branch list (expanded when Branches layer toggle is active)
+            if (branchState?.corridors?.length > 0) {
+                html += `
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
+                </div>
+                <div class="fa-branch-list" id="${mapId}_fa_branch_list" style="${isExpanded ? '' : 'display:none'}">`;
+
+                branchState.corridors.forEach(bc => {
+                    const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
+                    const color = this.branchComplianceColor(bc.compliancePct);
+                    const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90" style="font-size:0.65em; opacity:0.6; margin-right:3px" title="Sub-branch"></i>' : '';
+
+                    html += `
+                    <label class="branch-item" title="${bc.longName}">
+                        <input type="checkbox" ${bc.selected ? 'checked' : ''}
+                               data-branch-id="${bc.branchId}" data-map="${mapId}"
+                               onchange="TMICompliance.toggleBranchSelection(this)">
+                        <span class="branch-color-swatch" style="background: ${color}"></span>
+                        <span class="branch-name">${subIcon}${bc.shortName}</span>
+                        <span class="branch-count">${bc.trackCount}<i class="fas fa-plane" style="font-size:0.7em; margin-left:3px"></i></span>
+                        <span class="branch-compliance ${compClass}">${bc.compliancePct}%</span>
+                    </label>`;
+                });
+
+                html += '</div>';
+            } else if (!branchState?.initialized) {
+                // Still computing
+                html += `
+                    <span class="fa-computing"><i class="fas fa-spinner fa-spin"></i> computing corridors...</span>
+                </div>`;
+            } else {
+                html += '</div>';
+            }
+        } else if (trajCount > 3) {
+            // Branches not yet loaded, show loading state
+            html += `
+                <div class="fa-row fa-row-branches fa-loading">
+                    <i class="fas fa-code-branch fa-row-icon"></i>
+                    <span class="fa-row-label"><i class="fas fa-spinner fa-spin"></i> Analyzing branches...</span>
+                </div>`;
+        }
+
+        section.innerHTML = html;
+        section.style.display = html ? '' : 'none';
     },
 
     /**
@@ -6961,9 +7042,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         state.corridors.forEach(c => c.selected = selectAll);
 
-        const panel = document.getElementById(`${mapId}_branch_panel`);
-        if (panel) {
-            panel.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll);
+        const branchList = document.getElementById(`${mapId}_fa_branch_list`);
+        if (branchList) {
+            branchList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll);
         }
 
         this.updateBranchFeatures(mapId);
