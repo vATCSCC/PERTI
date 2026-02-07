@@ -1457,6 +1457,90 @@ const GDP = (function() {
         document.getElementById('gdp_model_chart_view')?.addEventListener('change', renderModelCharts);
         document.getElementById('gdp_model_metric')?.addEventListener('change', renderModelCharts);
 
+        // Flight list modal filters (All / Delayed / Exempt)
+        ['all', 'delayed', 'exempt'].forEach(function(filter) {
+            var btn = document.getElementById('gdp_fl_filter_' + filter);
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    // Update active state
+                    document.querySelectorAll('#gdp_flight_list_modal .btn-group .btn').forEach(function(b) {
+                        b.classList.remove('active');
+                        b.classList.add('btn-outline-secondary');
+                        b.classList.remove('btn-info', 'btn-outline-warning', 'btn-outline-success');
+                    });
+                    btn.classList.add('active');
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add(filter === 'delayed' ? 'btn-outline-warning' : filter === 'exempt' ? 'btn-outline-success' : 'btn-info');
+
+                    // Filter rows by status text in last column
+                    var rows = document.querySelectorAll('#gdp_flight_list_tbody tr');
+                    var visibleCount = 0;
+                    rows.forEach(function(row) {
+                        var cells = row.querySelectorAll('td');
+                        var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
+                        var statusText = statusCell ? statusCell.textContent.trim() : '';
+
+                        if (filter === 'all') {
+                            row.style.display = '';
+                            visibleCount++;
+                        } else if (filter === 'delayed') {
+                            var show = statusText === 'Delayed';
+                            row.style.display = show ? '' : 'none';
+                            if (show) visibleCount++;
+                        } else if (filter === 'exempt') {
+                            var show = statusText === 'Exempt';
+                            row.style.display = show ? '' : 'none';
+                            if (show) visibleCount++;
+                        }
+                    });
+
+                    var statusEl = document.getElementById('gdp_fl_status');
+                    if (statusEl) statusEl.textContent = 'Showing ' + visibleCount + ' flights';
+                });
+            }
+        });
+
+        // Slot list modal filters (All / Assigned / Open)
+        ['all', 'assigned', 'open'].forEach(function(filter) {
+            var btn = document.getElementById('gdp_sl_filter_' + filter);
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('#gdp_slots_list_modal .btn-group .btn').forEach(function(b) {
+                        b.classList.remove('active');
+                        b.classList.add('btn-outline-secondary');
+                        b.classList.remove('btn-info', 'btn-outline-primary');
+                    });
+                    btn.classList.add('active');
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add(filter === 'assigned' ? 'btn-outline-primary' : 'btn-info');
+
+                    var rows = document.querySelectorAll('#gdp_slots_list_tbody tr');
+                    var visibleCount = 0;
+                    rows.forEach(function(row) {
+                        var cells = row.querySelectorAll('td');
+                        var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
+                        var statusText = statusCell ? statusCell.textContent.trim() : '';
+
+                        if (filter === 'all') {
+                            row.style.display = '';
+                            visibleCount++;
+                        } else if (filter === 'assigned') {
+                            var show = statusText === 'Assigned';
+                            row.style.display = show ? '' : 'none';
+                            if (show) visibleCount++;
+                        } else if (filter === 'open') {
+                            var show = statusText === 'Open';
+                            row.style.display = show ? '' : 'none';
+                            if (show) visibleCount++;
+                        }
+                    });
+
+                    var statusEl = document.getElementById('gdp_sl_status');
+                    if (statusEl) statusEl.textContent = 'Showing ' + visibleCount + ' slots';
+                });
+            }
+        });
+
         // Collapse toggle icons
         $('#gdp_setup_body').on('show.bs.collapse', () => {
             document.getElementById('gdp_setup_toggle_icon')?.classList.replace('fa-chevron-down', 'fa-chevron-up');
