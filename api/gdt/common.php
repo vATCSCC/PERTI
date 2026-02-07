@@ -51,7 +51,7 @@ function read_request_payload() {
 // ============================================================================
 
 // Start session BEFORE loading config/connect, because connect.php's closing
-// ?> tag outputs a trailing newline that sends headers, preventing later
+// PHP tag outputs a trailing newline that sends headers, preventing later
 // session_start() calls from succeeding (headers_sent() returns true).
 require_once(__DIR__ . '/../../sessions/handler.php');
 
