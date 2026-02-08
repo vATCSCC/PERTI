@@ -296,11 +296,15 @@ class TMIComplianceAnalyzer:
         logger.info(f"  Time window: {earliest.strftime('%Y-%m-%d %H:%MZ')} to {latest.strftime('%Y-%m-%d %H:%MZ')}")
 
         # Get ALL flights departing from OR arriving at featured facilities
+        # LEFT JOIN adl_flight_times for OOOI departure times (atd_utc, off_utc)
+        # Also pull dept_artcc/dept_tracon from flight_plan for facility filtering
         query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
-                   c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix
+                   c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix,
+                   t.atd_utc, t.off_utc, p.fp_dept_artcc, p.fp_dept_tracon
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
+            LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
             WHERE c.first_seen_utc <= %s
               AND c.last_seen_utc >= %s
               AND (p.fp_dept_icao IN ({facility_in}) OR p.fp_dest_icao IN ({facility_in}))
@@ -320,7 +324,11 @@ class TMIComplianceAnalyzer:
                 'last_seen': normalize_datetime(row[5]),
                 'fp_route': row[6] if len(row) > 6 else None,
                 'route_expanded': row[7] if len(row) > 7 else None,
-                'afix': row[8] if len(row) > 8 else None
+                'afix': row[8] if len(row) > 8 else None,
+                'atd_utc': normalize_datetime(row[9]) if row[9] else None,
+                'off_utc': normalize_datetime(row[10]) if row[10] else None,
+                'dept_artcc': row[11] if row[11] else None,
+                'dept_tracon': row[12] if row[12] else None,
             }
 
         cursor.close()
@@ -1821,14 +1829,19 @@ class TMIComplianceAnalyzer:
                 'type': adv.advisory_type,
                 'start': adv.gs_period_start.strftime('%H:%MZ') if adv.gs_period_start else None,
                 'end': adv.gs_period_end.strftime('%H:%MZ') if adv.gs_period_end else None,
-                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None
+                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None,
+                'impacting_condition': adv.impacting_condition,
+                'dep_facilities': adv.dep_facilities,
+                'dep_facility_tier': adv.dep_facility_tier,
+                'prob_extension': adv.prob_extension,
+                'comments': adv.comments,
             })
 
         exempt = []
         compliant = []
         non_compliant = []
         not_in_scope = []
-        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0})
+        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': []})
         hold_times = []
 
         for callsign, flight in flights.items():
@@ -1894,6 +1907,8 @@ class TMIComplianceAnalyzer:
                     hold_min = (dep_time - gs_start).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
+                        per_origin[dept]['hold_times'].append(hold_min)
+                        flight_info['hold_time_min'] = round(hold_min, 1)
             elif gs_start and dep_time < gs_start:
                 flight_info['status'] = 'EXEMPT'
                 flight_info['reason'] = 'Departed before GS started'
@@ -1919,13 +1934,15 @@ class TMIComplianceAnalyzer:
         per_origin_list = []
         for origin, counts in sorted(per_origin.items()):
             origin_applicable = counts['compliant'] + counts['non_compliant']
+            origin_hold = counts['hold_times']
             per_origin_list.append({
                 'origin': origin,
                 'total': counts['total'],
                 'compliant': counts['compliant'],
                 'non_compliant': counts['non_compliant'],
                 'exempt': counts['exempt'],
-                'compliance_pct': round(100 * counts['compliant'] / origin_applicable, 1) if origin_applicable > 0 else 100
+                'compliance_pct': round(100 * counts['compliant'] / origin_applicable, 1) if origin_applicable > 0 else 100,
+                'avg_hold_time_min': round(sum(origin_hold) / len(origin_hold), 1) if origin_hold else 0,
             })
 
         return {
@@ -1950,6 +1967,11 @@ class TMIComplianceAnalyzer:
             'program_timeline': program_timeline,
             'per_origin_breakdown': per_origin_list,
             'avg_hold_time_min': avg_hold_time,
+            'hold_time_stats': {
+                'min': round(min(hold_times), 1) if hold_times else 0,
+                'max': round(max(hold_times), 1) if hold_times else 0,
+                'median': round(sorted(hold_times)[len(hold_times) // 2], 1) if hold_times else 0,
+            },
             'impacting_condition': program.impacting_condition,
             'prob_extension': program.prob_extension,
             'cnx_comments': program.cnx_comments,
@@ -2128,7 +2150,7 @@ class TMIComplianceAnalyzer:
                 'dept': dept,
                 'dest': dest,
                 'dept_time': first_seen.strftime('%H:%M:%SZ') if first_seen else None,
-                'filed_route': fp_route[:100] + ('...' if len(fp_route) > 100 else ''),
+                'filed_route': fp_route,
                 # Filed compliance
                 'filed_matched_fixes': filed_matched_fixes,
                 'filed_match_pct': round(filed_match_pct, 1),
@@ -2241,6 +2263,26 @@ class TMIComplianceAnalyzer:
         normalized_origs = set(normalize_icao_list(program.origins)) if program.origins else set()
         normalized_dests = set(normalize_icao_list(program.destinations)) if program.destinations else set()
 
+        # Build program history for frontend (must be before early-returns that reference it)
+        program_history = []
+        for adv in program.advisories:
+            program_history.append({
+                'advzy': adv.advzy_number,
+                'type': adv.advisory_type,
+                'route_type': adv.route_type,
+                'action': adv.action,
+                'start': adv.valid_start.strftime('%H:%MZ') if adv.valid_start else None,
+                'end': adv.valid_end.strftime('%H:%MZ') if adv.valid_end else None,
+                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None,
+                'replaces': adv.replaces_advzy,
+                'modifications': adv.modifications,
+                'routes': [{'orig': ','.join(r.origins), 'dest': r.destination, 'route': r.route_string} for r in adv.routes],
+                'exemptions': adv.exemptions,
+                'associated_restrictions': adv.associated_restrictions,
+                'prob_extension': adv.prob_extension,
+                'comments': adv.comments,
+            })
+
         if not normalized_origs or not normalized_dests:
             logger.warning(f"  Skipping reroute program - missing origins or destinations")
             return {
@@ -2283,20 +2325,6 @@ class TMIComplianceAnalyzer:
                         flights.append((callsign, dept, dest, flight.get('fp_route', ''), dep_time, flight.get('last_seen')))
 
         logger.info(f"  Filtered to {len(flights)} flights in program window")
-
-        # Build program history for frontend
-        program_history = []
-        for adv in program.advisories:
-            program_history.append({
-                'advzy': adv.advzy_number,
-                'type': adv.advisory_type,
-                'route_type': adv.route_type,
-                'action': adv.action,
-                'start': adv.valid_start.strftime('%H:%MZ') if adv.valid_start else None,
-                'end': adv.valid_end.strftime('%H:%MZ') if adv.valid_end else None,
-                'issued': adv.adl_time.strftime('%H:%MZ') if adv.adl_time else None,
-                'replaces': adv.replaces_advzy
-            })
 
         if not flights:
             return {
@@ -2483,7 +2511,7 @@ class TMIComplianceAnalyzer:
                 'dept': dept,
                 'dest': dest,
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
-                'filed_route': fp_route[:100] + ('...' if len(fp_route) > 100 else ''),
+                'filed_route': fp_route,
                 'filed_matched_fixes': filed_matched_fixes,
                 'filed_match_pct': round(filed_match_pct, 1),
                 'filed_status': filed_status,
