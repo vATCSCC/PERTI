@@ -944,7 +944,7 @@ Iowa Environmental Mesonet (mesonet.agron.iastate.edu)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `api/demand/airports.php` | GET | List airports with demand filters (ASPM82/OEP35/Core30) |
+| `api/demand/airports.php` | GET | List airports with demand filters (ASPM82/OPSNET45/OEP35/Core30) |
 | `api/demand/airport.php` | GET | Single airport demand details |
 | `api/demand/rates.php` | GET | Acceptance/departure rates by airport |
 | `api/demand/summary.php` | GET | Overall demand summary |

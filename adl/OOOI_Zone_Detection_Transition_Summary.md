@@ -242,7 +242,7 @@ flight_time_min = DATEDIFF(MINUTE, off_utc, on_utc)
 
 | Region | Count | Examples |
 |--------|-------|----------|
-| ASPM82 (US) | 77 | KATL, KJFK, KLAX, KORD, KSFO |
+| ASPM82 (US) | 82 | KATL, KJFK, KLAX, KORD, KSFO |
 | Canada | 17 | CYYZ, CYVR, CYUL, CYYC, CYOW |
 | Mexico | 20 | MMMX, MMUN, MMTJ, MMMY, MMGL |
 | Central America | 9 | MGGT, MSLP, MROC, MPTO |
