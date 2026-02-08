@@ -3229,9 +3229,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (trajArray.length < 3) return null;
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
             const response = await fetch('api/gis/track_density.php?action=branch_analysis', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
                 body: JSON.stringify({
                     trajectories: trajArray,
                     fix_point: [fixLon, fixLat],
@@ -3245,6 +3248,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     sub_branch_eps_nm: 3,                // Phase 2: tighter eps for sub-branches
                 })
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 console.warn(`Branch analysis API returned ${response.status} for ${mapId}`);
@@ -3295,8 +3299,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             return corridors;
         } catch (err) {
-            console.warn(`Branch analysis failed for ${mapId}:`, err);
-            this.branchCorridorCache[mapId] = { branches: [], error: true, branch_count: 0 };
+            const isTimeout = err.name === 'AbortError';
+            console.warn(`Branch analysis ${isTimeout ? 'timed out' : 'failed'} for ${mapId}:`, err);
+            this.branchCorridorCache[mapId] = { branches: [], error: true, timeout: isTimeout, branch_count: 0 };
             this.renderFlowAnalysis(mapId);
             return null;
         }
@@ -3915,6 +3920,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         });
 
         this.activeMaps[mapId] = map;
+
+        // Catch race condition: if fetchBranchAnalysis() completed before map activation,
+        // initBranchAnalysis was skipped. Trigger it now that the map is active.
+        if (this.branchCorridorCache[mapId] && !this.branchCorridorCache[mapId].error
+            && !this.branchPanelState[mapId]?.initialized) {
+            this.initBranchAnalysis(mapId);
+        }
 
         map.on('load', () => {
             // Add facility boundaries (provider emphasized as it manages the stream)
@@ -5030,7 +5042,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Use centerline-based polygons if available, otherwise fall back to wedge
                 if (sectorData.use_centerline && sectorData.streams?.length > 0) {
                     // Multi-stream: draw separate cones for each stream
+                    // Skip degenerate cones with too few centerline points (< 5) to render meaningfully
                     sectorData.streams.forEach((stream, idx) => {
+                        if (stream.centerlinePoints?.length < 5) {
+                            console.log(`  Skipping stream ${idx + 1}: only ${stream.centerlinePoints?.length || 0} centerline pts (need ≥5)`);
+                            return;
+                        }
                         if (stream.polygon_90) {
                             sectorFeatures.push({
                                 type: 'Feature',
@@ -8207,10 +8224,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // ── Branches row ──
         if (branchData?.error) {
+            const errMsg = branchData.timeout ? 'Branch analysis timed out' : 'Branch analysis unavailable';
             html += `
                 <div class="fa-row fa-row-branches">
                     <i class="fas fa-code-branch fa-row-icon"></i>
-                    <span class="fa-row-label" style="color:#6b7280;">Branch analysis unavailable</span>
+                    <span class="fa-row-label" style="color:#6b7280;">${errMsg}</span>
                 </div>`;
         } else if (branchData) {
             const bf = branchData.bearing_filter;
