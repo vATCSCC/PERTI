@@ -1813,7 +1813,31 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `;
         }
 
+        // GS delay stat (from OOOI taxi time analysis)
+        const gsDelay = r.gs_delay_stats || {};
+        if (gsDelay.flights_with_delay_data > 0) {
+            const delayTooltip = `Median: ${gsDelay.median_delay_min || 0}m | Max: ${gsDelay.max_delay_min || 0}m | Total: ${gsDelay.total_delay_min || 0}m | Based on ${gsDelay.flights_with_delay_data} flights with OOOI data`;
+            html += `
+                    <div class="tmi-stat" title="${delayTooltip}">
+                        <div class="tmi-stat-value">${gsDelay.avg_delay_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-label">Avg GS Delay</div>
+                    </div>
+            `;
+        }
+
         html += `</div>`;
+
+        // Time source breakdown
+        const tsb = r.time_source_breakdown || {};
+        const tsTotal = (tsb['off_utc'] || 0) + (tsb['out_utc+taxi'] || 0) + (tsb['first_seen'] || 0);
+        if (tsTotal > 0) {
+            html += `<div class="text-muted small mt-1" style="font-size:0.72rem;">
+                <i class="fas fa-stopwatch"></i> Time sources:
+                ${tsb['off_utc'] ? `<span class="badge badge-success mr-1" style="font-size:0.68rem;">${tsb['off_utc']} wheels-off</span>` : ''}
+                ${tsb['out_utc+taxi'] ? `<span class="badge badge-info mr-1" style="font-size:0.68rem;">${tsb['out_utc+taxi']} gate+taxi</span>` : ''}
+                ${tsb['first_seen'] ? `<span class="badge badge-warning mr-1" style="font-size:0.68rem;">${tsb['first_seen']} first-seen</span>` : ''}
+            </div>`;
+        }
 
         // CNX comments
         if (r.cnx_comments) {
@@ -1883,16 +1907,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="row">
             `;
 
-            // Non-compliant flights (violations) - with Phase and Source columns
+            // Non-compliant flights (violations) - with Phase, Source, and GS Delay columns
             if (nonCompliantFlights.length > 0) {
                 const hasPhase = nonCompliantFlights.some(f => f.phase);
+                const hasGsDelay = nonCompliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
                         <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}${hasGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -1902,6 +1927,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
                                             ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                                            ${hasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                                             <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
@@ -1938,15 +1964,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 `;
             }
 
-            // Compliant flights - with Hold and Source columns
+            // Compliant flights - with Hold, GS Delay, and Source columns
             if (compliantFlights.length > 0) {
+                const hasCompGsDelay = compliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
                         <h6 class="text-success"><i class="fas fa-check"></i> Compliant (${compliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${hasCompGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${compliantFlights.map(f => `
@@ -1955,6 +1982,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                                            ${hasCompGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                                             <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
@@ -7018,7 +7046,31 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             `;
         }
 
+        // GS delay stat (from OOOI taxi time analysis)
+        const v2GsDelay = data.gs_delay_stats || {};
+        if (v2GsDelay.flights_with_delay_data > 0) {
+            const delayTooltip = `Median: ${v2GsDelay.median_delay_min || 0}m | Max: ${v2GsDelay.max_delay_min || 0}m | Total: ${v2GsDelay.total_delay_min || 0}m | Based on ${v2GsDelay.flights_with_delay_data} flights with OOOI data`;
+            html += `
+                <div class="stat" title="${delayTooltip}">
+                    <div class="stat-value">${v2GsDelay.avg_delay_min.toFixed(0)}m</div>
+                    <div class="stat-label">Avg GS Delay</div>
+                </div>
+            `;
+        }
+
         html += `</div>`;
+
+        // Time source breakdown
+        const v2Tsb = data.time_source_breakdown || {};
+        const v2TsTotal = (v2Tsb['off_utc'] || 0) + (v2Tsb['out_utc+taxi'] || 0) + (v2Tsb['first_seen'] || 0);
+        if (v2TsTotal > 0) {
+            html += `<div class="text-muted small mt-1" style="font-size:0.72rem;">
+                <i class="fas fa-stopwatch"></i> Time sources:
+                ${v2Tsb['off_utc'] ? `<span class="badge badge-success mr-1" style="font-size:0.68rem;">${v2Tsb['off_utc']} wheels-off</span>` : ''}
+                ${v2Tsb['out_utc+taxi'] ? `<span class="badge badge-info mr-1" style="font-size:0.68rem;">${v2Tsb['out_utc+taxi']} gate+taxi</span>` : ''}
+                ${v2Tsb['first_seen'] ? `<span class="badge badge-warning mr-1" style="font-size:0.68rem;">${v2Tsb['first_seen']} first-seen</span>` : ''}
+            </div>`;
+        }
 
         // Impacting condition + program metadata
         if (data.impacting_condition) {
@@ -7103,9 +7155,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Flight detail expandable sections
         if (nonCompliantFlights.length > 0) {
             const hasPhase = nonCompliantFlights.some(f => f.phase);
+            const v2HasGsDelay = nonCompliantFlights.some(f => f.gs_delay_min !== undefined);
             html += this.renderExpandableSectionV2('gs-violations', 'Violations', `(${nonCompliantFlights.length})`, () => {
                 let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
-                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr></thead><tbody>`;
+                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}${v2HasGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr></thead><tbody>`;
                 nonCompliantFlights.forEach(f => {
                     tbl += `<tr class="table-danger">
                         <td><code>${f.callsign}</code></td>
@@ -7113,6 +7166,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <td>${f.dept_time || 'N/A'}</td>
                         <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
                         ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                        ${v2HasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                         <td><small class="text-muted">${f.time_source || ''}</small></td>
                     </tr>`;
                 });
@@ -7138,17 +7192,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        // Compliant flights with hold time
+        // Compliant flights with hold time and GS delay
         if (compliantFlights.length > 0) {
+            const v2HasCompGsDelay = compliantFlights.some(f => f.gs_delay_min !== undefined);
             html += this.renderExpandableSectionV2('gs-compliant', 'Compliant Flights', `(${compliantFlights.length})`, () => {
                 let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
-                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr></thead><tbody>`;
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${v2HasCompGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr></thead><tbody>`;
                 compliantFlights.forEach(f => {
                     tbl += `<tr>
                         <td><code>${f.callsign}</code></td>
                         <td>${f.dept || 'N/A'}</td>
                         <td>${f.dept_time || 'N/A'}</td>
                         <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                        ${v2HasCompGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                         <td><small class="text-muted">${f.time_source || ''}</small></td>
                     </tr>`;
                 });

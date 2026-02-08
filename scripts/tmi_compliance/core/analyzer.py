@@ -239,6 +239,7 @@ class TMIComplianceAnalyzer:
         self._trajectory_cache_loaded = False
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
         self._mit_trajectories = {}  # key -> {callsign -> trajectory} for split output
+        self._taxi_references = {}  # airport_icao -> unimpeded_taxi_sec
 
     # Trajectory quality thresholds
     MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 50 (enroute, not ground)
@@ -302,7 +303,7 @@ class TMIComplianceAnalyzer:
         query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
                    c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix,
-                   t.atd_utc, t.off_utc, p.fp_dept_artcc, p.fp_dept_tracon
+                   t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
@@ -328,13 +329,45 @@ class TMIComplianceAnalyzer:
                 'afix': row[8] if len(row) > 8 else None,
                 'atd_utc': normalize_datetime(row[9]) if row[9] else None,
                 'off_utc': normalize_datetime(row[10]) if row[10] else None,
-                'dept_artcc': row[11] if row[11] else None,
-                'dept_tracon': row[12] if row[12] else None,
+                'out_utc': normalize_datetime(row[11]) if row[11] else None,
+                'dept_artcc': row[12] if row[12] else None,
+                'dept_tracon': row[13] if row[13] else None,
             }
 
         cursor.close()
         logger.info(f"  Found {len(flights)} flights to/from featured facilities")
         return flights
+
+    def _load_airport_taxi_references(self):
+        """
+        Load unimpeded taxi-out times from airport_taxi_reference table.
+
+        These are per-airport p5-p15 averages (FAA ASPM methodology) computed
+        from OOOI data over a 90-day rolling window. Used to estimate wheels-off
+        time from gate push time: estimated_off = out_utc + unimpeded_taxi_sec.
+
+        Default is 600 seconds (10 minutes) for airports with insufficient data.
+        """
+        self._taxi_references = {}
+        cursor = self.adl_conn.cursor()
+
+        query = self.adl.format_query(
+            "SELECT airport_icao, unimpeded_taxi_sec, confidence FROM dbo.airport_taxi_reference"
+        )
+        try:
+            cursor.execute(query)
+            for row in cursor.fetchall():
+                self._taxi_references[row[0]] = row[1]
+            logger.info(f"Loaded {len(self._taxi_references)} airport taxi references")
+        except Exception as e:
+            logger.warning(f"Could not load airport taxi references: {e}")
+            logger.warning("GS analysis will use 600s default taxi time for all airports")
+        finally:
+            cursor.close()
+
+    def _get_taxi_reference(self, airport_icao: str) -> int:
+        """Get unimpeded taxi-out time in seconds for an airport. Default: 600s (10 min)."""
+        return self._taxi_references.get(airport_icao, 600)
 
     def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
         """
@@ -453,6 +486,9 @@ class TMIComplianceAnalyzer:
 
                 if self.flight_data:
                     self._preload_trajectories(list(self.flight_data.keys()))
+
+                # Load airport taxi references for GS delay calculation
+                self._load_airport_taxi_references()
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -1750,7 +1786,11 @@ class TMIComplianceAnalyzer:
         return result
 
     def _analyze_gs_compliance(self, tmi: TMI) -> Optional[Dict]:
-        """Analyze Ground Stop compliance"""
+        """
+        Analyze Ground Stop compliance (legacy single-advisory path).
+
+        Time source priority: off_utc > out_utc + taxi_ref > first_seen
+        """
         logger.info(f"Analyzing GS: {','.join(tmi.destinations)}")
 
         # Use comprehensive flight set filtered by scope
@@ -1767,37 +1807,71 @@ class TMIComplianceAnalyzer:
         exempt = []
         compliant = []
         non_compliant = []
+        gs_delays = []
+        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
         for callsign, flight in flights.items():
             dept = flight.get('dept', 'UNK')
-            first_seen = flight.get('first_seen')
 
             # Skip if no origin filter or origin doesn't match
             normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
             if normalized_origs and dept not in normalized_origs:
                 continue
 
+            # Determine best wheels-off estimate
+            # Priority: off_utc > out_utc + taxi_ref > first_seen
+            off_utc = flight.get('off_utc')
+            out_utc = flight.get('out_utc')
+            first_seen = flight.get('first_seen')
+
+            if off_utc:
+                dep_time = normalize_datetime(off_utc)
+                time_source = 'off_utc'
+            elif out_utc:
+                out_dt = normalize_datetime(out_utc)
+                taxi_sec = self._get_taxi_reference(dept)
+                dep_time = out_dt + timedelta(seconds=taxi_sec)
+                time_source = 'out_utc+taxi'
+            elif first_seen:
+                dep_time = normalize_datetime(first_seen)
+                time_source = 'first_seen'
+            else:
+                continue
+
+            time_source_counts[time_source] += 1
+
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
-                'dept_time': first_seen.strftime('%H:%M:%SZ') if first_seen else None
+                'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                'time_source': time_source
             }
 
+            # Calculate GS delay when both OUT and OFF available
+            if out_utc and off_utc:
+                out_dt = normalize_datetime(out_utc)
+                off_dt = normalize_datetime(off_utc)
+                actual_taxi_sec = (off_dt - out_dt).total_seconds()
+                unimpeded_sec = self._get_taxi_reference(dept)
+                gs_delay_sec = max(0, actual_taxi_sec - unimpeded_sec)
+                flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
+                if gs_delay_sec > 0:
+                    gs_delays.append(gs_delay_sec / 60)
+
             # Determine compliance status
-            if first_seen < gs_issued:
+            if dep_time < gs_issued:
                 flight_info['status'] = 'EXEMPT'
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
-            elif first_seen > gs_end:
+            elif dep_time > gs_end:
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
-                # Calculate how far into GS they departed
                 gs_duration = (gs_end - gs_start).total_seconds()
-                into_gs = (first_seen - gs_start).total_seconds()
+                into_gs = (dep_time - gs_start).total_seconds()
                 flight_info['pct_into_gs'] = round(100 * into_gs / gs_duration, 1) if gs_duration > 0 else 0
                 non_compliant.append(flight_info)
 
@@ -1819,21 +1893,36 @@ class TMIComplianceAnalyzer:
                 'avg_pct_into_gs': round(sum(f.get('pct_into_gs', 0) for f in non_compliant) / len(non_compliant), 1) if non_compliant else 0
             },
             'destinations': tmi.destinations,
-            'origins': tmi.origins
+            'origins': tmi.origins,
+            'time_source_breakdown': time_source_counts,
+            'gs_delay_stats': {
+                'flights_with_delay_data': len(gs_delays),
+                'avg_delay_min': round(sum(gs_delays) / len(gs_delays), 1) if gs_delays else 0,
+                'max_delay_min': round(max(gs_delays), 1) if gs_delays else 0,
+                'total_delay_min': round(sum(gs_delays), 1) if gs_delays else 0,
+            }
         }
 
     def _analyze_gs_program(self, program: GSProgram) -> Optional[Dict]:
         """
         Analyze Ground Stop compliance for a program (chain of advisories).
 
-        Enhancements over _analyze_gs_compliance:
-        1. Uses effective window from program chain
-        2. Uses OOOI times (atd_utc/off_utc) for departure detection, falling back to first_seen
-        3. Phase tracking - tags each flight with which advisory phase it was in
-        4. Per-origin breakdown by DEP FACILITY
-        5. Delay impact calculation (hold time for compliant flights)
-        6. Program timeline for frontend rendering
-        7. Not-in-scope flights (to GS airport but from unlisted facility)
+        Time source priority for wheels-off determination:
+        1. off_utc - actual wheels-off from OOOI zone detection
+        2. out_utc + airport taxi ref - gate push + per-airport unimpeded taxi time
+        3. first_seen - VATSIM connection time (least accurate, ~35 min early median)
+
+        GS delay calculation (when out_utc + off_utc both available):
+        gs_delay = max(0, (OFF - OUT) - unimpeded_taxi(airport))
+
+        Features:
+        - Uses effective window from program chain
+        - Phase tracking - tags each flight with which advisory phase it was in
+        - Per-origin breakdown by DEP FACILITY
+        - Delay impact calculation (hold time for compliant flights)
+        - Program timeline for frontend rendering
+        - Not-in-scope flights (to GS airport but from unlisted facility)
+        - Time source breakdown statistics
         """
         logger.info(f"Analyzing GS Program: {program.airport} ({len(program.advisories)} advisories)")
 
@@ -1881,24 +1970,54 @@ class TMIComplianceAnalyzer:
         not_in_scope = []
         per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': []})
         hold_times = []
+        gs_delays = []
+        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
         for callsign, flight in flights.items():
             dept = flight.get('dept', 'UNK')
 
-            # Get best departure time: OOOI times > first_seen
-            dep_time = (flight.get('atd_utc') or flight.get('off_utc') or
-                       flight.get('first_seen'))
-            if not dep_time:
+            # Determine best wheels-off estimate
+            # Priority: off_utc (actual wheels-off) > out_utc + taxi_ref (estimated) > first_seen
+            off_utc = flight.get('off_utc')
+            out_utc = flight.get('out_utc')
+            first_seen = flight.get('first_seen')
+
+            if off_utc:
+                dep_time = normalize_datetime(off_utc)
+                time_source = 'off_utc'
+            elif out_utc:
+                out_dt = normalize_datetime(out_utc)
+                taxi_sec = self._get_taxi_reference(dept)
+                dep_time = out_dt + timedelta(seconds=taxi_sec)
+                time_source = 'out_utc+taxi'
+            elif first_seen:
+                dep_time = normalize_datetime(first_seen)
+                time_source = 'first_seen'
+            else:
                 continue
 
-            dep_time = normalize_datetime(dep_time)
+            time_source_counts[time_source] += 1
 
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
-                'time_source': 'OOOI' if flight.get('atd_utc') or flight.get('off_utc') else 'first_seen'
+                'time_source': time_source
             }
+
+            # Calculate GS delay: excess ground time beyond unimpeded taxi
+            # Requires both out_utc and off_utc (or estimated off from dep_time)
+            if out_utc and off_utc:
+                out_dt = normalize_datetime(out_utc)
+                off_dt = normalize_datetime(off_utc)
+                actual_taxi_sec = (off_dt - out_dt).total_seconds()
+                unimpeded_sec = self._get_taxi_reference(dept)
+                gs_delay_sec = max(0, actual_taxi_sec - unimpeded_sec)
+                flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
+                flight_info['actual_taxi_min'] = round(actual_taxi_sec / 60, 1)
+                flight_info['unimpeded_taxi_min'] = round(unimpeded_sec / 60, 1)
+                if gs_delay_sec > 0:
+                    gs_delays.append(gs_delay_sec / 60)
 
             # Check if flight is from a listed DEP FACILITY
             # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
@@ -2013,7 +2132,16 @@ class TMIComplianceAnalyzer:
             'impacting_condition': program.impacting_condition,
             'prob_extension': program.prob_extension,
             'cnx_comments': program.cnx_comments,
-            'dep_facility_tier': program.dep_facility_tier
+            'dep_facility_tier': program.dep_facility_tier,
+            # Time source & GS delay analysis
+            'time_source_breakdown': time_source_counts,
+            'gs_delay_stats': {
+                'flights_with_delay_data': len(gs_delays),
+                'avg_delay_min': round(sum(gs_delays) / len(gs_delays), 1) if gs_delays else 0,
+                'max_delay_min': round(max(gs_delays), 1) if gs_delays else 0,
+                'median_delay_min': round(sorted(gs_delays)[len(gs_delays) // 2], 1) if gs_delays else 0,
+                'total_delay_min': round(sum(gs_delays), 1) if gs_delays else 0,
+            }
         }
 
     def _analyze_reroute_compliance(self, tmi: TMI) -> Optional[Dict]:
