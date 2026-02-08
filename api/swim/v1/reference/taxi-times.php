@@ -99,8 +99,8 @@ if ($airport !== null) {
  */
 function handleSingleAirport($conn, $airport, $confidence_filter, $use_fixm, $format, $cache_params, $format_options, $methodology) {
     // Query main taxi reference
-    $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_count, confidence,
-                   percentile_5, percentile_15, last_refreshed_utc
+    $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_size, confidence,
+                   p05_taxi_sec, p15_taxi_sec, last_refreshed_utc
             FROM dbo.airport_taxi_reference
             WHERE airport_icao = ?";
     $params = [$airport];
@@ -134,10 +134,10 @@ function handleSingleAirport($conn, $airport, $confidence_filter, $use_fixm, $fo
     $airport_data = formatAirportRow($row, $use_fixm);
 
     // Query detail breakdown
-    $detail_sql = "SELECT dimension, dimension_value, unimpeded_taxi_sec, sample_count
+    $detail_sql = "SELECT dimension, dimension_value, unimpeded_taxi_sec, sample_size
                    FROM dbo.airport_taxi_reference_detail
                    WHERE airport_icao = ?
-                   ORDER BY dimension, sample_count DESC";
+                   ORDER BY dimension, sample_size DESC";
     $detail_stmt = sqlsrv_query($conn, $detail_sql, [$airport]);
 
     $details = [];
@@ -171,14 +171,14 @@ function handleAirportList($conn, $confidence_filter, $min_samples, $use_fixm, $
     }
 
     if ($min_samples > 0) {
-        $where_clauses[] = "sample_count >= ?";
+        $where_clauses[] = "sample_size >= ?";
         $params[] = $min_samples;
     }
 
     $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
-    $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_count, confidence,
-                   percentile_5, percentile_15, last_refreshed_utc
+    $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_size, confidence,
+                   p05_taxi_sec, p15_taxi_sec, last_refreshed_utc
             FROM dbo.airport_taxi_reference
             {$where_sql}
             ORDER BY airport_icao";
@@ -240,10 +240,10 @@ function formatAirportRow($row, $use_fixm = false) {
         return [
             'aerodromeIcao' => $row['airport_icao'],
             'unimpededTaxiOutSeconds' => (int)$row['unimpeded_taxi_sec'],
-            'sampleCount' => (int)$row['sample_count'],
+            'sampleCount' => (int)$row['sample_size'],
             'confidenceLevel' => $row['confidence'],
-            'percentile5' => isset($row['percentile_5']) ? (int)$row['percentile_5'] : null,
-            'percentile15' => isset($row['percentile_15']) ? (int)$row['percentile_15'] : null,
+            'percentile5' => isset($row['p05_taxi_sec']) ? (int)$row['p05_taxi_sec'] : null,
+            'percentile15' => isset($row['p15_taxi_sec']) ? (int)$row['p15_taxi_sec'] : null,
             'lastRefreshedTime' => $row['last_refreshed_utc']
         ];
     }
@@ -251,10 +251,10 @@ function formatAirportRow($row, $use_fixm = false) {
     return [
         'airport_icao' => $row['airport_icao'],
         'unimpeded_taxi_out_sec' => (int)$row['unimpeded_taxi_sec'],
-        'sample_count' => (int)$row['sample_count'],
+        'sample_size' => (int)$row['sample_size'],
         'confidence' => $row['confidence'],
-        'percentile_5' => isset($row['percentile_5']) ? (int)$row['percentile_5'] : null,
-        'percentile_15' => isset($row['percentile_15']) ? (int)$row['percentile_15'] : null,
+        'p05_taxi_sec' => isset($row['p05_taxi_sec']) ? (int)$row['p05_taxi_sec'] : null,
+        'p15_taxi_sec' => isset($row['p15_taxi_sec']) ? (int)$row['p15_taxi_sec'] : null,
         'last_refreshed_utc' => $row['last_refreshed_utc']
     ];
 }
@@ -268,7 +268,7 @@ function formatDetailRow($row, $use_fixm = false) {
             'dimension' => $row['dimension'],
             'dimensionValue' => $row['dimension_value'],
             'unimpededTaxiOutSeconds' => (int)$row['unimpeded_taxi_sec'],
-            'sampleCount' => (int)$row['sample_count']
+            'sampleCount' => (int)$row['sample_size']
         ];
     }
 
@@ -276,6 +276,6 @@ function formatDetailRow($row, $use_fixm = false) {
         'dimension' => $row['dimension'],
         'dimension_value' => $row['dimension_value'],
         'unimpeded_taxi_out_sec' => (int)$row['unimpeded_taxi_sec'],
-        'sample_count' => (int)$row['sample_count']
+        'sample_size' => (int)$row['sample_size']
     ];
 }
