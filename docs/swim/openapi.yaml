@@ -194,6 +194,14 @@ tags:
       - Incident tracking and reporting
       - Facility status monitoring
       - Operational coordination
+  - name: Reference
+    description: |
+      Reference data and statistical baselines.
+
+      **Use Cases:**
+      - Unimpeded taxi-out times per airport (FAA ASPM methodology)
+      - Dimensional breakdowns by weight class, carrier, engine configuration
+      - Ground Stop delay estimation (actual vs. unimpeded taxi comparison)
   - name: Configuration
     description: |
       Airport and facility configuration data.
@@ -1820,6 +1828,87 @@ paths:
                 $ref: '#/components/schemas/SplitPresetsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /reference/taxi-times:
+    get:
+      tags:
+        - Reference
+      summary: Airport Taxi-Out Reference Times
+      description: |
+        Returns unimpeded taxi-out reference times for all airports, computed using
+        FAA ASPM methodology (average of p5-p15 percentile observations over a 90-day
+        rolling window, minimum 50 samples).
+
+        Data refreshes daily at 02:00Z via stored procedure.
+      operationId: getTaxiTimes
+      parameters:
+        - name: confidence
+          in: query
+          description: Filter by confidence level
+          schema:
+            type: string
+            enum: [HIGH, MEDIUM, LOW, DEFAULT]
+        - name: min_samples
+          in: query
+          description: Minimum sample count filter
+          schema:
+            type: integer
+            minimum: 0
+        - name: format
+          in: query
+          description: Response format
+          schema:
+            type: string
+            enum: [json, fixm, xml, csv, ndjson]
+            default: json
+      responses:
+        '200':
+          description: List of airport taxi reference times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxiTimeListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reference/taxi-times/{airport}:
+    get:
+      tags:
+        - Reference
+      summary: Airport Taxi-Out Reference Detail
+      description: |
+        Returns unimpeded taxi-out reference time for a single airport, including
+        dimensional breakdowns by weight class, carrier, engine configuration,
+        and destination region.
+      operationId: getTaxiTimeDetail
+      parameters:
+        - name: airport
+          in: path
+          required: true
+          description: ICAO airport code (e.g., KJFK, KLAX)
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 4
+          example: KJFK
+        - name: format
+          in: query
+          description: Response format
+          schema:
+            type: string
+            enum: [json, fixm, xml, csv, ndjson]
+            default: json
+      responses:
+        '200':
+          description: Airport taxi reference with dimensional breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxiTimeDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Airport not found in taxi reference data
 
 components:
   securitySchemes:
@@ -4420,3 +4509,118 @@ components:
                 $ref: '#/components/schemas/FlowEvaluationArea'
             total:
               type: integer
+
+    TaxiTimeReference:
+      type: object
+      description: Airport unimpeded taxi-out reference time (FAA ASPM methodology)
+      properties:
+        airport_icao:
+          type: string
+          description: ICAO airport code
+          example: KJFK
+        unimpeded_taxi_out_sec:
+          type: integer
+          description: Unimpeded taxi-out time in seconds (p5-p15 average)
+          example: 1020
+        sample_count:
+          type: integer
+          description: Number of observations in 90-day rolling window
+          example: 2847
+        confidence:
+          type: string
+          enum: [HIGH, MEDIUM, LOW, DEFAULT]
+          description: Data quality based on sample count
+          example: HIGH
+        percentile_5:
+          type: integer
+          description: 5th percentile taxi-out time (seconds)
+          example: 480
+        percentile_15:
+          type: integer
+          description: 15th percentile taxi-out time (seconds)
+          example: 720
+        last_refreshed_utc:
+          type: string
+          format: date-time
+          description: Last refresh timestamp
+
+    TaxiTimeDetail:
+      type: object
+      description: Dimensional taxi time breakdown
+      properties:
+        dimension:
+          type: string
+          enum: [WEIGHT_CLASS, CARRIER, ENGINE_CONFIG, DEST_REGION]
+          description: Breakdown dimension type
+        dimension_value:
+          type: string
+          description: Value for the dimension (e.g., H, UAL, JET_TWIN)
+          example: H
+        unimpeded_taxi_out_sec:
+          type: integer
+          description: Dimension-specific unimpeded taxi time (seconds)
+        sample_count:
+          type: integer
+          description: Dimension-specific observation count
+
+    TaxiTimeListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            airports:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaxiTimeReference'
+            count:
+              type: integer
+            summary:
+              type: object
+              properties:
+                high_confidence:
+                  type: integer
+                medium_confidence:
+                  type: integer
+                low_confidence:
+                  type: integer
+                default:
+                  type: integer
+            methodology:
+              type: object
+              properties:
+                description:
+                  type: string
+                min_samples:
+                  type: integer
+                default_taxi_sec:
+                  type: integer
+                refresh_schedule:
+                  type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    TaxiTimeDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            airport:
+              $ref: '#/components/schemas/TaxiTimeReference'
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaxiTimeDetail'
+            detail_count:
+              type: integer
+            methodology:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
