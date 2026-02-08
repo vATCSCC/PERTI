@@ -1540,6 +1540,9 @@ class TMIComplianceAnalyzer:
                 'was_superseded': tmi.superseded_by_tmi_id is not None,
                 # Facility metadata
                 'is_multiple': tmi.is_multiple,
+                # Fix coordinates from navdata
+                'fix_info': {'lat': self.fix_coords[fix]['lat'], 'lon': self.fix_coords[fix]['lon']}
+                    if fix and fix in self.fix_coords else None,
             }
 
         # Filter to TMI active window
@@ -1567,6 +1570,9 @@ class TMIComplianceAnalyzer:
                 'destinations': tmi.destinations,
                 'issued_utc': tmi.issued_utc.strftime('%H:%MZ') if tmi.issued_utc else None,
                 'is_amendment': tmi.supersedes_tmi_id is not None,
+                # Fix coordinates from navdata
+                'fix_info': {'lat': self.fix_coords[fix]['lat'], 'lon': self.fix_coords[fix]['lon']}
+                    if fix and fix in self.fix_coords else None,
                 'was_superseded': tmi.superseded_by_tmi_id is not None,
                 # Facility metadata
                 'is_multiple': tmi.is_multiple,
@@ -1723,6 +1729,9 @@ class TMIComplianceAnalyzer:
             # Modifier and filter info
             'modifier': tmi.modifier.value if tmi.modifier else None,
             'traffic_direction': tmi.traffic_direction.value if tmi.traffic_direction else None,
+            # Fix coordinates from navdata (for map rendering anchor point)
+            'fix_info': {'lat': self.fix_coords[fix]['lat'], 'lon': self.fix_coords[fix]['lon']}
+                if fix and fix in self.fix_coords else None,
         }
 
         # Add trajectory data for flights that crossed (for map rendering)
