@@ -572,6 +572,7 @@ class SwimFormat {
             case 'positions':
                 return array_merge($base, ['geojson', 'csv', 'kml']);
             case 'metering':
+            case 'reference':
                 return array_merge($base, ['csv']);
             default:
                 return $base;
@@ -696,6 +697,10 @@ class SwimFormat {
         // Handle nested structure
         if (isset($items['flights'])) {
             $items = $items['flights'];
+        } elseif (isset($items['airports'])) {
+            $items = $items['airports'];
+        } elseif (isset($items['details'])) {
+            $items = $items['details'];
         }
 
         if (!is_array($items)) {
@@ -761,6 +766,10 @@ class SwimFormat {
         // Handle nested structure
         if (isset($items['flights'])) {
             $items = $items['flights'];
+        } elseif (isset($items['airports'])) {
+            $items = $items['airports'];
+        } elseif (isset($items['details'])) {
+            $items = $items['details'];
         }
 
         if (!is_array($items) || empty($items)) {
@@ -826,6 +835,10 @@ class SwimFormat {
         // Handle nested structure
         if (isset($items['flights'])) {
             $items = $items['flights'];
+        } elseif (isset($items['airports'])) {
+            $items = $items['airports'];
+        } elseif (isset($items['details'])) {
+            $items = $items['details'];
         }
 
         if (!is_array($items)) {
@@ -901,6 +914,10 @@ class SwimFormat {
         // Handle nested structure
         if (isset($items['flights'])) {
             $items = $items['flights'];
+        } elseif (isset($items['airports'])) {
+            $items = $items['airports'];
+        } elseif (isset($items['details'])) {
+            $items = $items['details'];
         }
 
         if (!is_array($items)) {
