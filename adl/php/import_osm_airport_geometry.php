@@ -65,7 +65,7 @@ function getAdlConnection() {
 // ============================================================================
 
 $AIRPORTS = [
-    // ASPM82 - FAA Core 77 Airports
+    // ASPM82 - FAA Core 82 Airports
     'KATL' => 'Atlanta Hartsfield-Jackson',
     'KBOS' => 'Boston Logan',
     'KBWI' => 'Baltimore-Washington',

@@ -189,7 +189,7 @@ EXEC dbo.sp_GenerateFallbackZones @airport_icao = 'KJFK';
 
 | Region | Count | Examples |
 |--------|-------|----------|
-| **ASPM82 (US)** | 77 | KATL, KJFK, KLAX, KORD, KSFO, KDFW |
+| **ASPM82 (US)** | 82 | KATL, KJFK, KLAX, KORD, KSFO, KDFW |
 | **Canada** | 17 | CYYZ, CYVR, CYUL, CYYC, CYOW |
 | **Mexico** | 20 | MMMX, MMUN, MMTJ, MMMY, MMGL |
 | **Central America** | 9 | MGGT, MSLP, MROC, MPTO |

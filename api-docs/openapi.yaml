@@ -550,6 +550,13 @@ paths:
                             type: integer
                           no:
                             type: integer
+                      arr_opsnet45:
+                        type: object
+                        properties:
+                          yes:
+                            type: integer
+                          no:
+                            type: integer
                       arr_oep35:
                         type: object
                       arr_core30:
@@ -1901,7 +1908,7 @@ paths:
           description: Airport category filter
           schema:
             type: string
-            enum: [all, aspm82, oep35, core30]
+            enum: [all, aspm82, opsnet45, oep35, core30]
             default: all
         - name: artcc
           in: query
@@ -1949,6 +1956,8 @@ paths:
                         dcc_region:
                           type: string
                         is_aspm82:
+                          type: boolean
+                        is_opsnet45:
                           type: boolean
                         is_oep35:
                           type: boolean
