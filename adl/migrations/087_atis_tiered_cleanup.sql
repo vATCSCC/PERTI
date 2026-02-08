@@ -8,7 +8,7 @@
 --
 -- Tier Structure:
 --   Tier 0: Never delete
---           - ASPM77 airports
+--           - ASPM82 airports
 --           - Featured airports during VATUSA events (T-1H to T+6H)
 --
 --   Tier 1: 30-day retention
@@ -36,85 +36,85 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ref_major_airports')
 BEGIN
     CREATE TABLE dbo.ref_major_airports (
         airport_icao    VARCHAR(4) PRIMARY KEY,
-        region          VARCHAR(16) NOT NULL,   -- ASPM77, CA_MX_LATAM, GLOBAL
+        region          VARCHAR(16) NOT NULL,   -- ASPM82, CA_MX_LATAM, GLOBAL
         tier            TINYINT NOT NULL,       -- 0, 1, or 2
         description     VARCHAR(64) NULL,
         created_utc     DATETIME2 DEFAULT GETUTCDATE()
     );
 
-    -- Tier 0: ASPM77 Airports (FAA Aviation System Performance Metrics)
+    -- Tier 0: ASPM82 Airports (FAA Aviation System Performance Metrics)
     INSERT INTO dbo.ref_major_airports (airport_icao, region, tier, description) VALUES
-    ('KABQ', 'ASPM77', 0, 'Albuquerque'),
-    ('KALB', 'ASPM77', 0, 'Albany'),
-    ('PANC', 'ASPM77', 0, 'Anchorage'),
-    ('KATL', 'ASPM77', 0, 'Atlanta'),
-    ('KAUS', 'ASPM77', 0, 'Austin'),
-    ('KBDL', 'ASPM77', 0, 'Hartford'),
-    ('KBHM', 'ASPM77', 0, 'Birmingham'),
-    ('KBNA', 'ASPM77', 0, 'Nashville'),
-    ('KBOS', 'ASPM77', 0, 'Boston'),
-    ('KBUF', 'ASPM77', 0, 'Buffalo'),
-    ('KBUR', 'ASPM77', 0, 'Burbank'),
-    ('KBWI', 'ASPM77', 0, 'Baltimore'),
-    ('KCHS', 'ASPM77', 0, 'Charleston'),
-    ('KCLE', 'ASPM77', 0, 'Cleveland'),
-    ('KCLT', 'ASPM77', 0, 'Charlotte'),
-    ('KCMH', 'ASPM77', 0, 'Columbus'),
-    ('KCVG', 'ASPM77', 0, 'Cincinnati'),
-    ('KDAL', 'ASPM77', 0, 'Dallas Love'),
-    ('KDCA', 'ASPM77', 0, 'Washington National'),
-    ('KDEN', 'ASPM77', 0, 'Denver'),
-    ('KDFW', 'ASPM77', 0, 'Dallas/Fort Worth'),
-    ('KDTW', 'ASPM77', 0, 'Detroit'),
-    ('KEWR', 'ASPM77', 0, 'Newark'),
-    ('KFLL', 'ASPM77', 0, 'Fort Lauderdale'),
-    ('PHNL', 'ASPM77', 0, 'Honolulu'),
-    ('KHOU', 'ASPM77', 0, 'Houston Hobby'),
-    ('KIAD', 'ASPM77', 0, 'Washington Dulles'),
-    ('KIAH', 'ASPM77', 0, 'Houston Intercontinental'),
-    ('KIND', 'ASPM77', 0, 'Indianapolis'),
-    ('KJAX', 'ASPM77', 0, 'Jacksonville'),
-    ('KJFK', 'ASPM77', 0, 'New York JFK'),
-    ('KLAS', 'ASPM77', 0, 'Las Vegas'),
-    ('KLAX', 'ASPM77', 0, 'Los Angeles'),
-    ('KLGA', 'ASPM77', 0, 'New York LaGuardia'),
-    ('KLGB', 'ASPM77', 0, 'Long Beach'),
-    ('KMCI', 'ASPM77', 0, 'Kansas City'),
-    ('KMCO', 'ASPM77', 0, 'Orlando'),
-    ('KMDW', 'ASPM77', 0, 'Chicago Midway'),
-    ('KMEM', 'ASPM77', 0, 'Memphis'),
-    ('KMIA', 'ASPM77', 0, 'Miami'),
-    ('KMKE', 'ASPM77', 0, 'Milwaukee'),
-    ('KMSP', 'ASPM77', 0, 'Minneapolis'),
-    ('KMSY', 'ASPM77', 0, 'New Orleans'),
-    ('KOAK', 'ASPM77', 0, 'Oakland'),
-    ('PHOG', 'ASPM77', 0, 'Maui'),
-    ('KOMA', 'ASPM77', 0, 'Omaha'),
-    ('KONT', 'ASPM77', 0, 'Ontario'),
-    ('KORD', 'ASPM77', 0, 'Chicago O''Hare'),
-    ('KPBI', 'ASPM77', 0, 'Palm Beach'),
-    ('KPDX', 'ASPM77', 0, 'Portland'),
-    ('KPHL', 'ASPM77', 0, 'Philadelphia'),
-    ('KPHX', 'ASPM77', 0, 'Phoenix'),
-    ('KPIT', 'ASPM77', 0, 'Pittsburgh'),
-    ('KPVD', 'ASPM77', 0, 'Providence'),
-    ('KRDU', 'ASPM77', 0, 'Raleigh-Durham'),
-    ('KRIC', 'ASPM77', 0, 'Richmond'),
-    ('KRSW', 'ASPM77', 0, 'Fort Myers'),
-    ('KSAN', 'ASPM77', 0, 'San Diego'),
-    ('KSAT', 'ASPM77', 0, 'San Antonio'),
-    ('KSDF', 'ASPM77', 0, 'Louisville'),
-    ('KSEA', 'ASPM77', 0, 'Seattle'),
-    ('KSFO', 'ASPM77', 0, 'San Francisco'),
-    ('KSJC', 'ASPM77', 0, 'San Jose'),
-    ('TJSJ', 'ASPM77', 0, 'San Juan'),
-    ('KSLC', 'ASPM77', 0, 'Salt Lake City'),
-    ('KSMF', 'ASPM77', 0, 'Sacramento'),
-    ('KSNA', 'ASPM77', 0, 'Orange County'),
-    ('KSTL', 'ASPM77', 0, 'St. Louis'),
-    ('KTEB', 'ASPM77', 0, 'Teterboro'),
-    ('KTPA', 'ASPM77', 0, 'Tampa'),
-    ('KTUS', 'ASPM77', 0, 'Tucson');
+    ('KABQ', 'ASPM82', 0, 'Albuquerque'),
+    ('KALB', 'ASPM82', 0, 'Albany'),
+    ('PANC', 'ASPM82', 0, 'Anchorage'),
+    ('KATL', 'ASPM82', 0, 'Atlanta'),
+    ('KAUS', 'ASPM82', 0, 'Austin'),
+    ('KBDL', 'ASPM82', 0, 'Hartford'),
+    ('KBHM', 'ASPM82', 0, 'Birmingham'),
+    ('KBNA', 'ASPM82', 0, 'Nashville'),
+    ('KBOS', 'ASPM82', 0, 'Boston'),
+    ('KBUF', 'ASPM82', 0, 'Buffalo'),
+    ('KBUR', 'ASPM82', 0, 'Burbank'),
+    ('KBWI', 'ASPM82', 0, 'Baltimore'),
+    ('KCHS', 'ASPM82', 0, 'Charleston'),
+    ('KCLE', 'ASPM82', 0, 'Cleveland'),
+    ('KCLT', 'ASPM82', 0, 'Charlotte'),
+    ('KCMH', 'ASPM82', 0, 'Columbus'),
+    ('KCVG', 'ASPM82', 0, 'Cincinnati'),
+    ('KDAL', 'ASPM82', 0, 'Dallas Love'),
+    ('KDCA', 'ASPM82', 0, 'Washington National'),
+    ('KDEN', 'ASPM82', 0, 'Denver'),
+    ('KDFW', 'ASPM82', 0, 'Dallas/Fort Worth'),
+    ('KDTW', 'ASPM82', 0, 'Detroit'),
+    ('KEWR', 'ASPM82', 0, 'Newark'),
+    ('KFLL', 'ASPM82', 0, 'Fort Lauderdale'),
+    ('PHNL', 'ASPM82', 0, 'Honolulu'),
+    ('KHOU', 'ASPM82', 0, 'Houston Hobby'),
+    ('KIAD', 'ASPM82', 0, 'Washington Dulles'),
+    ('KIAH', 'ASPM82', 0, 'Houston Intercontinental'),
+    ('KIND', 'ASPM82', 0, 'Indianapolis'),
+    ('KJAX', 'ASPM82', 0, 'Jacksonville'),
+    ('KJFK', 'ASPM82', 0, 'New York JFK'),
+    ('KLAS', 'ASPM82', 0, 'Las Vegas'),
+    ('KLAX', 'ASPM82', 0, 'Los Angeles'),
+    ('KLGA', 'ASPM82', 0, 'New York LaGuardia'),
+    ('KLGB', 'ASPM82', 0, 'Long Beach'),
+    ('KMCI', 'ASPM82', 0, 'Kansas City'),
+    ('KMCO', 'ASPM82', 0, 'Orlando'),
+    ('KMDW', 'ASPM82', 0, 'Chicago Midway'),
+    ('KMEM', 'ASPM82', 0, 'Memphis'),
+    ('KMIA', 'ASPM82', 0, 'Miami'),
+    ('KMKE', 'ASPM82', 0, 'Milwaukee'),
+    ('KMSP', 'ASPM82', 0, 'Minneapolis'),
+    ('KMSY', 'ASPM82', 0, 'New Orleans'),
+    ('KOAK', 'ASPM82', 0, 'Oakland'),
+    ('PHOG', 'ASPM82', 0, 'Maui'),
+    ('KOMA', 'ASPM82', 0, 'Omaha'),
+    ('KONT', 'ASPM82', 0, 'Ontario'),
+    ('KORD', 'ASPM82', 0, 'Chicago O''Hare'),
+    ('KPBI', 'ASPM82', 0, 'Palm Beach'),
+    ('KPDX', 'ASPM82', 0, 'Portland'),
+    ('KPHL', 'ASPM82', 0, 'Philadelphia'),
+    ('KPHX', 'ASPM82', 0, 'Phoenix'),
+    ('KPIT', 'ASPM82', 0, 'Pittsburgh'),
+    ('KPVD', 'ASPM82', 0, 'Providence'),
+    ('KRDU', 'ASPM82', 0, 'Raleigh-Durham'),
+    ('KRIC', 'ASPM82', 0, 'Richmond'),
+    ('KRSW', 'ASPM82', 0, 'Fort Myers'),
+    ('KSAN', 'ASPM82', 0, 'San Diego'),
+    ('KSAT', 'ASPM82', 0, 'San Antonio'),
+    ('KSDF', 'ASPM82', 0, 'Louisville'),
+    ('KSEA', 'ASPM82', 0, 'Seattle'),
+    ('KSFO', 'ASPM82', 0, 'San Francisco'),
+    ('KSJC', 'ASPM82', 0, 'San Jose'),
+    ('TJSJ', 'ASPM82', 0, 'San Juan'),
+    ('KSLC', 'ASPM82', 0, 'Salt Lake City'),
+    ('KSMF', 'ASPM82', 0, 'Sacramento'),
+    ('KSNA', 'ASPM82', 0, 'Orange County'),
+    ('KSTL', 'ASPM82', 0, 'St. Louis'),
+    ('KTEB', 'ASPM82', 0, 'Teterboro'),
+    ('KTPA', 'ASPM82', 0, 'Tampa'),
+    ('KTUS', 'ASPM82', 0, 'Tucson');
 
     -- Tier 1: Canada Major
     INSERT INTO dbo.ref_major_airports (airport_icao, region, tier, description) VALUES
@@ -534,7 +534,7 @@ PRINT '';
 PRINT '087_atis_tiered_cleanup.sql completed successfully';
 PRINT '';
 PRINT 'Tier Structure:';
-PRINT '  Tier 0: Never delete (ASPM77 + Event featured airports)';
+PRINT '  Tier 0: Never delete (ASPM82 + Event featured airports)';
 PRINT '  Tier 1: 30-day retention (CA/MX/LATAM/Caribbean majors)';
 PRINT '  Tier 2: 7-day retention (Global majors)';
 PRINT '  Tier 3: 24-hour retention (Americas non-major)';
