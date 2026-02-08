@@ -1309,6 +1309,41 @@
     border-top-color: var(--brand-primary) !important;
 }
 
+/* Reroute and GS timeline - V2 light theme */
+.tmi-analysis-wrapper .reroute-card {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+    border-left: 3px solid #ffc107 !important;
+}
+
+.tmi-analysis-wrapper .reroute-card .compliance-split .filed,
+.tmi-analysis-wrapper .reroute-card .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .compliance-split .filed,
+.tmi-analysis-wrapper .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-timeline {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-cnx-comments,
+.tmi-analysis-wrapper .reroute-card .exemption-box,
+.tmi-analysis-wrapper .exemption-box {
+    background: rgba(23, 162, 184, 0.08) !important;
+}
+
+.tmi-analysis-wrapper .program-history .history-item {
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.12) !important;
+}
+
 /* ===========================================
  * FLOW ANALYSIS SECTION (progressive UI)
  * Overlays the dark map — hardcoded dark colors
@@ -1501,8 +1536,472 @@
 }
 
 /* ===========================================
+ * REROUTE CARD STYLES
+ * =========================================== */
+
+.reroute-card {
+    border-left: 3px solid #ffc107;
+    background: var(--light-bg-surface, #1e1e38);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.reroute-card .action-badge {
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.reroute-card .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.reroute-card .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.reroute-card .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.reroute-card .compliance-split .filed,
+.reroute-card .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.reroute-card .program-history {
+    font-size: 0.8rem;
+}
+
+.reroute-card .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.reroute-card .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.reroute-card .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+/* ===========================================
+ * GS PROGRAM TIMELINE
+ * =========================================== */
+
+.gs-timeline {
+    display: flex;
+    height: 24px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.gs-timeline .phase {
+    position: relative;
+    min-width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+}
+
+.gs-timeline .phase-initial {
+    background: #dc3545;
+}
+
+.gs-timeline .phase-extension {
+    background: #fd7e14;
+}
+
+.gs-timeline .phase-cnx {
+    background: #28a745;
+    width: 4px;
+    flex: 0 0 4px;
+}
+
+.gs-per-origin {
+    font-size: 0.85rem;
+}
+
+.gs-per-origin table {
+    width: 100%;
+}
+
+.gs-cnx-comments {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.gs-ended-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.gs-ended-badge.cnx {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.gs-ended-badge.expired {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+/* V2 reroute detail compliance split (outside card context) */
+.tmi-detail-panel .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.tmi-detail-panel .compliance-split .filed,
+.tmi-detail-panel .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.tmi-detail-panel .program-history {
+    font-size: 0.8rem;
+}
+
+.tmi-detail-panel .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.tmi-detail-panel .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.tmi-detail-panel .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.tmi-detail-panel .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.tmi-detail-panel .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+/* ===========================================
+ * ADVISORY DETAIL CARDS
+ * =========================================== */
+
+.advisory-chain {
+    margin-top: 0.5rem;
+}
+
+.advisory-detail-card {
+    background: var(--light-bg-subtle, #f3f3f9);
+    border: 1px solid var(--light-border, #e9e9f2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.advisory-detail-card .badge {
+    font-size: 0.7rem;
+}
+
+.advisory-meta {
+    margin-top: 4px;
+    padding-left: 4px;
+}
+
+/* V2 wrapper advisory cards */
+.tmi-analysis-wrapper .advisory-detail-card {
+    background: var(--v2-bg-subtle) !important;
+    border-color: var(--v2-border) !important;
+}
+
+/* ===========================================
+ * EXPANDABLE FLIGHT ROWS (Reroute)
+ * =========================================== */
+
+.reroute-flight-row.expandable:hover {
+    background: rgba(0, 123, 255, 0.04);
+}
+
+.reroute-flight-row .expand-chevron {
+    transition: transform 0.15s ease;
+    font-size: 0.7rem;
+}
+
+.flight-detail-row {
+    background: var(--light-bg-subtle, #f8f9fa) !important;
+}
+
+.flight-detail-row > td {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.flight-route-detail {
+    padding: 10px 16px 10px 28px;
+    font-size: 0.85rem;
+}
+
+/* ===========================================
+ * FIX CHECKLIST (Reroute route match)
+ * =========================================== */
+
+.fix-checklist {
+    margin-bottom: 6px;
+}
+
+.fix-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fix-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.fix-check.fix-matched {
+    background: rgba(40, 167, 69, 0.12);
+    color: #28a745;
+}
+
+.fix-check.fix-missing {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+}
+
+.fix-check.fix-partial {
+    background: rgba(255, 193, 7, 0.12);
+    color: #856404;
+}
+
+/* Filed route display with highlighted fixes */
+.filed-route {
+    margin-top: 6px;
+}
+
+.filed-route code.route-string {
+    font-size: 0.8rem;
+    word-break: break-all;
+    display: block;
+    padding: 6px 8px;
+    background: var(--light-bg-subtle, #f8f9fa);
+    border-radius: 4px;
+    border: 1px solid var(--light-border, #e9e9f2);
+}
+
+.filed-route .fix-matched {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    font-weight: 700;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.filed-route .fix-missing {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    text-decoration: line-through;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* ===========================================
+ * CROSSING DETAIL TABLE
+ * =========================================== */
+
+.crossing-detail-table {
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.crossing-detail-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 8px !important;
+}
+
+.crossing-detail-table td {
+    padding: 3px 8px !important;
+}
+
+/* ===========================================
+ * COMPLIANCE BAR (per-origin inline)
+ * =========================================== */
+
+.compliance-bar {
+    display: flex;
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 3px;
+}
+
+.compliance-bar span {
+    display: block;
+    height: 100%;
+}
+
+/* ===========================================
+ * SORTABLE TABLE HEADERS
+ * =========================================== */
+
+.sortable-table th[onclick] {
+    position: relative;
+    padding-right: 16px !important;
+    user-select: none;
+}
+
+.sortable-table th[onclick]:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sortable-table th[onclick]::after {
+    content: '\2195';
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    opacity: 0.4;
+}
+
+.sortable-table th.sort-asc::after {
+    content: '\2191';
+    opacity: 0.9;
+}
+
+.sortable-table th.sort-desc::after {
+    content: '\2193';
+    opacity: 0.9;
+}
+
+/* ===========================================
+ * V2 WRAPPER OVERRIDES FOR NEW ELEMENTS
+ * =========================================== */
+
+/* Flight detail row in V2 light theme */
+.tmi-analysis-wrapper .flight-detail-row {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .flight-route-detail {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .filed-route code.route-string {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .fix-check {
+    color: inherit;
+}
+
+.tmi-analysis-wrapper .crossing-detail-table th {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .crossing-detail-table td {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .sortable-table th[onclick]:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.tmi-analysis-wrapper .sortable-table th[onclick]::after {
+    color: var(--v2-text-muted);
+}
+
+/* ===========================================
  * LEGACY DARK THEME SUPPORT (non-V2 layouts)
  * =========================================== */
+
+/* Dark theme - advisory detail cards */
+.dark-theme .advisory-detail-card {
+    background: var(--dark-bg-surface, #1e1e38);
+    border-color: var(--dark-border, #2a2a4a);
+}
+
+/* Dark theme - flight detail row */
+.dark-theme .flight-detail-row {
+    background: var(--dark-bg-surface, #1e1e38) !important;
+}
+
+.dark-theme .filed-route code.route-string {
+    background: var(--dark-bg-surface, #1e1e38);
+    border-color: var(--dark-border, #2a2a4a);
+    color: var(--dark-text-primary, #e0e0e0);
+}
+
+/* Dark theme - fix checklist (colors remain same as they have good contrast) */
+
+/* Dark theme - sortable headers */
+.dark-theme .sortable-table th[onclick]:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Dark theme - crossing detail table */
+.dark-theme .crossing-detail-table th {
+    color: var(--dark-text-muted, #888);
+}
 
 .dark-theme .tmi-card {
     background: var(--dark-bg-surface);
