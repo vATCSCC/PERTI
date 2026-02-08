@@ -13,8 +13,8 @@
 
 // Results are ~5MB (trajectories split to separate file); 256M is generous headroom
 ini_set('memory_limit', '256M');
-// Python analysis can take 2+ minutes for large events
-set_time_limit(300);
+// Python analysis can take 5+ minutes for large events with many TMIs
+set_time_limit(600);
 
 header('Content-Type: application/json');
 

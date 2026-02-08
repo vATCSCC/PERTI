@@ -241,7 +241,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html: `
                 <div class="text-left small">
                     <p>This will analyze flight data against the configured TMIs for Plan ${this.planId}.</p>
-                    <p><strong>Note:</strong> Analysis typically takes 1-3 minutes depending on traffic volume.</p>
+                    <p><strong>Note:</strong> Analysis typically takes 1-5 minutes depending on the number of TMIs and traffic volume. Large events may take longer.</p>
                     <p class="text-warning"><i class="fas fa-exclamation-triangle"></i>
                        Make sure your TMI configuration is saved before running.</p>
                 </div>
@@ -350,7 +350,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`,
             method: 'GET',
             dataType: 'json',
-            timeout: 300000, // 5 minute timeout
+            timeout: 600000, // 10 minute timeout for large events
             success: (response) => {
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
@@ -2300,11 +2300,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 filtered[callsign] = traj;
                 matched++;
             }
-            // Also include flights with unknown/blank destinations (may be relevant)
-            else if (!aptCode || aptCode === 'UNK' || aptCode === 'UNKNOWN') {
-                filtered[callsign] = traj;
-                matched++;
-            }
         });
 
         console.log(`TMI flow filter (${direction}): ${matched}/${total} flights match ${matchField} ∈ {${[...matchSet].join(', ')}}`);
@@ -2804,9 +2799,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.renderFlowAnalysis(mapId);
 
             // Trigger async flow stream analysis with TMI-filtered trajectories
-            const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
-            const fixPoint = fixInfo?.geometry?.coordinates
-                || (r.traffic_sector?.measurement_point) // [lon, lat] from Python
+            // fix_info from Python: {lat, lon} — prefer over crossing centroid
+            const fixPoint = r.fix_info ? [r.fix_info.lon, r.fix_info.lat]
+                : (r.traffic_sector?.measurement_point) // [lon, lat] crossing centroid fallback
                 || null;
             const knownFixes = (r.known_fixes || r.approach_fixes || []).map(f => ({
                 id: f.id || f.name || f.fix,
@@ -2844,8 +2839,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.trafficSectorCache = this.trafficSectorCache || {};
             this.trafficSectorCache[mapId] = {
                 ...r.traffic_sector,
-                // Map measurement_point to fix_point (Python uses measurement_point, JS rendering uses fix_point)
-                fix_point: r.traffic_sector.measurement_point || r.traffic_sector.fix_point,
+                // Prefer navdata fix coords (fix_info) over crossing centroid (measurement_point)
+                fix_point: r.fix_info ? [r.fix_info.lon, r.fix_info.lat]
+                    : (r.traffic_sector.measurement_point || r.traffic_sector.fix_point),
                 required_spacing: r.required || 0,
                 unit: r.unit || 'nm',
             };
