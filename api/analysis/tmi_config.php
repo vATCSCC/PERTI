@@ -858,6 +858,14 @@ function build_gs_programs($tmis) {
     foreach ($by_airport as $airport => $advisories) {
         usort($advisories, fn($a, $b) => ($a['advzy_number'] ?? '0') <=> ($b['advzy_number'] ?? '0'));
 
+        // Assign advisory_type based on position in chain
+        foreach ($advisories as $idx => &$a) {
+            if (empty($a['advisory_type'])) {
+                $a['advisory_type'] = $idx === 0 ? 'INITIAL' : 'EXTENSION';
+            }
+        }
+        unset($a);
+
         $last_advisory = end($advisories);
         $program = [
             'type' => 'GS_PROGRAM',
@@ -938,7 +946,7 @@ function build_reroute_programs($tmis) {
         // Match cancellation
         foreach ($cnxs as $cnx) {
             if (($cnx['cancelled_name'] ?? '') === $name) {
-                $program['ended_by'] = 'CANCELLATION';
+                $program['ended_by'] = 'CNX';
                 $program['effective_end'] = $cnx['cancelled_time'] ?? $program['effective_end'];
                 break;
             }

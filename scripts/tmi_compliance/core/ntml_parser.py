@@ -1005,7 +1005,7 @@ def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime,
             end_utc=valid_end or event_end,
             reroute_name=name,
             reroute_mandatory=(action == 'RQD'),
-            reroute_routes=[re.route_string for re in routes],
+            reroute_routes=[{'orig': ','.join(rt.origins), 'dest': rt.destination, 'route': rt.route_string} for rt in routes],
             time_type=time_type,
             reason=reason,
             raw_text=raw_text
@@ -1226,7 +1226,7 @@ def build_reroute_programs(reroute_tmis: List[TMI], reroute_advisories: List[Rer
         cnx_list = cnx_by_name.get(group_name, [])
         ended_by = 'EXPIRATION'
         if cnx_list:
-            ended_by = 'CANCELLATION'
+            ended_by = 'CNX'
             cnx_sorted = sorted(cnx_list, key=lambda c: c.adl_time or datetime.min)
             last_cnx = cnx_sorted[-1]
             if last_cnx.valid_end:

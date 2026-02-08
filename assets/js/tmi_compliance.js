@@ -7,6 +7,9 @@ const TMICompliance = {
     planId: null,
     results: null,
 
+    // HTML escape utility for free-text fields (NTML advisory text, comments, etc.)
+    escapeHtml: function(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; },
+
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
@@ -1670,7 +1673,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let endedBadge = '';
         if (r.ended_by === 'CNX' || r.cancelled) {
             endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
-        } else if (r.ended_by === 'EXPIRED') {
+        } else if (r.ended_by === 'EXPIRATION') {
             endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
         }
 
@@ -1693,7 +1696,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Impacting condition
         if (r.impacting_condition) {
-            html += `<div class="text-muted small mb-1"><i class="fas fa-cloud"></i> ${r.impacting_condition}</div>`;
+            html += `<div class="text-muted small mb-1"><i class="fas fa-cloud"></i> ${this.escapeHtml(r.impacting_condition)}</div>`;
         }
 
         // Program timeline bar (backward compat: only render if present)
@@ -1746,7 +1749,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // CNX comments
         if (r.cnx_comments) {
-            html += `<div class="gs-cnx-comments"><i class="fas fa-info-circle text-info"></i> ${r.cnx_comments}</div>`;
+            html += `<div class="gs-cnx-comments"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(r.cnx_comments)}</div>`;
         }
 
         // Per-origin breakdown (collapsible)
@@ -1913,20 +1916,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : 0;
         };
 
-        // Compute total span
+        // Compute total span (handle overnight wrap)
         const allStarts = phases.map(p => parseTime(p.start));
         const allEnds = phases.map(p => parseTime(p.end));
         const totalStart = Math.min(...allStarts);
-        const totalEnd = Math.max(...allEnds);
-        const totalSpan = totalEnd - totalStart;
-
-        if (totalSpan <= 0) return '';
+        let totalEnd = Math.max(...allEnds);
+        let totalSpan = totalEnd - totalStart;
+        if (totalSpan <= 0) totalSpan += 1440; // Overnight wrap: add 24h
 
         let html = '<div class="gs-timeline">';
 
         phases.forEach(p => {
             const pStart = parseTime(p.start);
-            const pEnd = parseTime(p.end);
+            let pEnd = parseTime(p.end);
+            if (pEnd <= pStart) pEnd += 1440; // Overnight wrap for individual phase
             const pct = ((pEnd - pStart) / totalSpan * 100).toFixed(1);
             const pType = (p.type || '').toUpperCase();
             let phaseClass = 'phase-initial';
@@ -1983,7 +1986,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let endedBadge = '';
         if (r.ended_by === 'CNX') {
             endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
-        } else if (r.ended_by === 'EXPIRED') {
+        } else if (r.ended_by === 'EXPIRATION') {
             endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
         }
 
@@ -2004,8 +2007,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Subheader: constrained area, reason, assessment mode
         const subParts = [];
-        if (r.constrained_area) subParts.push(r.constrained_area);
-        if (r.reason) subParts.push(r.reason);
+        if (r.constrained_area) subParts.push(this.escapeHtml(r.constrained_area));
+        if (r.reason) subParts.push(this.escapeHtml(r.reason));
         if (r.assessment_mode) {
             const modeLabel = r.assessment_mode === 'full_compliance' ? 'Full route compliance' :
                 r.assessment_mode === 'fix_only' ? 'Required fix check only' : r.assessment_mode;
@@ -2157,12 +2160,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Exemption text
         if (r.exemptions) {
-            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${r.exemptions}</div>`;
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(r.exemptions)}</div>`;
         }
 
         // Associated restrictions
         if (r.associated_restrictions) {
-            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${r.associated_restrictions}</div>`;
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(r.associated_restrictions)}</div>`;
         }
 
         html += '</div>';
@@ -2189,7 +2192,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let endedBadge = '';
         if (data.ended_by === 'CNX') {
             endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
-        } else if (data.ended_by === 'EXPIRED') {
+        } else if (data.ended_by === 'EXPIRATION') {
             endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
         }
 
@@ -2224,8 +2227,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Subheader info
         const subParts = [];
-        if (data.constrained_area) subParts.push(data.constrained_area);
-        if (data.reason) subParts.push(data.reason);
+        if (data.constrained_area) subParts.push(this.escapeHtml(data.constrained_area));
+        if (data.reason) subParts.push(this.escapeHtml(data.reason));
         if (subParts.length > 0) {
             html += `<div class="text-muted small mt-2">${subParts.join(' | ')}</div>`;
         }
@@ -2312,12 +2315,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Exemption text
         if (data.exemptions) {
-            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${data.exemptions}</div>`;
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(data.exemptions)}</div>`;
         }
 
         // Associated restrictions
         if (data.associated_restrictions) {
-            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${data.associated_restrictions}</div>`;
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(data.associated_restrictions)}</div>`;
         }
 
         return html;
@@ -6395,7 +6398,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let endedBadge = '';
         if (data.ended_by === 'CNX' || data.cancelled) {
             endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
-        } else if (data.ended_by === 'EXPIRED') {
+        } else if (data.ended_by === 'EXPIRATION') {
             endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
         }
 
@@ -6445,7 +6448,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Impacting condition
         if (data.impacting_condition) {
-            html += `<div class="text-muted small mt-2"><i class="fas fa-cloud"></i> ${data.impacting_condition}</div>`;
+            html += `<div class="text-muted small mt-2"><i class="fas fa-cloud"></i> ${this.escapeHtml(data.impacting_condition)}</div>`;
         }
 
         // Program timeline bar
@@ -6455,7 +6458,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // CNX comments
         if (data.cnx_comments) {
-            html += `<div class="gs-cnx-comments mt-2"><i class="fas fa-info-circle text-info"></i> ${data.cnx_comments}</div>`;
+            html += `<div class="gs-cnx-comments mt-2"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(data.cnx_comments)}</div>`;
         }
 
         // Per-origin breakdown (expandable section)

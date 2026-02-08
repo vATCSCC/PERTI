@@ -2243,7 +2243,29 @@ class TMIComplianceAnalyzer:
 
         if not normalized_origs or not normalized_dests:
             logger.warning(f"  Skipping reroute program - missing origins or destinations")
-            return None
+            return {
+                'name': name,
+                'mandatory': program.is_mandatory(),
+                'route_type': program.route_type,
+                'action': program.action,
+                'assessment_mode': mode,
+                'start': program.effective_start.strftime('%H:%MZ') if program.effective_start else None,
+                'end': program.effective_end.strftime('%H:%MZ') if program.effective_end else None,
+                'ended_by': program.ended_by,
+                'origins': program.origins,
+                'destinations': program.destinations,
+                'required_routes': [],
+                'required_fixes': [],
+                'total_flights': 0,
+                'flights': [],
+                'filed_compliant': [], 'filed_non_compliant': [],
+                'flown_compliant': [], 'flown_non_compliant': [],
+                'filed_compliance_pct': 100, 'flown_compliance_pct': 100,
+                'program_history': program_history,
+                'constrained_area': program.constrained_area,
+                'reason': program.reason,
+                'note': f'Missing origins ({program.origins}) or destinations ({program.destinations}) - cannot scope flights'
+            }
 
         # Filter flights to those within the program window and matching OD
         flights = []
