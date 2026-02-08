@@ -2474,7 +2474,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 })
             });
 
-            if (!response.ok) return null;
+            if (!response.ok) {
+                console.warn(`Branch analysis API returned ${response.status} for ${mapId}`);
+                this.branchCorridorCache[mapId] = { branches: [], error: true, branch_count: 0 };
+                this.renderFlowAnalysis(mapId);
+                return null;
+            }
             const result = await response.json();
             if (!result.success || !result.data?.branches?.length) return null;
 
@@ -2519,6 +2524,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return corridors;
         } catch (err) {
             console.warn(`Branch analysis failed for ${mapId}:`, err);
+            this.branchCorridorCache[mapId] = { branches: [], error: true, branch_count: 0 };
+            this.renderFlowAnalysis(mapId);
             return null;
         }
     },
@@ -6545,7 +6552,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (branchList) branchList.style.display = '';
 
             // Show branch layers
-            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+            ['branch-corridors-fill', 'branch-corridors-outline', 'branch-corridor-labels'].forEach(id => {
                 if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
             });
 
@@ -6565,7 +6572,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (branchList) branchList.style.display = 'none';
 
             // Hide branch layers
-            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+            ['branch-corridors-fill', 'branch-corridors-outline', 'branch-corridor-labels'].forEach(id => {
                 if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
             });
 
@@ -6606,10 +6613,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Compute corridor polygons for each branch
         const branchCorridors = [];
+        let skippedSingle = 0;
 
         branchData.branches.forEach((branch, idx) => {
             const callsignSet = new Set(branch.callsigns || []);
-            if (callsignSet.size < 2) return;
+            if (callsignSet.size < 2) { skippedSingle++; return; }
 
             // Approach bearing: opposite of bearing_to_fix (direction traffic comes FROM)
             const approachBearing = ((branch.bearing_to_fix || 0) + 180) % 360;
@@ -6630,8 +6638,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     compliancePct: branchMetrics.compliance_pct ?? 100,
                     pairs: branchMetrics.pairs || 0,
                     violations: (branchMetrics.violations || []).length,
+                    spacingStats: branchMetrics.spacing_stats || null,
                     polygon75: corridor.polygon_75,
                     polygon90: corridor.polygon_90,
+                    centroid: branch.centroid || null,
+                    parentCorridorId: branch.parent_corridor_id || null,
                     selected: true,
                     isSubBranch: branch.is_sub_branch || false,
                     odComposition: branch.od_composition || null,
@@ -6642,12 +6653,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (branchCorridors.length === 0) {
             console.warn('No branch corridors computed for', mapId);
+            this.branchPanelState[mapId] = { initialized: true, corridors: [], skippedSingle: skippedSingle };
+            this.renderFlowAnalysis(mapId);
             return;
         }
 
         this.branchPanelState[mapId] = {
             initialized: true,
             corridors: branchCorridors,
+            skippedSingle: skippedSingle,
         };
 
         this.renderFlowAnalysis(mapId);
@@ -6907,23 +6921,33 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         state.corridors.forEach(bc => {
             const color = this.branchComplianceColor(bc.compliancePct);
 
+            // Shared properties for popups and labels
+            const sharedProps = {
+                branchId: bc.branchId,
+                color, selected: bc.selected,
+                shortName: bc.shortName,
+                longName: bc.longName,
+                trackCount: bc.trackCount,
+                compliancePct: bc.compliancePct,
+                pairs: bc.pairs,
+                violations: bc.violations,
+                isSubBranch: bc.isSubBranch,
+                approachDirection: bc.approachDirection,
+                spacingStats: JSON.stringify(bc.spacingStats || {}),
+                odComposition: JSON.stringify(bc.odComposition || {}),
+            };
+
             if (bc.polygon90) {
                 features.push({
                     type: 'Feature',
-                    properties: {
-                        branchId: bc.branchId, pct: 90,
-                        color, selected: bc.selected,
-                    },
+                    properties: { ...sharedProps, pct: 90 },
                     geometry: { type: 'Polygon', coordinates: [bc.polygon90] },
                 });
             }
             if (bc.polygon75) {
                 features.push({
                     type: 'Feature',
-                    properties: {
-                        branchId: bc.branchId, pct: 75,
-                        color, selected: bc.selected,
-                    },
+                    properties: { ...sharedProps, pct: 75 },
                     geometry: { type: 'Polygon', coordinates: [bc.polygon75] },
                 });
             }
@@ -6946,6 +6970,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (map.getSource('branch-corridors')) {
             map.getSource('branch-corridors').setData(geojson);
+            // Also update centroid labels if source exists
+            if (map.getSource('branch-corridor-labels')) {
+                const state = this.branchPanelState[mapId];
+                const centroidFeats = [];
+                if (state?.corridors) {
+                    state.corridors.forEach(bc => {
+                        if (!bc.centroid) return;
+                        centroidFeats.push({
+                            type: 'Feature',
+                            properties: {
+                                shortName: bc.shortName,
+                                trackCount: bc.trackCount,
+                                color: this.branchComplianceColor(bc.compliancePct),
+                            },
+                            geometry: bc.centroid,
+                        });
+                    });
+                }
+                map.getSource('branch-corridor-labels').setData({
+                    type: 'FeatureCollection', features: centroidFeats,
+                });
+            }
         } else {
             map.addSource('branch-corridors', { type: 'geojson', data: geojson });
 
@@ -6981,6 +7027,109 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     'line-opacity': ['case', ['get', 'selected'], 0.7, 0.15],
                 },
             }, beforeLayer);
+
+            // Branch centroid labels
+            const state = this.branchPanelState[mapId];
+            const centroidFeatures = [];
+            if (state?.corridors) {
+                state.corridors.forEach(bc => {
+                    if (!bc.centroid) return;
+                    centroidFeatures.push({
+                        type: 'Feature',
+                        properties: {
+                            shortName: bc.shortName,
+                            trackCount: bc.trackCount,
+                            color: this.branchComplianceColor(bc.compliancePct),
+                        },
+                        geometry: bc.centroid,
+                    });
+                });
+            }
+            if (centroidFeatures.length > 0) {
+                map.addSource('branch-corridor-labels', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: centroidFeatures },
+                });
+                map.addLayer({
+                    id: 'branch-corridor-labels',
+                    type: 'symbol',
+                    source: 'branch-corridor-labels',
+                    layout: {
+                        visibility: initVisible,
+                        'text-field': ['concat', ['get', 'shortName'], '\n', ['to-string', ['get', 'trackCount']], ' ac'],
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 10,
+                        'text-anchor': 'center',
+                        'text-allow-overlap': false,
+                    },
+                    paint: {
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 2,
+                    },
+                });
+            }
+
+            // Hover cursor change
+            map.on('mouseenter', 'branch-corridors-fill', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'branch-corridors-fill', () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            // Click popup with branch details
+            map.on('click', 'branch-corridors-fill', (e) => {
+                // Prefer the 90% (inner) polygon to avoid duplicate popups
+                const feature = e.features.find(f => f.properties.pct === 90) || e.features[0];
+                const props = feature?.properties || {};
+
+                let spacingStats = {}, odComposition = {};
+                try { spacingStats = JSON.parse(props.spacingStats || '{}'); } catch (e) { /* truncated */ }
+                try { odComposition = JSON.parse(props.odComposition || '{}'); } catch (e) { /* truncated */ }
+
+                // Build spacing stats line
+                let spacingHtml = '';
+                if (spacingStats.min !== undefined) {
+                    spacingHtml = `<div><strong>Spacing:</strong> ${spacingStats.min} / ${spacingStats.avg} / ${spacingStats.max}</div>
+                        <div style="font-size:0.85em; color:#999;">min / avg / max</div>`;
+                }
+
+                // Build O/D composition
+                let odHtml = '';
+                const odKeys = Object.keys(odComposition);
+                if (odKeys.length > 0) {
+                    const odEntries = Object.entries(odComposition)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .map(([key, count]) => {
+                            const parts = key.split(':');
+                            let label = parts[1] || parts[0];
+                            if (label.length === 4 && label[0] === 'K') label = label.substring(1);
+                            return `${label}\u00d7${count}`;
+                        })
+                        .join(', ');
+                    odHtml = `<div style="margin-top:4px;"><strong>O/D:</strong> ${odEntries}</div>`;
+                }
+
+                const subBadge = (props.isSubBranch === true || props.isSubBranch === 'true')
+                    ? ' <span style="font-size:0.8em; opacity:0.7;">(sub-branch)</span>' : '';
+
+                new maplibregl.Popup({ closeButton: true, maxWidth: '300px' })
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <div style="font-size: 12px; color: #333;">
+                            <div style="font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 6px;">
+                                ${props.longName || props.shortName || 'Branch'}${subBadge}
+                            </div>
+                            <div><strong>Aircraft:</strong> ${props.trackCount || 0}</div>
+                            <div><strong>Compliance:</strong> ${props.compliancePct}% <span style="font-size:0.85em; color:#999;">(${props.pairs || 0} pairs, ${props.violations || 0} NC)</span></div>
+                            ${spacingHtml}
+                            ${odHtml}
+                        </div>
+                    `)
+                    .addTo(map);
+            });
         }
     },
 
@@ -7034,7 +7183,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         // ── Branches row ──
-        if (branchData) {
+        if (branchData?.error) {
+            html += `
+                <div class="fa-row fa-row-branches">
+                    <i class="fas fa-code-branch fa-row-icon"></i>
+                    <span class="fa-row-label" style="color:#6b7280;">Branch analysis unavailable</span>
+                </div>`;
+        } else if (branchData) {
             const bf = branchData.bearing_filter;
             const phase1 = branchData.corridors_phase1 || 0;
             const branchCount = branchState?.corridors?.length || branchData.branch_count || 0;
@@ -7071,13 +7226,39 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
                 <div class="fa-branch-list" id="${mapId}_fa_branch_list" style="${isExpanded ? '' : 'display:none'}">`;
 
+                // Sort: parents first, then their sub-branches grouped after
+                const ordered = [];
+                const subsByParent = new Map();
                 branchState.corridors.forEach(bc => {
+                    if (bc.isSubBranch && bc.parentCorridorId != null) {
+                        const key = bc.parentCorridorId;
+                        if (!subsByParent.has(key)) subsByParent.set(key, []);
+                        subsByParent.get(key).push(bc);
+                    } else {
+                        ordered.push(bc);
+                    }
+                });
+                const sortedCorridors = [];
+                ordered.forEach(bc => {
+                    sortedCorridors.push(bc);
+                    const subs = subsByParent.get(bc.parentCorridorId) || [];
+                    subs.forEach(sub => sortedCorridors.push(sub));
+                });
+                // Append any orphaned sub-branches
+                subsByParent.forEach((subs, key) => {
+                    if (!ordered.some(bc => bc.parentCorridorId === key)) {
+                        subs.forEach(sub => sortedCorridors.push(sub));
+                    }
+                });
+
+                (sortedCorridors.length > 0 ? sortedCorridors : branchState.corridors).forEach(bc => {
                     const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
                     const color = this.branchComplianceColor(bc.compliancePct);
+                    const subClass = bc.isSubBranch ? ' branch-item-sub' : '';
                     const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90" style="font-size:0.65em; opacity:0.6; margin-right:3px" title="Sub-branch"></i>' : '';
 
                     html += `
-                    <label class="branch-item" title="${bc.longName}">
+                    <label class="branch-item${subClass}" title="${bc.longName}">
                         <input type="checkbox" ${bc.selected ? 'checked' : ''}
                                data-branch-id="${bc.branchId}" data-map="${mapId}"
                                onchange="TMICompliance.toggleBranchSelection(this)">
@@ -7088,11 +7269,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </label>`;
                 });
 
+                if (branchState.skippedSingle > 0) {
+                    html += `<div class="fa-branch-note">${branchState.skippedSingle} single-flight corridor${branchState.skippedSingle > 1 ? 's' : ''} omitted</div>`;
+                }
                 html += '</div>';
             } else if (!branchState?.initialized) {
                 // Still computing
                 html += `
                     <span class="fa-computing"><i class="fas fa-spinner fa-spin"></i> computing corridors...</span>
+                </div>`;
+            } else if (branchState?.initialized && branchState.corridors?.length === 0) {
+                // Initialized but no corridors found
+                const skipNote = branchState.skippedSingle > 0 ? ` (${branchState.skippedSingle} single-flight)` : '';
+                html += `
+                    <span style="color:#6b7280; font-size:0.85em; margin-left:4px;">No distinct corridors detected${skipNote}</span>
                 </div>`;
             } else {
                 html += '</div>';
