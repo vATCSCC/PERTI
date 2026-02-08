@@ -1491,6 +1491,32 @@
     color: #dc3545;
 }
 
+/* Branch note (skipped corridors) */
+.fa-branch-note {
+    color: #6b7280;
+    font-size: 0.75em;
+    padding: 2px 0 0 22px;
+    font-style: italic;
+}
+
+/* Sub-branch nesting */
+.branch-item-sub {
+    margin-left: 16px;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    padding-left: 10px;
+    position: relative;
+}
+
+.branch-item-sub::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
 /* Branch toggle button special styling */
 .branch-toggle-btn {
     border-style: dashed !important;
