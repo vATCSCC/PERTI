@@ -291,8 +291,8 @@ function parse_tmi_text($text, $event_start = null) {
             continue;
         }
 
-        // Detect ADVZY header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP"
-        if (preg_match('/^vATCSCC\s+ADVZY\s+\d+/i', $line)) {
+        // Detect ADVZY header: "vATCSCC ADVZY 001 ..." or "vATCSCC ADVZY ADVZY 001 ..."
+        if (preg_match('/^vATCSCC\s+ADVZY\b/i', $line)) {
             // Parse ADVZY block
             $advzy_result = parse_advzy_block($lines, $i, $event_start);
             if ($advzy_result['tmi']) {

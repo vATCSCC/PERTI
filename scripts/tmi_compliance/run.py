@@ -417,6 +417,24 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
         logger.info(f"Loaded {len(tmis)} pre-parsed TMIs, "
                     f"{len(gs_programs)} GS programs, "
                     f"{len(reroute_programs)} reroute programs from API")
+
+        # Supplement: if parsed_tmis had no GS/reroute programs (e.g. saved before
+        # program parsing was deployed), try extracting them from raw NTML text
+        if not gs_programs and not reroute_programs:
+            ntml_text = config.get('ntml_text', '')
+            if ntml_text and ('GROUND STOP' in ntml_text or 'ROUTE RQD' in ntml_text
+                              or 'ROUTE RMD' in ntml_text or 'FEA' in ntml_text):
+                logger.info("No programs in parsed_tmis, supplementing from NTML text")
+                try:
+                    parse_result = parse_ntml_full(ntml_text, event_start, event_end, destinations)
+                    if parse_result.gs_programs:
+                        event.gs_programs = parse_result.gs_programs
+                        logger.info(f"Supplemented {len(parse_result.gs_programs)} GS programs from NTML")
+                    if parse_result.reroute_programs:
+                        event.reroute_programs = parse_result.reroute_programs
+                        logger.info(f"Supplemented {len(parse_result.reroute_programs)} reroute programs from NTML")
+                except Exception as e:
+                    logger.warning(f"Failed to supplement programs from NTML: {e}")
     else:
         # Fallback: try to parse NTML text directly using full parser for delays too
         ntml_text = config.get('ntml_text', '')
