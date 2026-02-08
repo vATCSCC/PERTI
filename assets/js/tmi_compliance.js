@@ -244,7 +244,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html: `
                 <div class="text-left small">
                     <p>This will analyze flight data against the configured TMIs for Plan ${this.planId}.</p>
-                    <p><strong>Note:</strong> Analysis typically takes 30-60 seconds depending on traffic volume.</p>
+                    <p><strong>Note:</strong> Analysis typically takes 1-3 minutes depending on traffic volume.</p>
                     <p class="text-warning"><i class="fas fa-exclamation-triangle"></i>
                        Make sure your TMI configuration is saved before running.</p>
                 </div>
@@ -353,7 +353,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`,
             method: 'GET',
             dataType: 'json',
-            timeout: 180000, // 3 minute timeout
+            timeout: 300000, // 5 minute timeout
             success: (response) => {
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
