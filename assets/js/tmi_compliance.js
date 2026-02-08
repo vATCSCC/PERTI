@@ -2155,6 +2155,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for flow stream analysis from PostGIS API (keyed by mapId)
     flowStreamCache: {},
 
+    // Cache for TMI-filtered trajectories (only flights matching the TMI's semantic flow)
+    // Full trajectories stay in trajectoryCache for track rendering; this holds the subset
+    // used by flow streams, branches, and cone enhancement.
+    flowTrajectoryCache: {},
+
     // Cache for airway geometry (keyed by airway name)
     airwayCache: {},
 
@@ -2238,6 +2243,72 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             console.warn(`Airway fetch failed for ${upper}:`, err);
             return null;
         }
+    },
+
+    /**
+     * Filter trajectories to only include flights matching the TMI's semantic flow.
+     * For arrival TMIs: keep only flights whose dest matches any TMI destination.
+     * For departure TMIs: keep only flights whose dept matches the controlled element.
+     *
+     * @param {Object} trajectories - Full trajectory data {callsign: {coordinates, properties}}
+     * @param {Object} mitResult - TMI result with destinations, origins, direction, etc.
+     * @returns {Object} {filtered, stats} where filtered is the trajectory subset
+     */
+    filterTrajectoriesToTMIFlow: function(trajectories, mitResult) {
+        if (!trajectories) return { filtered: {}, stats: { total: 0, matched: 0, reason: 'no trajectories' } };
+
+        const total = Object.keys(trajectories).length;
+        const direction = mitResult.direction || 'arrival';
+        const destinations = (mitResult.destinations || []).map(d => String(d).toUpperCase().trim());
+        const origins = (mitResult.origins || []).map(o => String(o).toUpperCase().trim());
+        // Also check ctl_element (the airport for GDPs/ground stops/APREQs)
+        const ctlElement = (mitResult.destination || mitResult.ctl_element || '').toUpperCase().trim();
+
+        // Build the set of airport codes to match against, including ICAO/FAA variants
+        const buildMatchSet = (codes) => {
+            const set = new Set();
+            codes.forEach(code => {
+                if (!code) return;
+                set.add(code);
+                // ICAO K-prefix variant: KSJC ↔ SJC
+                if (code.length === 4 && code.startsWith('K')) set.add(code.substring(1));
+                if (code.length === 3) set.add('K' + code);
+            });
+            return set;
+        };
+
+        let matchField, matchSet;
+        if (direction === 'departure') {
+            matchField = 'dept';
+            matchSet = buildMatchSet([...origins, ctlElement].filter(Boolean));
+        } else {
+            // arrival or overflight — match by destination
+            matchField = 'dest';
+            matchSet = buildMatchSet([...destinations, ctlElement].filter(Boolean));
+        }
+
+        // If no TMI airports to match against, return everything (can't filter)
+        if (matchSet.size === 0) {
+            return { filtered: trajectories, stats: { total, matched: total, reason: 'no filter airports' } };
+        }
+
+        const filtered = {};
+        let matched = 0;
+        Object.entries(trajectories).forEach(([callsign, traj]) => {
+            const aptCode = (traj.properties?.[matchField] || '').toUpperCase().trim();
+            if (matchSet.has(aptCode)) {
+                filtered[callsign] = traj;
+                matched++;
+            }
+            // Also include flights with unknown/blank destinations (may be relevant)
+            else if (!aptCode || aptCode === 'UNK' || aptCode === 'UNKNOWN') {
+                filtered[callsign] = traj;
+                matched++;
+            }
+        });
+
+        console.log(`TMI flow filter (${direction}): ${matched}/${total} flights match ${matchField} ∈ {${[...matchSet].join(', ')}}`);
+        return { filtered, stats: { total, matched, matchField, matchSet: [...matchSet], reason: 'tmi_semantic' } };
     },
 
     /**
@@ -2716,9 +2787,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (!trajectories || Object.keys(trajectories).length === 0) return;
             this.trajectoryCache[mapId] = trajectories;
             console.log(`Cached ${Object.keys(trajectories).length} trajectories for ${mapId}`);
+
+            // Filter trajectories to TMI-relevant flow (e.g., only SJC arrivals for SJC MIT)
+            const { filtered, stats } = this.filterTrajectoriesToTMIFlow(trajectories, r);
+            this.flowTrajectoryCache[mapId] = filtered;
+            this.flowFilterStats = this.flowFilterStats || {};
+            this.flowFilterStats[mapId] = stats;
+
             this.renderFlowAnalysis(mapId);
 
-            // Trigger async flow stream analysis (populates cache for later map render)
+            // Trigger async flow stream analysis with TMI-filtered trajectories
             const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
             const fixPoint = fixInfo?.geometry?.coordinates
                 || (r.traffic_sector?.measurement_point) // [lon, lat] from Python
@@ -2728,11 +2806,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 lat: f.lat || f.latitude || f.geometry?.coordinates?.[1],
                 lon: f.lon || f.lng || f.longitude || f.geometry?.coordinates?.[0]
             })).filter(f => f.lat && f.lon);
-            this.fetchFlowStreams(mapId, trajectories, {
+            this.fetchFlowStreams(mapId, filtered, {
                 fixPoint, knownFixes, isArrival: r.direction !== 'departure'
             });
-            // Also fire branch analysis from JS (was previously PHP server-side)
-            this.fetchBranchAnalysis(mapId, trajectories, r);
+            // Also fire branch analysis with TMI-filtered trajectories
+            this.fetchBranchAnalysis(mapId, filtered, r);
         };
 
         // Try inline trajectories first (old format / backwards compat)
@@ -3643,9 +3721,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             // Compute multi-stream flow corridors from trajectory data
             // First clusters trajectories by approach direction, then computes per-stream cones
             // Enhancement runs when: we have trajectories AND (no enhanced sector yet OR basic sector from Python)
+            // Uses TMI-filtered trajectories (only flights matching the TMI's semantic flow)
             const existingSector = TMICompliance.trafficSectorCache?.[mapId];
             const needsEnhancement = !existingSector?.use_centerline; // Python provides basic sector without centerline
-            const hasTrajectories = !!TMICompliance.trajectoryCache[mapId];
+            const hasTrajectories = !!(TMICompliance.flowTrajectoryCache[mapId] || TMICompliance.trajectoryCache[mapId]);
             // Get fix coordinates: prefer GIS-resolved fix, fallback to Python's measurement_point
             let fixLon, fixLat;
             if (mapData.fixes?.length && mapData.fixes[0]?.geometry?.coordinates) {
@@ -3656,7 +3735,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             if (needsEnhancement && hasTrajectories && fixLon !== undefined) {
-                const trajectories = TMICompliance.trajectoryCache[mapId];
+                // Prefer TMI-filtered trajectories; fall back to full set
+                const trajectories = TMICompliance.flowTrajectoryCache[mapId] || TMICompliance.trajectoryCache[mapId];
                 // Fix coordinates already set above
 
                     // Compute distance between two points in nm
@@ -6918,11 +6998,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const branchState = this.branchPanelState[mapId];
         const trajCount = this.trajectoryCache[mapId]
             ? Object.keys(this.trajectoryCache[mapId]).length : 0;
+        const flowFilterStats = this.flowFilterStats?.[mapId];
 
         // Nothing to show yet
         if (!flowData && !branchData && trajCount === 0) return;
 
         let html = '';
+
+        // ── Flow filter row (when semantic filtering applied) ──
+        if (flowFilterStats && flowFilterStats.reason === 'tmi_semantic' && flowFilterStats.matched < flowFilterStats.total) {
+            const airports = flowFilterStats.matchSet?.join('/') || '';
+            html += `
+                <div class="fa-row fa-row-filter">
+                    <i class="fas fa-filter fa-row-icon"></i>
+                    <span class="fa-row-label">${flowFilterStats.matched} of ${flowFilterStats.total} flights</span>
+                    <span class="fa-filter-badge" title="Filtered by ${flowFilterStats.matchField} matching ${airports}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
+                </div>`;
+        }
 
         // ── Streams row ──
         if (flowData?.streams?.length > 0) {
