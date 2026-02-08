@@ -49,6 +49,10 @@ SwimResponse::success([
         'jatoc' => [
             'GET /api/swim/v1/jatoc/incidents' => 'JATOC incident records'
         ],
+        'reference' => [
+            'GET /api/swim/v1/reference/taxi-times' => 'Airport unimpeded taxi-out reference times (FAA ASPM methodology)',
+            'GET /api/swim/v1/reference/taxi-times/{airport}' => 'Taxi-out reference with dimensional breakdown (weight class, carrier, engine config)'
+        ],
         'configuration' => [
             'GET /api/swim/v1/splits/presets' => 'Runway configuration presets',
             'GET /api/swim/v1/fea' => 'Flow Evaluation Areas'

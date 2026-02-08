@@ -449,6 +449,7 @@ $SWIM_CACHE_TTL = [
     'positions'      => 2,
     'tmi_programs'   => 10,
     'metering'       => 5,
+    'reference'      => 300,
     'stats'          => 60
 ];
 
@@ -500,6 +501,7 @@ $SWIM_SUPPORTED_FORMATS = [
     'flights'   => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
     'metering'  => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
     'positions' => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
+    'reference' => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
     'default'   => ['json', 'fixm', 'xml', 'ndjson']
 ];
 
