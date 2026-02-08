@@ -166,7 +166,7 @@ window.DemandChartCore = (function() {
         const timeBins = [];
         const current = new Date(start);
 
-        while (current <= end) {
+        while (current < end) {
             // Format without milliseconds to match PHP's format
             timeBins.push(current.toISOString().replace('.000Z', 'Z'));
             current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
@@ -4825,7 +4825,7 @@ function generateAllTimeBins() {
     const timeBins = [];
     const current = new Date(start);
 
-    while (current <= end) {
+    while (current < end) {
         // Format without milliseconds to match PHP's format: "2026-01-10T14:00:00Z"
         timeBins.push(current.toISOString().replace('.000Z', 'Z'));
         current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
