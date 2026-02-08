@@ -528,4 +528,36 @@ SimTraffic  ──(POST /ingest/metering)──►  SWIM  ──(GET /metering/{
 
 ---
 
-*End of Field Mapping Document v1.1*
+## 11. Airport Taxi Reference Data (FAA ASPM Extension)
+
+FIXM 4.3 does not define taxi time fields. VATSWIM extends the data model with
+airport taxi-out reference times using FAA ASPM terminology and methodology.
+
+**Endpoint:** `GET /reference/taxi-times`, `GET /reference/taxi-times/{airport}`
+
+| JSON API (snake_case) | FIXM (camelCase) | Description | Source |
+|---|---|---|---|
+| `airport_icao` | `aerodromeIcao` | ICAO airport code | `airport_taxi_reference.airport_icao` |
+| `unimpeded_taxi_out_sec` | `unimpededTaxiOutSeconds` | Unimpeded taxi-out time in seconds (p5-p15 avg) | `airport_taxi_reference.unimpeded_taxi_sec` |
+| `sample_count` | `sampleCount` | Observation count in 90-day window | `airport_taxi_reference.sample_count` |
+| `confidence` | `confidenceLevel` | Data quality: HIGH/MEDIUM/LOW/DEFAULT | `airport_taxi_reference.confidence` |
+| `percentile_5` | `percentile5` | 5th percentile taxi time (seconds) | `airport_taxi_reference.percentile_5` |
+| `percentile_15` | `percentile15` | 15th percentile taxi time (seconds) | `airport_taxi_reference.percentile_15` |
+| `last_refreshed_utc` | `lastRefreshedTime` | Last stored procedure refresh | `airport_taxi_reference.last_refreshed_utc` |
+
+**Dimensional breakdown** (single-airport detail):
+
+| JSON API | FIXM | Description |
+|---|---|---|
+| `dimension` | `dimension` | Dimension type: WEIGHT_CLASS, CARRIER, ENGINE_CONFIG, DEST_REGION |
+| `dimension_value` | `dimensionValue` | Dimension value (e.g., "H", "UAL", "JET_TWIN") |
+| `unimpeded_taxi_out_sec` | `unimpededTaxiOutSeconds` | Dimension-specific unimpeded taxi time |
+| `sample_count` | `sampleCount` | Dimension-specific sample count |
+
+**Methodology:** FAA ASPM p5-p15 average over 90-day rolling window. Airports with
+fewer than 50 observations receive a default of 600 seconds (10 minutes). Data sourced
+from VATSIM OOOI events (out_utc → off_utc delta). Refreshed daily at 02:00Z.
+
+---
+
+*End of Field Mapping Document v1.2*

@@ -52,6 +52,33 @@ server {
         fastcgi_param QUERY_STRING $args;
     }
 
+    # SWIM API: metering/{airport} and metering/{airport}/sequence
+    location ~ ^/api/swim/v1/metering/[A-Za-z0-9]+ {
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/api/swim/v1/metering.php;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_read_timeout 600;
+    }
+
+    # SWIM API: reference/taxi-times/{airport}
+    location ~ ^/api/swim/v1/reference/taxi-times/[A-Za-z0-9]+ {
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/api/swim/v1/reference/taxi-times.php;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_read_timeout 600;
+    }
+
+    # SWIM API: flight/{gufi} single flight lookup
+    location ~ ^/api/swim/v1/flight/[A-Za-z0-9_\-]+ {
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/api/swim/v1/flight.php;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_read_timeout 600;
+    }
+
     # Default location block - handle PHP and static files
     # Falls back to @phpfallback which tries appending .php extension
     location / {
