@@ -920,7 +920,7 @@ class NavDataIO:
     APTS_HEADER = [
         'ARPT_ID', 'ICAO_ID', 'ARPT_NAME', 'LAT_DECIMAL', 'LONG_DECIMAL', 'ELEV',
         'RESP_ARTCC_ID', 'COMPUTER_ID', 'ARTCC_NAME', 'TWR_TYPE_CODE', 'DCC REGION',
-        'ASPM77', 'OEP35', 'Core30', 'Tower', 'Approach', 'Secondary Approach',
+        'ASPM82', 'OEP35', 'Core30', 'Tower', 'Approach', 'Secondary Approach',
         'Departure', 'Secondary Departure', 'Approach/Departure', 'Approach ID',
         'Secondary Approach ID', 'Departure ID', 'Secondary Departure ID',
         'Approach/Departure ID', 'Consolidated Approach', 'Consolidated Approach ID',

@@ -766,7 +766,7 @@ include("load/config.php");
                             <option value="all">All Airports</option>
                             <option value="core30">Core30</option>
                             <option value="oep35">OEP35</option>
-                            <option value="aspm77">ASPM77</option>
+                            <option value="aspm82">ASPM82</option>
                         </select>
                     </div>
 

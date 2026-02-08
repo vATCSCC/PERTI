@@ -5217,7 +5217,7 @@
             dccMw: document.getElementById('tmi_stats_dcc_mw'),
             dccSc: document.getElementById('tmi_stats_dcc_sc'),
             dccW: document.getElementById('tmi_stats_dcc_w'),
-            aspm77: document.getElementById('tmi_stats_aspm77'),
+            aspm82: document.getElementById('tmi_stats_aspm82'),
             oep35: document.getElementById('tmi_stats_oep35'),
             core30: document.getElementById('tmi_stats_core30'),
         };
@@ -5271,8 +5271,8 @@
                             }
 
                             // Airport tiers
-                            if (data.domestic.arr_aspm77 && statsElements.aspm77) {
-                                statsElements.aspm77.textContent = data.domestic.arr_aspm77.yes || 0;
+                            if (data.domestic.arr_aspm82 && statsElements.aspm82) {
+                                statsElements.aspm82.textContent = data.domestic.arr_aspm82.yes || 0;
                             }
                             if (data.domestic.arr_oep35 && statsElements.oep35) {
                                 statsElements.oep35.textContent = data.domestic.arr_oep35.yes || 0;

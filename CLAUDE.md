@@ -385,7 +385,7 @@ Key columns: `flight_uid, flight_key, gufi, callsign, cid, lat, lon, altitude_ft
 `sector_id PK, sector_code, sector_name, parent_artcc, sector_type, floor_altitude, ceiling_altitude, geom (geometry NOT NULL)`
 
 **`airports`** - Airport points with PostGIS geometry
-`airport_id PK, arpt_id, icao_id, arpt_name, lat, lon, elev, resp_artcc_id, computer_id, artcc_name, twr_type_code, dcc_region, aspm77, oep35, core30, tower, approach, departure, approach_id, geom (geometry)`
+`airport_id PK, arpt_id, icao_id, arpt_name, lat, lon, elev, resp_artcc_id, computer_id, artcc_name, twr_type_code, dcc_region, aspm82, oep35, core30, tower, approach, departure, approach_id, geom (geometry)`
 
 **Reference data (mirrored from REF):**
 

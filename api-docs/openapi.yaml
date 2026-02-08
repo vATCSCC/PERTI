@@ -543,7 +543,7 @@ paths:
                       dep_dcc:
                         type: object
                         description: Departures by DCC region
-                      arr_aspm77:
+                      arr_aspm82:
                         type: object
                         properties:
                           yes:
@@ -1901,7 +1901,7 @@ paths:
           description: Airport category filter
           schema:
             type: string
-            enum: [all, aspm77, oep35, core30]
+            enum: [all, aspm82, oep35, core30]
             default: all
         - name: artcc
           in: query
@@ -1948,7 +1948,7 @@ paths:
                           type: string
                         dcc_region:
                           type: string
-                        is_aspm77:
+                        is_aspm82:
                           type: boolean
                         is_oep35:
                           type: boolean

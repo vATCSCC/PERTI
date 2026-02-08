@@ -10,7 +10,7 @@
  *
  * Data sources:
  * - adl/migrations/topology/002_artcc_topology_seed.sql
- * - assets/data/apts.csv (Core30, OEP35, ASPM77 columns)
+ * - assets/data/apts.csv (Core30, OEP35, ASPM82 columns)
  * - jatoc.php FIR definitions
  *
  * Usage: Include this file before any scripts that need facility data
@@ -276,7 +276,7 @@
     const AIRPORT_GROUPS = {
         'CORE30': { name: 'Core 30', airports: [] },
         'OEP35': { name: 'OEP 35', airports: [] },
-        'ASPM77': { name: 'ASPM 77', airports: [] },
+        'ASPM82': { name: 'ASPM 82', airports: [] },
     };
 
     // ===========================================
@@ -343,7 +343,7 @@
             dccRegion: header.indexOf('DCC REGION'),
             core30: header.indexOf('Core30'),
             oep35: header.indexOf('OEP35'),
-            aspm77: header.indexOf('ASPM77'),
+            aspm82: header.indexOf('ASPM82'),
         };
 
         // Initialize ARTCC entries
@@ -404,8 +404,8 @@
                 if (colIdx.oep35 >= 0 && cols[colIdx.oep35]?.toUpperCase() === 'TRUE') {
                     AIRPORT_GROUPS.OEP35.airports.push(airportCode);
                 }
-                if (colIdx.aspm77 >= 0 && cols[colIdx.aspm77]?.toUpperCase() === 'TRUE') {
-                    AIRPORT_GROUPS.ASPM77.airports.push(airportCode);
+                if (colIdx.aspm82 >= 0 && cols[colIdx.aspm82]?.toUpperCase() === 'TRUE') {
+                    AIRPORT_GROUPS.ASPM82.airports.push(airportCode);
                 }
             }
         }
@@ -437,7 +437,7 @@
                     airports: Object.keys(AIRPORT_TO_ARTCC).length,
                     core30: AIRPORT_GROUPS.CORE30.airports.length,
                     oep35: AIRPORT_GROUPS.OEP35.airports.length,
-                    aspm77: AIRPORT_GROUPS.ASPM77.airports.length,
+                    aspm82: AIRPORT_GROUPS.ASPM82.airports.length,
                 });
                 return true;
             })
