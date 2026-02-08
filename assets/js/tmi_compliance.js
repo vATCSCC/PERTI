@@ -7,6 +7,9 @@ const TMICompliance = {
     planId: null,
     results: null,
 
+    // HTML escape utility for free-text fields (NTML advisory text, comments, etc.)
+    escapeHtml: function(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; },
+
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
@@ -454,6 +457,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const gsResults = this.results.gs_results || {};
         const hasGroundStops = Object.keys(gsResults).length > 0 || (Array.isArray(gsResults) && gsResults.length > 0);
         const gsCompliance = hasGroundStops ? (summary.gs?.compliance_pct ?? 100) : null;
+        const rrResults = this.results.reroute_results || {};
+        const rrArray = Array.isArray(rrResults) ? rrResults : Object.values(rrResults);
+        const hasReroutes = rrArray.length > 0;
+        const rrCompliance = hasReroutes ? (rrArray.reduce((s, rr) => s + (rr.filed_compliance_pct || 0), 0) / rrArray.length) : null;
         const overall = summary.overall_compliance_pct || 0;
 
         html += `
@@ -471,6 +478,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${gsCompliance !== null ? this.getComplianceClass(gsCompliance) : 'text-muted'}">${gsCompliance !== null ? gsCompliance.toFixed(1) + '%' : 'N/A'}</div>
                         <div class="tmi-stat-label">Ground Stop Compliance</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value ${rrCompliance !== null ? this.getComplianceClass(rrCompliance) : 'text-muted'}">${rrCompliance !== null ? rrCompliance.toFixed(1) + '%' : 'N/A'}</div>
+                        <div class="tmi-stat-label">Reroute Compliance</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${this.getComplianceClass(overall)}">${overall.toFixed(1)}%</div>
@@ -625,6 +636,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             for (const r of gsResultsArray) {
                 html += this.renderGsCard(r);
+            }
+        }
+
+        // Reroute Results - handle both array and object formats
+        const rerouteResults = this.results.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        if (rerouteArray.length > 0) {
+            html += '<h6 class="text-warning mb-3 mt-4"><i class="fas fa-route"></i> Reroutes</h6>';
+
+            for (const r of rerouteArray) {
+                html += this.renderRerouteCard(r);
             }
         }
 
@@ -1663,17 +1685,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const compPct = r.compliance_pct || 0;
         const compClass = this.getComplianceClass(compPct);
         const detailId = `gs_detail_${++this.detailIdCounter}`;
+        const originId = `gs_origin_${this.detailIdCounter}`;
 
         // Handle both naming conventions (exempt_flights OR exempt)
         const exemptFlights = r.exempt_flights || r.exempt || [];
         const compliantFlights = r.compliant_flights || r.compliant || [];
         const nonCompliantFlights = r.non_compliant_flights || r.non_compliant || [];
+        const notInScopeFlights = r.not_in_scope || [];
         const exemptCount = r.exempt_count || exemptFlights.length;
         const compliantCount = r.compliant_count || compliantFlights.length;
         const nonCompliantCount = r.non_compliant_count || r.violations?.total || nonCompliantFlights.length;
+        const notInScopeCount = notInScopeFlights.length;
 
         // Check for data gap overlap
         const gapBadge = this.renderTMIGapBadge(r.gs_start, r.gs_end);
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX' || r.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
 
         let html = `
             <div class="tmi-card gs-card${gapBadge ? ' has-data-gap' : ''}">
@@ -1685,10 +1718,60 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${r.gs_start || ''} - ${r.gs_end || ''} |
                             Issued: ${r.gs_issued || 'N/A'}
                         </span>
+                        ${endedBadge}
                         ${gapBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
+        `;
+
+        // Impacting condition + program metadata
+        if (r.impacting_condition) {
+            html += `<div class="text-muted small mb-1"><i class="fas fa-cloud"></i> ${this.escapeHtml(r.impacting_condition)}</div>`;
+        }
+        if (r.dep_facility_tier) {
+            html += `<span class="badge badge-outline-secondary mr-1" style="font-size:0.7rem;">${this.escapeHtml(r.dep_facility_tier)}</span>`;
+        }
+        if (r.prob_extension) {
+            html += `<div class="text-muted small mb-1"><i class="fas fa-clock"></i> Prob Extension: ${this.escapeHtml(r.prob_extension)}</div>`;
+        }
+
+        // Program timeline bar (backward compat: only render if present)
+        if (r.program_timeline && r.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(r.program_timeline, r.gs_start, r.gs_end);
+
+            // Advisory detail section (collapsible)
+            const advDetailId = `gs_adv_detail_${this.detailIdCounter}`;
+            html += `
+                <div class="mt-1">
+                    <button class="btn btn-sm btn-outline-secondary btn-xs" type="button" data-toggle="collapse" data-target="#${advDetailId}" style="font-size:0.72rem; padding:1px 6px;">
+                        <i class="fas fa-list-alt"></i> Advisory Details (${r.program_timeline.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${advDetailId}">
+                    <div class="advisory-chain">
+                        ${r.program_timeline.map(adv => {
+                            const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
+                            return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
+                                <div class="advisory-detail-header">
+                                    <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                    <span class="advisory-type">${adv.type || ''}</span>
+                                    ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
+                                    <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                                </div>
+                                ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
+                                ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
+                                ${adv.prob_extension ? `<div class="advisory-meta"><i class="fas fa-clock"></i> Extension: ${this.escapeHtml(adv.prob_extension)}</div>` : ''}
+                                ${adv.comments ? `<div class="advisory-meta"><i class="fas fa-comment"></i> ${this.escapeHtml(adv.comments)}</div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Stats row
+        html += `
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.total_flights || 0}</div>
@@ -1706,8 +1789,85 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-value text-danger">${nonCompliantCount}</div>
                         <div class="tmi-stat-label">Violations</div>
                     </div>
-                </div>
         `;
+
+        // Not-in-scope stat
+        if (notInScopeCount > 0) {
+            html += `
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-muted">${notInScopeCount}</div>
+                        <div class="tmi-stat-label">Not In Scope</div>
+                    </div>
+            `;
+        }
+
+        // Avg hold time with min/max/median tooltip
+        if (r.avg_hold_time_min && r.avg_hold_time_min > 0) {
+            const stats = r.hold_time_stats || {};
+            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            html += `
+                    <div class="tmi-stat" ${tooltip ? `title="${tooltip}"` : ''}>
+                        <div class="tmi-stat-value">${r.avg_hold_time_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-label">Avg Hold</div>
+                    </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // CNX comments
+        if (r.cnx_comments) {
+            html += `<div class="gs-cnx-comments"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(r.cnx_comments)}</div>`;
+        }
+
+        // Per-origin breakdown (collapsible)
+        const perOrigin = r.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${originId}">
+                        <i class="fas fa-map-marker-alt"></i> Per-Origin Breakdown (${perOrigin.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 gs-per-origin" id="${originId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped sortable-table" id="gs_origin_tbl_${this.detailIdCounter}">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',0,false)" style="cursor:pointer;">Origin</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',1,true)" style="cursor:pointer;">Total</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',2,true)" style="cursor:pointer;">Compliant</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',3,true)" style="cursor:pointer;">Non-Comp</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',4,true)" style="cursor:pointer;">Exempt</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',5,true)" style="cursor:pointer;">Rate</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${perOrigin.map(o => {
+                                    const oPct = o.compliance_pct || 0;
+                                    const oClass = this.getComplianceClass(oPct);
+                                    const compW = o.total > 0 ? Math.round(((o.compliant || 0) / o.total) * 100) : 0;
+                                    const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
+                                    const exW = 100 - compW - ncW;
+                                    return `<tr>
+                                        <td><code>${o.origin}</code>
+                                            <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
+                                        </td>
+                                        <td>${o.total || 0}</td>
+                                        <td class="text-success">${o.compliant || 0}</td>
+                                        <td class="text-danger">${o.non_compliant || 0}</td>
+                                        <td class="text-info">${o.exempt || 0}</td>
+                                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
 
         // Show flight details
         const hasDetails = exemptFlights.length > 0 || compliantFlights.length > 0 || nonCompliantFlights.length > 0;
@@ -1723,15 +1883,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="row">
             `;
 
-            // Non-compliant flights (violations)
+            // Non-compliant flights (violations) - with Phase and Source columns
             if (nonCompliantFlights.length > 0) {
+                const hasPhase = nonCompliantFlights.some(f => f.phase);
                 html += `
                     <div class="col-md-4">
                         <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -1740,6 +1901,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                                            ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1757,7 +1920,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -1765,6 +1928,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                            <td><small>${f.reason || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1774,7 +1938,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 `;
             }
 
-            // Compliant flights
+            // Compliant flights - with Hold and Source columns
             if (compliantFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
@@ -1782,7 +1946,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${compliantFlights.map(f => `
@@ -1790,6 +1954,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                            <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1812,6 +1978,589 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, streamFlights, analyzedFlights);
 
         html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render GS program timeline bar
+     * Shows advisory phases proportionally on a time axis
+     */
+    renderGsTimelineBar: function(timeline, gsStart, gsEnd) {
+        if (!timeline || timeline.length === 0) return '';
+
+        // Filter to phases with start/end (skip CNX entries which have null times)
+        const phases = timeline.filter(p => p.start && p.end);
+        const cnxEntry = timeline.find(p => (p.type || '').toUpperCase() === 'CNX');
+
+        if (phases.length === 0 && !cnxEntry) return '';
+
+        // Parse time to minutes for proportional sizing
+        const parseTime = (t) => {
+            if (!t) return 0;
+            const match = t.match(/(\d{2}):?(\d{2})/);
+            return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : 0;
+        };
+
+        // Compute total span (handle overnight wrap)
+        const allStarts = phases.map(p => parseTime(p.start));
+        const allEnds = phases.map(p => parseTime(p.end));
+        const totalStart = Math.min(...allStarts);
+        let totalEnd = Math.max(...allEnds);
+        let totalSpan = totalEnd - totalStart;
+        if (totalSpan <= 0) totalSpan += 1440; // Overnight wrap: add 24h
+
+        let html = '<div class="gs-timeline">';
+
+        phases.forEach(p => {
+            const pStart = parseTime(p.start);
+            let pEnd = parseTime(p.end);
+            if (pEnd <= pStart) pEnd += 1440; // Overnight wrap for individual phase
+            const pct = ((pEnd - pStart) / totalSpan * 100).toFixed(1);
+            const pType = (p.type || '').toUpperCase();
+            let phaseClass = 'phase-initial';
+            if (pType === 'EXTENSION') phaseClass = 'phase-extension';
+            const label = p.advzy ? `ADVZY ${p.advzy}` : pType;
+
+            html += `<div class="phase ${phaseClass}" style="flex: ${pct} 0 0;" title="${label}: ${p.start} - ${p.end}">${label}</div>`;
+        });
+
+        // Small CNX marker at the end
+        if (cnxEntry) {
+            html += `<div class="phase phase-cnx" title="CNX: ${cnxEntry.issued || ''}"></div>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Get Bootstrap badge class for reroute action type
+     */
+    getActionBadgeClass: function(action) {
+        switch ((action || '').toUpperCase()) {
+            case 'RQD': return 'badge-danger';
+            case 'RMD': return 'badge-warning';
+            case 'FYI': return 'badge-info';
+            case 'PLN': return 'badge-secondary';
+            default: return 'badge-light';
+        }
+    },
+
+    /**
+     * Toggle visibility of an expandable flight detail row
+     */
+    toggleFlightDetail: function(rowId) {
+        var detailRow = document.getElementById(rowId);
+        if (detailRow) {
+            var isHidden = detailRow.style.display === 'none';
+            detailRow.style.display = isHidden ? '' : 'none';
+            // Toggle chevron on the trigger row (previous sibling)
+            var triggerRow = detailRow.previousElementSibling;
+            if (triggerRow) {
+                var chevron = triggerRow.querySelector('.expand-chevron');
+                if (chevron) {
+                    chevron.classList.toggle('fa-chevron-down', !isHidden);
+                    chevron.classList.toggle('fa-chevron-up', isHidden);
+                }
+            }
+        }
+    },
+
+    /**
+     * Sort a table by column index. Toggles asc/desc on repeated clicks.
+     * @param {string} tableId - DOM id of the table
+     * @param {number} colIdx - Column index to sort by
+     * @param {boolean} isNumeric - Whether to sort numerically
+     */
+    sortTable: function(tableId, colIdx, isNumeric) {
+        var table = document.getElementById(tableId);
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+
+        // Determine sort direction from header state
+        var th = table.querySelectorAll('thead th')[colIdx];
+        var asc = true;
+        if (th) {
+            asc = th.getAttribute('data-sort-dir') !== 'asc';
+            // Clear all header sort indicators
+            table.querySelectorAll('thead th').forEach(function(h) {
+                h.removeAttribute('data-sort-dir');
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+            th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+            th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+        }
+
+        rows.sort(function(a, b) {
+            var aVal = (a.cells[colIdx] && a.cells[colIdx].textContent.trim()) || '';
+            var bVal = (b.cells[colIdx] && b.cells[colIdx].textContent.trim()) || '';
+            if (isNumeric) {
+                var aNum = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
+                var bNum = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
+                return asc ? aNum - bNum : bNum - aNum;
+            }
+            return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+
+        rows.forEach(function(row) { tbody.appendChild(row); });
+    },
+
+    /**
+     * Render expandable route match detail for a reroute flight
+     * Shows: fix checklist, filed route with highlights, flown crossing details
+     */
+    renderFlightRouteDetail: function(flight, requiredFixes) {
+        var filedMatched = flight.filed_matched_fixes || [];
+        var flownMatched = flight.flown_matched_fixes || [];
+        var flownDetails = flight.flown_fix_details || [];
+        var fixes = flight.required_fixes || requiredFixes || [];
+
+        var html = '<div class="flight-route-detail">';
+
+        // 1. Fix checklist
+        if (fixes.length > 0) {
+            html += '<div class="fix-checklist"><div class="small text-muted mb-1">Required Fixes:</div><div class="fix-list">';
+            fixes.forEach(function(fix) {
+                var filedOk = filedMatched.indexOf(fix) >= 0;
+                var flownOk = flownMatched.indexOf(fix) >= 0;
+                var cls = (filedOk && flownOk) ? 'fix-matched' : (!filedOk && !flownOk) ? 'fix-missing' : 'fix-partial';
+                var filedIcon = filedOk ? '\u2713' : '\u2717';
+                var flownIcon = flownOk ? '\u2713' : '\u2717';
+                html += '<span class="fix-check ' + cls + '" title="Filed: ' + filedIcon + ' | Flown: ' + flownIcon + '">' +
+                    fix + ' <small class="text-muted">(F:' + filedIcon + ' L:' + flownIcon + ')</small></span>';
+            });
+            html += '</div></div>';
+        }
+
+        // 2. Filed route with fix highlighting
+        if (flight.filed_route) {
+            var routeStr = this.escapeHtml(flight.filed_route);
+            fixes.forEach(function(fix) {
+                var matched = filedMatched.indexOf(fix) >= 0;
+                var cls = matched ? 'fix-matched' : 'fix-missing';
+                routeStr = routeStr.replace(new RegExp('\\b' + fix + '\\b', 'g'),
+                    '<span class="' + cls + '">' + fix + '</span>');
+            });
+            html += '<div class="filed-route mt-1"><div class="small text-muted">Filed Route:</div><code class="route-string">' + routeStr + '</code></div>';
+        }
+
+        // 3. Flown crossing details table
+        if (flownDetails.length > 0) {
+            html += '<div class="mt-1"><div class="small text-muted">Flown Crossings:</div>' +
+                '<table class="table table-sm table-bordered crossing-detail-table mb-0">' +
+                '<thead><tr><th>Fix</th><th>Dist (nm)</th><th>Time</th><th>Altitude</th></tr></thead><tbody>';
+            flownDetails.forEach(function(d) {
+                html += '<tr>' +
+                    '<td><code>' + (d.fix || '') + '</code></td>' +
+                    '<td>' + (d.distance_nm != null ? d.distance_nm : 'N/A') + '</td>' +
+                    '<td>' + (d.crossing_time || 'N/A') + '</td>' +
+                    '<td>' + (d.altitude ? d.altitude.toLocaleString() + ' ft' : 'N/A') + '</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+        } else if (flight.has_trajectory === false) {
+            html += '<div class="text-muted small mt-1"><i class="fas fa-exclamation-triangle"></i> No trajectory data available</div>';
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render a reroute compliance card (classic layout)
+     */
+    renderRerouteCard: function(r) {
+        const detailId = `reroute_detail_${++this.detailIdCounter}`;
+        const historyId = `reroute_history_${this.detailIdCounter}`;
+        const routeTableId = `reroute_routes_${this.detailIdCounter}`;
+
+        const action = r.action || (r.mandatory ? 'RQD' : 'FYI');
+        const routeType = r.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const compPct = r.compliance_pct || r.filed_compliance_pct || 0;
+        const compClass = this.getComplianceClass(compPct);
+
+        const filedCompliant = r.filed_compliant || [];
+        const filedNonCompliant = r.filed_non_compliant || [];
+        const flownCompliant = r.flown_compliant || [];
+        const flownNonCompliant = r.flown_non_compliant || [];
+        const allFlights = r.flights || [];
+        const totalFlights = r.total_flights || allFlights.length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="tmi-card reroute-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                        <span class="tmi-fix-name ml-2">${r.name || 'Reroute'}</span>
+                        <span class="text-muted ml-2">
+                            ${r.start || ''} - ${r.end || ''}
+                        </span>
+                        ${endedBadge}
+                    </div>
+                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                </div>
+        `;
+
+        // Subheader: constrained area, reason, assessment mode
+        const subParts = [];
+        if (r.constrained_area) subParts.push(this.escapeHtml(r.constrained_area));
+        if (r.reason) subParts.push(this.escapeHtml(r.reason));
+        if (r.assessment_mode) {
+            const modeLabel = r.assessment_mode === 'full_compliance' ? 'Full route compliance' :
+                r.assessment_mode === 'fix_only' ? 'Required fix check only' : r.assessment_mode;
+            subParts.push(modeLabel);
+        }
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mb-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Stats row with filed vs flown split
+        html += `
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${totalFlights}</div>
+                        <div class="tmi-stat-label">Total Flights</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${filedCompliant.length}</div>
+                        <div class="tmi-stat-label">Filed Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${flownCompliant.length}</div>
+                        <div class="tmi-stat-label">Flown Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-danger">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                        <div class="tmi-stat-label">Non-Compliant</div>
+                    </div>
+                </div>
+        `;
+
+        // Filed vs flown compliance split
+        const filedPct = r.filed_compliance_pct || 0;
+        const flownPct = r.flown_compliance_pct || 0;
+        html += `
+                <div class="compliance-split">
+                    <div class="filed">
+                        <div class="small text-muted">Filed</div>
+                        <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                    </div>
+                    <div class="flown">
+                        <div class="small text-muted">Flown</div>
+                        <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                        ${r.no_trajectory_count ? `<div class="small text-muted">(${r.no_trajectory_count} no trajectory)</div>` : ''}
+                    </div>
+                </div>
+        `;
+
+        // Program history (collapsible) - enriched with action, modifications, route info
+        const history = r.program_history || [];
+        if (history.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${historyId}">
+                        <i class="fas fa-history"></i> Program History (${history.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 program-history" id="${historyId}">
+                    ${history.map(h => `
+                        <div class="history-item" style="flex-wrap:wrap;">
+                            <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                            ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
+                            <span>${h.type || ''}</span>
+                            ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                            <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                            ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                            ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
+                            ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                            ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Required routes table (collapsible)
+        const requiredRoutes = r.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${routeTableId}">
+                        <i class="fas fa-route"></i> Required Routes (${requiredRoutes.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${routeTableId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped route-table">
+                            <thead class="thead-dark">
+                                <tr><th>Origin</th><th>Dest</th><th>Route</th></tr>
+                            </thead>
+                            <tbody>
+                                ${requiredRoutes.map(rt => {
+                                    // Highlight required fixes in the route string
+                                    let routeStr = rt.route || '';
+                                    const reqFixes = r.required_fixes || [];
+                                    reqFixes.forEach(fix => {
+                                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                                            `<span class="required-segment">${fix}</span>`);
+                                    });
+                                    return `<tr>
+                                        <td><code>${rt.orig || ''}</code></td>
+                                        <td><code>${rt.dest || ''}</code></td>
+                                        <td>${routeStr}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Flight detail table (collapsible) - with expandable route match rows
+        if (allFlights.length > 0) {
+            const flightTblId = `reroute_flights_${this.detailIdCounter}`;
+            const reqFixes = r.required_fixes || [];
+            html += `
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-plane"></i> Flight Details (${allFlights.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-sm table-striped" id="${flightTblId}">
+                            <thead class="thead-dark sticky-top">
+                                <tr>
+                                    <th style="width:20px;"></th>
+                                    <th>Callsign</th>
+                                    <th>Origin</th>
+                                    <th>Dest</th>
+                                    <th>Filed %</th>
+                                    <th>Flown %</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allFlights.map((f, idx) => {
+                                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                                    const detRowId = flightTblId + '_d' + idx;
+                                    const hasDetail = (f.required_fixes && f.required_fixes.length > 0) ||
+                                                      (f.filed_matched_fixes && f.filed_matched_fixes.length > 0) ||
+                                                      reqFixes.length > 0;
+                                    return `<tr class="${hasDetail ? 'reroute-flight-row expandable' : ''}"
+                                                ${hasDetail ? 'onclick="TMICompliance.toggleFlightDetail(\'' + detRowId + '\')" style="cursor:pointer;"' : ''}>
+                                        <td>${hasDetail ? '<i class="fas fa-chevron-down expand-chevron text-muted small"></i>' : ''}</td>
+                                        <td><code>${f.callsign || ''}</code></td>
+                                        <td>${f.dept || ''}</td>
+                                        <td>${f.dest || ''}</td>
+                                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                                    </tr>
+                                    ${hasDetail ? '<tr id="' + detRowId + '" style="display:none;" class="flight-detail-row"><td colspan="7">' + this.renderFlightRouteDetail(f, reqFixes) + '</td></tr>' : ''}`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Exemption text
+        if (r.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(r.exemptions)}</div>`;
+        }
+
+        // Associated restrictions
+        if (r.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(r.associated_restrictions)}</div>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render reroute detail content (V2 progressive layout)
+     */
+    renderRerouteDetailV2: function(data) {
+        const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+        const routeType = data.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const allFlights = data.flights || [];
+        const totalFlights = data.total_flights || allFlights.length;
+        const filedCompliant = data.filed_compliant || [];
+        const filedNonCompliant = data.filed_non_compliant || [];
+        const flownCompliant = data.flown_compliant || [];
+        const flownNonCompliant = data.flown_non_compliant || [];
+        const filedPct = data.filed_compliance_pct || 0;
+        const flownPct = data.flown_compliance_pct || 0;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="mb-2">
+                <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                ${endedBadge}
+            </div>
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.start || '?'} - ${data.end || '?'}</div>
+                    <div class="stat-label">Active Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedCompliant.length}</div>
+                    <div class="stat-label">Filed Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${flownCompliant.length}</div>
+                    <div class="stat-label">Flown Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                    <div class="stat-label">Non-Compliant</div>
+                </div>
+            </div>
+        `;
+
+        // Subheader info
+        const subParts = [];
+        if (data.constrained_area) subParts.push(this.escapeHtml(data.constrained_area));
+        if (data.reason) subParts.push(this.escapeHtml(data.reason));
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mt-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Filed vs flown compliance split
+        html += `
+            <div class="compliance-split mt-2">
+                <div class="filed">
+                    <div class="small text-muted">Filed Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                </div>
+                <div class="flown">
+                    <div class="small text-muted">Flown Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                    ${data.no_trajectory_count ? `<div class="small text-muted">(${data.no_trajectory_count} no trajectory)</div>` : ''}
+                </div>
+            </div>
+        `;
+
+        // Program history (expandable section) - enriched with action, modifications, routes
+        const history = data.program_history || [];
+        if (history.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-history', 'Program History', `(${history.length})`, () => {
+                return `<div class="program-history">${history.map(h => `
+                    <div class="history-item" style="flex-wrap:wrap;">
+                        <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                        ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
+                        <span>${h.type || ''}</span>
+                        ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                        <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                        ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                        ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
+                        ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                        ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
+                    </div>
+                `).join('')}</div>`;
+            });
+        }
+
+        // Required routes (expandable section)
+        const requiredRoutes = data.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-routes', 'Required Routes', `(${requiredRoutes.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped route-table">
+                    <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
+                requiredRoutes.forEach(rt => {
+                    let routeStr = rt.route || '';
+                    const reqFixes = data.required_fixes || [];
+                    reqFixes.forEach(fix => {
+                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                            `<span class="required-segment">${fix}</span>`);
+                    });
+                    tbl += `<tr>
+                        <td><code>${rt.orig || ''}</code></td>
+                        <td><code>${rt.dest || ''}</code></td>
+                        <td>${routeStr}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight details (expandable section) - with expandable route match rows
+        if (allFlights.length > 0) {
+            const v2FlightTblId = `reroute_v2_flights_${++this.detailIdCounter}`;
+            const reqFixesV2 = data.required_fixes || [];
+            html += this.renderExpandableSectionV2('reroute-flights', 'Flight Details', `(${allFlights.length})`, () => {
+                let tbl = `<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-striped" id="${v2FlightTblId}">
+                        <thead class="thead-dark sticky-top">
+                            <tr><th style="width:20px;"></th><th>Callsign</th><th>Origin</th><th>Dest</th><th>Filed %</th><th>Flown %</th><th>Status</th></tr>
+                        </thead><tbody>`;
+                allFlights.forEach((f, idx) => {
+                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                    const detRowId = v2FlightTblId + '_d' + idx;
+                    const hasDetail = (f.required_fixes && f.required_fixes.length > 0) ||
+                                      (f.filed_matched_fixes && f.filed_matched_fixes.length > 0) ||
+                                      reqFixesV2.length > 0;
+                    tbl += `<tr class="${hasDetail ? 'reroute-flight-row expandable' : ''}"
+                                ${hasDetail ? 'onclick="TMICompliance.toggleFlightDetail(\'' + detRowId + '\')" style="cursor:pointer;"' : ''}>
+                        <td>${hasDetail ? '<i class="fas fa-chevron-down expand-chevron text-muted small"></i>' : ''}</td>
+                        <td><code>${f.callsign || ''}</code></td>
+                        <td>${f.dept || ''}</td>
+                        <td>${f.dest || ''}</td>
+                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                    </tr>`;
+                    if (hasDetail) {
+                        tbl += '<tr id="' + detRowId + '" style="display:none;" class="flight-detail-row"><td colspan="7">' + this.renderFlightRouteDetail(f, reqFixesV2) + '</td></tr>';
+                    }
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Exemption text
+        if (data.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(data.exemptions)}</div>`;
+        }
+
+        // Associated restrictions
+        if (data.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(data.associated_restrictions)}</div>`;
+        }
+
         return html;
     },
 
@@ -5750,11 +6499,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const mitResults = r.mit_results || {};
         const gsResults = r.gs_results || {};
         const apreqResults = r.apreq_results || {};
+        const rerouteResults = r.reroute_results || {};
         const delayResults = r.delay_results || [];
 
         const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
         const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
         const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
 
         // Calculate NTML entry counts
         const mitCount = mitArray.length;
@@ -5770,6 +6521,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }, 0);
 
         const apreqCount = apreqArray.length;
+        const rerouteCount = rerouteArray.length;
+        const mandatoryReroutes = rerouteArray.filter(rr => rr.mandatory || rr.action === 'RQD').length;
+        const rerouteFlights = rerouteArray.reduce((sum, rr) => sum + (rr.total_flights || 0), 0);
 
         // Calculate trajectory coverage
         const trajCoverage = this.calculateTrajectoryCoverageV2();
@@ -5789,10 +6543,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
         }
 
-        // Advisories summary (GS as advisory context)
+        // Advisories summary (GS and reroutes as advisory context)
         let advisoryLines = '';
         if (gsCount > 0) {
             advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
+        }
+        if (rerouteCount > 0) {
+            const avgFiledPct = rerouteArray.reduce((sum, rr) => sum + (rr.filed_compliance_pct || 0), 0) / rerouteCount;
+            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, filed ${avgFiledPct.toFixed(0)}% compliant</div>`;
         }
 
         // Data gap information
@@ -5863,7 +6621,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Group by type
         const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
-        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
 
         let html = `
             <div class="tmi-list-header">
@@ -5952,6 +6710,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 nonCompliant: nonCompliant,
                 startTime: g.gs_start,
                 data: g,
+            });
+        });
+
+        // Reroutes
+        const rerouteResults = r.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        rerouteArray.forEach((rr, i) => {
+            const action = rr.action || (rr.mandatory ? 'RQD' : 'FYI');
+            const routeType = rr.route_type || 'ROUTE';
+            const filedNc = (rr.filed_non_compliant || []).length;
+            const flownNc = (rr.flown_non_compliant || []).length;
+            tmis.push({
+                id: `reroute_${i}`,
+                type: 'REROUTE',
+                identifier: rr.name || 'Reroute',
+                typeValue: `${routeType} ${action}`,
+                metric: `${rr.total_flights || 0}`,
+                metricValue: rr.total_flights || 0,
+                nonCompliant: filedNc + flownNc,
+                startTime: rr.start,
+                data: rr,
             });
         });
 
@@ -6065,11 +6844,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Back link for mobile
         html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">← Back to list</a>';
 
-        // Detail header
+        // Detail header - format standardized line based on type
+        let standardizedLine = '';
+        if (tmi.type === 'REROUTE') {
+            const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+            const routeType = data.route_type || 'ROUTE';
+            const parts = [`${routeType} ${action}`];
+            if (data.name) parts.push(data.name);
+            if (data.start || data.end) parts.push(`${data.start || '?'}-${data.end || '?'}`);
+            if (data.constrained_area) parts.push(data.constrained_area);
+            standardizedLine = parts.join(' | ');
+        } else {
+            standardizedLine = this.formatStandardizedTMI(data);
+        }
+
         html += `
             <div class="tmi-detail-header">
                 <div class="tmi-identity">${tmi.identifier} ${tmi.typeValue}</div>
-                <div class="tmi-standardized">${this.formatStandardizedTMI(data)}</div>
+                <div class="tmi-standardized">${standardizedLine}</div>
             </div>
         `;
 
@@ -6078,6 +6870,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += this.renderMitDetailV2(data);
         } else if (tmi.type === 'GS') {
             html += this.renderGsDetailV2(data);
+        } else if (tmi.type === 'REROUTE') {
+            html += this.renderRerouteDetailV2(data);
         } else if (tmi.type === 'APREQ') {
             html += this.renderApreqDetailV2(data);
         }
@@ -6156,15 +6950,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      * Render GS detail content
      */
     renderGsDetailV2: function(data) {
-        const nonCompliant = data.non_compliant_count || 0;
+        const nonCompliantFlights = data.non_compliant_flights || data.non_compliant || [];
+        const exemptFlights = data.exempt_flights || data.exempt || [];
+        const compliantFlights = data.compliant_flights || data.compliant || [];
+        const nonCompliant = data.non_compliant_count || data.violations?.total || nonCompliantFlights.length;
         const totalFlights = data.total_flights || 0;
-        const compliant = data.compliant_count || 0;
-        const exempt = data.exempt_count || 0;
+        const compliant = data.compliant_count || compliantFlights.length;
+        const exempt = data.exempt_count || exemptFlights.length;
+        const notInScope = (data.not_in_scope || []).length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX' || data.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
 
         let html = `
             <div class="tmi-detail-overview">
                 <div class="stat">
-                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'}</div>
+                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'} ${endedBadge}</div>
                     <div class="stat-label">Stop Window</div>
                 </div>
                 <div class="stat">
@@ -6183,8 +6989,166 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="stat-value">${exempt}</div>
                     <div class="stat-label">Exempt</div>
                 </div>
-            </div>
         `;
+
+        if (notInScope > 0) {
+            html += `
+                <div class="stat">
+                    <div class="stat-value">${notInScope}</div>
+                    <div class="stat-label">Not In Scope</div>
+                </div>
+            `;
+        }
+
+        if (data.avg_hold_time_min && data.avg_hold_time_min > 0) {
+            const stats = data.hold_time_stats || {};
+            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            html += `
+                <div class="stat" ${tooltip ? `title="${tooltip}"` : ''}>
+                    <div class="stat-value">${data.avg_hold_time_min.toFixed(0)}m</div>
+                    <div class="stat-label">Avg Hold</div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // Impacting condition + program metadata
+        if (data.impacting_condition) {
+            html += `<div class="text-muted small mt-2"><i class="fas fa-cloud"></i> ${this.escapeHtml(data.impacting_condition)}</div>`;
+        }
+        if (data.dep_facility_tier) {
+            html += `<span class="badge badge-outline-secondary mr-1" style="font-size:0.7rem;">${this.escapeHtml(data.dep_facility_tier)}</span>`;
+        }
+        if (data.prob_extension) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-clock"></i> Prob Extension: ${this.escapeHtml(data.prob_extension)}</div>`;
+        }
+
+        // Program timeline bar
+        if (data.program_timeline && data.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(data.program_timeline, data.gs_start, data.gs_end);
+
+            // Advisory detail section (expandable V2)
+            html += this.renderExpandableSectionV2('gs-advisory-chain', 'Advisory History', `(${data.program_timeline.length})`, () => {
+                return `<div class="advisory-chain">
+                    ${data.program_timeline.map(adv => {
+                        const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
+                        return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
+                            <div class="advisory-detail-header">
+                                <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                <span class="advisory-type">${adv.type || ''}</span>
+                                ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
+                                <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                            </div>
+                            ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
+                            ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
+                            ${adv.prob_extension ? `<div class="advisory-meta"><i class="fas fa-clock"></i> Extension: ${this.escapeHtml(adv.prob_extension)}</div>` : ''}
+                            ${adv.comments ? `<div class="advisory-meta"><i class="fas fa-comment"></i> ${this.escapeHtml(adv.comments)}</div>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            });
+        }
+
+        // CNX comments
+        if (data.cnx_comments) {
+            html += `<div class="gs-cnx-comments mt-2"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(data.cnx_comments)}</div>`;
+        }
+
+        // Per-origin breakdown (expandable section)
+        const perOrigin = data.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            const v2OriginTblId = `gs_origin_v2_tbl_${++this.detailIdCounter}`;
+            html += this.renderExpandableSectionV2('gs-per-origin', 'Per-Origin Breakdown', `(${perOrigin.length})`, () => {
+                let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped sortable-table" id="${v2OriginTblId}">
+                    <thead><tr>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',0,false)" style="cursor:pointer;">Origin</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',1,true)" style="cursor:pointer;">Total</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',2,true)" style="cursor:pointer;">Compliant</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',3,true)" style="cursor:pointer;">Non-Comp</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',4,true)" style="cursor:pointer;">Exempt</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',5,true)" style="cursor:pointer;">Rate</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                    </tr></thead><tbody>`;
+                perOrigin.forEach(o => {
+                    const oPct = o.compliance_pct || 0;
+                    const oClass = this.getComplianceClass(oPct);
+                    const compW = o.total > 0 ? Math.round(((o.compliant || 0) / o.total) * 100) : 0;
+                    const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
+                    const exW = 100 - compW - ncW;
+                    tbl += `<tr>
+                        <td><code>${o.origin}</code>
+                            <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
+                        </td>
+                        <td>${o.total || 0}</td>
+                        <td class="text-success">${o.compliant || 0}</td>
+                        <td class="text-danger">${o.non_compliant || 0}</td>
+                        <td class="text-info">${o.exempt || 0}</td>
+                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight detail expandable sections
+        if (nonCompliantFlights.length > 0) {
+            const hasPhase = nonCompliantFlights.some(f => f.phase);
+            html += this.renderExpandableSectionV2('gs-violations', 'Violations', `(${nonCompliantFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr></thead><tbody>`;
+                nonCompliantFlights.forEach(f => {
+                    tbl += `<tr class="table-danger">
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                        ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        if (exemptFlights.length > 0) {
+            html += this.renderExpandableSectionV2('gs-exempt', 'Exempt Flights', `(${exemptFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr></thead><tbody>`;
+                exemptFlights.forEach(f => {
+                    tbl += `<tr>
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td><small>${f.reason || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Compliant flights with hold time
+        if (compliantFlights.length > 0) {
+            html += this.renderExpandableSectionV2('gs-compliant', 'Compliant Flights', `(${compliantFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr></thead><tbody>`;
+                compliantFlights.forEach(f => {
+                    tbl += `<tr>
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
 
         // Context Map section for GS
         const mapId = `map_v2_gs_${Date.now()}`;
@@ -6262,6 +7226,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (this.expandedSections[sectionId]) {
             section.addClass('expanded');
             // Re-render content when expanding
+            // For sections managed by renderExpandableSectionV2 with contentFn,
+            // re-render the full detail panel to invoke the content function
             const tmi = this.findTmiById(this.selectedTmiId);
             if (tmi) {
                 let contentHtml = '';
@@ -6275,6 +7241,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const data = tmi.data;
                     const nonCompliant = (data.all_pairs || []).filter(p => p.spacing_category === 'UNDER');
                     contentHtml = this.renderPairsTableV2(nonCompliant, data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                } else {
+                    // Generic handler: re-render the entire detail panel
+                    // This supports GS per-origin, violations, exempt, reroute sections
+                    $('#tmi-detail-panel').html(this.renderDetailPanelV2(tmi));
+                    return;
                 }
                 content.html(contentHtml);
             }
@@ -6484,7 +7455,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Group by type
         const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
-        const advisories = allTmis.filter(t => ['GS', 'GDP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
 
         // Sort TMIs based on current ordering
         const sortedNtml = this.sortTmiList(ntmlEntries);
