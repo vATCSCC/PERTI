@@ -12,18 +12,24 @@
  * - adl/migrations/topology/002_artcc_topology_seed.sql
  * - assets/data/apts.csv (airport→ARTCC mappings)
  * - jatoc.php FIR definitions
- * - FAA OPSNET/ASPM (airport tier lists - Core30, OEP35, ASPM77)
+ * - FAA OPSNET/ASPM (airport tier lists - Core30, OEP35, OPSNET45, ASPM82)
+ *
+ * NOTE: This module extends PERTI namespace data with operational metadata.
+ * Load lib/perti.js before this file for full integration.
  *
  * Usage: Include this file before any scripts that need facility data
  *
  * @package PERTI
  * @subpackage Assets/JS
- * @version 1.1.0
- * @date 2026-01-28
+ * @version 1.2.0
+ * @date 2026-02-03
  */
 
 (function(global) {
     'use strict';
+
+    // Reference to PERTI namespace if available
+    const _PERTI = (typeof PERTI !== 'undefined') ? PERTI : null;
 
     // ===========================================
     // ARTCC/FIR Definitions
@@ -82,66 +88,108 @@
 
     // ===========================================
     // DCC Regions with Colors
+    // Extended from PERTI.GEOGRAPHIC.DCC_REGIONS with UI metadata
     // ===========================================
 
-    const DCC_REGIONS = {
-        'SOUTH_CENTRAL': {
-            name: 'South Central',
-            artccs: ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
-            color: '#ec791b',  // Orange
-            bgColor: 'rgba(253, 126, 20, 0.15)',
-            textClass: 'text-warning',
-        },
-        'SOUTHEAST': {
-            name: 'Southeast',
-            artccs: ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-            color: '#ffc107',  // Yellow
-            bgColor: 'rgba(255, 193, 7, 0.15)',
-            textClass: 'text-warning',
-        },
-        'NORTHEAST': {
-            name: 'Northeast',
-            artccs: ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-            color: '#007bff',  // Blue
-            bgColor: 'rgba(0, 123, 255, 0.15)',
-            textClass: 'text-primary',
-        },
-        'MIDWEST': {
-            name: 'Midwest',
-            artccs: ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
-            color: '#28a745',  // Green
-            bgColor: 'rgba(40, 167, 69, 0.15)',
-            textClass: 'text-success',
-        },
-        'WEST': {
-            name: 'West',
-            artccs: ['ZAK', 'ZAN', 'ZAP', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE', 'ZUA'],
-            color: '#dc3545',  // Red
-            bgColor: 'rgba(220, 53, 69, 0.15)',
-            textClass: 'text-danger',
-        },
-        'CANADA': {
-            name: 'Canada',
-            artccs: ['CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'],
-            color: '#6f42c1',  // Purple
-            bgColor: 'rgba(111, 66, 193, 0.15)',
-            textClass: 'text-purple',
-        },
-        'MEXICO': {
-            name: 'Mexico',
-            artccs: ['MMFR', 'MMFO'],  // Mexico FIR, Mazatlán Oceanic
-            color: '#8B4513',  // Brown
-            bgColor: 'rgba(139, 69, 19, 0.15)',
-            textClass: 'text-brown',
-        },
-        'CARIBBEAN': {
-            name: 'Caribbean',
-            artccs: ['TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
-            color: '#e83e8c',  // Pink
-            bgColor: 'rgba(232, 62, 140, 0.15)',
-            textClass: 'text-pink',
-        },
-    };
+    // Build DCC_REGIONS by extending PERTI data with UI-specific metadata
+    const DCC_REGIONS = (function() {
+        // UI metadata for each region (bgColor, textClass not in PERTI)
+        const UI_METADATA = {
+            'WEST': { bgColor: 'rgba(220, 53, 69, 0.15)', textClass: 'text-danger' },
+            'SOUTH_CENTRAL': { bgColor: 'rgba(253, 126, 20, 0.15)', textClass: 'text-warning' },
+            'MIDWEST': { bgColor: 'rgba(40, 167, 69, 0.15)', textClass: 'text-success' },
+            'SOUTHEAST': { bgColor: 'rgba(255, 193, 7, 0.15)', textClass: 'text-warning' },
+            'NORTHEAST': { bgColor: 'rgba(0, 123, 255, 0.15)', textClass: 'text-primary' },
+            'CANADA': { bgColor: 'rgba(111, 66, 193, 0.15)', textClass: 'text-purple' },
+            'OTHER': { bgColor: 'rgba(108, 117, 125, 0.15)', textClass: 'text-muted' },
+        };
+
+        // Additional regions not in PERTI (MEXICO, CARIBBEAN)
+        const EXTENDED_REGIONS = {
+            'MEXICO': {
+                name: 'Mexico',
+                artccs: ['MMFR', 'MMFO'],
+                color: '#8B4513',
+                bgColor: 'rgba(139, 69, 19, 0.15)',
+                textClass: 'text-brown',
+            },
+            'CARIBBEAN': {
+                name: 'Caribbean',
+                artccs: ['TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+                color: '#e83e8c',
+                bgColor: 'rgba(232, 62, 140, 0.15)',
+                textClass: 'text-pink',
+            },
+        };
+
+        // If PERTI is available, build from it
+        if (_PERTI && _PERTI.GEOGRAPHIC && _PERTI.GEOGRAPHIC.DCC_REGIONS) {
+            const regions = {};
+            Object.entries(_PERTI.GEOGRAPHIC.DCC_REGIONS).forEach(([key, data]) => {
+                // WEST region in facility-hierarchy has extra ARTCCs (ZAP, ZUA)
+                let artccs = [...data.artccs];
+                if (key === 'WEST') {
+                    artccs = ['ZAK', 'ZAN', 'ZAP', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE', 'ZUA'];
+                }
+                // CANADA region — no overrides needed (CZZV removed as non-FIR)
+                regions[key] = {
+                    name: data.name,
+                    artccs: artccs,
+                    color: data.color,
+                    ...(UI_METADATA[key] || {}),
+                };
+            });
+            // Add extended regions
+            return { ...regions, ...EXTENDED_REGIONS };
+        }
+
+        // Fallback when PERTI not loaded
+        return {
+            'SOUTH_CENTRAL': {
+                name: 'South Central',
+                artccs: ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
+                color: '#fd7e14',
+                bgColor: 'rgba(253, 126, 20, 0.15)',
+                textClass: 'text-warning',
+            },
+            'SOUTHEAST': {
+                name: 'Southeast',
+                artccs: ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
+                color: '#ffc107',
+                bgColor: 'rgba(255, 193, 7, 0.15)',
+                textClass: 'text-warning',
+            },
+            'NORTHEAST': {
+                name: 'Northeast',
+                artccs: ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
+                color: '#007bff',
+                bgColor: 'rgba(0, 123, 255, 0.15)',
+                textClass: 'text-primary',
+            },
+            'MIDWEST': {
+                name: 'Midwest',
+                artccs: ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
+                color: '#28a745',
+                bgColor: 'rgba(40, 167, 69, 0.15)',
+                textClass: 'text-success',
+            },
+            'WEST': {
+                name: 'West',
+                artccs: ['ZAK', 'ZAN', 'ZAP', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE', 'ZUA'],
+                color: '#dc3545',
+                bgColor: 'rgba(220, 53, 69, 0.15)',
+                textClass: 'text-danger',
+            },
+            'CANADA': {
+                name: 'Canada',
+                artccs: ['CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ'],
+                color: '#6f42c1',
+                bgColor: 'rgba(111, 66, 193, 0.15)',
+                textClass: 'text-purple',
+            },
+            ...EXTENDED_REGIONS,
+        };
+    })();
 
     // ===========================================
     // International FIR Mapping (ICAO prefix → FIR)
@@ -590,17 +638,28 @@
                 'KSFO', 'KSLC', 'KSTL', 'KTPA', 'PHNL',
             ],
         },
-        'ASPM77': {
-            name: 'ASPM 77',
+        'OPSNET45': {
+            name: 'OPSNET 45',
             airports: [
-                'KABQ', 'KATL', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBOS', 'KBUF', 'KBUR', 'KBWI',
-                'KCLE', 'KCLT', 'KCVG', 'KDAL', 'KDAY', 'KDCA', 'KDEN', 'KDFW', 'KDTW', 'KEWR',
-                'KFLL', 'KGYY', 'KHOU', 'KHPN', 'KIAD', 'KIAH', 'KIND', 'KISP', 'KJAX', 'KJFK',
-                'KLAS', 'KLAX', 'KLGA', 'KLGB', 'KMCI', 'KMCO', 'KMDW', 'KMEM', 'KMHT', 'KMIA',
-                'KMKE', 'KMSP', 'KMSY', 'KOAK', 'KOMA', 'KONT', 'KORD', 'KOXR', 'KPBI', 'KPDX',
-                'KPHL', 'KPHX', 'KPIT', 'KPSP', 'KPVD', 'KRDU', 'KRFD', 'KRSW', 'KSAN', 'KSAT',
-                'KSDF', 'KSEA', 'KSFO', 'KSJC', 'KSLC', 'KSMF', 'KSNA', 'KSTL', 'KSWF', 'KTEB',
-                'KTPA', 'KTUS', 'KVNY', 'PANC', 'PHNL', 'PHOG', 'TJSJ',
+                'KABQ', 'KATL', 'KBNA', 'KBOS', 'KBWI', 'KCLE', 'KCLT', 'KCVG', 'KDCA', 'KDEN',
+                'KDFW', 'KDTW', 'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KIND', 'KJFK', 'KLAS',
+                'KLAX', 'KLGA', 'KMCI', 'KMCO', 'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KMSY', 'KOAK',
+                'KORD', 'KPBI', 'KPDX', 'KPHL', 'KPHX', 'KPIT', 'KRDU', 'KSAN', 'KSEA', 'KSFO',
+                'KSJC', 'KSLC', 'KSTL', 'KTEB', 'KTPA',
+            ],
+        },
+        'ASPM82': {
+            name: 'ASPM 82',
+            airports: [
+                'KABQ', 'PANC', 'KAPA', 'KASE', 'KATL', 'KAUS', 'KBDL', 'KBHM', 'KBJC', 'KBNA',
+                'KBOI', 'KBOS', 'KBUF', 'KBUR', 'KBWI', 'KCLE', 'KCLT', 'KCMH', 'KCVG', 'KDAL',
+                'KDAY', 'KDCA', 'KDEN', 'KDFW', 'KDTW', 'KEWR', 'KFLL', 'KGYY', 'PHNL', 'KHOU',
+                'KHPN', 'KIAD', 'KIAH', 'KIND', 'KISP', 'KJAX', 'KJFK', 'KLAS', 'KLAX', 'KLGA',
+                'KLGB', 'KMCI', 'KMCO', 'KMDW', 'KMEM', 'KMHT', 'KMIA', 'KMKE', 'KMSP', 'KMSY',
+                'KOAK', 'PHOG', 'KOMA', 'KONT', 'KORD', 'KOXR', 'KPBI', 'KPDX', 'KPHL', 'KPHX',
+                'KPIT', 'KPSP', 'KPVD', 'KRDU', 'KRFD', 'KRSW', 'KSAN', 'KSAT', 'KSDF', 'KSEA',
+                'KSFO', 'KSJC', 'TJSJ', 'KSLC', 'KSMF', 'KSNA', 'KSTL', 'KSWF', 'KTEB', 'KTPA',
+                'KTUS', 'KVNY',
             ],
         },
     };
@@ -612,7 +671,8 @@
     const AIRPORT_TIER_COLORS = {
         'CORE30': '#dc3545',    // Red - highest priority
         'OEP35': '#007bff',     // Blue
-        'ASPM77': '#ffc107',    // Yellow
+        'OPSNET45': '#17a2b8',  // Teal
+        'ASPM82': '#ffc107',    // Yellow
         'OTHER': '#6c757d',     // Gray
     };
 
@@ -696,29 +756,27 @@
     ]);
 
     // IATA to ICAO explicit mappings for non-K-prefix airports
-    // Key: IATA 3-letter, Value: ICAO 4-letter
-    const IATA_TO_ICAO = {
-        // Alaska (PA prefix)
-        'ANC': 'PANC', 'FAI': 'PAFA', 'JNU': 'PAJN', 'BET': 'PABE', 'OME': 'PAOM',
-        'OTZ': 'PAOT', 'SCC': 'PASC', 'ADQ': 'PADQ', 'DLG': 'PADL', 'CDV': 'PACV',
-        'AKN': 'PAKN', 'BRW': 'PABR', 'CDB': 'PACD', 'ENA': 'PAEN', 'GST': 'PAGS',
-        'HNS': 'PAHN', 'HOM': 'PAHO', 'KTN': 'PAKT', 'SIT': 'PASI', 'VDZ': 'PAVD',
-        'WRG': 'PAWG', 'YAK': 'PAYA', 'SGY': 'PAGY', 'PSG': 'PAPG',
-
-        // Hawaii (PH prefix)
-        'HNL': 'PHNL', 'OGG': 'PHOG', 'LIH': 'PHLI', 'KOA': 'PHKO', 'ITO': 'PHTO',
-        'MKK': 'PHMK', 'LNY': 'PHNY', 'JHM': 'PHJH', 'HNM': 'PHHN',
-
-        // Pacific territories (PG prefix)
-        'GUM': 'PGUM', 'SPN': 'PGSN', 'ROP': 'PGRO', 'TIQ': 'PGWT',
-
-        // Puerto Rico (TJ prefix)
-        'SJU': 'TJSJ', 'BQN': 'TJBQ', 'PSE': 'TJPS', 'RVR': 'TJRV',
-        'MAZ': 'TJMZ', 'VQS': 'TJVQ', 'CPX': 'TJCP',
-
-        // US Virgin Islands (TI prefix)
-        'STT': 'TIST', 'STX': 'TISX',
-    };
+    // Source of truth: PERTI.IATA_TO_ICAO (perti.js)
+    const IATA_TO_ICAO = (typeof PERTI !== 'undefined' && PERTI.IATA_TO_ICAO)
+        ? Object.assign({}, PERTI.IATA_TO_ICAO)
+        : {
+            // Alaska (PA prefix)
+            'ANC': 'PANC', 'FAI': 'PAFA', 'JNU': 'PAJN', 'BET': 'PABE', 'OME': 'PAOM',
+            'OTZ': 'PAOT', 'SCC': 'PASC', 'ADQ': 'PADQ', 'DLG': 'PADL', 'CDV': 'PACV',
+            'AKN': 'PAKN', 'BRW': 'PABR', 'CDB': 'PACD', 'ENA': 'PAEN', 'GST': 'PAGS',
+            'HNS': 'PAHN', 'HOM': 'PAHO', 'KTN': 'PAKT', 'SIT': 'PASI', 'VDZ': 'PAVD',
+            'WRG': 'PAWG', 'YAK': 'PAYA', 'SGY': 'PAGY', 'PSG': 'PAPG',
+            // Hawaii (PH prefix)
+            'HNL': 'PHNL', 'OGG': 'PHOG', 'LIH': 'PHLI', 'KOA': 'PHKO', 'ITO': 'PHTO',
+            'MKK': 'PHMK', 'LNY': 'PHNY', 'JHM': 'PHJH', 'HNM': 'PHHN',
+            // Pacific territories (PG prefix)
+            'GUM': 'PGUM', 'SPN': 'PGSN', 'ROP': 'PGRO', 'TIQ': 'PGWT',
+            // Puerto Rico (TJ prefix)
+            'SJU': 'TJSJ', 'BQN': 'TJBQ', 'PSE': 'TJPS', 'RVR': 'TJRV',
+            'MAZ': 'TJMZ', 'VQS': 'TJVQ', 'CPX': 'TJCP',
+            // US Virgin Islands (TI prefix)
+            'STT': 'TIST', 'STX': 'TISX',
+        };
 
     /**
      * Normalize airport code to ICAO format.
@@ -739,6 +797,12 @@
      * @returns {string} - ICAO format code
      */
     function normalizeIcao(code) {
+        // Delegate to PERTI canonical implementation when available
+        if (typeof PERTI !== 'undefined' && PERTI.normalizeIcao) {
+            return PERTI.normalizeIcao(code);
+        }
+
+        // Fallback: inline implementation for standalone usage
         if (!code) {return code;}
 
         const upper = String(code).toUpperCase().trim();
@@ -788,6 +852,12 @@
      * @returns {string} - 3-letter IATA code (or original if not applicable)
      */
     function denormalizeIcao(icao) {
+        // Delegate to PERTI canonical implementation when available
+        if (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao) {
+            return PERTI.denormalizeIcao(icao);
+        }
+
+        // Fallback: inline implementation for standalone usage
         if (!icao) {return icao;}
 
         const upper = String(icao).toUpperCase().trim();
@@ -981,6 +1051,12 @@
      * @returns {string} - Canonical facility code
      */
     function resolveAlias(code) {
+        // Delegate to PERTI for alias resolution (includes Canadian, Mexican, European, Oceanic)
+        if (typeof PERTI !== 'undefined' && PERTI.resolveArtcc) {
+            const resolved = PERTI.resolveArtcc(code);
+            // Also check local aliases (may have additional entries not in PERTI)
+            return ALIAS_TO_CANONICAL[resolved] || resolved;
+        }
         const upper = (code || '').toUpperCase();
         return ALIAS_TO_CANONICAL[upper] || upper;
     }
@@ -1077,7 +1153,7 @@
     }
 
     /**
-     * Get airport tier (CORE30, OEP35, ASPM77, or OTHER)
+     * Get airport tier (CORE30, OEP35, OPSNET45, ASPM82, or OTHER)
      * @param {string} icao - Airport ICAO code
      * @returns {string} - Tier name
      */
@@ -1086,7 +1162,8 @@
         const apt = icao.toUpperCase();
         if (AIRPORT_GROUPS.CORE30.airports.includes(apt)) {return 'CORE30';}
         if (AIRPORT_GROUPS.OEP35.airports.includes(apt)) {return 'OEP35';}
-        if (AIRPORT_GROUPS.ASPM77.airports.includes(apt)) {return 'ASPM77';}
+        if (AIRPORT_GROUPS.OPSNET45.airports.includes(apt)) {return 'OPSNET45';}
+        if (AIRPORT_GROUPS.ASPM82.airports.includes(apt)) {return 'ASPM82';}
         return 'OTHER';
     }
 
