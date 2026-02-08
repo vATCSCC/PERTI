@@ -620,8 +620,14 @@ class TMIComplianceAnalyzer:
             })
 
         cursor.close()
-        logger.info(f"  Cached trajectories for {len(self._trajectory_cache)} flights")
-        logger.info(f"  Trajectory tier distribution: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, Archive={tier_counts.get(None, 0)}")
+        total = len(self._trajectory_cache)
+        tmi_count = tier_counts.get(0, 0) + tier_counts.get(1, 0) + tier_counts.get(2, 0)
+        archive_count = tier_counts.get(None, 0)
+        logger.info(f"  Cached trajectories for {total} flights")
+        logger.info(f"  Data source priority: TMI T-0 (15s) > T-1 (30s) > T-2 (60s) > Archive")
+        logger.info(f"  Tier distribution: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, Archive={archive_count}")
+        if total > 0:
+            logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}/{total} ({archive_count/total*100:.0f}%)")
 
         # Pre-compute PostGIS boundary crossings for all flights with GIS
         if self.gis_conn and self._trajectory_cache:
@@ -857,18 +863,16 @@ class TMIComplianceAnalyzer:
 
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        # Query TMI trajectory, archive, and live tables for complete coverage
-        # TMI trajectory has high-res event data (15s/30s/60s resolution)
-        # Archive table has downsampled historical data
-        # Live table has recent real-time data
+        # Query TMI trajectory, archive, and live tables with priority-based deduplication
+        # Priority: TMI (15s/30s/60s) > Archive (downsampled) > Live (real-time)
+        # CTE + ROW_NUMBER ensures only the best source per callsign+timestamp is kept
         query = self.adl.format_query(f"""
-            SELECT callsign, flight_uid, timestamp_utc, lat, lon, groundspeed_kts, altitude_ft,
-                   fp_dept_icao, fp_dest_icao
-            FROM (
-                -- TMI trajectory table (high-res event data - PRIORITY)
+            WITH trajectory_points AS (
+                -- TMI trajectory table (high-res event data - priority 1)
                 SELECT c.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       1 AS source_priority
                 FROM dbo.adl_tmi_trajectory t
                 INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
                 INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
@@ -880,10 +884,11 @@ class TMIComplianceAnalyzer:
 
                 UNION ALL
 
-                -- Archive table (older data)
+                -- Archive table (older data - priority 2)
                 SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       2 AS source_priority
                 FROM dbo.adl_trajectory_archive t
                 INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
                 WHERE t.timestamp_utc >= %s
@@ -894,10 +899,11 @@ class TMIComplianceAnalyzer:
 
                 UNION ALL
 
-                -- Live table (recent data - needs join for callsign)
+                -- Live table (recent data - priority 3)
                 SELECT c.callsign, t.flight_uid, t.recorded_utc AS timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       3 AS source_priority
                 FROM dbo.adl_flight_trajectory t
                 INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
                 INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
@@ -906,7 +912,18 @@ class TMIComplianceAnalyzer:
                   AND c.callsign IN ({callsign_in})
                   AND t.lat BETWEEN %s AND %s
                   AND t.lon BETWEEN %s AND %s
-            ) combined
+            ),
+            ranked AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY callsign, timestamp_utc
+                    ORDER BY source_priority
+                ) AS rn
+                FROM trajectory_points
+            )
+            SELECT callsign, flight_uid, timestamp_utc, lat, lon,
+                   groundspeed_kts, altitude_ft, fp_dept_icao, fp_dest_icao
+            FROM ranked
+            WHERE rn = 1
             ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
@@ -929,7 +946,7 @@ class TMIComplianceAnalyzer:
 
         positions = cursor.fetchall()
         cursor.close()
-        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (tmi+archive+live)")
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (deduplicated, TMI preferred)")
 
         # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
@@ -1025,17 +1042,18 @@ class TMIComplianceAnalyzer:
             tmi_end = tmi.get_effective_end()
             callsign_in = "'" + "','".join(callsigns) + "'"
 
+            # Use unified view: TMI high-res data preferred, archive as fallback
             query = self.adl.format_query(f"""
-                SELECT c.callsign, t.flight_uid, t.timestamp_utc,
-                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao
-                FROM dbo.adl_trajectory_archive t
-                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.timestamp_utc >= %s
-                  AND t.timestamp_utc <= %s
-                  AND c.callsign IN ({callsign_in})
-                ORDER BY c.callsign, t.timestamp_utc
+                SELECT v.callsign, v.flight_uid, v.timestamp_utc,
+                       v.lat, v.lon, v.groundspeed_kts, v.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       v.tmi_tier, v.source_table
+                FROM dbo.vw_trajectory_tmi_complete v
+                INNER JOIN dbo.adl_flight_plan p ON v.flight_uid = p.flight_uid
+                WHERE v.timestamp_utc >= %s
+                  AND v.timestamp_utc <= %s
+                  AND v.callsign IN ({callsign_in})
+                ORDER BY v.callsign, v.timestamp_utc
             """)
             cursor.execute(query, (
                 tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
@@ -1044,9 +1062,11 @@ class TMIComplianceAnalyzer:
 
             flight_trajectories = defaultdict(list)
             flight_metadata = {}
+            tmi_count = 0
+            archive_count = 0
 
             for row in cursor.fetchall():
-                cs, fuid, ts, lat, lon, gs, alt, dept, dest = row
+                cs, fuid, ts, lat, lon, gs, alt, dept, dest, tmi_tier, source_table = row
                 flight_trajectories[cs].append({
                     'timestamp': normalize_datetime(ts),
                     'lat': float(lat),
@@ -1060,11 +1080,20 @@ class TMIComplianceAnalyzer:
                     flight_metadata[cs] = {
                         'flight_uid': fuid,
                         'dept': dept or 'UNK',
-                        'dest': dest or 'UNK'
+                        'dest': dest or 'UNK',
+                        'tmi_tier': tmi_tier,
+                        'source': source_table
                     }
+                    if source_table == 'TMI':
+                        tmi_count += 1
+                    else:
+                        archive_count += 1
 
             cursor.close()
-            logger.info(f"  Loaded trajectories for {len(flight_trajectories)} flights (on-demand)")
+            total = len(flight_trajectories)
+            logger.info(f"  Loaded trajectories for {total} flights (on-demand via unified view)")
+            if total > 0:
+                logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}")
 
         # Process each flight using CACHED boundary crossings
         for callsign in callsigns:
