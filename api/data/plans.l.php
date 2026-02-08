@@ -30,7 +30,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-$query = mysqli_query($conn_sqli, ("SELECT * FROM p_plans ORDER BY event_date DESC LIMIT 15"));
+$query = mysqli_query($conn_sqli, ("SELECT * FROM p_plans ORDER BY event_date DESC"));
 
 // Hotline badge abbreviations
 $hotline_badges = [
