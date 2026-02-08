@@ -860,6 +860,8 @@ const DEMAND_STATE = {
     summaryLoaded: false, // Whether summary breakdown data has been loaded
     // Legend visibility (persisted in localStorage)
     legendVisible: localStorage.getItem('demand_legend_visible') !== 'false', // default true
+    // ECharts legend selected state (preserved across auto-refresh)
+    legendSelected: {},
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -1229,6 +1231,30 @@ function getEnabledPhases() {
 }
 
 /**
+ * Sync phase filter checkbox DOM state from DEMAND_STATE.phaseGroups.
+ * Ensures visual checkbox state matches JS state after refresh cycles.
+ */
+function syncPhaseCheckboxes() {
+    for (var group in DEMAND_STATE.phaseGroups) {
+        var $cb = $('#phase_' + group);
+        if ($cb.length) {
+            $cb.prop('checked', DEMAND_STATE.phaseGroups[group]);
+        }
+    }
+}
+
+/**
+ * Sync rate line checkbox DOM state from DEMAND_STATE.
+ * Ensures visual checkbox state matches JS state after refresh cycles.
+ */
+function syncRateCheckboxes() {
+    $('#rate_vatsim_aar').prop('checked', DEMAND_STATE.showVatsimAar);
+    $('#rate_vatsim_adr').prop('checked', DEMAND_STATE.showVatsimAdr);
+    $('#rate_rw_aar').prop('checked', DEMAND_STATE.showRwAar);
+    $('#rate_rw_adr').prop('checked', DEMAND_STATE.showRwAdr);
+}
+
+/**
  * Show chart loading overlay for filter changes
  */
 function showChartLoading() {
@@ -1257,6 +1283,8 @@ function renderWithLoading() {
         // Small timeout to ensure overlay is visible before render blocks
         setTimeout(() => {
             renderCurrentView();
+            syncPhaseCheckboxes();
+            syncRateCheckboxes();
             hideChartLoading();
         }, 50);
     });
@@ -1670,6 +1698,7 @@ function setupEventHandlers() {
     // Uses cached breakdown data to avoid re-querying on view changes
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
+        DEMAND_STATE.legendSelected = {}; // Reset legend state when series names change
         if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
             // Check if we need to load breakdown data (only if not cached or cache expired)
             const needsSummaryData = DEMAND_STATE.chartView !== 'status';
@@ -2113,6 +2142,10 @@ function loadDemandData() {
 
             updateInfoBarStats(demandResponse);
             updateLastUpdateDisplay(demandResponse.last_adl_update);
+
+            // Sync checkbox DOM state to ensure visual state matches JS state after refresh
+            syncPhaseCheckboxes();
+            syncRateCheckboxes();
         });
 }
 
@@ -2505,6 +2538,9 @@ function renderChart(data) {
         return;
     }
 
+    // Capture legend selected state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
+
     // Hide loading indicator
     DEMAND_STATE.chart.hideLoading();
 
@@ -2726,10 +2762,8 @@ function renderChart(data) {
             },
         },
         legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible),
-            direction === 'both' ? {
-                // For both directions, we'd need two legends but ECharts scroll handles it
-                // Just use single legend with all series for simplicity
-            } : {}
+            direction === 'both' ? {} : {},
+            { selected: DEMAND_STATE.legendSelected }
         ),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
@@ -2929,6 +2963,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         console.error('Chart not initialized');
         return;
     }
+
+    // Capture legend selected state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
 
     DEMAND_STATE.chart.hideLoading();
 
@@ -3238,9 +3275,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 return tooltip;
             },
         },
-        legend: (extraOptions && extraOptions.legend)
-            ? Object.assign({}, extraOptions.legend, { show: DEMAND_STATE.legendVisible })
-            : getStandardLegendConfig(DEMAND_STATE.legendVisible),
+        legend: Object.assign({},
+            (extraOptions && extraOptions.legend)
+                ? Object.assign({}, extraOptions.legend, { show: DEMAND_STATE.legendVisible })
+                : getStandardLegendConfig(DEMAND_STATE.legendVisible),
+            { selected: DEMAND_STATE.legendSelected }
+        ),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
         grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : getStandardGridConfig(),
@@ -5087,6 +5127,19 @@ function getStandardLegendConfig(visible) {
             fontFamily: '"Segoe UI", sans-serif',
         },
     };
+}
+
+/**
+ * Capture the current ECharts legend selected state before re-render.
+ * Preserves which legend items the user has toggled on/off across auto-refreshes.
+ */
+function captureLegendSelected() {
+    if (!DEMAND_STATE.chart) return {};
+    var option = DEMAND_STATE.chart.getOption();
+    if (option && option.legend && option.legend[0] && option.legend[0].selected) {
+        return Object.assign({}, option.legend[0].selected);
+    }
+    return {};
 }
 
 /**
