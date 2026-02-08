@@ -57,7 +57,7 @@ Filter airports by category:
 | **All** | All airports in database |
 | **Core30** | 30 busiest US airports |
 | **OEP35** | 35 Operational Evolution Partnership airports |
-| **ASPM77** | 77 ASPM-tracked airports |
+| **ASPM82** | 77 ASPM-tracked airports |
 
 ### ARTCC Filter
 

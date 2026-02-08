@@ -272,7 +272,7 @@ class AdlQueryHelper {
                     CASE WHEN LEFT(f.fp_dest_icao, 1) IN ('K', 'P') THEN 1 ELSE 0 END AS arr_domestic,
                     dept_apt.DCC_REGION AS dep_dcc_region,
                     dest_apt.DCC_REGION AS arr_dcc_region,
-                    dest_apt.ASPM77 AS arr_aspm77,
+                    dest_apt.ASPM82 AS arr_aspm82,
                     dest_apt.OEP35 AS arr_oep35,
                     dest_apt.Core30 AS arr_core30
                 FROM dbo.vw_adl_flights f
@@ -299,10 +299,10 @@ class AdlQueryHelper {
                 SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'South Central' THEN 1 ELSE 0 END) AS dep_dcc_sc,
                 SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'West' THEN 1 ELSE 0 END) AS dep_dcc_w,
                 SUM(CASE WHEN dep_domestic = 1 AND (dep_dcc_region IS NULL OR dep_dcc_region NOT IN ('Northeast','Southeast','Midwest','South Central','West')) THEN 1 ELSE 0 END) AS dep_dcc_other,
-                SUM(CASE WHEN arr_domestic = 1 AND arr_aspm77 = 1 THEN 1 ELSE 0 END) AS arr_aspm77,
+                SUM(CASE WHEN arr_domestic = 1 AND arr_aspm82 = 1 THEN 1 ELSE 0 END) AS arr_aspm82,
                 SUM(CASE WHEN arr_domestic = 1 AND arr_oep35 = 1 THEN 1 ELSE 0 END) AS arr_oep35,
                 SUM(CASE WHEN arr_domestic = 1 AND arr_core30 = 1 THEN 1 ELSE 0 END) AS arr_core30,
-                SUM(CASE WHEN arr_domestic = 1 AND (arr_aspm77 = 0 OR arr_aspm77 IS NULL) THEN 1 ELSE 0 END) AS arr_non_aspm77,
+                SUM(CASE WHEN arr_domestic = 1 AND (arr_aspm82 = 0 OR arr_aspm82 IS NULL) THEN 1 ELSE 0 END) AS arr_non_aspm82,
                 SUM(CASE WHEN arr_domestic = 1 AND (arr_oep35 = 0 OR arr_oep35 IS NULL) THEN 1 ELSE 0 END) AS arr_non_oep35,
                 SUM(CASE WHEN arr_domestic = 1 AND (arr_core30 = 0 OR arr_core30 IS NULL) THEN 1 ELSE 0 END) AS arr_non_core30
             FROM flight_classifications
@@ -323,7 +323,7 @@ class AdlQueryHelper {
                     CASE WHEN LEFT(fp.fp_dest_icao, 1) IN ('K', 'P') THEN 1 ELSE 0 END AS arr_domestic,
                     dept_apt.DCC_REGION AS dep_dcc_region,
                     dest_apt.DCC_REGION AS arr_dcc_region,
-                    dest_apt.ASPM77 AS arr_aspm77,
+                    dest_apt.ASPM82 AS arr_aspm82,
                     dest_apt.OEP35 AS arr_oep35,
                     dest_apt.Core30 AS arr_core30
                 FROM dbo.adl_flight_core c
@@ -351,10 +351,10 @@ class AdlQueryHelper {
                 SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'South Central' THEN 1 ELSE 0 END) AS dep_dcc_sc,
                 SUM(CASE WHEN dep_domestic = 1 AND dep_dcc_region = 'West' THEN 1 ELSE 0 END) AS dep_dcc_w,
                 SUM(CASE WHEN dep_domestic = 1 AND (dep_dcc_region IS NULL OR dep_dcc_region NOT IN ('Northeast','Southeast','Midwest','South Central','West')) THEN 1 ELSE 0 END) AS dep_dcc_other,
-                SUM(CASE WHEN arr_domestic = 1 AND arr_aspm77 = 1 THEN 1 ELSE 0 END) AS arr_aspm77,
+                SUM(CASE WHEN arr_domestic = 1 AND arr_aspm82 = 1 THEN 1 ELSE 0 END) AS arr_aspm82,
                 SUM(CASE WHEN arr_domestic = 1 AND arr_oep35 = 1 THEN 1 ELSE 0 END) AS arr_oep35,
                 SUM(CASE WHEN arr_domestic = 1 AND arr_core30 = 1 THEN 1 ELSE 0 END) AS arr_core30,
-                SUM(CASE WHEN arr_domestic = 1 AND (arr_aspm77 = 0 OR arr_aspm77 IS NULL) THEN 1 ELSE 0 END) AS arr_non_aspm77,
+                SUM(CASE WHEN arr_domestic = 1 AND (arr_aspm82 = 0 OR arr_aspm82 IS NULL) THEN 1 ELSE 0 END) AS arr_non_aspm82,
                 SUM(CASE WHEN arr_domestic = 1 AND (arr_oep35 = 0 OR arr_oep35 IS NULL) THEN 1 ELSE 0 END) AS arr_non_oep35,
                 SUM(CASE WHEN arr_domestic = 1 AND (arr_core30 = 0 OR arr_core30 IS NULL) THEN 1 ELSE 0 END) AS arr_non_core30
             FROM flight_classifications

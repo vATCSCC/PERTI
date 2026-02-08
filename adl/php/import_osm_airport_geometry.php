@@ -3,7 +3,7 @@
  * import_osm_airport_geometry.php
  * 
  * Imports airport geometry from OpenStreetMap via Overpass API
- * Targets: ASPM77 + Canada + Mexico + Latin America + Caribbean
+ * Targets: ASPM82 + Canada + Mexico + Latin America + Caribbean
  * 
  * Usage: php import_osm_airport_geometry.php [--airport=ICAO] [--dry-run] [--start-from=ICAO]
  */
@@ -65,7 +65,7 @@ function getAdlConnection() {
 // ============================================================================
 
 $AIRPORTS = [
-    // ASPM77 - FAA Core 77 Airports
+    // ASPM82 - FAA Core 77 Airports
     'KATL' => 'Atlanta Hartsfield-Jackson',
     'KBOS' => 'Boston Logan',
     'KBWI' => 'Baltimore-Washington',
@@ -514,7 +514,7 @@ function main($argv) {
     
     echo "=======================================================================\n";
     echo "  PERTI OSM Airport Geometry Import\n";
-    echo "  Airports: " . count($AIRPORTS) . " (ASPM77 + CA + MX + LatAm + Caribbean)\n";
+    echo "  Airports: " . count($AIRPORTS) . " (ASPM82 + CA + MX + LatAm + Caribbean)\n";
     echo "  " . date('Y-m-d H:i:s') . "\n";
     echo "=======================================================================\n\n";
     

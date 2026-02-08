@@ -2039,7 +2039,7 @@
         const apt = icao.toUpperCase();
         if (CORE30_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['CORE30'];}
         if (OEP35_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['OEP35'];}
-        if (ASPM77_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['ASPM77'];}
+        if (ASPM82_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['ASPM82'];}
         return AIRPORT_TIER_COLORS['OTHER'];
     }
 
@@ -3348,7 +3348,7 @@
     const AIRPORT_TIER_COLORS = {
         'CORE30': '#dc3545',    // Red - highest priority
         'OEP35': '#007bff',     // Blue
-        'ASPM77': '#ffc107',    // Yellow
+        'ASPM82': '#ffc107',    // Yellow
         'OTHER': '#6c757d',     // Gray - unclassified
         '': '#6c757d',
     };
@@ -3433,8 +3433,8 @@
         'KCLE', 'KCVG', 'KPBI', 'KPIT', 'KSTL',
     ];
 
-    // ASPM 77 airports (additional beyond OEP 35)
-    const ASPM77_AIRPORTS = [
+    // ASPM 82 airports (additional beyond OEP 35)
+    const ASPM82_AIRPORTS = [
         'KABQ', 'PANC', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBUF', 'KBUR',
         'KCHS', 'KCMH', 'KDAL', 'KDAY', 'KDSM', 'KELP', 'KGEG', 'KGRR',
         'KGSO', 'PHNL', 'KHPN', 'KIND', 'KISP', 'KJAX', 'KLGB', 'KLIT',
@@ -4742,7 +4742,7 @@
                 items = [
                     { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                     { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;
@@ -4963,7 +4963,7 @@
                 items = [
                     { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                     { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;

@@ -3196,7 +3196,7 @@ $(document).ready(function() {
             'KSTL', 'KPDX', 'KHON', 'KPIT', 'KCVG',
         ];
 
-        const ASPM77_AIRPORTS = [
+        const ASPM82_AIRPORTS = [
             ...OEP35_AIRPORTS,
             'KABQ', 'KAUS', 'KBDL', 'KBNA', 'KBUF', 'KBURB', 'KCMH', 'KDAL',
             'KHOU', 'KIND', 'KJAX', 'KMCI', 'KMKE', 'KMSY', 'KOAK', 'KOMA',
@@ -3208,7 +3208,7 @@ $(document).ready(function() {
         const AIRPORT_TIER_COLORS = {
             'CORE30': '#e15759',    // Red
             'OEP35': '#4e79a7',     // Blue
-            'ASPM77': '#edc948',    // Yellow
+            'ASPM82': '#edc948',    // Yellow
             'OTHER': '#59a14f',     // Green
             '': '#6c757d',
         };
@@ -3218,7 +3218,7 @@ $(document).ready(function() {
             const apt = icao.toUpperCase();
             if (CORE30_AIRPORTS.includes(apt)) {return 'CORE30';}
             if (OEP35_AIRPORTS.includes(apt)) {return 'OEP35';}
-            if (ASPM77_AIRPORTS.includes(apt)) {return 'ASPM77';}
+            if (ASPM82_AIRPORTS.includes(apt)) {return 'ASPM82';}
             return 'OTHER';
         }
 
@@ -4232,7 +4232,7 @@ $(document).ready(function() {
                     items = [
                         { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                         { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                        { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                        { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                         { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;

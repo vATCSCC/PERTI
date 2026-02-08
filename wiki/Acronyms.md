@@ -253,7 +253,7 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 |---------|------------|
 | **Core30** | 30 busiest US airports by operations |
 | **OEP35** | 35 Operational Evolution Partnership airports |
-| **ASPM77** | 77 airports tracked in Aviation System Performance Metrics |
+| **ASPM82** | 77 airports tracked in Aviation System Performance Metrics |
 | **Pacing Airport** | ~30 larger airports whose traffic sets pace for CONUS operations |
 
 ---

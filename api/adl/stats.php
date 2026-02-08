@@ -2,7 +2,7 @@
 
 // api/adl/stats.php
 // Returns flight count statistics for the TMI status bar
-// Categories: Global (D-D, D-I, I-D, I-I), Domestic by DCC/ASPM77/OEP35/Core30
+// Categories: Global (D-D, D-I, I-D, I-I), Domestic by DCC/ASPM82/OEP35/Core30
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -118,7 +118,7 @@ if (!$row) {
             "total" => 0,
             "arr_dcc" => ["NE" => 0, "SE" => 0, "MW" => 0, "SC" => 0, "W" => 0, "Other" => 0],
             "dep_dcc" => ["NE" => 0, "SE" => 0, "MW" => 0, "SC" => 0, "W" => 0, "Other" => 0],
-            "arr_aspm77" => ["yes" => 0, "no" => 0],
+            "arr_aspm82" => ["yes" => 0, "no" => 0],
             "arr_oep35" => ["yes" => 0, "no" => 0],
             "arr_core30" => ["yes" => 0, "no" => 0]
         ]
@@ -154,7 +154,7 @@ $response = [
             "W" => (int)$row['dep_dcc_w'],
             "Other" => (int)$row['dep_dcc_other']
         ],
-        "arr_aspm77" => ["yes" => (int)$row['arr_aspm77'], "no" => (int)$row['arr_non_aspm77']],
+        "arr_aspm82" => ["yes" => (int)$row['arr_aspm82'], "no" => (int)$row['arr_non_aspm82']],
         "arr_oep35" => ["yes" => (int)$row['arr_oep35'], "no" => (int)$row['arr_non_oep35']],
         "arr_core30" => ["yes" => (int)$row['arr_core30'], "no" => (int)$row['arr_non_core30']]
     ]
