@@ -11,36 +11,36 @@
  */
 
 /* ===========================================
-   CSS Variables
+   CSS Variables (Local overrides - reference global tokens)
    =========================================== */
 :root {
-    --ntml-green: #00ff00;
-    --ntml-dark: #1a1a2e;
-    --ntml-darker: #0d0d1a;
-    --discord-purple: #7289DA;
-    --border-purple: #6f42c1;
-    --text-orange: #fd7e14;
+    --ntml-green: #00ff00;              /* Terminal green - keep as-is (specific NTML aesthetic) */
+    --ntml-dark: #1a1a2e;               /* NTML terminal dark - keep as-is */
+    --ntml-darker: #0d0d1a;             /* NTML terminal darker - keep as-is */
+    --discord-purple: var(--gradient-discord-start); /* Use global Discord purple */
+    --border-purple: #6f42c1;           /* Bootstrap purple - keep as-is */
+    --text-orange: #fd7e14;             /* Bootstrap warning orange - keep as-is */
 }
 
 /* ===========================================
    Tab Navigation
    =========================================== */
 .nav-tabs-publisher {
-    border-bottom: 2px solid #dee2e6;
+    border-bottom: 2px solid var(--gray-300);
 }
 
 .nav-tabs-publisher .nav-link {
     border: none;
     border-bottom: 3px solid transparent;
-    color: #6c757d;
+    color: var(--gray-600);
     padding: 0.75rem 1.25rem;
     font-weight: 500;
     transition: all 0.2s ease;
 }
 
 .nav-tabs-publisher .nav-link:hover {
-    border-bottom-color: #dee2e6;
-    color: #495057;
+    border-bottom-color: var(--gray-300);
+    color: var(--gray-700);
     background: transparent;
 }
 
@@ -60,20 +60,20 @@
    =========================================== */
 .ntml-type-card {
     cursor: pointer;
-    border: 2px solid #dee2e6;
+    border: 2px solid var(--gray-300);
     transition: all 0.2s ease;
     background: #fff;
 }
 
 .ntml-type-card:hover {
     border-color: var(--discord-purple);
-    box-shadow: 0 2px 8px rgba(114, 137, 218, 0.2);
+    box-shadow: 0 2px 8px rgba(var(--discord-purple-rgb), 0.2);
     transform: translateY(-2px);
 }
 
 .ntml-type-card.selected {
     border-color: var(--discord-purple);
-    background: rgba(114, 137, 218, 0.1);
+    background: rgba(var(--discord-purple-rgb), 0.1);
 }
 
 .ntml-type-icon {
@@ -86,20 +86,20 @@
    =========================================== */
 .advisory-type-card {
     cursor: pointer;
-    border: 2px solid #dee2e6;
+    border: 2px solid var(--gray-300);
     transition: all 0.2s ease;
     background: #fff;
 }
 
 .advisory-type-card:hover {
     border-color: var(--discord-purple);
-    box-shadow: 0 2px 8px rgba(114, 137, 218, 0.2);
+    box-shadow: 0 2px 8px rgba(var(--discord-purple-rgb), 0.2);
     transform: translateY(-2px);
 }
 
 .advisory-type-card.selected {
     border-color: var(--discord-purple);
-    background: rgba(114, 137, 218, 0.1);
+    background: rgba(var(--discord-purple-rgb), 0.1);
 }
 
 .advisory-type-icon {
@@ -123,24 +123,24 @@
 .tmi-advisory-preview {
     font-family: 'Inconsolata', 'Consolas', 'Monaco', monospace;
     font-size: 0.85rem;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--gray-100);
+    border: 1px solid var(--gray-300);
     border-radius: 4px;
     padding: 1rem;
     max-height: 400px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
-    color: #212529;
+    color: var(--gray-800);
 }
 
 .char-count {
     font-size: 0.75rem;
-    color: #6c757d;
+    color: var(--gray-600);
 }
 
 .char-count.text-danger {
-    color: #dc3545 !important;
+    color: var(--status-danger-text) !important;
     font-weight: bold;
 }
 
@@ -178,7 +178,7 @@
 }
 
 .border-success {
-    border-left-color: #28a745 !important;
+    border-left-color: var(--status-success-bg) !important;
 }
 
 .border-purple {
@@ -211,25 +211,25 @@
 /* Fix hover/focus text visibility */
 .form-control:hover,
 .form-control:focus {
-    color: #212529;
+    color: var(--gray-800);
     background-color: #fff;
 }
 
 .form-control:focus {
     border-color: var(--discord-purple);
-    box-shadow: 0 0 0 0.2rem rgba(114, 137, 218, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(var(--discord-purple-rgb), 0.25);
 }
 
 /* Ensure text is always visible */
 input.form-control,
 select.form-control,
 textarea.form-control {
-    color: #212529 !important;
+    color: var(--gray-800) !important;
     background-color: #fff !important;
 }
 
 input.form-control::placeholder {
-    color: #6c757d !important;
+    color: var(--gray-600) !important;
 }
 
 /* Text uppercase inputs */
@@ -375,7 +375,7 @@ input.form-control::placeholder {
 }
 
 .perti-card-utc {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--gradient-utc-start) 0%, var(--gradient-utc-end) 100%);
     color: #fff;
 }
 
@@ -397,7 +397,7 @@ input.form-control::placeholder {
 }
 
 .card-body a:hover {
-    color: #5b6eae;
+    color: var(--link-purple-hover);
     text-decoration: underline;
 }
 
@@ -405,13 +405,13 @@ input.form-control::placeholder {
    Alert Info Styling
    =========================================== */
 .alert-info {
-    background-color: #e7f3ff;
-    border-color: #b6d4fe;
-    color: #084298;
+    background-color: var(--alert-info-bg);
+    border-color: var(--alert-info-border);
+    color: var(--alert-info-text);
 }
 
 .alert-info a {
-    color: #0a58ca;
+    color: var(--alert-info-link);
     font-weight: 500;
 }
 
@@ -437,13 +437,13 @@ input.form-control::placeholder {
 }
 
 .qualifier-btn.active {
-    background-color: #007bff !important;
-    border-color: #007bff !important;
+    background-color: var(--status-info-base) !important;
+    border-color: var(--status-info-base) !important;
     color: #fff !important;
 }
 
 .qualifier-btn:not(.active):hover {
-    background-color: #e9ecef;
+    background-color: var(--gray-200);
 }
 
 /* Qualifier Groups */
@@ -513,7 +513,7 @@ input[type="time"] {
 }
 
 #restrictionsTable thead th {
-    background-color: #1a5276;
+    background-color: var(--table-header-bg);
     color: #fff;
     font-weight: 600;
     text-transform: uppercase;
@@ -524,7 +524,7 @@ input[type="time"] {
 }
 
 #restrictionsTable tbody tr {
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--gray-300);
 }
 
 #restrictionsTable tbody tr:hover {
@@ -558,14 +558,14 @@ input[type="time"] {
 }
 
 .advisory-card .advisory-body {
-    background-color: #f8f9fa;
+    background-color: var(--gray-100);
 }
 
 .advisory-text {
     font-family: 'Inconsolata', 'Consolas', monospace;
     font-size: 0.8rem;
     background-color: #fff;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--gray-300);
     padding: 0.75rem;
     border-radius: 4px;
     white-space: pre-wrap;
@@ -576,7 +576,7 @@ input[type="time"] {
 
 /* Status Header */
 .tmi-status-header {
-    background: linear-gradient(135deg, #1a5276 0%, #2874a6 100%);
+    background: linear-gradient(135deg, var(--gradient-table-header-start) 0%, var(--gradient-table-header-end) 100%);
     color: #fff;
     padding: 1rem;
     border-radius: 4px 4px 0 0;
@@ -610,7 +610,7 @@ input[type="time"] {
 
 /* Filter Controls */
 #activeTmiFilters {
-    background-color: #f8f9fa;
+    background-color: var(--gray-100);
     padding: 0.75rem;
     border-radius: 4px;
     margin-bottom: 1rem;
@@ -632,16 +632,16 @@ input[type="time"] {
 }
 
 .tmi-section-tabs .nav-link.active {
-    background-color: #1a5276;
+    background-color: var(--table-header-bg);
     color: #fff;
-    border-color: #1a5276;
+    border-color: var(--table-header-bg);
 }
 
 /* Empty State */
 .tmi-empty-state {
     padding: 3rem;
     text-align: center;
-    color: #6c757d;
+    color: var(--gray-600);
 }
 
 .tmi-empty-state i {
@@ -697,7 +697,7 @@ input[type="time"] {
 
 /* Restriction Detail Modal */
 .restriction-detail table th {
-    color: #6c757d;
+    color: var(--gray-600);
     font-weight: 500;
     font-size: 0.85rem;
 }
@@ -714,20 +714,20 @@ input[type="time"] {
 /* Cancelled Row Styling */
 #restrictionsTable tr.table-secondary {
     background-color: rgba(220, 53, 69, 0.08) !important;
-    color: #212529 !important;
+    color: var(--gray-800) !important;
 }
 
 #restrictionsTable tr.table-secondary td {
-    color: #212529 !important;
+    color: var(--gray-800) !important;
 }
 
 #restrictionsTable tr.table-secondary .restriction-text {
     text-decoration: line-through;
-    color: #6c757d !important;
+    color: var(--gray-600) !important;
 }
 
 #restrictionsTable tr.table-secondary .badge-secondary {
-    background-color: #dc3545 !important;
+    background-color: var(--status-danger-text) !important;
     color: #fff !important;
     font-weight: 600;
 }
@@ -736,11 +736,11 @@ input[type="time"] {
 .advisory-card.border-secondary {
     background-color: #fff5f5 !important;
     border: none !important;
-    box-shadow: 0 0 0 1px #dc3545;
+    box-shadow: 0 0 0 1px var(--status-danger-text);
 }
 
 .advisory-card.border-secondary .card-header {
-    background-color: #dc3545 !important;
+    background-color: var(--status-danger-text) !important;
     color: #fff !important;
 }
 
@@ -750,7 +750,7 @@ input[type="time"] {
 
 .advisory-card.border-secondary .advisory-text {
     text-decoration: line-through;
-    color: #6c757d;
+    color: var(--gray-600);
 }
 
 /* ===========================================
@@ -795,7 +795,7 @@ input[type="time"] {
 
 .facility-filter-select + .select2-container.select2-container--focus .select2-selection--multiple {
     border-color: var(--discord-purple);
-    box-shadow: 0 0 0 0.2rem rgba(114, 137, 218, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(var(--discord-purple-rgb), 0.25);
 }
 
 /* Selected tags (pills) */
@@ -806,7 +806,7 @@ input[type="time"] {
     font-size: 0.72rem;
     font-weight: 600;
     border: none;
-    background-color: #6c757d;
+    background-color: var(--gray-600);
     color: #fff;
     display: inline-flex;
     align-items: center;
@@ -833,13 +833,13 @@ input[type="time"] {
 
 /* Placeholder text */
 .facility-filter-select + .select2-container .select2-search__field::placeholder {
-    color: #6c757d;
+    color: var(--gray-600);
     font-size: 0.8rem;
 }
 
 /* Empty state placeholder */
 .facility-filter-select + .select2-container .select2-selection__placeholder {
-    color: #6c757d;
+    color: var(--gray-600);
     font-size: 0.8rem;
 }
 
@@ -853,10 +853,10 @@ input[type="time"] {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #1a5276;
+    color: var(--table-header-bg);
     padding: 8px 8px 4px;
-    background-color: #f8f9fa;
-    border-top: 1px solid #dee2e6;
+    background-color: var(--gray-100);
+    border-top: 1px solid var(--gray-300);
 }
 
 .select2-container--default .select2-results__option {
@@ -932,7 +932,7 @@ input[type="time"] {
 
 /* Clear all button styling */
 .facility-filter-select + .select2-container .select2-selection__clear {
-    color: #dc3545;
+    color: var(--status-danger-text);
     font-size: 1rem;
     font-weight: bold;
     margin-right: 4px;
@@ -947,7 +947,7 @@ input[type="time"] {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    color: #495057;
+    color: var(--gray-700);
     font-weight: 600;
 }
 
@@ -996,7 +996,7 @@ input[type="time"] {
 #activeTmiFilters .select2-container .select2-selection--single .select2-selection__rendered {
     padding: 0 4px;
     line-height: 27px;
-    color: #212529;
+    color: var(--gray-800);
 }
 
 #activeTmiFilters .select2-container .select2-selection--single .select2-selection__arrow {
@@ -1014,7 +1014,7 @@ input[type="time"] {
 #activeTmiFilters .select2-container.select2-container--open .select2-selection--multiple,
 #activeTmiFilters .select2-container.select2-container--open .select2-selection--single {
     border-color: var(--discord-purple);
-    box-shadow: 0 0 0 0.2rem rgba(114, 137, 218, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(var(--discord-purple-rgb), 0.25);
 }
 
 /* Selected tags (pills) - applies to all multiselect in filters */
@@ -1025,7 +1025,7 @@ input[type="time"] {
     font-size: 0.72rem;
     font-weight: 600;
     border: none;
-    background-color: #6c757d;
+    background-color: var(--gray-600);
     color: #fff;
     display: inline-flex;
     align-items: center;
@@ -1056,7 +1056,7 @@ input[type="time"] {
 /* Placeholder styling */
 #activeTmiFilters .select2-container .select2-selection__placeholder,
 #activeTmiFilters .select2-container .select2-search__field::placeholder {
-    color: #6c757d;
+    color: var(--gray-600);
     font-size: 0.8rem;
 }
 
@@ -1069,7 +1069,7 @@ input[type="time"] {
 /* Status filter color coding */
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Active"],
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="ACTIVE"] {
-    background-color: #28a745;
+    background-color: var(--status-success-bg);
 }
 
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Scheduled"],
@@ -1079,12 +1079,12 @@ input[type="time"] {
 
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Cancelled"],
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="CANCELLED"] {
-    background-color: #dc3545;
+    background-color: var(--status-danger-text);
 }
 
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="Expired"],
 #activeTmiFilters #filterStatus + .select2-container .select2-selection__choice[title="EXPIRED"] {
-    background-color: #6c757d;
+    background-color: var(--gray-600);
 }
 
 /* Type filter colors */
@@ -1096,7 +1096,7 @@ input[type="time"] {
 #activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="STOP"],
 #activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="Ground Stop"],
 #activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="GS"] {
-    background-color: #dc3545;
+    background-color: var(--status-danger-text);
 }
 
 #activeTmiFilters #filterType + .select2-container .select2-selection__choice[title="GDP"],

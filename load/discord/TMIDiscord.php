@@ -36,6 +36,7 @@
 
 require_once __DIR__ . '/DiscordAPI.php';
 require_once __DIR__ . '/MultiDiscordAPI.php';
+require_once __DIR__ . '/../perti_constants.php';
 
 class TMIDiscord {
     
@@ -361,7 +362,7 @@ class TMIDiscord {
         $acftCount = $data['flights_delayed'] ?? $data['aircraft_count'] ?? '';
         
         // Build reason string
-        $reasonCode = strtoupper($data['reason_code'] ?? 'VOLUME');
+        $reasonCode = strtoupper($data['reason_code'] ?? PERTI_DEFAULT_REASONS['DELAY']);
         $reasonDetail = strtoupper($data['reason_detail'] ?? $reasonCode);
         $reasonStr = "{$reasonCode}:{$reasonDetail}";
         
@@ -488,7 +489,7 @@ class TMIDiscord {
         $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$newDelays}";
         $lines[] = "PROBABILITY OF EXTENSION: " . strtoupper($data['prob_extension'] ?? 'MEDIUM');
         
-        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? 'WEATHER');
+        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? PERTI_DEFAULT_REASONS['GS']);
         $conditionText = $data['condition_text'] ?? '';
         $conditionLine = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " / {$conditionText}" : '');
         $lines[] = strlen($conditionLine) > self::MAX_LINE_LENGTH 
@@ -578,7 +579,7 @@ class TMIDiscord {
         if (!empty($data['max_delay'])) $lines[] = "MAXIMUM DELAY: {$data['max_delay']}";
         if (!empty($data['avg_delay'])) $lines[] = "AVERAGE DELAY: {$data['avg_delay']}";
         
-        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? 'WEATHER');
+        $condition = strtoupper($data['impacting_condition'] ?? $data['reason_code'] ?? PERTI_DEFAULT_REASONS['GS']);
         $conditionText = $data['condition_text'] ?? '';
         $conditionLine = "IMPACTING CONDITION: {$condition}" . ($conditionText ? " / {$conditionText}" : '');
         $lines[] = strlen($conditionLine) > self::MAX_LINE_LENGTH 

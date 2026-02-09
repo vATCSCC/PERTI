@@ -3168,35 +3168,41 @@ $(document).ready(function() {
             return '#6c757d';  // Default gray
         }
 
-        // ARTCC colors - inherit from DCC region with variations
-        const CENTER_COLORS = {
-            // West (Red family)
-            'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759',
-            'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
-            // South Central (Orange family)
-            'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
-            // Midwest (Green family)
-            'ZAU': '#59a14f', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#45b39d',
-            // Southeast (Yellow family)
-            'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
-            // Northeast (Blue family)
-            'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
-            '': '#6c757d',
-        };
+        // ARTCC colors - use PERTI > FILTER_CONFIG > hardcoded fallback
+        const CENTER_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
+            ? Object.assign({}, PERTI.UI.ARTCC_COLORS, { '': PERTI.UI.ARTCC_COLORS.OTHER || '#6c757d' })
+            : (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.artcc && FILTER_CONFIG.artcc.colors)
+                ? Object.assign({}, FILTER_CONFIG.artcc.colors, { '': FILTER_CONFIG.artcc.colors.OTHER || '#6c757d' })
+                : {
+                    // West (Red family)
+                    'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759',
+                    'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
+                    // South Central (Orange family)
+                    'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
+                    // Midwest (Green family)
+                    'ZAU': '#59a14f', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#45b39d',
+                    // Southeast (Yellow family)
+                    'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
+                    // Northeast (Blue family)
+                    'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
+                    '': '#6c757d',
+                };
 
-        // TRACON to ARTCC mapping (major TRACONs)
-        const TRACON_TO_ARTCC = {
-            // Northeast
-            'N90': 'ZNY', 'A90': 'ZBW', 'PCT': 'ZDC', 'PHL': 'ZNY', 'Y90': 'ZDC',
-            // Southeast
-            'A80': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
-            // Midwest
-            'C90': 'ZAU', 'D21': 'ZMP', 'M98': 'ZMP', 'R90': 'ZKC',
-            // South Central
-            'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
-            // West
-            'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV',
-        };
+        // TRACON to ARTCC mapping - use FacilityHierarchy > hardcoded fallback
+        const TRACON_TO_ARTCC = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.TRACON_TO_ARTCC)
+            ? Object.assign({}, FacilityHierarchy.TRACON_TO_ARTCC)
+            : {
+                // Northeast
+                'N90': 'ZNY', 'A90': 'ZBW', 'PCT': 'ZDC', 'PHL': 'ZNY', 'Y90': 'ZDC',
+                // Southeast
+                'A80': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
+                // Midwest
+                'C90': 'ZAU', 'D21': 'ZMP', 'M98': 'ZMP', 'R90': 'ZKC',
+                // South Central
+                'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
+                // West
+                'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV',
+            };
 
         // TRACON colors - inherit from parent ARTCC
         function getTraconColor(tracon) {
@@ -3209,12 +3215,12 @@ $(document).ready(function() {
         // AIRPORT TIER COLORS - use FacilityHierarchy as source of truth
         // Tier lists loaded from apts.csv via FacilityHierarchy.AIRPORT_GROUPS
         // ─────────────────────────────────────────────────────────────────────
-        const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
+        const AIRPORT_TIER_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TIER_COLORS) || {
             'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
         };
 
         function getAirportTier(icao) {
-            return FacilityHierarchy.getAirportTier ? FacilityHierarchy.getAirportTier(icao) : 'OTHER';
+            return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getAirportTier) ? FacilityHierarchy.getAirportTier(icao) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3304,9 +3310,13 @@ $(document).ready(function() {
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // EXTENDED CARRIER COLORS (US Focus)
+        // EXTENDED CARRIER COLORS - use PERTI > FILTER_CONFIG > hardcoded fallback
         // ─────────────────────────────────────────────────────────────────────
-        const CARRIER_COLORS = {
+        const CARRIER_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.CARRIER_COLORS)
+            ? Object.assign({}, PERTI.UI.CARRIER_COLORS, { '': PERTI.UI.CARRIER_COLORS.OTHER || '#6c757d' })
+            : (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.colors)
+                ? Object.assign({}, FILTER_CONFIG.carrier.colors, { '': FILTER_CONFIG.carrier.colors.OTHER || '#6c757d' })
+                : {
             // US Legacy
             'AAL': '#0078d2', 'UAL': '#0033a0', 'DAL': '#e01933',
             // US Low-Cost
@@ -3352,14 +3362,15 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // OPERATOR GROUP COLORS - use FacilityHierarchy as source of truth
+
         // ─────────────────────────────────────────────────────────────────────
-        const OPERATOR_GROUP_COLORS = FacilityHierarchy.OPERATOR_GROUP_COLORS || {
+        const OPERATOR_GROUP_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.OPERATOR_GROUP_COLORS) || {
             'MAJOR': '#dc3545', 'REGIONAL': '#28a745', 'FREIGHT': '#007bff',
             'GA': '#ffc107', 'MILITARY': '#6f42c1', 'OTHER': '#6c757d',
         };
 
         function getOperatorGroup(callsign) {
-            return FacilityHierarchy.getOperatorGroup ? FacilityHierarchy.getOperatorGroup(callsign) : 'OTHER';
+            return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getOperatorGroup) ? FacilityHierarchy.getOperatorGroup(callsign) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -5280,15 +5291,13 @@ $(document).ready(function() {
     let   ADV_ORIG_COL = 20;
     let   ADV_DEST_COL = 20;
 
-    const ADV_FACILITY_CODES = [
-        'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-    ];
+    // Use FacilityHierarchy for ARTCC lists (source: PERTI namespace)
+    const ADV_FACILITY_CODES = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.FACILITY_GROUPS)
+        ? FacilityHierarchy.FACILITY_GROUPS.US_CONUS.artccs
+        : ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
+           'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'];
 
-    const ADV_US_FACILITY_CODES = [
-        'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-    ];
+    const ADV_US_FACILITY_CODES = ADV_FACILITY_CODES;
 
     // Check if token is an ARTCC (Z + 2 chars)
     function advIsArtcc(code) {
@@ -6536,8 +6545,11 @@ $(document).ready(function() {
             console.log('[ADV-ML] ARTCCs from all routes:', artccs);
 
             // Normalize ARTCCs: KZLA → ZLA, filter to US CONUS only (Z** codes)
+            const normArtcc = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+                ? function(a) { return PERTI.normalizeArtcc(a); }
+                : function(a) { return a.replace(/^K/, ''); };
             const usArtccs = artccs
-                .map(a => a.replace(/^K/, ''))  // Strip K prefix (KZLA → ZLA)
+                .map(normArtcc)
                 .filter(a => /^Z[A-Z]{2}$/.test(a))  // Keep only Z** codes (excludes CZYZ, etc.)
                 .filter((v, i, arr) => arr.indexOf(v) === i)  // Dedupe after normalization
                 .sort();
@@ -6792,8 +6804,11 @@ $(document).ready(function() {
         // US ARTCCs: Z** (ZNY, ZDC, etc.)
         // Canadian FIRs: CZ** (CZYZ, CZUL, etc.) or C** (CZY)
         // Other international facilities included as-is
+        const normArtccFn = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+            ? function(a) { return PERTI.normalizeArtcc(a); }
+            : function(a) { return a.replace(/^K/, '').toUpperCase(); };
         const allArtccs = (data.artccs_all || [])
-            .map(a => a.replace(/^K/, '').toUpperCase())  // Strip K prefix if present
+            .map(normArtccFn)
             .filter((v, i, arr) => arr.indexOf(v) === i)   // Dedupe
             .sort();
 

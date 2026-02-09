@@ -32,6 +32,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 include("load/config.php");
 include("load/connect.php");
+require_once("load/perti_constants.php");
 
 // Check Permissions - TMI Publisher is open to all, but profile must be set
 // Profile info (Operating Initials, Home Facility) is stored in browser localStorage
@@ -730,10 +731,7 @@ $perm = true;
                         <div class="card-body">
                             <div id="rr_facilities_grid" class="d-flex flex-wrap">
                                 <?php
-                                $artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
-                                           'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY',
-                                           'ZOA', 'ZOB', 'ZSE', 'ZTL'];
-                                foreach ($artccs as $artcc):
+                                foreach (PERTI_ARTCC_CONUS as $artcc):
                                 ?>
                                 <div class="custom-control custom-checkbox mr-3 mb-2">
                                     <input type="checkbox" class="custom-control-input rr-facility-cb"
@@ -748,13 +746,7 @@ $perm = true;
                             <hr class="my-2">
                             <div class="d-flex flex-wrap" id="rr_intl_facilities_grid">
                                 <?php
-                                $intlOrgs = [
-                                    'VATCAN' => 'Canada',
-                                    'VATMEX' => 'Mexico',
-                                    'VATCAR' => 'Caribbean',
-                                    'ECFMP' => 'Europe/N. Africa'
-                                ];
-                                foreach ($intlOrgs as $code => $name):
+                                foreach (PERTI_INTL_ORGS as $code => $name):
                                 ?>
                                 <div class="custom-control custom-checkbox mr-3 mb-2">
                                     <input type="checkbox" class="custom-control-input rr-facility-cb rr-intl-org"
@@ -1009,10 +1001,7 @@ $perm = true;
                                 <div class="small text-muted mb-2">Select facilities that should be notified/coordinated with:</div>
                                 <div id="gsgdpFacilitiesGrid" class="d-flex flex-wrap">
                                     <?php
-                                    $artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
-                                               'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY',
-                                               'ZOA', 'ZOB', 'ZSE', 'ZTL'];
-                                    foreach ($artccs as $artcc):
+                                    foreach (PERTI_ARTCC_CONUS as $artcc):
                                     ?>
                                     <div class="custom-control custom-checkbox mr-3 mb-2">
                                         <input type="checkbox" class="custom-control-input gsgdp-facility-cb"

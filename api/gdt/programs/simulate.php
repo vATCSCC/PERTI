@@ -58,6 +58,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once __DIR__ . '/../../../load/perti_constants.php';
 $auth_cid = gdt_optional_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -95,10 +96,10 @@ if ($program === null) {
 
 // Can only simulate PROPOSED or MODELING programs
 $status = $program['status'] ?? '';
-if (!in_array($status, ['PROPOSED', 'MODELING'])) {
+if (!in_array($status, PERTI_MODELING_STATUSES)) {
     respond_json(400, [
         'status' => 'error',
-        'message' => "Cannot simulate program in status: {$status}. Must be PROPOSED or MODELING."
+        'message' => "Cannot simulate program in status: {$status}. Must be " . implode(' or ', PERTI_MODELING_STATUSES) . "."
     ]);
 }
 

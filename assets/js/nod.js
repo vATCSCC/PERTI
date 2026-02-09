@@ -2792,8 +2792,10 @@
             // For ARTCCs - match on ICAOCODE in artcc.json
             // Note: artcc.json uses K prefix (KZBW) while JATOC uses without (ZBW)
             if (facType === 'ARTCC' || fac.startsWith('Z')) {
-                // Try with K prefix first (KZBW), then without (ZBW)
-                const kFac = fac.startsWith('K') ? fac : 'K' + fac;
+                // Normalize to canonical form (ZBW), then build K-prefixed form for GeoJSON
+                const normalized = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+                    ? PERTI.normalizeArtcc(fac) : fac.replace(/^K/, '');
+                const kFac = 'K' + normalized;
 
                 boundaryFeature = state.boundaryCache.artcc?.features?.find(f => {
                     const props = f.properties || {};
@@ -2824,7 +2826,9 @@
 
             // Fallback: try both if not found
             if (!boundaryFeature) {
-                const kFac = fac.startsWith('K') ? fac : 'K' + fac;
+                const normalizedFb = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+                    ? PERTI.normalizeArtcc(fac) : fac.replace(/^K/, '');
+                const kFac = 'K' + normalizedFb;
                 boundaryFeature = state.boundaryCache.artcc?.features?.find(f => {
                     const props = f.properties || {};
                     const icao = (props.ICAOCODE || props.icaocode || props.id || '').toUpperCase().trim();
@@ -3176,9 +3180,16 @@
     // Color Constants (matching route-maplibre.js)
     // =========================================
 
-    // DCC Region definitions - use FILTER_CONFIG if available
-    // Build DCC_REGIONS from FILTER_CONFIG.dccRegion.mapping if available
+    // DCC Region definitions - PERTI > FILTER_CONFIG > fallback
     const DCC_REGIONS = (function() {
+        // Build from PERTI.GEOGRAPHIC.DCC_REGIONS if available
+        if (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.DCC_REGIONS) {
+            const regions = {};
+            Object.entries(PERTI.GEOGRAPHIC.DCC_REGIONS).forEach(function(e) {
+                regions[e[0]] = e[1].artccs ? [...e[1].artccs] : [];
+            });
+            return regions;
+        }
         if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.dccRegion && FILTER_CONFIG.dccRegion.mapping) {
             // Invert the mapping: from {artcc: region} to {region: [artccs]}
             const regions = {};
@@ -3194,7 +3205,7 @@
             'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
             'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
             'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-            'CANADA':       ['CZYZ', 'CZUL', 'CZZV', 'CZQM', 'CZQX', 'CZQO', 'CZWG', 'CZEG', 'CZVR'],
+            'CANADA':       ['CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ'],
         };
     })();
 
@@ -3333,25 +3344,29 @@
     const ARR_DEP_COLORS = { 'ARR': '#59a14f', 'DEP': '#4e79a7' };
 
     // Airport tier colors - use FacilityHierarchy as source of truth
-    const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
+    const AIRPORT_TIER_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TIER_COLORS) || {
         'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
     };
 
-    // ARTCC colors - inherit from DCC region with variations
-    const CENTER_COLORS = {
-        // West (Red family) - matches DCC_REGION_COLORS['WEST']
-        'ZAK': '#dc3545', 'ZAN': '#e74c3c', 'ZHN': '#c0392b', 'ZLA': '#dc3545',
-        'ZLC': '#e57373', 'ZOA': '#d63031', 'ZSE': '#ff6b6b',
-        // South Central (Orange family) - matches DCC_REGION_COLORS['SOUTH_CENTRAL']
-        'ZAB': '#fd7e14', 'ZFW': '#ff9800', 'ZHO': '#e67e22', 'ZHU': '#f39c12', 'ZME': '#d35400',
-        // Midwest (Green family) - matches DCC_REGION_COLORS['MIDWEST']
-        'ZAU': '#28a745', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#00b894',
-        // Southeast (Yellow family) - matches DCC_REGION_COLORS['SOUTHEAST']
-        'ZID': '#ffc107', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#e9b824', 'ZTL': '#ffca2c',
-        // Northeast (Blue family) - matches DCC_REGION_COLORS['NORTHEAST']
-        'ZBW': '#007bff', 'ZDC': '#0069d9', 'ZNY': '#0056b3', 'ZOB': '#5dade2', 'ZWY': '#004085',
-        '': '#6c757d',
-    };
+    // ARTCC colors - use PERTI > FILTER_CONFIG > hardcoded fallback
+    const CENTER_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
+        ? Object.assign({}, PERTI.UI.ARTCC_COLORS, { '': PERTI.UI.ARTCC_COLORS.OTHER || '#6c757d' })
+        : (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.artcc && FILTER_CONFIG.artcc.colors)
+            ? Object.assign({}, FILTER_CONFIG.artcc.colors, { '': FILTER_CONFIG.artcc.colors.OTHER || '#6c757d' })
+            : {
+                // West (Red family) - matches DCC_REGION_COLORS['WEST']
+                'ZAK': '#dc3545', 'ZAN': '#e74c3c', 'ZHN': '#c0392b', 'ZLA': '#dc3545',
+                'ZLC': '#e57373', 'ZOA': '#d63031', 'ZSE': '#ff6b6b',
+                // South Central (Orange family) - matches DCC_REGION_COLORS['SOUTH_CENTRAL']
+                'ZAB': '#fd7e14', 'ZFW': '#ff9800', 'ZHO': '#e67e22', 'ZHU': '#f39c12', 'ZME': '#d35400',
+                // Midwest (Green family) - matches DCC_REGION_COLORS['MIDWEST']
+                'ZAU': '#28a745', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#00b894',
+                // Southeast (Yellow family) - matches DCC_REGION_COLORS['SOUTHEAST']
+                'ZID': '#ffc107', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#e9b824', 'ZTL': '#ffca2c',
+                // Northeast (Blue family) - matches DCC_REGION_COLORS['NORTHEAST']
+                'ZBW': '#007bff', 'ZDC': '#0069d9', 'ZNY': '#0056b3', 'ZOB': '#5dade2', 'ZWY': '#004085',
+                '': '#6c757d',
+            };
 
     // Extended Carrier Colors - use FILTER_CONFIG if available, fallback to local
     const CARRIER_COLORS = (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.colors)
@@ -3478,11 +3493,12 @@
         };
 
     // Operator Group definitions - use FacilityHierarchy as source of truth
-    const MAJOR_CARRIERS = FacilityHierarchy.MAJOR_CARRIERS || [];
-    const REGIONAL_CARRIERS = FacilityHierarchy.REGIONAL_CARRIERS || [];
-    const FREIGHT_CARRIERS = FacilityHierarchy.FREIGHT_CARRIERS || [];
-    const MILITARY_PREFIXES = FacilityHierarchy.MILITARY_PREFIXES || [];
-    const OPERATOR_GROUP_COLORS = FacilityHierarchy.OPERATOR_GROUP_COLORS || {
+    const _FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+    const MAJOR_CARRIERS = (_FH && _FH.MAJOR_CARRIERS) || [];
+    const REGIONAL_CARRIERS = (_FH && _FH.REGIONAL_CARRIERS) || [];
+    const FREIGHT_CARRIERS = (_FH && _FH.FREIGHT_CARRIERS) || [];
+    const MILITARY_PREFIXES = (_FH && _FH.MILITARY_PREFIXES) || [];
+    const OPERATOR_GROUP_COLORS = (_FH && _FH.OPERATOR_GROUP_COLORS) || {
         'MAJOR': '#dc3545', 'REGIONAL': '#28a745', 'FREIGHT': '#007bff',
         'GA': '#ffc107', 'MILITARY': '#6f42c1', 'OTHER': '#6c757d',
     };

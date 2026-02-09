@@ -32,41 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../load/connect.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
 require_once __DIR__ . '/../../load/services/GISService.php';
 
 // =============================================================================
-// CONFIGURATION
+// CONFIGURATION (from perti_constants.php)
 // =============================================================================
 
-// Named tier groups (from ADL topology)
-$NAMED_GROUPS = [
-    '6WEST' => ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE'],
-    '10WEST' => ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE'],
-    '12WEST' => ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE'],
-    'EASTCOAST' => ['ZBW', 'ZNY', 'ZDC', 'ZJX', 'ZMA'],
-    'WESTCOAST' => ['ZSE', 'ZOA', 'ZLA'],
-    'GULF' => ['ZJX', 'ZMA', 'ZHU'],
-    'CANWEST' => ['CZVR', 'CZEG'],
-    'CANEAST' => ['CZWG', 'CZYZ', 'CZUL', 'CZQM'],
-    'ALL' => ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-              'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'],
-    'ALL+CANADA' => ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-                    'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-                    'CZVR', 'CZEG', 'CZWG', 'CZYZ', 'CZUL', 'CZQM']
-];
-
-// Region mappings (code prefixes)
-$REGION_PREFIXES = [
-    'US' => ['KZ'],           // US CONUS ARTCCs (KZFW, KZLA, etc.)
-    'CAN' => ['CZ'],          // Canadian FIRs (CZYZ, CZUL, etc.)
-    'MEX' => ['MM'],          // Mexican FIRs (MMID, MMFR, etc.)
-    'CAR' => ['M', 'T'],      // Caribbean (MUFH, TJZS, MKJK, etc.) - starts with M or T (not MM)
-    'LATAM' => ['S', 'SK'],   // South/Central America
-    'EUR' => ['E', 'L'],      // Europe (EGTT, LFFF, etc.)
-    'ASIA' => ['R', 'Z', 'V'], // Asia-Pacific
-    'AFR' => ['D', 'F', 'G', 'H'], // Africa
-    'OCEANIC' => ['ZAK', 'ZWY', 'CZQO', 'CZQX'] // Oceanic FIRs
-];
+$NAMED_GROUPS = PERTI_NAMED_GROUPS;
+$REGION_PREFIXES = PERTI_REGION_PREFIXES;
 
 // =============================================================================
 // HELPER FUNCTIONS

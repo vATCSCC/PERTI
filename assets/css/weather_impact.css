@@ -52,7 +52,7 @@
     flex: 1;
     text-align: center;
     padding: 8px;
-    background: #333;
+    background: var(--gray-900);
     border-radius: 4px;
 }
 
@@ -72,15 +72,15 @@
 }
 
 .weather-impact-summary .impact-stat.direct {
-    border-left: 3px solid #FF4444;
+    border-left: 3px solid var(--impact-direct);
 }
 
 .weather-impact-summary .impact-stat.near {
-    border-left: 3px solid #FFA500;
+    border-left: 3px solid var(--hazard-turb-start);
 }
 
 .weather-impact-summary .impact-stat.alerts {
-    border-left: 3px solid #00BFFF;
+    border-left: 3px solid var(--hazard-ice-start);
 }
 
 .weather-impact-clear {
@@ -89,7 +89,7 @@
     justify-content: center;
     gap: 8px;
     padding: 20px;
-    color: #4CAF50;
+    color: var(--impact-clear);
     font-size: 14px;
 }
 
@@ -118,18 +118,18 @@
 
 .hazard-group .hazard-header {
     padding: 6px 10px;
-    background: #333;
+    background: var(--gray-900);
     font-weight: 600;
     font-size: 12px;
     border-radius: 4px 4px 0 0;
-    border-left: 4px solid #666;
+    border-left: 4px solid var(--gray-600);
 }
 
-.hazard-group.convective .hazard-header { border-left-color: #FF0000; }
-.hazard-group.turb .hazard-header { border-left-color: #FFA500; }
-.hazard-group.ice .hazard-header { border-left-color: #00BFFF; }
-.hazard-group.ifr .hazard-header { border-left-color: #808080; }
-.hazard-group.mtn .hazard-header { border-left-color: #8B4513; }
+.hazard-group.convective .hazard-header { border-left-color: var(--hazard-convective-start); }
+.hazard-group.turb .hazard-header { border-left-color: var(--hazard-turb-start); }
+.hazard-group.ice .hazard-header { border-left-color: var(--hazard-ice-start); }
+.hazard-group.ifr .hazard-header { border-left-color: var(--hazard-ifr-start); }
+.hazard-group.mtn .hazard-header { border-left-color: var(--hazard-mtn-start); }
 
 .hazard-flights {
     background: #2a2a2a;
@@ -141,13 +141,13 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--gray-900);
     cursor: pointer;
     transition: background 0.15s;
 }
 
 .affected-flight:hover {
-    background: #333;
+    background: var(--gray-900);
 }
 
 .affected-flight:last-child {
@@ -222,27 +222,27 @@
 }
 
 .flight-weather-impacts h5 .weather-icon {
-    color: #FFA500;
+    color: var(--hazard-turb-start);
 }
 
 .weather-impact-item {
-    background: #333;
+    background: var(--gray-900);
     border-radius: 4px;
     padding: 10px;
     margin-bottom: 8px;
-    border-left: 4px solid #666;
+    border-left: 4px solid var(--gray-600);
 }
 
 .weather-impact-item:last-child {
     margin-bottom: 0;
 }
 
-.weather-impact-item.direct { border-left-color: #FF4444; }
-.weather-impact-item.near { border-left-color: #FFA500; }
+.weather-impact-item.direct { border-left-color: var(--impact-direct); }
+.weather-impact-item.near { border-left-color: var(--hazard-turb-start); }
 
-.weather-impact-item.convective { border-left-color: #FF0000; }
-.weather-impact-item.turb { border-left-color: #FFA500; }
-.weather-impact-item.ice { border-left-color: #00BFFF; }
+.weather-impact-item.convective { border-left-color: var(--hazard-convective-start); }
+.weather-impact-item.turb { border-left-color: var(--hazard-turb-start); }
+.weather-impact-item.ice { border-left-color: var(--hazard-ice-start); }
 
 .weather-impact-item .impact-header {
     display: flex;
@@ -311,12 +311,12 @@ tr.weather-direct:hover {
 
 .status-bar .weather-status.has-impacts {
     background: rgba(255, 165, 0, 0.2);
-    color: #FFA500;
+    color: var(--hazard-turb-start);
 }
 
 .status-bar .weather-status.clear {
     background: rgba(76, 175, 80, 0.2);
-    color: #4CAF50;
+    color: var(--impact-clear);
 }
 
 .status-bar .weather-status .impact-count {

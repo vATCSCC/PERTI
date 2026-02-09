@@ -2384,16 +2384,19 @@ function deleteEnrouteTime(id) {
 // PERTI Discord Notification
 // ===============================
 
-// Facilities used in the selector
-const ADV_FACILITY_CODES = [
-    'ZAB','ZAU','ZBW','ZDC','ZDV','ZFW','ZHU','ZID','ZJX','ZKC','ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL',
-    'CZE','CZM','CZU','CZV','CZW','CZY',
-    'ZEU','ZMX','CAR',
-];
+// Facilities used in the selector - uses PERTI namespace > FacilityHierarchy > hardcoded fallback
+const ADV_US_FACILITY_CODES = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_LISTS && PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS)
+    ? PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS
+    : (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.FACILITY_GROUPS)
+        ? FacilityHierarchy.FACILITY_GROUPS.US_CONUS.artccs
+        : ['ZAB','ZAN','ZAU','ZBW','ZDC','ZDV','ZFW','ZHN','ZHU','ZID','ZJX','ZKC',
+           'ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL'];
 
-const ADV_US_FACILITY_CODES = [
-    'ZAB','ZAU','ZBW','ZDC','ZDV','ZFW','ZHU','ZID','ZJX','ZKC',
-    'ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL',
+// Extended list includes Canadian FIRs (short codes) and international references
+const ADV_FACILITY_CODES = [
+    ...ADV_US_FACILITY_CODES,
+    'CZE','CZM','CZU','CZV','CZW','CZY',  // Canadian FIR short codes
+    'ZEU','ZMX','CAR',                     // International references
 ];
 
 function pertiParseZuluTime(timeStr) {

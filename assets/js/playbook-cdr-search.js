@@ -413,19 +413,23 @@ const PlaybookCDRSearch = (function() {
                 }
             }
 
+            // Region-aware ICAO→FAA denormalization for airport filter matching
+            const denorm = (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao)
+                ? function(c) { return PERTI.denormalizeIcao(c); }
+                : function(c) { return c.replace(/^K/, ''); };
+
             // Origin airport filter - DIRECTIONAL: must match ORIGIN only
             if (filters.origApt) {
-                const origSearch = filters.origApt.replace(/^K/, ''); // Remove K if present
+                const origSearch = denorm(filters.origApt).toUpperCase();
                 let origMatch = false;
 
                 // Check CDR code origin (first 3 chars)
-                if (cdrOrigin && cdrOrigin.toUpperCase() === origSearch.toUpperCase()) {
+                if (cdrOrigin && cdrOrigin.toUpperCase() === origSearch) {
                     origMatch = true;
                 }
                 // Check route string origin
                 if (!origMatch && routeOrigin) {
-                    const routeOrigCode = routeOrigin.replace(/^K/, '');
-                    if (routeOrigCode.toUpperCase() === origSearch.toUpperCase()) {
+                    if (denorm(routeOrigin).toUpperCase() === origSearch) {
                         origMatch = true;
                     }
                 }
@@ -445,17 +449,16 @@ const PlaybookCDRSearch = (function() {
 
             // Dest airport filter - DIRECTIONAL: must match DESTINATION only
             if (filters.destApt) {
-                const destSearch = filters.destApt.replace(/^K/, ''); // Remove K if present
+                const destSearch = denorm(filters.destApt).toUpperCase();
                 let destMatch = false;
 
                 // Check CDR code destination (chars 4-6)
-                if (cdrDest && cdrDest.toUpperCase() === destSearch.toUpperCase()) {
+                if (cdrDest && cdrDest.toUpperCase() === destSearch) {
                     destMatch = true;
                 }
                 // Check route string destination
                 if (!destMatch && routeDest) {
-                    const routeDestCode = routeDest.replace(/^K/, '');
-                    if (routeDestCode.toUpperCase() === destSearch.toUpperCase()) {
+                    if (denorm(routeDest).toUpperCase() === destSearch) {
                         destMatch = true;
                     }
                 }
@@ -496,7 +499,10 @@ const PlaybookCDRSearch = (function() {
     }
 
     function normalizeAirportCode(code) {
-        // Use FacilityHierarchy.normalizeIcao if available (handles Canada, Alaska, Hawaii, etc.)
+        // PERTI canonical implementation (region-aware: handles Canada, Alaska, Hawaii, etc.)
+        if (typeof PERTI !== 'undefined' && PERTI.normalizeIcao) {
+            return PERTI.normalizeIcao(code);
+        }
         if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
             return FacilityHierarchy.normalizeIcao(code);
         }

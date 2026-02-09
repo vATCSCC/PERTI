@@ -3,8 +3,11 @@
  * Uses MapLibre GL JS for map rendering
  */
 
+// SUA constants - uses PERTI namespace when available
+const _SUA_P = (typeof PERTI !== 'undefined' && PERTI.SUA) ? PERTI.SUA : null;
+
 // Type display names
-const TYPE_NAMES = {
+const TYPE_NAMES = _SUA_P ? _SUA_P.TYPE_NAMES : {
     'P': 'Prohibited Area',
     'R': 'Restricted Area',
     'W': 'Warning Area',
@@ -48,7 +51,7 @@ const TYPE_NAMES = {
 };
 
 // Group display names (for new schema)
-const GROUP_NAMES = {
+const GROUP_NAMES = _SUA_P ? _SUA_P.GROUPS : {
     'REGULATORY': 'Regulatory',
     'MILITARY': 'Military',
     'ROUTES': 'Routes',
@@ -60,9 +63,7 @@ const GROUP_NAMES = {
 };
 
 // Types that should remain as lines (routes, tracks) - NOT converted to polygons
-// Note: OSARA removed - they should render as polygons
-// AW (AWACS orbits) are oval/racetrack patterns - should be lines NOT polygons
-const LINE_TYPES = [
+const LINE_TYPES = _SUA_P ? [..._SUA_P.LINE_TYPES] : [
     'AR',      // Air Refueling tracks
     'ALTRV',   // Altitude Reservations
     'IR',      // IFR Routes
@@ -90,7 +91,7 @@ let isDrawingMode = false;
 let drawnGeometry = null;
 
 // Layer type mapping - maps colorName to layer group (legacy support)
-const LAYER_GROUPS = {
+const LAYER_GROUPS = _SUA_P ? _SUA_P.LAYER_GROUPS : {
     'PROHIBITED': 'REGULATORY',
     'RESTRICTED': 'REGULATORY',
     'WARNING': 'REGULATORY',

@@ -25,6 +25,7 @@
  */
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
 
 $method = tmi_method();
 $id = tmi_param('id');
@@ -186,9 +187,8 @@ function createEntry() {
     }
     
     // Validate entry type
-    $valid_types = ['MIT', 'MINIT', 'DELAY', 'CONFIG', 'APREQ', 'CONTINGENCY', 'MISC', 'REROUTE'];
-    if (!in_array(strtoupper($body['entry_type']), $valid_types)) {
-        TmiResponse::error('Invalid entry_type. Must be one of: ' . implode(', ', $valid_types), 400);
+    if (!in_array(strtoupper($body['entry_type']), PERTI_ENTRY_TYPES)) {
+        TmiResponse::error('Invalid entry_type. Must be one of: ' . implode(', ', PERTI_ENTRY_TYPES), 400);
     }
     
     // Build insert data
