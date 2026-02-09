@@ -47,8 +47,13 @@ function read_request_payload() {
 }
 
 // ============================================================================
-// Database Connections
+// Session & Database Connections
 // ============================================================================
+
+// Start session BEFORE loading config/connect, because connect.php's closing
+// PHP tag outputs a trailing newline that sends headers, preventing later
+// session_start() calls from succeeding (headers_sent() returns true).
+require_once(__DIR__ . '/../../sessions/handler.php');
 
 // Load core dependencies (same pattern as /api/tmi/helpers.php)
 if (!defined('PERTI_LOADED')) {
@@ -56,6 +61,38 @@ if (!defined('PERTI_LOADED')) {
 }
 require_once(__DIR__ . '/../../load/config.php');
 require_once(__DIR__ . '/../../load/connect.php');
+
+// ============================================================================
+// Authentication
+// ============================================================================
+
+/**
+ * Require authenticated session for destructive operations (activate, cancel, purge, publish).
+ * Sends 401 and exits if not authenticated.
+ * @return string The authenticated user's VATSIM CID
+ */
+function gdt_require_auth() {
+    if (!isset($_SESSION['VATSIM_CID']) || empty($_SESSION['VATSIM_CID'])) {
+        respond_json(401, [
+            'status' => 'error',
+            'message' => 'Authentication required. Please log in.'
+        ]);
+    }
+
+    return $_SESSION['VATSIM_CID'];
+}
+
+/**
+ * Get authenticated CID if available, otherwise return 'anonymous'.
+ * Use for preview/modeling/simulation endpoints that don't require login.
+ * @return string VATSIM CID or 'anonymous'
+ */
+function gdt_optional_auth() {
+    if (isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID'])) {
+        return $_SESSION['VATSIM_CID'];
+    }
+    return 'anonymous';
+}
 
 /**
  * Get TMI database connection (VATSIM_TMI - program/slot management)

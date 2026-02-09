@@ -2391,7 +2391,7 @@ const SplitsController = {
         const flags = [];
         if (traconData?.contains_core30) {flags.push('Core 30');}
         if (traconData?.contains_oep35) {flags.push('OEP 35');}
-        if (traconData?.contains_aspm77) {flags.push('ASPM 77');}
+        if (traconData?.contains_aspm82) {flags.push('ASPM 82');}
         const flagsHtml = flags.length > 0
             ? `<div class="popup-row"><span>Designations:</span> ${flags.join(', ')}</div>`
             : '';

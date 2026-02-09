@@ -291,8 +291,8 @@ function parse_tmi_text($text, $event_start = null) {
             continue;
         }
 
-        // Detect ADVZY header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP"
-        if (preg_match('/^vATCSCC\s+ADVZY\s+\d+/i', $line)) {
+        // Detect ADVZY header: "vATCSCC ADVZY 001 ..." or "vATCSCC ADVZY ADVZY 001 ..."
+        if (preg_match('/^vATCSCC\s+ADVZY\b/i', $line)) {
             // Parse ADVZY block
             $advzy_result = parse_advzy_block($lines, $i, $event_start);
             if ($advzy_result['tmi']) {
@@ -310,7 +310,25 @@ function parse_tmi_text($text, $event_start = null) {
         $i++;
     }
 
-    return $tmis;
+    // Build program chains from parsed TMIs
+    $gs_programs = build_gs_programs($tmis);
+    $reroute_programs = build_reroute_programs($tmis);
+
+    // Return flat TMI list for backward compatibility (Python consumer iterates this)
+    // Programs are attached as special entries at the end
+    $result = $tmis;
+    if (!empty($gs_programs)) {
+        foreach ($gs_programs as $prog) {
+            $result[] = $prog;
+        }
+    }
+    if (!empty($reroute_programs)) {
+        foreach ($reroute_programs as $prog) {
+            $result[] = $prog;
+        }
+    }
+
+    return $result;
 }
 
 /**
@@ -428,22 +446,96 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     // Detect ADVZY type from header
     $advzy_type = null;
     $is_mandatory = false;
+    $route_type = null;
+    $action = null;
+    $advzy_number = null;
 
-    if (stripos($header, 'GROUND STOP') !== false) {
+    // Extract advisory number
+    if (preg_match('/ADVZY\s+(\d+)/i', $header, $advMatch)) {
+        $advzy_number = $advMatch[1];
+    }
+
+    if (stripos($header, 'CDM GS CNX') !== false || stripos($header, 'GS CNX') !== false) {
+        $advzy_type = 'GS_CNX';
+    } elseif (stripos($header, 'GROUND STOP') !== false || stripos($header, 'CDM GROUND STOP') !== false) {
         $advzy_type = 'GS';
+    } elseif (stripos($header, 'REROUTE CANCELLATION') !== false) {
+        $advzy_type = 'REROUTE_CNX';
     } elseif (stripos($header, 'GDP') !== false || stripos($header, 'GROUND DELAY') !== false) {
         $advzy_type = 'GDP';
-    } elseif (stripos($header, 'ROUTE RQD') !== false) {
+    } elseif (preg_match('/\b(ROUTE|FEA|FCA|ICR)\s+(RQD|RMD|PLN|FYI)\b/i', $header, $typeMatch)) {
         $advzy_type = 'REROUTE';
-        $is_mandatory = true;
-    } elseif (stripos($header, 'FEA') !== false) {
-        $advzy_type = 'REROUTE';
-        $is_mandatory = false;  // FEA FYI is informational
+        $route_type = strtoupper($typeMatch[1]);
+        $action = strtoupper($typeMatch[2]);
+        $is_mandatory = ($action === 'RQD');
     }
 
     if (!$advzy_type) {
         // Unknown ADVZY type - skip this block
         return ['tmi' => null, 'lines_consumed' => 1];
+    }
+
+    // Handle GS_CNX (Ground Stop Cancellation)
+    if ($advzy_type === 'GS_CNX') {
+        $tmi = [
+            'raw' => $header,
+            'type' => 'GS_CNX',
+            'advzy_number' => $advzy_number,
+            'dest' => null,
+            'issued_time' => null,
+            'cnx_period_start' => null,
+            'cnx_period_end' => null,
+            'comments' => ''
+        ];
+
+        // Extract airport from header
+        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3})[\s\/]/i', $header, $m)) {
+            $tmi['dest'] = strtoupper($m[1]);
+        }
+
+        for ($i = $start_idx + 1; $i < min($start_idx + 20, count($lines)); $i++) {
+            $line = trim($lines[$i]);
+            if (empty($line)) { $lines_consumed++; continue; }
+            if (preg_match('/^vATCSCC\s+ADVZY/i', $line) || preg_match('/^\d{2}\/\d{4}\s+\w+\s+via\s+/i', $line)) break;
+            $lines_consumed++;
+
+            if (preg_match('/^CTL\s+ELEMENT:\s*(\w+)/i', $line, $m)) { $tmi['dest'] = strtoupper($m[1]); continue; }
+            if (preg_match('/^ADL\s+TIME:\s*(\d{4})Z?/i', $line, $m)) { $tmi['issued_time'] = $m[1]; continue; }
+            if (preg_match('/GS\s+CNX\s+PERIOD:\s*\d{2}\/(\d{4})Z?\s*[-\x{2013}\x{2014}]\s*\d{2}\/(\d{4})Z?/iu', $line, $m)) {
+                $tmi['cnx_period_start'] = $m[1];
+                $tmi['cnx_period_end'] = $m[2];
+                continue;
+            }
+            if (preg_match('/^COMMENTS?:\s*(.*)/i', $line, $m)) { $tmi['comments'] = trim($m[1]); continue; }
+        }
+
+        return ['tmi' => $tmi, 'lines_consumed' => $lines_consumed];
+    }
+
+    // Handle REROUTE_CNX (Reroute Cancellation)
+    if ($advzy_type === 'REROUTE_CNX') {
+        $tmi = [
+            'raw' => $header,
+            'type' => 'REROUTE_CNX',
+            'advzy_number' => $advzy_number,
+            'cancelled_name' => null,
+            'cancelled_time' => null
+        ];
+
+        for ($i = $start_idx + 1; $i < min($start_idx + 10, count($lines)); $i++) {
+            $line = trim($lines[$i]);
+            if (empty($line)) { $lines_consumed++; continue; }
+            if (preg_match('/^vATCSCC\s+ADVZY/i', $line)) break;
+            $lines_consumed++;
+
+            // "MCO_NO_GRNCH_PRICY HAS BEEN CANCELLED AT 2108Z"
+            if (preg_match('/^(\S+)\s+HAS\s+BEEN\s+CANCELL?ED(?:\s+AT\s+(\d{4})Z?)?/i', $line, $m)) {
+                $tmi['cancelled_name'] = trim($m[1]);
+                $tmi['cancelled_time'] = isset($m[2]) ? $m[2] : null;
+            }
+        }
+
+        return ['tmi' => $tmi, 'lines_consumed' => $lines_consumed];
     }
 
     // For GS/GDP: Extract airport from header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026"
@@ -457,6 +549,7 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     $tmi = [
         'raw' => $header,
         'type' => $advzy_type,
+        'advzy_number' => $advzy_number,
         'dest' => $dest,
         'provider' => null,
         'start_time' => null,
@@ -467,6 +560,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     // Reroute-specific fields
     if ($advzy_type === 'REROUTE') {
         $tmi['mandatory'] = $is_mandatory;
+        $tmi['route_type'] = $route_type;
+        $tmi['action'] = $action;
         $tmi['name'] = null;
         $tmi['constrained_area'] = null;
         $tmi['reason'] = null;
@@ -506,8 +601,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             continue;
         }
 
-        // GROUND STOP PERIOD: 18/0230Z – 18/0315Z (handles various dash types)
-        if (preg_match('/GROUND\s+STOP\s+PERIOD:\s*\d{2}\/(\d{4})Z?\s*[-–—]\s*\d{2}\/(\d{4})Z?/i', $line, $m)) {
+        // GROUND STOP PERIOD: 18/0230Z - 18/0315Z (handles various dash types)
+        if (preg_match('/GROUND\s+STOP\s+PERIOD:\s*\d{2}\/(\d{4})Z?\s*[-\x{2013}\x{2014}]\s*\d{2}\/(\d{4})Z?/iu', $line, $m)) {
             $tmi['start_time'] = $m[1];
             $tmi['end_time'] = $m[2];
             continue;
@@ -519,9 +614,69 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             continue;
         }
 
-        // DEP FACILITIES INCLUDED: (Manual) ZOA
-        if (preg_match('/DEP\s+FACILITIES\s+INCLUDED:.*?([A-Z]{3})/i', $line, $m)) {
-            $tmi['provider'] = strtoupper($m[1]);
+        // DEP FACILITIES INCLUDED: (1stTier) ZAB, ZKC, ZMP or (Manual) ZOA, ZLA
+        if (preg_match('/DEP\s+FACILITIES\s+INCLUDED:\s*(.*)/i', $line, $m)) {
+            $fac_str = $m[1];
+            // Extract tier notation
+            if (preg_match('/\((1stTier|2ndTier|Manual)\)/i', $fac_str, $tierM)) {
+                $tmi['dep_facility_tier'] = $tierM[1];
+            }
+            // Extract all 3-letter facility codes
+            preg_match_all('/\b([A-Z]{3})\b/', strtoupper($fac_str), $facMatches);
+            $tmi['dep_facilities'] = $facMatches[1] ?? [];
+            $tmi['provider'] = $tmi['dep_facilities'][0] ?? null;
+            continue;
+        }
+
+        // CUMULATIVE PROGRAM PERIOD: 18/0230Z - 18/0315Z
+        if (preg_match('/CUMULATIVE\s+(?:PROGRAM\s+)?PERIOD:\s*\d{2}\/(\d{4})Z?\s*[-\x{2013}\x{2014}]\s*\d{2}\/(\d{4})Z?/iu', $line, $m)) {
+            $tmi['cumulative_start'] = $m[1];
+            $tmi['cumulative_end'] = $m[2];
+            continue;
+        }
+
+        // IMPACTING CONDITION: LOW CEILINGS
+        if (preg_match('/^IMPACTING\s+CONDITION:\s*(.+)/i', $line, $m)) {
+            $tmi['impacting_condition'] = trim($m[1]);
+            continue;
+        }
+
+        // PROBABILITY OF EXTENSION: HIGH
+        if (preg_match('/^PROBABILITY\s+OF\s+EXTENSION:\s*(.+)/i', $line, $m)) {
+            $tmi['prob_extension'] = trim($m[1]);
+            continue;
+        }
+
+        // FLT INCL: (pattern varies)
+        if (preg_match('/^FLT\s+INCL:\s*(.+)/i', $line, $m)) {
+            $tmi['flt_incl'] = trim($m[1]);
+            continue;
+        }
+
+        // NEW TOTAL, MAXIMUM, AVERAGE DELAYS: X, Y, Z
+        if (preg_match('/NEW\s+TOTAL.*DELAYS?:\s*(.+)/i', $line, $m)) {
+            $tmi['delay_new'] = trim($m[1]);
+            continue;
+        }
+
+        // PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: X, Y, Z
+        if (preg_match('/PREVIOUS\s+TOTAL.*DELAYS?:\s*(.+)/i', $line, $m)) {
+            $tmi['delay_prev'] = trim($m[1]);
+            continue;
+        }
+
+        // COMMENTS: (may be multi-line for GS)
+        if (preg_match('/^COMMENTS?:\s*(.*)/i', $line, $m)) {
+            $comments = trim($m[1]);
+            // Accumulate continuation lines
+            while ($i + 1 < count($lines)) {
+                $next = trim($lines[$i + 1]);
+                if (empty($next) || preg_match('/^[A-Z\s]+:/i', $next) || preg_match('/^vATCSCC/i', $next)) break;
+                $i++;
+                $lines_consumed++;
+                $comments .= ' ' . $next;
+            }
+            $tmi['comments'] = $comments;
             continue;
         }
 
@@ -607,6 +762,29 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                 continue;
             }
 
+            // VALID: ETD 1900-2359 (simple HHMM-HHMM format)
+            if (!isset($tmi['start_time']) && preg_match('/^VALID:\s*(ETA|ETD)\s*(\d{4})\s*[-\x{2013}\x{2014}]\s*(\d{4})/iu', $line, $m)) {
+                $tmi['start_time'] = $m[2];
+                $tmi['end_time'] = $m[3];
+                $tmi['time_type'] = strtoupper($m[1]);
+                continue;
+            }
+
+            // REMARKS: REPLACES ADVZY 020
+            if (preg_match('/^REMARKS?:\s*(.*)/i', $line, $m)) {
+                $remarks = trim($m[1]);
+                $tmi['remarks'] = $remarks;
+                if (preg_match('/REPLACES?\s+(?:\/\s*)?ADVZY\s+(\d+)/i', $remarks, $replM)) {
+                    $tmi['replaces_advzy'] = $replM[1];
+                }
+                continue;
+            }
+
+            if (preg_match('/^MODIFICATIONS?:\s*(.*)/i', $line, $m)) { $tmi['modifications'] = trim($m[1]); continue; }
+            if (preg_match('/^ASSOCIATED\s+RESTRICTIONS?:\s*(.*)/i', $line, $m)) { $tmi['associated_restrictions'] = trim($m[1]); continue; }
+            if (preg_match('/^EXEMPTIONS?:\s*(.*)/i', $line, $m)) { $tmi['exemptions'] = trim($m[1]); continue; }
+            if (preg_match('/^PROBABILITY\s+OF\s+EXTENSION:\s*(.*)/i', $line, $m)) { $tmi['prob_extension'] = trim($m[1]); continue; }
+
             // TMI ID: RRDCCADVZY 003
             if (preg_match('/^TMI\s+ID:\s*(.+)/i', $line, $m)) {
                 $tmi['tmi_id'] = trim($m[1]);
@@ -655,4 +833,127 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     }
 
     return ['tmi' => $tmi, 'lines_consumed' => $lines_consumed];
+}
+
+/**
+ * Build GS program chains from parsed TMI entries
+ *
+ * Groups GS advisories by airport and matches with GS_CNX cancellations.
+ *
+ * @param array $tmis Parsed TMI entries
+ * @return array GS program objects
+ */
+function build_gs_programs($tmis) {
+    $gs_tmis = array_filter($tmis, fn($t) => ($t['type'] ?? '') === 'GS');
+    $gs_cnx = array_filter($tmis, fn($t) => ($t['type'] ?? '') === 'GS_CNX');
+
+    // Group by airport
+    $by_airport = [];
+    foreach ($gs_tmis as $t) {
+        $apt = $t['dest'] ?? '';
+        if ($apt) $by_airport[$apt][] = $t;
+    }
+
+    $programs = [];
+    foreach ($by_airport as $airport => $advisories) {
+        usort($advisories, fn($a, $b) => ($a['advzy_number'] ?? '0') <=> ($b['advzy_number'] ?? '0'));
+
+        // Assign advisory_type based on position in chain
+        foreach ($advisories as $idx => &$a) {
+            if (empty($a['advisory_type'])) {
+                $a['advisory_type'] = $idx === 0 ? 'INITIAL' : 'EXTENSION';
+            }
+        }
+        unset($a);
+
+        $last_advisory = end($advisories);
+        $program = [
+            'type' => 'GS_PROGRAM',
+            'airport' => $airport,
+            'advisories' => $advisories,
+            'dep_facilities' => [],
+            'effective_start' => $advisories[0]['start_time'] ?? null,
+            'effective_end' => $last_advisory['end_time'] ?? null,
+            'ended_by' => 'EXPIRATION',
+            'impacting_condition' => '',
+            'cnx_comments' => ''
+        ];
+
+        // Collect dep_facilities and metadata
+        foreach ($advisories as $a) {
+            if (!empty($a['dep_facilities'])) {
+                $program['dep_facilities'] = array_unique(array_merge($program['dep_facilities'], $a['dep_facilities']));
+            }
+            if (!empty($a['impacting_condition'])) $program['impacting_condition'] = $a['impacting_condition'];
+        }
+
+        // Match CNX
+        foreach ($gs_cnx as $cnx) {
+            if (($cnx['dest'] ?? '') === $airport) {
+                $program['ended_by'] = 'CNX';
+                $program['effective_end'] = $cnx['cnx_period_end'] ?? $cnx['issued_time'] ?? $program['effective_end'];
+                $program['cnx_comments'] = $cnx['comments'] ?? '';
+                break;
+            }
+        }
+
+        $programs[] = $program;
+    }
+
+    return $programs;
+}
+
+/**
+ * Build reroute program chains from parsed TMI entries
+ *
+ * Groups reroute advisories by name and matches with REROUTE_CNX cancellations.
+ *
+ * @param array $tmis Parsed TMI entries
+ * @return array Reroute program objects
+ */
+function build_reroute_programs($tmis) {
+    $reroutes = array_filter($tmis, fn($t) => ($t['type'] ?? '') === 'REROUTE');
+    $cnxs = array_filter($tmis, fn($t) => ($t['type'] ?? '') === 'REROUTE_CNX');
+
+    // Group by name
+    $by_name = [];
+    foreach ($reroutes as $t) {
+        $name = $t['name'] ?? '';
+        if ($name) $by_name[$name][] = $t;
+    }
+
+    $programs = [];
+    foreach ($by_name as $name => $advisories) {
+        usort($advisories, fn($a, $b) => ($a['advzy_number'] ?? '0') <=> ($b['advzy_number'] ?? '0'));
+        $latest = end($advisories);
+
+        $program = [
+            'type' => 'REROUTE_PROGRAM',
+            'name' => $name,
+            'route_type' => $latest['route_type'] ?? 'ROUTE',
+            'action' => $latest['action'] ?? 'FYI',
+            'mandatory' => ($latest['action'] ?? '') === 'RQD',
+            'advisories' => $advisories,
+            'constrained_area' => $latest['constrained_area'] ?? '',
+            'reason' => $latest['reason'] ?? '',
+            'effective_start' => $advisories[0]['start_time'] ?? null,
+            'effective_end' => $latest['end_time'] ?? null,
+            'ended_by' => 'EXPIRATION',
+            'routes' => $latest['routes'] ?? [],
+            'tmi_id' => $latest['tmi_id'] ?? ''
+        ];
+
+        // Match cancellation
+        foreach ($cnxs as $cnx) {
+            if (($cnx['cancelled_name'] ?? '') === $name) {
+                $program['ended_by'] = 'CNX';
+                $program['effective_end'] = $cnx['cancelled_time'] ?? $program['effective_end'];
+                break;
+            }
+        }
+
+        $programs[] = $program;
+    }
+
+    return $programs;
 }

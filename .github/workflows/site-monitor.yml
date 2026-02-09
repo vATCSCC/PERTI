@@ -2,362 +2,316 @@ name: PERTI Site Monitor
 
 on:
   schedule:
-    - cron: '* * * * *'  # Every minute (closest to 90s GitHub supports)
-
+    - cron: '* * * * *'
   workflow_dispatch:
     inputs:
       force_alert:
-        description: 'Send test alert to Discord'
-        required: false
-        default: false
+        description: 'Force send test alert to Discord'
         type: boolean
+        default: false
 
 env:
-  SITE_URL: 'https://perti.vatcscc.org'
-  REQUEST_TIMEOUT: 30
+  SITE_URL: https://perti.vatcscc.org
+  TIMEOUT: 10
+  SLOW_MS: 2000
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Get timestamp
-      id: time
-      run: echo "timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
-
-    - name: Check Homepage
-      id: homepage
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_namelookup}|%{time_connect}|%{time_starttransfer}|%{time_total}|%{size_download}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} \
-          -o /tmp/homepage.html \
-          "${{ env.SITE_URL }}/" 2>&1) || true
-        IFS='|' read -r HTTP_CODE DNS CONNECT TTFB TOTAL SIZE <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        echo "total=${TOTAL}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-          echo "error=$(head -c 200 /tmp/homepage.html 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Check JATOC
-      id: jatoc
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/jatoc.html \
-          "${{ env.SITE_URL }}/jatoc.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
-
-    - name: Check NOD
-      id: nod
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/nod.html \
-          "${{ env.SITE_URL }}/nod.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
-
-    - name: Check GDT
-      id: gdt
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/gdt.html \
-          "${{ env.SITE_URL }}/gdt.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^(2[0-9][0-9]|302|401|403)$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
-
-    - name: Check Route
-      id: route
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -o /tmp/route.html \
-          "${{ env.SITE_URL }}/route.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^(2[0-9][0-9]|302|401|403)$ ]]; then echo "status=ok"; else echo "status=fail"; fi >> $GITHUB_OUTPUT
-
-    - name: Check Stats API
-      id: stats_api
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-          -o /tmp/stats.json "${{ env.SITE_URL }}/api/adl/stats.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/stats.json > /dev/null 2>&1; then
-          FLIGHTS=$(jq -r '.total // .count // .active // "?"' /tmp/stats.json 2>/dev/null)
-          echo "status=ok" >> $GITHUB_OUTPUT
-          echo "flights=$FLIGHTS" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-          echo "error=$(head -c 200 /tmp/stats.json 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Check Flights API
-      id: flights_api
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-          -o /tmp/flights.json "${{ env.SITE_URL }}/api/adl/current.php?limit=5" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/flights.json > /dev/null 2>&1; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-          echo "error=$(head -c 200 /tmp/flights.json 2>/dev/null | tr '\n' ' ')" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Check Health API
-      id: health_api
-      continue-on-error: true
+    - name: Check All Endpoints
+      id: checks
       env:
-        HEALTH_API_KEY: ${{ secrets.MONITORING_API_KEY }}
+        HEALTH_KEY: ${{ secrets.MONITORING_API_KEY }}
       run: |
-        if [[ -n "$HEALTH_API_KEY" ]]; then
-          RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-            --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-            -H "X-API-Key: $HEALTH_API_KEY" \
-            -o /tmp/health.json "${{ env.SITE_URL }}/api/system/health.php" 2>&1) || true
-        else
-          RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-            --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-            -o /tmp/health.json "${{ env.SITE_URL }}/api/system/health.php" 2>&1) || true
-        fi
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/health.json > /dev/null 2>&1; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-          DB=$(jq -r '.checks.database.status // .database.status // "?"' /tmp/health.json 2>/dev/null)
-          MEM=$(jq -r '.checks.memory.php_memory_usage_mb // .memory.usage_mb // "?"' /tmp/health.json 2>/dev/null)
-          MEM_PCT=$(jq -r '.checks.memory.system_used_pct // "?"' /tmp/health.json 2>/dev/null)
-          DAEMONS_RUN=$(jq -r '.checks.daemons.running_count // "?"' /tmp/health.json 2>/dev/null)
-          DAEMONS_TOT=$(jq -r '.checks.daemons.total_count // "?"' /tmp/health.json 2>/dev/null)
-          DAEMON_STATUS=$(jq -r '.checks.daemons.status // "?"' /tmp/health.json 2>/dev/null)
-          echo "db_status=$DB" >> $GITHUB_OUTPUT
-          echo "memory=${MEM}MB" >> $GITHUB_OUTPUT
-          echo "memory_pct=${MEM_PCT}%" >> $GITHUB_OUTPUT
-          echo "daemons_running=$DAEMONS_RUN" >> $GITHUB_OUTPUT
-          echo "daemons_total=$DAEMONS_TOT" >> $GITHUB_OUTPUT
-          echo "daemons_status=$DAEMON_STATUS" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-        fi
+        check() {
+          local name=$1 url=$2 type=$3 accept=${4:-2xx}
+          local body="/tmp/body_${name}"
 
-    - name: Check TMI API
-      id: tmi_api
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-          -o /tmp/tmi.json "${{ env.SITE_URL }}/api/nod/tmi_active.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/tmi.json > /dev/null 2>&1; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-        fi
+          HDRS=(-H "Accept: application/json")
+          [[ -n "$HEALTH_KEY" ]] && HDRS+=(-H "X-API-Key: $HEALTH_KEY")
 
-    - name: Check Stats Status API
-      id: stats_status
-      continue-on-error: true
-      run: |
-        RESPONSE=$(curl -sS -w "\n%{http_code}|%{time_starttransfer}|%{time_total}" \
-          --max-time ${{ env.REQUEST_TIMEOUT }} -H "Accept: application/json" \
-          -o /tmp/ss.json "${{ env.SITE_URL }}/api/stats/status.php" 2>&1) || true
-        IFS='|' read -r HTTP_CODE TTFB TOTAL <<< "$(echo "$RESPONSE" | tail -1)"
-        echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
-        echo "ttfb=${TTFB}s" >> $GITHUB_OUTPUT
-        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]] && jq -e . /tmp/ss.json > /dev/null 2>&1; then
-          echo "status=ok" >> $GITHUB_OUTPUT
-        else
-          echo "status=fail" >> $GITHUB_OUTPUT
-        fi
+          local raw
+          raw=$(curl -sS -w '%{http_code} %{time_starttransfer} %{time_total} %{size_download}' \
+            --max-time "$TIMEOUT" "${HDRS[@]}" -o "$body" "$url" 2>/dev/null) || true
 
-    - name: Analyze Results
-      id: analyze
-      run: |
-        FAILURES=0
-        SLOW=0
+          local code ttfb_s total_s size_raw
+          read -r code ttfb_s total_s size_raw <<< "${raw:-000 0 0 0}"
+          local ms=$(awk "BEGIN{printf \"%d\", ${total_s:-0} * 1000}")
+          local ttfb=$(awk "BEGIN{printf \"%d\", ${ttfb_s:-0} * 1000}")
 
-        # Count failures
-        [[ "${{ steps.homepage.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.jatoc.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.nod.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.gdt.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.route.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.stats_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.flights_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.health_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.tmi_api.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
-        [[ "${{ steps.stats_status.outputs.status }}" != "ok" ]] && FAILURES=$((FAILURES + 1)) || true
+          local ok=fail
+          case "$accept" in
+            2xx)      [[ "$code" =~ ^2[0-9][0-9]$ ]] && ok=ok ;;
+            2xx+auth) [[ "$code" =~ ^(2[0-9][0-9]|302|401|403)$ ]] && ok=ok ;;
+          esac
+          [[ "$type" == api && "$ok" == ok ]] && ! jq -e . "$body" &>/dev/null && ok=fail
 
-        # Check for slow responses (>2s)
-        check_slow() {
-          local t="${1%s}"
-          if [[ -n "$t" ]] && (( $(echo "$t > 2" | bc -l 2>/dev/null || echo 0) )); then
-            SLOW=$((SLOW + 1))
-          fi
+          jq -nc --arg n "$name" --arg s "$ok" --arg c "$code" \
+            --argjson ms "$ms" --argjson ttfb "$ttfb" --arg t "$type" \
+            '{name:$n,status:$s,code:$c,ms:$ms,ttfb:$ttfb,type:$t}' > "/tmp/r_${name}"
         }
-        check_slow "${{ steps.stats_api.outputs.ttfb }}" || true
-        check_slow "${{ steps.flights_api.outputs.ttfb }}" || true
-        check_slow "${{ steps.health_api.outputs.ttfb }}" || true
 
-        echo "failures=$FAILURES" >> $GITHUB_OUTPUT
-        echo "slow=$SLOW" >> $GITHUB_OUTPUT
+        # All checks in parallel — total wall time = slowest single request
+        check homepage "$SITE_URL/"                              page 2xx      &
+        check jatoc    "$SITE_URL/jatoc.php"                     page 2xx      &
+        check nod      "$SITE_URL/nod.php"                       page 2xx      &
+        check gdt      "$SITE_URL/gdt.php"                       page 2xx+auth &
+        check route    "$SITE_URL/route.php"                     page 2xx+auth &
+        check stats    "$SITE_URL/api/adl/stats.php"             api  2xx      &
+        check flights  "$SITE_URL/api/adl/current.php?limit=5"   api  2xx      &
+        check health   "$SITE_URL/api/system/health.php"         api  2xx      &
+        check tmi      "$SITE_URL/api/nod/tmi_active.php"        api  2xx      &
+        check sstatus  "$SITE_URL/api/stats/status.php"          api  2xx      &
+        check realtime "$SITE_URL/api/stats/realtime.php"       api  2xx      &
+        wait
 
-        if [[ $FAILURES -ge 5 ]]; then
-          echo "severity=CRITICAL" >> $GITHUB_OUTPUT
-        elif [[ $FAILURES -ge 2 ]]; then
-          echo "severity=MAJOR" >> $GITHUB_OUTPUT
-        elif [[ $FAILURES -ge 1 ]]; then
-          echo "severity=WARNING" >> $GITHUB_OUTPUT
-        elif [[ $SLOW -ge 1 ]]; then
-          echo "severity=SLOW" >> $GITHUB_OUTPUT
-        else
-          echo "severity=HEALTHY" >> $GITHUB_OUTPUT
+        jq -s '.' /tmp/r_* > /tmp/results.json
+
+        # Summary stats
+        FAILS=$(jq '[.[]|select(.status=="fail")]|length' /tmp/results.json)
+        SLOW=$(jq --argjson t "$SLOW_MS" '[.[]|select(.ms>$t)]|length' /tmp/results.json)
+        OK_N=$(jq '[.[]|select(.status=="ok")]|length' /tmp/results.json)
+        TOTAL=$(jq 'length' /tmp/results.json)
+
+        read -r AVG_MS MAX_MS AVG_TTFB MAX_TTFB <<< "$(jq -r \
+          '[([.[].ms]|add/length|round),([.[].ms]|max),
+            ([.[].ttfb]|add/length|round),([.[].ttfb]|max)]|@tsv' /tmp/results.json)"
+
+        {
+          echo "failures=$FAILS"; echo "slow=$SLOW"
+          echo "ok=$OK_N"; echo "total=$TOTAL"
+          echo "avg_ms=$AVG_MS"; echo "max_ms=$MAX_MS"
+          echo "avg_ttfb=$AVG_TTFB"; echo "max_ttfb=$MAX_TTFB"
+        } >> "$GITHUB_OUTPUT"
+
+        if   (( FAILS >= 5 )); then SEV=CRITICAL
+        elif (( FAILS >= 2 )); then SEV=MAJOR
+        elif (( FAILS >= 1 )); then SEV=WARNING
+        elif (( SLOW  >= 1 )); then SEV=SLOW
+        else                        SEV=HEALTHY; fi
+        echo "severity=$SEV" >> "$GITHUB_OUTPUT"
+
+        # SSL certificate expiry
+        CERT_END=$(echo | timeout 5 openssl s_client -servername perti.vatcscc.org \
+          -connect perti.vatcscc.org:443 2>/dev/null \
+          | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+        [[ -n "$CERT_END" ]] && echo "cert_days=$(( ($(date -d "$CERT_END" +%s) - $(date +%s)) / 86400 ))" >> "$GITHUB_OUTPUT"
+
+        # Log summary
+        jq -r '.[]|"\(.status|if .=="ok" then "ok" else "FAIL" end)\t\(.name)\t\(.code)\t\(.ms)ms\tttfb:\(.ttfb)ms"' \
+          /tmp/results.json | column -t
+        echo "--- $SEV | $FAILS fail, $SLOW slow | avg ${AVG_MS}ms peak ${MAX_MS}ms ---"
+
+    - name: Load Previous State
+      uses: actions/cache@v4
+      with:
+        path: /tmp/monitor_state
+        key: monitor-state-${{ github.run_id }}
+        restore-keys: monitor-state-
+
+    - name: Detect State Change
+      id: delta
+      run: |
+        mkdir -p /tmp/monitor_state
+        NOW="${{ steps.checks.outputs.severity }}"
+        PREV=$(cat /tmp/monitor_state/severity 2>/dev/null || echo HEALTHY)
+        COUNT=$(cat /tmp/monitor_state/fail_count 2>/dev/null || echo 0)
+        OUTAGE_START=$(cat /tmp/monitor_state/outage_start 2>/dev/null || echo "")
+
+        echo "$NOW" > /tmp/monitor_state/severity
+
+        ALERT=false RECOVERED=false DURATION=""
+        if [[ "$NOW" == "HEALTHY" && "$PREV" != "HEALTHY" ]]; then
+          ALERT=true; RECOVERED=true; COUNT=0
+          [[ -n "$OUTAGE_START" ]] && DURATION=$(( ($(date +%s) - OUTAGE_START) / 60 ))
+          rm -f /tmp/monitor_state/outage_start
+        elif [[ "$NOW" != "HEALTHY" && "$PREV" == "HEALTHY" ]]; then
+          ALERT=true; COUNT=1
+          date +%s > /tmp/monitor_state/outage_start
+        elif [[ "$NOW" != "HEALTHY" ]]; then
+          COUNT=$((COUNT + 1))
+          (( COUNT % 15 == 0 )) && ALERT=true  # Reminder every ~15 runs
+          [[ -n "$OUTAGE_START" ]] && DURATION=$(( ($(date +%s) - OUTAGE_START) / 60 ))
         fi
 
-        echo "=== Summary ==="
-        echo "Failures: $FAILURES, Slow: $SLOW"
+        echo "$COUNT" > /tmp/monitor_state/fail_count
+        {
+          echo "alert=$ALERT"
+          echo "recovered=$RECOVERED"
+          echo "previous=$PREV"
+          echo "fail_count=$COUNT"
+          echo "duration=$DURATION"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Send Discord Alert
-      if: steps.analyze.outputs.failures != '0' || steps.analyze.outputs.slow != '0' || github.event.inputs.force_alert == 'true'
+      if: steps.delta.outputs.alert == 'true' || github.event.inputs.force_alert == 'true'
       env:
         DISCORD_WEBHOOK: ${{ secrets.MONITORING_DISCORD_WEBHOOK }}
       run: |
         [[ -z "$DISCORD_WEBHOOK" ]] && echo "No webhook configured" && exit 0
 
-        FAILURES="${{ steps.analyze.outputs.failures }}"
-        SLOW="${{ steps.analyze.outputs.slow }}"
-        SEV="${{ steps.analyze.outputs.severity }}"
+        SEV="${{ steps.checks.outputs.severity }}"
+        RECOVERED="${{ steps.delta.outputs.recovered }}"
+        PREV="${{ steps.delta.outputs.previous }}"
+        DURATION="${{ steps.delta.outputs.duration }}"
+        CERT="${{ steps.checks.outputs.cert_days }}"
+        AVG_MS="${{ steps.checks.outputs.avg_ms }}"
+        MAX_MS="${{ steps.checks.outputs.max_ms }}"
+        AVG_TTFB="${{ steps.checks.outputs.avg_ttfb }}"
+        FAILS="${{ steps.checks.outputs.failures }}"
+        OK_N="${{ steps.checks.outputs.ok }}"
+        TOTAL="${{ steps.checks.outputs.total }}"
 
-        case "$SEV" in
-          CRITICAL) COLOR=15158332 ;;
-          MAJOR)    COLOR=15105570 ;;
-          WARNING)  COLOR=16776960 ;;
-          SLOW)     COLOR=16744192 ;;
-          *)        COLOR=3066993 ;;
-        esac
-
-        icon() { [[ "$1" == "ok" ]] && echo "✅" || echo "❌"; }
-
-        # Build JSON payload with proper escaping
-        cat > /tmp/payload.json << 'ENDJSON'
-        {
-          "embeds": [{
-            "title": "PERTI Monitor - SEVERITY_PLACEHOLDER",
-            "description": "**FAILURES_PLACEHOLDER failures, SLOW_PLACEHOLDER slow**\n[perti.vatcscc.org](https://perti.vatcscc.org)",
-            "color": COLOR_PLACEHOLDER,
-            "fields": [
-              {
-                "name": "📄 Pages",
-                "value": "PAGES_PLACEHOLDER",
-                "inline": true
-              },
-              {
-                "name": "🔌 APIs",
-                "value": "APIS_PLACEHOLDER",
-                "inline": true
-              },
-              {
-                "name": "🗄️ Database",
-                "value": "DB_PLACEHOLDER",
-                "inline": true
-              },
-              {
-                "name": "⚙️ System",
-                "value": "SYSTEM_PLACEHOLDER",
-                "inline": true
-              },
-              {
-                "name": "🔗 Details",
-                "value": "[View Logs](LOGS_URL_PLACEHOLDER)",
-                "inline": false
-              }
-            ],
-            "footer": {"text": "External Monitor"},
-            "timestamp": "TIMESTAMP_PLACEHOLDER"
-          }]
-        }
-        ENDJSON
-
-        # Build page status using printf for newlines
-        NL=$'\n'
-        PAGES="$(icon ${{ steps.homepage.outputs.status }}) Home (${{ steps.homepage.outputs.ttfb }})${NL}"
-        PAGES+="$(icon ${{ steps.jatoc.outputs.status }}) JATOC (${{ steps.jatoc.outputs.ttfb }})${NL}"
-        PAGES+="$(icon ${{ steps.nod.outputs.status }}) NOD (${{ steps.nod.outputs.ttfb }})${NL}"
-        PAGES+="$(icon ${{ steps.gdt.outputs.status }}) GDT (${{ steps.gdt.outputs.ttfb }})${NL}"
-        PAGES+="$(icon ${{ steps.route.outputs.status }}) Route (${{ steps.route.outputs.ttfb }})"
-
-        # Build API status
-        APIS="$(icon ${{ steps.stats_api.outputs.status }}) Stats (${{ steps.stats_api.outputs.ttfb }})${NL}"
-        APIS+="$(icon ${{ steps.flights_api.outputs.status }}) Flights (${{ steps.flights_api.outputs.ttfb }})${NL}"
-        APIS+="$(icon ${{ steps.health_api.outputs.status }}) Health (${{ steps.health_api.outputs.ttfb }})${NL}"
-        APIS+="$(icon ${{ steps.tmi_api.outputs.status }}) TMI (${{ steps.tmi_api.outputs.ttfb }})${NL}"
-        APIS+="$(icon ${{ steps.stats_status.outputs.status }}) Status (${{ steps.stats_status.outputs.ttfb }})"
-
-        # Database info
-        DB_STATUS="${{ steps.health_api.outputs.db_status }}"
-        DB_FLIGHTS="${{ steps.stats_api.outputs.flights }}"
-        DB_INFO="DB: ${DB_STATUS:-N/A}${NL}Flights: ${DB_FLIGHTS:-N/A}"
-
-        # System info (daemons, memory)
-        DAEMONS_RUN="${{ steps.health_api.outputs.daemons_running }}"
-        DAEMONS_TOT="${{ steps.health_api.outputs.daemons_total }}"
-        DAEMON_STATUS="${{ steps.health_api.outputs.daemons_status }}"
-        MEM_PCT="${{ steps.health_api.outputs.memory_pct }}"
-        if [[ "$DAEMON_STATUS" == "healthy" ]]; then
-          DAEMON_ICON="✅"
-        elif [[ "$DAEMON_STATUS" == "unhealthy" ]]; then
-          DAEMON_ICON="❌"
+        # --- Title ---
+        if [[ "$RECOVERED" == "true" ]]; then
+          COLOR=3066993
+          [[ -n "$DURATION" && "$DURATION" -gt 0 ]] \
+            && TITLE="Recovered (was down ${DURATION}m)" || TITLE="Recovered"
         else
-          DAEMON_ICON="⚠️"
+          case "$SEV" in
+            CRITICAL) COLOR=15158332 ;; MAJOR) COLOR=15105570 ;;
+            WARNING)  COLOR=16776960 ;; SLOW)  COLOR=16744192 ;;
+            *)        COLOR=3066993  ;;
+          esac
+          TITLE="$SEV"
+          [[ -n "$DURATION" && "$DURATION" -gt 0 ]] && TITLE+=" (${DURATION}m)"
         fi
-        SYSTEM_INFO="${DAEMON_ICON} Daemons: ${DAEMONS_RUN:-?}/${DAEMONS_TOT:-?}${NL}💾 Memory: ${MEM_PCT:-N/A}"
 
-        LOGS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        # --- Description ---
+        DESC="${OK_N}/${TOTAL} endpoints ok"
+        (( FAILS > 0 )) && DESC+=" · **${FAILS} failing**"
+        DESC+=" · avg ${AVG_MS}ms / peak ${MAX_MS}ms · ttfb ${AVG_TTFB}ms"
 
-        # Replace placeholders
-        sed -i "s/SEVERITY_PLACEHOLDER/$SEV/g" /tmp/payload.json
-        sed -i "s/FAILURES_PLACEHOLDER/$FAILURES/g" /tmp/payload.json
-        sed -i "s/SLOW_PLACEHOLDER/$SLOW/g" /tmp/payload.json
-        sed -i "s/COLOR_PLACEHOLDER/$COLOR/g" /tmp/payload.json
-        sed -i "s|LOGS_URL_PLACEHOLDER|$LOGS_URL|g" /tmp/payload.json
-        sed -i "s/TIMESTAMP_PLACEHOLDER/$TIMESTAMP/g" /tmp/payload.json
+        # --- Endpoint fields: diff-highlighted code blocks ---
+        # + prefix = green (ok), - prefix = red (fail), no prefix = neutral (slow)
+        fmt_endpoints() {
+          local raw
+          raw=$(jq -r --argjson slow "$SLOW_MS" --arg type "$1" '
+            [.[]|select(.type==$type)|
+              (if .status != "ok" then "- "
+               elif .ms > $slow then "  "
+               else "+ " end) +
+              ((.name + "            ")[:12]) +
+              (if .status != "ok" then .code
+               elif .ms > $slow then (.ms|tostring) + "ms  SLOW"
+               else (.ms|tostring) + "ms" end)
+            ]|join("\n")' /tmp/results.json)
+          printf '```diff\n%s\n```' "$raw"
+        }
+        PAGES=$(fmt_endpoints page)
+        APIS=$(fmt_endpoints api)
 
-        # Use jq to properly set the field values with newlines
-        jq --arg pages "$PAGES" --arg apis "$APIS" --arg db "$DB_INFO" --arg sys "$SYSTEM_INFO" \
-          '.embeds[0].fields[0].value = $pages | .embeds[0].fields[1].value = $apis | .embeds[0].fields[2].value = $db | .embeds[0].fields[3].value = $sys' \
-          /tmp/payload.json > /tmp/final.json
+        # --- Infrastructure from health response ---
+        INFRA="_No health data_"
+        HB=/tmp/body_health
+        if [[ -f "$HB" ]] && jq -e .checks "$HB" &>/dev/null; then
+          INFRA=$(jq -r '
+            [
+              # Per-database status with latency
+              "DB: " + ([.checks.database.connections | to_entries[] |
+                (.key | ascii_upcase) + " " + .value.status +
+                (if .value.connect_time_ms then " (" + (.value.connect_time_ms|tostring) + "ms)" else "" end)
+              ] | join(" · ")),
 
-        curl -sS -X POST -H "Content-Type: application/json" -d @/tmp/final.json "$DISCORD_WEBHOOK"
-        echo "Alert sent"
+              # Blocking sessions
+              (if (.checks.database.connections.adl.blocking_sessions // 0) > 0 then
+                "Blocking: " + (.checks.database.connections.adl.blocking_sessions|tostring) + " sessions"
+              else empty end),
+
+              # FPM worker pool
+              (if .checks.php_fpm.total_workers then
+                "FPM: " + (.checks.php_fpm.active_workers|tostring) + "/" +
+                (.checks.php_fpm.total_workers|tostring) + " workers" +
+                (if (.checks.php_fpm.listen_queue // 0) > 0
+                 then " (queue: " + (.checks.php_fpm.listen_queue|tostring) + ")" else "" end)
+              else empty end),
+
+              # Daemons — list names of any that are down
+              "Daemons: " + (.checks.daemons.running_count|tostring) + "/" +
+                (.checks.daemons.total_count|tostring) +
+                (if .checks.daemons.status != "healthy" then " — " +
+                  ([.checks.daemons.daemons | to_entries[] |
+                    select(.value.status != "running") |
+                    .key | gsub("_daemon$";"")] | join(", ")) + " down"
+                else "" end),
+
+              # Memory with GB breakdown
+              "Memory: " + (.checks.memory.system_used_pct // "?" | tostring) + "%" +
+                (if .checks.memory.system_used_mb and .checks.memory.system_total_mb then
+                  " (" + ((.checks.memory.system_used_mb / 1024 * 10 | round) / 10 | tostring) + "/" +
+                  ((.checks.memory.system_total_mb / 1024 * 10 | round) / 10 | tostring) + " GB)"
+                else "" end),
+
+              # Log errors
+              (if (.checks.logs.error_count // 0) > 0 then
+                "Log errors: " + (.checks.logs.error_count|tostring) + " recent"
+              else empty end)
+            ] | join("\n")
+          ' "$HB")
+
+          # SSL
+          if [[ -n "$CERT" ]]; then
+            INFRA+=$'\n'"SSL: ${CERT} days"
+            (( CERT < 14 )) && INFRA+=" (expiring soon)"
+          fi
+        fi
+
+        # --- Traffic from stats + realtime response bodies ---
+        NL=$'\n'
+        TRAFFIC="_No flight data_"
+        BS=/tmp/body_stats
+        BR=/tmp/body_realtime
+
+        if [[ -f "$BS" ]] && jq -e .global "$BS" &>/dev/null; then
+          TOTAL_F=$(jq -r '.global.total//0' "$BS")
+          DD=$(jq -r '.global.domestic_to_domestic//0' "$BS")
+          DI=$(jq -r '.global.domestic_to_intl//0' "$BS")
+          ID=$(jq -r '.global.intl_to_domestic//0' "$BS")
+          II=$(jq -r '.global.intl_to_intl//0' "$BS")
+          TRAFFIC="${TOTAL_F} flights (D-D ${DD} / D-I ${DI} / I-D ${ID} / I-I ${II})"
+        fi
+
+        if [[ -f "$BR" ]] && jq -e .data.by_phase "$BR" &>/dev/null; then
+          ENR=$(jq -r '.data.by_phase.enroute//0' "$BR")
+          DEP=$(jq -r '.data.by_phase.departed//0' "$BR")
+          DSC=$(jq -r '.data.by_phase.descending//0' "$BR")
+          TXI=$(jq -r '.data.by_phase.taxiing//0' "$BR")
+          TRAFFIC+="${NL}Enroute ${ENR} · Departed ${DEP} · Desc ${DSC} · Taxi ${TXI}"
+
+          TMI_N=$(jq -r '.data.tmi_affected//0' "$BR")
+          TMI_D=$(jq -r '.data.avg_tmi_delay_min//0' "$BR")
+          (( TMI_N > 0 )) && TRAFFIC+="${NL}TMI: ${TMI_N} affected, avg ${TMI_D}m delay"
+        fi
+
+        # --- Build and send ---
+        LOGS="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        jq -n \
+          --arg title "PERTI Monitor — $TITLE" --argjson color "$COLOR" \
+          --arg desc "$DESC" \
+          --arg pages "$PAGES" --arg apis "$APIS" \
+          --arg infra "$INFRA" --arg traffic "$TRAFFIC" \
+          --arg prev "$PREV" --arg sev "${TITLE%% (*}" --arg logs "$LOGS" \
+          --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          '{embeds:[{
+            title: $title,
+            description: $desc,
+            color: $color,
+            fields: [
+              {name: "Pages",          value: $pages, inline: true},
+              {name: "APIs",           value: $apis,  inline: true},
+              {name: "\u200b",         value: "\u200b", inline: false},
+              {name: "Infrastructure", value: $infra, inline: true},
+              {name: "Traffic",         value: $traffic, inline: true},
+              {name: "\u200b",         value: ($prev + " \u2192 **" + $sev + "** \u00b7 [View run](" + $logs + ")"), inline: false}
+            ],
+            footer: {text: "External Monitor"},
+            timestamp: $ts
+          }]}' \
+        | curl -sS -X POST -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK"
 
     - name: Fail on Critical
-      if: steps.analyze.outputs.failures >= 5
+      if: steps.checks.outputs.severity == 'CRITICAL'
       run: exit 1

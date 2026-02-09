@@ -75,9 +75,9 @@ $config = [
     'atis_enabled'    => true,
 
     // Tier intervals (in 15-second cycles)
-    // Tier 0: every 15s (1 cycle)  - METAR update time / bad weather ASPM77
-    // Tier 1: every 1min (4 cycles) - ASPM77 normal weather
-    // Tier 2: every 5min (20 cycles) - Non-ASPM77 + Canada + LatAm + Caribbean
+    // Tier 0: every 15s (1 cycle)  - METAR update time / bad weather ASPM82
+    // Tier 1: every 1min (4 cycles) - ASPM82 normal weather
+    // Tier 2: every 5min (20 cycles) - Non-ASPM82 + Canada + LatAm + Caribbean
     // Tier 3: every 30min (120 cycles) - All other airports
     // Tier 4: every 60min (240 cycles) - Clear weather non-priority airports
     'atis_tier_intervals' => [
@@ -88,8 +88,8 @@ $config = [
         4 => 240,  // every 60min
     ],
 
-    // ASPM77 airports (FAA Aviation System Performance Metrics)
-    'aspm77' => [
+    // ASPM82 airports (FAA Aviation System Performance Metrics)
+    'aspm82' => [
         'KABQ', 'KALB', 'PANC', 'KATL', 'KAUS', 'KBDL', 'KBHM', 'KBNA', 'KBOS', 'KBUF',
         'KBUR', 'KBWI', 'KCHS', 'KCLE', 'KCLT', 'KCMH', 'KCVG', 'KDAL', 'KDCA', 'KDEN',
         'KDFW', 'KDTW', 'KEWR', 'KFLL', 'PHNL', 'KHOU', 'KIAD', 'KIAH', 'KIND', 'KJAX',
@@ -1103,7 +1103,7 @@ function isNearMetarUpdate(int $windowMins = 5): bool {
 }
 
 function getBaseTier(string $airport, array $config): int {
-    if (in_array($airport, $config['aspm77'])) {
+    if (in_array($airport, $config['aspm82'])) {
         return 1;
     }
     $prefix = substr($airport, 0, 1);
@@ -1120,13 +1120,13 @@ function getEffectiveTier(string $airport, string $atisText, array $config): int
     $baseTier = getBaseTier($airport, $config);
     $weather = detectWeatherCondition($atisText);
     $isMetarTime = isNearMetarUpdate($config['metar_window_mins'] ?? 5);
-    $isAspm77 = in_array($airport, $config['aspm77']);
+    $isAspm82 = in_array($airport, $config['aspm82']);
 
-    if ($isMetarTime && $isAspm77) {
+    if ($isMetarTime && $isAspm82) {
         return 0;
     }
     if ($weather === 'bad') {
-        if ($isAspm77) {
+        if ($isAspm82) {
             return 0;
         } else {
             return min($baseTier, 1);

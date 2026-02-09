@@ -158,6 +158,21 @@ nohup php "${WWWROOT}/scripts/event_sync_daemon.php" --loop --interval=21600 >> 
 EVENT_SYNC_PID=$!
 echo "  event_sync_daemon.php started (PID: $EVENT_SYNC_PID)"
 
+# Start the ADL Archive daemon (daily trajectory archival to blob storage)
+# Default: 10:00 UTC (lowest VATSIM traffic - night in Americas, morning in Europe)
+# Override via ADL_ARCHIVE_HOUR_UTC env var (0-23)
+# Requires ADL_ARCHIVE_STORAGE_CONN environment variable
+if [ -n "$ADL_ARCHIVE_STORAGE_CONN" ]; then
+    ARCHIVE_HOUR=${ADL_ARCHIVE_HOUR_UTC:-10}
+    echo "Starting adl_archive_daemon.php (daily at ${ARCHIVE_HOUR}:00 UTC)..."
+    nohup php "${WWWROOT}/scripts/adl_archive_daemon.php" >> /home/LogFiles/adl_archive.log 2>&1 &
+    ADL_ARCHIVE_PID=$!
+    echo "  adl_archive_daemon.php started (PID: $ADL_ARCHIVE_PID)"
+else
+    echo "ADL Archive daemon SKIPPED (ADL_ARCHIVE_STORAGE_CONN not set)"
+    ADL_ARCHIVE_PID="N/A"
+fi
+
 # Run codebase/database indexer once at startup (generates agent_context.md for AI tools)
 # Uses lock file to prevent concurrent runs during rapid deployments
 # Runs in background with 30s delay to let daemons stabilize first
@@ -191,6 +206,7 @@ echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
 echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
 echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
 echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
+echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
 echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 echo "========================================"
 

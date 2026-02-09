@@ -124,9 +124,13 @@ class TrafficFilter:
 
 class Compliance(Enum):
     """Compliance status categories"""
+    PENDING = 'PENDING'
+    MONITORING = 'MONITORING'
     COMPLIANT = 'COMPLIANT'
-    EXEMPT = 'EXEMPT'
+    PARTIAL = 'PARTIAL'
     NON_COMPLIANT = 'NON-COMPLIANT'
+    EXEMPT = 'EXEMPT'
+    UNKNOWN = 'UNKNOWN'
 
 
 class SpacingCategory(Enum):
@@ -144,6 +148,11 @@ SPACING_OVER_THRESHOLD = 2.00       # 110-200% = OVER (acceptable gap)
                                      # > 200% = GAP (excessive)
 
 CROSSING_RADIUS_NM = 5  # Fix crossing detection radius (reduced from 10nm for accuracy)
+
+# Reroute compliance thresholds (fraction of required fixes matched)
+REROUTE_COMPLIANT_THRESHOLD = 0.95    # 95%+ = COMPLIANT
+REROUTE_PARTIAL_THRESHOLD = 0.50      # 50-94% = PARTIAL
+                                       # <50% = NON_COMPLIANT
 
 
 @dataclass
@@ -377,6 +386,8 @@ class EventConfig:
     cancellations: List[CancelEntry] = field(default_factory=list)
     skipped_lines: List['SkippedLine'] = field(default_factory=list)  # Lines parser could not handle
     user_defined_tmis: List['UserTMIDefinition'] = field(default_factory=list)  # User overrides
+    gs_programs: List['GSProgram'] = field(default_factory=list)
+    reroute_programs: List['RerouteProgram'] = field(default_factory=list)
 
 
 class MeasurementType(Enum):
@@ -571,6 +582,137 @@ class UserTMIDefinition:
             raw_text=self.original_line,
             is_user_defined=True,
         )
+
+
+@dataclass
+class GSAdvisory:
+    """A single Ground Stop advisory in a program chain"""
+    advzy_number: str
+    advisory_type: str              # 'INITIAL', 'EXTENSION', 'UPDATE', 'CNX'
+    adl_time: Optional[datetime] = None  # When this advisory was issued
+    gs_period_start: Optional[datetime] = None
+    gs_period_end: Optional[datetime] = None
+    cumulative_start: Optional[datetime] = None  # If CUMULATIVE PROGRAM PERIOD present
+    cumulative_end: Optional[datetime] = None
+    dep_facilities: List[str] = field(default_factory=list)
+    dep_facility_tier: str = ''     # 1stTier, 2ndTier, Manual
+    delay_prev: Optional[tuple] = None   # (total, max, avg)
+    delay_new: Optional[tuple] = None
+    prob_extension: str = ''
+    impacting_condition: str = ''
+    flt_incl: str = ''
+    comments: str = ''
+    raw_text: str = ''
+
+
+@dataclass
+class GSProgram:
+    """
+    A Ground Stop program — chain of related GS advisories for one airport.
+
+    Lifecycle:
+    1. CDM GROUND STOP (INITIAL) → creates program
+    2. CDM GROUND STOP (EXTENSION/UPDATE) → extends or modifies
+    3. CDM GS CNX (CANCELLATION) → closes program
+    4. No CNX → program expires at last advisory's end time
+    """
+    airport: str                    # CTL ELEMENT (3-letter code)
+    advisories: List[GSAdvisory] = field(default_factory=list)
+    dep_facilities: List[str] = field(default_factory=list)  # Union of all DEP FACILITIES
+    dep_facility_tier: str = ''     # Latest tier notation
+    effective_start: Optional[datetime] = None  # Earliest start across all advisories
+    effective_end: Optional[datetime] = None    # CNX time, or last advisory's end time
+    ended_by: str = ''              # 'CNX', 'EXPIRATION'
+    impacting_condition: str = ''   # Latest impacting condition
+    prob_extension: str = ''        # Latest probability
+    comments: List[str] = field(default_factory=list)  # All comments collected
+    cnx_comments: str = ''          # CNX-specific comments (MIT/EDCT follow-up)
+
+    def get_effective_window(self) -> tuple:
+        """Return (start, end) effective window"""
+        return (self.effective_start, self.effective_end)
+
+    def is_cancelled(self) -> bool:
+        return self.ended_by == 'CNX'
+
+
+@dataclass
+class RouteEntry:
+    """A single route entry from a reroute advisory's route table"""
+    origins: List[str] = field(default_factory=list)  # Airport/ARTCC codes
+    destination: str = ''
+    route_string: str = ''         # Full route with >fix< markers
+    required_fixes: List[str] = field(default_factory=list)  # Extracted from >...< segment
+
+
+@dataclass
+class RerouteAdvisory:
+    """A single Reroute advisory in a program chain"""
+    advzy_number: str
+    advisory_type: str       # 'INITIAL', 'UPDATE', 'EXTENSION', 'CANCELLATION'
+    route_type: str = ''     # ROUTE, FEA, FCA, AFP, ICR
+    action: str = ''         # RQD, RMD, PLN, FYI
+    adl_time: Optional[datetime] = None
+    valid_start: Optional[datetime] = None
+    valid_end: Optional[datetime] = None
+    time_type: str = ''      # 'ETD' or 'ETA'
+    routes: List[RouteEntry] = field(default_factory=list)
+    origins: List[str] = field(default_factory=list)
+    destinations: List[str] = field(default_factory=list)
+    facilities: List[str] = field(default_factory=list)
+    modifications: str = ''  # e.g. "ARRIVAL CHANGED TO SNFLD3"
+    replaces_advzy: str = '' # Extracted from "REPLACES ADVZY NNN"
+    associated_restrictions: str = ''  # e.g. "20 MIT OVER BUGSY"
+    prob_extension: str = ''
+    exemptions: str = ''     # e.g. "AR AND Y ROUTES, Q75 EXEMPT"
+    comments: str = ''
+    raw_text: str = ''
+
+
+@dataclass
+class RerouteProgram:
+    """
+    A Reroute program — chain of related reroute advisories.
+
+    Lifecycle:
+    1. ROUTE RQD / ROUTE RMD / FEA FYI (INITIAL) → creates program
+    2. "REPLACES ADVZY NNN" (UPDATE/EXTENSION) → chains to existing
+    3. REROUTE CANCELLATION → closes program
+    4. No cancellation → expires at last advisory's VALID end time
+
+    Type/action can change mid-lifecycle (e.g., RQD → RMD).
+    """
+    name: str = ''                         # e.g. MCO_NO_GRNCH_PRICY
+    tmi_id: str = ''                       # e.g. RRDCC506
+    route_type: str = ''                   # ROUTE, FEA, FCA, AFP, ICR (latest)
+    action: str = ''                       # RQD, RMD, PLN, FYI (latest from chain)
+    advisories: List[RerouteAdvisory] = field(default_factory=list)
+    constrained_area: str = ''             # e.g. ZJX
+    reason: str = ''                       # e.g. WEATHER
+    effective_start: Optional[datetime] = None  # From first advisory's VALID start
+    effective_end: Optional[datetime] = None    # CNX time, or last advisory's VALID end
+    ended_by: str = ''                     # 'CANCELLATION', 'EXPIRATION'
+    current_routes: List[RouteEntry] = field(default_factory=list)  # From latest non-cancelled advisory
+    origins: List[str] = field(default_factory=list)
+    destinations: List[str] = field(default_factory=list)
+    facilities: List[str] = field(default_factory=list)
+    exemptions: str = ''                   # e.g. "AR AND Y ROUTES, Q75 EXEMPT"
+    associated_restrictions: str = ''
+
+    def is_mandatory(self) -> bool:
+        """RQD is mandatory, everything else is not"""
+        return self.action == 'RQD'
+
+    def get_assessment_mode(self) -> str:
+        """Determine analysis mode from action"""
+        if self.action == 'RQD':
+            return 'full_compliance'
+        elif self.action == 'RMD':
+            return 'usage_tracking'
+        elif self.action == 'PLN':
+            return 'future_planning'
+        else:  # FYI
+            return 'tracking_only'
 
 
 @dataclass

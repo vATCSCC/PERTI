@@ -13,8 +13,8 @@
                 </div>
                 
                 <!-- Toolbar -->
-                <div class="gdt-toolbar bg-light border-bottom px-2 py-1">
-                    <div class="btn-group btn-group-sm">
+                <div class="gdt-toolbar bg-light border-bottom px-2 py-1 d-flex flex-wrap align-items-center">
+                    <div class="btn-group btn-group-sm mr-2 mb-1">
                         <button class="btn btn-outline-secondary" id="gdp_reload_btn" title="Reload ADL data">
                             <i class="fas fa-sync-alt"></i> Reload
                         </button>
@@ -23,6 +23,20 @@
                         </button>
                         <button class="btn btn-success" id="gdp_submit_tmi_btn" title="Run 'Model' first, then submit to TMI Publishing" disabled>
                             <i class="fas fa-paper-plane"></i> Submit to TMI
+                        </button>
+                        <button class="btn btn-outline-danger" id="gdp_purge_btn" title="Purge active GDP program" disabled>
+                            <i class="fas fa-trash-alt"></i> Purge
+                        </button>
+                        <button class="btn btn-outline-secondary" id="gdp_purge_local_btn" title="Clear local model data">
+                            <i class="fas fa-eraser"></i> Purge Local
+                        </button>
+                    </div>
+                    <div class="btn-group btn-group-sm mb-1">
+                        <button class="btn btn-outline-info" id="gdp_run_proposed_btn" title="Run model with proposed parameters">
+                            <i class="fas fa-flask"></i> Run Proposed
+                        </button>
+                        <button class="btn btn-warning" id="gdp_run_actual_btn" title="Run model against actual traffic" disabled>
+                            <i class="fas fa-play"></i> Run Actual
                         </button>
                     </div>
                 </div>
@@ -360,7 +374,6 @@
                 <input type="hidden" id="gdp_origin_airports" value="">
                 <input type="hidden" id="gdp_flt_incl_carrier" value="">
                 <input type="hidden" id="gdp_flt_incl_type" value="ALL">
-                <input type="hidden" id="gdp_adv_number" value="">
                 <input type="hidden" id="gdp_impacting_condition" value="">
                 <input type="hidden" id="gdp_prob_ext" value="">
                 <input type="hidden" id="gdp_distance_nm" value="500">
@@ -440,6 +453,252 @@
                 </div>
             </div>
             
+            <!-- GDP Results Card -->
+            <div class="card shadow-sm border-secondary mb-3" id="gdp_model_section" style="display: none;">
+                <div class="card-header bg-info text-white py-1 px-2 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <span class="font-weight-bold small">
+                            <i class="fas fa-poll mr-1"></i> GDP Results
+                        </span>
+                        <span class="badge badge-light ml-2"><span id="gdp_flight_count">0</span> flights</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="btn-group btn-group-sm mr-2">
+                            <button class="btn btn-light btn-sm active" id="gdp_view_chart_btn" title="Chart view">
+                                <i class="fas fa-chart-area"></i> Chart
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" id="gdp_view_table_btn" title="Flight table view">
+                                <i class="fas fa-table"></i> Flights
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" id="gdp_view_slots_btn" title="Slot table view">
+                                <i class="fas fa-clock"></i> Slots
+                            </button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-light" id="gdp_model_close_btn" title="Close results">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-2">
+                    <!-- Metrics Row -->
+                    <div class="row small mb-2">
+                        <div class="col-3 text-center border-right">
+                            <div class="text-secondary">Total Flights</div>
+                            <div class="font-weight-bold" id="gdp_metric_total">--</div>
+                        </div>
+                        <div class="col-3 text-center border-right">
+                            <div class="text-secondary">Avg Delay</div>
+                            <div class="font-weight-bold text-warning" id="gdp_metric_avg_delay">--</div>
+                        </div>
+                        <div class="col-3 text-center border-right">
+                            <div class="text-secondary">Max Delay</div>
+                            <div class="font-weight-bold text-danger" id="gdp_metric_max_delay">--</div>
+                        </div>
+                        <div class="col-3 text-center">
+                            <div class="text-secondary">Utilization</div>
+                            <div class="font-weight-bold text-info" id="gdp_metric_utilization">--%</div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Container (D3 demand/capacity chart) -->
+                    <div id="gdp_chart_container" style="min-height: 250px; position: relative;"></div>
+
+                    <!-- Flight Table Container (hidden by default) -->
+                    <div id="gdp_table_container" style="display: none;">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-hover table-striped mb-0 small">
+                                <thead class="thead-dark sticky-top">
+                                    <tr>
+                                        <th>Callsign</th>
+                                        <th>Origin</th>
+                                        <th>ETA</th>
+                                        <th>CTA</th>
+                                        <th>CTD</th>
+                                        <th>Delay</th>
+                                        <th>Slot</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gdp_flight_table_body">
+                                    <tr><td colspan="8" class="text-center text-secondary">No data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Slot Table Container (hidden by default) -->
+                    <div id="gdp_slots_container" style="display: none;">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-hover table-striped mb-0 small">
+                                <thead class="thead-dark sticky-top">
+                                    <tr>
+                                        <th>Slot #</th>
+                                        <th>Time</th>
+                                        <th>Type</th>
+                                        <th>Callsign</th>
+                                        <th>Origin</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gdp_slot_table_body">
+                                    <tr><td colspan="6" class="text-center text-secondary">No data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Counts Breakdown Tables (used by clearDisplay) -->
+                    <div class="row mt-2">
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By Origin Center</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>Center</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_counts_origin_center"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By Hour</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>Hour</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_counts_hour"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By Carrier</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>Carrier</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_counts_carrier"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Statistics Card -->
+            <div class="card shadow-sm border-secondary mb-3" id="gdp_model_stats_section" style="display: none;">
+                <div class="card-header bg-info text-white py-1 px-2">
+                    <span class="font-weight-bold small">
+                        <i class="fas fa-chart-pie mr-1"></i> Model Statistics
+                    </span>
+                </div>
+                <div class="card-body p-2">
+                    <!-- Model Stats Summary -->
+                    <div class="row small mb-2">
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Avg Delay</div>
+                            <div class="font-weight-bold text-warning" id="gdp_model_stat_avg_delay">--</div>
+                        </div>
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Max Delay</div>
+                            <div class="font-weight-bold text-danger" id="gdp_model_stat_max_delay">--</div>
+                        </div>
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Total Delay</div>
+                            <div class="font-weight-bold" id="gdp_model_stat_total_delay">--</div>
+                        </div>
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Total</div>
+                            <div class="font-weight-bold" id="gdp_model_stat_total">--</div>
+                        </div>
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Delayed</div>
+                            <div class="font-weight-bold text-warning" id="gdp_model_stat_delayed">--</div>
+                        </div>
+                        <div class="col text-center border-right">
+                            <div class="text-secondary">Capped</div>
+                            <div class="font-weight-bold text-danger" id="gdp_model_stat_capped">--</div>
+                        </div>
+                        <div class="col text-center">
+                            <div class="text-secondary">Utilization</div>
+                            <div class="font-weight-bold text-info" id="gdp_model_stat_utilization">--%</div>
+                        </div>
+                    </div>
+
+                    <!-- Delay Distribution -->
+                    <div class="mb-2">
+                        <div class="small font-weight-bold text-secondary mb-1">Delay Distribution</div>
+                        <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                            <table class="table table-sm table-hover table-striped mb-0 small">
+                                <thead class="thead-light sticky-top">
+                                    <tr><th>Delay Bucket</th><th class="text-right">Count</th><th class="text-right">% of Total</th></tr>
+                                </thead>
+                                <tbody id="gdp_model_delay_buckets"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Model Breakdown Tables -->
+                    <div class="row mb-2">
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By ARTCC</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>ARTCC</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_model_by_artcc"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By Carrier</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>Carrier</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_model_by_carrier"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small font-weight-bold text-secondary mb-1">By Hour</div>
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto;">
+                                <table class="table table-sm table-hover table-striped mb-0 small">
+                                    <thead class="thead-light sticky-top">
+                                        <tr><th>Hour</th><th class="text-right">Count</th><th class="text-right">Avg Delay</th></tr>
+                                    </thead>
+                                    <tbody id="gdp_model_by_hour"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Chart -->
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div class="small font-weight-bold text-secondary">Model Chart</div>
+                            <div class="d-flex align-items-center">
+                                <select class="form-control form-control-sm mr-1" id="gdp_model_chart_view" style="width: auto;">
+                                    <option value="hourly">Hourly</option>
+                                    <option value="orig_artcc">By Origin ARTCC</option>
+                                    <option value="carrier">By Carrier</option>
+                                </select>
+                                <select class="form-control form-control-sm" id="gdp_model_metric" style="width: auto;">
+                                    <option value="delay">Delay</option>
+                                    <option value="count">Count</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="height: 200px; position: relative;">
+                            <canvas id="gdp_model_chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Data Graph + Map/Demand Row -->
             <div class="row">
                 <!-- Data Graph (left side) -->

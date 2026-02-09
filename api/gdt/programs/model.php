@@ -43,6 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+$auth_cid = gdt_optional_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -58,7 +59,7 @@ $conn_adl = gdt_get_conn_adl();  // For flight data
 // Validate required fields
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
 $dep_facilities = isset($payload['dep_facilities']) ? trim($payload['dep_facilities']) : '';
-$performed_by = isset($payload['performed_by']) ? trim($payload['performed_by']) : null;
+$performed_by = $auth_cid;
 
 if ($program_id <= 0) {
     respond_json(400, [

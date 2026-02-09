@@ -1,7 +1,5 @@
 <?php
-/**
- * OPTIMIZED: Public page - no session handler or DB needed
- */
+include("sessions/handler.php");
 include("load/config.php");
 ?>
 <!DOCTYPE html>
@@ -356,7 +354,7 @@ include("load/config.php");
                             <div class="perti-stat-section">
                                 <div class="perti-info-sublabel">Airport Tier</div>
                                 <div class="perti-badge-group">
-                                    <span class="badge badge-warning text-dark" title="ASPM 77 Airports"><strong>ASPM77</strong> <span id="tmi_stats_aspm77">-</span></span>
+                                    <span class="badge badge-warning text-dark" title="ASPM 82 Airports"><strong>ASPM82</strong> <span id="tmi_stats_aspm82">-</span></span>
                                     <span class="badge badge-primary" title="OEP 35 Airports"><strong>OEP35</strong> <span id="tmi_stats_oep35">-</span></span>
                                     <span class="badge badge-danger" title="Core 30 Airports"><strong>Core30</strong> <span id="tmi_stats_core30">-</span></span>
                                 </div>

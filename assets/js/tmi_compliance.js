@@ -7,6 +7,9 @@ const TMICompliance = {
     planId: null,
     results: null,
 
+    // HTML escape utility for free-text fields (NTML advisory text, comments, etc.)
+    escapeHtml: function(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; },
+
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
@@ -20,6 +23,13 @@ const TMICompliance = {
         hourEnd: '',        // End hour (0-23)
         tmiType: '',         // 'MIT', 'MINIT', or '' for all
     },
+
+    // Progressive disclosure layout state (v2 UI)
+    useProgressiveLayout: true,  // Enable new master-detail layout
+    selectedTmiId: null,         // Currently selected TMI in list
+    listGrouping: 'type',        // 'type', 'chronological', 'volume', 'noncompliant'
+    listOrdering: 'chronological', // 'chronological', 'volume', 'alpha'
+    expandedSections: {},        // Track which detail sections are expanded
 
     init: function() {
         // Get plan ID from URL
@@ -151,6 +161,10 @@ const TMICompliance = {
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Start trajectory fetch in parallel (maps will await it)
+                    if (response.data.trajectories_url) {
+                        this.loadTrajectories(this.planId, response.data.trajectories_url);
+                    }
                     // Check for data gaps before rendering
                     this.checkDataGaps(() => {
                         this.renderResults();
@@ -167,6 +181,29 @@ const TMICompliance = {
                 this.showError(`Failed to load results: ${error}`);
             },
         });
+    },
+
+    /**
+     * Fetch trajectory data from the split trajectory endpoint.
+     * Called in parallel with results rendering — maps defer trajectory-dependent
+     * features (flight tracks, flow cones, branch analysis) until this resolves.
+     */
+    loadTrajectories: function(planId, trajectoryUrl) {
+        const url = trajectoryUrl || `api/analysis/tmi_compliance.php?p_id=${planId}&trajectories=true`;
+        this._trajectoryPromise = fetch(url)
+            .then(resp => resp.ok ? resp.json() : null)
+            .then(trajData => {
+                if (trajData) {
+                    this._rawTrajectories = trajData;
+                    console.log(`Loaded trajectory data: ${Object.keys(trajData).length} MIT entries`);
+                }
+                return trajData;
+            })
+            .catch(e => {
+                console.warn('Trajectory fetch failed:', e);
+                return null;
+            });
+        return this._trajectoryPromise;
     },
 
     analysisInProgress: false,
@@ -325,6 +362,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Start trajectory fetch in parallel
+                    if (response.data.trajectories_url) {
+                        this.loadTrajectories(this.planId, response.data.trajectories_url);
+                    }
 
                     // Count results
                     const mitCount = response.data.mit_results?.length || 0;
@@ -397,6 +438,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return;
         }
 
+        // Use progressive disclosure layout (v2 UI) if enabled
+        if (this.useProgressiveLayout) {
+            this.renderProgressiveLayout();
+            return;
+        }
+
+        // Legacy layout below
         this.detailIdCounter = 0;
         let html = '';
 
@@ -409,6 +457,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const gsResults = this.results.gs_results || {};
         const hasGroundStops = Object.keys(gsResults).length > 0 || (Array.isArray(gsResults) && gsResults.length > 0);
         const gsCompliance = hasGroundStops ? (summary.gs?.compliance_pct ?? 100) : null;
+        const rrResults = this.results.reroute_results || {};
+        const rrArray = Array.isArray(rrResults) ? rrResults : Object.values(rrResults);
+        const hasReroutes = rrArray.length > 0;
+        const rrCompliance = hasReroutes ? (rrArray.reduce((s, rr) => s + (rr.filed_compliance_pct || 0), 0) / rrArray.length) : null;
         const overall = summary.overall_compliance_pct || 0;
 
         html += `
@@ -426,6 +478,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${gsCompliance !== null ? this.getComplianceClass(gsCompliance) : 'text-muted'}">${gsCompliance !== null ? gsCompliance.toFixed(1) + '%' : 'N/A'}</div>
                         <div class="tmi-stat-label">Ground Stop Compliance</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value ${rrCompliance !== null ? this.getComplianceClass(rrCompliance) : 'text-muted'}">${rrCompliance !== null ? rrCompliance.toFixed(1) + '%' : 'N/A'}</div>
+                        <div class="tmi-stat-label">Reroute Compliance</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${this.getComplianceClass(overall)}">${overall.toFixed(1)}%</div>
@@ -497,11 +553,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT)</h6>';
 
-            // Apply filters and render
+            // Group TMIs by pair count for collapsible sections
+            const groups = {
+                high: { label: '20+ pairs', min: 20, max: Infinity, items: [], expanded: true },
+                medium: { label: '5-19 pairs', min: 5, max: 19, items: [], expanded: true },
+                low: { label: '1-4 pairs', min: 1, max: 4, items: [], expanded: false },
+                none: { label: '0 pairs', min: 0, max: 0, items: [], expanded: false }
+            };
+
+            // Apply filters and categorize
             let visibleCount = 0;
             let filteredCount = 0;
             for (const r of mitResultsArray) {
-                // Skip entries with no data
+                // Skip entries with no data message
                 if (r.pairs === 0 && r.message) {continue;}
 
                 // Apply filters
@@ -511,7 +575,51 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 }
 
                 visibleCount++;
-                html += this.renderMitCard(r);
+                const pairs = r.pairs || 0;
+
+                // Categorize by pair count
+                if (pairs >= 20) {
+                    groups.high.items.push(r);
+                } else if (pairs >= 5) {
+                    groups.medium.items.push(r);
+                } else if (pairs >= 1) {
+                    groups.low.items.push(r);
+                } else {
+                    groups.none.items.push(r);
+                }
+            }
+
+            // Render each group as collapsible section
+            for (const [groupKey, group] of Object.entries(groups)) {
+                if (group.items.length === 0) continue;
+
+                const groupId = `tmi-group-${groupKey}`;
+                const chevron = group.expanded ? 'fa-chevron-down' : 'fa-chevron-right';
+                const displayStyle = group.expanded ? '' : 'display:none;';
+
+                html += `
+                    <div class="tmi-group mb-3">
+                        <div class="tmi-group-header d-flex align-items-center py-2 px-3"
+                             style="background:rgba(255,255,255,0.05);border-radius:6px;cursor:pointer;border-left:3px solid var(--primary);"
+                             onclick="TMICompliance.toggleGroup('${groupId}')">
+                            <i class="fas ${chevron} mr-2" id="${groupId}-chevron" style="width:14px;"></i>
+                            <span class="font-weight-bold">${group.label}</span>
+                            <span class="badge badge-primary ml-2">${group.items.length} TMI${group.items.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="tmi-group-content mt-2" id="${groupId}" style="${displayStyle}">
+                `;
+
+                // Sort items by pair count descending within group
+                group.items.sort((a, b) => (b.pairs || 0) - (a.pairs || 0));
+
+                for (const r of group.items) {
+                    html += this.renderMitCard(r);
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
             }
 
             // Show filter status if some are hidden
@@ -528,6 +636,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             for (const r of gsResultsArray) {
                 html += this.renderGsCard(r);
+            }
+        }
+
+        // Reroute Results - handle both array and object formats
+        const rerouteResults = this.results.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        if (rerouteArray.length > 0) {
+            html += '<h6 class="text-warning mb-3 mt-4"><i class="fas fa-route"></i> Reroutes</h6>';
+
+            for (const r of rerouteArray) {
+                html += this.renderRerouteCard(r);
             }
         }
 
@@ -633,6 +752,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             tmiType: '',
         };
         this.renderResults();
+    },
+
+    // Toggle TMI group expand/collapse
+    toggleGroup: function(groupId) {
+        const content = document.getElementById(groupId);
+        const chevron = document.getElementById(groupId + '-chevron');
+        if (!content || !chevron) return;
+
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? '' : 'none';
+        chevron.className = isHidden ? 'fas fa-chevron-down mr-2' : 'fas fa-chevron-right mr-2';
     },
 
     // Bind filter change events
@@ -1555,17 +1685,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const compPct = r.compliance_pct || 0;
         const compClass = this.getComplianceClass(compPct);
         const detailId = `gs_detail_${++this.detailIdCounter}`;
+        const originId = `gs_origin_${this.detailIdCounter}`;
 
         // Handle both naming conventions (exempt_flights OR exempt)
         const exemptFlights = r.exempt_flights || r.exempt || [];
         const compliantFlights = r.compliant_flights || r.compliant || [];
         const nonCompliantFlights = r.non_compliant_flights || r.non_compliant || [];
+        const notInScopeFlights = r.not_in_scope || [];
         const exemptCount = r.exempt_count || exemptFlights.length;
         const compliantCount = r.compliant_count || compliantFlights.length;
         const nonCompliantCount = r.non_compliant_count || r.violations?.total || nonCompliantFlights.length;
+        const notInScopeCount = notInScopeFlights.length;
 
         // Check for data gap overlap
         const gapBadge = this.renderTMIGapBadge(r.gs_start, r.gs_end);
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX' || r.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
 
         let html = `
             <div class="tmi-card gs-card${gapBadge ? ' has-data-gap' : ''}">
@@ -1577,10 +1718,60 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${r.gs_start || ''} - ${r.gs_end || ''} |
                             Issued: ${r.gs_issued || 'N/A'}
                         </span>
+                        ${endedBadge}
                         ${gapBadge}
                     </div>
                     <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
                 </div>
+        `;
+
+        // Impacting condition + program metadata
+        if (r.impacting_condition) {
+            html += `<div class="text-muted small mb-1"><i class="fas fa-cloud"></i> ${this.escapeHtml(r.impacting_condition)}</div>`;
+        }
+        if (r.dep_facility_tier) {
+            html += `<span class="badge badge-outline-secondary mr-1" style="font-size:0.7rem;">${this.escapeHtml(r.dep_facility_tier)}</span>`;
+        }
+        if (r.prob_extension) {
+            html += `<div class="text-muted small mb-1"><i class="fas fa-clock"></i> Prob Extension: ${this.escapeHtml(r.prob_extension)}</div>`;
+        }
+
+        // Program timeline bar (backward compat: only render if present)
+        if (r.program_timeline && r.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(r.program_timeline, r.gs_start, r.gs_end);
+
+            // Advisory detail section (collapsible)
+            const advDetailId = `gs_adv_detail_${this.detailIdCounter}`;
+            html += `
+                <div class="mt-1">
+                    <button class="btn btn-sm btn-outline-secondary btn-xs" type="button" data-toggle="collapse" data-target="#${advDetailId}" style="font-size:0.72rem; padding:1px 6px;">
+                        <i class="fas fa-list-alt"></i> Advisory Details (${r.program_timeline.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${advDetailId}">
+                    <div class="advisory-chain">
+                        ${r.program_timeline.map(adv => {
+                            const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
+                            return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
+                                <div class="advisory-detail-header">
+                                    <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                    <span class="advisory-type">${adv.type || ''}</span>
+                                    ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
+                                    <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                                </div>
+                                ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
+                                ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
+                                ${adv.prob_extension ? `<div class="advisory-meta"><i class="fas fa-clock"></i> Extension: ${this.escapeHtml(adv.prob_extension)}</div>` : ''}
+                                ${adv.comments ? `<div class="advisory-meta"><i class="fas fa-comment"></i> ${this.escapeHtml(adv.comments)}</div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Stats row
+        html += `
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.total_flights || 0}</div>
@@ -1598,8 +1789,85 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="tmi-stat-value text-danger">${nonCompliantCount}</div>
                         <div class="tmi-stat-label">Violations</div>
                     </div>
-                </div>
         `;
+
+        // Not-in-scope stat
+        if (notInScopeCount > 0) {
+            html += `
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-muted">${notInScopeCount}</div>
+                        <div class="tmi-stat-label">Not In Scope</div>
+                    </div>
+            `;
+        }
+
+        // Avg hold time with min/max/median tooltip
+        if (r.avg_hold_time_min && r.avg_hold_time_min > 0) {
+            const stats = r.hold_time_stats || {};
+            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            html += `
+                    <div class="tmi-stat" ${tooltip ? `title="${tooltip}"` : ''}>
+                        <div class="tmi-stat-value">${r.avg_hold_time_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-label">Avg Hold</div>
+                    </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // CNX comments
+        if (r.cnx_comments) {
+            html += `<div class="gs-cnx-comments"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(r.cnx_comments)}</div>`;
+        }
+
+        // Per-origin breakdown (collapsible)
+        const perOrigin = r.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${originId}">
+                        <i class="fas fa-map-marker-alt"></i> Per-Origin Breakdown (${perOrigin.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 gs-per-origin" id="${originId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped sortable-table" id="gs_origin_tbl_${this.detailIdCounter}">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',0,false)" style="cursor:pointer;">Origin</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',1,true)" style="cursor:pointer;">Total</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',2,true)" style="cursor:pointer;">Compliant</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',3,true)" style="cursor:pointer;">Non-Comp</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',4,true)" style="cursor:pointer;">Exempt</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',5,true)" style="cursor:pointer;">Rate</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${perOrigin.map(o => {
+                                    const oPct = o.compliance_pct || 0;
+                                    const oClass = this.getComplianceClass(oPct);
+                                    const compW = o.total > 0 ? Math.round(((o.compliant || 0) / o.total) * 100) : 0;
+                                    const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
+                                    const exW = 100 - compW - ncW;
+                                    return `<tr>
+                                        <td><code>${o.origin}</code>
+                                            <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
+                                        </td>
+                                        <td>${o.total || 0}</td>
+                                        <td class="text-success">${o.compliant || 0}</td>
+                                        <td class="text-danger">${o.non_compliant || 0}</td>
+                                        <td class="text-info">${o.exempt || 0}</td>
+                                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
 
         // Show flight details
         const hasDetails = exemptFlights.length > 0 || compliantFlights.length > 0 || nonCompliantFlights.length > 0;
@@ -1615,15 +1883,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="row">
             `;
 
-            // Non-compliant flights (violations)
+            // Non-compliant flights (violations) - with Phase and Source columns
             if (nonCompliantFlights.length > 0) {
+                const hasPhase = nonCompliantFlights.some(f => f.phase);
                 html += `
                     <div class="col-md-4">
                         <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -1632,6 +1901,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                                            ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1649,7 +1920,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -1657,6 +1928,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                            <td><small>${f.reason || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1666,7 +1938,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 `;
             }
 
-            // Compliant flights
+            // Compliant flights - with Hold and Source columns
             if (compliantFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
@@ -1674,7 +1946,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr>
                                 </thead>
                                 <tbody>
                                     ${compliantFlights.map(f => `
@@ -1682,6 +1954,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td><code>${f.callsign}</code></td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
+                                            <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -1704,6 +1978,589 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         html += this.renderTrajectoryCounts(r.gs_start, r.gs_end, streamFlights, analyzedFlights);
 
         html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render GS program timeline bar
+     * Shows advisory phases proportionally on a time axis
+     */
+    renderGsTimelineBar: function(timeline, gsStart, gsEnd) {
+        if (!timeline || timeline.length === 0) return '';
+
+        // Filter to phases with start/end (skip CNX entries which have null times)
+        const phases = timeline.filter(p => p.start && p.end);
+        const cnxEntry = timeline.find(p => (p.type || '').toUpperCase() === 'CNX');
+
+        if (phases.length === 0 && !cnxEntry) return '';
+
+        // Parse time to minutes for proportional sizing
+        const parseTime = (t) => {
+            if (!t) return 0;
+            const match = t.match(/(\d{2}):?(\d{2})/);
+            return match ? parseInt(match[1]) * 60 + parseInt(match[2]) : 0;
+        };
+
+        // Compute total span (handle overnight wrap)
+        const allStarts = phases.map(p => parseTime(p.start));
+        const allEnds = phases.map(p => parseTime(p.end));
+        const totalStart = Math.min(...allStarts);
+        let totalEnd = Math.max(...allEnds);
+        let totalSpan = totalEnd - totalStart;
+        if (totalSpan <= 0) totalSpan += 1440; // Overnight wrap: add 24h
+
+        let html = '<div class="gs-timeline">';
+
+        phases.forEach(p => {
+            const pStart = parseTime(p.start);
+            let pEnd = parseTime(p.end);
+            if (pEnd <= pStart) pEnd += 1440; // Overnight wrap for individual phase
+            const pct = ((pEnd - pStart) / totalSpan * 100).toFixed(1);
+            const pType = (p.type || '').toUpperCase();
+            let phaseClass = 'phase-initial';
+            if (pType === 'EXTENSION') phaseClass = 'phase-extension';
+            const label = p.advzy ? `ADVZY ${p.advzy}` : pType;
+
+            html += `<div class="phase ${phaseClass}" style="flex: ${pct} 0 0;" title="${label}: ${p.start} - ${p.end}">${label}</div>`;
+        });
+
+        // Small CNX marker at the end
+        if (cnxEntry) {
+            html += `<div class="phase phase-cnx" title="CNX: ${cnxEntry.issued || ''}"></div>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Get Bootstrap badge class for reroute action type
+     */
+    getActionBadgeClass: function(action) {
+        switch ((action || '').toUpperCase()) {
+            case 'RQD': return 'badge-danger';
+            case 'RMD': return 'badge-warning';
+            case 'FYI': return 'badge-info';
+            case 'PLN': return 'badge-secondary';
+            default: return 'badge-light';
+        }
+    },
+
+    /**
+     * Toggle visibility of an expandable flight detail row
+     */
+    toggleFlightDetail: function(rowId) {
+        var detailRow = document.getElementById(rowId);
+        if (detailRow) {
+            var isHidden = detailRow.style.display === 'none';
+            detailRow.style.display = isHidden ? '' : 'none';
+            // Toggle chevron on the trigger row (previous sibling)
+            var triggerRow = detailRow.previousElementSibling;
+            if (triggerRow) {
+                var chevron = triggerRow.querySelector('.expand-chevron');
+                if (chevron) {
+                    chevron.classList.toggle('fa-chevron-down', !isHidden);
+                    chevron.classList.toggle('fa-chevron-up', isHidden);
+                }
+            }
+        }
+    },
+
+    /**
+     * Sort a table by column index. Toggles asc/desc on repeated clicks.
+     * @param {string} tableId - DOM id of the table
+     * @param {number} colIdx - Column index to sort by
+     * @param {boolean} isNumeric - Whether to sort numerically
+     */
+    sortTable: function(tableId, colIdx, isNumeric) {
+        var table = document.getElementById(tableId);
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+
+        // Determine sort direction from header state
+        var th = table.querySelectorAll('thead th')[colIdx];
+        var asc = true;
+        if (th) {
+            asc = th.getAttribute('data-sort-dir') !== 'asc';
+            // Clear all header sort indicators
+            table.querySelectorAll('thead th').forEach(function(h) {
+                h.removeAttribute('data-sort-dir');
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+            th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+            th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+        }
+
+        rows.sort(function(a, b) {
+            var aVal = (a.cells[colIdx] && a.cells[colIdx].textContent.trim()) || '';
+            var bVal = (b.cells[colIdx] && b.cells[colIdx].textContent.trim()) || '';
+            if (isNumeric) {
+                var aNum = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
+                var bNum = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
+                return asc ? aNum - bNum : bNum - aNum;
+            }
+            return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+
+        rows.forEach(function(row) { tbody.appendChild(row); });
+    },
+
+    /**
+     * Render expandable route match detail for a reroute flight
+     * Shows: fix checklist, filed route with highlights, flown crossing details
+     */
+    renderFlightRouteDetail: function(flight, requiredFixes) {
+        var filedMatched = flight.filed_matched_fixes || [];
+        var flownMatched = flight.flown_matched_fixes || [];
+        var flownDetails = flight.flown_fix_details || [];
+        var fixes = flight.required_fixes || requiredFixes || [];
+
+        var html = '<div class="flight-route-detail">';
+
+        // 1. Fix checklist
+        if (fixes.length > 0) {
+            html += '<div class="fix-checklist"><div class="small text-muted mb-1">Required Fixes:</div><div class="fix-list">';
+            fixes.forEach(function(fix) {
+                var filedOk = filedMatched.indexOf(fix) >= 0;
+                var flownOk = flownMatched.indexOf(fix) >= 0;
+                var cls = (filedOk && flownOk) ? 'fix-matched' : (!filedOk && !flownOk) ? 'fix-missing' : 'fix-partial';
+                var filedIcon = filedOk ? '\u2713' : '\u2717';
+                var flownIcon = flownOk ? '\u2713' : '\u2717';
+                html += '<span class="fix-check ' + cls + '" title="Filed: ' + filedIcon + ' | Flown: ' + flownIcon + '">' +
+                    fix + ' <small class="text-muted">(F:' + filedIcon + ' L:' + flownIcon + ')</small></span>';
+            });
+            html += '</div></div>';
+        }
+
+        // 2. Filed route with fix highlighting
+        if (flight.filed_route) {
+            var routeStr = this.escapeHtml(flight.filed_route);
+            fixes.forEach(function(fix) {
+                var matched = filedMatched.indexOf(fix) >= 0;
+                var cls = matched ? 'fix-matched' : 'fix-missing';
+                routeStr = routeStr.replace(new RegExp('\\b' + fix + '\\b', 'g'),
+                    '<span class="' + cls + '">' + fix + '</span>');
+            });
+            html += '<div class="filed-route mt-1"><div class="small text-muted">Filed Route:</div><code class="route-string">' + routeStr + '</code></div>';
+        }
+
+        // 3. Flown crossing details table
+        if (flownDetails.length > 0) {
+            html += '<div class="mt-1"><div class="small text-muted">Flown Crossings:</div>' +
+                '<table class="table table-sm table-bordered crossing-detail-table mb-0">' +
+                '<thead><tr><th>Fix</th><th>Dist (nm)</th><th>Time</th><th>Altitude</th></tr></thead><tbody>';
+            flownDetails.forEach(function(d) {
+                html += '<tr>' +
+                    '<td><code>' + (d.fix || '') + '</code></td>' +
+                    '<td>' + (d.distance_nm != null ? d.distance_nm : 'N/A') + '</td>' +
+                    '<td>' + (d.crossing_time || 'N/A') + '</td>' +
+                    '<td>' + (d.altitude ? d.altitude.toLocaleString() + ' ft' : 'N/A') + '</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+        } else if (flight.has_trajectory === false) {
+            html += '<div class="text-muted small mt-1"><i class="fas fa-exclamation-triangle"></i> No trajectory data available</div>';
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render a reroute compliance card (classic layout)
+     */
+    renderRerouteCard: function(r) {
+        const detailId = `reroute_detail_${++this.detailIdCounter}`;
+        const historyId = `reroute_history_${this.detailIdCounter}`;
+        const routeTableId = `reroute_routes_${this.detailIdCounter}`;
+
+        const action = r.action || (r.mandatory ? 'RQD' : 'FYI');
+        const routeType = r.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const compPct = r.compliance_pct || r.filed_compliance_pct || 0;
+        const compClass = this.getComplianceClass(compPct);
+
+        const filedCompliant = r.filed_compliant || [];
+        const filedNonCompliant = r.filed_non_compliant || [];
+        const flownCompliant = r.flown_compliant || [];
+        const flownNonCompliant = r.flown_non_compliant || [];
+        const allFlights = r.flights || [];
+        const totalFlights = r.total_flights || allFlights.length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (r.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (r.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="tmi-card reroute-card">
+                <div class="tmi-header">
+                    <div>
+                        <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                        <span class="tmi-fix-name ml-2">${r.name || 'Reroute'}</span>
+                        <span class="text-muted ml-2">
+                            ${r.start || ''} - ${r.end || ''}
+                        </span>
+                        ${endedBadge}
+                    </div>
+                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                </div>
+        `;
+
+        // Subheader: constrained area, reason, assessment mode
+        const subParts = [];
+        if (r.constrained_area) subParts.push(this.escapeHtml(r.constrained_area));
+        if (r.reason) subParts.push(this.escapeHtml(r.reason));
+        if (r.assessment_mode) {
+            const modeLabel = r.assessment_mode === 'full_compliance' ? 'Full route compliance' :
+                r.assessment_mode === 'fix_only' ? 'Required fix check only' : r.assessment_mode;
+            subParts.push(modeLabel);
+        }
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mb-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Stats row with filed vs flown split
+        html += `
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${totalFlights}</div>
+                        <div class="tmi-stat-label">Total Flights</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${filedCompliant.length}</div>
+                        <div class="tmi-stat-label">Filed Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-success">${flownCompliant.length}</div>
+                        <div class="tmi-stat-label">Flown Compliant</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value text-danger">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                        <div class="tmi-stat-label">Non-Compliant</div>
+                    </div>
+                </div>
+        `;
+
+        // Filed vs flown compliance split
+        const filedPct = r.filed_compliance_pct || 0;
+        const flownPct = r.flown_compliance_pct || 0;
+        html += `
+                <div class="compliance-split">
+                    <div class="filed">
+                        <div class="small text-muted">Filed</div>
+                        <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                    </div>
+                    <div class="flown">
+                        <div class="small text-muted">Flown</div>
+                        <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                        ${r.no_trajectory_count ? `<div class="small text-muted">(${r.no_trajectory_count} no trajectory)</div>` : ''}
+                    </div>
+                </div>
+        `;
+
+        // Program history (collapsible) - enriched with action, modifications, route info
+        const history = r.program_history || [];
+        if (history.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${historyId}">
+                        <i class="fas fa-history"></i> Program History (${history.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2 program-history" id="${historyId}">
+                    ${history.map(h => `
+                        <div class="history-item" style="flex-wrap:wrap;">
+                            <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                            ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
+                            <span>${h.type || ''}</span>
+                            ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                            <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                            ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                            ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
+                            ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                            ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Required routes table (collapsible)
+        const requiredRoutes = r.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${routeTableId}">
+                        <i class="fas fa-route"></i> Required Routes (${requiredRoutes.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${routeTableId}">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped route-table">
+                            <thead class="thead-dark">
+                                <tr><th>Origin</th><th>Dest</th><th>Route</th></tr>
+                            </thead>
+                            <tbody>
+                                ${requiredRoutes.map(rt => {
+                                    // Highlight required fixes in the route string
+                                    let routeStr = rt.route || '';
+                                    const reqFixes = r.required_fixes || [];
+                                    reqFixes.forEach(fix => {
+                                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                                            `<span class="required-segment">${fix}</span>`);
+                                    });
+                                    return `<tr>
+                                        <td><code>${rt.orig || ''}</code></td>
+                                        <td><code>${rt.dest || ''}</code></td>
+                                        <td>${routeStr}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Flight detail table (collapsible) - with expandable route match rows
+        if (allFlights.length > 0) {
+            const flightTblId = `reroute_flights_${this.detailIdCounter}`;
+            const reqFixes = r.required_fixes || [];
+            html += `
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-toggle="collapse" data-target="#${detailId}">
+                        <i class="fas fa-plane"></i> Flight Details (${allFlights.length})
+                    </button>
+                </div>
+                <div class="collapse mt-2" id="${detailId}">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-sm table-striped" id="${flightTblId}">
+                            <thead class="thead-dark sticky-top">
+                                <tr>
+                                    <th style="width:20px;"></th>
+                                    <th>Callsign</th>
+                                    <th>Origin</th>
+                                    <th>Dest</th>
+                                    <th>Filed %</th>
+                                    <th>Flown %</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allFlights.map((f, idx) => {
+                                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                                    const detRowId = flightTblId + '_d' + idx;
+                                    const hasDetail = (f.required_fixes && f.required_fixes.length > 0) ||
+                                                      (f.filed_matched_fixes && f.filed_matched_fixes.length > 0) ||
+                                                      reqFixes.length > 0;
+                                    return `<tr class="${hasDetail ? 'reroute-flight-row expandable' : ''}"
+                                                ${hasDetail ? 'onclick="TMICompliance.toggleFlightDetail(\'' + detRowId + '\')" style="cursor:pointer;"' : ''}>
+                                        <td>${hasDetail ? '<i class="fas fa-chevron-down expand-chevron text-muted small"></i>' : ''}</td>
+                                        <td><code>${f.callsign || ''}</code></td>
+                                        <td>${f.dept || ''}</td>
+                                        <td>${f.dest || ''}</td>
+                                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                                    </tr>
+                                    ${hasDetail ? '<tr id="' + detRowId + '" style="display:none;" class="flight-detail-row"><td colspan="7">' + this.renderFlightRouteDetail(f, reqFixes) + '</td></tr>' : ''}`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Exemption text
+        if (r.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(r.exemptions)}</div>`;
+        }
+
+        // Associated restrictions
+        if (r.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(r.associated_restrictions)}</div>`;
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render reroute detail content (V2 progressive layout)
+     */
+    renderRerouteDetailV2: function(data) {
+        const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+        const routeType = data.route_type || 'ROUTE';
+        const actionBadgeClass = this.getActionBadgeClass(action);
+        const allFlights = data.flights || [];
+        const totalFlights = data.total_flights || allFlights.length;
+        const filedCompliant = data.filed_compliant || [];
+        const filedNonCompliant = data.filed_non_compliant || [];
+        const flownCompliant = data.flown_compliant || [];
+        const flownNonCompliant = data.flown_non_compliant || [];
+        const filedPct = data.filed_compliance_pct || 0;
+        const flownPct = data.flown_compliance_pct || 0;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX') {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="mb-2">
+                <span class="action-badge badge ${actionBadgeClass}">${routeType} ${action}</span>
+                ${endedBadge}
+            </div>
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.start || '?'} - ${data.end || '?'}</div>
+                    <div class="stat-label">Active Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedCompliant.length}</div>
+                    <div class="stat-label">Filed Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${flownCompliant.length}</div>
+                    <div class="stat-label">Flown Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${filedNonCompliant.length + flownNonCompliant.length}</div>
+                    <div class="stat-label">Non-Compliant</div>
+                </div>
+            </div>
+        `;
+
+        // Subheader info
+        const subParts = [];
+        if (data.constrained_area) subParts.push(this.escapeHtml(data.constrained_area));
+        if (data.reason) subParts.push(this.escapeHtml(data.reason));
+        if (subParts.length > 0) {
+            html += `<div class="text-muted small mt-2">${subParts.join(' | ')}</div>`;
+        }
+
+        // Filed vs flown compliance split
+        html += `
+            <div class="compliance-split mt-2">
+                <div class="filed">
+                    <div class="small text-muted">Filed Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                </div>
+                <div class="flown">
+                    <div class="small text-muted">Flown Compliance</div>
+                    <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                    ${data.no_trajectory_count ? `<div class="small text-muted">(${data.no_trajectory_count} no trajectory)</div>` : ''}
+                </div>
+            </div>
+        `;
+
+        // Program history (expandable section) - enriched with action, modifications, routes
+        const history = data.program_history || [];
+        if (history.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-history', 'Program History', `(${history.length})`, () => {
+                return `<div class="program-history">${history.map(h => `
+                    <div class="history-item" style="flex-wrap:wrap;">
+                        <span class="badge badge-secondary">ADVZY ${h.advzy || '?'}</span>
+                        ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
+                        <span>${h.type || ''}</span>
+                        ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
+                        <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
+                        ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                        ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
+                        ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                        ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
+                    </div>
+                `).join('')}</div>`;
+            });
+        }
+
+        // Required routes (expandable section)
+        const requiredRoutes = data.required_routes || [];
+        if (requiredRoutes.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-routes', 'Required Routes', `(${requiredRoutes.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped route-table">
+                    <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
+                requiredRoutes.forEach(rt => {
+                    let routeStr = rt.route || '';
+                    const reqFixes = data.required_fixes || [];
+                    reqFixes.forEach(fix => {
+                        routeStr = routeStr.replace(new RegExp(`\\b${fix}\\b`, 'g'),
+                            `<span class="required-segment">${fix}</span>`);
+                    });
+                    tbl += `<tr>
+                        <td><code>${rt.orig || ''}</code></td>
+                        <td><code>${rt.dest || ''}</code></td>
+                        <td>${routeStr}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight details (expandable section) - with expandable route match rows
+        if (allFlights.length > 0) {
+            const v2FlightTblId = `reroute_v2_flights_${++this.detailIdCounter}`;
+            const reqFixesV2 = data.required_fixes || [];
+            html += this.renderExpandableSectionV2('reroute-flights', 'Flight Details', `(${allFlights.length})`, () => {
+                let tbl = `<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-striped" id="${v2FlightTblId}">
+                        <thead class="thead-dark sticky-top">
+                            <tr><th style="width:20px;"></th><th>Callsign</th><th>Origin</th><th>Dest</th><th>Filed %</th><th>Flown %</th><th>Status</th></tr>
+                        </thead><tbody>`;
+                allFlights.forEach((f, idx) => {
+                    const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
+                    const statusClass = fStatus === 'COMPLIANT' ? 'text-success' :
+                        fStatus === 'NON_COMPLIANT' ? 'text-danger' : 'text-muted';
+                    const detRowId = v2FlightTblId + '_d' + idx;
+                    const hasDetail = (f.required_fixes && f.required_fixes.length > 0) ||
+                                      (f.filed_matched_fixes && f.filed_matched_fixes.length > 0) ||
+                                      reqFixesV2.length > 0;
+                    tbl += `<tr class="${hasDetail ? 'reroute-flight-row expandable' : ''}"
+                                ${hasDetail ? 'onclick="TMICompliance.toggleFlightDetail(\'' + detRowId + '\')" style="cursor:pointer;"' : ''}>
+                        <td>${hasDetail ? '<i class="fas fa-chevron-down expand-chevron text-muted small"></i>' : ''}</td>
+                        <td><code>${f.callsign || ''}</code></td>
+                        <td>${f.dept || ''}</td>
+                        <td>${f.dest || ''}</td>
+                        <td>${f.filed_match_pct != null ? f.filed_match_pct + '%' : 'N/A'}</td>
+                        <td>${f.flown_match_pct != null ? f.flown_match_pct + '%' : (f.has_trajectory === false ? 'No traj' : 'N/A')}</td>
+                        <td class="${statusClass}">${(fStatus || '').replace('_', ' ')}</td>
+                    </tr>`;
+                    if (hasDetail) {
+                        tbl += '<tr id="' + detRowId + '" style="display:none;" class="flight-detail-row"><td colspan="7">' + this.renderFlightRouteDetail(f, reqFixesV2) + '</td></tr>';
+                    }
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Exemption text
+        if (data.exemptions) {
+            html += `<div class="exemption-box mt-2"><i class="fas fa-shield-alt text-info"></i> ${this.escapeHtml(data.exemptions)}</div>`;
+        }
+
+        // Associated restrictions
+        if (data.associated_restrictions) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-link"></i> ${this.escapeHtml(data.associated_restrictions)}</div>`;
+        }
+
         return html;
     },
 
@@ -2047,8 +2904,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     // Cache for flow stream analysis from PostGIS API (keyed by mapId)
     flowStreamCache: {},
 
+    // Cache for TMI-filtered trajectories (only flights matching the TMI's semantic flow)
+    // Full trajectories stay in trajectoryCache for track rendering; this holds the subset
+    // used by flow streams, branches, and cone enhancement.
+    flowTrajectoryCache: {},
+
     // Cache for airway geometry (keyed by airway name)
     airwayCache: {},
+
+    // Cache for branch corridor data (keyed by mapId)
+    branchCorridorCache: {},
+
+    // Raw trajectory data keyed by MIT key (loaded from separate endpoint)
+    _rawTrajectories: null,
+    _trajectoryPromise: null,
+
+    // Track active branch panel states (keyed by mapId)
+    branchPanelState: {},
 
     /**
      * Check if a string looks like an airway identifier
@@ -2123,6 +2995,72 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Filter trajectories to only include flights matching the TMI's semantic flow.
+     * For arrival TMIs: keep only flights whose dest matches any TMI destination.
+     * For departure TMIs: keep only flights whose dept matches the controlled element.
+     *
+     * @param {Object} trajectories - Full trajectory data {callsign: {coordinates, properties}}
+     * @param {Object} mitResult - TMI result with destinations, origins, direction, etc.
+     * @returns {Object} {filtered, stats} where filtered is the trajectory subset
+     */
+    filterTrajectoriesToTMIFlow: function(trajectories, mitResult) {
+        if (!trajectories) return { filtered: {}, stats: { total: 0, matched: 0, reason: 'no trajectories' } };
+
+        const total = Object.keys(trajectories).length;
+        const direction = mitResult.direction || 'arrival';
+        const destinations = (mitResult.destinations || []).map(d => String(d).toUpperCase().trim());
+        const origins = (mitResult.origins || []).map(o => String(o).toUpperCase().trim());
+        // Also check ctl_element (the airport for GDPs/ground stops/APREQs)
+        const ctlElement = (mitResult.destination || mitResult.ctl_element || '').toUpperCase().trim();
+
+        // Build the set of airport codes to match against, including ICAO/FAA variants
+        const buildMatchSet = (codes) => {
+            const set = new Set();
+            codes.forEach(code => {
+                if (!code) return;
+                set.add(code);
+                // ICAO K-prefix variant: KSJC ↔ SJC
+                if (code.length === 4 && code.startsWith('K')) set.add(code.substring(1));
+                if (code.length === 3) set.add('K' + code);
+            });
+            return set;
+        };
+
+        let matchField, matchSet;
+        if (direction === 'departure') {
+            matchField = 'dept';
+            matchSet = buildMatchSet([...origins, ctlElement].filter(Boolean));
+        } else {
+            // arrival or overflight — match by destination
+            matchField = 'dest';
+            matchSet = buildMatchSet([...destinations, ctlElement].filter(Boolean));
+        }
+
+        // If no TMI airports to match against, return everything (can't filter)
+        if (matchSet.size === 0) {
+            return { filtered: trajectories, stats: { total, matched: total, reason: 'no filter airports' } };
+        }
+
+        const filtered = {};
+        let matched = 0;
+        Object.entries(trajectories).forEach(([callsign, traj]) => {
+            const aptCode = (traj.properties?.[matchField] || '').toUpperCase().trim();
+            if (matchSet.has(aptCode)) {
+                filtered[callsign] = traj;
+                matched++;
+            }
+            // Also include flights with unknown/blank destinations (may be relevant)
+            else if (!aptCode || aptCode === 'UNK' || aptCode === 'UNKNOWN') {
+                filtered[callsign] = traj;
+                matched++;
+            }
+        });
+
+        console.log(`TMI flow filter (${direction}): ${matched}/${total} flights match ${matchField} ∈ {${[...matchSet].join(', ')}}`);
+        return { filtered, stats: { total, matched, matchField, matchSet: [...matchSet], reason: 'tmi_semantic' } };
+    },
+
+    /**
      * Fetch flow stream analysis from the PostGIS track density API
      * Uses DBSCAN clustering to identify distinct traffic streams and merge zones
      *
@@ -2193,11 +3131,201 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 this.addFlowStreamLayers(mapId, data);
             }
 
+            // Update the flow analysis section
+            this.renderFlowAnalysis(mapId);
+
             return data;
         } catch (err) {
             console.warn(`Flow stream fetch failed for ${mapId}:`, err);
             return null;
         }
+    },
+
+    /**
+     * Fetch branch corridor analysis from GIS API (moved from PHP server-side).
+     * Fires alongside fetchFlowStreams when trajectory data is available.
+     * Computes per-branch compliance metrics client-side from pair data.
+     */
+    fetchBranchAnalysis: async function(mapId, trajectories, mitResult) {
+        if (!trajectories || Object.keys(trajectories).length < 3) return null;
+        if (this.branchCorridorCache[mapId]) return this.branchCorridorCache[mapId];
+
+        // Resolve fix coordinates: try fix_info, then traffic_sector.measurement_point
+        let fixLat, fixLon;
+        const fixInfo = mitResult.fix_info;
+        if (fixInfo?.lat && fixInfo?.lon) {
+            fixLat = parseFloat(fixInfo.lat);
+            fixLon = parseFloat(fixInfo.lon);
+        } else {
+            // Fallback: traffic_sector.measurement_point is [lon, lat]
+            const mp = mitResult.traffic_sector?.measurement_point || mitResult.traffic_sector?.fix_point;
+            if (mp) {
+                fixLon = parseFloat(mp[0]);
+                fixLat = parseFloat(mp[1]);
+            }
+        }
+        if (!fixLat || !fixLon) return null;
+
+        // Haversine distance in nm (reused from computeBranchCorridor)
+        const distNm = (lon1, lat1, lon2, lat2) => {
+            const R = 3440.065;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        // Filter to upstream-only: for arrivals, keep only points BEFORE closest
+        // approach to fix (where flight is approaching, not departing the fix).
+        const flightMeta = {};
+        const trajArray = Object.entries(trajectories).map(([cs, traj]) => {
+            const coords = traj.coordinates || [];
+
+            // Find index of closest approach to fix
+            let minDist = Infinity, minIdx = 0;
+            for (let i = 0; i < coords.length; i++) {
+                const d = distNm(coords[i][0], coords[i][1], fixLon, fixLat);
+                if (d < minDist) { minDist = d; minIdx = i; }
+            }
+
+            // Keep only points up to and including the closest approach (upstream)
+            const upstream = coords.slice(0, minIdx + 1).map(c => [c[0], c[1]]);
+
+            // Build flight_meta for proper branch naming
+            if (traj.properties) {
+                flightMeta[cs] = {
+                    dept: traj.properties.dept || '',
+                    dest: traj.properties.dest || '',
+                };
+            }
+
+            return { callsign: cs, coordinates: upstream };
+        }).filter(t => t.coordinates.length >= 2);
+
+        if (trajArray.length < 3) return null;
+
+        try {
+            const response = await fetch('api/gis/track_density.php?action=branch_analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    trajectories: trajArray,
+                    fix_point: [fixLon, fixLat],
+                    branch_min_distance_nm: 5,           // Inner bound for clustering (NOT MIT distance)
+                    max_distance_nm: 250,
+                    tmi_type: 'arrival',
+                    flight_meta: flightMeta,
+                    cluster_eps_nm: 6,                   // Phase 1: wider eps for corridor detection
+                    cluster_min_points: 3,
+                    bearing_filter_deg: 90,              // Reject opposite-direction traffic
+                    sub_branch_eps_nm: 3,                // Phase 2: tighter eps for sub-branches
+                })
+            });
+
+            if (!response.ok) return null;
+            const result = await response.json();
+            if (!result.success || !result.data?.branches?.length) return null;
+
+            const gisData = result.data;
+
+            // Compute per-branch compliance metrics from pair data
+            const allPairs = this.pairCache?.[mapId] || mitResult.all_pairs || [];
+            const assignments = gisData.flight_assignments || {};
+            const branchMetrics = this._computeBranchMetrics(allPairs, assignments);
+
+            const corridors = {
+                branches: gisData.branches,
+                flight_assignments: assignments,
+                branch_metrics: branchMetrics,
+                total_flights: gisData.total_flights || trajArray.length,
+                branch_count: gisData.branch_count || gisData.branches.length,
+                ungrouped_flights: gisData.ungrouped_flights || 0,
+                bearing_filter: gisData.bearing_filter || null,
+                corridors_phase1: gisData.corridors_phase1 || 0,
+            };
+
+            this.branchCorridorCache[mapId] = corridors;
+            const bf = gisData.bearing_filter;
+            const filterInfo = bf ? ` (bearing filter: ${bf.accepted} accepted, ${bf.rejected} rejected, median ${bf.median_bearing}°)` : '';
+            console.log(`Branch analysis for ${mapId}: ${gisData.corridors_phase1 || '?'} corridors → ${corridors.branch_count} branches${filterInfo}`);
+
+            // Unhide the branch button if map controls already rendered
+            const controls = document.getElementById(`${mapId}_controls`);
+            if (controls) {
+                const branchBtn = controls.querySelector('.branch-toggle-btn');
+                if (branchBtn) branchBtn.style.display = '';
+            }
+
+            // Auto-initialize branch corridors if map is already active
+            if (this.activeMaps[mapId]) {
+                this.initBranchAnalysis(mapId);
+            }
+
+            // Update the flow analysis section
+            this.renderFlowAnalysis(mapId);
+
+            return corridors;
+        } catch (err) {
+            console.warn(`Branch analysis failed for ${mapId}:`, err);
+            return null;
+        }
+    },
+
+    /**
+     * Compute per-branch compliance metrics from pair data (moved from PHP).
+     * Filters pairs where both flights belong to the same branch.
+     */
+    _computeBranchMetrics: function(allPairs, flightAssignments) {
+        if (!allPairs?.length || !flightAssignments) return {};
+
+        const branchPairs = {}; // branch_id -> [pairs]
+        for (const pair of allPairs) {
+            const lead = pair.prev_callsign || pair.lead_callsign || '';
+            const trail = pair.curr_callsign || pair.trail_callsign || '';
+            const leadBranch = flightAssignments[lead];
+            const trailBranch = flightAssignments[trail];
+
+            if (leadBranch && leadBranch === trailBranch) {
+                if (!branchPairs[leadBranch]) branchPairs[leadBranch] = [];
+                branchPairs[leadBranch].push(pair);
+            }
+        }
+
+        const metrics = {};
+        for (const [branchId, pairs] of Object.entries(branchPairs)) {
+            let compliant = 0;
+            const spacings = [];
+            const violations = [];
+
+            for (const pair of pairs) {
+                const spacing = parseFloat(pair.spacing || 0);
+                spacings.push(spacing);
+                if ((pair.compliance || '').toUpperCase() === 'COMPLIANT') {
+                    compliant++;
+                } else {
+                    violations.push({
+                        lead: pair.prev_callsign || pair.lead_callsign || '',
+                        trail: pair.curr_callsign || pair.trail_callsign || '',
+                        spacing,
+                        shortfall_pct: parseFloat(pair.shortfall_pct || 0),
+                    });
+                }
+            }
+
+            metrics[branchId] = {
+                pairs: pairs.length,
+                compliant_pairs: compliant,
+                compliance_pct: pairs.length > 0 ? Math.round((compliant / pairs.length) * 1000) / 10 : 100,
+                violations,
+                spacing_stats: {
+                    min: spacings.length ? Math.round(Math.min(...spacings) * 10) / 10 : 0,
+                    avg: spacings.length ? Math.round((spacings.reduce((a, b) => a + b, 0) / spacings.length) * 10) / 10 : 0,
+                    max: spacings.length ? Math.round(Math.max(...spacings) * 10) / 10 : 0,
+                },
+            };
+        }
+        return metrics;
     },
 
     /**
@@ -2311,7 +3439,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             source: 'flow-stream-labels',
             layout: {
                 'text-field': ['concat', ['get', 'label'], '\n', ['get', 'track_count'], ' ac'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': ['Open Sans Bold'],
                 'text-size': 11,
                 'text-anchor': 'center',
                 'text-allow-overlap': false,
@@ -2388,9 +3516,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     renderMapSection: function(r, mapId) {
         const requestor = (r.requestor || '').replace(/'/g, "\\'");
         const provider = (r.provider || '').replace(/'/g, "\\'");
-        // Use airway field if available, then measurement_point, then fix
+        // Use airway field if available, then raw fix name for GIS resolution
         // Airway is explicitly set when fix is an airway identifier (Y290, J48, etc.)
-        const fix = (r.airway || r.measurement_point || r.fix || '').replace(/'/g, "\\'");
+        // Note: r.measurement_point is a display label (may include suffixes like "(boundary unavailable)")
+        // and should NOT be used for GIS waypoint resolution
+        const fix = (r.airway || r.fix || '').replace(/'/g, "\\'");
         const destinations = r.destinations || [];
         const origins = r.origins || [];
 
@@ -2401,26 +3531,54 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         };
 
         // Cache trajectories if available (for flight track rendering)
-        if (r.trajectories && Object.keys(r.trajectories).length > 0) {
-            this.trajectoryCache[mapId] = r.trajectories;
-            console.log(`Cached ${Object.keys(r.trajectories).length} trajectories for ${mapId}`);
+        // Supports both inline (old format) and split (new format via _rawTrajectories)
+        const _cacheAndFetchForMap = (trajectories) => {
+            if (!trajectories || Object.keys(trajectories).length === 0) return;
+            this.trajectoryCache[mapId] = trajectories;
+            console.log(`Cached ${Object.keys(trajectories).length} trajectories for ${mapId}`);
 
-            // Trigger async flow stream analysis (populates cache for later map render)
-            // Extract fix point and known fixes for context-aware stream naming
+            // Filter trajectories to TMI-relevant flow (e.g., only SJC arrivals for SJC MIT)
+            const { filtered, stats } = this.filterTrajectoriesToTMIFlow(trajectories, r);
+            this.flowTrajectoryCache[mapId] = filtered;
+            this.flowFilterStats = this.flowFilterStats || {};
+            this.flowFilterStats[mapId] = stats;
+
+            this.renderFlowAnalysis(mapId);
+
+            // Trigger async flow stream analysis with TMI-filtered trajectories
             const fixInfo = r.fix_info || (r.fixes && r.fixes[0]) || null;
-            const fixPoint = fixInfo?.geometry?.coordinates || null;
+            const fixPoint = fixInfo?.geometry?.coordinates
+                || (r.traffic_sector?.measurement_point) // [lon, lat] from Python
+                || null;
             const knownFixes = (r.known_fixes || r.approach_fixes || []).map(f => ({
                 id: f.id || f.name || f.fix,
                 lat: f.lat || f.latitude || f.geometry?.coordinates?.[1],
                 lon: f.lon || f.lng || f.longitude || f.geometry?.coordinates?.[0]
             })).filter(f => f.lat && f.lon);
-
-            // Fire and forget - cache will be ready when map renders
-            this.fetchFlowStreams(mapId, r.trajectories, {
-                fixPoint,
-                knownFixes,
-                isArrival: r.direction !== 'departure'
+            this.fetchFlowStreams(mapId, filtered, {
+                fixPoint, knownFixes, isArrival: r.direction !== 'departure'
             });
+            // Also fire branch analysis with TMI-filtered trajectories
+            this.fetchBranchAnalysis(mapId, filtered, r);
+        };
+
+        // Try inline trajectories first (old format / backwards compat)
+        const inlineTrajs = r.trajectories && Object.keys(r.trajectories).length > 0
+            ? r.trajectories : null;
+        if (inlineTrajs) {
+            _cacheAndFetchForMap(inlineTrajs);
+        } else if (r.has_trajectories && r.mit_key) {
+            // New split format: check _rawTrajectories or wait for promise
+            const splitTrajs = this._rawTrajectories?.[r.mit_key];
+            if (splitTrajs && Object.keys(splitTrajs).length > 0) {
+                _cacheAndFetchForMap(splitTrajs);
+            } else if (this._trajectoryPromise) {
+                // Trajectories still loading — defer until ready
+                this._trajectoryPromise.then(() => {
+                    const deferred = this._rawTrajectories?.[r.mit_key];
+                    _cacheAndFetchForMap(deferred);
+                });
+            }
         }
 
         // Cache traffic sector data if available (include required spacing for arc rendering)
@@ -2428,6 +3586,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.trafficSectorCache = this.trafficSectorCache || {};
             this.trafficSectorCache[mapId] = {
                 ...r.traffic_sector,
+                // Map measurement_point to fix_point (Python uses measurement_point, JS rendering uses fix_point)
+                fix_point: r.traffic_sector.measurement_point || r.traffic_sector.fix_point,
                 required_spacing: r.required || 0,
                 unit: r.unit || 'nm',
             };
@@ -2439,6 +3599,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             this.pairCache = this.pairCache || {};
             this.pairCache[mapId] = r.all_pairs;
             console.log(`Cached ${r.all_pairs.length} pairs for ${mapId}`);
+        }
+
+        // Branch corridors are now fetched via fetchBranchAnalysis() above (fired with trajectories)
+        // Legacy: cache if still present in PHP response (backwards compat)
+        if (r.branch_corridors && r.branch_corridors.branches?.length > 0) {
+            this.branchCorridorCache[mapId] = r.branch_corridors;
+            console.log(`Cached ${r.branch_corridors.branch_count} branches for ${mapId}`);
         }
 
         if (!requestor && !provider) {
@@ -2478,17 +3645,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
                         <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
                         <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
+                        <button class="layer-btn branch-toggle-btn" data-map="${mapId}" onclick="TMICompliance.toggleBranches(this)" style="display:none"><i class="fas fa-code-branch"></i> Branches</button>
                         <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Pairs</button>
                         <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Violations</button>
                         <span class="layer-divider">|</span>
-                        <span class="cone-legend" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: ${FILTER_CONFIG?.map?.ui?.legendText || 'var(--dark-text-muted, #adb5bd)'};">
-                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['75']?.fill || 'rgba(255,212,59,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['75']?.stroke || '#ffd43b'}; border-radius: 2px;"></span>75%</span>
-                            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 14px; height: 14px; background: ${FILTER_CONFIG?.map?.flowCone?.['90']?.fill || 'rgba(255,146,43,0.3)'}; border: 2px solid ${FILTER_CONFIG?.map?.flowCone?.['90']?.stroke || '#ff922b'}; border-radius: 2px;"></span>90%</span>
+                        <span class="cone-legend">
+                            <span class="legend-item"><span class="legend-swatch cone-75"></span>75%</span>
+                            <span class="legend-item"><span class="legend-swatch cone-90"></span>90%</span>
                         </span>
                     </div>
-                    <div class="tmi-map-container mt-2" id="${mapId}_container">
-                        <div class="d-flex align-items-center justify-content-center h-100" style="color: var(--dark-text-subtle);">
-                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading map...
+                    <div class="flow-analysis-section" id="${mapId}_flow_analysis" style="display: none;"></div>
+                    <div class="tmi-map-container" id="${mapId}_container">
+                        <div class="tmi-map-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading map...
                         </div>
                     </div>
                 </div>
@@ -2692,7 +3861,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+                glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -2767,7 +3936,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'facilities',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 12,
                         'text-anchor': 'center',
                     },
@@ -2850,7 +4019,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         layout: {
                             'visibility': altType === 'high' ? 'visible' : 'none',
                             'text-field': ['get', 'code'],
-                            'text-font': ['Noto Sans Regular'],
+                            'text-font': ['Open Sans Regular'],
                             'text-size': 9,
                             'text-anchor': 'center',
                             'text-allow-overlap': false,
@@ -2897,6 +4066,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-width': 4,
                         'line-opacity': 1,
                         'line-dasharray': [2, 1],
+                    },
+                });
+
+                // Label the handoff boundary with facility names
+                map.addLayer({
+                    id: 'shared-boundary-label',
+                    type: 'symbol',
+                    source: 'shared-boundary',
+                    layout: {
+                        'symbol-placement': 'line-center',
+                        'text-field': ['concat', ['get', 'facility1'], ' / ', ['get', 'facility2'], ' Boundary'],
+                        'text-font': ['Open Sans Bold'],
+                        'text-size': 13,
+                        'text-offset': [0, -1.2],
+                        'text-allow-overlap': true,
+                    },
+                    paint: {
+                        'text-color': '#ffd43b',
+                        'text-halo-color': '#000000',
+                        'text-halo-width': 2,
                     },
                 });
             }
@@ -2955,7 +4144,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     layout: {
                         'symbol-placement': 'line-center',
                         'text-field': airway.name,
-                        'text-font': ['Noto Sans Bold'],
+                        'text-font': ['Open Sans Bold'],
                         'text-size': 14,
                         'text-offset': [0, -1],
                     },
@@ -2994,7 +4183,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'fixes',
                     layout: {
                         'text-field': ['get', 'name'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 11,
                         'text-offset': [0, 1.5],
                         'text-anchor': 'top',
@@ -3035,7 +4224,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     source: 'airports',
                     layout: {
                         'text-field': ['get', 'code'],
-                        'text-font': ['Noto Sans Regular'],
+                        'text-font': ['Open Sans Regular'],
                         'text-size': 10,
                         'text-offset': [0, -1.2],
                         'text-anchor': 'bottom',
@@ -3280,11 +4469,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             // Compute multi-stream flow corridors from trajectory data
             // First clusters trajectories by approach direction, then computes per-stream cones
-            if (!TMICompliance.trafficSectorCache?.[mapId] && TMICompliance.trajectoryCache[mapId] && mapData.fixes?.length) {
-                const trajectories = TMICompliance.trajectoryCache[mapId];
-                const measurementFix = mapData.fixes[0];
-                if (measurementFix?.geometry?.coordinates) {
-                    const [fixLon, fixLat] = measurementFix.geometry.coordinates;
+            // Enhancement runs when: we have trajectories AND (no enhanced sector yet OR basic sector from Python)
+            // Uses TMI-filtered trajectories (only flights matching the TMI's semantic flow)
+            const existingSector = TMICompliance.trafficSectorCache?.[mapId];
+            const needsEnhancement = !existingSector?.use_centerline; // Python provides basic sector without centerline
+            const hasTrajectories = !!(TMICompliance.flowTrajectoryCache[mapId] || TMICompliance.trajectoryCache[mapId]);
+            // Get fix coordinates: prefer GIS-resolved fix, fallback to Python's measurement_point
+            let fixLon, fixLat;
+            if (mapData.fixes?.length && mapData.fixes[0]?.geometry?.coordinates) {
+                [fixLon, fixLat] = mapData.fixes[0].geometry.coordinates;
+            } else if (existingSector?.fix_point) {
+                [fixLon, fixLat] = existingSector.fix_point;
+                console.log(`Using cached measurement_point for cone enhancement: [${fixLon}, ${fixLat}]`);
+            }
+
+            if (needsEnhancement && hasTrajectories && fixLon !== undefined) {
+                // Prefer TMI-filtered trajectories; fall back to full set
+                const trajectories = TMICompliance.flowTrajectoryCache[mapId] || TMICompliance.trajectoryCache[mapId];
+                // Fix coordinates already set above
 
                     // Compute distance between two points in nm
                     const distanceNm = (lon1, lat1, lon2, lat2) => {
@@ -3527,6 +4729,59 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             });
                         });
 
+                        // ───────────────────────────────────────────────────────────
+                        // OUTLIER REJECTION: Replace bearings that deviate wildly from
+                        // the stream's overall direction. Sparse bins can produce extreme
+                        // outliers (e.g., 259° when stream flows at 170°) that distort
+                        // the cone even after smoothing.
+                        // ───────────────────────────────────────────────────────────
+                        if (centerlinePoints.length >= 3) {
+                            const streamBearing = stream.bearing;
+                            const MAX_DEVIATION = 60; // degrees from stream bearing
+
+                            for (let i = 0; i < centerlinePoints.length; i++) {
+                                const cp = centerlinePoints[i];
+                                const dev = Math.abs(angularDiff(cp.bearing, streamBearing));
+                                if (dev > MAX_DEVIATION) {
+                                    // Find nearest non-outlier neighbors for interpolation
+                                    let prevGood = null, nextGood = null;
+                                    for (let j = i - 1; j >= 0; j--) {
+                                        if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                                            prevGood = centerlinePoints[j];
+                                            break;
+                                        }
+                                    }
+                                    for (let j = i + 1; j < centerlinePoints.length; j++) {
+                                        if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                                            nextGood = centerlinePoints[j];
+                                            break;
+                                        }
+                                    }
+
+                                    let newBearing;
+                                    if (prevGood && nextGood) {
+                                        // Circular mean of nearest good neighbors
+                                        const rad1 = prevGood.bearing * Math.PI / 180;
+                                        const rad2 = nextGood.bearing * Math.PI / 180;
+                                        newBearing = ((Math.atan2(
+                                            Math.sin(rad1) + Math.sin(rad2),
+                                            Math.cos(rad1) + Math.cos(rad2)
+                                        ) * 180 / Math.PI) + 360) % 360;
+                                    } else if (prevGood) {
+                                        newBearing = prevGood.bearing;
+                                    } else if (nextGood) {
+                                        newBearing = nextGood.bearing;
+                                    } else {
+                                        newBearing = streamBearing;
+                                    }
+
+                                    console.log(`Outlier rejected at ${cp.dist}nm: ${cp.bearing.toFixed(1)}° → ${newBearing.toFixed(1)}° (stream: ${streamBearing.toFixed(1)}°)`);
+                                    cp.bearing = newBearing;
+                                    cp.coords = pointAtBearing(fixLon, fixLat, newBearing, cp.dist);
+                                }
+                            }
+                        }
+
                         if (centerlinePoints.length >= 2) {
                             // ───────────────────────────────────────────────────────────
                             // SMOOTHING: Apply weighted moving average to reduce jagged edges
@@ -3684,12 +4939,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         };
 
                         console.log(`Computed ${allStreamCones.length} stream cones from ${Object.keys(trajectories).length} tracks`);
+                        allStreamCones.forEach((sc, i) => console.log(`  Cone ${i+1}: bearing=${sc.bearing.toFixed(1)}°, tracks=${sc.trackCount}, pts=${sc.centerlinePoints.length}`));
                     }
-                }
             }
 
             // Add traffic flow sectors (75% and 90% capture zones)
             const sectorData = TMICompliance.trafficSectorCache?.[mapId];
+            console.log(`Flow cone rendering for ${mapId}:`, sectorData ? {
+                has_fix_point: !!sectorData.fix_point,
+                fix_point: sectorData.fix_point,
+                has_sector_75: !!sectorData.sector_75,
+                has_sector_90: !!sectorData.sector_90,
+                use_centerline: sectorData.use_centerline,
+                has_streams: !!sectorData.streams?.length,
+            } : 'NO SECTOR DATA');
             if (sectorData) {
                 const sectorFeatures = [];
                 // Sector radius: at least 30nm, or enough to show 3 spacing arcs
@@ -3767,16 +5030,32 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     });
                 } else {
                     // Legacy wedge-based polygons
-                    sectorFeatures.push({
-                        type: 'Feature',
-                        properties: { pct: 90 },
-                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_90, SECTOR_RADIUS_NM)] },
+                    // Python's traffic_sector uses track HEADINGS (direction of flight).
+                    // Flow cone should show APPROACH direction (where traffic comes from),
+                    // so we flip the sector bearings by 180°.
+                    const flipSector = (sector) => ({
+                        start_bearing: (sector.start_bearing + 180) % 360,
+                        end_bearing: (sector.end_bearing + 180) % 360,
+                        width_deg: sector.width_deg,
                     });
-                    sectorFeatures.push({
-                        type: 'Feature',
-                        properties: { pct: 75 },
-                        geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(sectorData.sector_75, SECTOR_RADIUS_NM)] },
-                    });
+                    try {
+                        if (!sectorData.fix_point) {
+                            console.error(`Flow cone error: fix_point is missing for ${mapId}`);
+                        } else {
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 90 },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(flipSector(sectorData.sector_90), SECTOR_RADIUS_NM)] },
+                            });
+                            sectorFeatures.push({
+                                type: 'Feature',
+                                properties: { pct: 75 },
+                                geometry: { type: 'Polygon', coordinates: [buildSectorPolygon(flipSector(sectorData.sector_75), SECTOR_RADIUS_NM)] },
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Flow cone rendering error for ${mapId}:`, err, sectorData);
+                    }
                 }
 
                 map.addSource('traffic-sectors', {
@@ -3815,6 +5094,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         'line-opacity': 0.6,
                     },
                 }, beforeLayer);
+
+                console.log(`Added flow cone layers for ${mapId}: ${sectorFeatures.length} features`);
 
                 // Add spacing markers (perpendicular lines for centerline, arcs for wedge)
                 if (sectorData.required_spacing && sectorData.required_spacing > 0 && sectorData.unit === 'nm') {
@@ -3974,51 +5255,67 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             // Add measurement point emphasis (pulsing marker at fix location)
+            // Try mapData.fixes first, then fallback to traffic_sector.measurement_point
+            let measurementCoords = null;
+            let measurementName = 'Measurement Point';
+
             if (mapData.fixes?.length) {
-                const measurementFix = mapData.fixes[0];  // Primary fix is measurement point
+                const measurementFix = mapData.fixes[0];
                 if (measurementFix?.geometry?.coordinates) {
-                    const [lon, lat] = measurementFix.geometry.coordinates;
-
-                    // Create pulsing ring effect
-                    map.addSource('measurement-point', {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: { type: 'Point', coordinates: [lon, lat] },
-                            properties: { name: measurementFix.properties?.name || 'Measurement Point' },
-                        },
-                    });
-
-                    // Outer ring (subtle)
-                    map.addLayer({
-                        id: 'measurement-pulse',
-                        type: 'circle',
-                        source: 'measurement-point',
-                        paint: {
-                            'circle-radius': 12,
-                            'circle-color': 'transparent',
-                            'circle-stroke-width': 1.5,
-                            'circle-stroke-color': '#ffffff',
-                            'circle-stroke-opacity': 0.5,
-                        },
-                    });
-
-                    // Inner marker (smaller, more subtle)
-                    map.addLayer({
-                        id: 'measurement-center',
-                        type: 'circle',
-                        source: 'measurement-point',
-                        paint: {
-                            'circle-radius': 4,
-                            'circle-color': '#ffffff',
-                            'circle-opacity': 0.8,
-                            'circle-stroke-width': 1,
-                            'circle-stroke-color': '#333333',
-                        },
-                    });
-
-                    console.log(`Added measurement point marker at ${measurementFix.properties?.name || 'fix'}`);
+                    measurementCoords = measurementFix.geometry.coordinates;
+                    measurementName = measurementFix.properties?.name || 'Measurement Point';
                 }
+            }
+
+            // Fallback: use traffic_sector.measurement_point from analysis
+            if (!measurementCoords && sectorData?.measurement_point) {
+                measurementCoords = sectorData.measurement_point;  // [lon, lat]
+                measurementName = 'Measurement Point';
+                console.log(`Using traffic_sector measurement_point: [${measurementCoords.join(', ')}]`);
+            }
+
+            if (measurementCoords) {
+                const [lon, lat] = measurementCoords;
+
+                // Create pulsing ring effect
+                map.addSource('measurement-point', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [lon, lat] },
+                        properties: { name: measurementName },
+                    },
+                });
+
+                // Outer ring (subtle)
+                map.addLayer({
+                    id: 'measurement-pulse',
+                    type: 'circle',
+                    source: 'measurement-point',
+                    paint: {
+                        'circle-radius': 12,
+                        'circle-color': 'transparent',
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-opacity': 0.5,
+                    },
+                });
+
+                // Inner marker (smaller, more subtle)
+                map.addLayer({
+                    id: 'measurement-center',
+                    type: 'circle',
+                    source: 'measurement-point',
+                    paint: {
+                        'circle-radius': 4,
+                        'circle-color': '#ffffff',
+                        'circle-opacity': 0.8,
+                        'circle-stroke-width': 1,
+                        'circle-stroke-color': '#333333',
+                    },
+                });
+
+                console.log(`Added measurement point marker at ${measurementName}`);
             }
 
             // Show layer controls
@@ -4043,6 +5340,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 updateButtonState('tracks', map.getSource('flight-tracks-solid') || map.getSource('flight-tracks-dashed'));
                 updateButtonState('flow-streams', map.getSource('flow-streams'));
                 updateButtonState('traffic-sectors', map.getSource('traffic-sectors'));
+
+                // Show branches button if branch corridor data is available
+                const branchBtn = controls.querySelector('.branch-toggle-btn');
+                if (branchBtn && TMICompliance.branchCorridorCache[mapId]) {
+                    branchBtn.style.display = '';
+                }
             }
 
             // Fit bounds
@@ -4369,8 +5672,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             if (!isActive) {
-                // Hide the layers
-                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
+                // Hide the layers (including cluster layers)
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr', 'pair-clusters', 'pair-cluster-count'].forEach(layerId => {
                     if (map.getLayer(layerId)) {
                         map.setLayoutProperty(layerId, 'visibility', 'none');
                     }
@@ -4385,8 +5688,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Update existing source
                 map.getSource('pair-data').setData(pairGeoJSON.lines);
                 map.getSource('pair-markers').setData(pairGeoJSON.markers);
-                // Show layers
-                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr'].forEach(layerId => {
+                // Show layers (including cluster layers)
+                ['pair-lines', 'pair-markers-prev', 'pair-markers-curr', 'pair-labels-prev', 'pair-labels-curr', 'pair-clusters', 'pair-cluster-count'].forEach(layerId => {
                     if (map.getLayer(layerId)) {
                         map.setLayoutProperty(layerId, 'visibility', 'visible');
                     }
@@ -4394,7 +5697,53 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             } else {
                 // Create sources and layers
                 map.addSource('pair-data', { type: 'geojson', data: pairGeoJSON.lines });
-                map.addSource('pair-markers', { type: 'geojson', data: pairGeoJSON.markers });
+                map.addSource('pair-markers', {
+                    type: 'geojson',
+                    data: pairGeoJSON.markers,
+                    cluster: true,
+                    clusterMaxZoom: 12,  // Disable clustering at zoom 13+
+                    clusterRadius: 50,   // Cluster points within 50px
+                });
+
+                // Cluster circles - show aggregated markers at low zoom
+                map.addLayer({
+                    id: 'pair-clusters',
+                    type: 'circle',
+                    source: 'pair-markers',
+                    filter: ['has', 'point_count'],
+                    paint: {
+                        'circle-color': [
+                            'step', ['get', 'point_count'],
+                            '#f28cb1', 10,   // Pink for < 10 points
+                            '#f1a340', 25,   // Orange for < 25 points
+                            '#d73027',       // Red for 25+ points
+                        ],
+                        'circle-radius': [
+                            'step', ['get', 'point_count'],
+                            18, 10,  // 18px for < 10 points
+                            24, 25,  // 24px for < 25 points
+                            30,      // 30px for 25+ points
+                        ],
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-width': 2,
+                    },
+                });
+
+                // Cluster count labels
+                map.addLayer({
+                    id: 'pair-cluster-count',
+                    type: 'symbol',
+                    source: 'pair-markers',
+                    filter: ['has', 'point_count'],
+                    layout: {
+                        'text-field': '{point_count_abbreviated}',
+                        'text-font': ['Open Sans Bold'],
+                        'text-size': 12,
+                    },
+                    paint: {
+                        'text-color': '#ffffff',
+                    },
+                });
 
                 // Connecting lines - colored by spacing category
                 map.addLayer({
@@ -4408,12 +5757,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Aircraft markers - previous (leading) aircraft
+                // Aircraft markers - previous (leading) aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-markers-prev',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'prev'],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'prev']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4422,12 +5771,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Aircraft markers - current (trailing) aircraft
+                // Aircraft markers - current (trailing) aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-markers-curr',
                     type: 'circle',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'curr'],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'curr']],
                     paint: {
                         'circle-radius': 6,
                         'circle-color': ['get', 'color'],
@@ -4436,44 +5785,75 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     },
                 });
 
-                // Labels for previous aircraft
+                // Labels for previous aircraft (only unclustered)
+                // Use colored text with dark background halo for better readability
                 map.addLayer({
                     id: 'pair-labels-prev',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'prev'],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'prev']],
+                    minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Regular'],
-                        'text-size': 10,
+                        'text-font': ['Open Sans Bold'],
+                        'text-size': 11,
                         'text-anchor': 'bottom',
                         'text-offset': [0, -0.8],
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
                     },
                     paint: {
-                        'text-color': '#ffffff',
-                        'text-halo-color': ['get', 'color'],
-                        'text-halo-width': 1.5,
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': 'rgba(20, 20, 35, 0.9)',
+                        'text-halo-width': 2,
+                        'text-halo-blur': 0.5,
                     },
                 });
 
-                // Labels for current aircraft
+                // Labels for current aircraft (only unclustered)
                 map.addLayer({
                     id: 'pair-labels-curr',
                     type: 'symbol',
                     source: 'pair-markers',
-                    filter: ['==', ['get', 'position'], 'curr'],
+                    filter: ['all', ['!has', 'point_count'], ['==', 'position', 'curr']],
+                    minzoom: 8, // Only show labels when zoomed in enough
                     layout: {
                         'text-field': ['concat', ['get', 'callsign'], '\n', ['get', 'time']],
-                        'text-font': ['Noto Sans Regular'],
-                        'text-size': 10,
+                        'text-font': ['Open Sans Bold'],
+                        'text-size': 11,
                         'text-anchor': 'top',
                         'text-offset': [0, 0.8],
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
                     },
                     paint: {
-                        'text-color': '#ffffff',
-                        'text-halo-color': ['get', 'color'],
-                        'text-halo-width': 1.5,
+                        'text-color': ['get', 'color'],
+                        'text-halo-color': 'rgba(20, 20, 35, 0.9)',
+                        'text-halo-width': 2,
+                        'text-halo-blur': 0.5,
                     },
+                });
+
+                // Click on cluster to zoom in and expand
+                map.on('click', 'pair-clusters', (e) => {
+                    const features = map.queryRenderedFeatures(e.point, { layers: ['pair-clusters'] });
+                    if (!features.length) return;
+                    const clusterId = features[0].properties.cluster_id;
+                    map.getSource('pair-markers').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({
+                            center: features[0].geometry.coordinates,
+                            zoom: zoom,
+                        });
+                    });
+                });
+
+                // Pointer cursor on clusters
+                map.on('mouseenter', 'pair-clusters', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'pair-clusters', () => {
+                    map.getCanvas().style.cursor = '';
                 });
             }
             return;
@@ -5025,6 +6405,1726 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <i class="fas fa-exclamation-circle"></i> ${message}
             </div>
         `);
+    },
+
+    // ========================================
+    // PROGRESSIVE DISCLOSURE LAYOUT (v2 UI)
+    // Master-detail layout with L1/L2/L3 layers
+    // ========================================
+
+    /**
+     * Render the progressive disclosure layout (new v2 UI)
+     * L1: Summary Header - 5-second answer
+     * L2: TMI List Panel - scannable index
+     * L3: Detail Panel - selected TMI details
+     */
+    renderProgressiveLayout: function() {
+        const html = `
+            <div class="tmi-analysis-wrapper">
+                ${this.renderSummaryHeaderV2()}
+                <div class="tmi-analysis-container">
+                    <div class="tmi-list-panel">
+                        ${this.renderListPanelV2()}
+                    </div>
+                    <div class="tmi-detail-panel" id="tmi-detail-panel">
+                        <div class="tmi-detail-empty">
+                            Select a TMI from the list to view details
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('#tmi_results_container').html(html);
+        this.bindProgressiveLayoutEvents();
+
+        // Auto-select first TMI if available
+        const firstItem = $('.tmi-list-item').first();
+        if (firstItem.length) {
+            this.selectTmi(firstItem.data('tmi-id'));
+        }
+    },
+
+    /**
+     * Format a datetime string for human-readable display
+     * Input: ISO format "2026-01-30T23:59:00" or "2026-01-30 23:59:00"
+     * Output: Aviation format "2026-01-30 2359Z"
+     */
+    formatEventTime: function(datetime) {
+        if (!datetime) return '';
+
+        // Parse ISO or space-separated datetime; ensure UTC interpretation
+        let isoStr = datetime.replace(' ', 'T');
+        if (!/[Zz+\-]\d{0,4}$/.test(isoStr)) isoStr += 'Z';
+        const dt = new Date(isoStr);
+        if (isNaN(dt.getTime())) return datetime; // Return original if parse fails
+
+        const year = dt.getUTCFullYear();
+        const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dt.getUTCDate()).padStart(2, '0');
+        const hours = String(dt.getUTCHours()).padStart(2, '0');
+        const mins = String(dt.getUTCMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}${mins}Z`;
+    },
+
+    /**
+     * Format event window for display
+     * Shows full date on start, just time on end if same day
+     */
+    formatEventWindow: function(startDt, endDt) {
+        const start = this.formatEventTime(startDt);
+        const end = this.formatEventTime(endDt);
+
+        if (!start || !end) return `${start || '?'} – ${end || '?'}`;
+
+        // Check if same date - show just time for end
+        const startDate = start.split(' ')[0];
+        const endDate = end.split(' ')[0];
+        const endTime = end.split(' ')[1];
+
+        if (startDate === endDate) {
+            return `${start} – ${endTime}`;
+        }
+        return `${start} – ${end}`;
+    },
+
+    /**
+     * L1: Summary Header - The 5-second answer
+     */
+    renderSummaryHeaderV2: function() {
+        const r = this.results;
+        const summary = r.summary || {};
+
+        // Get all TMI results
+        const mitResults = r.mit_results || {};
+        const gsResults = r.gs_results || {};
+        const apreqResults = r.apreq_results || {};
+        const rerouteResults = r.reroute_results || {};
+        const delayResults = r.delay_results || [];
+
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+
+        // Calculate NTML entry counts
+        const mitCount = mitArray.length;
+        const mitPairs = mitArray.reduce((sum, m) => sum + (m.pairs || 0), 0);
+        const mitNonCompliant = mitArray.reduce((sum, m) => {
+            const allPairs = m.all_pairs || [];
+            return sum + allPairs.filter(p => p.spacing_category === 'UNDER').length;
+        }, 0);
+
+        const gsCount = gsArray.length;
+        const stopViolations = gsArray.reduce((sum, g) => {
+            return sum + (g.non_compliant_count || 0);
+        }, 0);
+
+        const apreqCount = apreqArray.length;
+        const rerouteCount = rerouteArray.length;
+        const mandatoryReroutes = rerouteArray.filter(rr => rr.mandatory || rr.action === 'RQD').length;
+        const rerouteFlights = rerouteArray.reduce((sum, rr) => sum + (rr.total_flights || 0), 0);
+
+        // Calculate trajectory coverage
+        const trajCoverage = this.calculateTrajectoryCoverageV2();
+
+        // Format event window (human-readable)
+        const eventWindow = this.formatEventWindow(r.event_start, r.event_end);
+
+        // NTML Entries summary
+        let ntmlLines = '';
+        if (mitCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>MIT/MINIT:</strong> ${mitPairs} pairs analyzed, ${mitNonCompliant} non-compliant</div>`;
+        }
+        if (apreqCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>APREQ/CFR:</strong> ${apreqCount} tracked</div>`;
+        }
+        if (gsCount > 0) {
+            ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
+        }
+
+        // Advisories summary (GS and reroutes as advisory context)
+        let advisoryLines = '';
+        if (gsCount > 0) {
+            advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
+        }
+        if (rerouteCount > 0) {
+            const avgFiledPct = rerouteArray.reduce((sum, rr) => sum + (rr.filed_compliance_pct || 0), 0) / rerouteCount;
+            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, filed ${avgFiledPct.toFixed(0)}% compliant</div>`;
+        }
+
+        // Data gap information
+        let gapInfo = '';
+        if (this.dataGaps && this.dataGaps.length > 0) {
+            const gapTimes = this.dataGaps.map(g => {
+                const start = g.start_hour.toString().padStart(2, '0') + ':00Z';
+                const end = (g.end_hour + 1).toString().padStart(2, '0') + ':00Z';
+                return `${start}–${end}`;
+            }).join(', ');
+            gapInfo = ` | <span class="gap-warning">Gaps: ${gapTimes}</span>`;
+        }
+
+        return `
+            <div class="tmi-summary-header">
+                <div class="event-identity">Plan ${r.plan_id || this.planId || '?'} — TMI Analysis</div>
+                <div class="event-window">${eventWindow}</div>
+
+                <div class="tmi-summary-entries">
+                    <div class="tmi-summary-group">
+                        <h4>NTML Entries</h4>
+                        ${ntmlLines || '<div class="tmi-summary-line text-muted">None configured</div>'}
+                    </div>
+                    ${advisoryLines ? `
+                    <div class="tmi-summary-group">
+                        <h4>Advisories</h4>
+                        ${advisoryLines}
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="tmi-data-quality">
+                    Data: ${trajCoverage}% trajectory coverage${gapInfo}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Calculate trajectory coverage percentage
+     */
+    calculateTrajectoryCoverageV2: function() {
+        const mitResults = this.results?.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+
+        let totalCrossings = 0;
+        let withTrajectories = 0;
+
+        mitArray.forEach(m => {
+            totalCrossings += (m.crossings || m.total_crossings || 0);
+            // Estimate trajectory coverage from analyzed pairs
+            withTrajectories += (m.pairs || 0) * 2; // Each pair involves 2 flights
+        });
+
+        if (totalCrossings === 0) return 100;
+        return Math.min(100, Math.round((withTrajectories / totalCrossings) * 100));
+    },
+
+    /**
+     * L2: TMI List Panel - Scannable index
+     */
+    renderListPanelV2: function() {
+        const allTmis = this.getAllTmisForList();
+
+        if (allTmis.length === 0) {
+            return `<div class="tmi-list-empty">No TMIs to display</div>`;
+        }
+
+        // Group by type
+        const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
+
+        let html = `
+            <div class="tmi-list-header">
+                <div class="tmi-list-controls">
+                    <select id="tmi-list-ordering" title="Sort order">
+                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>Chronological</option>
+                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>By Volume</option>
+                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>Non-compliant First</option>
+                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>Alphabetical</option>
+                    </select>
+                </div>
+            </div>
+        `;
+
+        // Sort TMIs based on current ordering
+        const sortedNtml = this.sortTmiList(ntmlEntries);
+        const sortedAdvisories = this.sortTmiList(advisories);
+
+        // NTML Entries section
+        if (sortedNtml.length > 0) {
+            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            sortedNtml.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Advisories section
+        if (sortedAdvisories.length > 0) {
+            html += '<div class="tmi-list-section-label">Advisories</div>';
+            sortedAdvisories.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        return html;
+    },
+
+    /**
+     * Get all TMIs in a normalized format for the list
+     */
+    getAllTmisForList: function() {
+        const tmis = [];
+        const r = this.results;
+
+        // MIT/MINIT
+        const mitResults = r.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        mitArray.forEach((m, i) => {
+            const pairs = m.pairs || 0;
+            const allPairs = m.all_pairs || [];
+            const nonCompliant = allPairs.filter(p => p.spacing_category === 'UNDER').length;
+            const isMinit = m.unit === 'min';
+            const displayName = (m.fix && !['ALL', 'ANY', ''].includes(m.fix.toUpperCase()))
+                ? m.fix
+                : (m.destinations?.join(',') || 'Unknown');
+
+            tmis.push({
+                id: `mit_${i}`,
+                type: isMinit ? 'MINIT' : 'MIT',
+                identifier: displayName,
+                typeValue: `${m.required || 0}${isMinit ? 'MINIT' : 'MIT'}`,
+                metric: `${pairs}p`,
+                metricValue: pairs,
+                nonCompliant: nonCompliant,
+                startTime: m.tmi_start,
+                data: m,
+            });
+        });
+
+        // Ground Stops
+        const gsResults = r.gs_results || {};
+        const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        gsArray.forEach((g, i) => {
+            const nonCompliant = g.non_compliant_count || 0;
+            const totalFlights = g.total_flights || 0;
+            const identifier = (g.destinations && g.destinations.length > 0)
+                ? g.destinations.join(',')
+                : 'GS';
+            tmis.push({
+                id: `gs_${i}`,
+                type: 'GS',
+                identifier: identifier,
+                typeValue: 'GS',
+                metric: `${nonCompliant}/${totalFlights}`,
+                metricValue: totalFlights,
+                nonCompliant: nonCompliant,
+                startTime: g.gs_start,
+                data: g,
+            });
+        });
+
+        // Reroutes
+        const rerouteResults = r.reroute_results || {};
+        const rerouteArray = Array.isArray(rerouteResults) ? rerouteResults : Object.values(rerouteResults);
+        rerouteArray.forEach((rr, i) => {
+            const action = rr.action || (rr.mandatory ? 'RQD' : 'FYI');
+            const routeType = rr.route_type || 'ROUTE';
+            const filedNc = (rr.filed_non_compliant || []).length;
+            const flownNc = (rr.flown_non_compliant || []).length;
+            tmis.push({
+                id: `reroute_${i}`,
+                type: 'REROUTE',
+                identifier: rr.name || 'Reroute',
+                typeValue: `${routeType} ${action}`,
+                metric: `${rr.total_flights || 0}`,
+                metricValue: rr.total_flights || 0,
+                nonCompliant: filedNc + flownNc,
+                startTime: rr.start,
+                data: rr,
+            });
+        });
+
+        // APREQ
+        const apreqResults = r.apreq_results || {};
+        const apreqArray = Array.isArray(apreqResults) ? apreqResults : Object.values(apreqResults);
+        apreqArray.forEach((a, i) => {
+            const flightCount = a.total_flights || a.affected_count || 0;
+            tmis.push({
+                id: `apreq_${i}`,
+                type: 'APREQ',
+                identifier: a.fix || a.destinations?.join(',') || 'APREQ',
+                typeValue: 'APREQ',
+                metric: `${flightCount}`,
+                metricValue: flightCount,
+                nonCompliant: 0,
+                startTime: a.tmi_start,
+                data: a,
+            });
+        });
+
+        return tmis;
+    },
+
+    /**
+     * Sort TMI list based on current ordering
+     */
+    sortTmiList: function(tmis) {
+        const sorted = [...tmis];
+
+        switch (this.listOrdering) {
+            case 'volume':
+                sorted.sort((a, b) => b.metricValue - a.metricValue);
+                break;
+            case 'noncompliant':
+                sorted.sort((a, b) => b.nonCompliant - a.nonCompliant);
+                break;
+            case 'alpha':
+                sorted.sort((a, b) => a.identifier.localeCompare(b.identifier));
+                break;
+            case 'chronological':
+            default:
+                // Already in chronological order from data
+                break;
+        }
+
+        return sorted;
+    },
+
+    /**
+     * Render a single list item
+     */
+    renderListItemV2: function(tmi) {
+        const hasNonCompliant = tmi.nonCompliant > 0;
+        const selectedClass = this.selectedTmiId === tmi.id ? 'selected' : '';
+
+        return `
+            <div class="tmi-list-item ${selectedClass}" data-tmi-id="${tmi.id}" onclick="TMICompliance.selectTmi('${tmi.id}')">
+                <div class="identifier">
+                    ${hasNonCompliant ? '<span class="tmi-nc-dot"></span>' : ''}
+                    ${tmi.identifier}
+                </div>
+                <div class="type-value">${tmi.typeValue}</div>
+                <div class="metric">${tmi.metric}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Select a TMI and show its details
+     */
+    selectTmi: function(tmiId) {
+        this.selectedTmiId = tmiId;
+
+        // Update list selection state
+        $('.tmi-list-item').removeClass('selected');
+        $(`.tmi-list-item[data-tmi-id="${tmiId}"]`).addClass('selected');
+
+        // Find TMI data
+        const tmi = this.findTmiById(tmiId);
+        if (!tmi) return;
+
+        // Render detail panel
+        $('#tmi-detail-panel').html(this.renderDetailPanelV2(tmi));
+
+        // On mobile, scroll to detail
+        if (window.innerWidth < 1000) {
+            $('#tmi-detail-panel')[0].scrollIntoView({ behavior: 'smooth' });
+        }
+    },
+
+    /**
+     * Find TMI data by ID
+     */
+    findTmiById: function(tmiId) {
+        const allTmis = this.getAllTmisForList();
+        return allTmis.find(t => t.id === tmiId);
+    },
+
+    /**
+     * L3: Detail Panel - Full details for selected TMI
+     */
+    renderDetailPanelV2: function(tmi) {
+        if (!tmi) {
+            return '<div class="tmi-detail-empty">Select a TMI from the list</div>';
+        }
+
+        const data = tmi.data;
+        let html = '';
+
+        // Back link for mobile
+        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">← Back to list</a>';
+
+        // Detail header - format standardized line based on type
+        let standardizedLine = '';
+        if (tmi.type === 'REROUTE') {
+            const action = data.action || (data.mandatory ? 'RQD' : 'FYI');
+            const routeType = data.route_type || 'ROUTE';
+            const parts = [`${routeType} ${action}`];
+            if (data.name) parts.push(data.name);
+            if (data.start || data.end) parts.push(`${data.start || '?'}-${data.end || '?'}`);
+            if (data.constrained_area) parts.push(data.constrained_area);
+            standardizedLine = parts.join(' | ');
+        } else {
+            standardizedLine = this.formatStandardizedTMI(data);
+        }
+
+        html += `
+            <div class="tmi-detail-header">
+                <div class="tmi-identity">${tmi.identifier} ${tmi.typeValue}</div>
+                <div class="tmi-standardized">${standardizedLine}</div>
+            </div>
+        `;
+
+        // Render type-specific content
+        if (tmi.type === 'MIT' || tmi.type === 'MINIT') {
+            html += this.renderMitDetailV2(data);
+        } else if (tmi.type === 'GS') {
+            html += this.renderGsDetailV2(data);
+        } else if (tmi.type === 'REROUTE') {
+            html += this.renderRerouteDetailV2(data);
+        } else if (tmi.type === 'APREQ') {
+            html += this.renderApreqDetailV2(data);
+        }
+
+        return html;
+    },
+
+    /**
+     * Render MIT/MINIT detail content
+     */
+    renderMitDetailV2: function(data) {
+        const allPairs = data.all_pairs || [];
+        const nonCompliant = allPairs.filter(p => p.spacing_category === 'UNDER');
+        const pairs = data.pairs || 0;
+        const required = data.required || 0;
+        const unitLabel = data.unit === 'min' ? 'min' : 'nm';
+
+        // Calculate spacing stats
+        const minSpacing = data.spacing_stats?.min || data.min_spacing || 0;
+        const maxSpacing = data.spacing_stats?.max || data.max_spacing || 0;
+        const avgSpacing = data.spacing_stats?.avg || data.avg_spacing || 0;
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.crossings || data.total_crossings || 0}</div>
+                    <div class="stat-label">Crossings</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${pairs}</div>
+                    <div class="stat-label">Pairs Analyzed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${nonCompliant.length}</div>
+                    <div class="stat-label">Non-compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="spacing-range">${minSpacing.toFixed(1)}–${maxSpacing.toFixed(1)}${unitLabel}</div>
+                    <div class="stat-label">Spacing Range</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${avgSpacing.toFixed(1)}${unitLabel}</div>
+                    <div class="stat-label">Avg Spacing</div>
+                </div>
+            </div>
+        `;
+
+        // Expandable sections
+        const diagramId = `diagram_${data.fix || 'mit'}_${Date.now()}`;
+
+        // Spacing Diagram section
+        html += this.renderExpandableSectionV2('spacing-diagram', 'Spacing Diagram', '', () => {
+            return this.renderSpacingDiagramV2(allPairs, required, data.unit);
+        });
+
+        // All Pairs section
+        html += this.renderExpandableSectionV2('all-pairs', 'All Pairs', `(${pairs})`, () => {
+            return this.renderPairsTableV2(allPairs, required, unitLabel);
+        });
+
+        // Non-Compliant section (if any)
+        if (nonCompliant.length > 0) {
+            html += this.renderExpandableSectionV2('non-compliant', 'Non-Compliant', `(${nonCompliant.length})`, () => {
+                return this.renderPairsTableV2(nonCompliant, required, unitLabel);
+            });
+        }
+
+        // Context Map section (reuse existing map rendering)
+        const mapId = `map_v2_${data.fix || 'mit'}_${Date.now()}`;
+        html += this.renderMapSection(data, mapId);
+
+        return html;
+    },
+
+    /**
+     * Render GS detail content
+     */
+    renderGsDetailV2: function(data) {
+        const nonCompliantFlights = data.non_compliant_flights || data.non_compliant || [];
+        const exemptFlights = data.exempt_flights || data.exempt || [];
+        const compliantFlights = data.compliant_flights || data.compliant || [];
+        const nonCompliant = data.non_compliant_count || data.violations?.total || nonCompliantFlights.length;
+        const totalFlights = data.total_flights || 0;
+        const compliant = data.compliant_count || compliantFlights.length;
+        const exempt = data.exempt_count || exemptFlights.length;
+        const notInScope = (data.not_in_scope || []).length;
+
+        // Ended-by badge
+        let endedBadge = '';
+        if (data.ended_by === 'CNX' || data.cancelled) {
+            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+        } else if (data.ended_by === 'EXPIRATION') {
+            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+        }
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'} ${endedBadge}</div>
+                    <div class="stat-label">Stop Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${compliant}</div>
+                    <div class="stat-label">Compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${nonCompliant}</div>
+                    <div class="stat-label">Non-compliant</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${exempt}</div>
+                    <div class="stat-label">Exempt</div>
+                </div>
+        `;
+
+        if (notInScope > 0) {
+            html += `
+                <div class="stat">
+                    <div class="stat-value">${notInScope}</div>
+                    <div class="stat-label">Not In Scope</div>
+                </div>
+            `;
+        }
+
+        if (data.avg_hold_time_min && data.avg_hold_time_min > 0) {
+            const stats = data.hold_time_stats || {};
+            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            html += `
+                <div class="stat" ${tooltip ? `title="${tooltip}"` : ''}>
+                    <div class="stat-value">${data.avg_hold_time_min.toFixed(0)}m</div>
+                    <div class="stat-label">Avg Hold</div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // Impacting condition + program metadata
+        if (data.impacting_condition) {
+            html += `<div class="text-muted small mt-2"><i class="fas fa-cloud"></i> ${this.escapeHtml(data.impacting_condition)}</div>`;
+        }
+        if (data.dep_facility_tier) {
+            html += `<span class="badge badge-outline-secondary mr-1" style="font-size:0.7rem;">${this.escapeHtml(data.dep_facility_tier)}</span>`;
+        }
+        if (data.prob_extension) {
+            html += `<div class="text-muted small mt-1"><i class="fas fa-clock"></i> Prob Extension: ${this.escapeHtml(data.prob_extension)}</div>`;
+        }
+
+        // Program timeline bar
+        if (data.program_timeline && data.program_timeline.length > 0) {
+            html += this.renderGsTimelineBar(data.program_timeline, data.gs_start, data.gs_end);
+
+            // Advisory detail section (expandable V2)
+            html += this.renderExpandableSectionV2('gs-advisory-chain', 'Advisory History', `(${data.program_timeline.length})`, () => {
+                return `<div class="advisory-chain">
+                    ${data.program_timeline.map(adv => {
+                        const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
+                        return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
+                            <div class="advisory-detail-header">
+                                <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                <span class="advisory-type">${adv.type || ''}</span>
+                                ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
+                                <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                            </div>
+                            ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
+                            ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
+                            ${adv.prob_extension ? `<div class="advisory-meta"><i class="fas fa-clock"></i> Extension: ${this.escapeHtml(adv.prob_extension)}</div>` : ''}
+                            ${adv.comments ? `<div class="advisory-meta"><i class="fas fa-comment"></i> ${this.escapeHtml(adv.comments)}</div>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            });
+        }
+
+        // CNX comments
+        if (data.cnx_comments) {
+            html += `<div class="gs-cnx-comments mt-2"><i class="fas fa-info-circle text-info"></i> ${this.escapeHtml(data.cnx_comments)}</div>`;
+        }
+
+        // Per-origin breakdown (expandable section)
+        const perOrigin = data.per_origin_breakdown || [];
+        if (perOrigin.length > 0) {
+            const v2OriginTblId = `gs_origin_v2_tbl_${++this.detailIdCounter}`;
+            html += this.renderExpandableSectionV2('gs-per-origin', 'Per-Origin Breakdown', `(${perOrigin.length})`, () => {
+                let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped sortable-table" id="${v2OriginTblId}">
+                    <thead><tr>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',0,false)" style="cursor:pointer;">Origin</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',1,true)" style="cursor:pointer;">Total</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',2,true)" style="cursor:pointer;">Compliant</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',3,true)" style="cursor:pointer;">Non-Comp</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',4,true)" style="cursor:pointer;">Exempt</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',5,true)" style="cursor:pointer;">Rate</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                    </tr></thead><tbody>`;
+                perOrigin.forEach(o => {
+                    const oPct = o.compliance_pct || 0;
+                    const oClass = this.getComplianceClass(oPct);
+                    const compW = o.total > 0 ? Math.round(((o.compliant || 0) / o.total) * 100) : 0;
+                    const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
+                    const exW = 100 - compW - ncW;
+                    tbl += `<tr>
+                        <td><code>${o.origin}</code>
+                            <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
+                        </td>
+                        <td>${o.total || 0}</td>
+                        <td class="text-success">${o.compliant || 0}</td>
+                        <td class="text-danger">${o.non_compliant || 0}</td>
+                        <td class="text-info">${o.exempt || 0}</td>
+                        <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
+                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div></div>`;
+                return tbl;
+            });
+        }
+
+        // Flight detail expandable sections
+        if (nonCompliantFlights.length > 0) {
+            const hasPhase = nonCompliantFlights.some(f => f.phase);
+            html += this.renderExpandableSectionV2('gs-violations', 'Violations', `(${nonCompliantFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}<th>Source</th></tr></thead><tbody>`;
+                nonCompliantFlights.forEach(f => {
+                    tbl += `<tr class="table-danger">
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
+                        ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        if (exemptFlights.length > 0) {
+            html += this.renderExpandableSectionV2('gs-exempt', 'Exempt Flights', `(${exemptFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr></thead><tbody>`;
+                exemptFlights.forEach(f => {
+                    tbl += `<tr>
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td><small>${f.reason || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Compliant flights with hold time
+        if (compliantFlights.length > 0) {
+            html += this.renderExpandableSectionV2('gs-compliant', 'Compliant Flights', `(${compliantFlights.length})`, () => {
+                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
+                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th><th>Source</th></tr></thead><tbody>`;
+                compliantFlights.forEach(f => {
+                    tbl += `<tr>
+                        <td><code>${f.callsign}</code></td>
+                        <td>${f.dept || 'N/A'}</td>
+                        <td>${f.dept_time || 'N/A'}</td>
+                        <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
+                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+                    </tr>`;
+                });
+                tbl += `</tbody></table></div>`;
+                return tbl;
+            });
+        }
+
+        // Context Map section for GS
+        const mapId = `map_v2_gs_${Date.now()}`;
+        html += this.renderMapSection(data, mapId);
+
+        return html;
+    },
+
+    /**
+     * Render APREQ detail content
+     */
+    renderApreqDetailV2: function(data) {
+        const totalFlights = data.total_flights || 0;
+        const affectedCount = data.affected_count || 0;
+        const exemptCount = data.exempt_count || 0;
+        const postTmiCount = data.post_tmi_count || 0;
+
+        let html = `
+            <div class="tmi-detail-overview">
+                <div class="stat">
+                    <div class="stat-value">${data.tmi_start || '?'} - ${data.tmi_end || '?'}</div>
+                    <div class="stat-label">Active Window</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalFlights}</div>
+                    <div class="stat-label">Flights Tracked</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${affectedCount}</div>
+                    <div class="stat-label">Affected</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${exemptCount}</div>
+                    <div class="stat-label">Exempt</div>
+                </div>
+            </div>
+            <div class="text-muted small mt-3">
+                <i class="fas fa-info-circle"></i> APREQ/CFR is tracked for awareness only. Compliance is determined by coordination between facilities.
+            </div>
+        `;
+
+        return html;
+    },
+
+    /**
+     * Render an expandable section
+     */
+    renderExpandableSectionV2: function(sectionId, title, count, contentFn) {
+        const isExpanded = this.expandedSections[sectionId] || false;
+        const expandedClass = isExpanded ? 'expanded' : '';
+
+        return `
+            <div class="tmi-section ${expandedClass}" data-section-id="${sectionId}">
+                <div class="tmi-section-header" onclick="TMICompliance.toggleSectionV2('${sectionId}')">
+                    <span class="chevron">▸</span>
+                    <span class="section-title">${title}</span>
+                    <span class="section-count">${count}</span>
+                </div>
+                <div class="tmi-section-content">
+                    ${isExpanded ? contentFn() : ''}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Toggle section expansion
+     */
+    toggleSectionV2: function(sectionId) {
+        this.expandedSections[sectionId] = !this.expandedSections[sectionId];
+
+        const section = $(`.tmi-section[data-section-id="${sectionId}"]`);
+        const content = section.find('.tmi-section-content');
+
+        if (this.expandedSections[sectionId]) {
+            section.addClass('expanded');
+            // Re-render content when expanding
+            // For sections managed by renderExpandableSectionV2 with contentFn,
+            // re-render the full detail panel to invoke the content function
+            const tmi = this.findTmiById(this.selectedTmiId);
+            if (tmi) {
+                let contentHtml = '';
+                if (sectionId === 'spacing-diagram') {
+                    const data = tmi.data;
+                    contentHtml = this.renderSpacingDiagramV2(data.all_pairs || [], data.required || 0, data.unit);
+                } else if (sectionId === 'all-pairs') {
+                    const data = tmi.data;
+                    contentHtml = this.renderPairsTableV2(data.all_pairs || [], data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                } else if (sectionId === 'non-compliant') {
+                    const data = tmi.data;
+                    const nonCompliant = (data.all_pairs || []).filter(p => p.spacing_category === 'UNDER');
+                    contentHtml = this.renderPairsTableV2(nonCompliant, data.required || 0, data.unit === 'min' ? 'min' : 'nm');
+                } else {
+                    // Generic handler: re-render the entire detail panel
+                    // This supports GS per-origin, violations, exempt, reroute sections
+                    $('#tmi-detail-panel').html(this.renderDetailPanelV2(tmi));
+                    return;
+                }
+                content.html(contentHtml);
+            }
+        } else {
+            section.removeClass('expanded');
+        }
+    },
+
+    /**
+     * Simplified spacing diagram (v2)
+     */
+    renderSpacingDiagramV2: function(allPairs, required, unit) {
+        if (!allPairs || allPairs.length === 0) {
+            return '<div class="text-muted">No pairs to display</div>';
+        }
+
+        const unitLabel = unit === 'min' ? 'min' : 'nm';
+
+        // Build flight sequence
+        const flights = [];
+        if (allPairs.length > 0) {
+            flights.push({
+                callsign: allPairs[0].prev_callsign,
+                time: allPairs[0].prev_time,
+            });
+            allPairs.forEach(p => {
+                flights.push({
+                    callsign: p.curr_callsign,
+                    time: p.curr_time,
+                    spacing: p.spacing,
+                    category: p.spacing_category,
+                });
+            });
+        }
+
+        let html = '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
+
+        let lastTime = null;
+        let lastTimeMs = null;
+
+        for (let i = 0; i < flights.length; i++) {
+            const flight = flights[i];
+
+            // Parse time for gap detection
+            let flightTimeMs = null;
+            if (flight.time) {
+                const match = flight.time.match(/(\d{2}):?(\d{2})/);
+                if (match) {
+                    flightTimeMs = parseInt(match[1]) * 60 + parseInt(match[2]);
+                }
+            }
+
+            // Check for gap (>10 min between flights)
+            if (lastTimeMs !== null && flightTimeMs !== null) {
+                let gapMinutes = flightTimeMs - lastTimeMs;
+                if (gapMinutes < 0) gapMinutes += 24 * 60; // Handle day wrap
+
+                if (gapMinutes > 10) {
+                    html += `<div class="tmi-spacing-gap">${gapMinutes} min</div>`;
+                } else if (flight.spacing !== undefined) {
+                    // Render segment line between consecutive flights
+                    const isNonCompliant = flight.category === 'UNDER';
+                    html += `
+                        <div class="tmi-spacing-segment">
+                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                            <div class="tmi-spacing-value">${flight.spacing?.toFixed(1) || '?'}${unitLabel}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Render flight dot
+            const isNonCompliant = flight.category === 'UNDER';
+            html += `
+                <div class="tmi-spacing-flight">
+                    <div class="tmi-spacing-dot ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                    <div class="tmi-spacing-callsign">${flight.callsign}</div>
+                    <div class="tmi-spacing-time">${flight.time || ''}</div>
+                </div>
+            `;
+
+            lastTime = flight.time;
+            lastTimeMs = flightTimeMs;
+        }
+
+        html += '</div>';
+
+        // Scale bar
+        html += `
+            <div class="tmi-spacing-scale">
+                <div class="tmi-spacing-scale-bar"></div>
+                <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+            </div>
+        `;
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Pairs table (v2)
+     */
+    renderPairsTableV2: function(pairs, required, unitLabel) {
+        if (!pairs || pairs.length === 0) {
+            return '<div class="text-muted">No pairs to display</div>';
+        }
+
+        // Required marker position: at 66.67% since bar represents 150% of required
+        const requiredMarkerPct = (1 / 1.5) * 100; // ≈ 66.67%
+
+        let html = `
+            <table class="tmi-pairs-table">
+                <thead>
+                    <tr>
+                        <th>Lead</th>
+                        <th>Trail</th>
+                        <th>Gap (mm:ss)</th>
+                        <th>Spacing</th>
+                        <th class="spacing-bar-cell">
+                            <span class="visual-header">
+                                <span class="required-label">${required}${unitLabel} req</span>
+                            </span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        pairs.forEach(p => {
+            const isNonCompliant = p.spacing_category === 'UNDER';
+            const spacing = p.spacing || 0;
+            const diff = spacing - required;
+            const diffStr = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+
+            // Calculate gap in mm:ss format (time_min is the gap in minutes from Python analyzer)
+            const gapStr = this.formatGapMmSs(p.time_min || 0);
+
+            // Calculate bar width (cap at 150% of required)
+            const barPct = Math.min((spacing / (required * 1.5)) * 100, 100);
+
+            html += `
+                <tr>
+                    <td class="flight-cell">
+                        <div class="callsign">${p.prev_callsign}</div>
+                        <div class="crossing-time">${p.prev_time || ''}</div>
+                    </td>
+                    <td class="flight-cell">
+                        <div class="callsign">${p.curr_callsign}</div>
+                        <div class="crossing-time">${p.curr_time || ''}</div>
+                    </td>
+                    <td class="gap-cell">${gapStr}</td>
+                    <td class="spacing-cell">${spacing.toFixed(1)}${unitLabel}</td>
+                    <td class="spacing-bar-cell">
+                        <div class="tmi-spacing-bar-inline">
+                            <div class="tmi-spacing-bar-track">
+                                <div class="tmi-spacing-bar-fill ${isNonCompliant ? 'non-compliant' : ''}" style="width: ${barPct}%"></div>
+                                <div class="tmi-required-marker" style="left: ${requiredMarkerPct}%" title="${required}${unitLabel} required"></div>
+                            </div>
+                            <span class="tmi-spacing-diff">(${diffStr})</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        return html;
+    },
+
+    /**
+     * Format gap as mm:ss (always 2 digits each)
+     */
+    formatGapMmSs: function(decimalMinutes) {
+        const totalSeconds = Math.round((decimalMinutes || 0) * 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.abs(totalSeconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    },
+
+    /**
+     * Scroll to list (mobile)
+     */
+    scrollToList: function() {
+        $('.tmi-list-panel')[0]?.scrollIntoView({ behavior: 'smooth' });
+    },
+
+    /**
+     * Bind events for progressive layout
+     * Uses event delegation to survive re-renders
+     */
+    bindProgressiveLayoutEvents: function() {
+        const self = this;
+
+        // List ordering change - use event delegation on parent container
+        $('.tmi-analysis-wrapper').off('change', '#tmi-list-ordering').on('change', '#tmi-list-ordering', function() {
+            self.listOrdering = $(this).val();
+            // Re-render just the list items, not the header with dropdown
+            self.refreshListItems();
+        });
+    },
+
+    /**
+     * Refresh only the list items without replacing the dropdown
+     */
+    refreshListItems: function() {
+        const allTmis = this.getAllTmisForList();
+
+        // Group by type
+        const ntmlEntries = allTmis.filter(t => ['MIT', 'MINIT', 'APREQ', 'STOP'].includes(t.type));
+        const advisories = allTmis.filter(t => ['GS', 'GDP', 'REROUTE'].includes(t.type));
+
+        // Sort TMIs based on current ordering
+        const sortedNtml = this.sortTmiList(ntmlEntries);
+        const sortedAdvisories = this.sortTmiList(advisories);
+
+        // Build list HTML
+        let html = '';
+
+        // NTML Entries section
+        if (sortedNtml.length > 0) {
+            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            sortedNtml.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Advisories section
+        if (sortedAdvisories.length > 0) {
+            html += '<div class="tmi-list-section-label">Advisories</div>';
+            sortedAdvisories.forEach(tmi => {
+                html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Replace just the list content (after header)
+        $('.tmi-list-panel .tmi-list-section-label, .tmi-list-panel .tmi-list-item').remove();
+        $('.tmi-list-panel .tmi-list-header').after(html);
+
+        // Re-select the currently selected item
+        if (this.selectedTmiId) {
+            $(`.tmi-list-item[data-tmi-id="${this.selectedTmiId}"]`).addClass('selected');
+        }
+    },
+
+    // =========================================================================
+    // BRANCH CORRIDOR ANALYSIS
+    // Progressive disclosure: Flow Cone → Show Branches → Select/Compare
+    // =========================================================================
+
+    /**
+     * Toggle branch analysis layers on the map and expand/collapse branch list.
+     */
+    toggleBranches: function(btn) {
+        const mapId = btn.dataset.map;
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const isActive = btn.classList.toggle('active');
+        const branchList = document.getElementById(`${mapId}_fa_branch_list`);
+
+        if (isActive) {
+            // First activation: compute and render
+            if (!this.branchPanelState[mapId]?.initialized) {
+                this.initBranchAnalysis(mapId);
+            }
+
+            // Expand branch list
+            if (branchList) branchList.style.display = '';
+
+            // Show branch layers
+            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+                if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+            });
+
+            // Dim flow cone to 50%
+            if (map.getLayer('traffic-sectors-fill')) {
+                map.setPaintProperty('traffic-sectors-fill', 'fill-opacity',
+                    ['case', ['==', ['get', 'pct'], 75], 0.07, 0.05]);
+            }
+            if (map.getLayer('traffic-sectors-outline')) {
+                map.setPaintProperty('traffic-sectors-outline', 'line-opacity', 0.3);
+            }
+            if (map.getLayer('spacing-arcs')) {
+                map.setPaintProperty('spacing-arcs', 'line-opacity', 0.3);
+            }
+        } else {
+            // Collapse branch list
+            if (branchList) branchList.style.display = 'none';
+
+            // Hide branch layers
+            ['branch-corridors-fill', 'branch-corridors-outline'].forEach(id => {
+                if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+            });
+
+            // Restore flow cone opacity
+            if (map.getLayer('traffic-sectors-fill')) {
+                map.setPaintProperty('traffic-sectors-fill', 'fill-opacity',
+                    ['case', ['==', ['get', 'pct'], 75], 0.15, 0.1]);
+            }
+            if (map.getLayer('traffic-sectors-outline')) {
+                map.setPaintProperty('traffic-sectors-outline', 'line-opacity', 0.6);
+            }
+            if (map.getLayer('spacing-arcs')) {
+                map.setPaintProperty('spacing-arcs', 'line-opacity', 0.6);
+            }
+        }
+    },
+
+    /**
+     * Initialize branch analysis: compute corridors, render panel and map layers.
+     */
+    initBranchAnalysis: function(mapId) {
+        const branchData = this.branchCorridorCache[mapId];
+        const trajectories = this.trajectoryCache[mapId];
+        const sectorData = this.trafficSectorCache?.[mapId];
+
+        if (!branchData || !trajectories || !sectorData?.fix_point) {
+            console.warn('Missing data for branch analysis:', {
+                hasBranch: !!branchData, hasTraj: !!trajectories, hasSector: !!sectorData,
+            });
+            return;
+        }
+
+        const [fixLon, fixLat] = sectorData.fix_point;
+        const required = sectorData.required_spacing || 15;
+        const binSize = required >= 20 ? 5 : 3; // MIT-aligned bins
+        const maxDistance = Math.max(75, required * 4);
+        const metrics = branchData.branch_metrics || {};
+
+        // Compute corridor polygons for each branch
+        const branchCorridors = [];
+
+        branchData.branches.forEach((branch, idx) => {
+            const callsignSet = new Set(branch.callsigns || []);
+            if (callsignSet.size < 2) return;
+
+            // Approach bearing: opposite of bearing_to_fix (direction traffic comes FROM)
+            const approachBearing = ((branch.bearing_to_fix || 0) + 180) % 360;
+
+            const corridor = this.computeBranchCorridor(
+                trajectories, callsignSet, fixLon, fixLat,
+                approachBearing, binSize, maxDistance
+            );
+
+            if (corridor) {
+                const branchMetrics = metrics[branch.branch_id] || {};
+                branchCorridors.push({
+                    branchId: branch.branch_id,
+                    branchIdx: idx,
+                    shortName: branch.display?.short || `Branch ${idx + 1}`,
+                    longName: branch.display?.long || branch.branch_id,
+                    trackCount: branch.track_count || callsignSet.size,
+                    compliancePct: branchMetrics.compliance_pct ?? 100,
+                    pairs: branchMetrics.pairs || 0,
+                    violations: (branchMetrics.violations || []).length,
+                    polygon75: corridor.polygon_75,
+                    polygon90: corridor.polygon_90,
+                    selected: true,
+                    isSubBranch: branch.is_sub_branch || false,
+                    odComposition: branch.od_composition || null,
+                    approachDirection: branch.approach_direction || '',
+                });
+            }
+        });
+
+        if (branchCorridors.length === 0) {
+            console.warn('No branch corridors computed for', mapId);
+            return;
+        }
+
+        this.branchPanelState[mapId] = {
+            initialized: true,
+            corridors: branchCorridors,
+        };
+
+        this.renderFlowAnalysis(mapId);
+        this.renderBranchLayers(mapId);
+        console.log(`Branch analysis: ${branchCorridors.length} corridors computed for ${mapId}`);
+    },
+
+    /**
+     * Compute corridor polygons for a single branch's callsigns.
+     * Reuses the same algorithm as flow cone: distance bins → centerline →
+     * Gaussian smoothing → monotonic convergence → buffer polygons.
+     */
+    computeBranchCorridor: function(trajectories, callsignSet, fixLon, fixLat, streamBearing, binSize, maxDistance) {
+        // Geo utility functions (same as flow cone computation)
+        const distanceNm = (lon1, lat1, lon2, lat2) => {
+            const R = 3440.065;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        const bearingTo = (lon1, lat1, lon2, lat2) => {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1r = lat1 * Math.PI / 180;
+            const lat2r = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2r);
+            const x = Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLon);
+            return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+        };
+
+        const pointAtBearing = (lon, lat, bearingDeg, distNm) => {
+            const R = 3440.065;
+            const bearing = bearingDeg * Math.PI / 180;
+            const lat1 = lat * Math.PI / 180;
+            const lon1 = lon * Math.PI / 180;
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distNm / R) +
+                Math.cos(lat1) * Math.sin(distNm / R) * Math.cos(bearing));
+            const lon2 = lon1 + Math.atan2(
+                Math.sin(bearing) * Math.sin(distNm / R) * Math.cos(lat1),
+                Math.cos(distNm / R) - Math.sin(lat1) * Math.sin(lat2)
+            );
+            return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
+        };
+
+        const angularDiff = (a, b) => {
+            let diff = a - b;
+            while (diff > 180) diff -= 360;
+            while (diff < -180) diff += 360;
+            return diff;
+        };
+
+        // Step 1: Sample approach-phase points into distance bins
+        const distanceBins = {};
+
+        Object.entries(trajectories).forEach(([callsign, traj]) => {
+            if (!callsignSet.has(callsign)) return;
+            if (!traj.coordinates || traj.coordinates.length < 2) return;
+
+            const visitedBins = new Set();
+            for (let i = 1; i < traj.coordinates.length; i++) {
+                const prev = traj.coordinates[i - 1];
+                const curr = traj.coordinates[i];
+                const prevDist = distanceNm(prev[0], prev[1], fixLon, fixLat);
+                const currDist = distanceNm(curr[0], curr[1], fixLon, fixLat);
+
+                if (currDist < prevDist) {
+                    const [lon, lat] = prev;
+                    const dist = prevDist;
+                    const bearing = bearingTo(fixLon, fixLat, lon, lat);
+                    const bin = Math.round(dist / binSize) * binSize;
+
+                    if (bin > 0 && bin <= maxDistance && !visitedBins.has(bin)) {
+                        visitedBins.add(bin);
+                        distanceBins[bin] = distanceBins[bin] || [];
+                        distanceBins[bin].push({ bearing, lon, lat, callsign });
+                    }
+                }
+            }
+        });
+
+        // Step 2: Compute centerline from distance bins
+        const centerlinePoints = [];
+        const sortedBins = Object.keys(distanceBins).map(Number).sort((a, b) => a - b);
+
+        sortedBins.forEach(dist => {
+            const points = distanceBins[dist];
+            if (points.length < 2) return;
+
+            const bearings = points.map(p => p.bearing).sort((a, b) => a - b);
+            const medianBearing = bearings[Math.floor(bearings.length / 2)];
+
+            const normalized = bearings.map(b => {
+                let diff = b - medianBearing;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+                return diff;
+            }).sort((a, b) => a - b);
+
+            const p75Hi = Math.min(Math.ceil(normalized.length * 0.875) - 1, normalized.length - 1);
+            const p75Lo = Math.max(Math.floor(normalized.length * 0.125), 0);
+            const p90Hi = Math.min(Math.ceil(normalized.length * 0.95) - 1, normalized.length - 1);
+            const p90Lo = Math.max(Math.floor(normalized.length * 0.05), 0);
+
+            const width75 = Math.max(3, Math.max(Math.abs(normalized[p75Hi] || 0), Math.abs(normalized[p75Lo] || 0)));
+            const width90 = Math.max(5, Math.max(Math.abs(normalized[p90Hi] || 0), Math.abs(normalized[p90Lo] || 0)));
+
+            centerlinePoints.push({
+                dist,
+                coords: pointAtBearing(fixLon, fixLat, medianBearing, dist),
+                bearing: medianBearing,
+                width75, width90,
+                trackCount: points.length,
+            });
+        });
+
+        if (centerlinePoints.length < 2) return null;
+
+        // Step 3: Outlier rejection (>60° from branch stream bearing)
+        const MAX_DEVIATION = 60;
+        for (let i = 0; i < centerlinePoints.length; i++) {
+            const cp = centerlinePoints[i];
+            const dev = Math.abs(angularDiff(cp.bearing, streamBearing));
+            if (dev > MAX_DEVIATION) {
+                let prevGood = null, nextGood = null;
+                for (let j = i - 1; j >= 0; j--) {
+                    if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                        prevGood = centerlinePoints[j]; break;
+                    }
+                }
+                for (let j = i + 1; j < centerlinePoints.length; j++) {
+                    if (Math.abs(angularDiff(centerlinePoints[j].bearing, streamBearing)) <= MAX_DEVIATION) {
+                        nextGood = centerlinePoints[j]; break;
+                    }
+                }
+
+                let newBearing;
+                if (prevGood && nextGood) {
+                    const rad1 = prevGood.bearing * Math.PI / 180;
+                    const rad2 = nextGood.bearing * Math.PI / 180;
+                    newBearing = ((Math.atan2(
+                        Math.sin(rad1) + Math.sin(rad2),
+                        Math.cos(rad1) + Math.cos(rad2)
+                    ) * 180 / Math.PI) + 360) % 360;
+                } else if (prevGood) {
+                    newBearing = prevGood.bearing;
+                } else if (nextGood) {
+                    newBearing = nextGood.bearing;
+                } else {
+                    newBearing = streamBearing;
+                }
+
+                cp.bearing = newBearing;
+                cp.coords = pointAtBearing(fixLon, fixLat, newBearing, cp.dist);
+            }
+        }
+
+        // Step 4: Gaussian smoothing (window=3, applied twice)
+        const smoothCenterline = (points) => {
+            if (points.length < 3) return points;
+            const WINDOW = 3;
+            const smoothed = [];
+
+            for (let i = 0; i < points.length; i++) {
+                const neighbors = [];
+                for (let j = Math.max(0, i - WINDOW); j <= Math.min(points.length - 1, i + WINDOW); j++) {
+                    const weight = 1 / (1 + Math.abs(j - i));
+                    neighbors.push({ cp: points[j], weight });
+                }
+
+                const totalWeight = neighbors.reduce((sum, n) => sum + n.weight, 0);
+                let sinSum = 0, cosSum = 0;
+                neighbors.forEach(n => {
+                    const rad = n.cp.bearing * Math.PI / 180;
+                    sinSum += Math.sin(rad) * n.weight;
+                    cosSum += Math.cos(rad) * n.weight;
+                });
+
+                const smoothBearing = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
+                const smoothWidth75 = neighbors.reduce((sum, n) => sum + n.cp.width75 * n.weight, 0) / totalWeight;
+                const smoothWidth90 = neighbors.reduce((sum, n) => sum + n.cp.width90 * n.weight, 0) / totalWeight;
+
+                smoothed.push({
+                    dist: points[i].dist,
+                    coords: pointAtBearing(fixLon, fixLat, smoothBearing, points[i].dist),
+                    bearing: smoothBearing,
+                    width75: smoothWidth75,
+                    width90: smoothWidth90,
+                    trackCount: points[i].trackCount,
+                });
+            }
+            return smoothed;
+        };
+
+        const smoothedPoints = smoothCenterline(smoothCenterline(centerlinePoints));
+
+        // Step 5: Monotonic convergence (cone narrows toward fix)
+        const sorted = [...smoothedPoints].sort((a, b) => b.dist - a.dist);
+        let maxW75 = sorted[0].width75, maxW90 = sorted[0].width90;
+        sorted.forEach(cp => {
+            cp.width75 = Math.min(cp.width75, maxW75);
+            cp.width90 = Math.min(cp.width90, maxW90);
+            maxW75 = cp.width75;
+            maxW90 = cp.width90;
+        });
+        const convergentPoints = sorted.sort((a, b) => a.dist - b.dist);
+
+        // Step 6: Build buffer polygons (perpendicular offsets from centerline)
+        const buildBufferPolygon = (points, widthKey) => {
+            const leftEdge = [];
+            const rightEdge = [];
+
+            points.forEach(cp => {
+                const halfWidth = cp[widthKey];
+                const leftBearing = (cp.bearing + 90) % 360;
+                const rightBearing = (cp.bearing - 90 + 360) % 360;
+                const linearWidth = cp.dist * Math.sin(halfWidth * Math.PI / 180);
+
+                leftEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], leftBearing, linearWidth));
+                rightEdge.push(pointAtBearing(cp.coords[0], cp.coords[1], rightBearing, linearWidth));
+            });
+
+            const polygon = [[fixLon, fixLat]];
+            rightEdge.forEach(pt => polygon.push(pt));
+            leftEdge.reverse().forEach(pt => polygon.push(pt));
+            polygon.push([fixLon, fixLat]);
+            return polygon;
+        };
+
+        return {
+            polygon_75: buildBufferPolygon(convergentPoints, 'width75'),
+            polygon_90: buildBufferPolygon(convergentPoints, 'width90'),
+            centerlinePoints: convergentPoints,
+        };
+    },
+
+    /**
+     * Get compliance color for a percentage value.
+     */
+    branchComplianceColor: function(pct) {
+        if (pct >= 98) return '#28a745'; // Green - excellent
+        if (pct >= 90) return '#5cb85c'; // Light green - good
+        if (pct >= 80) return '#ffc107'; // Yellow - marginal
+        if (pct >= 65) return '#fd7e14'; // Orange - poor
+        return '#dc3545'; // Red - critical
+    },
+
+    /**
+     * Build GeoJSON features for all branch corridors.
+     */
+    buildBranchFeatures: function(mapId) {
+        const state = this.branchPanelState[mapId];
+        if (!state?.corridors) return [];
+
+        const features = [];
+        state.corridors.forEach(bc => {
+            const color = this.branchComplianceColor(bc.compliancePct);
+
+            if (bc.polygon90) {
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        branchId: bc.branchId, pct: 90,
+                        color, selected: bc.selected,
+                    },
+                    geometry: { type: 'Polygon', coordinates: [bc.polygon90] },
+                });
+            }
+            if (bc.polygon75) {
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        branchId: bc.branchId, pct: 75,
+                        color, selected: bc.selected,
+                    },
+                    geometry: { type: 'Polygon', coordinates: [bc.polygon75] },
+                });
+            }
+        });
+
+        return features;
+    },
+
+    /**
+     * Render branch corridor layers on the map.
+     */
+    renderBranchLayers: function(mapId) {
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const features = this.buildBranchFeatures(mapId);
+        if (features.length === 0) return;
+
+        const geojson = { type: 'FeatureCollection', features };
+
+        if (map.getSource('branch-corridors')) {
+            map.getSource('branch-corridors').setData(geojson);
+        } else {
+            map.addSource('branch-corridors', { type: 'geojson', data: geojson });
+
+            const beforeLayer = map.getLayer('flight-tracks-solid-glow') ? 'flight-tracks-solid-glow' : undefined;
+
+            // Start hidden — user clicks Branches toggle to show
+            const branchBtn = document.querySelector(`.branch-toggle-btn[data-map="${mapId}"]`);
+            const initVisible = branchBtn?.classList.contains('active') ? 'visible' : 'none';
+
+            map.addLayer({
+                id: 'branch-corridors-fill',
+                type: 'fill',
+                source: 'branch-corridors',
+                layout: { visibility: initVisible },
+                paint: {
+                    'fill-color': ['get', 'color'],
+                    'fill-opacity': ['case',
+                        ['get', 'selected'],
+                        ['case', ['==', ['get', 'pct'], 75], 0.20, 0.12],
+                        ['case', ['==', ['get', 'pct'], 75], 0.05, 0.03],
+                    ],
+                },
+            }, beforeLayer);
+
+            map.addLayer({
+                id: 'branch-corridors-outline',
+                type: 'line',
+                source: 'branch-corridors',
+                layout: { visibility: initVisible },
+                paint: {
+                    'line-color': ['get', 'color'],
+                    'line-width': ['case', ['==', ['get', 'pct'], 75], 2, 1],
+                    'line-opacity': ['case', ['get', 'selected'], 0.7, 0.15],
+                },
+            }, beforeLayer);
+        }
+    },
+
+    /**
+     * Render the progressive flow analysis section.
+     * Called whenever new data arrives: streams, branches, or branch corridors.
+     * Progressively builds up: streams → branches → branch list.
+     */
+    renderFlowAnalysis: function(mapId) {
+        const section = document.getElementById(`${mapId}_flow_analysis`);
+        if (!section) return;
+
+        const flowData = this.flowStreamCache[mapId];
+        const branchData = this.branchCorridorCache[mapId];
+        const branchState = this.branchPanelState[mapId];
+        const trajCount = this.trajectoryCache[mapId]
+            ? Object.keys(this.trajectoryCache[mapId]).length : 0;
+        const flowFilterStats = this.flowFilterStats?.[mapId];
+
+        // Nothing to show yet
+        if (!flowData && !branchData && trajCount === 0) return;
+
+        let html = '';
+
+        // ── Flow filter row (when semantic filtering applied) ──
+        if (flowFilterStats && flowFilterStats.reason === 'tmi_semantic' && flowFilterStats.matched < flowFilterStats.total) {
+            const airports = flowFilterStats.matchSet?.join('/') || '';
+            html += `
+                <div class="fa-row fa-row-filter">
+                    <i class="fas fa-filter fa-row-icon"></i>
+                    <span class="fa-row-label">${flowFilterStats.matched} of ${flowFilterStats.total} flights</span>
+                    <span class="fa-filter-badge" title="Filtered by ${flowFilterStats.matchField} matching ${airports}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
+                </div>`;
+        }
+
+        // ── Streams row ──
+        if (flowData?.streams?.length > 0) {
+            const streams = flowData.streams;
+            const badges = streams.map(s => {
+                const bearing = Math.round(s.spatial?.bearing_to_fix || s.bearing_to_fix || 0);
+                const count = s.track_count || s.callsigns?.length || 0;
+                const dir = s.spatial?.cardinal || '';
+                return `<span class="fa-stream-badge">${dir ? dir + ' ' : ''}${bearing}° <span class="fa-badge-count">${count}</span></span>`;
+            }).join('');
+            html += `
+                <div class="fa-row fa-row-streams">
+                    <i class="fas fa-water fa-row-icon"></i>
+                    <span class="fa-row-label">${streams.length} stream${streams.length !== 1 ? 's' : ''}</span>
+                    <span class="fa-stream-badges">${badges}</span>
+                </div>`;
+        }
+
+        // ── Branches row ──
+        if (branchData) {
+            const bf = branchData.bearing_filter;
+            const phase1 = branchData.corridors_phase1 || 0;
+            const branchCount = branchState?.corridors?.length || branchData.branch_count || 0;
+            const totalFlights = branchData.total_flights || 0;
+            const ungrouped = branchData.ungrouped_flights || 0;
+
+            // Summary stats
+            let statsText = `${branchCount} branch${branchCount !== 1 ? 'es' : ''}`;
+            if (phase1 && phase1 !== branchCount) statsText += ` from ${phase1} corridor${phase1 !== 1 ? 's' : ''}`;
+            statsText += `, ${totalFlights} flights`;
+            if (ungrouped > 0) statsText += ` (${ungrouped} ungrouped)`;
+
+            // Filter badge
+            let filterBadge = '';
+            if (bf && bf.rejected > 0) {
+                filterBadge = `<span class="fa-filter-badge" title="Bearing filter: ±${bf.filter_deg}° from ${bf.median_bearing}° median"><i class="fas fa-filter"></i> ${bf.rejected} filtered</span>`;
+            }
+
+            // Determine if branch list is expanded (Branches button active)
+            const branchBtn = document.querySelector(`.branch-toggle-btn[data-map="${mapId}"]`);
+            const isExpanded = branchBtn?.classList.contains('active');
+
+            html += `
+                <div class="fa-row fa-row-branches">
+                    <i class="fas fa-code-branch fa-row-icon"></i>
+                    <span class="fa-row-label">${statsText}</span>
+                    ${filterBadge}`;
+
+            // Branch list (expanded when Branches layer toggle is active)
+            if (branchState?.corridors?.length > 0) {
+                html += `
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
+                </div>
+                <div class="fa-branch-list" id="${mapId}_fa_branch_list" style="${isExpanded ? '' : 'display:none'}">`;
+
+                branchState.corridors.forEach(bc => {
+                    const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
+                    const color = this.branchComplianceColor(bc.compliancePct);
+                    const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90" style="font-size:0.65em; opacity:0.6; margin-right:3px" title="Sub-branch"></i>' : '';
+
+                    html += `
+                    <label class="branch-item" title="${bc.longName}">
+                        <input type="checkbox" ${bc.selected ? 'checked' : ''}
+                               data-branch-id="${bc.branchId}" data-map="${mapId}"
+                               onchange="TMICompliance.toggleBranchSelection(this)">
+                        <span class="branch-color-swatch" style="background: ${color}"></span>
+                        <span class="branch-name">${subIcon}${bc.shortName}</span>
+                        <span class="branch-count">${bc.trackCount}<i class="fas fa-plane" style="font-size:0.7em; margin-left:3px"></i></span>
+                        <span class="branch-compliance ${compClass}">${bc.compliancePct}%</span>
+                    </label>`;
+                });
+
+                html += '</div>';
+            } else if (!branchState?.initialized) {
+                // Still computing
+                html += `
+                    <span class="fa-computing"><i class="fas fa-spinner fa-spin"></i> computing corridors...</span>
+                </div>`;
+            } else {
+                html += '</div>';
+            }
+        } else if (trajCount > 3) {
+            // Branches not yet loaded, show loading state
+            html += `
+                <div class="fa-row fa-row-branches fa-loading">
+                    <i class="fas fa-code-branch fa-row-icon"></i>
+                    <span class="fa-row-label"><i class="fas fa-spinner fa-spin"></i> Analyzing branches...</span>
+                </div>`;
+        }
+
+        section.innerHTML = html;
+        section.style.display = html ? '' : 'none';
+    },
+
+    /**
+     * Handle branch checkbox selection change.
+     */
+    toggleBranchSelection: function(checkbox) {
+        const branchId = checkbox.dataset.branchId;
+        const mapId = checkbox.dataset.map;
+        const state = this.branchPanelState?.[mapId];
+        if (!state?.corridors) return;
+
+        const corridor = state.corridors.find(c => c.branchId === branchId);
+        if (corridor) corridor.selected = checkbox.checked;
+
+        this.updateBranchFeatures(mapId);
+    },
+
+    /**
+     * Select or deselect all branches.
+     */
+    selectAllBranches: function(mapId, selectAll) {
+        const state = this.branchPanelState?.[mapId];
+        if (!state?.corridors) return;
+
+        state.corridors.forEach(c => c.selected = selectAll);
+
+        const branchList = document.getElementById(`${mapId}_fa_branch_list`);
+        if (branchList) {
+            branchList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll);
+        }
+
+        this.updateBranchFeatures(mapId);
+    },
+
+    /**
+     * Update branch corridor features on the map after selection change.
+     */
+    updateBranchFeatures: function(mapId) {
+        const map = this.activeMaps[mapId];
+        if (!map) return;
+
+        const source = map.getSource('branch-corridors');
+        if (!source) return;
+
+        const features = this.buildBranchFeatures(mapId);
+        source.setData({ type: 'FeatureCollection', features });
     },
 };
 

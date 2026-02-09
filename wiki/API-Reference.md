@@ -40,7 +40,7 @@ Error responses:
 
 ## ADL Flight Data APIs
 
-These endpoints provide access to real-time and historical flight data from the Aeronautical Data Link (ADL) system.
+These endpoints provide access to real-time and historical flight data from the Aggregate Demand List (ADL) system.
 
 ### GET /api/adl/current.php
 

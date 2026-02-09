@@ -217,7 +217,9 @@
       "Bash(do if grep -q \"require.*load/config\\\\|include.*load/config\" \"$f\")",
       "Bash(then if ! grep -q \"require.*load/input\\\\|include.*load/input\\\\|require.*load/connect\\\\|include.*load/connect\" \"$f\")",
       "Bash(then if grep -q \"get_input\\\\|get_upper\\\\|get_lower\\\\|get_int\\\\|get_float\\\\|post_input\\\\|post_int\\\\|has_get\\\\|has_post\\\\|server_get\\\\|session_get\\\\|cookie_get\" \"$f\")",
-      "Bash(then echo \"$f\" fi fi fi done)"
+      "Bash(then echo \"$f\" fi fi fi done)",
+      "Bash(gh run:*)",
+      "Bash(git rev-list:*)"
     ]
   }
 }

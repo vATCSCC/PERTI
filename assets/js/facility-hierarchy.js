@@ -10,7 +10,7 @@
  *
  * Data sources:
  * - adl/migrations/topology/002_artcc_topology_seed.sql
- * - assets/data/apts.csv (airport→ARTCC mappings)
+ * - assets/data/apts.csv (airport→ARTCC mappings, Core30, OEP35, ASPM82 columns)
  * - jatoc.php FIR definitions
  * - FAA OPSNET/ASPM (airport tier lists - Core30, OEP35, OPSNET45, ASPM82)
  *

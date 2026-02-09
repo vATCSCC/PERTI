@@ -400,7 +400,7 @@ include("load/config.php");
                             <select multiple class="form-control form-control-sm" id="gdp_scope_tiers" size="4">
                                 <option value="CORE30">Core 30</option>
                                 <option value="OEP35">OEP 35</option>
-                                <option value="ASPM77">ASPM 77</option>
+                                <option value="ASPM82">ASPM 82</option>
                                 <option value="ALL">All Airports</option>
                             </select>
                         </div>

@@ -462,6 +462,71 @@ include("load/config.php");
         .demand-chart-wrapper {
             position: relative;
         }
+
+        /* Legend Toggle Area */
+        .demand-legend-toggle-area {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 8px 12px;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+            min-height: 32px;
+        }
+
+        .demand-legend-toggle-btn {
+            background: none;
+            border: none;
+            color: #6c757d;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 2px 8px;
+            transition: color 0.15s;
+        }
+
+        .demand-legend-toggle-btn:hover {
+            color: #333;
+            text-decoration: underline;
+        }
+
+        .demand-legend-toggle-btn i {
+            margin-right: 4px;
+        }
+
+        /* Header Rate Display */
+        .demand-header-rates {
+            text-align: right;
+            font-size: 0.72rem;
+            line-height: 1.4;
+            font-family: "Inconsolata", "SF Mono", monospace;
+        }
+
+        .demand-header-rates .rate-row {
+            white-space: nowrap;
+        }
+
+        .demand-header-rates .rate-label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .demand-header-rates .rate-value {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .demand-header-rates .rate-value.rw {
+            color: #00FFFF;
+        }
+
+        .demand-header-rates .rate-separator {
+            color: rgba(255, 255, 255, 0.4);
+            margin: 0 6px;
+        }
+
+        .demand-header-rates .refresh-row {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 2px;
+        }
     </style>
 
 </head>
@@ -552,6 +617,13 @@ include("load/config.php");
                             <div class="perti-stat-item">
                                 <div class="perti-stat-category">Source</div>
                                 <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
+                            </div>
+                            <!-- Set Config Button -->
+                            <div class="perti-stat-item d-flex align-items-center">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="set_config_btn"
+                                        title="Set airport configuration" style="display: none; padding: 2px 8px; font-size: 0.7rem;">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -694,7 +766,7 @@ include("load/config.php");
                             <option value="all">All Airports</option>
                             <option value="core30">Core30</option>
                             <option value="oep35">OEP35</option>
-                            <option value="aspm77">ASPM77</option>
+                            <option value="aspm82">ASPM82</option>
                         </select>
                     </div>
 
@@ -918,11 +990,23 @@ include("load/config.php");
         <div class="col-lg-9 mb-4">
             <div class="card shadow-sm tbfm-chart-card">
                 <div class="card-header tbfm-card-header">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="demand-section-title">
                             <i class="fas fa-chart-bar mr-1"></i> Demand Chart
                         </span>
-                        <span class="text-light small" id="demand_last_update" style="opacity: 0.8;">--</span>
+                        <div class="demand-header-rates" id="demand_header_rates">
+                            <div class="refresh-row" id="demand_last_update">--</div>
+                            <div class="rate-row" id="demand_header_aar_row" style="display: none;">
+                                <span class="rate-label">VATSIM AAR</span> <span class="rate-value" id="header_vatsim_aar">--</span>
+                                <span class="rate-separator">|</span>
+                                <span class="rate-label">RW AAR</span> <span class="rate-value rw" id="header_rw_aar">--</span>
+                            </div>
+                            <div class="rate-row" id="demand_header_adr_row" style="display: none;">
+                                <span class="rate-label">VATSIM ADR</span> <span class="rate-value" id="header_vatsim_adr">--</span>
+                                <span class="rate-separator">|</span>
+                                <span class="rate-label">RW ADR</span> <span class="rate-value rw" id="header_rw_adr">--</span>
+                            </div>
+                        </div>
                     </div>
                     <!-- Chart View Toggle - on its own row for space -->
                     <div class="d-flex flex-wrap" style="gap: 4px;">
@@ -978,6 +1062,13 @@ include("load/config.php");
                                 <div class="loading-text">Updating chart...</div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Legend Toggle Area -->
+                    <div class="demand-legend-toggle-area" id="demand_legend_toggle_area" style="display: none;">
+                        <button type="button" class="demand-legend-toggle-btn" id="demand_legend_toggle_btn">
+                            <i class="fas fa-eye-slash"></i> <span id="legend_toggle_text">Hide Legend</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1101,6 +1192,13 @@ include("load/config.php");
     }
     setInterval(updateDemandClock, 1000);
     updateDemandClock();
+
+    // User info for config publishing (from session set by nav_public.php)
+    window.DEMAND_USER = {
+        loggedIn: <?= json_encode($logged_in) ?>,
+        cid: <?= json_encode($logged_in ? ($_SESSION['VATSIM_CID'] ?? null) : null) ?>,
+        name: <?= json_encode($logged_in ? (trim(($user_first_name ?? '') . ' ' . ($user_last_name ?? ''))) : null) ?>
+    };
 
 </script>
 

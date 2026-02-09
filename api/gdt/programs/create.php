@@ -57,6 +57,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+$auth_cid = gdt_optional_auth();
 
 // Only allow POST
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -155,7 +156,7 @@ $impacting_condition = isset($payload['impacting_condition']) ? strtoupper(trim(
 $cause_text = isset($payload['cause_text']) ? trim($payload['cause_text']) : null;
 $comments = isset($payload['comments']) ? trim($payload['comments']) : null;
 $prob_extension = isset($payload['prob_extension']) ? strtoupper(trim($payload['prob_extension'])) : null;
-$created_by = isset($payload['created_by']) ? trim($payload['created_by']) : null;
+$created_by = $auth_cid;
 
 // Rate parameters (JSON)
 $rates_hourly_json = isset($payload['rates_hourly_json']) ? (is_string($payload['rates_hourly_json']) ? $payload['rates_hourly_json'] : json_encode($payload['rates_hourly_json'])) : null;

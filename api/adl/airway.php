@@ -202,6 +202,49 @@ foreach ($airwayNames as $airwayName) {
     sqlsrv_free_stmt($stmt);
 
     if (empty($segments)) {
+        // Fallback: try PostGIS database (may have airways not in REF)
+        try {
+            $gis = get_conn_gis();
+            if ($gis) {
+                $gisStmt = $gis->prepare("
+                    SELECT airway_name, from_fix, to_fix,
+                           ST_X(ST_StartPoint(segment_geom)) as from_lon,
+                           ST_Y(ST_StartPoint(segment_geom)) as from_lat,
+                           ST_X(ST_EndPoint(segment_geom)) as to_lon,
+                           ST_Y(ST_EndPoint(segment_geom)) as to_lat,
+                           distance_nm
+                    FROM airway_segments
+                    WHERE airway_name = :name
+                    ORDER BY sequence_num
+                ");
+                $gisStmt->execute([':name' => $airwayName]);
+                $gisRows = $gisStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($gisRows)) {
+                    $gisCoordinates = [];
+                    foreach ($gisRows as $idx => $row) {
+                        $segments[] = [
+                            'seq' => $idx + 1,
+                            'from' => $row['from_fix'],
+                            'to' => $row['to_fix'],
+                            'distance_nm' => (float)($row['distance_nm'] ?? 0),
+                            'course_deg' => 0
+                        ];
+                        if (empty($gisCoordinates)) {
+                            $gisCoordinates[] = [(float)$row['from_lon'], (float)$row['from_lat']];
+                        }
+                        $gisCoordinates[] = [(float)$row['to_lon'], (float)$row['to_lat']];
+                    }
+                    $coordinates = $gisCoordinates;
+                    $airwayType = detectAirwayType($airwayName);
+                }
+            }
+        } catch (Exception $e) {
+            // GIS fallback failed, continue with not-found
+        }
+    }
+
+    if (empty($segments)) {
         $result['airways'][$airwayName] = [
             'name' => $airwayName,
             'type' => detectAirwayType($airwayName),
