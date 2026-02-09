@@ -2069,8 +2069,8 @@ class TMIComplianceAnalyzer:
             # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
             if dep_facilities:
                 # Simple check: is the origin airport's ARTCC in the dep_facilities list?
-                origin_artcc = flight.get('dept_artcc', '').upper()
-                origin_tracon = flight.get('dept_tracon', '').upper()
+                origin_artcc = (flight.get('dept_artcc') or '').upper()
+                origin_tracon = (flight.get('dept_tracon') or '').upper()
                 in_scope = (origin_artcc in dep_facilities or
                            origin_tracon in dep_facilities or
                            dept.upper() in dep_facilities or
