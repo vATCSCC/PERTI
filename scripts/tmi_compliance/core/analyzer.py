@@ -248,7 +248,8 @@ class TMIComplianceAnalyzer:
 
     def _get_widest_time_window(self) -> tuple:
         """
-        Calculate the widest time window from all TMIs + event times.
+        Calculate the widest time window from all TMIs, GS programs,
+        reroute programs, and event times.
 
         Returns:
             Tuple of (earliest_start, latest_end) as datetime objects
@@ -262,6 +263,20 @@ class TMIComplianceAnalyzer:
             tmi_end = tmi.get_effective_end()
             if tmi_end and tmi_end > latest:
                 latest = tmi_end
+
+        # Include GS program windows
+        for prog in getattr(self.event, 'gs_programs', []):
+            if prog.effective_start and prog.effective_start < earliest:
+                earliest = prog.effective_start
+            if prog.effective_end and prog.effective_end > latest:
+                latest = prog.effective_end
+
+        # Include reroute program windows
+        for prog in getattr(self.event, 'reroute_programs', []):
+            if prog.effective_start and prog.effective_start < earliest:
+                earliest = prog.effective_start
+            if prog.effective_end and prog.effective_end > latest:
+                latest = prog.effective_end
 
         return earliest, latest
 
@@ -281,8 +296,24 @@ class TMIComplianceAnalyzer:
         cursor = self.adl_conn.cursor()
         flights = {}
 
-        # Get featured facilities from event config
-        featured = self.event.destinations if self.event.destinations else []
+        # Get featured facilities from event config + GS/reroute program airports
+        featured = list(self.event.destinations) if self.event.destinations else []
+
+        # Auto-include airports from GS programs so their flights are loaded
+        for prog in getattr(self.event, 'gs_programs', []):
+            if prog.airport and prog.airport not in featured:
+                featured.append(prog.airport)
+                logger.info(f"Auto-included GS airport {prog.airport} in featured facilities")
+
+        # Auto-include airports from reroute programs
+        for prog in getattr(self.event, 'reroute_programs', []):
+            for apt in (prog.origins or []):
+                if apt and apt not in featured:
+                    featured.append(apt)
+            for apt in (prog.destinations or []):
+                if apt and apt not in featured:
+                    featured.append(apt)
+
         if not featured:
             logger.warning("No featured facilities defined - cannot gather flights")
             return flights
@@ -507,7 +538,7 @@ class TMIComplianceAnalyzer:
                         self._mit_trajectories[key] = result.pop('_trajectories', {})
                         results['mit_results'][key] = result
 
-                # Ground Stop Analysis - prefer programs
+                # Ground Stop Analysis - prefer programs, fall back to individual TMIs
                 gs_programs = getattr(self.event, 'gs_programs', [])
                 if gs_programs:
                     for program in gs_programs:
@@ -515,15 +546,19 @@ class TMIComplianceAnalyzer:
                         if result:
                             key = f"GS_{program.airport}"
                             results['gs_results'][key] = result
-                else:
-                    # Fallback to old single-TMI approach
+                        else:
+                            logger.warning(f"GS program {program.airport} returned no results (no matching flights?)")
+
+                # Fall back to individual GS TMIs if programs produced nothing
+                if not results['gs_results'] and gs_tmis:
+                    logger.info("GS programs produced no results, falling back to individual TMI approach")
                     for tmi in gs_tmis:
                         result = self._analyze_gs_compliance(tmi)
                         if result:
                             key = f"GS_{tmi.provider}_{','.join(tmi.destinations)}_ALL"
                             results['gs_results'][key] = result
 
-                # Reroute Analysis - prefer programs
+                # Reroute Analysis - prefer programs, fall back to individual TMIs
                 reroute_programs = getattr(self.event, 'reroute_programs', [])
                 if reroute_programs:
                     for program in reroute_programs:
@@ -531,8 +566,10 @@ class TMIComplianceAnalyzer:
                         if result:
                             key = program.name or f"REROUTE_{program.route_type}_{program.action}"
                             results['reroute_results'][key] = result
-                else:
-                    # Fallback to old single-TMI approach
+
+                # Fall back to individual reroute TMIs if programs produced nothing
+                if not results['reroute_results'] and reroute_tmis:
+                    logger.info("Reroute programs produced no results, falling back to individual TMI approach")
                     for tmi in reroute_tmis:
                         result = self._analyze_reroute_compliance(tmi)
                         if result:
