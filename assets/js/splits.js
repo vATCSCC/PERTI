@@ -92,15 +92,17 @@ const SplitsController = {
     // ARTCC list (populated from data)
     artccList: [],
 
-    // ARTCC centers for map zoom
-    artccCenters: {
-        'ZAB': [-109.5, 33.5], 'ZAK': [-155, 58], 'ZAN': [-150, 64], 'ZAU': [-88, 42],
-        'ZBW': [-71, 42.5], 'ZDC': [-77, 39], 'ZDV': [-105, 40], 'ZFW': [-97, 33],
-        'ZHN': [-157, 21], 'ZHU': [-95, 30], 'ZID': [-86, 40], 'ZJX': [-82, 30],
-        'ZKC': [-95, 39], 'ZLA': [-118, 34], 'ZLC': [-112, 42], 'ZMA': [-80, 26],
-        'ZME': [-90, 35], 'ZMP': [-94, 45], 'ZNY': [-74, 41], 'ZOA': [-122, 38],
-        'ZOB': [-82, 41], 'ZSE': [-122, 47], 'ZSU': [-66, 18], 'ZTL': [-84, 34],
-    },
+    // ARTCC centers for map zoom - uses PERTI when available
+    artccCenters: (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.ARTCC_CENTERS)
+        ? Object.assign({}, PERTI.GEOGRAPHIC.ARTCC_CENTERS)
+        : {
+            'ZAB': [-109.5, 33.5], 'ZAK': [-155, 58], 'ZAN': [-150, 64], 'ZAU': [-88, 42],
+            'ZBW': [-71, 42.5], 'ZDC': [-77, 39], 'ZDV': [-105, 40], 'ZFW': [-97, 33],
+            'ZHN': [-157, 21], 'ZHU': [-95, 30], 'ZID': [-86, 40], 'ZJX': [-82, 30],
+            'ZKC': [-95, 39], 'ZLA': [-118, 34], 'ZLC': [-112, 42], 'ZMA': [-80, 26],
+            'ZME': [-90, 35], 'ZMP': [-94, 45], 'ZNY': [-74, 41], 'ZOA': [-122, 38],
+            'ZOB': [-82, 41], 'ZSE': [-122, 47], 'ZSU': [-66, 18], 'ZTL': [-84, 34],
+        },
 
     // ═══════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -2391,7 +2393,7 @@ const SplitsController = {
         const flags = [];
         if (traconData?.contains_core30) {flags.push('Core 30');}
         if (traconData?.contains_oep35) {flags.push('OEP 35');}
-        if (traconData?.contains_aspm77) {flags.push('ASPM 77');}
+        if (traconData?.contains_aspm82) {flags.push('ASPM 82');}
         const flagsHtml = flags.length > 0
             ? `<div class="popup-row"><span>Designations:</span> ${flags.join(', ')}</div>`
             : '';

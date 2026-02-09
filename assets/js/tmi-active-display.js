@@ -67,15 +67,16 @@
     // ===========================================
     // References to global FacilityHierarchy (from facility-hierarchy.js)
     // These are shortcuts for convenience; the global object has full data
-    const getARTCCS = () => FacilityHierarchy.ARTCCS;
-    const getDCC_REGIONS = () => FacilityHierarchy.DCC_REGIONS;
-    const getFACILITY_GROUPS = () => FacilityHierarchy.FACILITY_GROUPS;
-    const getARTCC_TO_REGION = () => FacilityHierarchy.ARTCC_TO_REGION;
-    const getFACILITY_HIERARCHY = () => FacilityHierarchy.FACILITY_HIERARCHY;
-    const getTRACON_TO_ARTCC = () => FacilityHierarchy.TRACON_TO_ARTCC;
-    const getAIRPORT_TO_TRACON = () => FacilityHierarchy.AIRPORT_TO_TRACON;
-    const getAIRPORT_TO_ARTCC = () => FacilityHierarchy.AIRPORT_TO_ARTCC;
-    const getALL_TRACONS = () => FacilityHierarchy.ALL_TRACONS;
+    const _FH = () => (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+    const getARTCCS = () => _FH() ? _FH().ARTCCS : {};
+    const getDCC_REGIONS = () => _FH() ? _FH().DCC_REGIONS : {};
+    const getFACILITY_GROUPS = () => _FH() ? _FH().FACILITY_GROUPS : {};
+    const getARTCC_TO_REGION = () => _FH() ? _FH().ARTCC_TO_REGION : {};
+    const getFACILITY_HIERARCHY = () => _FH() ? _FH().FACILITY_HIERARCHY : {};
+    const getTRACON_TO_ARTCC = () => _FH() ? _FH().TRACON_TO_ARTCC : {};
+    const getAIRPORT_TO_TRACON = () => _FH() ? _FH().AIRPORT_TO_TRACON : {};
+    const getAIRPORT_TO_ARTCC = () => _FH() ? _FH().AIRPORT_TO_ARTCC : {};
+    const getALL_TRACONS = () => _FH() ? _FH().ALL_TRACONS : [];
 
     const ENTRY_TYPES = [
         { code: 'ALL', label: 'All Types' },
@@ -133,7 +134,8 @@
 
     function expandFacilitySelection(facilities) {
         // Use the global FacilityHierarchy.expandSelection method
-        return FacilityHierarchy.expandSelection(facilities);
+        return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandSelection)
+            ? FacilityHierarchy.expandSelection(facilities) : facilities;
     }
 
     function initFacilitySelects() {
@@ -386,7 +388,8 @@
 
     function getRegionForFacility(facility) {
         // Use global FacilityHierarchy.getRegion method
-        return FacilityHierarchy.getRegion(facility);
+        return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion)
+            ? FacilityHierarchy.getRegion(facility) : null;
     }
 
     function buildFilterControls() {

@@ -16,7 +16,7 @@
 | Batch processing | ✅ Complete | `sp_ProcessZoneDetectionBatch` |
 | Fallback zone generator | ✅ Complete | `sp_GenerateFallbackZones` |
 | OSM import script | ✅ Complete | `ImportOSM.ps1` (PowerShell) |
-| Airport coverage | ✅ 201 airports | ASPM77 + CA + MX + LatAm + Caribbean |
+| Airport coverage | ✅ 201 airports | ASPM82 + CA + MX + LatAm + Caribbean |
 | Integration with refresh | ⏳ Pending | Add batch call to refresh proc |
 | OSM data import | ⏳ Pending | Run `ImportOSM.ps1` after deploy |
 
@@ -189,7 +189,7 @@ EXEC dbo.sp_GenerateFallbackZones @airport_icao = 'KJFK';
 
 | Region | Count | Examples |
 |--------|-------|----------|
-| **ASPM77 (US)** | 77 | KATL, KJFK, KLAX, KORD, KSFO, KDFW |
+| **ASPM82 (US)** | 82 | KATL, KJFK, KLAX, KORD, KSFO, KDFW |
 | **Canada** | 17 | CYYZ, CYVR, CYUL, CYYC, CYOW |
 | **Mexico** | 20 | MMMX, MMUN, MMTJ, MMMY, MMGL |
 | **Central America** | 9 | MGGT, MSLP, MROC, MPTO |

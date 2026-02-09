@@ -99,6 +99,7 @@ tmi_debug_log('=== TMI Publish Request Started (v2.0) ===');
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../../load/perti_constants.php';
     require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
     require_once __DIR__ . '/../../../load/coordination_log.php';
     require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
@@ -726,7 +727,7 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
         ':protocol_type' => 1, // NTML
         ':entry_type' => strtoupper($entryType),
         ':ctl_element' => strtoupper($data['ctl_element'] ?? '') ?: null,
-        ':element_type' => detectElementType($data['ctl_element'] ?? ''),
+        ':element_type' => perti_detect_element_type($data['ctl_element'] ?? ''),
         ':requesting_facility' => strtoupper($data['req_facility'] ?? '') ?: null,
         ':providing_facility' => strtoupper($data['prov_facility'] ?? '') ?: null,
         ':restriction_value' => !empty($data['value']) ? intval($data['value']) : null,
@@ -822,7 +823,7 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
         ':advisory_number' => $advisoryNumber,
         ':advisory_type' => $advisoryType,
         ':ctl_element' => $ctlElement,
-        ':element_type' => detectElementType($ctlElement),
+        ':element_type' => perti_detect_element_type($ctlElement),
         ':scope_facilities' => $facilities,
         ':effective_from' => $effectiveFrom,
         ':effective_until' => $effectiveUntil,
@@ -1045,36 +1046,7 @@ function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userN
     ];
 }
 
-/**
- * Detect element type from element identifier
- */
-function detectElementType($element) {
-    if (empty($element)) return null;
-
-    $element = strtoupper($element);
-
-    // Airport (K***, C***, or 4-letter)
-    if (preg_match('/^[KC][A-Z]{3}$/', $element)) {
-        return 'APT';
-    }
-
-    // ARTCC (Z**)
-    if (preg_match('/^Z[A-Z]{2}$/', $element)) {
-        return 'ARTCC';
-    }
-
-    // FCA/FEA (flight corridor/area)
-    if (preg_match('/^(FCA|FEA)/', $element)) {
-        return 'FCA';
-    }
-
-    // Fix/waypoint (5-letter)
-    if (preg_match('/^[A-Z]{5}$/', $element)) {
-        return 'FIX';
-    }
-
-    return 'OTHER';
-}
+// detectElementType() removed — now uses perti_detect_element_type() from load/perti_constants.php
 
 /**
  * Queue a Discord post for async processing

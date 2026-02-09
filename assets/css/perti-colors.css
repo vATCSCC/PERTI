@@ -36,9 +36,13 @@
    * Core identity colors used throughout PERTI
    * =========================================== */
 
-  --brand-primary: #766df4;         /* Purple - primary actions, links */
-  --brand-primary-light: #9990f7;   /* Lighter purple - hover states */
-  --brand-primary-dark: #5a4fd1;    /* Darker purple - active states */
+  --brand-primary: #332e7a;         /* Navy purple - primary identity */
+  --brand-primary-light: #36344e;   /* Lighter navy - btn-link hover */
+  --brand-primary-dark: #222d5c;    /* Darker navy - btn-primary */
+  --brand-primary-darker: #1d264d;  /* Darkest navy - btn-primary hover */
+  --brand-dark: #1c1946;            /* Brand dark - badge-dark, btn-dark, btn-link */
+  --brand-dark-surface: #242444;    /* Dark surface - .bg-dark override */
+  --brand-dark-deeper: #141427;     /* Deepest dark - card-header.bg-dark */
   --brand-secondary: #f7f7fc;       /* Light gray - secondary surfaces */
   --brand-accent: #6a9bf4;          /* Blue - accent elements */
 
@@ -48,9 +52,23 @@
    * =========================================== */
 
   --status-success: #16c995;        /* Green - success, positive */
+  --status-success-text: #43ac6a;   /* Green text on light bg (.text-success) */
+  --status-success-bg: #63BD49;     /* Green bg for badges, buttons, .bg-success */
+  --status-success-hover: #529e3c;  /* Green hover for btn-success */
   --status-warning: #ffb15c;        /* Orange - warning, caution */
+  --status-warning-text: #E99002;   /* Orange text (.text-warning) */
   --status-danger: #f74f78;         /* Red/Pink - error, destructive */
+  --status-danger-text: #F04124;    /* Red text (.text-danger) */
   --status-info: #6a9bf4;           /* Blue - informational */
+  --status-info-base: #239BCD;      /* Teal-blue - links, badges, buttons, nav */
+  --status-info-hover: #2f7492;     /* Teal-blue hover for btn-info */
+  --status-info-link-hover: #166b8f; /* Darker teal - a:hover, nav-link:hover */
+
+  /* Bootstrap alert-info colors */
+  --alert-info-bg: #e7f3ff;         /* Light blue background */
+  --alert-info-border: #b6d4fe;     /* Light blue border */
+  --alert-info-text: #084298;       /* Dark blue text */
+  --alert-info-link: #0a58ca;       /* Medium blue link */
 
   /* ===========================================
    * TEXT COLORS - FOR LIGHT BACKGROUNDS
@@ -63,8 +81,8 @@
   --light-text-muted: #6b7280;      /* Muted/subtle text - 5.4:1 contrast */
   --light-text-disabled: #9ca3af;   /* Disabled elements - decorative */
   --light-text-placeholder: #6b7280; /* Form placeholders - 5.4:1 contrast */
-  --light-text-link: #766df4;       /* Links */
-  --light-text-link-hover: #5a4fd1; /* Link hover */
+  --light-text-link: #332e7a;       /* Links (matches brand-primary) */
+  --light-text-link-hover: #222d5c; /* Link hover (matches brand-primary-dark) */
 
   /* ===========================================
    * TEXT COLORS - FOR DARK BACKGROUNDS
@@ -95,6 +113,8 @@
    * =========================================== */
 
   --light-bg-page: #ffffff;         /* Page/body background */
+  --light-bg-primary: #ffffff;      /* Primary light background (buttons, controls) */
+  --light-bg-elevated: #ffffff;     /* Elevated surfaces (toolbars, control bars) */
   --light-bg-surface: #f7f7fc;      /* Cards, panels, elevated surfaces */
   --light-bg-subtle: #f3f3f9;       /* Subtle distinction from page */
   --light-bg-hover: #e9e9f2;        /* Hover states */
@@ -134,8 +154,8 @@
   --input-placeholder: #6b7280;     /* Placeholder text */
   --input-disabled-bg: #f3f3f9;     /* Disabled input background */
   --input-disabled-text: #9ca3af;   /* Disabled input text */
-  --input-focus-border: rgba(118, 109, 244, 0.35);
-  --input-focus-shadow: rgba(118, 109, 244, 0.15);
+  --input-focus-border: rgba(51, 46, 122, 0.35);  /* brand-primary with alpha */
+  --input-focus-shadow: rgba(51, 46, 122, 0.15);  /* brand-primary with alpha */
 
   /* ===========================================
    * MAP & POPUP COLORS
@@ -209,6 +229,205 @@
   /* Lists on dark */
   --list-text: #cccccc;
   --list-text-muted: #aaaaaa;
+
+  /* ===========================================
+   * BODY & SCROLLBAR
+   * Page-level tokens
+   * =========================================== */
+
+  --body-text: #262633;               /* Body text color */
+  --scrollbar-track: #f1f1f1;         /* Scrollbar track background */
+  --scrollbar-thumb: #919090;         /* Scrollbar thumb */
+  --scrollbar-thumb-hover: #777777;   /* Scrollbar thumb hover */
+  --dropdown-hover-bg: hsl(216, 7%, 86%); /* Dropdown item hover */
+
+  /* ===========================================
+   * GRADIENT COLOR STOPS
+   * Tokenized stops for perti_theme.css gradients
+   * =========================================== */
+
+  --gradient-ocean-start: #435ee7;
+  --gradient-ocean-end: #044f99;
+  --gradient-forest-start: #71ec52;
+  --gradient-forest-end: #077e42;
+  --gradient-magenta-start: #fc64bd;
+  --gradient-magenta-end: #8912c9;
+  --gradient-candy-start: #f12ac3;
+  --gradient-candy-end: #2f62b4;
+  --gradient-danger-start: #b35100;
+  --gradient-danger-end: #bd1d1d;
+  --gradient-discord-start: #7289DA;
+  --gradient-discord-end: #4a5c9c;
+  --discord-purple-rgb: 114, 137, 218;  /* RGB values for Discord purple (for use with rgba()) */
+  --gradient-utc-start: #667eea;     /* UTC clock gradient start - purple */
+  --gradient-utc-end: #764ba2;       /* UTC clock gradient end - purple */
+  --link-purple-hover: #5b6eae;      /* Muted purple for link hover states */
+  --gradient-table-header-start: #1a5276; /* Table header gradient - dark blue */
+  --gradient-table-header-end: #2874a6;   /* Table header gradient - medium blue */
+  --table-header-bg: #1a5276;        /* Solid table header background */
+  --gradient-dark-start: rgba(43, 45, 66, 1);
+  --gradient-dark-end: rgba(130, 138, 146, 1);
+
+  /* ===========================================
+   * BOOTSTRAP GRAY SCALE
+   * Standard Bootstrap 4/5 gray palette
+   * =========================================== */
+
+  --gray-100: #f8f9fa;              /* Lightest gray - backgrounds */
+  --gray-200: #e9ecef;              /* Very light gray - borders, hover states */
+  --gray-300: #dee2e6;              /* Light gray - borders, dividers */
+  --gray-400: #ced4da;              /* Medium-light gray - disabled borders */
+  --gray-500: #adb5bd;              /* Medium gray - placeholders */
+  --gray-600: #6c757d;              /* Medium-dark gray - muted text */
+  --gray-700: #495057;              /* Dark gray - secondary text */
+  --gray-800: #212529;              /* Very dark gray - primary text */
+  --gray-900: #333333;              /* Darkest gray - headings */
+
+  /* Tailwind slate scale (for info components) */
+  --slate-300: #cbd5e1;             /* Slate 300 - separators */
+  --slate-400: #94a3b8;             /* Slate 400 - muted labels */
+  --slate-500: #64748b;             /* Slate 500 - secondary text */
+  --slate-700: #334155;             /* Slate 700 - primary text on light */
+  --slate-50: #f8fafc;              /* Slate 50 - very light background */
+  --slate-100: #f1f5f9;             /* Slate 100 - light background */
+  --slate-200: #e2e8f0;             /* Slate 200 - light gray backgrounds */
+
+  /* Weather badge gradients (Tailwind colors) */
+  --weather-vmc-start: #22c55e;     /* VMC - green-500 */
+  --weather-vmc-end: #16a34a;       /* VMC - green-600 */
+  --weather-mvfr-start: #3b82f6;    /* MVFR - blue-500 */
+  --weather-mvfr-end: #2563eb;      /* MVFR - blue-600 */
+  --weather-ifr-start: #ef4444;     /* IFR - red-500 */
+  --weather-ifr-end: #dc2626;       /* IFR - red-600 */
+  --weather-lifr-start: #a855f7;    /* LIFR - purple-500 */
+  --weather-lifr-end: #9333ea;      /* LIFR - purple-600 */
+
+  /* ATIS badge colors */
+  --atis-badge-start: #10b981;      /* Emerald-500 */
+  --atis-badge-end: #059669;        /* Emerald-600 */
+
+  /* Age badge colors */
+  --age-normal-bg: #e2e8f0;         /* Slate-200 */
+  --age-normal-text: #64748b;       /* Slate-500 */
+  --age-stale-bg: #fef3c7;          /* Amber-100 */
+  --age-stale-text: #92400e;        /* Amber-800 */
+  --age-old-bg: #fee2e2;            /* Red-100 */
+  --age-old-text: #991b1b;          /* Red-800 */
+
+  /* Status indicator colors */
+  --status-active-start: #dcfce7;   /* Green-100 */
+  --status-active-end: #bbf7d0;     /* Green-200 */
+  --status-active-text: #15803d;    /* Green-700 */
+
+  /* Weather hazard type colors */
+  --hazard-convective-start: #FF0000;  /* Convective (thunderstorms) - red */
+  --hazard-convective-end: #CC0000;    /* Convective gradient end */
+  --hazard-turb-start: #FFA500;        /* Turbulence - orange */
+  --hazard-turb-end: #CC8400;          /* Turbulence gradient end */
+  --hazard-ice-start: #00BFFF;         /* Icing - cyan */
+  --hazard-ice-end: #0099CC;           /* Icing gradient end */
+  --hazard-ifr-start: #808080;         /* IFR conditions - gray */
+  --hazard-ifr-end: #666666;           /* IFR gradient end */
+  --hazard-mtn-start: #8B4513;         /* Mountain obscuration - brown */
+  --hazard-mtn-end: #704010;           /* Mountain gradient end */
+
+  /* Weather impact severity colors */
+  --impact-direct: #FF4444;            /* Direct weather impact - bright red */
+  --impact-clear: #4CAF50;             /* Clear/no weather impact - green */
+
+  /* Mobile navigation accent */
+  --nav-accent-cyan: #4dd0e1;          /* Cyan accent for mobile nav links */
+
+  /* ===========================================
+   * TMI INITIATIVE LEVEL COLORS
+   * Severity and type indicators for initiative timeline
+   * =========================================== */
+
+  /* Collaborative Decision Making levels */
+  --level-cdw: #ffff00;             /* CDW - bright yellow */
+  --level-cdw-border: #cc0000;      /* CDW border - red */
+  --level-possible: #ffffcc;        /* Possible - pale yellow */
+  --level-possible-border: #cccc00; /* Possible border - yellow */
+  --level-probable: #ffe6b3;        /* Probable - pale orange */
+  --level-probable-border: #ff9900; /* Probable border - orange */
+  --level-expected: #b3e0ff;        /* Expected - pale blue */
+  --level-expected-border: #cc0000; /* Expected border - red */
+
+  /* Active initiative levels */
+  --level-active: #cc0000;          /* Active - red */
+  --level-active-border: #990000;   /* Active border - dark red */
+  --level-advisory-terminal: #cc3333; /* Terminal advisory - light red */
+  --level-advisory-enroute: #90c695; /* EnRoute advisory - sage green */
+
+  /* Special initiative types */
+  --level-special-event: #d4af37;   /* Special event - gold */
+  --level-space-op: #2d5a27;        /* Space operation - dark green */
+  --level-vip: #ff8c00;             /* VIP operation - dark orange */
+  --level-staffing: #ff6347;        /* Staffing issue - tomato */
+  --level-misc: #333333;            /* Miscellaneous - dark gray */
+  --level-constraint-enroute: #b30000; /* EnRoute constraint - dark red */
+  --level-constraint-border: #800000; /* Constraint border - maroon */
+
+  /* ===========================================
+   * INITIATIVE SECTION GRADIENTS
+   * Background gradients for initiative modal sections
+   * =========================================== */
+
+  /* TMI section - blue tones */
+  --section-tmi-start: #cce5ff;
+  --section-tmi-end: #e2f0ff;
+  --section-tmi-text: #004085;
+
+  /* VIP section - orange tones */
+  --section-vip-start: #ffe4cc;
+  --section-vip-end: #fff0e6;
+  --section-vip-text: #8a4500;
+
+  /* Space section - green tones */
+  --section-space-start: #c3e6cb;
+  --section-space-end: #d9f0de;
+  --section-space-text: #155724;
+
+  /* Staffing section - red tones */
+  --section-staffing-start: #ffcccc;
+  --section-staffing-end: #ffe6e6;
+  --section-staffing-text: #721c24;
+
+  /* Event section - yellow tones */
+  --section-event-start: #fff3cd;
+  --section-event-end: #fffbe6;
+  --section-event-text: #856404;
+
+  /* CDW section - amber tones */
+  --section-cdw-start: #ffc107;
+  --section-cdw-end: #ffe066;
+  --section-cdw-text: #6d4c00;
+
+  /* Misc section - gray tones */
+  --section-misc-start: #d6d8db;
+  --section-misc-end: #e9ecef;
+  --section-misc-text: #383d41;
+
+  /* Constraint section - pink tones */
+  --section-constraint-start: #f5c6cb;
+  --section-constraint-end: #f8d7da;
+  --section-constraint-text: #721c24;
+
+  /* Time section - gray tones */
+  --section-time-start: #e2e3e5;
+  --section-time-end: #f5f5f5;
+  --section-time-text: #383d41;
+
+  /* ===========================================
+   * BOOTSTRAP THEME GRAYS
+   * Original theme palette grays (from Bootstrap SCSS customization)
+   * Note: --theme-text-muted (#9e9fb4) fails WCAG AA on white.
+   * Use --light-text-muted for accessible alternatives.
+   * =========================================== */
+
+  --theme-text-gray: #737491;        /* Theme gray - general UI text */
+  --theme-text-gray-dark: #4a4b65;   /* Theme gray-dark - headings, emphasis */
+  --theme-text-muted: #9e9fb4;       /* Theme muted - placeholders, breadcrumbs (low contrast) */
 
   /* ===========================================
    * LEGACY COMPATIBILITY ALIASES

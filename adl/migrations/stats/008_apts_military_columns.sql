@@ -219,7 +219,7 @@ BEGIN
                     END
                 WHEN a.Core30 = 'TRUE' THEN 'CORE30'
                 WHEN a.OEP35 = 'TRUE' THEN 'OEP35'
-                WHEN a.ASPM77 = 'TRUE' THEN 'ASPM77'
+                WHEN a.ASPM82 = 'TRUE' THEN 'ASPM82'
                 ELSE 'COMMERCIAL'
             END
         FROM dbo.apts a
@@ -283,7 +283,7 @@ BEGIN
                 END = 1
             ))
 
-            -- MAJOR category: must match Core30, OEP35, or ASPM77 (in fallback order)
+            -- MAJOR category: must match Core30, OEP35, OPSNET45, or ASPM82 (in fallback order)
             AND (@req_major = 0 OR (
                 -- First try Core30
                 a.Core30 = 'TRUE'
@@ -299,7 +299,7 @@ BEGIN
                     AND a.OEP35 = 'TRUE'
                 )
                 OR (
-                    -- If no Core30 or OEP35 airports match, try ASPM77
+                    -- If no Core30 or OEP35 airports match, try OPSNET45/ASPM82
                     NOT EXISTS (
                         SELECT 1 FROM dbo.apts x
                         WHERE (x.Core30 = 'TRUE' OR x.OEP35 = 'TRUE')
@@ -307,7 +307,7 @@ BEGIN
                           AND (@tracon IS NULL OR x.Approach_ID = @tracon OR x.Consolidated_Approach_ID = @tracon OR x.Approach_Departure_ID = @tracon)
                           AND x.TWR_TYPE_CODE IN ('ATCT', 'ATCT-TRACON')
                     )
-                    AND a.ASPM77 = 'TRUE'
+                    AND a.ASPM82 = 'TRUE'
                 )
             ));
 

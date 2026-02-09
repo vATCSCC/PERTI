@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../../load/perti_constants.php';
     require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
 } catch (Exception $e) {
     http_response_code(500);
@@ -579,13 +580,10 @@ function logCancelEvent($conn, $entityType, $entityId, $reason, $actorId, $actor
  */
 function postCancellationNtmlEntry($conn, $entryData, $userName) {
     try {
-        // TMI types that require coordination (and thus need CANCEL posting)
-        $coordinatedTypes = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
-
         $entryType = strtoupper($entryData['entry_type'] ?? '');
 
         // Check if this entry type needs coordination
-        if (!in_array($entryType, $coordinatedTypes)) {
+        if (!in_array($entryType, PERTI_COORDINATED_ENTRY_TYPES)) {
             return null; // Not a coordinated type, no need to post CANCEL
         }
 

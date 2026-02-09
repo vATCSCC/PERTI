@@ -44,10 +44,16 @@ class InitiativeTimeline {
         this.terminalLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_Terminal', 'Constraint_Terminal', 'VIP', 'Misc'];
         this.enrouteLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_EnRoute', 'Constraint_EnRoute', 'Special_Event', 'Space_Op', 'VIP', 'Staffing', 'Misc'];
 
-        this.tmiTypes = ['GS', 'GDP', 'MIT', 'MINIT', 'CFR', 'APREQ', 'Reroute', 'AFP', 'FEA', 'FCA', 'CTOP', 'ICR', 'TBO', 'Metering', 'TBM', 'TBFM', 'Other'];
-        this.constraintTypes = ['Weather', 'Volume', 'Runway', 'Equipment', 'Construction', 'Staffing', 'Military', 'TFR', 'Airspace', 'Other'];
-        this.vipTypes = ['VIP Arrival', 'VIP Departure', 'VIP Overflight', 'TFR'];
-        this.spaceTypes = ['Rocket Launch', 'Reentry', 'Launch Window', 'Hazard Area'];
+        // PERTI namespace as source of truth, hardcoded fallback
+        const _P = (typeof PERTI !== 'undefined') ? PERTI : null;
+        this.tmiTypes = (_P && _P.ATFM) ? [..._P.ATFM.TMI_UI_TYPES]
+            : ['GS', 'GDP', 'MIT', 'MINIT', 'CFR', 'APREQ', 'Reroute', 'AFP', 'FEA', 'FCA', 'CTOP', 'ICR', 'TBO', 'Metering', 'TBM', 'TBFM', 'Other'];
+        this.constraintTypes = (_P && _P.ATFM) ? [..._P.ATFM.CONSTRAINT_TYPES]
+            : ['Weather', 'Volume', 'Runway', 'Equipment', 'Construction', 'Staffing', 'Military', 'TFR', 'Airspace', 'Other'];
+        this.vipTypes = (_P && _P.ATFM) ? [..._P.ATFM.VIP_TYPES]
+            : ['VIP Arrival', 'VIP Departure', 'VIP Overflight', 'TFR'];
+        this.spaceTypes = (_P && _P.ATFM) ? [..._P.ATFM.SPACE_TYPES]
+            : ['Rocket Launch', 'Reentry', 'Launch Window', 'Hazard Area'];
         this.shifts = ['Day', 'Mid', 'Swing', 'All'];
 
         this.facilities = this.buildFacilitiesList();
@@ -58,11 +64,16 @@ class InitiativeTimeline {
     }
 
     buildFacilitiesList() {
-        const artccs = ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZSU', 'ZTL'];
-        const tracons = ['A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'I90', 'L30', 'M98', 'N90', 'NCT', 'P50', 'P80', 'PCT', 'PHL', 'S46', 'S56', 'SCT', 'Y90'];
-        const airports = ['KATL', 'KBOS', 'KORD', 'KDFW', 'KDEN', 'KDTW', 'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO', 'KMEM', 'KMIA', 'KMSP', 'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KSTL', 'KTPA'];
+        const _P = (typeof PERTI !== 'undefined' && PERTI.FACILITY) ? PERTI.FACILITY.FACILITY_LISTS : null;
+        const artccs = _P ? [..._P.ARTCC_ALL]
+            : ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZSU', 'ZTL'];
+        const tracons = _P ? [..._P.TRACON]
+            : ['A11', 'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'F11', 'I90', 'L30', 'M03', 'M98', 'N90', 'NCT', 'P31', 'P50', 'P80', 'PCT', 'R90', 'S46', 'S56', 'SCT', 'T75', 'U90', 'Y90'];
+        const airports = _P ? [..._P.ATCT]
+            : ['KATL', 'KBOS', 'KORD', 'KDFW', 'KDEN', 'KDTW', 'KEWR', 'KFLL', 'KHOU', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO', 'KMEM', 'KMIA', 'KMSP', 'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KSTL', 'KTPA'];
         const special = ['NAS', 'NAV CANADA'];
-        const canadian = ['CZEG', 'CZUL', 'CZWG', 'CZVR', 'CZYZ'];
+        const canadian = _P ? [..._P.FIR_CANADA]
+            : ['CZEG', 'CZUL', 'CZWG', 'CZVR', 'CZYZ'];
         return [...special, ...artccs, ...tracons, ...airports, ...canadian].sort();
     }
 

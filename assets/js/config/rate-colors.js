@@ -16,7 +16,12 @@
  *   Active = Airport has controller with ATIS (strategic rates)
  *   Suggested = No ATIS, rates inferred from weather/default config
  *   Custom = Dynamic override rates (differs from strategic)
+ *
+ * NOTE: Weather colors use PERTI.WEATHER.CATEGORIES when available.
  */
+
+// Reference to PERTI namespace if available
+const _PERTI_RC = (typeof PERTI !== 'undefined') ? PERTI : null;
 
 // Rate line styling configuration
 const RATE_LINE_CONFIG = {
@@ -90,13 +95,17 @@ const RATE_LINE_CONFIG = {
         borderRadius: 2,
     },
 
-    // Weather category display colors (for info panels)
-    weatherColors: {
+    // Weather category display colors (uses PERTI.WEATHER.CATEGORIES when available)
+    weatherColors: (_PERTI_RC && _PERTI_RC.WEATHER && _PERTI_RC.WEATHER.CATEGORIES) ? (function() {
+        var cats = _PERTI_RC.WEATHER.CATEGORIES, m = {};
+        Object.keys(cats).forEach(function(k) { m[k] = cats[k].color; });
+        return m;
+    })() : {
         'VMC': '#22c55e',          // Green - Visual conditions
         'LVMC': '#eab308',         // Yellow - Low VMC
         'IMC': '#f97316',          // Orange - Instrument conditions
         'LIMC': '#ef4444',         // Red - Low IMC
-        'VLIMC': '#dc2626',         // Dark red - Very low IMC
+        'VLIMC': '#dc2626',        // Dark red - Very low IMC
     },
 
     // Weather category labels
@@ -182,6 +191,10 @@ function buildRateMarkLines(rateData, direction = 'both') {
  * @returns {string} Hex color code
  */
 function getWeatherColor(category) {
+    // Use PERTI weather category color if available
+    if (_PERTI_RC && _PERTI_RC.WEATHER && _PERTI_RC.WEATHER.CATEGORIES[category]) {
+        return _PERTI_RC.WEATHER.CATEGORIES[category].color;
+    }
     return RATE_LINE_CONFIG.weatherColors[category] || '#999999';
 }
 

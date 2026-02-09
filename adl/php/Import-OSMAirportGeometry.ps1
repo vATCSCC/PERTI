@@ -83,7 +83,7 @@ function Get-NextEndpoint {
 # ============================================================================
 
 $Airports = @(
-    # ASPM77
+    # ASPM82
     "KATL","KBOS","KBWI","KCLE","KCLT","KCVG","KDCA","KDEN","KDFW","KDTW",
     "KEWR","KFLL","PHNL","KHOU","KHPN","KIAD","KIAH","KISP","KJFK","KLAS",
     "KLAX","KLGA","KMCI","KMCO","KMDW","KMEM","KMIA","KMKE","KMSP","KMSY",

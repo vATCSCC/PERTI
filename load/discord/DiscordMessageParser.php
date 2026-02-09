@@ -7,9 +7,11 @@
  * mentions, and other PERTI-relevant information.
  */
 
+require_once __DIR__ . '/../perti_constants.php';
+
 class DiscordMessageParser {
 
-    // TMI type constants
+    // TMI type constants — values must match PERTI_TMI_TYPES in perti_constants.php
     const TMI_GROUND_STOP = 'GS';
     const TMI_GDP = 'GDP';
     const TMI_AFP = 'AFP';
@@ -19,7 +21,7 @@ class DiscordMessageParser {
     const TMI_MINIT = 'MINIT';
     const TMI_STOP = 'STOP';
 
-    // Status constants
+    // Status constants — values must match PERTI_TMI_STATUSES in perti_constants.php
     const STATUS_ACTIVE = 'ACTIVE';
     const STATUS_ENDED = 'ENDED';
     const STATUS_CANCELLED = 'CANCELLED';

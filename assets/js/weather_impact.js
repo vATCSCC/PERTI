@@ -19,17 +19,21 @@ const WeatherImpact = (function() {
         apiUrl: '/api/weather/impact.php',
         refreshInterval: 30000,  // 30 seconds
 
-        // Impact badge colors
-        colors: {
-            DIRECT_CONVECTIVE: { bg: '#FF0000', text: '#FFFFFF', icon: '⚡' },
-            DIRECT_TURB: { bg: '#FF6600', text: '#FFFFFF', icon: '≋' },
-            DIRECT_ICE: { bg: '#00BFFF', text: '#000000', icon: '❄' },
-            DIRECT: { bg: '#FF4444', text: '#FFFFFF', icon: '⚠' },
-            NEAR_CONVECTIVE: { bg: '#FF6666', text: '#000000', icon: '⚡' },
-            NEAR_TURB: { bg: '#FFA500', text: '#000000', icon: '≋' },
-            NEAR_ICE: { bg: '#87CEEB', text: '#000000', icon: '❄' },
-            NEAR: { bg: '#FFAA44', text: '#000000', icon: '⚠' },
-        },
+        // Impact badge colors — sourced from PERTI.UI.WEATHER_IMPACT_COLORS (perti.js)
+        colors: (function() {
+            const src = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.WEATHER_IMPACT_COLORS) || null;
+            const fallback = {
+                DIRECT_CONVECTIVE: { bg: '#FF0000', text: '#FFFFFF', icon: '⚡' },
+                DIRECT_TURB: { bg: '#FF6600', text: '#FFFFFF', icon: '≋' },
+                DIRECT_ICE: { bg: '#00BFFF', text: '#000000', icon: '❄' },
+                DIRECT: { bg: '#FF4444', text: '#FFFFFF', icon: '⚠' },
+                NEAR_CONVECTIVE: { bg: '#FF6666', text: '#000000', icon: '⚡' },
+                NEAR_TURB: { bg: '#FFA500', text: '#000000', icon: '≋' },
+                NEAR_ICE: { bg: '#87CEEB', text: '#000000', icon: '❄' },
+                NEAR: { bg: '#FFAA44', text: '#000000', icon: '⚠' },
+            };
+            return src || fallback;
+        })(),
     };
 
     // =========================================================================

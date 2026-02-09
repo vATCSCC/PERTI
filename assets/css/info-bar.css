@@ -21,8 +21,8 @@
     --info-arr-bg: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
     --info-dep-color: #ea580c;
     --info-dep-bg: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-    --info-refresh-color: #64748b;
-    --info-refresh-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    --info-refresh-color: var(--slate-500);
+    --info-refresh-bg: linear-gradient(135deg, var(--slate-50) 0%, var(--slate-100) 100%);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -30,7 +30,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .perti-info-bar {
-    background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%);
+    background: linear-gradient(180deg, var(--slate-100) 0%, #ffffff 100%);
     border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 16px;
@@ -69,7 +69,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--slate-500);
     margin-bottom: 4px;
     display: flex;
     align-items: center;
@@ -85,7 +85,7 @@
     font-size: 0.6rem;
     font-weight: 500;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: var(--slate-400);
     margin-bottom: 2px;
 }
 
@@ -252,7 +252,7 @@
 .perti-stat-category {
     font-size: 0.55rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--slate-400);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: 2px;
@@ -272,7 +272,7 @@
 }
 
 .perti-rate-separator {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-weight: 300;
     font-size: 1rem;
 }
@@ -297,28 +297,28 @@
 
 /* Weather category badges */
 .badge-weather-vmc {
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    background: linear-gradient(135deg, var(--weather-vmc-start) 0%, var(--weather-vmc-end) 100%);
     color: #fff;
 }
 
 .badge-weather-mvfr {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--weather-mvfr-start) 0%, var(--weather-mvfr-end) 100%);
     color: #fff;
 }
 
 .badge-weather-ifr {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, var(--weather-ifr-start) 0%, var(--weather-ifr-end) 100%);
     color: #fff;
 }
 
 .badge-weather-lifr {
-    background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+    background: linear-gradient(135deg, var(--weather-lifr-start) 0%, var(--weather-lifr-end) 100%);
     color: #fff;
 }
 
 /* ATIS Code Badge */
 .badge-atis {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, var(--atis-badge-start) 0%, var(--atis-badge-end) 100%);
     color: #fff;
     font-size: 0.8rem;
     font-weight: 700;
@@ -329,20 +329,20 @@
 
 /* Age Badge */
 .badge-age {
-    background: #e2e8f0;
-    color: #64748b;
+    background: var(--age-normal-bg);
+    color: var(--age-normal-text);
     font-size: 0.6rem;
     font-weight: 500;
 }
 
 .badge-age.stale {
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--age-stale-bg);
+    color: var(--age-stale-text);
 }
 
 .badge-age.old {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--age-old-bg);
+    color: var(--age-old-text);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -378,14 +378,14 @@
 }
 
 .demand-status-active {
-    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-    color: #15803d;
+    background: linear-gradient(135deg, var(--status-active-start) 0%, var(--status-active-end) 100%);
+    color: var(--status-active-text);
     animation: pulse-subtle 2s infinite;
 }
 
 .demand-status-paused {
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--slate-100);
+    color: var(--slate-500);
 }
 
 @keyframes pulse-subtle {
@@ -411,7 +411,7 @@
 .perti-clock-tz {
     font-size: 0.6rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--slate-400);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -420,7 +420,7 @@
     font-family: "Inconsolata", monospace;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #334155;
+    color: var(--slate-700);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

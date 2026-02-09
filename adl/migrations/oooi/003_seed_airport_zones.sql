@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 PRINT '==========================================================================';
 PRINT '  Seeding Airport Geometry Zones';
-PRINT '  201 Airports (ASPM77 + Canada + Mexico + LatAm + Caribbean)';
+PRINT '  201 Airports (ASPM82 + Canada + Mexico + LatAm + Caribbean)';
 PRINT '  ' + CONVERT(VARCHAR, GETUTCDATE(), 120);
 PRINT '==========================================================================';
 PRINT '';
@@ -16,7 +16,7 @@ PRINT '';
 -- Create temp table with all target airports
 CREATE TABLE #target_airports (icao NVARCHAR(4) PRIMARY KEY);
 
--- ASPM77
+-- ASPM82
 INSERT INTO #target_airports VALUES 
 ('KATL'),('KBOS'),('KBWI'),('KCLE'),('KCLT'),('KCVG'),('KDCA'),('KDEN'),('KDFW'),('KDTW'),
 ('KEWR'),('KFLL'),('KHNL'),('KHOU'),('KHPN'),('KIAD'),('KIAH'),('KISP'),('KJFK'),('KLAS'),

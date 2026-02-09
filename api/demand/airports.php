@@ -2,7 +2,7 @@
 
 // api/demand/airports.php
 // Returns list of airports for demand visualization filters
-// Supports filtering by category (ASPM77/OEP35/Core30), ARTCC, and search term
+// Supports filtering by category (ASPM82/OEP35/Core30), ARTCC, and search term
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -555,17 +555,17 @@ $params = [];
 // Only include airports with ICAO codes (4 characters)
 $whereClauses[] = "ICAO_ID IS NOT NULL AND LEN(ICAO_ID) = 4";
 
-// Filter by category - default to ASPM77 + major international
-if ($category === 'aspm77') {
-    $whereClauses[] = "ASPM77 = 1";
+// Filter by category - default to ASPM82 + major international
+if ($category === 'aspm82') {
+    $whereClauses[] = "ASPM82 = 1";
 } elseif ($category === 'oep35') {
     $whereClauses[] = "OEP35 = 1";
 } elseif ($category === 'core30') {
     $whereClauses[] = "Core30 = 1";
 } elseif ($category === 'all' || $category === '') {
-    // Default: ASPM77 US airports + major international airports
+    // Default: ASPM82 US airports + major international airports
     $intlPlaceholders = array_fill(0, count($intlAirportCodes), '?');
-    $whereClauses[] = "(ASPM77 = 1 OR ICAO_ID IN (" . implode(", ", $intlPlaceholders) . "))";
+    $whereClauses[] = "(ASPM82 = 1 OR ICAO_ID IN (" . implode(", ", $intlPlaceholders) . "))";
     $params = array_merge($params, $intlAirportCodes);
 }
 
@@ -601,7 +601,7 @@ $sql = "
         ARPT_NAME,
         RESP_ARTCC_ID,
         DCC_REGION,
-        ASPM77,
+        ASPM82,
         OEP35,
         Core30,
         LAT_DECIMAL,
@@ -612,7 +612,7 @@ $sql = "
         CASE
             WHEN Core30 = 1 THEN 1
             WHEN OEP35 = 1 THEN 2
-            WHEN ASPM77 = 1 THEN 3
+            WHEN ASPM82 = 1 THEN 3
             ELSE 4
         END,
         ICAO_ID
@@ -638,7 +638,7 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         "name" => $row['ARPT_NAME'],
         "artcc" => $row['RESP_ARTCC_ID'],
         "dcc_region" => $row['DCC_REGION'],
-        "is_aspm77" => $row['ASPM77'] == 1,
+        "is_aspm82" => $row['ASPM82'] == 1,
         "is_oep35" => $row['OEP35'] == 1,
         "is_core30" => $row['Core30'] == 1,
         "lat" => $row['LAT_DECIMAL'] !== null ? (float)$row['LAT_DECIMAL'] : null,
@@ -658,7 +658,7 @@ if ($category === 'all' || $category === '') {
                 "name" => $name,
                 "artcc" => null,
                 "dcc_region" => null,
-                "is_aspm77" => false,
+                "is_aspm82" => false,
                 "is_oep35" => false,
                 "is_core30" => false,
                 "is_international" => true,
@@ -667,11 +667,11 @@ if ($category === 'all' || $category === '') {
             ];
         }
     }
-    // Sort: Core30 first, then OEP35, then ASPM77, then international, then alphabetically
+    // Sort: Core30 first, then OEP35, then ASPM82, then international, then alphabetically
     usort($airports, function($a, $b) {
         if ($a['is_core30'] !== $b['is_core30']) return $b['is_core30'] ? 1 : -1;
         if ($a['is_oep35'] !== $b['is_oep35']) return $b['is_oep35'] ? 1 : -1;
-        if ($a['is_aspm77'] !== $b['is_aspm77']) return $b['is_aspm77'] ? 1 : -1;
+        if ($a['is_aspm82'] !== $b['is_aspm82']) return $b['is_aspm82'] ? 1 : -1;
         return strcmp($a['icao'], $b['icao']);
     });
 }
