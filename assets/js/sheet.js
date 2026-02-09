@@ -43,11 +43,25 @@ function loadEnrouteStaffing() {
     });
 }
 
-loadGoals();
-loadDCCStaffing();
-loadTermStaffing();
-loadConfigs();
-loadEnrouteStaffing();
+// Load all sheet sections in parallel for faster page load
+(function loadAllSections() {
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+
+    Promise.all([
+        $.get(`api/data/plans/goals?p_id=${p_id}`),
+        $.get(`api/data/sheet/dcc_staffing?p_id=${p_id}`),
+        $.get(`api/data/sheet/term_staffing?p_id=${p_id}`),
+        $.get(`api/data/sheet/configs?p_id=${p_id}`),
+        $.get(`api/data/sheet/enroute_staffing?p_id=${p_id}`)
+    ]).then(function(results) {
+        $('#goals_table').html(results[0]);
+        $('#dcc_staffing_table').html(results[1]);
+        $('#term_staffing_table').html(results[2]);
+        $('#configs_table').html(results[3]);
+        $('#enroute_staffing_table').html(results[4]);
+        tooltips();
+    });
+})();
 
 
 // edit_dccstaffing Modal
