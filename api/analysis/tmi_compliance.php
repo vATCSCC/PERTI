@@ -490,10 +490,27 @@ function format_results($results) {
                 'non_compliant_count' => is_array($r['non_compliant'] ?? null) ? count($r['non_compliant']) : ($r['non_compliant'] ?? 0),
                 'compliance_pct' => $r['compliance_pct'] ?? 0,
                 'violations' => $r['violations'] ?? [],
-                // Include full flight lists for detailed analysis
+                // Full flight lists for detailed analysis
                 'exempt_flights' => is_array($r['exempt'] ?? null) ? $r['exempt'] : [],
                 'compliant_flights' => is_array($r['compliant'] ?? null) ? $r['compliant'] : [],
-                'non_compliant_flights' => is_array($r['non_compliant'] ?? null) ? $r['non_compliant'] : []
+                'non_compliant_flights' => is_array($r['non_compliant'] ?? null) ? $r['non_compliant'] : [],
+                'not_in_scope' => $r['not_in_scope'] ?? [],
+                // Program-level metadata
+                'cancelled' => $r['cancelled'] ?? false,
+                'ended_by' => $r['ended_by'] ?? null,
+                'impacting_condition' => $r['impacting_condition'] ?? null,
+                'dep_facility_tier' => $r['dep_facility_tier'] ?? null,
+                'prob_extension' => $r['prob_extension'] ?? null,
+                'cnx_comments' => $r['cnx_comments'] ?? null,
+                // Program timeline (advisory chain)
+                'program_timeline' => $r['program_timeline'] ?? [],
+                // Per-origin breakdown
+                'per_origin_breakdown' => $r['per_origin_breakdown'] ?? [],
+                // Hold time & delay statistics
+                'avg_hold_time_min' => $r['avg_hold_time_min'] ?? 0,
+                'hold_time_stats' => $r['hold_time_stats'] ?? [],
+                'gs_delay_stats' => $r['gs_delay_stats'] ?? [],
+                'time_source_breakdown' => $r['time_source_breakdown'] ?? []
             ];
         }
     }
