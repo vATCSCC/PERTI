@@ -256,7 +256,10 @@ function launch_analysis_async($plan_id, $base_path) {
     // Build command with inline env vars (Linux)
     $env_prefix = '';
     if (PHP_OS_FAMILY !== 'Windows') {
-        $env_parts = ['PYTHONPATH=/home/.local/lib/python3.9/site-packages'];
+        $env_parts = [
+            'PYTHONUNBUFFERED=1',
+            'PYTHONPATH=/home/.local/lib/python3.9/site-packages'
+        ];
         foreach ($env_vars as $key => $value) {
             if (!in_array($key, ['PYTHONUSERBASE', 'PYTHONPATH', 'PATH'])) {
                 $env_parts[] = sprintf('%s=%s', $key, escapeshellarg($value));
@@ -373,8 +376,8 @@ function check_analysis_status($plan_id, $base_path) {
         ];
     }
 
-    // Hard timeout: if running longer than 15 minutes, something is wrong
-    if ($elapsed > 900) {
+    // Hard timeout: large events (100+ TMIs, 3+ airports) can take 20+ min
+    if ($elapsed > 1800) {
         // Kill the stuck process
         if ($pid && PHP_OS_FAMILY !== 'Windows') {
             exec("kill $pid 2>/dev/null");
