@@ -26,6 +26,7 @@ if (!file_exists($config_path) || !file_exists($connect_path)) {
 }
 
 include($config_path);
+define('PERTI_MYSQL_ONLY', true);
 include($connect_path);
 
 // Check database connection

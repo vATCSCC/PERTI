@@ -4,6 +4,7 @@
 include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 
 include("../../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
 $domain = strip_tags(SITE_DOMAIN);
