@@ -2089,13 +2089,17 @@ $(document).ready(function() {
                 if (!pointData || pointData.length < 3) {
                     if (areaCenters[pointName]) {
                         const center = areaCenters[pointName];
-                        const areaPointData = [pointName, center.lat, center.lon];
-                        previousPointData = areaPointData;
-                        routePoints.push(areaPointData);
-                        routeExpandedIndex.push(i);
+                        if (isFinite(center.lat) && isFinite(center.lon)) {
+                            const areaPointData = [pointName, center.lat, center.lon];
+                            previousPointData = areaPointData;
+                            routePoints.push(areaPointData);
+                            routeExpandedIndex.push(i);
+                        }
                     }
                     continue;
                 }
+
+                if (!isFinite(pointData[1]) || !isFinite(pointData[2])) {continue;}
 
                 previousPointData = pointData;
                 routePoints.push(pointData);
@@ -2336,6 +2340,10 @@ $(document).ready(function() {
     }
 
     function addSegmentFeature(features, coords, color, solid, isFan, routeId, fromFix, toFix) {
+        // Validate all coordinate pairs contain finite numbers
+        for (let ci = 0; ci < coords.length; ci++) {
+            if (!coords[ci] || !isFinite(coords[ci][0]) || !isFinite(coords[ci][1])) {return;}
+        }
         if (coords.length === 2 && typeof turf !== 'undefined') {
             const dist = turf.distance(turf.point(coords[0]), turf.point(coords[1]), { units: 'nauticalmiles' });
             if (dist > 100) {

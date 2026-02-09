@@ -1,6 +1,9 @@
 # Root .htaccess (may contain server-specific config)
 /.htaccess
 
+# .env
+.env
+
 # API .htaccess files ARE tracked (needed for Azure Linux deployment)
 !api/.htaccess
 !api/**/.htaccess

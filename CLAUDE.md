@@ -468,8 +468,7 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 | `schedule.php` | Event schedule viewer |
 | `demand.php` | ADL demand charts (fix/segment demand visualization) |
 | `splits.php` | Sector split configuration tool |
-| `reroutes.php` | Reroute management interface |
-| `reroutes_index.php` | Public reroute index |
+| `reroutes.php` | Reroute management interface (legacy, use route.php + tmi-publish.php) |
 | `route.php` | Route visualization with MapLibre |
 | `review.php` | Post-event review/scoring |
 | `sheet.php` | Planning sheet view |
