@@ -4373,7 +4373,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const arcFeatures = [];
                     const labelFeatures = [];
                     const [originLon, originLat] = sectorData.fix_point;
-                    const sector = sectorData.sector_90;
+                    // Python's sector bearings are in direction of flight; arcs should be
+                    // on the approach side (where traffic comes from), so flip by 180°
+                    // when using legacy wedge arcs. Centerline bearings are already correct.
+                    const rawSector = sectorData.sector_90;
+                    const sector = sectorData.use_centerline ? rawSector : {
+                        start_bearing: (rawSector.start_bearing + 180) % 360,
+                        end_bearing: (rawSector.end_bearing + 180) % 360,
+                        width_deg: rawSector.width_deg,
+                    };
 
                     // Use centerline-following perpendicular lines if available
                     if (sectorData.use_centerline && sectorData.centerline?.length > 0) {
