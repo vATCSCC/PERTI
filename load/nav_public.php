@@ -79,6 +79,7 @@ $nav_config = [
         'label' => 'About',
         'items' => [
             ['label' => 'Infrastructure', 'path' => './transparency'],
+            ['label' => 'FMDS Comparison', 'path' => './fmds-comparison'],
             ['label' => 'Privacy Policy', 'path' => './privacy'],
         ]
     ],
