@@ -3921,14 +3921,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         this.activeMaps[mapId] = map;
 
-        // Catch race condition: if fetchBranchAnalysis() completed before map activation,
-        // initBranchAnalysis was skipped. Trigger it now that the map is active.
-        if (this.branchCorridorCache[mapId] && !this.branchCorridorCache[mapId].error
-            && !this.branchPanelState[mapId]?.initialized) {
-            this.initBranchAnalysis(mapId);
-        }
-
         map.on('load', () => {
+            // Catch race condition: if fetchBranchAnalysis() completed before map activation,
+            // initBranchAnalysis was skipped. Trigger it now that the map is active and style is loaded.
+            if (this.branchCorridorCache[mapId] && !this.branchCorridorCache[mapId].error
+                && !this.branchPanelState[mapId]?.initialized) {
+                this.initBranchAnalysis(mapId);
+            }
+
             // Add facility boundaries (provider emphasized as it manages the stream)
             if (mapData.facilities?.length) {
                 map.addSource('facilities', {
