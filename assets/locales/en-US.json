@@ -445,5 +445,53 @@
   "aircraft": {
     "one": "{count} aircraft",
     "other": "{count} aircraft"
+  },
+
+  "nod": {
+    "tmi": {
+      "noActiveGS": "No active ground stops",
+      "noActiveGDPs": "No active GDPs",
+      "noActiveReroutes": "No active reroutes",
+      "noPublicRoutes": "No public routes active",
+      "noActiveMITs": "No active MITs or AFPs",
+      "noActiveDelays": "No active delays",
+      "gsInEffect": "Ground Stop in effect",
+      "gdpInEffect": "Ground Delay Program",
+      "flightsHeld": "{count} held",
+      "avgHoldTime": "Avg hold: {minutes} min",
+      "countdown": "{time} remaining",
+      "expired": "Expired",
+      "probExtension": "Prob. extension: {pct}%",
+      "controlled": "Controlled: {count}",
+      "exempt": "Exempt: {count}",
+      "compliance": "Compliance: {pct}%",
+      "avgDelay": "Avg delay: {minutes} min",
+      "maxDelay": "Max delay: {minutes} min",
+      "viewOnMap": "View on map",
+      "flightList": "Flight list",
+      "showRoute": "Show route",
+      "complianceReport": "Compliance report",
+      "assigned": "Assigned: {count}",
+      "compliant": "Compliant: {count}",
+      "mit": "MIT",
+      "afp": "AFP",
+      "mitLabel": "{value} MIT {fix}",
+      "delayReport": "Delay Report",
+      "delayTrend": {
+        "increasing": "Increasing",
+        "decreasing": "Decreasing",
+        "steady": "Stable"
+      },
+      "severity": {
+        "low": "Low",
+        "moderate": "Moderate",
+        "high": "High",
+        "severe": "Severe"
+      },
+      "holding": "Holding: {fix}",
+      "reason": "Reason: {reason}",
+      "origins": "Origins: {facilities}",
+      "linkedProgram": "Program: {name}"
+    }
   }
 }

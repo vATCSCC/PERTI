@@ -106,6 +106,7 @@
             incidents: true,
             radar: false,
             demand: false,
+            'tmi-status': true,
         },
 
         // Splits strata visibility
@@ -127,6 +128,7 @@
             superhigh: 0.5,
             traffic: 1.0,
             radar: 0.6,
+            'tmi-status': 0.8,
         },
 
         // Map legend visibility
@@ -159,6 +161,10 @@
             reroutes: [],
             publicRoutes: [],
             discord: [],
+            mits: [],
+            afps: [],
+            delays: [],
+            airports: {},
         },
 
         // Advisories
@@ -708,6 +714,107 @@
         });
 
         // =========================================
+        // 7b. TMI Status Layer - Airport rings and MIT fix markers
+        // =========================================
+
+        state.map.addSource('tmi-status-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        state.map.addSource('tmi-mit-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        // Delay glow - pulsing circle behind airport for delay severity
+        state.map.addLayer({
+            id: 'tmi-delay-glow',
+            type: 'circle',
+            source: 'tmi-status-source',
+            filter: ['has', 'delay_minutes'],
+            paint: {
+                'circle-radius': ['coalesce', ['get', 'delay_glow_radius'], 15],
+                'circle-color': ['get', 'ring_color'],
+                'circle-opacity': 0.15,
+                'circle-blur': 0.8,
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // TMI status ring - colored ring around airport
+        state.map.addLayer({
+            id: 'tmi-status-ring',
+            type: 'circle',
+            source: 'tmi-status-source',
+            paint: {
+                'circle-radius': 12,
+                'circle-color': 'transparent',
+                'circle-stroke-width': 2.5,
+                'circle-stroke-color': ['get', 'ring_color'],
+                'circle-stroke-opacity': 0.9,
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // TMI airport label - airport code below ring
+        state.map.addLayer({
+            id: 'tmi-status-label',
+            type: 'symbol',
+            source: 'tmi-status-source',
+            layout: {
+                'text-field': ['get', 'airport'],
+                'text-size': 10,
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-anchor': 'top',
+                'text-offset': [0, 1.3],
+                'text-allow-overlap': true,
+                visibility: 'visible',
+            },
+            paint: {
+                'text-color': ['get', 'ring_color'],
+                'text-halo-color': '#1a1a2e',
+                'text-halo-width': 1.5,
+            },
+        });
+
+        // MIT fix markers - small diamond markers at fix locations
+        state.map.addLayer({
+            id: 'tmi-mit-marker',
+            type: 'circle',
+            source: 'tmi-mit-source',
+            paint: {
+                'circle-radius': 6,
+                'circle-color': '#17a2b8',
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#0d6efd',
+                'circle-opacity': 0.85,
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // MIT fix labels
+        state.map.addLayer({
+            id: 'tmi-mit-label',
+            type: 'symbol',
+            source: 'tmi-mit-source',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-size': 10,
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-anchor': 'top',
+                'text-offset': [0, 1.2],
+                'text-allow-overlap': false,
+                visibility: 'visible',
+            },
+            paint: {
+                'text-color': '#17a2b8',
+                'text-halo-color': '#1a1a2e',
+                'text-halo-width': 1.5,
+            },
+        });
+
+        // =========================================
         // 8. Traffic Layer (TOP) - TSD Symbology (FSM Table 3-6)
         // =========================================
 
@@ -961,6 +1068,8 @@
             'public-routes-lines',
             'incidents-fill',
             'splits-fill',
+            'tmi-status-ring',
+            'tmi-mit-marker',
         ];
 
         // Single click handler for the map
@@ -1065,6 +1174,25 @@
             // Public routes: always update (no buffering) - empty means all expired
             state.tmi.publicRoutes = newPublicRoutes;
 
+            // MITs, AFPs, Delays - buffered like GS/GDP
+            const newMITs = data.mits || [];
+            const newAFPs = data.afps || [];
+            const newDelays = data.delays || [];
+
+            if (newMITs.length > 0 || state.tmi.mits.length === 0) {
+                state.tmi.mits = newMITs;
+            }
+            if (newAFPs.length > 0 || state.tmi.afps.length === 0) {
+                state.tmi.afps = newAFPs;
+            }
+            // Delays: always update (like public routes) since they expire
+            state.tmi.delays = newDelays;
+
+            // Airport coordinates for map rendering
+            if (data.airports) {
+                Object.assign(state.tmi.airports, data.airports);
+            }
+
             // If no public routes from TMI API, try the dedicated public routes API
             if (state.tmi.publicRoutes.length === 0) {
                 await loadPublicRoutesFromAPI();
@@ -1076,6 +1204,9 @@
 
             // Update public routes on map
             updatePublicRoutesLayer();
+
+            // Update TMI status on map
+            updateTMIStatusLayer();
 
         } catch (error) {
             console.error('[NOD] Error loading TMI data:', error);
@@ -2553,6 +2684,101 @@
         updateRouteLabelMarkers(labelFeatures);
     }
 
+    /**
+     * Update TMI status layer on map with airport rings and MIT fix markers.
+     * Called after each TMI data refresh.
+     */
+    function updateTMIStatusLayer() {
+        if (!state.map || !state.map.getSource('tmi-status-source')) return;
+
+        const airportFeatures = [];
+        const mitFeatures = [];
+        const airports = state.tmi.airports || {};
+
+        // Determine highest-severity TMI type per airport
+        const airportTMI = {};  // { 'KJFK': { tmi_type, ring_color, delay_minutes } }
+
+        // GS = highest severity (red)
+        (state.tmi.groundStops || []).forEach(gs => {
+            const apt = gs.ctl_element || gs.airports;
+            if (apt && airports[apt]) {
+                airportTMI[apt] = { tmi_type: 'GS', ring_color: '#dc3545', delay_minutes: 0 };
+            }
+        });
+
+        // GDP = amber (only if not already GS)
+        (state.tmi.gdps || []).forEach(gdp => {
+            const apt = gdp.airport;
+            if (apt && airports[apt] && !airportTMI[apt]) {
+                airportTMI[apt] = { tmi_type: 'GDP', ring_color: '#fd7e14', delay_minutes: 0 };
+            }
+        });
+
+        // Delays - add delay_minutes info, upgrade severity color
+        (state.tmi.delays || []).forEach(d => {
+            const apt = d.airport;
+            if (!apt || !airports[apt]) return;
+            const existing = airportTMI[apt];
+            if (!existing) {
+                // Delay without GS/GDP
+                const color = d.delay_minutes >= 60 ? '#dc3545' : d.delay_minutes >= 45 ? '#fd7e14' : d.delay_minutes >= 30 ? '#ffc107' : '#28a745';
+                airportTMI[apt] = { tmi_type: 'DELAY', ring_color: color, delay_minutes: d.delay_minutes };
+            } else {
+                existing.delay_minutes = Math.max(existing.delay_minutes || 0, d.delay_minutes);
+            }
+        });
+
+        // Build airport point features
+        Object.entries(airportTMI).forEach(([apt, info]) => {
+            const coords = airports[apt];
+            if (!coords || coords.lat == null || coords.lon == null) return;
+            const glowRadius = Math.min(40, 10 + (info.delay_minutes || 0) * 0.3);
+
+            airportFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [coords.lon, coords.lat] },
+                properties: {
+                    airport: apt,
+                    tmi_type: info.tmi_type,
+                    ring_color: info.ring_color,
+                    delay_minutes: info.delay_minutes || 0,
+                    delay_glow_radius: glowRadius,
+                },
+            });
+        });
+
+        // Build MIT fix features
+        const allMITs = [...(state.tmi.mits || []), ...(state.tmi.afps || [])];
+        allMITs.forEach(entry => {
+            if (entry.fix_lat == null || entry.fix_lon == null) return;
+            const restriction = entry.restriction_value || '';
+            const unit = entry.restriction_unit || 'MIT';
+            const label = `${restriction} ${unit} ${entry.ctl_element || ''}`.trim();
+
+            mitFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [entry.fix_lon, entry.fix_lat] },
+                properties: {
+                    fix_name: entry.ctl_element || '',
+                    label: label,
+                    entry_type: entry.entry_type,
+                    restriction: `${restriction} ${unit}`,
+                },
+            });
+        });
+
+        // Update map sources
+        state.map.getSource('tmi-status-source').setData({
+            type: 'FeatureCollection',
+            features: airportFeatures,
+        });
+
+        state.map.getSource('tmi-mit-source').setData({
+            type: 'FeatureCollection',
+            features: mitFeatures,
+        });
+    }
+
     // Cache for route label state (position + hidden) - preserved across refreshes
     let routeLabelState = {};
 
@@ -2880,6 +3106,8 @@
         renderGDPList();
         renderReroutesList();
         renderPublicRoutesList();
+        renderMITList();
+        renderDelayList();
     }
 
     function renderGSList() {
@@ -2891,7 +3119,6 @@
         countBadge.textContent = items.length;
         countBadge.classList.toggle('active', items.length > 0);
 
-        // Auto-expand if has items, collapse if empty
         if (items.length > 0) {
             section?.classList.add('expanded');
         } else {
@@ -2903,20 +3130,33 @@
             return;
         }
 
-        container.innerHTML = items.map(gs => `
-            <div class="nod-tmi-card gs">
+        container.innerHTML = items.map(gs => {
+            const airport = gs.ctl_element || gs.airports || 'N/A';
+            const remaining = timeRemaining(gs.end_utc);
+            const probExt = gs.prob_ext ? `<span class="nod-tmi-metric">Prob. extension: <strong>${gs.prob_ext}%</strong></span>` : '';
+            const origins = gs.origin_centers ? `<span class="nod-tmi-metric">Origins: <strong>${escapeHtml(gs.origin_centers)}</strong></span>` : '';
+            const held = gs.flights_held > 0 ? `<span class="nod-tmi-metric"><i class="fas fa-plane"></i> <strong>${gs.flights_held}</strong> held</span>` : '';
+
+            return `<div class="nod-tmi-card gs" data-tmi-type="GS" data-airport="${escapeHtml(airport)}">
                 <div class="nod-tmi-header">
                     <span class="nod-tmi-type gs">GS</span>
-                    <span class="nod-tmi-airport">${escapeHtml(gs.ctl_element || gs.airports || 'N/A')}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(airport)}</span>
+                    ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
                     ${gs.comments ? escapeHtml(gs.comments) : 'Ground Stop in effect'}
                 </div>
+                ${probExt || origins || held ? `<div class="nod-tmi-info">${[probExt, origins, held].filter(Boolean).join('<br>')}</div>` : ''}
                 <div class="nod-tmi-time">
                     ${formatTimeRange(gs.start_utc, gs.end_utc)}
                 </div>
-            </div>
-        `).join('');
+                <div class="nod-tmi-actions">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GS', '${escapeHtml(airport)}')" title="View on map">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderGDPList() {
@@ -2928,7 +3168,6 @@
         countBadge.textContent = items.length;
         countBadge.classList.toggle('active', items.length > 0);
 
-        // Auto-expand if has items, collapse if empty
         if (items.length > 0) {
             section?.classList.add('expanded');
         } else {
@@ -2940,21 +3179,44 @@
             return;
         }
 
-        container.innerHTML = items.map(gdp => `
-            <div class="nod-tmi-card gdp">
+        container.innerHTML = items.map(gdp => {
+            const airport = gdp.airport || 'N/A';
+            const remaining = timeRemaining(gdp.end_time);
+            const controlled = gdp.controlled_count || 0;
+            const exempt = gdp.exempt_count || 0;
+            const totalFlights = controlled + exempt;
+            const compliancePct = totalFlights > 0 ? Math.round((controlled / totalFlights) * 100) : 0;
+            const avgDelay = gdp.avg_delay ? `Avg delay: <strong>${gdp.avg_delay} min</strong>` : '';
+            const maxDelay = gdp.max_delay ? `Max delay: <strong>${gdp.max_delay} min</strong>` : '';
+
+            return `<div class="nod-tmi-card gdp" data-tmi-type="GDP" data-airport="${escapeHtml(airport)}">
                 <div class="nod-tmi-header">
                     <span class="nod-tmi-type gdp">GDP</span>
-                    <span class="nod-tmi-airport">${escapeHtml(gdp.airport || 'N/A')}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(airport)}</span>
+                    ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
                     ${gdp.impacting_condition ? escapeHtml(gdp.impacting_condition) : 'Ground Delay Program'}
-                    ${gdp.avg_delay ? `<br>Avg Delay: ${gdp.avg_delay} min` : ''}
                 </div>
+                ${controlled > 0 || exempt > 0 ? `<div class="nod-tmi-info">
+                    <span class="nod-tmi-metric">Controlled: <strong>${controlled}</strong></span>
+                    <span class="nod-tmi-metric" style="margin-left: 8px">Exempt: <strong>${exempt}</strong></span>
+                </div>` : ''}
+                ${avgDelay || maxDelay ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${[avgDelay, maxDelay].filter(Boolean).join(' / ')}</span></div>` : ''}
+                ${totalFlights > 0 ? `<div class="nod-tmi-compliance-bar"><div class="nod-tmi-compliance-bar-fill" style="width: ${compliancePct}%; background: ${compliancePct > 80 ? '#28a745' : compliancePct > 50 ? '#ffc107' : '#dc3545'}"></div></div>` : ''}
                 <div class="nod-tmi-time">
                     ${formatTimeRange(gdp.start_time, gdp.end_time)}
                 </div>
-            </div>
-        `).join('');
+                <div class="nod-tmi-actions">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GDP', '${escapeHtml(airport)}')" title="View on map">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                    <button class="nod-tmi-action-btn" onclick="NOD.openGDT('${escapeHtml(airport)}')" title="Open GDT">
+                        <i class="fas fa-table"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderReroutesList() {
@@ -2966,7 +3228,6 @@
         countBadge.textContent = items.length;
         countBadge.classList.toggle('active', items.length > 0);
 
-        // Auto-expand if has items, collapse if empty
         if (items.length > 0) {
             section?.classList.add('expanded');
         } else {
@@ -2978,22 +3239,38 @@
             return;
         }
 
-        container.innerHTML = items.map(rr => `
-            <div class="nod-tmi-card reroute" style="border-left-color: ${rr.color || '#17a2b8'}">
+        container.innerHTML = items.map(rr => {
+            const assigned = rr.total_assigned || 0;
+            const compliant = rr.compliant_count || 0;
+            const compRate = rr.compliance_rate != null ? Math.round(rr.compliance_rate) : (assigned > 0 ? Math.round((compliant / assigned) * 100) : 0);
+            const remaining = timeRemaining(rr.end_utc);
+
+            return `<div class="nod-tmi-card reroute" style="border-left-color: ${rr.color || '#17a2b8'}" data-tmi-type="REROUTE" data-id="${rr.id}">
                 <div class="nod-tmi-header">
                     <span class="nod-tmi-type reroute">${escapeHtml(rr.adv_number || 'RR')}</span>
                     <span class="nod-tmi-airport">${escapeHtml(rr.name || 'Reroute')}</span>
+                    ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
-                    ${rr.constrained_area ? `Area: ${escapeHtml(rr.constrained_area)}` : ''}
-                    ${rr.reason ? `<br>Reason: ${escapeHtml(rr.reason)}` : ''}
-                    ${rr.flight_count ? `<br>Flights: ${rr.flight_count}` : ''}
+                    ${rr.impacting_condition ? escapeHtml(rr.impacting_condition) : ''}
+                    ${rr.comments ? (rr.impacting_condition ? '<br>' : '') + escapeHtml(rr.comments) : ''}
                 </div>
+                ${assigned > 0 ? `<div class="nod-tmi-info">
+                    <span class="nod-tmi-metric">Assigned: <strong>${assigned}</strong></span>
+                    <span class="nod-tmi-metric" style="margin-left: 8px">Compliant: <strong>${compliant}</strong></span>
+                    <span class="nod-tmi-metric" style="margin-left: 8px">(<strong>${compRate}%</strong>)</span>
+                </div>
+                <div class="nod-tmi-compliance-bar"><div class="nod-tmi-compliance-bar-fill" style="width: ${compRate}%; background: ${compRate > 80 ? '#28a745' : compRate > 50 ? '#ffc107' : '#dc3545'}"></div></div>` : ''}
                 <div class="nod-tmi-time">
-                    ${formatTimeRange(rr.valid_start_utc, rr.valid_end_utc)}
+                    ${formatTimeRange(rr.start_utc, rr.end_utc)}
                 </div>
-            </div>
-        `).join('');
+                <div class="nod-tmi-actions">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('REROUTE', '${rr.id}')" title="View on map">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderPublicRoutesList() {
@@ -3032,6 +3309,111 @@
                 </div>
             </div>
         `).join('');
+    }
+
+    function renderMITList() {
+        const container = document.getElementById('mit-list');
+        const countBadge = document.getElementById('mit-count');
+        const section = document.getElementById('section-mit');
+        if (!container || !countBadge) return;
+
+        const mits = state.tmi.mits || [];
+        const afps = state.tmi.afps || [];
+        const items = [...mits, ...afps];
+
+        countBadge.textContent = items.length;
+        countBadge.classList.toggle('active', items.length > 0);
+
+        if (items.length > 0) {
+            section?.classList.add('expanded');
+        } else {
+            section?.classList.remove('expanded');
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-arrows-alt-h"></i><p>No active MITs or AFPs</p></div>';
+            return;
+        }
+
+        container.innerHTML = items.map(entry => {
+            const isMIT = entry.entry_type === 'MIT' || entry.entry_type === 'MINIT';
+            const typeLabel = isMIT ? 'MIT' : 'AFP';
+            const typeClass = isMIT ? 'mit' : 'afp';
+            const restriction = entry.restriction_value ? `${entry.restriction_value} ${entry.restriction_unit || 'MIT'}` : typeLabel;
+            const fix = entry.ctl_element || 'N/A';
+            const facilities = [entry.requesting_facility, entry.providing_facility].filter(Boolean).join(' > ');
+            const remaining = timeRemaining(entry.valid_until);
+
+            return `<div class="nod-tmi-card ${typeClass}" data-tmi-type="${typeLabel}" data-fix="${escapeHtml(fix)}">
+                <div class="nod-tmi-header">
+                    <span class="nod-tmi-type ${typeClass}">${typeLabel}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(restriction)} ${escapeHtml(fix)}</span>
+                    ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
+                </div>
+                ${facilities ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${escapeHtml(facilities)}</span></div>` : ''}
+                ${entry.reason_code ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">Reason: <strong>${escapeHtml(entry.reason_code)}</strong></span></div>` : ''}
+                <div class="nod-tmi-time">
+                    ${formatTimeRange(entry.valid_from, entry.valid_until)}
+                </div>
+                ${entry.fix_lat != null ? `<div class="nod-tmi-actions">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('MIT', '${escapeHtml(fix)}')" title="View on map">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    function renderDelayList() {
+        const container = document.getElementById('delays-list');
+        const countBadge = document.getElementById('delays-count');
+        const section = document.getElementById('section-delays');
+        if (!container || !countBadge) return;
+
+        const items = state.tmi.delays || [];
+
+        countBadge.textContent = items.length;
+        countBadge.classList.toggle('active', items.length > 0);
+
+        if (items.length > 0) {
+            section?.classList.add('expanded');
+        } else {
+            section?.classList.remove('expanded');
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-hourglass-half"></i><p>No active delays</p></div>';
+            return;
+        }
+
+        container.innerHTML = items.map(d => {
+            const severity = d.delay_minutes >= 60 ? 'severe' : d.delay_minutes >= 45 ? 'high' : d.delay_minutes >= 30 ? 'moderate' : 'low';
+            const trendIcon = d.delay_trend === 'increasing' ? 'fa-arrow-up' : d.delay_trend === 'decreasing' ? 'fa-arrow-down' : 'fa-minus';
+            const trendClass = d.delay_trend || 'steady';
+            const trendLabel = d.delay_trend === 'increasing' ? 'Increasing' : d.delay_trend === 'decreasing' ? 'Decreasing' : 'Stable';
+            const holdingInfo = d.holding_status === '+Holding' && d.holding_fix ? `Holding: <strong>${escapeHtml(d.holding_fix)}</strong>` : '';
+            const airport = d.airport || 'N/A';
+
+            return `<div class="nod-tmi-card delay severity-${severity}" data-tmi-type="DELAY" data-airport="${escapeHtml(airport)}">
+                <div class="nod-tmi-header">
+                    <span class="nod-tmi-type delay">${escapeHtml(d.delay_type || 'D/D')}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(airport)}</span>
+                </div>
+                <div class="nod-tmi-info">
+                    <span class="nod-tmi-metric"><strong>${d.delay_minutes} min</strong> avg</span>
+                    <span class="nod-tmi-trend ${trendClass}" style="margin-left: 8px">
+                        <i class="fas ${trendIcon}"></i> ${trendLabel}
+                    </span>
+                </div>
+                ${holdingInfo ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${holdingInfo}</span></div>` : ''}
+                ${d.reason ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">Reason: <strong>${escapeHtml(d.reason)}</strong></span></div>` : ''}
+                <div class="nod-tmi-actions">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('DELAY', '${escapeHtml(airport)}')" title="View on map">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderDiscordList() {
@@ -3690,6 +4072,9 @@
 
             // Weather
             'radar': ['weather-radar'],
+
+            // TMI Status
+            'tmi-status': ['tmi-delay-glow', 'tmi-status-ring', 'tmi-status-label', 'tmi-mit-marker', 'tmi-mit-label'],
         };
 
         const layers = layerMappings[layerId];
@@ -4402,6 +4787,21 @@
             if (state.map.getLayer('weather-radar')) {
                 state.map.setPaintProperty('weather-radar', 'raster-opacity', opacity);
             }
+        } else if (layerName === 'tmi-status') {
+            const tmiLayers = ['tmi-delay-glow', 'tmi-status-ring', 'tmi-status-label', 'tmi-mit-marker', 'tmi-mit-label'];
+            tmiLayers.forEach(layer => {
+                if (state.map.getLayer(layer)) {
+                    const type = state.map.getLayer(layer).type;
+                    if (type === 'circle') {
+                        state.map.setPaintProperty(layer, 'circle-opacity', opacity);
+                        if (layer === 'tmi-status-ring') {
+                            state.map.setPaintProperty(layer, 'circle-stroke-opacity', opacity);
+                        }
+                    } else if (type === 'symbol') {
+                        state.map.setPaintProperty(layer, 'text-opacity', opacity);
+                    }
+                }
+            });
         }
 
         saveUIState();
@@ -5354,6 +5754,89 @@
             .addTo(state.map);
     }
 
+    function showTMIAirportPopup(props, lngLat) {
+        const airport = props.airport || 'N/A';
+        const tmiType = props.tmi_type || 'TMI';
+        const delay = props.delay_minutes || 0;
+        const color = props.ring_color || '#dc3545';
+
+        // Find all active TMIs for this airport
+        const tmis = [];
+        (state.tmi.groundStops || []).forEach(gs => {
+            if ((gs.ctl_element || gs.airports) === airport) {
+                tmis.push(`<tr><td style="color:${color}">GS</td><td>${escapeHtml(gs.comments || 'Ground Stop')}</td></tr>`);
+            }
+        });
+        (state.tmi.gdps || []).forEach(gdp => {
+            if (gdp.airport === airport) {
+                tmis.push(`<tr><td style="color:#fd7e14">GDP</td><td>${escapeHtml(gdp.impacting_condition || 'Ground Delay Program')}</td></tr>`);
+            }
+        });
+        (state.tmi.delays || []).forEach(d => {
+            if (d.airport === airport) {
+                tmis.push(`<tr><td style="color:#ffc107">${escapeHtml(d.delay_type || 'D/D')}</td><td>${d.delay_minutes} min ${escapeHtml(d.delay_trend || '')}</td></tr>`);
+            }
+        });
+
+        const html = `
+            <div style="font-family: 'Consolas', monospace; font-size: 12px; min-width: 160px;">
+                <div style="margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid #444;">
+                    <strong style="color: ${color}; font-size: 13px;">${escapeHtml(airport)}</strong>
+                    <span style="color:#888; margin-left:8px;">${escapeHtml(tmiType)}</span>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                    ${tmis.join('')}
+                </table>
+            </div>
+        `;
+
+        new maplibregl.Popup({ closeButton: false, offset: 15 })
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(state.map);
+
+        // Scroll sidebar to matching card
+        const card = document.querySelector(`.nod-tmi-card[data-airport="${airport}"]`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 12px rgba(255,255,255,0.5)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+        }
+    }
+
+    function showTMIMITPopup(props, lngLat) {
+        const fix = props.fix_name || 'N/A';
+        const restriction = props.restriction || 'MIT';
+        const entryType = props.entry_type || 'MIT';
+
+        const html = `
+            <div style="font-family: 'Consolas', monospace; font-size: 12px; min-width: 140px;">
+                <div style="margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid #444;">
+                    <strong style="color: #17a2b8; font-size: 13px;">${escapeHtml(fix)}</strong>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                    <tr><td style="color:#888">Type:</td><td style="text-align:right">${escapeHtml(entryType)}</td></tr>
+                    <tr><td style="color:#888">Restriction:</td><td style="text-align:right">${escapeHtml(restriction)}</td></tr>
+                </table>
+            </div>
+        `;
+
+        new maplibregl.Popup({ closeButton: false, offset: 15 })
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(state.map);
+
+        // Scroll sidebar to matching card
+        const card = document.querySelector(`.nod-tmi-card[data-fix="${fix}"]`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 12px rgba(255,255,255,0.5)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+        }
+    }
+
     function showSplitsPopup(props, lngLat) {
         const sectorId = props.id || props.sector || props.label || 'Unknown';
         const boundaryType = props.boundary_type || '';
@@ -5475,6 +5958,8 @@
         if (layerId.includes('public-routes') || layerId.includes('route')) {return 'route';}
         if (layerId.includes('incident')) {return 'incident';}
         if (layerId.includes('split')) {return 'split';}
+        if (layerId.includes('tmi-status')) {return 'tmi-airport';}
+        if (layerId.includes('tmi-mit')) {return 'tmi-mit';}
         return 'unknown';
     }
 
@@ -5496,6 +5981,12 @@
                 break;
             case 'split':
                 showSplitsPopup(feature.properties, lngLat);
+                break;
+            case 'tmi-airport':
+                showTMIAirportPopup(feature.properties, lngLat);
+                break;
+            case 'tmi-mit':
+                showTMIMITPopup(feature.properties, lngLat);
                 break;
             default:
                 console.warn('[NOD] Unknown feature type:', type, feature);
@@ -5536,12 +6027,23 @@
                     icon = '▣';
                     iconClass = 'split';
                     label = props.position_name || props.id || 'Sector';
-                    // Show sector ID with ARTCC prefix (e.g., ZME67)
                     const sectorId = props.sector || props.id || props.label || '';
                     const sectorArtcc = props.artcc || '';
                     sublabel = sectorArtcc && sectorId ? `${sectorArtcc}${sectorId}` : (sectorArtcc || sectorId);
                     break;
                 }
+                case 'tmi-airport':
+                    icon = '!';
+                    iconClass = 'incident';
+                    label = props.airport || 'Airport';
+                    sublabel = props.tmi_type || 'TMI';
+                    break;
+                case 'tmi-mit':
+                    icon = '>';
+                    iconClass = 'route';
+                    label = props.fix_name || 'Fix';
+                    sublabel = props.restriction || 'MIT';
+                    break;
                 default:
                     icon = '?';
                     iconClass = '';
@@ -5592,6 +6094,27 @@
     // =========================================
     // Utilities
     // =========================================
+
+    /**
+     * Compute time remaining until a UTC end time.
+     * Returns string like "47m", "2h 15m", or null if expired/no end time.
+     */
+    function timeRemaining(endUtc) {
+        if (!endUtc) return null;
+        try {
+            const end = new Date(endUtc);
+            const now = new Date();
+            const diffMs = end - now;
+            if (diffMs <= 0) return 'Expired';
+            const totalMin = Math.floor(diffMs / 60000);
+            if (totalMin < 60) return `${totalMin}m`;
+            const hours = Math.floor(totalMin / 60);
+            const mins = totalMin % 60;
+            return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+        } catch (e) {
+            return null;
+        }
+    }
 
     function formatTimeRange(start, end) {
         const startStr = start ? formatTime(start) : '???';
@@ -6038,6 +6561,91 @@
 
         // Splits refresh (every 5 minutes - changes less frequently)
         state.timers.splits = setInterval(loadActiveSplits, 300000);
+
+        // GS pulse animation (800ms toggle for ground stop rings)
+        state._gsPulseHigh = true;
+        state.timers.gsPulse = setInterval(() => {
+            if (!state.map || !state.layers['tmi-status']) return;
+            const opacity = state._gsPulseHigh ? 1.0 : 0.5;
+            state._gsPulseHigh = !state._gsPulseHigh;
+            try {
+                if (state.map.getLayer('tmi-status-ring')) {
+                    state.map.setPaintProperty('tmi-status-ring', 'circle-stroke-opacity', [
+                        'case', ['==', ['get', 'tmi_type'], 'GS'], opacity, 0.9
+                    ]);
+                }
+            } catch (e) {
+                // Layer not ready yet
+            }
+        }, 800);
+
+        // Countdown timer refresh (update all countdown displays every 30s)
+        state.timers.countdown = setInterval(() => {
+            document.querySelectorAll('.nod-tmi-countdown').forEach(el => {
+                // Re-render TMI lists to update countdowns
+            });
+            renderTMILists();
+        }, 30000);
+    }
+
+    // =========================================
+    // TMI Action Handlers
+    // =========================================
+
+    /**
+     * Pan/zoom the map to a TMI-affected airport or fix.
+     * @param {string} type - 'GS', 'GDP', 'MIT', 'DELAY', 'REROUTE'
+     * @param {string} id - Airport code or fix name
+     */
+    function viewTMIOnMap(type, id) {
+        if (!state.map) return;
+
+        let coords = null;
+
+        if (type === 'MIT') {
+            // Look up fix coords from MIT data
+            const allEntries = [...(state.tmi.mits || []), ...(state.tmi.afps || [])];
+            const entry = allEntries.find(e => e.ctl_element === id);
+            if (entry && entry.fix_lat != null && entry.fix_lon != null) {
+                coords = [entry.fix_lon, entry.fix_lat];
+            }
+        } else {
+            // Airport lookup
+            const airport = state.tmi.airports[id];
+            if (airport && airport.lat != null && airport.lon != null) {
+                coords = [airport.lon, airport.lat];
+            }
+        }
+
+        if (!coords) {
+            console.warn(`[NOD] Could not find coordinates for ${type} ${id}`);
+            return;
+        }
+
+        state.map.flyTo({
+            center: coords,
+            zoom: type === 'MIT' ? 8 : 7,
+            duration: 1200,
+        });
+
+        // Flash the matching sidebar card
+        const selector = type === 'MIT'
+            ? `.nod-tmi-card[data-fix="${id}"]`
+            : `.nod-tmi-card[data-airport="${id}"]`;
+        const card = document.querySelector(selector);
+        if (card) {
+            card.style.transition = 'box-shadow 0.3s ease';
+            card.style.boxShadow = '0 0 12px rgba(255,255,255,0.5)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+        }
+    }
+
+    /**
+     * Open GDT page for an airport in a new tab.
+     */
+    function openGDT(airport) {
+        if (!airport) return;
+        window.open(`gdt.php?airport=${encodeURIComponent(airport)}`, '_blank');
     }
 
     // =========================================
@@ -6080,6 +6688,9 @@
         renderColorLegend,
         // Traffic layer refresh (for FEA match coloring sync)
         updateTrafficLayer,
+        // TMI action handlers
+        viewTMIOnMap,
+        openGDT,
     };
 
     // Auto-initialize when DOM is ready
