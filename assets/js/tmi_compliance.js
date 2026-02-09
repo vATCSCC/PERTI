@@ -348,86 +348,140 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
         }, 500);
 
-        // Call API with run=true
+        // Launch async analysis, then poll for completion
         $.ajax({
             url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`,
             method: 'GET',
             dataType: 'json',
-            timeout: 600000, // 10 minute timeout for large events
+            timeout: 30000,
             success: (response) => {
-                clearInterval(progressInterval);
-                this.analysisInProgress = false;
-
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-                if (response.success && response.data) {
-                    this.results = response.data;
-                    // Start trajectory fetch in parallel
-                    if (response.data.trajectories_url) {
-                        this.loadTrajectories(this.planId, response.data.trajectories_url);
-                    }
-
-                    // Count results
-                    const mitCount = response.data.mit_results?.length || 0;
-                    const gsCount = response.data.gs_results?.length || 0;
-                    const apreqCount = response.data.apreq_results?.length || 0;
-
-                    // Check for data gaps before rendering
-                    this.checkDataGaps(() => {
-                        const gapWarning = this.dataGaps?.has_gaps
-                            ? `<div class="mt-2 small text-warning"><i class="fas fa-exclamation-triangle"></i> Data gaps detected - some flights may be missing</div>`
-                            : '';
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Analysis Complete',
-                            html: `
-                                <div class="text-center">
-                                    <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
-                                    <div class="mt-3 small" style="color: var(--dark-text-subtle);">
-                                        <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
-                                        <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
-                                        <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
-                                    </div>
-                                    ${gapWarning}
-                                </div>
-                            `,
-                            timer: 4000,
-                            showConfirmButton: false,
-                        });
-                        this.renderResults();
-                        $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
-                    });
-                } else {
+                if (response.status === 'running') {
+                    // Analysis launched in background - start polling
+                    this._pollForResults(startTime, progressInterval, analysisSteps, currentStep, completedSteps);
+                } else if (response.status === 'error') {
+                    clearInterval(progressInterval);
+                    this.analysisInProgress = false;
                     Swal.fire({
                         icon: 'error',
                         title: 'Analysis Failed',
-                        html: `<p>${response.message || response.error || 'Unknown error occurred'}</p>
-                               <p class="small text-muted">Check that the Azure Function is configured and TMI config is saved.</p>`,
+                        html: `<p>${response.message || 'Failed to start analysis'}</p>`,
                     });
+                } else if (response.success && response.data) {
+                    // Immediate result (e.g., cached or very fast)
+                    clearInterval(progressInterval);
+                    this._handleAnalysisComplete(response, startTime);
                 }
             },
             error: (xhr, status, error) => {
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
-
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                let errorMsg = error;
-                if (status === 'timeout') {
-                    errorMsg = `Analysis timed out after ${elapsed}s. The event may have too many flights.`;
-                } else if (xhr.responseJSON?.error) {
-                    errorMsg = xhr.responseJSON.error;
-                }
-
                 Swal.fire({
                     icon: 'error',
                     title: 'Analysis Failed',
-                    html: `<p>${errorMsg}</p>
-                           <p class="small text-muted">If the Azure Function is not configured, you can still run analysis locally:<br>
-                           <code>python scripts/tmi_compliance/run.py --plan_id ${this.planId}</code></p>`,
+                    html: `<p>${xhr.responseJSON?.message || error || 'Failed to start analysis'}</p>`,
                 });
             },
         });
+    },
+
+    _pollForResults: function(startTime, progressInterval, analysisSteps, currentStep, completedSteps) {
+        const pollInterval = setInterval(() => {
+            $.ajax({
+                url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&status=true`,
+                method: 'GET',
+                dataType: 'json',
+                timeout: 15000,
+                success: (response) => {
+                    if (response.status === 'complete') {
+                        clearInterval(pollInterval);
+                        clearInterval(progressInterval);
+                        this._handleAnalysisComplete(response, startTime);
+                    } else if (response.status === 'error') {
+                        clearInterval(pollInterval);
+                        clearInterval(progressInterval);
+                        this.analysisInProgress = false;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Analysis Failed',
+                            html: `<p>${response.message || 'Analysis failed'}</p>
+                                   ${response.error_log ? '<pre class="small text-left mt-2" style="max-height:200px;overflow:auto;font-size:0.75rem;">' + $('<span>').text(response.error_log.slice(-500)).html() + '</pre>' : ''}`,
+                        });
+                    }
+                    // 'running' status - keep polling, update elapsed from server
+                    if (response.elapsed_seconds) {
+                        const serverElapsed = response.elapsed_seconds;
+                        // Update progress based on server-reported time
+                        const progress = Math.min(5 + Math.min(serverElapsed / 300, 1) * 85, 90);
+                        $('#analysis_progress').css('width', progress + '%');
+                    }
+                },
+                error: () => {
+                    // Network blip during poll - keep trying
+                },
+            });
+        }, 4000); // Poll every 4 seconds
+
+        // Safety: stop polling after 15 minutes
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            clearInterval(progressInterval);
+            if (this.analysisInProgress) {
+                this.analysisInProgress = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Analysis Timeout',
+                    text: 'Analysis did not complete within 15 minutes. Check server logs.',
+                });
+            }
+        }, 900000);
+    },
+
+    _handleAnalysisComplete: function(response, startTime) {
+        this.analysisInProgress = false;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+        if (response.success && response.data) {
+            this.results = response.data;
+            if (response.data.trajectories_url) {
+                this.loadTrajectories(this.planId, response.data.trajectories_url);
+            }
+
+            const mitCount = response.data.mit_results?.length || 0;
+            const gsCount = response.data.gs_results?.length || 0;
+            const apreqCount = response.data.apreq_results?.length || 0;
+
+            this.checkDataGaps(() => {
+                const gapWarning = this.dataGaps?.has_gaps
+                    ? `<div class="mt-2 small text-warning"><i class="fas fa-exclamation-triangle"></i> Data gaps detected - some flights may be missing</div>`
+                    : '';
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Analysis Complete',
+                    html: `
+                        <div class="text-center">
+                            <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
+                            <div class="mt-3 small" style="color: var(--dark-text-subtle);">
+                                <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
+                                <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
+                                <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
+                            </div>
+                            ${gapWarning}
+                        </div>
+                    `,
+                    timer: 4000,
+                    showConfirmButton: false,
+                });
+                this.renderResults();
+                $('#tmi_status').text(`Analysis complete: ${response.data.event}`);
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Analysis Failed',
+                html: `<p>${response.message || 'Unknown error'}</p>`,
+            });
+        }
     },
 
     detailIdCounter: 0,

@@ -13,12 +13,18 @@
 
 // Results are ~5MB (trajectories split to separate file); 256M is generous headroom
 ini_set('memory_limit', '256M');
-// Python analysis can take 5+ minutes for large events with many TMIs
-set_time_limit(600);
+// Status checks are fast; only legacy sync path needs long timeout
+set_time_limit(60);
 
 header('Content-Type: application/json');
 
 include("../../load/config.php");
+
+// Base path for analysis data files
+$analysis_base_path = realpath(__DIR__ . '/../../data/tmi_compliance') ?: __DIR__ . '/../../data/tmi_compliance';
+if (!is_dir($analysis_base_path)) {
+    mkdir($analysis_base_path, 0755, true);
+}
 
 // Trajectory-only endpoint: streams pre-built trajectory JSON with zero json_decode
 // This handles the bulk data (~22MB) without PHP memory overhead
@@ -79,22 +85,43 @@ try {
             throw new Exception("Invalid or missing plan ID");
         }
 
-        // Check if we should run analysis via Azure Function
+        // Status check endpoint: poll for async analysis progress
+        if (isset($_GET['status']) && $_GET['status'] === 'true') {
+            $status = check_analysis_status($plan_id, $analysis_base_path);
+            $response['status'] = $status['status'];
+            $response['message'] = $status['message'] ?? '';
+            if (isset($status['elapsed_seconds'])) {
+                $response['elapsed_seconds'] = $status['elapsed_seconds'];
+            }
+            if (isset($status['error_log'])) {
+                $response['error_log'] = $status['error_log'];
+            }
+            // If complete, include formatted results
+            if ($status['status'] === 'complete') {
+                $output_file = $analysis_base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+                $json_content = file_get_contents($output_file);
+                $results = json_decode($json_content, true);
+                if ($results && !isset($results['error'])) {
+                    $response['data'] = format_results($results);
+                    $response['data']['plan_specific'] = true;
+                    $response['data']['trajectories_url'] = "api/analysis/tmi_compliance.php?p_id={$plan_id}&trajectories=true";
+                } else {
+                    $response['success'] = false;
+                    $response['status'] = 'error';
+                    $response['message'] = $results['error'] ?? 'Analysis produced invalid results';
+                }
+            }
+            echo json_encode($response);
+            exit;
+        }
+
+        // Launch async analysis
         if (isset($_GET['run']) && $_GET['run'] === 'true') {
-            $result = call_azure_function($plan_id);
-
-            if ($result['success']) {
-                // Python writes results directly to the cache file via --output flag
-                // No need to re-save here
-
-                $response['data'] = format_results($result['data']);
-                $response['data']['plan_specific'] = true;
-                $response['data']['trajectories_url'] = "api/analysis/tmi_compliance.php?p_id={$plan_id}&trajectories=true";
-                $response['message'] = 'Analysis completed successfully';
-            } else {
-                // Return error as normal response (not 500) for user-facing errors
+            $result = launch_analysis_async($plan_id, $analysis_base_path);
+            $response['status'] = $result['status'];
+            $response['message'] = $result['message'];
+            if ($result['status'] === 'error') {
                 $response['success'] = false;
-                $response['message'] = $result['error'] ?? 'Analysis failed';
             }
         } else {
             // Load cached results from file
@@ -157,21 +184,58 @@ try {
 }
 
 /**
- * Run TMI compliance analysis via local Python script
+ * Launch TMI compliance analysis as a background process.
+ *
+ * Returns immediately so the HTTP request completes within Azure's 230s
+ * load balancer timeout. The client polls ?status=true for progress.
+ *
+ * @param int $plan_id Plan ID
+ * @param string $base_path Data directory for output/status files
+ * @return array Status response
  */
-function call_azure_function($plan_id) {
-    // Path to Python script (relative to web root)
+function launch_analysis_async($plan_id, $base_path) {
+    $status_file = $base_path . '/tmi_compliance_status_' . $plan_id . '.json';
+    $output_file = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+    $log_file = $base_path . '/tmi_compliance_log_' . $plan_id . '.log';
+
+    // Check if analysis is already running
+    if (file_exists($status_file)) {
+        $status = json_decode(file_get_contents($status_file), true);
+        if ($status && ($status['status'] ?? '') === 'running') {
+            $pid = $status['pid'] ?? 0;
+            // Check if process is still alive (Linux: /proc/PID, Windows: tasklist)
+            if ($pid && is_process_running($pid)) {
+                $elapsed = time() - ($status['started_ts'] ?? time());
+                return [
+                    'status' => 'running',
+                    'message' => "Analysis already in progress ({$elapsed}s elapsed)"
+                ];
+            }
+            // Process died - check if it wrote results before dying
+            if (file_exists($output_file) && filemtime($output_file) > ($status['started_ts'] ?? 0)) {
+                @unlink($status_file);
+                return [
+                    'status' => 'complete',
+                    'message' => 'Analysis completed'
+                ];
+            }
+            // Dead process, no results - clean up stale status
+            @unlink($status_file);
+        }
+    }
+
+    // Path to Python script
     $script_dir = realpath(__DIR__ . '/../../scripts/tmi_compliance');
     $script_path = $script_dir . '/run.py';
 
     if (!file_exists($script_path)) {
         return [
-            'success' => false,
-            'error' => "TMI Analysis script not found at: $script_path"
+            'status' => 'error',
+            'message' => "TMI Analysis script not found at: $script_path"
         ];
     }
 
-    // Set environment variables for database connections and Python path
+    // Environment variables for database connections
     $env_vars = [
         'ADL_SQL_HOST' => defined('ADL_SQL_HOST') ? ADL_SQL_HOST : 'vatsim.database.windows.net',
         'ADL_SQL_DATABASE' => defined('ADL_SQL_DATABASE') ? ADL_SQL_DATABASE : 'VATSIM_ADL',
@@ -182,36 +246,14 @@ function call_azure_function($plan_id) {
         'GIS_SQL_USERNAME' => defined('GIS_SQL_USERNAME') ? GIS_SQL_USERNAME : 'GIS_admin',
         'GIS_SQL_PASSWORD' => defined('GIS_SQL_PASSWORD') ? GIS_SQL_PASSWORD : '',
         'PERTI_API_URL' => 'https://perti.vatcscc.org/api',
-        // Include user site-packages where pip installed dependencies
         'PYTHONUSERBASE' => '/home/.local',
         'PYTHONPATH' => '/home/.local/lib/python3.9/site-packages',
         'PATH' => '/home/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     ];
 
-    // Build environment string for command
-    $env_prefix = '';
-    foreach ($env_vars as $key => $value) {
-        putenv("$key=$value");
-    }
+    $python = PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3';
 
-    // Find Python executable
-    $python = 'python3';
-    if (PHP_OS_FAMILY === 'Windows') {
-        $python = 'python';
-    }
-
-    // Output file: Python writes results here to avoid PHP memory issues with large stdout
-    $output_base = realpath(__DIR__ . '/../../data/tmi_compliance');
-    if (!$output_base) {
-        $output_base = __DIR__ . '/../../data/tmi_compliance';
-    }
-    if (!is_dir($output_base)) {
-        mkdir($output_base, 0755, true);
-    }
-    $output_file = $output_base . '/tmi_compliance_results_' . $plan_id . '.json';
-
-    // Build command with environment variables inline (for Linux)
-    // This ensures pip-installed packages in /home/.local are found
+    // Build command with inline env vars (Linux)
     $env_prefix = '';
     if (PHP_OS_FAMILY !== 'Windows') {
         $env_parts = ['PYTHONPATH=/home/.local/lib/python3.9/site-packages'];
@@ -221,70 +263,152 @@ function call_azure_function($plan_id) {
             }
         }
         $env_prefix = implode(' ', $env_parts) . ' ';
+    } else {
+        foreach ($env_vars as $key => $value) {
+            putenv("$key=$value");
+        }
     }
 
-    $cmd = sprintf(
-        '%s%s %s --plan_id %d --output %s 2>&1',
-        $env_prefix,
-        escapeshellcmd($python),
-        escapeshellarg($script_path),
-        intval($plan_id),
-        escapeshellarg($output_file)
-    );
+    // Build the command - redirect output to log file, run in background
+    if (PHP_OS_FAMILY === 'Windows') {
+        // Windows: use start /B for background
+        $cmd = sprintf(
+            'start /B %s %s --plan_id %d --output %s > %s 2>&1',
+            escapeshellcmd($python),
+            escapeshellarg($script_path),
+            intval($plan_id),
+            escapeshellarg($output_file),
+            escapeshellarg($log_file)
+        );
+        $pid_cmd = $cmd;
+    } else {
+        // Linux: nohup + & for background, capture PID via echo $!
+        $cmd = sprintf(
+            'nohup %s%s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
+            $env_prefix,
+            escapeshellcmd($python),
+            escapeshellarg($script_path),
+            intval($plan_id),
+            escapeshellarg($output_file),
+            escapeshellarg($log_file)
+        );
+    }
 
-    // Execute - Python writes results to file, only status/logs to stdout
-    $output = [];
-    $return_code = 0;
-    exec($cmd, $output, $return_code);
+    // Launch background process
+    $pid = 0;
+    if (PHP_OS_FAMILY === 'Windows') {
+        pclose(popen($cmd, 'r'));
+    } else {
+        $pid = intval(trim(shell_exec($cmd)));
+    }
 
-    $console_output = implode("\n", $output);
+    // Write status file
+    $now = time();
+    file_put_contents($status_file, json_encode([
+        'status' => 'running',
+        'started_utc' => gmdate('Y-m-d\TH:i:s\Z', $now),
+        'started_ts' => $now,
+        'pid' => $pid,
+        'plan_id' => $plan_id,
+    ]));
 
-    // Check if output file was written
-    if (!file_exists($output_file)) {
-        // Fall back to parsing stdout for error messages
-        $json_line = '';
-        foreach (array_reverse($output) as $line) {
-            $line = trim($line);
-            if (str_starts_with($line, '{') || str_starts_with($line, '[')) {
-                $json_line = $line;
-                break;
-            }
+    error_log("TMI analysis launched for plan $plan_id, PID=$pid");
+
+    return [
+        'status' => 'running',
+        'message' => 'Analysis started. Polling for results...'
+    ];
+}
+
+/**
+ * Check the status of a running analysis.
+ *
+ * @param int $plan_id Plan ID
+ * @param string $base_path Data directory
+ * @return array Status info
+ */
+function check_analysis_status($plan_id, $base_path) {
+    $status_file = $base_path . '/tmi_compliance_status_' . $plan_id . '.json';
+    $output_file = $base_path . '/tmi_compliance_results_' . $plan_id . '.json';
+    $log_file = $base_path . '/tmi_compliance_log_' . $plan_id . '.log';
+
+    // No status file means no analysis running
+    if (!file_exists($status_file)) {
+        // Check if results exist from a previous run
+        if (file_exists($output_file)) {
+            return ['status' => 'complete', 'message' => 'Results available'];
         }
+        return ['status' => 'idle', 'message' => 'No analysis running'];
+    }
 
-        if (!empty($json_line)) {
-            $err_data = json_decode($json_line, true);
-            if ($err_data && isset($err_data['error'])) {
-                return ['success' => false, 'error' => $err_data['error']];
-            }
+    $status = json_decode(file_get_contents($status_file), true);
+    if (!$status || ($status['status'] ?? '') !== 'running') {
+        @unlink($status_file);
+        return ['status' => 'idle', 'message' => 'No analysis running'];
+    }
+
+    $started_ts = $status['started_ts'] ?? time();
+    $pid = $status['pid'] ?? 0;
+    $elapsed = time() - $started_ts;
+
+    // Check if results file was written after the analysis started
+    if (file_exists($output_file) && filemtime($output_file) > $started_ts) {
+        @unlink($status_file);
+        return ['status' => 'complete', 'message' => "Analysis completed in {$elapsed}s"];
+    }
+
+    // Check if process is still alive
+    if ($pid && !is_process_running($pid)) {
+        @unlink($status_file);
+        // Read last lines of log for error info
+        $error_log = '';
+        if (file_exists($log_file)) {
+            $log_content = file_get_contents($log_file);
+            $error_log = substr($log_content, -2000);
         }
-
         return [
-            'success' => false,
-            'error' => "Python script did not produce output file. Console: " . substr($console_output, 0, 500)
+            'status' => 'error',
+            'message' => "Analysis process exited without producing results after {$elapsed}s",
+            'error_log' => $error_log
         ];
     }
 
-    // Read results from file (much more memory-efficient than capturing stdout)
-    $json_content = file_get_contents($output_file);
-    if ($json_content === false) {
-        return ['success' => false, 'error' => 'Failed to read output file'];
-    }
-
-    $data = json_decode($json_content, true);
-    unset($json_content); // Free memory before format_results
-
-    if (json_last_error() !== JSON_ERROR_NONE) {
+    // Hard timeout: if running longer than 15 minutes, something is wrong
+    if ($elapsed > 900) {
+        // Kill the stuck process
+        if ($pid && PHP_OS_FAMILY !== 'Windows') {
+            exec("kill $pid 2>/dev/null");
+        }
+        @unlink($status_file);
         return [
-            'success' => false,
-            'error' => 'Invalid JSON in output file: ' . json_last_error_msg()
+            'status' => 'error',
+            'message' => "Analysis timed out after {$elapsed}s"
         ];
     }
 
-    if (isset($data['error'])) {
-        return ['success' => false, 'error' => $data['error']];
+    return [
+        'status' => 'running',
+        'message' => "Analysis in progress ({$elapsed}s elapsed)",
+        'elapsed_seconds' => $elapsed
+    ];
+}
+
+/**
+ * Check if a process with the given PID is still running.
+ */
+function is_process_running($pid) {
+    if (!$pid) return false;
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        exec("tasklist /FI \"PID eq $pid\" 2>NUL", $output);
+        foreach ($output as $line) {
+            if (strpos($line, (string)$pid) !== false) return true;
+        }
+        return false;
     }
 
-    return ['success' => true, 'data' => $data];
+    // Linux: check /proc filesystem
+    return file_exists("/proc/$pid");
 }
 
 /**
