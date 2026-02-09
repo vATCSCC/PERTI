@@ -59,9 +59,9 @@ $filepath = "";
 <?php
 if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 ?>
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti-colors.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/theme.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti_theme.css">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti-colors.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/tmi-compliance.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/mobile.css">
 <?php } ?>
@@ -79,5 +79,7 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-<!-- Load Facility Hierarchy Data -->
+<!-- Load PERTI Centralized Namespace -->
+<script src="<?= $filepath; ?>assets/js/lib/perti.js"></script>
+<script src="<?= $filepath; ?>assets/js/lib/colors.js"></script>
 <script src="<?= $filepath; ?>assets/js/facility-hierarchy.js"></script>

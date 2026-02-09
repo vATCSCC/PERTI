@@ -9375,7 +9375,7 @@ PRINT 'Merging with existing apts table...';
 INSERT INTO dbo.apts (
     ARPT_ID, ICAO_ID, ARPT_NAME, LAT_DECIMAL, LONG_DECIMAL, ELEV,
     RESP_ARTCC_ID, COMPUTER_ID, ARTCC_NAME, TWR_TYPE_CODE, DCC_REGION,
-    ASPM77, OEP35, Core30
+    ASPM82, OEP35, Core30
 )
 SELECT
     o.icao_code,                          -- ARPT_ID (use ICAO as ID)
@@ -9416,7 +9416,7 @@ SELECT
         WHEN LEFT(o.icao_code,1) = 'F' THEN 'AFRC'
         ELSE 'INTL'
     END,
-    0,                                    -- ASPM77
+    0,                                    -- ASPM82
     0,                                    -- OEP35
     0                                     -- Core30
 FROM #ourairports o

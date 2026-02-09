@@ -539,8 +539,14 @@ $(document).ready(function() {
         // TRACON/facility codes like N90, A80, L30 – don't touch them
         if (/^[A-Z]\d{2}$/.test(t)) {return t;}
 
-        // 3-letter non-Z tokens: treat as IATA and map to ICAO (BWI → KBWI)
-        if (/^[A-Z]{3}$/.test(t) && !t.startsWith('Z')) {return 'K' + t;}
+        // 3-letter tokens: use FacilityHierarchy for proper regional prefixes
+        if (t.length === 3) {
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
+                return FacilityHierarchy.normalizeIcao(t);
+            }
+            // Fallback: simple K-prefix (but not for Z-prefix ARTCC codes)
+            if (!t.startsWith('Z')) {return 'K' + t;}
+        }
 
         return t;
     }
@@ -3107,15 +3113,18 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // COLOR SCHEMES (FSM/TSD Standard + Extended)
+        // Use PERTIAircraft as source of truth with fallback for load order
         // ─────────────────────────────────────────────────────────────────────
 
-        const WEIGHT_CLASS_COLORS = {
-            'SUPER': '#ffc107', 'J': '#ffc107',  // Amber/Gold for Jumbo
-            'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
-            'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
-            'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
-            '': '#6c757d',
-        };
+        const WEIGHT_CLASS_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.WEIGHT_CLASS_COLORS)
+            ? PERTIAircraft.WEIGHT_CLASS_COLORS
+            : {
+                'SUPER': '#ffc107', 'J': '#ffc107',  // Amber/Gold for Jumbo
+                'HEAVY': '#dc3545', 'H': '#dc3545',  // Red for Heavy
+                'LARGE': '#28a745', 'L': '#28a745',  // Green for Large/Jet
+                'SMALL': '#17a2b8', 'S': '#17a2b8',  // Cyan for Small/Prop
+                '': '#6c757d',
+            };
 
         const AIRCRAFT_CATEGORY_COLORS = {
             'J': '#dc3545', 'JET': '#dc3545',
@@ -3125,54 +3134,75 @@ $(document).ready(function() {
         };
 
         // ─────────────────────────────────────────────────────────────────────
-        // DCC REGION DEFINITIONS (5 regions per user spec)
+        // DCC REGION COLORS - Uses FacilityHierarchy as single source of truth
+        // See: assets/js/facility-hierarchy.js DCC_REGIONS
         // ─────────────────────────────────────────────────────────────────────
-        const DCC_REGIONS = {
-            'WEST':         ['ZAK', 'ZAN', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE'],
-            'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
-            'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
-            'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-        };
 
-        const DCC_REGION_COLORS = {
-            'WEST': '#e15759',           // Red
-            'SOUTH_CENTRAL': '#f28e2b',  // Orange
-            'MIDWEST': '#59a14f',        // Green
-            'SOUTHEAST': '#edc948',      // Yellow
-            'NORTHEAST': '#4e79a7',      // Blue
-            '': '#6c757d',
-        };
+        /**
+         * Get DCC region color for an ARTCC code
+         * @param {string} artcc - ARTCC code (e.g., 'ZNY')
+         * @returns {string} Hex color code
+         */
+        function getDccRegionColor(artcc) {
+            const FH = window.FacilityHierarchy;
+            if (FH && FH.DCC_REGIONS) {
+                for (const [region, regionData] of Object.entries(FH.DCC_REGIONS)) {
+                    if (regionData.artccs && regionData.artccs.includes(artcc)) {
+                        return regionData.color || '#6c757d';
+                    }
+                }
+            }
+            return '#6c757d';  // Default gray
+        }
 
-        // ARTCC colors - inherit from DCC region with variations
-        const CENTER_COLORS = {
-            // West (Red family)
-            'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759',
-            'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
-            // South Central (Orange family)
-            'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
-            // Midwest (Green family)
-            'ZAU': '#59a14f', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#45b39d',
-            // Southeast (Yellow family)
-            'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
-            // Northeast (Blue family)
-            'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
-            '': '#6c757d',
-        };
+        /**
+         * Get color for a specific DCC region name
+         * @param {string} regionName - Region key (e.g., 'NORTHEAST')
+         * @returns {string} Hex color code
+         */
+        function getDccRegionColorByName(regionName) {
+            const FH = window.FacilityHierarchy;
+            if (FH && FH.DCC_REGIONS && FH.DCC_REGIONS[regionName]) {
+                return FH.DCC_REGIONS[regionName].color || '#6c757d';
+            }
+            return '#6c757d';  // Default gray
+        }
 
-        // TRACON to ARTCC mapping (major TRACONs)
-        const TRACON_TO_ARTCC = {
-            // Northeast
-            'N90': 'ZNY', 'A90': 'ZBW', 'PCT': 'ZDC', 'PHL': 'ZNY', 'Y90': 'ZDC',
-            // Southeast
-            'A80': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
-            // Midwest
-            'C90': 'ZAU', 'D21': 'ZMP', 'M98': 'ZMP', 'R90': 'ZKC',
-            // South Central
-            'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
-            // West
-            'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV',
-        };
+        // ARTCC colors - use PERTI > FILTER_CONFIG > hardcoded fallback
+        const CENTER_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
+            ? Object.assign({}, PERTI.UI.ARTCC_COLORS, { '': PERTI.UI.ARTCC_COLORS.OTHER || '#6c757d' })
+            : (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.artcc && FILTER_CONFIG.artcc.colors)
+                ? Object.assign({}, FILTER_CONFIG.artcc.colors, { '': FILTER_CONFIG.artcc.colors.OTHER || '#6c757d' })
+                : {
+                    // West (Red family)
+                    'ZAK': '#e15759', 'ZAN': '#ff6b6b', 'ZHN': '#c9302c', 'ZLA': '#e15759',
+                    'ZLC': '#ff8787', 'ZOA': '#d64545', 'ZSE': '#f28080',
+                    // South Central (Orange family)
+                    'ZAB': '#f28e2b', 'ZFW': '#ff9f43', 'ZHO': '#e67e22', 'ZHU': '#f5a623', 'ZME': '#d68910',
+                    // Midwest (Green family)
+                    'ZAU': '#59a14f', 'ZDV': '#27ae60', 'ZKC': '#2ecc71', 'ZMP': '#45b39d',
+                    // Southeast (Yellow family)
+                    'ZID': '#edc948', 'ZJX': '#f1c40f', 'ZMA': '#f4d03f', 'ZMO': '#d4ac0d', 'ZTL': '#e9b824',
+                    // Northeast (Blue family)
+                    'ZBW': '#4e79a7', 'ZDC': '#3498db', 'ZNY': '#2980b9', 'ZOB': '#5dade2', 'ZWY': '#1a5276',
+                    '': '#6c757d',
+                };
+
+        // TRACON to ARTCC mapping - use FacilityHierarchy > hardcoded fallback
+        const TRACON_TO_ARTCC = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.TRACON_TO_ARTCC)
+            ? Object.assign({}, FacilityHierarchy.TRACON_TO_ARTCC)
+            : {
+                // Northeast
+                'N90': 'ZNY', 'A90': 'ZBW', 'PCT': 'ZDC', 'PHL': 'ZNY', 'Y90': 'ZDC',
+                // Southeast
+                'A80': 'ZTL', 'F11': 'ZJX', 'MIA': 'ZMA', 'JAX': 'ZJX', 'TPA': 'ZJX',
+                // Midwest
+                'C90': 'ZAU', 'D21': 'ZMP', 'M98': 'ZMP', 'R90': 'ZKC',
+                // South Central
+                'D10': 'ZFW', 'I90': 'ZHU', 'AUS': 'ZHU', 'SAT': 'ZHU',
+                // West
+                'L30': 'ZLA', 'SCT': 'ZLA', 'NCT': 'ZOA', 'S46': 'ZSE', 'P50': 'ZSE', 'D01': 'ZDV',
+            };
 
         // TRACON colors - inherit from parent ARTCC
         function getTraconColor(tracon) {
@@ -3182,71 +3212,48 @@ $(document).ready(function() {
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // AIRPORT TIER COLORS
+        // AIRPORT TIER COLORS - use FacilityHierarchy as source of truth
+        // Tier lists loaded from apts.csv via FacilityHierarchy.AIRPORT_GROUPS
         // ─────────────────────────────────────────────────────────────────────
-        const CORE30_AIRPORTS = [
-            'KATL', 'KBOS', 'KBWI', 'KCLE', 'KCLT', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
-            'KEWR', 'KFLL', 'KIAD', 'KIAH', 'KJFK', 'KLAS', 'KLAX', 'KLGA', 'KMCO',
-            'KMDW', 'KMEM', 'KMIA', 'KMSP', 'KORD', 'KPHL', 'KPHX', 'KSAN', 'KSEA',
-            'KSFO', 'KSLC', 'KTPA',
-        ];
-
-        const OEP35_AIRPORTS = [
-            ...CORE30_AIRPORTS,
-            'KSTL', 'KPDX', 'KHON', 'KPIT', 'KCVG',
-        ];
-
-        const ASPM77_AIRPORTS = [
-            ...OEP35_AIRPORTS,
-            'KABQ', 'KAUS', 'KBDL', 'KBNA', 'KBUF', 'KBURB', 'KCMH', 'KDAL',
-            'KHOU', 'KIND', 'KJAX', 'KMCI', 'KMKE', 'KMSY', 'KOAK', 'KOMA',
-            'KONT', 'KPBI', 'KPVD', 'KRDU', 'KRNO', 'KRSW', 'KSAT', 'KSDF',
-            'KSJC', 'KSMF', 'KSNA', 'KSTL', 'KTUL', 'KAUS', 'KBHM', 'KELP',
-            'KGSO', 'KICT', 'KLIT', 'KLUBB', 'KOKC', 'KRIC', 'KSAV', 'KSYR',
-        ];
-
-        const AIRPORT_TIER_COLORS = {
-            'CORE30': '#e15759',    // Red
-            'OEP35': '#4e79a7',     // Blue
-            'ASPM77': '#edc948',    // Yellow
-            'OTHER': '#59a14f',     // Green
-            '': '#6c757d',
+        const AIRPORT_TIER_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TIER_COLORS) || {
+            'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
         };
 
         function getAirportTier(icao) {
-            if (!icao) {return 'OTHER';}
-            const apt = icao.toUpperCase();
-            if (CORE30_AIRPORTS.includes(apt)) {return 'CORE30';}
-            if (OEP35_AIRPORTS.includes(apt)) {return 'OEP35';}
-            if (ASPM77_AIRPORTS.includes(apt)) {return 'ASPM77';}
-            return 'OTHER';
+            return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getAirportTier) ? FacilityHierarchy.getAirportTier(icao) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
         // AIRCRAFT TYPE (Manufacturer) COLORS
+        // Use PERTIAircraft as source of truth with fallback for load order
         // ─────────────────────────────────────────────────────────────────────
-        const AIRCRAFT_MANUFACTURER_PATTERNS = {
-            'AIRBUS':     /^A[0-9]{3}|^A[0-9]{2}[NK]/i,
-            'BOEING':     /^B7[0-9]{2}|^B3[0-9]M|^B3XM|^B77[A-Z]|^B74[A-Z]|^B74[0-9][A-Z]|^B78X/i,
-            'EMBRAER':    /^E[0-9]{3}|^ERJ|^EMB|^E[0-9][0-9][A-Z]/i,
-            'BOMBARDIER': /^CRJ|^CL[0-9]{2}|^BD[0-9]{3}|^GL[0-9]{2}|^DHC|^BCS[0-9]|^Q[0-9]{3}/i,
-            'MD_DC':      /^MD[0-9]{2}|^DC[0-9]{1,2}|^L10|^L101|^C130|^C17/i,
-            'SAAB_OTHER': /^SF34|^SB20|^F[0-9]{2,3}|^D[0-9]{3}|^BAE|^B?146|^RJ[0-9]{2}|^AT[0-9]{2}|^PC[0-9]{2}/i,
-            'RUSSIAN':    /^AN[0-9]{2,3}|^IL[0-9]{2,3}|^TU[0-9]{3}|^SU[0-9]{2}|^YAK|^BE20[0-9]/i,
-            'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i,
-        };
+        const AIRCRAFT_MANUFACTURER_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.PATTERNS)
+            ? PERTIAircraft.PATTERNS
+            : {
+                // Note: A12x/A14x/A15x/A22x are Antonov, not Airbus
+                'AIRBUS':     /^A3[0-9]{2}|^A3[0-9][A-Z]|^A[0-9]{2}[NK]/i,
+                'BOEING':     /^B7[0-9]{2}|^B3[0-9]M|^B3XM|^B77[A-Z]|^B74[A-Z]|^B74[0-9][A-Z]|^B78X/i,
+                'EMBRAER':    /^E[0-9]{3}|^ERJ|^EMB|^E[0-9][0-9][A-Z]/i,
+                'BOMBARDIER': /^CRJ|^CL[0-9]{2}|^BD[0-9]{3}|^GL[0-9]{2}|^DHC|^BCS[0-9]|^Q[0-9]{3}/i,
+                'MD_DC':      /^MD[0-9]{2}|^DC[0-9]{1,2}/i,
+                'REGIONAL':   /^SF34|^SB20|^F[0-9]{2,3}|^D[0-9]{3}|^BAE|^B?146|^RJ[0-9]{2}|^AT[0-9]{2}|^PC[0-9]{2}|^L10|^C13[0-9]|^C17/i,
+                'RUSSIAN':    /^AN[0-9]{2,3}|^A12[0-9]|^A14[0-9]|^A15[0-9]|^A22[0-9]|^IL[0-9]{2,3}|^TU[0-9]{3}|^SU[0-9]{2}|^YAK|^SSJ/i,
+                'CHINESE':    /^ARJ|^C9[0-9]{2}|^MA[0-9]{2}|^Y[0-9]{1,2}/i,
+            };
 
-        const AIRCRAFT_MANUFACTURER_COLORS = {
-            'AIRBUS': '#e15759',       // Red
-            'BOEING': '#4e79a7',       // Blue
-            'EMBRAER': '#59a14f',      // Green
-            'BOMBARDIER': '#f28e2b',   // Orange
-            'MD_DC': '#b07aa1',        // Purple
-            'SAAB_OTHER': '#76b7b2',   // Teal
-            'RUSSIAN': '#9c755f',      // Brown
-            'CHINESE': '#edc948',      // Yellow
-            'OTHER': '#6c757d',         // Gray
-        };
+        const AIRCRAFT_MANUFACTURER_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.COLORS)
+            ? PERTIAircraft.COLORS
+            : {
+                'AIRBUS': '#e15759',       // Red
+                'BOEING': '#4e79a7',       // Blue
+                'EMBRAER': '#59a14f',      // Green
+                'BOMBARDIER': '#f28e2b',   // Orange
+                'MD_DC': '#b07aa1',        // Purple
+                'REGIONAL': '#76b7b2',     // Teal
+                'RUSSIAN': '#9c755f',      // Brown
+                'CHINESE': '#edc948',      // Yellow
+                'OTHER': '#6c757d',        // Gray
+            };
 
         function getAircraftManufacturer(acType) {
             if (!acType) {return 'OTHER';}
@@ -3259,31 +3266,41 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // AIRCRAFT CONFIGURATION COLORS
+        // Use PERTIAircraft as source of truth with fallback for load order
         // ─────────────────────────────────────────────────────────────────────
-        const AIRCRAFT_CONFIG_PATTERNS = {
-            'A380':        /^A38[0-9]/i,
-            'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96/i,
-            'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]/i,
-            'TRI_JET':     /^MD11|^DC10|^L101|^TU154/i,
-            'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
-            'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
-            'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
-            'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i,
-        };
+        const AIRCRAFT_CONFIG_PATTERNS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_PATTERNS)
+            ? PERTIAircraft.CONFIG_PATTERNS
+            : {
+                'A380':        /^A38[0-9]/i,
+                'QUAD_JET':    /^B74[0-9]|^B74[A-Z]|^B74[0-9][A-Z]|^A34[0-6]|^A340|^IL96/i,
+                'HEAVY_TWIN':  /^B77[0-9]|^B77[A-Z]|^B78[0-9]|^B78X|^A33[0-9]|^A35[0-9]|^A35K|^B76[0-9]/i,
+                'TRI_JET':     /^MD11|^DC10|^L101|^TU154/i,
+                'TWIN_JET':    /^A32[0-9]|^A31[0-9]|^A2[0-9][NK]|^A22[0-9]|^B73[0-9]|^B3[0-9]M|^B3XM|^B75[0-9]|^MD[89][0-9]|^BCS[0-9]/i,
+                'REGIONAL_JET': /^CRJ|^ERJ|^E[0-9]{3}|^E[0-9][0-9][A-Z]/i,
+                'TURBOPROP':   /^AT[0-9]{2}|^DH8|^DHC8|^Q[0-9]{3}|^SF34|^SB20|^B190|^JS[0-9]{2}|^PC12|^PC24|^C208|^BE[0-9]{2}[0-9]/i,
+                'PROP':        /^C1[0-9]{2}|^C2[0-9]{2}|^P28|^PA[0-9]{2}|^SR2[0-9]|^DA[0-9]{2}|^M20|^BE[0-9]{2}[^0-9]/i,
+            };
 
-        const AIRCRAFT_CONFIG_COLORS = {
-            'A380': '#9c27b0',          // Deep Purple
-            'QUAD_JET': '#e15759',      // Red
-            'HEAVY_TWIN': '#f28e2b',    // Orange
-            'TRI_JET': '#edc948',       // Yellow
-            'TWIN_JET': '#59a14f',      // Green
-            'REGIONAL_JET': '#4e79a7',  // Blue
-            'TURBOPROP': '#76b7b2',     // Teal
-            'PROP': '#17a2b8',          // Cyan
-            'OTHER': '#6c757d',          // Gray
-        };
+        const AIRCRAFT_CONFIG_COLORS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.CONFIG_COLORS)
+            ? PERTIAircraft.CONFIG_COLORS
+            : {
+                'A380': '#9c27b0',          // Deep Purple
+                'QUAD_JET': '#e15759',      // Red
+                'HEAVY_TWIN': '#f28e2b',    // Orange
+                'TRI_JET': '#edc948',       // Yellow
+                'TWIN_JET': '#59a14f',      // Green
+                'REGIONAL_JET': '#4e79a7',  // Blue
+                'TURBOPROP': '#76b7b2',     // Teal
+                'PROP': '#17a2b8',          // Cyan
+                'OTHER': '#6c757d',          // Gray
+            };
 
         function getAircraftConfig(acType) {
+            // Use PERTIAircraft if available
+            if (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.getConfig) {
+                return PERTIAircraft.getConfig(acType);
+            }
+            // Fallback
             if (!acType) {return 'OTHER';}
             const type = acType.toUpperCase();
             for (const [cfg, pattern] of Object.entries(AIRCRAFT_CONFIG_PATTERNS)) {
@@ -3293,9 +3310,13 @@ $(document).ready(function() {
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // EXTENDED CARRIER COLORS (US Focus)
+        // EXTENDED CARRIER COLORS - use PERTI > FILTER_CONFIG > hardcoded fallback
         // ─────────────────────────────────────────────────────────────────────
-        const CARRIER_COLORS = {
+        const CARRIER_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.CARRIER_COLORS)
+            ? Object.assign({}, PERTI.UI.CARRIER_COLORS, { '': PERTI.UI.CARRIER_COLORS.OTHER || '#6c757d' })
+            : (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.carrier && FILTER_CONFIG.carrier.colors)
+                ? Object.assign({}, FILTER_CONFIG.carrier.colors, { '': FILTER_CONFIG.carrier.colors.OTHER || '#6c757d' })
+                : {
             // US Legacy
             'AAL': '#0078d2', 'UAL': '#0033a0', 'DAL': '#e01933',
             // US Low-Cost
@@ -3340,35 +3361,16 @@ $(document).ready(function() {
         };
 
         // ─────────────────────────────────────────────────────────────────────
-        // OPERATOR GROUP COLORS
-        // ─────────────────────────────────────────────────────────────────────
-        const MAJOR_CARRIERS = ['AAL', 'UAL', 'DAL', 'SWA', 'JBU', 'ASA', 'HAL', 'NKS', 'FFT', 'AAY', 'VXP', 'SYX'];
-        const REGIONAL_CARRIERS = ['SKW', 'RPA', 'ENY', 'PDT', 'PSA', 'ASQ', 'GJS', 'CPZ', 'EDV', 'QXE', 'ASH', 'OO', 'AIP', 'MES', 'JIA', 'SCX'];
-        const FREIGHT_CARRIERS = ['FDX', 'UPS', 'ABX', 'GTI', 'ATN', 'CLX', 'PAC', 'KAL', 'MTN', 'SRR', 'WCW', 'CAO'];
-        const MILITARY_PREFIXES = ['AIO', 'RCH', 'RRR', 'CNV', 'PAT', 'NAVY', 'ARMY', 'USAF', 'USCG', 'EXEC'];
+        // OPERATOR GROUP COLORS - use FacilityHierarchy as source of truth
 
-        const OPERATOR_GROUP_COLORS = {
-            'MAJOR': '#4e79a7',      // Blue
-            'REGIONAL': '#59a14f',   // Green
-            'FREIGHT': '#f28e2b',    // Orange
-            'GA': '#76b7b2',         // Teal
-            'MILITARY': '#556b2f',   // Olive
-            'OTHER': '#6c757d',       // Gray
+        // ─────────────────────────────────────────────────────────────────────
+        const OPERATOR_GROUP_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.OPERATOR_GROUP_COLORS) || {
+            'MAJOR': '#dc3545', 'REGIONAL': '#28a745', 'FREIGHT': '#007bff',
+            'GA': '#ffc107', 'MILITARY': '#6f42c1', 'OTHER': '#6c757d',
         };
 
         function getOperatorGroup(callsign) {
-            if (!callsign) {return 'OTHER';}
-            const carrier = extractCarrier(callsign);
-            if (MAJOR_CARRIERS.includes(carrier)) {return 'MAJOR';}
-            if (REGIONAL_CARRIERS.includes(carrier)) {return 'REGIONAL';}
-            if (FREIGHT_CARRIERS.includes(carrier)) {return 'FREIGHT';}
-            // Check military prefixes
-            for (const prefix of MILITARY_PREFIXES) {
-                if (callsign.toUpperCase().startsWith(prefix)) {return 'MILITARY';}
-            }
-            // GA typically has N-numbers or short callsigns
-            if (/^N[0-9]/.test(callsign.toUpperCase()) || callsign.length <= 5) {return 'GA';}
-            return 'OTHER';
+            return (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getOperatorGroup) ? FacilityHierarchy.getOperatorGroup(callsign) : 'OTHER';
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -3936,10 +3938,7 @@ $(document).ready(function() {
                 }
                 case 'dcc_region': {
                     const center = getAirportCenter(flight.fp_dept_icao) || getAirportCenter(flight.fp_dest_icao);
-                    for (const [region, centers] of Object.entries(DCC_REGIONS)) {
-                        if (centers.includes(center)) {return DCC_REGION_COLORS[region];}
-                    }
-                    return DCC_REGION_COLORS[''];
+                    return getDccRegionColor(center);
                 }
                 case 'dep_airport': {
                     const depTier = getAirportTier(flight.fp_dept_icao);
@@ -4211,20 +4210,20 @@ $(document).ready(function() {
                 case 'dep_tracon':
                 case 'arr_tracon':
                     items = [
-                        { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                        { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'S.Central' },
-                        { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                        { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: 'West' },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'S.Central' },
+                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
                     ];
                     break;
                 case 'dcc_region':
                     items = [
-                        { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                        { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                        { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                        { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                        { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: 'West' },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'South Central' },
+                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
                     ];
                     break;
                 case 'dep_airport':
@@ -4232,7 +4231,7 @@ $(document).ready(function() {
                     items = [
                         { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                         { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                        { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                        { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                         { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;
@@ -5292,15 +5291,13 @@ $(document).ready(function() {
     let   ADV_ORIG_COL = 20;
     let   ADV_DEST_COL = 20;
 
-    const ADV_FACILITY_CODES = [
-        'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-    ];
+    // Use FacilityHierarchy for ARTCC lists (source: PERTI namespace)
+    const ADV_FACILITY_CODES = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.FACILITY_GROUPS)
+        ? FacilityHierarchy.FACILITY_GROUPS.US_CONUS.artccs
+        : ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
+           'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'];
 
-    const ADV_US_FACILITY_CODES = [
-        'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-        'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-    ];
+    const ADV_US_FACILITY_CODES = ADV_FACILITY_CODES;
 
     // Check if token is an ARTCC (Z + 2 chars)
     function advIsArtcc(code) {
@@ -6548,8 +6545,11 @@ $(document).ready(function() {
             console.log('[ADV-ML] ARTCCs from all routes:', artccs);
 
             // Normalize ARTCCs: KZLA → ZLA, filter to US CONUS only (Z** codes)
+            const normArtcc = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+                ? function(a) { return PERTI.normalizeArtcc(a); }
+                : function(a) { return a.replace(/^K/, ''); };
             const usArtccs = artccs
-                .map(a => a.replace(/^K/, ''))  // Strip K prefix (KZLA → ZLA)
+                .map(normArtcc)
                 .filter(a => /^Z[A-Z]{2}$/.test(a))  // Keep only Z** codes (excludes CZYZ, etc.)
                 .filter((v, i, arr) => arr.indexOf(v) === i)  // Dedupe after normalization
                 .sort();
@@ -6804,8 +6804,11 @@ $(document).ready(function() {
         // US ARTCCs: Z** (ZNY, ZDC, etc.)
         // Canadian FIRs: CZ** (CZYZ, CZUL, etc.) or C** (CZY)
         // Other international facilities included as-is
+        const normArtccFn = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+            ? function(a) { return PERTI.normalizeArtcc(a); }
+            : function(a) { return a.replace(/^K/, '').toUpperCase(); };
         const allArtccs = (data.artccs_all || [])
-            .map(a => a.replace(/^K/, '').toUpperCase())  // Strip K prefix if present
+            .map(normArtccFn)
             .filter((v, i, arr) => arr.indexOf(v) === i)   // Dedupe
             .sort();
 

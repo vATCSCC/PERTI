@@ -62,7 +62,7 @@ try {
     if (in_array('airports_served', $columns)) $selectCols[] = 'airports_served';
     if (in_array('responsible_artcc', $columns)) $selectCols[] = 'responsible_artcc';
     if (in_array('dcc_region', $columns)) $selectCols[] = 'dcc_region';
-    if (in_array('contains_aspm77', $columns)) $selectCols[] = 'contains_aspm77';
+    if (in_array('contains_aspm82', $columns)) $selectCols[] = 'contains_aspm82';
     if (in_array('contains_oep35', $columns)) $selectCols[] = 'contains_oep35';
     if (in_array('contains_core30', $columns)) $selectCols[] = 'contains_core30';
     
@@ -93,7 +93,7 @@ try {
             'airports_served' => $row['airports_served'] ?? null,
             'responsible_artcc' => $row['responsible_artcc'] ?? null,
             'dcc_region' => $row['dcc_region'] ?? null,
-            'contains_aspm77' => isset($row['contains_aspm77']) ? (bool)$row['contains_aspm77'] : null,
+            'contains_aspm82' => isset($row['contains_aspm82']) ? (bool)$row['contains_aspm82'] : null,
             'contains_oep35' => isset($row['contains_oep35']) ? (bool)$row['contains_oep35'] : null,
             'contains_core30' => isset($row['contains_core30']) ? (bool)$row['contains_core30'] : null
         ];

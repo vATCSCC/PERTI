@@ -911,15 +911,17 @@ const PHASE_TO_GROUP = {
     unknown: 'unknown',
 };
 
-// ARTCC colors for origin breakdown visualization
-const ARTCC_COLORS = {
-    'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
-    'ZAU': '#ff7f00', 'ZID': '#ffff33', 'ZTL': '#a65628', 'ZJX': '#f781bf',
-    'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
-    'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
-    'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
-    'ZAN': '#e7298a', 'ZHN': '#66a61e',
-};
+// ARTCC colors for origin breakdown visualization - uses PERTI when available
+const ARTCC_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
+    ? PERTI.UI.ARTCC_COLORS
+    : {
+        'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
+        'ZAU': '#ff7f00', 'ZID': '#ffff33', 'ZTL': '#a65628', 'ZJX': '#f781bf',
+        'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
+        'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
+        'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
+        'ZAN': '#e7298a', 'ZHN': '#66a61e',
+    };
 
 // Generate a color for unknown ARTCCs
 function getARTCCColor(artcc) {
@@ -936,81 +938,94 @@ function getARTCCColor(artcc) {
 }
 
 // Aircraft manufacturer groupings for equipment chart legend
-// Order: Boeing, Airbus, Embraer, Bombardier/Canadair, McDonnell Douglas, ATR/De Havilland, Other
-const AIRCRAFT_MANUFACTURERS = {
-    'Boeing': {
-        order: 1,
-        prefixes: ['B7', 'B3'],  // B737, B747, B757, B767, B777, B787, B38M, etc.
-        types: ['B712', 'B717', 'B721', 'B722', 'B727', 'B731', 'B732', 'B733', 'B734', 'B735', 'B736', 'B737', 'B738', 'B739',
-            'B37M', 'B38M', 'B39M', 'B3XM', 'B741', 'B742', 'B743', 'B744', 'B748', 'B74D', 'B74R', 'B74S',
-            'B752', 'B753', 'B762', 'B763', 'B764', 'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X'],
-    },
-    'Airbus': {
-        order: 2,
-        prefixes: ['A1', 'A2', 'A3', 'A4'],  // All Airbus start with A followed by digit
-        types: ['A124', 'A148', 'A158', 'A19N', 'A20N', 'A21N', 'A22X', 'A225',
-            'A306', 'A30B', 'A310', 'A318', 'A319', 'A320', 'A321', 'A332', 'A333', 'A337', 'A338', 'A339',
-            'A342', 'A343', 'A345', 'A346', 'A359', 'A35K', 'A388', 'A3ST'],
-    },
-    'Embraer': {
-        order: 3,
-        prefixes: ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E9'],
-        types: ['E110', 'E120', 'E121', 'E135', 'E145', 'E170', 'E175', 'E190', 'E195', 'E290', 'E295',
-            'E35L', 'E50P', 'E55P', 'EGRT', 'LEGH', 'LJ35', 'PHNM', 'PHPR'],
-    },
-    'Bombardier': {
-        order: 4,
-        prefixes: ['CRJ', 'CL', 'GL', 'BD', 'CH'],
-        types: ['BD10', 'BD70', 'CL30', 'CL35', 'CL60', 'CRJ1', 'CRJ2', 'CRJ7', 'CRJ9', 'CRJX',
-            'GL5T', 'GL7T', 'GLEX', 'GLXS', 'CH30', 'CH35', 'C25A', 'C25B', 'C25C', 'C500', 'C510',
-            'C525', 'C550', 'C560', 'C56X', 'C650', 'C680', 'C68A', 'C750'],
-    },
-    'McDonnell Douglas': {
-        order: 5,
-        prefixes: ['MD', 'DC'],
-        types: ['DC10', 'DC3', 'DC6', 'DC85', 'DC86', 'DC87', 'DC9', 'DC93', 'DC94', 'DC95',
-            'MD10', 'MD11', 'MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'MD90'],
-    },
-    'ATR/De Havilland': {
-        order: 6,
-        prefixes: ['AT', 'DH', 'DHC'],
-        types: ['AT43', 'AT44', 'AT45', 'AT46', 'AT72', 'AT73', 'AT75', 'AT76',
-            'DH8A', 'DH8B', 'DH8C', 'DH8D', 'DHC2', 'DHC3', 'DHC4', 'DHC5', 'DHC6', 'DHC7'],
-    },
-    'Chinese': {
-        order: 7,
-        prefixes: ['C9', 'ARJ'],
-        types: ['ARJ2', 'ARJ21', 'C919', 'MA60', 'Y12'],
-    },
-    'Russian': {
-        order: 8,
-        prefixes: ['IL', 'TU', 'AN', 'SSJ', 'SU', 'YK'],
-        types: ['AN12', 'AN24', 'AN26', 'AN28', 'AN30', 'AN32', 'AN72', 'AN74', 'AN12', 'AN14', 'AN22', 'AN22', 'A124', 'A225',
-            'IL14', 'IL18', 'IL62', 'IL76', 'IL86', 'IL96', 'SSJ1', 'SU95', 'TU14', 'TU15', 'TU16', 'TU20', 'TU22', 'TU34',
-            'TU54', 'T134', 'T144', 'T154', 'T204', 'T214', 'YK40', 'YK42'],
-    },
-    'Concorde': {
-        order: 9,
-        prefixes: ['CONC'],
-        types: ['CONC'],
-    },
-};
+// Use PERTIAircraft as source of truth with fallback for load order
+// Note: demand.js returns display names like 'Boeing', while PERTIAircraft keys are 'BOEING'
+const AIRCRAFT_MANUFACTURERS = (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.MANUFACTURERS)
+    ? PERTIAircraft.MANUFACTURERS
+    : {
+        'Boeing': {
+            order: 1,
+            prefixes: ['B7', 'B3'],
+            types: ['B712', 'B717', 'B721', 'B722', 'B727', 'B731', 'B732', 'B733', 'B734', 'B735', 'B736', 'B737', 'B738', 'B739',
+                'B37M', 'B38M', 'B39M', 'B3XM', 'B741', 'B742', 'B743', 'B744', 'B748', 'B74D', 'B74R', 'B74S',
+                'B752', 'B753', 'B762', 'B763', 'B764', 'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X'],
+        },
+        'Airbus': {
+            order: 2,
+            // Note: A124/A148/A158/A225 are Antonov, not Airbus
+            prefixes: ['A30', 'A31', 'A32', 'A33', 'A34', 'A35', 'A38'],
+            types: ['A306', 'A30B', 'A310', 'A318', 'A319', 'A320', 'A321',
+                'A19N', 'A20N', 'A21N',
+                'A332', 'A333', 'A337', 'A338', 'A339',
+                'A342', 'A343', 'A345', 'A346', 'A359', 'A35K', 'A388', 'A3ST'],
+        },
+        'Embraer': {
+            order: 3,
+            prefixes: ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E9', 'ERJ'],
+            types: ['E110', 'E120', 'E121', 'E135', 'E145', 'E170', 'E175', 'E190', 'E195', 'E290', 'E295',
+                'E35L', 'E50P', 'E55P', 'ERJ1', 'ERJ2'],
+        },
+        'Bombardier': {
+            order: 4,
+            prefixes: ['CRJ', 'CL', 'GL', 'BD', 'CH'],
+            types: ['BD10', 'BD70', 'CL30', 'CL35', 'CL60', 'CRJ1', 'CRJ2', 'CRJ7', 'CRJ9', 'CRJX',
+                'GL5T', 'GL7T', 'GLEX', 'GLXS', 'CH30', 'CH35', 'C25A', 'C25B', 'C25C', 'C500', 'C510',
+                'C525', 'C550', 'C560', 'C56X', 'C650', 'C680', 'C68A', 'C750'],
+        },
+        'McDonnell Douglas': {
+            order: 5,
+            prefixes: ['MD', 'DC'],
+            types: ['DC10', 'DC3', 'DC6', 'DC85', 'DC86', 'DC87', 'DC9', 'DC93', 'DC94', 'DC95',
+                'MD10', 'MD11', 'MD80', 'MD81', 'MD82', 'MD83', 'MD87', 'MD88', 'MD90'],
+        },
+        'ATR/De Havilland': {
+            order: 6,
+            prefixes: ['AT', 'DH', 'DHC'],
+            types: ['AT43', 'AT44', 'AT45', 'AT46', 'AT72', 'AT73', 'AT75', 'AT76',
+                'DH8A', 'DH8B', 'DH8C', 'DH8D', 'DHC2', 'DHC3', 'DHC4', 'DHC5', 'DHC6', 'DHC7'],
+        },
+        'Chinese': {
+            order: 7,
+            prefixes: ['C9', 'ARJ'],
+            types: ['ARJ2', 'ARJ21', 'C919', 'MA60', 'Y12'],
+        },
+        'Russian': {
+            order: 8,
+            // Includes Antonov (Ukrainian - A124/A148/A158/A225 are Antonov ICAO codes)
+            prefixes: ['IL', 'TU', 'AN', 'SSJ', 'SU', 'YK'],
+            types: ['AN12', 'AN14', 'AN22', 'AN24', 'AN26', 'AN28', 'AN30', 'AN32', 'AN72', 'AN74',
+                'A124', 'A148', 'A158', 'A225',
+                'IL14', 'IL18', 'IL62', 'IL76', 'IL86', 'IL96', 'SSJ1', 'SU95', 'TU14', 'TU15', 'TU16', 'TU20', 'TU22', 'TU34',
+                'TU54', 'T134', 'T144', 'T154', 'T204', 'T214', 'YK40', 'YK42'],
+        },
+        'Concorde': {
+            order: 9,
+            prefixes: ['CONC'],
+            types: ['CONC'],
+        },
+    };
 
 // Get manufacturer for an aircraft type
 function getAircraftManufacturer(acType) {
+    // Use PERTIAircraft if available
+    if (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.getManufacturerName) {
+        return PERTIAircraft.getManufacturerName(acType);
+    }
+
+    // Fallback to local lookup
     if (!acType) {return 'Other';}
     const upper = acType.toUpperCase();
 
     // Check exact type matches first
     for (const [mfr, data] of Object.entries(AIRCRAFT_MANUFACTURERS)) {
-        if (data.types.includes(upper)) {
+        if (data.types && data.types.includes(upper)) {
             return mfr;
         }
     }
 
     // Check prefix matches
     for (const [mfr, data] of Object.entries(AIRCRAFT_MANUFACTURERS)) {
-        for (const prefix of data.prefixes) {
+        for (const prefix of (data.prefixes || [])) {
             if (upper.startsWith(prefix)) {
                 return mfr;
             }
@@ -1022,6 +1037,9 @@ function getAircraftManufacturer(acType) {
 
 // Get manufacturer order for sorting
 function getManufacturerOrder(mfr) {
+    if (typeof PERTIAircraft !== 'undefined' && PERTIAircraft.getManufacturerOrder) {
+        return PERTIAircraft.getManufacturerOrder(mfr);
+    }
     return AIRCRAFT_MANUFACTURERS[mfr]?.order || 99;
 }
 
@@ -1039,6 +1057,10 @@ function getManufacturerOrder(mfr) {
  * @returns {string} Color hex code
  */
 function getDCCRegionColor(artcc) {
+    // Use PERTI namespace if available
+    if (typeof PERTI !== 'undefined' && PERTI.getDCCColor && PERTI.getDCCRegion) {
+        return PERTI.getDCCColor(PERTI.getDCCRegion(artcc));
+    }
     // Use FacilityHierarchy if available
     if (typeof FH !== 'undefined' && FH.getRegionColor) {
         const regionColor = FH.getRegionColor(artcc);
@@ -1084,19 +1106,20 @@ function getDCCRegionColor(artcc) {
     return `hsl(${hue}, 70%, 50%)`;
 }
 
-// DCC Region display order for legend grouping
-// Uses FacilityHierarchy.DCC_REGIONS for actual mappings
-const DCC_REGION_ORDER = {
-    'NORTHEAST': 1,
-    'SOUTHEAST': 2,
-    'SOUTH_CENTRAL': 3,
-    'MIDWEST': 4,
-    'WEST': 5,
-    'CANADA': 6,
-    'MEXICO': 7,
-    'CARIBBEAN': 8,
-    'Other': 99,
-};
+// DCC Region display order for legend grouping - PERTI > FacilityHierarchy > fallback
+const DCC_REGION_ORDER = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.DCC_REGION_ORDER)
+    ? PERTI.GEOGRAPHIC.DCC_REGION_ORDER
+    : {
+        'NORTHEAST': 1,
+        'SOUTHEAST': 2,
+        'SOUTH_CENTRAL': 3,
+        'MIDWEST': 4,
+        'WEST': 5,
+        'CANADA': 6,
+        'MEXICO': 7,
+        'CARIBBEAN': 8,
+        'Other': 99,
+    };
 
 // Get DCC region name for an ARTCC (uses global FacilityHierarchy if available)
 function getARTCCRegion(artcc) {
@@ -5827,7 +5850,13 @@ function getExtraColumnStyle(chartView, value) {
  * Generate consistent color from carrier code
  */
 function getCarrierColor(carrier) {
-    // Common carriers with specific colors
+    // Use PERTI namespace if available
+    if (typeof PERTI !== 'undefined' && PERTI.getCarrierColor) {
+        var c = PERTI.getCarrierColor(carrier);
+        var otherColor = (PERTI.UI && PERTI.UI.CARRIER_COLORS) ? PERTI.UI.CARRIER_COLORS.OTHER : null;
+        if (c && c !== otherColor) return c;
+    }
+    // Fallback: common carriers with specific colors
     const CARRIER_COLORS = {
         'AAL': '#c41230', 'DAL': '#003366', 'UAL': '#002244', 'SWA': '#f9a825',
         'JBU': '#003876', 'ASA': '#00205b', 'FFT': '#00467f', 'SKW': '#1a1a1a',

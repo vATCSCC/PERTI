@@ -10,12 +10,18 @@
  *
  * These values are synchronized with /assets/css/perti-colors.css
  *
+ * NOTE: This module uses PERTI namespace for DCC region lookups when available.
+ * Load lib/perti.js before this file for full integration.
+ *
  * @module lib/colors
- * @version 1.1.0
+ * @version 1.2.0
  */
 
 const PERTIColors = (function() {
     'use strict';
+
+    // Reference to PERTI namespace if available
+    const _PERTI = (typeof PERTI !== 'undefined') ? PERTI : null;
 
     // ========================================
     // BRAND COLORS (matches perti-colors.css)
@@ -57,12 +63,16 @@ const PERTIColors = (function() {
 
     // ========================================
     // FLIGHT RULES
+    // FAA flight plan types: I=IFR, V=VFR, Y=IFR/VFR, Z=VFR/IFR
+    // Special VFR types: D=DVFR (Defense), S=SVFR (Special)
     // ========================================
     const flightRules = {
         I: '#007bff',    // IFR - Blue
         V: '#28a745',    // VFR - Green
-        Y: '#fd7e14',    // Y-IFR - Orange
-        Z: '#e83e8c',    // Z-VFR - Pink
+        Y: '#fd7e14',    // Y-IFR (IFR then VFR) - Orange
+        Z: '#e83e8c',    // Z-VFR (VFR then IFR) - Pink
+        D: '#9c27b0',    // DVFR (Defense VFR) - Purple
+        S: '#17a2b8',    // SVFR (Special VFR) - Cyan
     };
 
     // ========================================
@@ -90,46 +100,65 @@ const PERTIColors = (function() {
 
     // ========================================
     // DCC REGIONS
+    // Colors for DCC regions - uses PERTI as source of truth when available
     // ========================================
-    const region = {
-        // Region colors
-        WEST: '#dc3545',           // Red
-        SOUTH_CENTRAL: '#fd7e14',  // Orange
-        MIDWEST: '#28a745',        // Green
-        SOUTHEAST: '#ffc107',      // Yellow
-        NORTHEAST: '#007bff',      // Blue
-        CANADA_EAST: '#9b59b6',    // Purple
-        CANADA_WEST: '#ff69b4',    // Pink
-        OTHER: '#6c757d',          // Gray fallback
+    const region = (_PERTI && _PERTI.GEOGRAPHIC && _PERTI.GEOGRAPHIC.DCC_REGIONS) ? (function() {
+        // Build color map from PERTI.GEOGRAPHIC.DCC_REGIONS
+        const colors = {};
+        Object.entries(_PERTI.GEOGRAPHIC.DCC_REGIONS).forEach(([key, data]) => {
+            colors[key] = data.color;
+        });
+        return colors;
+    })() : {
+        // Fallback when PERTI not loaded
+        WEST: '#dc3545',
+        SOUTH_CENTRAL: '#fd7e14',
+        MIDWEST: '#28a745',
+        SOUTHEAST: '#ffc107',
+        NORTHEAST: '#007bff',
+        CANADA: '#6f42c1',
+        OTHER: '#6c757d',
     };
 
-    // ARTCC/FIR to DCC Region mapping
-    const regionMapping = {
-        // DCC West (Red)
+    // ARTCC/FIR to DCC Region mapping - uses PERTI as source of truth
+    const regionMapping = (_PERTI && _PERTI.GEOGRAPHIC && _PERTI.GEOGRAPHIC.ARTCC_TO_DCC) ? _PERTI.GEOGRAPHIC.ARTCC_TO_DCC : {
+        // Fallback when PERTI not loaded
         ZAK: 'WEST', ZAN: 'WEST', ZHN: 'WEST', ZLA: 'WEST',
         ZLC: 'WEST', ZOA: 'WEST', ZSE: 'WEST',
-        // DCC South Central (Orange)
         ZAB: 'SOUTH_CENTRAL', ZFW: 'SOUTH_CENTRAL', ZHO: 'SOUTH_CENTRAL',
         ZHU: 'SOUTH_CENTRAL', ZME: 'SOUTH_CENTRAL',
-        // DCC Midwest (Green)
         ZAU: 'MIDWEST', ZDV: 'MIDWEST', ZKC: 'MIDWEST', ZMP: 'MIDWEST',
-        // DCC Southeast (Yellow)
         ZID: 'SOUTHEAST', ZJX: 'SOUTHEAST', ZMA: 'SOUTHEAST',
         ZMO: 'SOUTHEAST', ZTL: 'SOUTHEAST',
-        // DCC Northeast (Blue)
         ZBW: 'NORTHEAST', ZDC: 'NORTHEAST', ZNY: 'NORTHEAST',
         ZOB: 'NORTHEAST', ZWY: 'NORTHEAST',
-        // Canada East (Purple)
-        CZYZ: 'CANADA_EAST', CZUL: 'CANADA_EAST', CZZV: 'CANADA_EAST',
-        CZQM: 'CANADA_EAST', CZQX: 'CANADA_EAST', CZQO: 'CANADA_EAST',
-        // Canada West (Pink)
-        CZWG: 'CANADA_WEST', CZEG: 'CANADA_WEST', CZVR: 'CANADA_WEST',
+        CZYZ: 'CANADA', CZUL: 'CANADA',
+        CZQM: 'CANADA', CZQX: 'CANADA', CZQO: 'CANADA',
+        CZWG: 'CANADA', CZEG: 'CANADA', CZVR: 'CANADA',
+    };
+
+    // ========================================
+    // OPERATOR GROUPS
+    // Classification by carrier type
+    // ========================================
+    const operatorGroup = {
+        MAJOR: '#dc3545',      // Red - Major carriers (AAL, UAL, DAL, etc.)
+        REGIONAL: '#28a745',   // Green - Regional carriers (SKW, RPA, etc.)
+        FREIGHT: '#007bff',    // Blue - Freight/cargo (FDX, UPS, etc.)
+        GA: '#ffc107',         // Yellow - General aviation
+        MILITARY: '#6f42c1',   // Purple - Military (RCH, REACH, etc.)
+        OTHER: '#6c757d',      // Gray - Unclassified
     };
 
     // ========================================
     // WEATHER CONDITIONS
     // ========================================
-    const weather = {
+    // Uses PERTI.WEATHER.CATEGORIES as source of truth when available
+    const weather = (_PERTI && _PERTI.WEATHER && _PERTI.WEATHER.CATEGORIES) ? (function() {
+        var cats = _PERTI.WEATHER.CATEGORIES, m = {};
+        Object.keys(cats).forEach(function(k) { m[k] = cats[k].color; });
+        return m;
+    })() : {
         VMC: '#22c55e',    // Green - Visual conditions
         LVMC: '#eab308',   // Yellow - Low VMC
         IMC: '#f97316',    // Orange - Instrument conditions
@@ -396,6 +425,10 @@ const PERTIColors = (function() {
      * @returns {string} Hex color based on DCC region
      */
     function forARTCC(artcc) {
+        // Use PERTI helper if available
+        if (_PERTI) {
+            return _PERTI.getDCCColor(_PERTI.getDCCRegion(artcc));
+        }
         const regionName = regionMapping[artcc];
         return region[regionName] || region.OTHER;
     }
@@ -403,9 +436,13 @@ const PERTIColors = (function() {
     /**
      * Get DCC region name for an ARTCC/FIR code
      * @param {string} artcc - ARTCC or FIR code
-     * @returns {string} Region name (e.g., 'NORTHEAST', 'CANADA_EAST')
+     * @returns {string} Region name (e.g., 'NORTHEAST', 'CANADA')
      */
     function getRegion(artcc) {
+        // Use PERTI helper if available
+        if (_PERTI) {
+            return _PERTI.getDCCRegion(artcc);
+        }
         return regionMapping[artcc] || 'OTHER';
     }
 
@@ -416,6 +453,15 @@ const PERTIColors = (function() {
      */
     function forWeather(cat) {
         return weather[cat] || semantic.secondary;
+    }
+
+    /**
+     * Get color for operator group
+     * @param {string} group - MAJOR, REGIONAL, FREIGHT, GA, MILITARY, OTHER
+     * @returns {string} Hex color
+     */
+    function forOperatorGroup(group) {
+        return operatorGroup[group] || operatorGroup.OTHER;
     }
 
     /**
@@ -448,6 +494,7 @@ const PERTIColors = (function() {
         phase,
         region,
         regionMapping,  // ARTCC/FIR to DCC region mapping
+        operatorGroup,  // Carrier group colors (MAJOR, REGIONAL, etc.)
         weather,
         radarDbz,
         rate,
@@ -470,8 +517,9 @@ const PERTIColors = (function() {
         forWeightClass,
         forPhase,
         forRegion,
-        forARTCC,      // Get DCC region color for ARTCC
-        getRegion,     // Get DCC region name for ARTCC
+        forARTCC,         // Get DCC region color for ARTCC
+        getRegion,        // Get DCC region name for ARTCC
+        forOperatorGroup, // Get color for operator group
         forWeather,
         forAirspace,
         categorical,

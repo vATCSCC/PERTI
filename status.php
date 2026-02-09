@@ -3581,8 +3581,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         $parseTiers = $liveData['parse_tiers'] ?? [0=>0,1=>0,2=>0,3=>0,4=>0];
                                         $parseMax = max(1, max($parseTiers));
                                         $parseTierLabels = [
-                                            0 => 'T0: ASPM77 Deps',
-                                            1 => 'T1: ASPM77 Arrs',
+                                            0 => 'T0: ASPM82 Deps',
+                                            1 => 'T1: ASPM82 Arrs',
                                             2 => 'T2: CAN/MEX/CAR',
                                             3 => 'T3: Other Intl',
                                             4 => 'T4: Remote/Low Pri'
@@ -3913,7 +3913,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T1</span>
-                                            <span class="tier-info-desc">ASPM77</span>
+                                            <span class="tier-info-desc">ASPM82</span>
                                             <span class="tier-info-interval">1m</span>
                                         </div>
                                         <div class="tier-info-item">

@@ -76,26 +76,29 @@
     const GS_SIMTRAFFIC_ERROR_CUTOFF = 8;
     let GS_BTS_AVG_TIMES = null;
 
-    const AIRLINE_CODE_MAP = {
-        'AAL': 'AA', 'AA': 'AA',
-        'DAL': 'DL', 'DL': 'DL',
-        'UAL': 'UA', 'UA': 'UA',
-        'SWA': 'WN', 'WN': 'WN',
-        'JBU': 'B6', 'B6': 'B6',
-        'ASA': 'AS', 'AS': 'AS',
-        'AAY': 'G4', 'G4': 'G4',
-        'FFT': 'F9', 'F9': 'F9',
-        'NKS': 'NK', 'NK': 'NK',
-        'ENY': 'MQ', 'MQ': 'MQ',
-        'ASQ': 'EV', 'EV': 'EV',
-        'EDV': '9E', '9E': '9E',
-        'SKW': 'OO', 'OO': 'OO',
-        'ASH': 'YV', 'YV': 'YV',
-        'RPA': 'YX', 'YX': 'YX',
-        'HAL': 'HA', 'HA': 'HA',
-        'FDX': 'FX', 'FX': 'FX',
-        'UPS': '5X', '5X': '5X',
-    };
+    // ICAO/IATA airline code mappings - uses PERTI when available
+    const AIRLINE_CODE_MAP = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.AIRLINE_CODES)
+        ? PERTI.FACILITY.AIRLINE_CODES
+        : {
+            'AAL': 'AA', 'AA': 'AA',
+            'DAL': 'DL', 'DL': 'DL',
+            'UAL': 'UA', 'UA': 'UA',
+            'SWA': 'WN', 'WN': 'WN',
+            'JBU': 'B6', 'B6': 'B6',
+            'ASA': 'AS', 'AS': 'AS',
+            'AAY': 'G4', 'G4': 'G4',
+            'FFT': 'F9', 'F9': 'F9',
+            'NKS': 'NK', 'NK': 'NK',
+            'ENY': 'MQ', 'MQ': 'MQ',
+            'ASQ': 'EV', 'EV': 'EV',
+            'EDV': '9E', '9E': '9E',
+            'SKW': 'OO', 'OO': 'OO',
+            'ASH': 'YV', 'YV': 'YV',
+            'RPA': 'YX', 'YX': 'YX',
+            'HAL': 'HA', 'HA': 'HA',
+            'FDX': 'FX', 'FX': 'FX',
+            'UPS': '5X', '5X': '5X',
+        };
 
     function deriveBtsCarrierFromCallsign(callsign) {
         if (!callsign) {return null;}
@@ -538,11 +541,13 @@
         // Parse airports and convert ICAO to FAA codes
         const airportTokens = (airportsRaw || '').toUpperCase().split(/[\s,]+/).filter(function(t) { return t.length > 0; });
         const faaAirports = airportTokens.map(function(icao) {
-        // Convert ICAO to FAA (strip leading K for US airports, use AIRPORT_IATA_MAP if available)
+            // Convert ICAO to FAA/IATA (region-aware: handles AK, HI, Canada, etc.)
+            if (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao) {
+                return AIRPORT_IATA_MAP[icao] || PERTI.denormalizeIcao(icao);
+            }
             if (AIRPORT_IATA_MAP && AIRPORT_IATA_MAP[icao]) {
                 return AIRPORT_IATA_MAP[icao];
             }
-            // Fallback: strip leading K for US airports
             if (icao.length === 4 && icao.charAt(0) === 'K') {
                 return icao.substring(1);
             }
@@ -5217,7 +5222,7 @@
             dccMw: document.getElementById('tmi_stats_dcc_mw'),
             dccSc: document.getElementById('tmi_stats_dcc_sc'),
             dccW: document.getElementById('tmi_stats_dcc_w'),
-            aspm77: document.getElementById('tmi_stats_aspm77'),
+            aspm82: document.getElementById('tmi_stats_aspm82'),
             oep35: document.getElementById('tmi_stats_oep35'),
             core30: document.getElementById('tmi_stats_core30'),
         };
@@ -5271,8 +5276,8 @@
                             }
 
                             // Airport tiers
-                            if (data.domestic.arr_aspm77 && statsElements.aspm77) {
-                                statsElements.aspm77.textContent = data.domestic.arr_aspm77.yes || 0;
+                            if (data.domestic.arr_aspm82 && statsElements.aspm82) {
+                                statsElements.aspm82.textContent = data.domestic.arr_aspm82.yes || 0;
                             }
                             if (data.domestic.arr_oep35 && statsElements.oep35) {
                                 statsElements.oep35.textContent = data.domestic.arr_oep35.yes || 0;
@@ -6356,10 +6361,10 @@
     function loadGsDemandData(airport) {
         if (!GS_DEMAND_CHART || !airport) {return;}
 
-        // Normalize airport code (add K prefix for US 3-letter codes)
-        if (airport.length === 3 && !/^[PK]/.test(airport)) {
-            airport = 'K' + airport;
-        }
+        // Normalize airport code to ICAO (region-aware: US, Canada, Alaska, etc.)
+        airport = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
+            ? PERTI.normalizeIcao(airport)
+            : (airport.length === 3 && !/^[PK]/.test(airport)) ? 'K' + airport : airport;
 
         // Update UI
         const badgeEl = document.getElementById('gs_demand_airport_badge');
@@ -7668,14 +7673,17 @@
         }
     }
 
-    // Convert ICAO to FAA code (strip leading K for US airports)
+    // Convert ICAO to FAA code (region-aware: handles AK, HI, Canada, etc.)
     function icaoToFaa(icao) {
         if (!icao) {return '';}
         icao = String(icao).toUpperCase();
+        // PERTI denormalization (region-aware), with server IATA map as supplement
+        if (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao) {
+            return AIRPORT_IATA_MAP[icao] || PERTI.denormalizeIcao(icao);
+        }
         if (AIRPORT_IATA_MAP && AIRPORT_IATA_MAP[icao]) {
             return AIRPORT_IATA_MAP[icao];
         }
-        // Strip leading K for US airports
         if (icao.length === 4 && icao.charAt(0) === 'K') {
             return icao.substring(1);
         }

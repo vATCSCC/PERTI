@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 // Load dependencies
 try {
     require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../../load/perti_constants.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error']);

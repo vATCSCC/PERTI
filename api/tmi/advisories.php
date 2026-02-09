@@ -24,6 +24,7 @@
  */
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
 
 $method = tmi_method();
 $id = tmi_param('id');
@@ -191,9 +192,8 @@ function createAdvisory() {
     }
     
     // Validate advisory type
-    $valid_types = ['GS', 'GDP', 'AFP', 'CTOP', 'REROUTE', 'OPS_PLAN', 'GENERAL', 'CDR', 'SWAP', 'FEA', 'FCA', 'ICR', 'TOS', 'MIT'];
-    if (!in_array(strtoupper($body['advisory_type']), $valid_types)) {
-        TmiResponse::error('Invalid advisory_type. Must be one of: ' . implode(', ', $valid_types), 400);
+    if (!in_array(strtoupper($body['advisory_type']), PERTI_ADVISORY_TYPES)) {
+        TmiResponse::error('Invalid advisory_type. Must be one of: ' . implode(', ', PERTI_ADVISORY_TYPES), 400);
     }
     
     // Generate advisory number

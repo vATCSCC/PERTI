@@ -47,6 +47,7 @@ define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
 $auth_cid = gdt_require_auth();
 require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
+require_once __DIR__ . '/../../../load/perti_constants.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -85,11 +86,10 @@ if (empty($user_cid)) {
 }
 
 // Validate coordination mode
-$valid_modes = ['STANDARD', 'EXPEDITED', 'IMMEDIATE'];
-if (!in_array($coordination_mode, $valid_modes)) {
+if (!in_array($coordination_mode, PERTI_COORDINATION_MODES)) {
     respond_json(400, [
         'status' => 'error',
-        'message' => "Invalid coordination_mode: {$coordination_mode}. Valid modes: " . implode(', ', $valid_modes)
+        'message' => "Invalid coordination_mode: {$coordination_mode}. Valid modes: " . implode(', ', PERTI_COORDINATION_MODES)
     ]);
 }
 
@@ -104,11 +104,10 @@ if ($program === null) {
 }
 
 // Validate program is in correct state for submission
-$valid_statuses = ['PROPOSED', 'MODELING'];
-if (!in_array($program['status'], $valid_statuses)) {
+if (!in_array($program['status'], PERTI_MODELING_STATUSES)) {
     respond_json(400, [
         'status' => 'error',
-        'message' => "Program cannot be submitted. Current status: {$program['status']}. Must be PROPOSED or MODELING."
+        'message' => "Program cannot be submitted. Current status: {$program['status']}. Must be " . implode(' or ', PERTI_MODELING_STATUSES) . "."
     ]);
 }
 

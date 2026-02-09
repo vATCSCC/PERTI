@@ -1270,7 +1270,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         gsEntries.forEach(([key, r], i) => {
             // Extract airport from key (format: GS_NCT_KLAS_ALL -> LAS)
             const keyParts = key.split('_');
-            const airportCode = keyParts.length >= 3 ? keyParts[2].replace(/^K/, '') : 'GS';
+            var airportCode = 'GS';
+            if (keyParts.length >= 3) {
+                airportCode = (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao)
+                    ? PERTI.denormalizeIcao(keyParts[2])
+                    : keyParts[2].replace(/^K/, '');
+            }
             allTmis.push({
                 type: 'GS',
                 label: r.destination || airportCode,
@@ -5491,7 +5496,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     for (const { code, role } of artccCodes) {
                         // ARTCC GeoJSON uses ICAO codes (KZNY instead of ZNY)
-                        const icaoCode = 'K' + code;
+                        const icaoCode = (typeof PERTI !== 'undefined' && PERTI.normalizeArtcc)
+                            ? PERTI.normalizeArtcc(code) : 'K' + code;
                         const feature = artccData.features.find(f =>
                             f.properties.ICAOCODE === icaoCode || f.properties.ICAOCODE === code,
                         );

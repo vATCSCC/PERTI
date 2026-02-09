@@ -43,6 +43,7 @@ define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
 $auth_cid = gdt_require_auth();
 require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
+require_once __DIR__ . '/../../../load/perti_constants.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -98,9 +99,9 @@ if ($program === null) {
 $proposal = null;
 if ($dcc_override) {
     // DCC can publish directly without coordination approval
-    // Program just needs to be in PROPOSED or MODELING status
-    $valid_statuses = ['PROPOSED', 'MODELING', 'PENDING_COORD'];
-    if (!in_array($program['status'], $valid_statuses) && !$program['is_active']) {
+    // Program just needs to be in PROPOSED, MODELING, or PENDING_COORD status
+    $dcc_valid = array_merge(PERTI_MODELING_STATUSES, ['PENDING_COORD']);
+    if (!in_array($program['status'], $dcc_valid) && !$program['is_active']) {
         respond_json(400, [
             'status' => 'error',
             'message' => "Program cannot be published directly. Status: {$program['status']}."
