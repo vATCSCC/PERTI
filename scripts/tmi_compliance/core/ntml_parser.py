@@ -2250,6 +2250,89 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                        gs_programs=gs_programs, reroute_programs=reroute_programs)
 
 
+def extract_programs_from_ntml(
+    ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]
+) -> Tuple[List['GSProgram'], List['RerouteProgram']]:
+    """
+    Lightweight extraction of GS and reroute programs from NTML text.
+
+    Only processes ADVZY blocks (multi-line Ground Stop and Reroute advisories).
+    Skips all individual TMI line parsing (MIT, MINIT, STOP, CFR, delays, etc.)
+    which is the expensive part of parse_ntml_to_tmis.
+
+    Use this instead of parse_ntml_full when you already have pre-parsed TMIs
+    and only need to supplement with GS/reroute programs.
+
+    Returns:
+        Tuple of (gs_programs, reroute_programs)
+    """
+    cleaned_text = clean_discord_text(ntml_text)
+    lines = cleaned_text.strip().split('\n')
+
+    gs_advisories = []
+    gs_cnx_advisories = []
+    reroute_advisories = []
+    reroute_cnx_advisories = []
+    gs_tmis = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            i += 1
+            continue
+
+        line_type, _ = classify_line(line)
+
+        # Only process ADVZY blocks - skip everything else
+        if line_type == 'advzy_gs':
+            gs_tmi, gs_advisory, lines_consumed = parse_advzy_ground_stop(
+                lines, i, event_start, event_end, destinations
+            )
+            if gs_tmi:
+                gs_tmis.append(gs_tmi)
+            if gs_advisory:
+                gs_advisories.append(gs_advisory)
+            i += lines_consumed
+            continue
+
+        if line_type == 'advzy_gs_cnx':
+            cnx_advisory, lines_consumed = parse_advzy_gs_cnx(
+                lines, i, event_start, event_end
+            )
+            if cnx_advisory:
+                gs_cnx_advisories.append(cnx_advisory)
+            i += lines_consumed
+            continue
+
+        if line_type == 'advzy_reroute':
+            _, rte_advisory, lines_consumed = parse_advzy_reroute(
+                lines, i, event_start, event_end, destinations
+            )
+            if rte_advisory:
+                reroute_advisories.append(rte_advisory)
+            i += lines_consumed
+            continue
+
+        if line_type == 'advzy_reroute_cnx':
+            cnx_advisory, lines_consumed = parse_advzy_reroute_cancellation(
+                lines, i, event_start
+            )
+            if cnx_advisory:
+                reroute_cnx_advisories.append(cnx_advisory)
+            i += lines_consumed
+            continue
+
+        i += 1
+
+    # Build programs from collected advisories
+    gs_programs = build_gs_programs(gs_tmis, gs_advisories, gs_cnx_advisories)
+    reroute_programs = build_reroute_programs([], reroute_advisories, reroute_cnx_advisories)
+
+    logger.info(f"Extracted {len(gs_programs)} GS programs, {len(reroute_programs)} reroute programs from ADVZY blocks")
+    return gs_programs, reroute_programs
+
+
 @dataclass
 class NTMLParseResult:
     """Complete result from parsing NTML text"""
