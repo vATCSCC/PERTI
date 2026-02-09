@@ -1,13 +1,16 @@
 <?php
 /**
  * NOD Active TMIs API
- * 
+ *
  * Consolidates active TMIs from:
- * - Ground Stops (MySQL tmi_ground_stops)
- * - GDPs (Azure SQL gdp_log)
+ * - Ground Stops (MySQL tmi_ground_stops) + ADL held flight counts
+ * - GDPs (Azure SQL gdp_log) + enhanced stats from tmi_programs
  * - Reroutes (Azure SQL tmi_reroutes)
  * - Public Routes (Azure SQL public_routes with active status)
- * 
+ * - MITs and AFPs (Azure SQL tmi_entries)
+ * - Delay reports (Azure SQL vw_tmi_current_delays)
+ * - Airport coordinates for map display
+ *
  * GET - Returns all active TMIs
  */
 
@@ -31,24 +34,74 @@ $result = [
     'gdps' => [],
     'reroutes' => [],
     'public_routes' => [],
+    'mits' => [],
+    'afps' => [],
+    'delays' => [],
+    'airports' => (object)[],
     'summary' => [
         'total_gs' => 0,
         'total_gdp' => 0,
         'total_reroutes' => 0,
         'total_public_routes' => 0,
+        'total_mits' => 0,
+        'total_afps' => 0,
+        'total_delays' => 0,
         'has_active_tmi' => false
     ],
     'generated_at' => gmdate('Y-m-d\TH:i:s\Z')
 ];
 
+/**
+ * Format a sqlsrv DateTime field to ISO 8601 UTC string.
+ */
+function formatSqlsrvDateTime($value): ?string {
+    if ($value instanceof DateTime) {
+        return $value->format('Y-m-d\TH:i:s\Z');
+    }
+    return $value;
+}
+
+/**
+ * Resolve a fix name to lat/lon from nav_fixes, using a cache to avoid repeated queries.
+ * Returns ['lat' => float, 'lon' => float] or null.
+ */
+function resolveFixLatLon(string $fixName, $conn_adl, array &$fixCache): ?array {
+    if (isset($fixCache[$fixName])) {
+        return $fixCache[$fixName];
+    }
+
+    $fix_sql = "SELECT TOP 1 fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name = ?";
+    $fix_stmt = @sqlsrv_query($conn_adl, $fix_sql, [$fixName]);
+    if ($fix_stmt) {
+        $fix_row = sqlsrv_fetch_array($fix_stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($fix_stmt);
+        if ($fix_row) {
+            $fixCache[$fixName] = [
+                'lat' => (float)$fix_row['lat'],
+                'lon' => (float)$fix_row['lon']
+            ];
+            return $fixCache[$fixName];
+        }
+    }
+
+    $fixCache[$fixName] = null;
+    return null;
+}
+
 try {
+    // Lazy-loaded connections (initialized on first use)
+    $conn_adl_lazy = null;
+    $conn_tmi_lazy = null;
+    $fix_cache = [];
+    $airport_codes = [];
+
     // =========================================
     // 1. Ground Stops (MySQL)
     // =========================================
-    if (isset($conn) && $conn) {
+    if (isset($conn_sqli) && $conn_sqli) {
         $gs_sql = "SELECT * FROM tmi_ground_stops WHERE status = 1 ORDER BY start_utc DESC";
-        $gs_result = mysqli_query($conn, $gs_sql);
-        
+        $gs_result = mysqli_query($conn_sqli, $gs_sql);
+
         if ($gs_result) {
             while ($row = mysqli_fetch_assoc($gs_result)) {
                 $result['ground_stops'][] = [
@@ -68,33 +121,75 @@ try {
                     'comments' => $row['comments'],
                     'adv_number' => $row['adv_number'],
                     'advisory_text' => $row['advisory_text'],
+                    'flights_held' => 0,
+                    'avg_hold_minutes' => 0,
                     'tmi_type' => 'GS',
                     'status_label' => 'Ground Stop'
                 ];
+
+                // Collect airport codes for coordinate lookup
+                if (!empty($row['ctl_element'])) {
+                    $airport_codes[] = $row['ctl_element'];
+                }
+                if (!empty($row['airports'])) {
+                    foreach (preg_split('/[\s,;]+/', $row['airports']) as $apt) {
+                        $apt = trim($apt);
+                        if ($apt !== '') {
+                            $airport_codes[] = $apt;
+                        }
+                    }
+                }
             }
             mysqli_free_result($gs_result);
         }
     }
-    
+
+    // =========================================
+    // 1a. GS Flight Held Counts (ADL - Azure SQL)
+    // =========================================
+    if (!empty($result['ground_stops'])) {
+        $conn_adl_lazy = get_conn_adl();
+        if ($conn_adl_lazy) {
+            $gs_counts_sql = "SELECT ctl_element, COUNT(*) as held_count
+                              FROM dbo.adl_flight_tmi
+                              WHERE gs_held = 1 AND ctl_element IS NOT NULL
+                              GROUP BY ctl_element";
+            $gs_counts_stmt = @sqlsrv_query($conn_adl_lazy, $gs_counts_sql);
+
+            if ($gs_counts_stmt) {
+                $gs_held_lookup = [];
+                while ($row = sqlsrv_fetch_array($gs_counts_stmt, SQLSRV_FETCH_ASSOC)) {
+                    $gs_held_lookup[$row['ctl_element']] = (int)$row['held_count'];
+                }
+                sqlsrv_free_stmt($gs_counts_stmt);
+
+                // Merge held counts into ground stop records
+                foreach ($result['ground_stops'] as &$gs) {
+                    $elem = $gs['ctl_element'] ?? '';
+                    if (isset($gs_held_lookup[$elem])) {
+                        $gs['flights_held'] = $gs_held_lookup[$elem];
+                    }
+                }
+                unset($gs);
+            }
+        }
+    }
+
     // =========================================
     // 2. GDPs (Azure SQL - gdp_log)
     // =========================================
     if (isset($conn_adl) && $conn_adl) {
-        // Check if gdp_log table exists and has active programs
-        $gdp_sql = "SELECT TOP 20 * FROM dbo.gdp_log 
-                    WHERE status = 'ACTIVE' 
+        $gdp_sql = "SELECT TOP 20 * FROM dbo.gdp_log
+                    WHERE status = 'ACTIVE'
                     ORDER BY created_at DESC";
-        
+
         $gdp_stmt = @sqlsrv_query($conn_adl, $gdp_sql);
-        
+
         if ($gdp_stmt) {
             while ($row = sqlsrv_fetch_array($gdp_stmt, SQLSRV_FETCH_ASSOC)) {
-                // Format datetime fields
-                $startTime = isset($row['start_time']) && $row['start_time'] instanceof DateTime 
-                    ? $row['start_time']->format('Y-m-d\TH:i:s\Z') : $row['start_time'];
-                $endTime = isset($row['end_time']) && $row['end_time'] instanceof DateTime 
-                    ? $row['end_time']->format('Y-m-d\TH:i:s\Z') : $row['end_time'];
-                
+                $startTime = formatSqlsrvDateTime($row['start_time'] ?? null);
+                $endTime = formatSqlsrvDateTime($row['end_time'] ?? null);
+
                 $result['gdps'][] = [
                     'id' => $row['id'] ?? null,
                     'airport' => $row['airport'] ?? $row['ctl_element'] ?? null,
@@ -108,13 +203,60 @@ try {
                     'avg_delay' => $row['avg_delay'] ?? null,
                     'impacting_condition' => $row['impacting_condition'] ?? null,
                     'comments' => $row['comments'] ?? null,
+                    'controlled_count' => 0,
+                    'exempt_count' => 0,
+                    'total_delay_minutes' => 0,
                     'tmi_type' => 'GDP',
                     'status_label' => 'Ground Delay Program'
                 ];
+
+                // Collect airport code for coordinate lookup
+                $apt = $row['airport'] ?? $row['ctl_element'] ?? null;
+                if ($apt) {
+                    $airport_codes[] = $apt;
+                }
             }
             sqlsrv_free_stmt($gdp_stmt);
         }
-        
+
+        // =========================================
+        // 2a. GDP Enhanced Stats (TMI - tmi_programs)
+        // =========================================
+        if (!empty($result['gdps'])) {
+            $conn_tmi_lazy = get_conn_tmi();
+            if ($conn_tmi_lazy) {
+                $prog_sql = "SELECT program_id, ctl_element, controlled_flights, exempt_flights,
+                                    total_delay_min, avg_delay_min, max_delay_min
+                             FROM dbo.tmi_programs
+                             WHERE is_active = 1 AND program_type IN ('GDP', 'GS_GDP')";
+                $prog_stmt = @sqlsrv_query($conn_tmi_lazy, $prog_sql);
+
+                if ($prog_stmt) {
+                    $prog_lookup = [];
+                    while ($row = sqlsrv_fetch_array($prog_stmt, SQLSRV_FETCH_ASSOC)) {
+                        $elem = $row['ctl_element'] ?? '';
+                        $prog_lookup[$elem] = [
+                            'controlled_count' => (int)($row['controlled_flights'] ?? 0),
+                            'exempt_count' => (int)($row['exempt_flights'] ?? 0),
+                            'total_delay_minutes' => (int)($row['total_delay_min'] ?? 0),
+                        ];
+                    }
+                    sqlsrv_free_stmt($prog_stmt);
+
+                    // Merge enhanced stats into GDP records
+                    foreach ($result['gdps'] as &$gdp) {
+                        $apt = $gdp['airport'] ?? '';
+                        if (isset($prog_lookup[$apt])) {
+                            $gdp['controlled_count'] = $prog_lookup[$apt]['controlled_count'];
+                            $gdp['exempt_count'] = $prog_lookup[$apt]['exempt_count'];
+                            $gdp['total_delay_minutes'] = $prog_lookup[$apt]['total_delay_minutes'];
+                        }
+                    }
+                    unset($gdp);
+                }
+            }
+        }
+
         // =========================================
         // 3. Reroutes (Azure SQL - VATSIM_TMI.tmi_reroutes)
         // =========================================
@@ -141,10 +283,8 @@ try {
 
         if ($rr_stmt) {
             while ($row = sqlsrv_fetch_array($rr_stmt, SQLSRV_FETCH_ASSOC)) {
-                $startUtc = isset($row['start_utc']) && $row['start_utc'] instanceof DateTime
-                    ? $row['start_utc']->format('Y-m-d\TH:i:s\Z') : $row['start_utc'];
-                $endUtc = isset($row['end_utc']) && $row['end_utc'] instanceof DateTime
-                    ? $row['end_utc']->format('Y-m-d\TH:i:s\Z') : $row['end_utc'];
+                $startUtc = formatSqlsrvDateTime($row['start_utc'] ?? null);
+                $endUtc = formatSqlsrvDateTime($row['end_utc'] ?? null);
 
                 $result['reroutes'][] = [
                     'id' => $row['id'],
@@ -180,7 +320,7 @@ try {
 
         // Add debug info for reroutes
         $result['debug']['reroutes_source'] = isset($conn_tmi) && $conn_tmi ? 'VATSIM_TMI' : 'VATSIM_ADL';
-        
+
         // =========================================
         // 4. Public Routes (Azure SQL - VATSIM_TMI.tmi_public_routes)
         // =========================================
@@ -218,10 +358,8 @@ try {
 
         if ($pr_stmt) {
             while ($row = sqlsrv_fetch_array($pr_stmt, SQLSRV_FETCH_ASSOC)) {
-                $validStart = isset($row['valid_start_utc']) && $row['valid_start_utc'] instanceof DateTime
-                    ? $row['valid_start_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_start_utc'];
-                $validEnd = isset($row['valid_end_utc']) && $row['valid_end_utc'] instanceof DateTime
-                    ? $row['valid_end_utc']->format('Y-m-d\TH:i:s\Z') : $row['valid_end_utc'];
+                $validStart = formatSqlsrvDateTime($row['valid_start_utc'] ?? null);
+                $validEnd = formatSqlsrvDateTime($row['valid_end_utc'] ?? null);
 
                 $result['public_routes'][] = [
                     'id' => $row['id'],
@@ -251,7 +389,157 @@ try {
             $result['debug']['public_routes_error'] = $errors;
         }
     }
-    
+
+    // =========================================
+    // 5. MITs and AFPs (Azure SQL - VATSIM_TMI.tmi_entries)
+    // =========================================
+    $conn_tmi_lazy = $conn_tmi_lazy ?? get_conn_tmi();
+    if ($conn_tmi_lazy) {
+        $entries_sql = "SELECT entry_id, entry_type, ctl_element, restriction_value,
+                               restriction_unit, requesting_facility, providing_facility,
+                               reason_code, valid_from, valid_until, status
+                        FROM dbo.tmi_entries
+                        WHERE status = 'ACTIVE'
+                          AND entry_type IN ('MIT', 'AFP', 'MINIT', 'DSP')
+                          AND (valid_until IS NULL OR valid_until > GETUTCDATE())
+                        ORDER BY valid_from DESC";
+        $entries_stmt = @sqlsrv_query($conn_tmi_lazy, $entries_sql);
+
+        if ($entries_stmt) {
+            // Ensure ADL connection is available for fix lookups
+            $conn_adl_lazy = $conn_adl_lazy ?? get_conn_adl();
+
+            while ($row = sqlsrv_fetch_array($entries_stmt, SQLSRV_FETCH_ASSOC)) {
+                $validFrom = formatSqlsrvDateTime($row['valid_from'] ?? null);
+                $validUntil = formatSqlsrvDateTime($row['valid_until'] ?? null);
+
+                $fix_lat = null;
+                $fix_lon = null;
+                $ctl = $row['ctl_element'] ?? '';
+                if ($ctl !== '' && $conn_adl_lazy) {
+                    $coords = resolveFixLatLon($ctl, $conn_adl_lazy, $fix_cache);
+                    if ($coords) {
+                        $fix_lat = $coords['lat'];
+                        $fix_lon = $coords['lon'];
+                    }
+                }
+
+                $entry = [
+                    'entry_id' => (int)$row['entry_id'],
+                    'entry_type' => $row['entry_type'],
+                    'ctl_element' => $row['ctl_element'],
+                    'restriction_value' => $row['restriction_value'],
+                    'restriction_unit' => $row['restriction_unit'],
+                    'requesting_facility' => $row['requesting_facility'],
+                    'providing_facility' => $row['providing_facility'],
+                    'reason_code' => $row['reason_code'],
+                    'valid_from' => $validFrom,
+                    'valid_until' => $validUntil,
+                    'status' => $row['status'],
+                    'fix_lat' => $fix_lat,
+                    'fix_lon' => $fix_lon,
+                ];
+
+                $type = $row['entry_type'] ?? '';
+                if ($type === 'MIT' || $type === 'MINIT') {
+                    $result['mits'][] = $entry;
+                } else {
+                    $result['afps'][] = $entry;
+                }
+            }
+            sqlsrv_free_stmt($entries_stmt);
+        }
+    }
+
+    // =========================================
+    // 6. Delay Reports (Azure SQL - VATSIM_TMI.vw_tmi_current_delays)
+    // =========================================
+    $conn_tmi_lazy = $conn_tmi_lazy ?? get_conn_tmi();
+    if ($conn_tmi_lazy) {
+        $delays_sql = "SELECT * FROM dbo.vw_tmi_current_delays ORDER BY delay_minutes DESC";
+        $delays_stmt = @sqlsrv_query($conn_tmi_lazy, $delays_sql);
+
+        if ($delays_stmt) {
+            $conn_adl_lazy = $conn_adl_lazy ?? get_conn_adl();
+
+            while ($row = sqlsrv_fetch_array($delays_stmt, SQLSRV_FETCH_ASSOC)) {
+                $timestampUtc = formatSqlsrvDateTime($row['timestamp_utc'] ?? null);
+
+                $holding_lat = null;
+                $holding_lon = null;
+                $holdingFix = $row['holding_fix'] ?? '';
+                if ($holdingFix !== '' && $conn_adl_lazy) {
+                    $coords = resolveFixLatLon($holdingFix, $conn_adl_lazy, $fix_cache);
+                    if ($coords) {
+                        $holding_lat = $coords['lat'];
+                        $holding_lon = $coords['lon'];
+                    }
+                }
+
+                $result['delays'][] = [
+                    'delay_id' => (int)($row['delay_id'] ?? 0),
+                    'delay_type' => $row['delay_type'] ?? null,
+                    'airport' => $row['airport'] ?? null,
+                    'facility' => $row['facility'] ?? null,
+                    'timestamp_utc' => $timestampUtc,
+                    'delay_minutes' => (int)($row['delay_minutes'] ?? 0),
+                    'delay_trend' => $row['delay_trend'] ?? null,
+                    'holding_status' => $row['holding_status'] ?? null,
+                    'holding_fix' => $row['holding_fix'] ?? null,
+                    'holding_fix_lat' => $holding_lat,
+                    'holding_fix_lon' => $holding_lon,
+                    'reason' => $row['reason'] ?? null,
+                    'program_id' => $row['program_id'] ?? null,
+                ];
+
+                // Collect airport code for coordinate lookup
+                $apt = $row['airport'] ?? null;
+                if ($apt) {
+                    $airport_codes[] = $apt;
+                }
+            }
+            sqlsrv_free_stmt($delays_stmt);
+        }
+    }
+
+    // =========================================
+    // 7. Airport Coordinates (ADL - dbo.apts)
+    // =========================================
+    $airport_codes = array_unique(array_filter($airport_codes));
+    if (!empty($airport_codes)) {
+        $conn_adl_lazy = $conn_adl_lazy ?? get_conn_adl();
+        if ($conn_adl_lazy) {
+            $code_count = count($airport_codes);
+            $placeholders = implode(',', array_fill(0, $code_count, '?'));
+            $apt_sql = "SELECT ARPT_ID, ICAO_ID, LAT_DECIMAL, LONG_DECIMAL
+                        FROM dbo.apts
+                        WHERE ARPT_ID IN ($placeholders) OR ICAO_ID IN ($placeholders)";
+
+            // Double the params array: once for ARPT_ID, once for ICAO_ID
+            $apt_params = array_merge(array_values($airport_codes), array_values($airport_codes));
+            $apt_stmt = @sqlsrv_query($conn_adl_lazy, $apt_sql, $apt_params);
+
+            if ($apt_stmt) {
+                $airports_map = [];
+                while ($row = sqlsrv_fetch_array($apt_stmt, SQLSRV_FETCH_ASSOC)) {
+                    $lat = (float)($row['LAT_DECIMAL'] ?? 0);
+                    $lon = (float)($row['LONG_DECIMAL'] ?? 0);
+                    $coord = ['lat' => $lat, 'lon' => $lon];
+
+                    if (!empty($row['ARPT_ID'])) {
+                        $airports_map[$row['ARPT_ID']] = $coord;
+                    }
+                    if (!empty($row['ICAO_ID'])) {
+                        $airports_map[$row['ICAO_ID']] = $coord;
+                    }
+                }
+                sqlsrv_free_stmt($apt_stmt);
+
+                $result['airports'] = !empty($airports_map) ? $airports_map : (object)[];
+            }
+        }
+    }
+
     // =========================================
     // Summary
     // =========================================
@@ -259,14 +547,18 @@ try {
     $result['summary']['total_gdp'] = count($result['gdps']);
     $result['summary']['total_reroutes'] = count($result['reroutes']);
     $result['summary']['total_public_routes'] = count($result['public_routes']);
+    $result['summary']['total_mits'] = count($result['mits']);
+    $result['summary']['total_afps'] = count($result['afps']);
+    $result['summary']['total_delays'] = count($result['delays']);
     $result['summary']['has_active_tmi'] = (
         $result['summary']['total_gs'] > 0 ||
         $result['summary']['total_gdp'] > 0 ||
-        $result['summary']['total_reroutes'] > 0
+        $result['summary']['total_reroutes'] > 0 ||
+        $result['summary']['total_mits'] > 0
     );
-    
+
     echo json_encode($result);
-    
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
@@ -275,11 +567,18 @@ try {
         'gdps' => [],
         'reroutes' => [],
         'public_routes' => [],
+        'mits' => [],
+        'afps' => [],
+        'delays' => [],
+        'airports' => (object)[],
         'summary' => [
             'total_gs' => 0,
             'total_gdp' => 0,
             'total_reroutes' => 0,
             'total_public_routes' => 0,
+            'total_mits' => 0,
+            'total_afps' => 0,
+            'total_delays' => 0,
             'has_active_tmi' => false
         ]
     ]);

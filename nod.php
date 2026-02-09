@@ -343,7 +343,87 @@ include("load/config.php");
             margin-top: 6px;
             font-family: 'Consolas', 'Monaco', monospace;
         }
-        
+
+        .nod-tmi-card.mit { border-left-color: #17a2b8; }
+        .nod-tmi-card.afp { border-left-color: #6f42c1; }
+        .nod-tmi-card.delay { border-left-color: #ffc107; }
+        .nod-tmi-card.delay.severity-low { border-left-color: #28a745; }
+        .nod-tmi-card.delay.severity-moderate { border-left-color: #ffc107; }
+        .nod-tmi-card.delay.severity-high { border-left-color: #fd7e14; }
+        .nod-tmi-card.delay.severity-severe { border-left-color: #dc3545; }
+
+        .nod-tmi-type.mit { background: #17a2b8; }
+        .nod-tmi-type.afp { background: #6f42c1; }
+        .nod-tmi-type.delay { background: #ffc107; color: #000; }
+
+        .nod-tmi-countdown {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            color: #aaa;
+            float: right;
+        }
+
+        .nod-tmi-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .nod-tmi-action-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 3px;
+            color: #888;
+            padding: 3px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .nod-tmi-action-btn:hover {
+            background: rgba(255,255,255,0.12);
+            color: #ccc;
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .nod-tmi-metric {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .nod-tmi-metric strong {
+            color: #ccc;
+        }
+
+        .nod-tmi-compliance-bar {
+            height: 3px;
+            background: #333;
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .nod-tmi-compliance-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .nod-tmi-trend {
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .nod-tmi-trend.increasing { color: #dc3545; }
+        .nod-tmi-trend.decreasing { color: #28a745; }
+        .nod-tmi-trend.steady { color: #ffc107; }
+
         /* Advisory Cards */
         .nod-advisory-card {
             background: #252540;
@@ -1191,6 +1271,13 @@ include("load/config.php");
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
                            title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div><!-- /nod-layer-item radar -->
+                <div class="nod-layer-item">
+                    <input type="checkbox" id="layer-tmi-status" checked onchange="NOD.toggleLayer('tmi-status', this.checked)">
+                    <span class="nod-layer-color" style="background: #dc3545;"></span>
+                    <label for="layer-tmi-status">TMI Status</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-tmi-status" min="0" max="100" value="80"
+                           title="Opacity" onchange="NOD.setLayerOpacity('tmi-status', this.value/100)">
+                </div>
                     </div><!-- /nod-toolbar-dropdown-content -->
                 </div><!-- /nod-toolbar-dropdown -->
             </div><!-- /nod-toolbar-section mapLayerControls -->
@@ -1600,6 +1687,32 @@ include("load/config.php");
                     </div>
                 </div>
                 
+                <!-- MITs / AFPs Section -->
+                <div class="nod-section" id="section-mit">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('mit')">
+                        <span class="nod-section-title"><i class="fas fa-arrows-alt-h mr-2"></i>MITs / AFPs</span>
+                        <span class="nod-section-badge" id="mit-count">0</span>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="mit-list">
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delay Reports Section -->
+                <div class="nod-section" id="section-delays">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('delays')">
+                        <span class="nod-section-title"><i class="fas fa-hourglass-half mr-2"></i>Delay Reports</span>
+                        <span class="nod-section-badge" id="delays-count">0</span>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="delays-list">
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Discord TMIs Section -->
                 <div class="nod-section" id="section-discord">
                     <div class="nod-section-header" onclick="NOD.toggleSection('discord')">
