@@ -911,15 +911,17 @@ const PHASE_TO_GROUP = {
     unknown: 'unknown',
 };
 
-// ARTCC colors for origin breakdown visualization
-const ARTCC_COLORS = {
-    'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
-    'ZAU': '#ff7f00', 'ZID': '#ffff33', 'ZTL': '#a65628', 'ZJX': '#f781bf',
-    'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
-    'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
-    'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
-    'ZAN': '#e7298a', 'ZHN': '#66a61e',
-};
+// ARTCC colors for origin breakdown visualization - uses PERTI when available
+const ARTCC_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
+    ? PERTI.UI.ARTCC_COLORS
+    : {
+        'ZNY': '#e41a1c', 'ZDC': '#377eb8', 'ZBW': '#4daf4a', 'ZOB': '#984ea3',
+        'ZAU': '#ff7f00', 'ZID': '#ffff33', 'ZTL': '#a65628', 'ZJX': '#f781bf',
+        'ZMA': '#999999', 'ZHU': '#66c2a5', 'ZFW': '#fc8d62', 'ZKC': '#8da0cb',
+        'ZME': '#e78ac3', 'ZDV': '#a6d854', 'ZMP': '#ffd92f', 'ZAB': '#e5c494',
+        'ZLA': '#b3b3b3', 'ZOA': '#1b9e77', 'ZSE': '#d95f02', 'ZLC': '#7570b3',
+        'ZAN': '#e7298a', 'ZHN': '#66a61e',
+    };
 
 // Generate a color for unknown ARTCCs
 function getARTCCColor(artcc) {
@@ -1055,6 +1057,10 @@ function getManufacturerOrder(mfr) {
  * @returns {string} Color hex code
  */
 function getDCCRegionColor(artcc) {
+    // Use PERTI namespace if available
+    if (typeof PERTI !== 'undefined' && PERTI.getDCCColor && PERTI.getDCCRegion) {
+        return PERTI.getDCCColor(PERTI.getDCCRegion(artcc));
+    }
     // Use FacilityHierarchy if available
     if (typeof FH !== 'undefined' && FH.getRegionColor) {
         const regionColor = FH.getRegionColor(artcc);
@@ -1100,19 +1106,20 @@ function getDCCRegionColor(artcc) {
     return `hsl(${hue}, 70%, 50%)`;
 }
 
-// DCC Region display order for legend grouping
-// Uses FacilityHierarchy.DCC_REGIONS for actual mappings
-const DCC_REGION_ORDER = {
-    'NORTHEAST': 1,
-    'SOUTHEAST': 2,
-    'SOUTH_CENTRAL': 3,
-    'MIDWEST': 4,
-    'WEST': 5,
-    'CANADA': 6,
-    'MEXICO': 7,
-    'CARIBBEAN': 8,
-    'Other': 99,
-};
+// DCC Region display order for legend grouping - PERTI > FacilityHierarchy > fallback
+const DCC_REGION_ORDER = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.DCC_REGION_ORDER)
+    ? PERTI.GEOGRAPHIC.DCC_REGION_ORDER
+    : {
+        'NORTHEAST': 1,
+        'SOUTHEAST': 2,
+        'SOUTH_CENTRAL': 3,
+        'MIDWEST': 4,
+        'WEST': 5,
+        'CANADA': 6,
+        'MEXICO': 7,
+        'CARIBBEAN': 8,
+        'Other': 99,
+    };
 
 // Get DCC region name for an ARTCC (uses global FacilityHierarchy if available)
 function getARTCCRegion(artcc) {
@@ -5843,7 +5850,13 @@ function getExtraColumnStyle(chartView, value) {
  * Generate consistent color from carrier code
  */
 function getCarrierColor(carrier) {
-    // Common carriers with specific colors
+    // Use PERTI namespace if available
+    if (typeof PERTI !== 'undefined' && PERTI.getCarrierColor) {
+        var c = PERTI.getCarrierColor(carrier);
+        var otherColor = (PERTI.UI && PERTI.UI.CARRIER_COLORS) ? PERTI.UI.CARRIER_COLORS.OTHER : null;
+        if (c && c !== otherColor) return c;
+    }
+    // Fallback: common carriers with specific colors
     const CARRIER_COLORS = {
         'AAL': '#c41230', 'DAL': '#003366', 'UAL': '#002244', 'SWA': '#f9a825',
         'JBU': '#003876', 'ASA': '#00205b', 'FFT': '#00467f', 'SKW': '#1a1a1a',

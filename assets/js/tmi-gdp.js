@@ -174,7 +174,8 @@
             document.getElementById('gsgdpGsFields').style.display = '';
             document.getElementById('gsgdpGdpFields').style.display = 'none';
 
-            const scope = data.element_type === 'AIRPORT' ? 'Single Airport' :
+            // 'APT' is the canonical DB value; 'AIRPORT' exists in legacy records from coordinate.php bug
+            const scope = (data.element_type === 'APT' || data.element_type === 'AIRPORT') ? 'Single Airport' :
                 (data.airports || data.ctl_element);
             document.getElementById('gsgdpScope').textContent = scope;
             document.getElementById('gsgdpAffectedFlights').textContent =
@@ -427,22 +428,30 @@
             cb.checked = false;
         });
 
-        // Map airports to their overlying ARTCCs
-        const airportToArtcc = {
-            'KJFK': ['ZNY', 'ZBW'], 'KEWR': ['ZNY'], 'KLGA': ['ZNY'],
-            'KATL': ['ZTL'], 'KORD': ['ZAU'], 'KDEN': ['ZDV'],
-            'KDFW': ['ZFW'], 'KLAX': ['ZLA'], 'KSFO': ['ZOA'],
-            'KMIA': ['ZMA'], 'KBOS': ['ZBW'], 'KPHL': ['ZNY', 'ZDC'],
-            'KIAD': ['ZDC'], 'KDCA': ['ZDC'], 'KBWI': ['ZDC'],
-            'KMSP': ['ZMP'], 'KDTW': ['ZOB'], 'KCLT': ['ZTL'],
-            'KPHX': ['ZAB'], 'KLAS': ['ZLA'], 'KIAH': ['ZHU'],
-            'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE'],
-        };
+        // Map airports to their overlying ARTCCs (multi-ARTCC for border airports)
+        // Source of truth: PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP (perti.js)
+        const airportToArtcc = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP)
+            ? PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP
+            : {
+                'KJFK': ['ZNY', 'ZBW'], 'KEWR': ['ZNY'], 'KLGA': ['ZNY'],
+                'KATL': ['ZTL'], 'KORD': ['ZAU'], 'KDEN': ['ZDV'],
+                'KDFW': ['ZFW'], 'KLAX': ['ZLA'], 'KSFO': ['ZOA'],
+                'KMIA': ['ZMA'], 'KBOS': ['ZBW'], 'KPHL': ['ZNY', 'ZDC'],
+                'KIAD': ['ZDC'], 'KDCA': ['ZDC'], 'KBWI': ['ZDC'],
+                'KMSP': ['ZMP'], 'KDTW': ['ZOB'], 'KCLT': ['ZTL'],
+                'KPHX': ['ZAB'], 'KLAS': ['ZLA'], 'KIAH': ['ZHU'],
+                'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE'],
+            };
 
         const artcc = ctlElement.substring(0, 3);
 
         // If it's an airport, get overlying ARTCC(s)
-        if (ctlElement.length === 4 && ctlElement.startsWith('K')) {
+        // Note: PERTI.isAirportICAO matches any 4-letter code (wider than K-only);
+        // non-matching codes safely return [] from airportToArtcc lookup below
+        var isAirport = (typeof PERTI !== 'undefined' && PERTI.isAirportICAO)
+            ? PERTI.isAirportICAO(ctlElement)
+            : (ctlElement.length === 4 && ctlElement.startsWith('K'));
+        if (isAirport) {
             const artccs = airportToArtcc[ctlElement] || [];
             artccs.forEach(function(a) {
                 const cb = document.getElementById('gsgdp_fac_' + a);

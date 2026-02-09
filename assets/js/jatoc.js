@@ -20,16 +20,23 @@
         sortDirection: 'desc',
     };
 
-    // ========== FACILITY & ROLE DATA ==========
-    const FACILITIES = {
+    // ========== FACILITY & ROLE DATA (uses PERTI namespace when available) ==========
+    const _JP = (typeof PERTI !== 'undefined') ? PERTI : null;
+    const FACILITIES = (_JP && _JP.FACILITY && _JP.FACILITY.FACILITY_LISTS) ? {
+        ARTCC: [..._JP.FACILITY.FACILITY_LISTS.ARTCC_ALL],
+        TRACON: [..._JP.FACILITY.FACILITY_LISTS.TRACON],
+        ATCT: [..._JP.FACILITY.FACILITY_LISTS.ATCT],
+        FIR: [..._JP.FACILITY.FACILITY_LISTS.FIR_GLOBAL],
+    } : {
         ARTCC: [
             'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
             'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
             'ZAN', 'HCF',
         ],
         TRACON: [
-            'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'I90', 'L30', 'M98', 'N90',
-            'NCT', 'NorCal', 'P50', 'P80', 'PCT', 'R90', 'S46', 'S56', 'SCT', 'T75', 'Y90',
+            'A11', 'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'F11', 'I90', 'L30',
+            'M03', 'M98', 'N90', 'NCT', 'P31', 'P50', 'P80', 'PCT', 'R90',
+            'S46', 'S56', 'SCT', 'T75', 'U90', 'Y90',
         ],
         ATCT: [
             'KATL', 'KBOS', 'KBWI', 'KCLT', 'KCVG', 'KDCA', 'KDEN', 'KDFW', 'KDTW',
@@ -57,7 +64,9 @@
         ],
     };
 
-    const ROLES = {
+    const ROLES = (_JP && _JP.COORDINATION && _JP.COORDINATION.ROLES)
+        ? _JP.COORDINATION.ROLES
+        : {
         DCC: [
             { code: 'OP', name: 'Operations Planner' },
             { code: 'NOM', name: 'National Operations Manager' },
@@ -718,7 +727,12 @@
             'N90': [-73.87, 40.78], 'NCT': [-122.38, 37.62], 'P50': [-112.01, 33.43], 'PCT': [-77.04, 38.85],
             'S46': [-122.31, 47.45], 'SCT': [-117.19, 32.73], 'Y90': [-73.78, 40.64],
         };
-        return coords[fac] || (fac && !fac.startsWith('K') && coords['K' + fac]) || null;
+        if (coords[fac]) return coords[fac];
+        // Try normalizing to ICAO format for lookup (JFK → KJFK, YYZ → CYYZ, etc.)
+        var normalized = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
+            ? PERTI.normalizeIcao(fac)
+            : (fac && !fac.startsWith('K') ? 'K' + fac : fac);
+        return coords[normalized] || null;
     }
 
     // ========== API ==========

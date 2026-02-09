@@ -43,6 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once __DIR__ . '/../../../load/perti_constants.php';
 $auth_cid = gdt_require_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -89,10 +90,10 @@ if ($program_rate <= 0) {
 }
 
 // Validate GDP type
-if (!in_array($gdp_type, ['GDP-DAS', 'GDP-GAAP', 'GDP-UDP'])) {
+if (!in_array($gdp_type, PERTI_GDP_TYPES)) {
     respond_json(400, [
         'status' => 'error',
-        'message' => "Invalid gdp_type: {$gdp_type}. Must be GDP-DAS, GDP-GAAP, or GDP-UDP."
+        'message' => "Invalid gdp_type: {$gdp_type}. Must be " . implode(', ', PERTI_GDP_TYPES) . "."
     ]);
 }
 

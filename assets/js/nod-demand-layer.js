@@ -22,14 +22,17 @@ const NODDemandLayer = (function() {
         localStorageKey: 'nod_demand_monitors',
     };
 
-    // Traffic demand colors (Google Maps style)
-    const DEMAND_COLORS = {
-        GREEN:  '#28a745',  // Low - free flow
-        YELLOW: '#ffc107',  // Moderate - building
-        ORANGE: '#fd7e14',  // High - congested
-        RED:    '#dc3545',  // Critical - severe
-        GRAY:   '#6c757d',   // No data
-    };
+    // Traffic demand colors — sourced from PERTI.UI.DEMAND_COLORS (perti.js)
+    const DEMAND_COLORS = (function() {
+        const src = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.DEMAND_COLORS) || {};
+        return {
+            GREEN:  src.GREEN  ? src.GREEN.hex  : '#28a745',
+            YELLOW: src.YELLOW ? src.YELLOW.hex : '#ffc107',
+            ORANGE: src.ORANGE ? src.ORANGE.hex : '#fd7e14',
+            RED:    src.RED    ? src.RED.hex    : '#dc3545',
+            GRAY:   src.GRAY   ? src.GRAY.hex   : '#6c757d',
+        };
+    })();
 
     // =========================================
     // State
@@ -1426,10 +1429,12 @@ const NODDemandLayer = (function() {
     // Text-Based Monitor Input Parsing
     // =========================================
 
-    // Known ARTCC codes (3-letter Z-prefixed)
-    const ARTCC_CODES = ['ZNY', 'ZBW', 'ZDC', 'ZOB', 'ZID', 'ZAU', 'ZMP', 'ZKC', 'ZME', 'ZFW',
-        'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
-        'ZAN', 'ZHN', 'ZSU', 'ZUA'];
+    // Known ARTCC codes — sourced from PERTI.FACILITY.FACILITY_LISTS.ARTCC_ALL (perti.js)
+    const ARTCC_CODES = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_LISTS && PERTI.FACILITY.FACILITY_LISTS.ARTCC_ALL)
+        ? [...PERTI.FACILITY.FACILITY_LISTS.ARTCC_ALL]
+        : ['ZNY', 'ZBW', 'ZDC', 'ZOB', 'ZID', 'ZAU', 'ZMP', 'ZKC', 'ZME', 'ZFW',
+           'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
+           'ZAN', 'ZHN', 'ZSU', 'ZUA'];
 
     // Common TRACON codes (typically 3 chars, some start with letter + digits)
     const TRACON_PATTERNS = /^(N90|A80|A90|C90|D01|D10|D21|I90|L30|M98|NCT|NOR|P50|P80|PCT|PHL|POT|S46|S56|SCT|Y90)$/i;
@@ -1610,24 +1615,22 @@ const NODDemandLayer = (function() {
      * YVR -> CYVR (Canadian), etc.
      */
     function normalizeAirportCode(code) {
-        // Use FacilityHierarchy.normalizeIcao if available (handles Canada, Alaska, Hawaii, etc.)
+        // PERTI canonical implementation (region-aware: handles Canada, Alaska, Hawaii, etc.)
+        if (typeof PERTI !== 'undefined' && PERTI.normalizeIcao) {
+            return PERTI.normalizeIcao(code);
+        }
         if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.normalizeIcao) {
             return FacilityHierarchy.normalizeIcao(code);
         }
-
         // Fallback: basic normalization
+        if (!code) return code;
         code = code.toUpperCase();
-
-        // Already 4 chars starting with K/C/P - likely ICAO
         if (code.length === 4 && /^[KCP]/.test(code)) {
             return code;
         }
-
-        // 3-letter code (IATA) - add K prefix for US airports
         if (code.length === 3) {
             return 'K' + code;
         }
-
         return code;
     }
 
@@ -2288,10 +2291,14 @@ const NODDemandLayer = (function() {
                     let matchesDep = false;
                     let matchesArr = false;
 
+                    // Normalize filter code to ICAO for consistent matching
+                    const filterIcao = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
+                        ? PERTI.normalizeIcao(filterCode) : filterCode;
+
                     switch (filter.type.toLowerCase()) {
                         case 'airport':
-                            matchesDep = flightDep === filterCode || flightDep === 'K' + filterCode;
-                            matchesArr = flightDest === filterCode || flightDest === 'K' + filterCode;
+                            matchesDep = flightDep === filterCode || flightDep === filterIcao;
+                            matchesArr = flightDest === filterCode || flightDest === filterIcao;
                             break;
                         case 'tracon':
                             matchesDep = flightDepTracon === filterCode;

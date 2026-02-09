@@ -9,6 +9,9 @@
  *   - Carrier/ARTCC names are proper nouns and not translated
  */
 
+// Reference to PERTI namespace if available
+const _FC_PERTI = (typeof PERTI !== 'undefined') ? PERTI : null;
+
 const FILTER_CONFIG = {
     // Weight Class (S/L/H/J)
     weightClass: {
@@ -51,9 +54,10 @@ const FILTER_CONFIG = {
         order: ['I', 'V', 'Y', 'Z', 'D', 'S'],
     },
 
-    // Major Carriers
+    // Major Carriers - uses PERTI.UI.CARRIER_COLORS when available
     carrier: {
-        colors: {
+        colors: (_FC_PERTI && _FC_PERTI.UI && _FC_PERTI.UI.CARRIER_COLORS)
+            ? Object.assign({}, _FC_PERTI.UI.CARRIER_COLORS) : {
             // US Majors
             'AAL': '#0078d2',  // American - Royal Blue
             'UAL': '#0033a0',  // United - Dark Blue
@@ -149,7 +153,7 @@ const FILTER_CONFIG = {
             // Fallbacks
             'OTHER': '#6c757d',
             'UNKNOWN': '#adb5bd',
-        },
+        },  // end carrier colors ternary
         labels: {
             // US
             'AAL': 'American', 'UAL': 'United', 'DAL': 'Delta',
@@ -277,9 +281,10 @@ const FILTER_CONFIG = {
         },
     },
 
-    // ARTCC/FIR Centers
+    // ARTCC/FIR Centers - uses PERTI when available
     artcc: {
-        colors: {
+        colors: (_FC_PERTI && _FC_PERTI.UI && _FC_PERTI.UI.ARTCC_COLORS)
+            ? Object.assign({}, _FC_PERTI.UI.ARTCC_COLORS) : {
             // US ARTCCs
             'ZBW': '#e6194b', 'ZNY': '#3cb44b', 'ZDC': '#ffe119',
             'ZJX': '#4363d8', 'ZMA': '#f58231', 'ZTL': '#911eb4',
@@ -292,7 +297,6 @@ const FILTER_CONFIG = {
             // Canadian FIRs - East (Purple)
             'CZYZ': '#9b59b6',  // Toronto
             'CZUL': '#8e44ad',  // Montreal
-            'CZZV': '#7d3c98',  // Sept-Iles
             'CZQM': '#6c3483',  // Moncton
             'CZQX': '#5b2c6f',  // Gander Domestic
             'CZQO': '#4a235a',  // Gander Oceanic
@@ -302,8 +306,9 @@ const FILTER_CONFIG = {
             'CZVR': '#db7093',  // Vancouver
             // Fallbacks
             'OTHER': '#6c757d', 'UNKNOWN': '#adb5bd',
-        },
-        labels: {
+        },  // end artcc colors ternary
+        labels: (_FC_PERTI && _FC_PERTI.UI && _FC_PERTI.UI.ARTCC_LABELS)
+            ? Object.assign({}, _FC_PERTI.UI.ARTCC_LABELS) : {
             // US ARTCCs
             'ZBW': 'Boston', 'ZNY': 'New York', 'ZDC': 'Washington',
             'ZJX': 'Jacksonville', 'ZMA': 'Miami', 'ZTL': 'Atlanta',
@@ -314,10 +319,10 @@ const FILTER_CONFIG = {
             'ZOA': 'Oakland', 'ZSE': 'Seattle', 'ZAN': 'Anchorage',
             'ZHN': 'Honolulu',
             // Canadian FIRs
-            'CZYZ': 'Toronto', 'CZUL': 'Montreal', 'CZZV': 'Sept-Iles',
+            'CZYZ': 'Toronto', 'CZUL': 'Montreal',
             'CZQM': 'Moncton', 'CZQX': 'Gander Domestic', 'CZQO': 'Gander Oceanic',
             'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZVR': 'Vancouver',
-        },
+        },  // end artcc labels ternary
     },
 
     // DCC Regions (matches nod.js DCC_REGIONS)
@@ -338,8 +343,9 @@ const FILTER_CONFIG = {
             'CANADA': 'Canada',
             'OTHER': 'Other', 'UNKNOWN': 'Unknown',
         },
-        // Map ARTCCs/FIRs to DCC regions
-        mapping: {
+        // Map ARTCCs/FIRs to DCC regions - uses PERTI when available
+        mapping: (_FC_PERTI && _FC_PERTI.GEOGRAPHIC && _FC_PERTI.GEOGRAPHIC.ARTCC_TO_DCC)
+            ? Object.assign({}, _FC_PERTI.GEOGRAPHIC.ARTCC_TO_DCC) : {
             // DCC West (Red)
             'ZAK': 'WEST', 'ZAN': 'WEST', 'ZHN': 'WEST', 'ZLA': 'WEST',
             'ZLC': 'WEST', 'ZOA': 'WEST', 'ZSE': 'WEST',
@@ -355,10 +361,10 @@ const FILTER_CONFIG = {
             'ZBW': 'NORTHEAST', 'ZDC': 'NORTHEAST', 'ZNY': 'NORTHEAST',
             'ZOB': 'NORTHEAST', 'ZWY': 'NORTHEAST',
             // Canada (Purple)
-            'CZYZ': 'CANADA', 'CZUL': 'CANADA', 'CZZV': 'CANADA',
+            'CZYZ': 'CANADA', 'CZUL': 'CANADA',
             'CZQM': 'CANADA', 'CZQX': 'CANADA', 'CZQO': 'CANADA',
             'CZWG': 'CANADA', 'CZEG': 'CANADA', 'CZVR': 'CANADA',
-        },
+        },  // end dcc mapping ternary
     },
 
     // TRACON coloring - inherit from parent ARTCC's DCC region

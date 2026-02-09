@@ -2,8 +2,8 @@
 
 This document tracks all files updated to consume from the PERTI unified namespace instead of having local constant definitions.
 
-**Last updated:** 2026-02-07
-**PERTI version:** v1.5.0
+**Last updated:** 2026-02-08
+**PERTI version:** v1.7.0
 
 ## Migration Status Legend
 - [x] Completed
@@ -12,7 +12,7 @@ This document tracks all files updated to consume from the PERTI unified namespa
 
 ---
 
-## Completed JS Migrations (18 files)
+## Completed JS Migrations (19 files)
 
 All migrations use the pattern: `PERTI > intermediate source > hardcoded fallback`
 
@@ -40,9 +40,10 @@ All migrations use the pattern: `PERTI > intermediate source > hardcoded fallbac
 | 13 | `assets/js/jatoc.js` | FACILITIES (4 lists), ROLES | `PERTI.FACILITY.FACILITY_LISTS`, `PERTI.COORDINATION.ROLES` |
 | 14 | `assets/js/nod.js` | CENTER_COLORS | `PERTI.UI.ARTCC_COLORS` > `FILTER_CONFIG` > hardcoded |
 | 15 | `assets/js/route-maplibre.js` | CENTER_COLORS, TRACON_TO_ARTCC, CARRIER_COLORS | `PERTI.UI` / `FacilityHierarchy` > `FILTER_CONFIG` > hardcoded |
-| 16 | `assets/js/nod-demand-layer.js` | normalizeAirportCode, airport filter matching | `PERTI.normalizeIcao` > `FacilityHierarchy` > fallback |
+| 16 | `assets/js/nod-demand-layer.js` | normalizeAirportCode, airport filter matching, **DEMAND_COLORS**, **ARTCC_CODES** | `PERTI.normalizeIcao`, `PERTI.UI.DEMAND_COLORS`, `PERTI.FACILITY.FACILITY_LISTS.ARTCC_ALL` |
 | 17 | `assets/js/tmi_compliance.js` | ICAO denormalization, ARTCC GeoJSON ICAO lookup | `PERTI.denormalizeIcao`, `PERTI.normalizeArtcc` |
 | 18 | `assets/js/tmi-gdp.js` | AIRPORT type detection, element_type 'APT' fix | `PERTI.isAirportICAO` |
+| 19 | `assets/js/weather_impact.js` | CONFIG.colors (impact badge colors) | `PERTI.UI.WEATHER_IMPACT_COLORS` > hardcoded fallback |
 
 ### Airport/ARTCC Code Normalization (v1.4.0+)
 
@@ -120,6 +121,9 @@ These files were audited but their constants are UI-specific heuristics, not dom
 | `api/gdt/programs/publish.php` | `['APPROVED']` status check (L136) | Single-value validation specific to proposal flow |
 | `api/swim/v1/ws/WebSocketServer.php` | `$tierLimits` (L51-56) | Config value, not a domain constant |
 | `api/gis/boundaries.php` | `$adlTier1Expected` (L1056) | Test fixture/validation data |
+| `load/discord/DiscordMessageParser.php` | TMI_* / STATUS_* class constants (L15-28) | PHP class constants can't reference arrays; OOP usage via `self::` is correct pattern |
+| `api/gdt/common.php` | GDT_PROGRAM_TYPES / GDT_PROGRAM_STATUSES (L330-372) | GDT-domain types (GDP-DAS/GAAP/UDP subtypes) and statuses (PROPOSED/MODELING/etc.) differ from PERTI_TMI_TYPES |
+| `load/services/GISService.php` | Boundary/facility type strings | No domain constants found; uses data-driven values from DB |
 
 ---
 
@@ -127,13 +131,11 @@ These files were audited but their constants are UI-specific heuristics, not dom
 
 | File | Constants | Priority | Notes |
 |------|-----------|----------|-------|
-| `assets/js/nod-demand-layer.js` | DEMAND_COLORS | LOW | UI-specific demand visualization colors |
-| `assets/js/weather_impact.js` | CONFIG.colors (impact badges) | LOW | UI-specific badge styling |
-| `assets/js/lib/norad-codes.js` | NORAD_REGIONS, ROCC_SOCC, etc. | LOW | Standalone module |
-| `assets/js/lib/aircraft.js` | AIRCRAFT_MANUFACTURERS | LOW | Standalone module |
+| `assets/js/lib/norad-codes.js` | NORAD_REGIONS, ROCC_SOCC, etc. | LOW | Standalone module, well-organized |
+| `assets/js/lib/aircraft.js` | AIRCRAFT_MANUFACTURERS | LOW | Standalone module, well-organized |
 | `assets/js/jatoc-facility-patch.js` | DCC_SERVICES_TYPE, etc. | LOW | Consumes from window.JATOC_FACILITY_DATA |
-| `assets/js/advisory-builder.js` | Program format templates | LOW | UI-specific formats |
-| `assets/js/fir-scope.js` / `fir-integration.js` | FIR_TIER_DATA | LOW | Intentionally loaded dynamically |
+| `assets/js/advisory-builder.js` | Program format templates | LOW | Too coupled to format logic |
+| `assets/js/fir-scope.js` / `fir-integration.js` | — | LOW | No constants (data-driven from API) |
 
 ---
 
@@ -275,9 +277,90 @@ Airport/ARTCC code normalization functions moved to PERTI namespace. Replaces 13
 
 ---
 
+## CSS Globalization (v1.6.0)
+
+Hardcoded CSS color values replaced with CSS custom properties from `assets/css/perti-colors.css`.
+
+### Token Definitions Added to perti-colors.css
+
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `--impact-direct` | `#FF4444` | Direct weather impact severity |
+| `--impact-clear` | `#4CAF50` | Clear/no-impact indicator |
+| `--nav-accent-cyan` | `#4dd0e1` | Mobile nav accent color |
+| `--theme-text-gray` | `#737491` | Bootstrap theme gray text |
+| `--theme-text-gray-dark` | `#4a4b65` | Bootstrap theme dark gray text |
+| `--theme-text-muted` | `#9e9fb4` | Bootstrap theme muted text |
+
+### CSS Files Tokenized
+
+| File | Colors Before | Colors After | Notes |
+|------|--------------|-------------|-------|
+| `perti_theme.css` | (previously done) | — | PERTI-specific overrides, already tokenized |
+| `initiative_timeline.css` | (previously done) | — | Timeline component, already tokenized |
+| `tmi-publish.css` | (previously done) | — | TMI publisher styles, already tokenized |
+| `info-bar.css` | (previously done) | — | Info bar component, already tokenized |
+| `weather_radar.css` | (previously done) | — | Weather radar overlay, already tokenized |
+| `weather_hazards.css` | (previously done) | — | Weather hazard display, already tokenized |
+| `weather_impact.css` | 41 | 6 | Hazard borders → `--hazard-*-start`, impact → `--impact-direct`/`--impact-clear`, grays → `--gray-*` |
+| `mobile.css` | 43 | 13 | Nav gradient → `--dark-bg-*`, accent → `--nav-accent-cyan`, grays → `--gray-*` |
+| `theme.css` | 1,119 | 583 | Compiled Bootstrap 4.5.2; 15 base colors bulk-replaced (536 instances); remaining are `#fff` + computed darken/lighten variants |
+
+### CSS Files Skipped
+
+| File | Colors | Reason |
+|------|--------|--------|
+| `plugins/datetimepicker.css` | 104 | Third-party vendor plugin; tokenizing would complicate updates |
+
+---
+
+## Final Audit & Fixes (v1.7.0)
+
+Comprehensive audit performed 2026-02-08. Four parallel agents audited JS null-safety, CSS token definitions, PHP constant references, and script/CSS load order.
+
+### Critical Fixes
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 1 | **CRITICAL** | `perti.js` not loaded on any page — all PERTI.* silently falling back | Added `<script>` tag in `header.php` before `facility-hierarchy.js` |
+| 2 | **CRITICAL** | `colors.js` not loaded — PERTIColors references falling back | Added `<script>` tag in `header.php` after `perti.js` |
+| 3 | **CRITICAL** | CSS load order: `theme.css` loaded before `perti-colors.css` | Swapped order — definitions now load first |
+| 4 | **CRITICAL** | 2 undefined CSS tokens in `tmi-compliance.css` | Added `--light-bg-elevated` and `--light-bg-primary` to `perti-colors.css` |
+
+### JS Null-Safety Fixes
+
+| # | Severity | File | Issue | Fix |
+|---|----------|------|-------|-----|
+| 5 | HIGH | `demand.js:5856` | Bare `PERTI.UI.CARRIER_COLORS.OTHER` | Added `PERTI.UI && PERTI.UI.CARRIER_COLORS` check |
+| 6 | HIGH | `tmi-publish.js:3636` | Spreading `undefined` on COORDINATION_REQUIRED_TYPES | Added deep `.COORDINATION_REQUIRED_TYPES` check |
+| 7 | HIGH | `nod.js:3347,3496–3500` | 6 bare `FacilityHierarchy.*` references | Added `typeof FacilityHierarchy` guards via `_FH` alias |
+| 8 | HIGH | `route-maplibre.js:3218–3373` | 4 bare `FacilityHierarchy.*` references | Added `typeof` guards on all 4 sites |
+| 9 | HIGH | `tmi-active-display.js:70–389` | 12 bare `FacilityHierarchy.*` references | Rewired getters through `_FH()` helper |
+| 10 | MED | `rate-colors.js:99` | Missing `_PERTI_RC.WEATHER` check | Added `&& .WEATHER && .WEATHER.CATEGORIES` |
+| 11 | MED | `colors.js:105,124` | Missing `_PERTI.GEOGRAPHIC` check | Added intermediate `.GEOGRAPHIC` checks |
+| 12 | MED | `demand.js:915,1062,1110` | 3 missing deep checks | Added `.ARTCC_COLORS`, `.getDCCRegion`, `.DCC_REGION_ORDER` |
+| 13 | MED | `gdt.js:80` | Missing `.AIRLINE_CODES` check | Added `&& PERTI.FACILITY.AIRLINE_CODES` |
+| 14 | MED | `splits.js:96` | Missing `.ARTCC_CENTERS` check | Added `&& PERTI.GEOGRAPHIC.ARTCC_CENTERS` |
+| 15 | MED | `plan.js:2388` | Missing `.ARTCC_CONUS` deep check | Added `&& .FACILITY_LISTS.ARTCC_CONUS` |
+
+### Audit Results Summary
+
+| Layer | Files Checked | Result |
+|-------|--------------|--------|
+| **JS PERTI refs** | 23 files, ~75 reference sites | All 15 issues fixed; 23/23 PASS |
+| **CSS tokens** | 10 consumer files, ~1,000 var() refs | 2 undefined tokens fixed; 10/10 PASS |
+| **PHP constants** | 16 consumer files | 16/16 PASS, 0 issues |
+| **Load order** | header.php + 13 page files | perti.js/colors.js added; CSS order fixed |
+
+### Dependency Tree
+
+See `docs/refs/globalization-dependency-tree.md` for the complete dependency tree.
+
+---
+
 ## Notes
 
-1. **Script Load Order**: Ensure `perti.js` loads before any consuming scripts
+1. **Script Load Order**: `header.php` loads `perti.js` → `colors.js` → `facility-hierarchy.js` (all before consumer scripts)
 2. **Fallback Pattern**: All JS migrations include hardcoded fallbacks for standalone operation
 3. **PHP Include Guard**: `perti_constants.php` uses `PERTI_CONSTANTS_LOADED` define to prevent double-include
 4. **Testing**: Pages should work without perti.js loaded (graceful degradation)

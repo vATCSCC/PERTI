@@ -104,143 +104,118 @@
 
     const DISCORD_MAX_LENGTH = 2000;
 
-    // ARTCC mappings for facility detection
-    // All US ARTCCs, TRACONs, Canadian FIRs, Caribbean, Mexico
-    const ARTCCS = {
-        // US ARTCCs (22)
-        'ZAB': 'Albuquerque Center', 'ZAN': 'Anchorage Center', 'ZAU': 'Chicago Center',
-        'ZBW': 'Boston Center', 'ZDC': 'Washington Center', 'ZDV': 'Denver Center',
-        'ZFW': 'Fort Worth Center', 'ZHN': 'Honolulu Center', 'ZHU': 'Houston Center',
-        'ZID': 'Indianapolis Center', 'ZJX': 'Jacksonville Center', 'ZKC': 'Kansas City Center',
-        'ZLA': 'Los Angeles Center', 'ZLC': 'Salt Lake Center', 'ZMA': 'Miami Center',
-        'ZME': 'Memphis Center', 'ZMP': 'Minneapolis Center', 'ZNY': 'New York Center',
-        'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center', 'ZSE': 'Seattle Center',
-        'ZTL': 'Atlanta Center',
-        // US TRACONs (Major)
-        'A80': 'Atlanta TRACON', 'A90': 'Boston TRACON', 'C90': 'Chicago TRACON',
-        'D01': 'Denver TRACON', 'D10': 'Dallas/Fort Worth TRACON', 'D21': 'Detroit TRACON',
-        'F11': 'Central Florida TRACON', 'I90': 'Houston TRACON', 'L30': 'Las Vegas TRACON',
-        'M03': 'Memphis TRACON', 'M98': 'Minneapolis TRACON', 'N90': 'New York TRACON',
-        'NCT': 'NorCal TRACON', 'P31': 'Pensacola TRACON', 'P50': 'Phoenix TRACON',
-        'P80': 'Portland TRACON', 'PCT': 'Potomac TRACON', 'R90': 'Omaha TRACON',
-        'S46': 'Seattle TRACON', 'S56': 'Salt Lake TRACON', 'SCT': 'SoCal TRACON',
-        'T75': 'St. Louis TRACON', 'U90': 'Tucson TRACON', 'Y90': 'Yankee TRACON',
-        // Pacific TRACONs
-        'HCF': 'Honolulu CF', 'GUM': 'Guam CERAP',
-        // Canadian FIRs
-        'CZEG': 'Edmonton FIR', 'CZQM': 'Moncton FIR', 'CZQX': 'Gander FIR',
-        'CZVR': 'Vancouver FIR', 'CZWG': 'Winnipeg FIR', 'CZYZ': 'Toronto FIR',
-        'CYUL': 'Montreal FIR',
-        // Caribbean
-        'TJSJ': 'San Juan CERAP', 'MUFH': 'Havana FIR', 'MKJK': 'Kingston FIR',
-        'TNCF': 'Curacao FIR', 'TTPP': 'Piarco FIR',
-        // Mexico
-        'MMEX': 'Mexico City ACC', 'MMTY': 'Monterrey ACC', 'MMZT': 'Mazatlan ACC',
-        'MMUN': 'Cancun ACC', 'MMMD': 'Merida ACC',
-    };
+    // Facility name map: PERTI > hardcoded fallback
+    const ARTCCS = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_NAME_MAP)
+        ? PERTI.FACILITY.FACILITY_NAME_MAP
+        : { 'ZAB': 'Albuquerque Center', 'ZAN': 'Anchorage Center', 'ZAU': 'Chicago Center', 'ZBW': 'Boston Center', 'ZDC': 'Washington Center', 'ZDV': 'Denver Center', 'ZFW': 'Fort Worth Center', 'ZHN': 'Honolulu Center', 'ZHU': 'Houston Center', 'ZID': 'Indianapolis Center', 'ZJX': 'Jacksonville Center', 'ZKC': 'Kansas City Center', 'ZLA': 'Los Angeles Center', 'ZLC': 'Salt Lake Center', 'ZMA': 'Miami Center', 'ZME': 'Memphis Center', 'ZMP': 'Minneapolis Center', 'ZNY': 'New York Center', 'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center', 'ZSE': 'Seattle Center', 'ZTL': 'Atlanta Center' };
 
-    // Cross-border facilities
-    const CROSS_BORDER_FACILITIES = ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG'];
+    // Cross-border facilities: PERTI > hardcoded fallback
+    const CROSS_BORDER_FACILITIES = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.CROSS_BORDER_FACILITIES)
+        ? PERTI.FACILITY.CROSS_BORDER_FACILITIES
+        : ['ZBW', 'ZMP', 'ZSE', 'ZLC', 'ZOB', 'CZYZ', 'CZWG', 'CZVR', 'CZEG'];
 
-    // Extended NTML Qualifiers - matching Zapier/TypeForm output
-    const NTML_QUALIFIERS = {
-        // Spacing Method (appears after MIT value)
-        spacing: [
-            { code: 'AS ONE', label: 'AS ONE', desc: 'Combined traffic as one stream' },
-            { code: 'PER STREAM', label: 'PER STREAM', desc: 'Spacing per traffic stream' },
-            { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: 'Spacing per departure airport' },
-            { code: 'PER FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
-            { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' },
-        ],
-        // Aircraft Type
-        aircraft: [
-            { code: 'JET', label: 'JET', desc: 'Jet aircraft only' },
-            { code: 'PROP', label: 'PROP', desc: 'Propeller aircraft only' },
-            { code: 'TURBOJET', label: 'TURBOJET', desc: 'Turbojet aircraft only' },
-            { code: 'B757', label: 'B757', desc: 'B757 aircraft only' },
-        ],
-        // Weight Class
-        weight: [
-            { code: 'HEAVY', label: 'HEAVY', desc: 'Heavy aircraft (>255,000 lbs)' },
-            { code: 'LARGE', label: 'LARGE', desc: 'Large aircraft (41,000-255,000 lbs)' },
-            { code: 'SMALL', label: 'SMALL', desc: 'Small aircraft (<41,000 lbs)' },
-            { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' },
-        ],
-        // Equipment/Capability
-        equipment: [
-            { code: 'RNAV', label: 'RNAV', desc: 'RNAV-equipped aircraft only' },
-            { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
-            { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
-            { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' },
-            { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' },
-        ],
-        // Flow Type
-        flow: [
-            { code: 'ARR', label: 'ARR', desc: 'Arrival traffic only' },
-            { code: 'DEP', label: 'DEP', desc: 'Departure traffic only' },
-            { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' },
-        ],
-        // Operator Category
-        operator: [
-            { code: 'AIR CARRIER', label: 'AIR CARRIER', desc: 'Air carrier operations' },
-            { code: 'AIR TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
-            { code: 'GA', label: 'GA', desc: 'General aviation' },
-            { code: 'CARGO', label: 'CARGO', desc: 'Cargo operations' },
-            { code: 'MIL', label: 'MIL', desc: 'Military operations' },
-        ],
-        // Altitude
-        altitude: [
-            { code: 'HIGH ALT', label: 'HIGH ALT', desc: 'FL240 and above' },
-            { code: 'LOW ALT', label: 'LOW ALT', desc: 'Below FL240' },
-        ],
-    };
+    // NTML Qualifiers: PERTI > hardcoded fallback
+    const NTML_QUALIFIERS = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.NTML_QUALIFIERS)
+        ? PERTI.ATFM.NTML_QUALIFIERS
+        : {
+            spacing: [
+                { code: 'AS ONE', label: 'AS ONE', desc: 'Combined traffic as one stream' },
+                { code: 'PER STREAM', label: 'PER STREAM', desc: 'Spacing per traffic stream' },
+                { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: 'Spacing per departure airport' },
+                { code: 'PER FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
+                { code: 'PER ROUTE', label: 'PER ROUTE', desc: 'Spacing per route' },
+                { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' },
+                { code: 'EVERY OTHER', label: 'EVERY OTHER', desc: 'Every other aircraft' },
+                { code: 'PER STRAT', label: 'PER STRAT', desc: 'Per stratum/altitude band' },
+                { code: 'SINGLE STREAM', label: 'SINGLE STREAM', desc: 'Single traffic stream' },
+                { code: 'NO STACKS', label: 'NO STACKS', desc: 'No altitude stacking' },
+            ],
+            aircraft: [
+                { code: 'JET', label: 'JET', desc: 'Jet aircraft only' },
+                { code: 'PROP', label: 'PROP', desc: 'Propeller aircraft only' },
+                { code: 'TURBOJET', label: 'TURBOJET', desc: 'Turbojet aircraft only' },
+                { code: 'TURBOPROP', label: 'TURBOPROP', desc: 'Turboprop aircraft only' },
+                { code: 'B757', label: 'B757', desc: 'B757 aircraft only' },
+                { code: 'SUPER', label: 'SUPER', desc: 'Super aircraft (A380, AN-225)' },
+            ],
+            weight: [
+                { code: 'HEAVY', label: 'HEAVY', desc: 'Heavy aircraft (>255,000 lbs)' },
+                { code: 'LARGE', label: 'LARGE', desc: 'Large aircraft (41,000-255,000 lbs)' },
+                { code: 'SMALL', label: 'SMALL', desc: 'Small aircraft (<41,000 lbs)' },
+                { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' },
+            ],
+            equipment: [
+                { code: 'RNAV', label: 'RNAV', desc: 'RNAV-equipped aircraft only' },
+                { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
+                { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
+                { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' },
+                { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' },
+            ],
+            flow: [
+                { code: 'ARR', label: 'ARR', desc: 'Arrival traffic only' },
+                { code: 'DEP', label: 'DEP', desc: 'Departure traffic only' },
+                { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' },
+            ],
+            operator: [
+                { code: 'AIR CARRIER', label: 'AIR CARRIER', desc: 'Air carrier operations' },
+                { code: 'AIR TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
+                { code: 'GA', label: 'GA', desc: 'General aviation' },
+                { code: 'CARGO', label: 'CARGO', desc: 'Cargo operations' },
+                { code: 'MIL', label: 'MIL', desc: 'Military operations' },
+                { code: 'MAJOR', label: 'MAJOR', desc: 'Major carrier operations' },
+                { code: 'REGIONAL', label: 'REGIONAL', desc: 'Regional carrier operations' },
+            ],
+            altitude: [
+                { code: 'AOB', label: 'At or Below', desc: 'At or below specified altitude (e.g., AOB240)' },
+                { code: 'AOA', label: 'At or Above', desc: 'At or above specified altitude (e.g., AOA330)' },
+                { code: 'BETWEEN', label: 'Between', desc: 'Between two altitudes (e.g., 170B190)' },
+            ],
+        };
 
-    // Reason codes - Category (broad) per OPSNET
-    const REASON_CATEGORIES = [
-        { code: 'VOLUME', label: 'Volume' },
-        { code: 'WEATHER', label: 'Weather' },
-        { code: 'RUNWAY', label: 'Runway' },
-        { code: 'EQUIPMENT', label: 'Equipment' },
-        { code: 'OTHER', label: 'Other' },
-    ];
+    // Reason categories: PERTI > hardcoded fallback
+    const REASON_CATEGORIES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.REASON_CATEGORIES)
+        ? PERTI.ATFM.REASON_CATEGORIES
+        : [{ code: 'VOLUME', label: 'Volume' }, { code: 'WEATHER', label: 'Weather' }, { code: 'RUNWAY', label: 'Runway' }, { code: 'EQUIPMENT', label: 'Equipment' }, { code: 'OTHER', label: 'Other' }];
 
-    // Cause codes - Specific causes per OPSNET/ASPM
-    const REASON_CAUSES = {
-        VOLUME: [
-            { code: 'VOLUME', label: 'Volume' },
-            { code: 'COMPACTED DEMAND', label: 'Compacted Demand' },
-            { code: 'MULTI-TAXI', label: 'Multi-Taxi' },
-            { code: 'AIRSPACE', label: 'Airspace' },
-        ],
-        WEATHER: [
-            { code: 'WEATHER', label: 'Weather' },
-            { code: 'THUNDERSTORMS', label: 'Thunderstorms' },
-            { code: 'LOW CEILINGS', label: 'Low Ceilings' },
-            { code: 'LOW VISIBILITY', label: 'Low Visibility' },
-            { code: 'FOG', label: 'Fog' },
-            { code: 'WIND', label: 'Wind' },
-            { code: 'SNOW/ICE', label: 'Snow/Ice' },
-        ],
-        RUNWAY: [
-            { code: 'RUNWAY', label: 'Runway' },
-            { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration' },
-            { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction' },
-            { code: 'RUNWAY CLOSURE', label: 'Runway Closure' },
-        ],
-        EQUIPMENT: [
-            { code: 'EQUIPMENT', label: 'Equipment' },
-            { code: 'FAA EQUIPMENT', label: 'FAA Equipment' },
-            { code: 'NON-FAA EQUIPMENT', label: 'Non-FAA Equipment' },
-        ],
-        OTHER: [
-            { code: 'OTHER', label: 'Other' },
-            { code: 'STAFFING', label: 'Staffing' },
-            { code: 'AIR SHOW', label: 'Air Show' },
-            { code: 'VIP MOVEMENT', label: 'VIP Movement' },
-            { code: 'SPECIAL EVENT', label: 'Special Event' },
-            { code: 'SECURITY', label: 'Security' },
-        ],
-    };
+    // Cause codes: PERTI > hardcoded fallback
+    const REASON_CAUSES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.REASON_CAUSES)
+        ? PERTI.ATFM.REASON_CAUSES
+        : {
+            VOLUME: [
+                { code: 'VOLUME', label: 'Volume', desc: 'Volume' },
+                { code: 'COMPACTED DEMAND', label: 'Compacted Demand', desc: 'Compacted Demand' },
+                { code: 'MULTI-TAXI', label: 'Multi-Taxi', desc: 'Multi-Taxi' },
+                { code: 'AIRSPACE', label: 'Airspace', desc: 'Airspace' },
+            ],
+            WEATHER: [
+                { code: 'WEATHER', label: 'Weather', desc: 'Weather' },
+                { code: 'THUNDERSTORMS', label: 'Thunderstorms', desc: 'Thunderstorms' },
+                { code: 'LOW CEILINGS', label: 'Low Ceilings', desc: 'Low Ceilings' },
+                { code: 'LOW VISIBILITY', label: 'Low Visibility', desc: 'Low Visibility' },
+                { code: 'FOG', label: 'Fog', desc: 'Fog' },
+                { code: 'WIND', label: 'Wind', desc: 'Wind' },
+                { code: 'SNOW/ICE', label: 'Snow/Ice', desc: 'Snow/Ice' },
+            ],
+            RUNWAY: [
+                { code: 'RUNWAY', label: 'Runway', desc: 'Runway' },
+                { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration', desc: 'Runway Configuration' },
+                { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction', desc: 'Runway Construction' },
+                { code: 'RUNWAY CLOSURE', label: 'Runway Closure', desc: 'Runway Closure' },
+            ],
+            EQUIPMENT: [
+                { code: 'EQUIPMENT', label: 'Equipment', desc: 'Equipment' },
+                { code: 'VATSIM EQUIPMENT', label: 'VATSIM Equipment', desc: 'VATSIM Equipment' },
+                { code: 'NON-VATSIM EQUIPMENT', label: 'Non-VATSIM Equipment', desc: 'Non-VATSIM Equipment' },
+            ],
+            OTHER: [
+                { code: 'OTHER', label: 'Other', desc: 'Other' },
+                { code: 'STAFFING', label: 'Staffing', desc: 'Staffing' },
+                { code: 'AIR SHOW', label: 'Air Show', desc: 'Air Show' },
+                { code: 'VIP MOVEMENT', label: 'VIP Movement', desc: 'VIP Movement' },
+                { code: 'SPECIAL EVENT', label: 'Special Event', desc: 'Special Event' },
+                { code: 'SECURITY', label: 'Security', desc: 'Security' },
+            ],
+        };
 
     // ===========================================
     // State
@@ -3657,9 +3632,10 @@
         }
     }
 
-    // TMI types that require coordination (external approval process)
-    // All other types can be published directly without coordination
-    const COORDINATION_REQUIRED_TYPES = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
+    // TMI types that require coordination - uses PERTI when available
+    const COORDINATION_REQUIRED_TYPES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.COORDINATION_REQUIRED_TYPES)
+        ? [...PERTI.ATFM.COORDINATION_REQUIRED_TYPES]
+        : ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
 
     /**
      * Check if an entry type requires external coordination
@@ -4200,7 +4176,11 @@
      * Build facility checkboxes for a specific entry with suggested facilities pre-checked
      */
     function buildFacilityCheckboxesForEntry(entry, suggestedFacilities) {
-        const commonFacilities = ['ZNY', 'ZDC', 'ZBW', 'ZOB', 'ZAU', 'ZID', 'ZTL', 'ZJX', 'ZMA', 'ZHU', 'ZFW', 'ZKC', 'ZMP', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZME'];
+        // CONUS ARTCCs for TMI facility checkboxes
+        // Source of truth: PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS (perti.js)
+        const commonFacilities = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_LISTS && PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS)
+            ? [...PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS]
+            : ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'];
         const allFacilities = new Set(commonFacilities);
         suggestedFacilities.forEach(f => allFacilities.add(f));
 
@@ -4353,8 +4333,11 @@
             }
         });
 
-        // Common ARTCCs (always shown)
-        const commonFacilities = ['ZNY', 'ZDC', 'ZBW', 'ZOB', 'ZAU', 'ZID', 'ZTL', 'ZJX', 'ZMA', 'ZHU', 'ZFW', 'ZKC', 'ZMP', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZME'];
+        // CONUS ARTCCs (always shown in facility checkboxes)
+        // Source of truth: PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS (perti.js)
+        const commonFacilities = (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_LISTS && PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS)
+            ? [...PERTI.FACILITY.FACILITY_LISTS.ARTCC_CONUS]
+            : ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'];
 
         // Merge detected and common
         const allFacilities = new Set(commonFacilities);
@@ -8948,12 +8931,11 @@
             });
 
             if (origins.size && dests.size) {
-                const originStr = Array.from(origins).map(a =>
-                    a.startsWith('K') ? a : 'K' + a,
-                ).join('/');
-                const destStr = Array.from(dests).map(a =>
-                    a.startsWith('K') ? a : 'K' + a,
-                ).join('/');
+                const toIcao = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
+                    ? function(a) { return PERTI.normalizeIcao(a); }
+                    : function(a) { return a.startsWith('K') ? a : 'K' + a; };
+                const originStr = Array.from(origins).map(toIcao).join('/');
+                const destStr = Array.from(dests).map(toIcao).join('/');
 
                 $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
             }

@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../../load/config.php';
+require_once __DIR__ . '/../../../load/perti_constants.php';
 require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
 require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
 require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
@@ -2874,7 +2875,7 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
         ':entry_type' => strtoupper($entryType),
         ':determinant' => strtoupper($entryType),
         ':ctl_element' => $ctlElement ?: null,
-        ':element_type' => detectElementType($ctlElement),
+        ':element_type' => perti_detect_element_type($ctlElement),
         ':req_facility' => $reqFacility ?: null,
         ':prov_facility' => $provFacility ?: null,
         ':restriction_value' => $restrictionValue,
@@ -2896,31 +2897,8 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
     return $result ? $result['entry_id'] : null;
 }
 
-/**
- * Detect element type (airport/fix/airway)
- */
-function detectElementType($element) {
-    if (empty($element)) return null;
-    $element = strtoupper($element);
-
-    // Check for comma-separated list (multiple elements)
-    if (strpos($element, ',') !== false) {
-        return 'MULTI';
-    }
-    // Airport patterns: K***, P***, TJSJ, CYYZ
-    if (preg_match('/^[KPCTY][A-Z]{2,3}$/', $element)) {
-        return 'AIRPORT';
-    }
-    // 5-letter fix
-    if (preg_match('/^[A-Z]{5}$/', $element)) {
-        return 'FIX';
-    }
-    // Airway pattern (J*, V*, Q*, T*)
-    if (preg_match('/^[JVQT]\d+$/', $element)) {
-        return 'AIRWAY';
-    }
-    return 'OTHER';
-}
+// detectElementType() removed — now uses perti_detect_element_type() from load/perti_constants.php
+// Bug fix: was returning 'AIRPORT' instead of 'APT' (violates tmi_programs CHECK constraint)
 
 /**
  * Publish approved TMI to Discord production channels

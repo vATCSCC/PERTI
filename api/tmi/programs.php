@@ -24,6 +24,7 @@
  */
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
 
 $method = tmi_method();
 $id = tmi_param('id');
@@ -183,9 +184,8 @@ function createProgram() {
     }
     
     // Validate program type
-    $valid_types = ['GS', 'GDP-DAS', 'GDP-GAAP', 'GDP-UDP', 'AFP-DAS', 'AFP-GAAP', 'AFP-UDP'];
-    if (!in_array(strtoupper($body['program_type']), $valid_types)) {
-        TmiResponse::error('Invalid program_type. Must be one of: ' . implode(', ', $valid_types), 400);
+    if (!in_array(strtoupper($body['program_type']), PERTI_PROGRAM_TYPES)) {
+        TmiResponse::error('Invalid program_type. Must be one of: ' . implode(', ', PERTI_PROGRAM_TYPES), 400);
     }
     
     // Parse times

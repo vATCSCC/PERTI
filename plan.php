@@ -782,9 +782,9 @@ include('load/nav.php');
                         <option value="CZYZ">CZYZ - Toronto FIR</option>
                         <option value="CZUL">CZUL - Montreal FIR</option>
                         <option value="CZQM">CZQM - Moncton FIR</option>
-                        <option value="CZZV">CZZV - Sept-Iles FIR</option>
+
                         <option value="CZQX">CZQX - Gander FIR</option>
-                        <option value="CZQO">CZQX - Gander OCA</option>
+                        <option value="CZQO">CZQO - Gander OCA</option>
                         <option value="MUFH">MUFH - Havana FIR</option>
                         <option value="MYNN">MYNN - Nassau FIR</option>
                         <option value="MMZT">MMZT - Mazatlan FIR</option>
@@ -884,9 +884,9 @@ include('load/nav.php');
                         <option value="CZYZ">CZYZ - Toronto FIR</option>
                         <option value="CZUL">CZUL - Montreal FIR</option>
                         <option value="CZQM">CZQM - Moncton FIR</option>
-                        <option value="CZZV">CZZV - Sept-Iles FIR</option>
+
                         <option value="CZQX">CZQX - Gander FIR</option>
-                        <option value="CZQO">CZQX - Gander OCA</option>
+                        <option value="CZQO">CZQO - Gander OCA</option>
                         <option value="MUFH">MUFH - Havana FIR</option>
                         <option value="MYNN">MYNN - Nassau FIR</option>
                         <option value="MMZT">MMZT - Mazatlan FIR</option>
@@ -1686,7 +1686,7 @@ include('load/nav.php');
                         <option>CZYZ - Toronto FIR</option>
                         <option>CZUL - Montreal FIR</option>
                         <option>CZQM - Moncton FIR</option>
-                        <option>CZZV - Sept-Iles FIR</option>
+
                         <option>CZQX - Gander FIR</option>
                         <option>CZQX - Gander OCA</option>
                         <option>MUFH - Havana FIR</option>
@@ -1774,7 +1774,7 @@ include('load/nav.php');
                         <option>CZYZ - Toronto FIR</option>
                         <option>CZUL - Montreal FIR</option>
                         <option>CZQM - Moncton FIR</option>
-                        <option>CZZV - Sept-Iles FIR</option>
+
                         <option>CZQX - Gander FIR</option>
                         <option>CZQX - Gander OCA</option>
                         <option>MUFH - Havana FIR</option>
@@ -1862,7 +1862,7 @@ include('load/nav.php');
                         <option>CZYZ - Toronto FIR</option>
                         <option>CZUL - Montreal FIR</option>
                         <option>CZQM - Moncton FIR</option>
-                        <option>CZZV - Sept-Iles FIR</option>
+
                         <option>CZQX - Gander FIR</option>
                         <option>CZQX - Gander OCA</option>
                         <option>MUFH - Havana FIR</option>
@@ -1939,7 +1939,7 @@ include('load/nav.php');
                         <option>CZYZ - Toronto FIR</option>
                         <option>CZUL - Montreal FIR</option>
                         <option>CZQM - Moncton FIR</option>
-                        <option>CZZV - Sept-Iles FIR</option>
+
                         <option>CZQX - Gander FIR</option>
                         <option>CZQX - Gander OCA</option>
                         <option>MUFH - Havana FIR</option>
