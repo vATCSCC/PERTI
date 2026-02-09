@@ -166,7 +166,7 @@ window.DemandChartCore = (function() {
         const timeBins = [];
         const current = new Date(start);
 
-        while (current <= end) {
+        while (current < end) {
             // Format without milliseconds to match PHP's format
             timeBins.push(current.toISOString().replace('.000Z', 'Z'));
             current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
@@ -309,31 +309,19 @@ window.DemandChartCore = (function() {
                 aar_custom: { type: 'dotted', width: 2 },
                 adr_custom: { type: 'dotted', width: 2 },
             },
-            label: { position: 'end', fontSize: 10, fontWeight: 'bold' },
         };
 
         // Determine style: custom (override), suggested, or active
         const isCustom = rateData.has_override;
         const styleKey = isCustom ? 'custom' : (rateData.is_suggested ? 'suggested' : 'active');
 
-        // Track label index for vertical stacking
-        let labelIndex = 0;
-
-        const addLine = function(value, source, rateType, label) {
+        const addLine = function(value, source, rateType) {
             if (!value) {return;}
 
             const sourceStyle = cfg[styleKey][source];
             // Use dotted line style for custom/dynamic rates
             const lineStyleKey = isCustom ? (rateType + '_custom') : rateType;
             const lineTypeStyle = cfg.lineStyle[lineStyleKey] || cfg.lineStyle[rateType];
-
-            // Use line color as background, contrasting text for readability
-            const bgColor = sourceStyle.color;
-            const textColor = getContrastTextColor(bgColor);
-
-            // Stack labels vertically at the right edge
-            const verticalOffset = labelIndex * 20;
-            labelIndex++;
 
             lines.push({
                 yAxis: value,
@@ -343,32 +331,19 @@ window.DemandChartCore = (function() {
                     type: lineTypeStyle.type,
                 },
                 label: {
-                    show: true,
-                    formatter: `${label} ${value}`,
-                    position: 'end',
-                    distance: 5,
-                    offset: [0, verticalOffset],
-                    color: textColor,
-                    fontSize: cfg.label.fontSize || 10,
-                    fontWeight: cfg.label.fontWeight || 'bold',
-                    fontFamily: '"Roboto Mono", monospace',
-                    backgroundColor: bgColor,
-                    padding: [2, 6],
-                    borderRadius: 3,
-                    borderColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                    borderWidth: 1,
+                    show: false,  // Labels moved to chart header
                 },
             });
         };
 
         if (direction === 'both' || direction === 'arr') {
-            addLine(rates.vatsim_aar, 'vatsim', 'aar', 'AAR');
-            addLine(rates.rw_aar, 'rw', 'aar', 'RW AAR');
+            addLine(rates.vatsim_aar, 'vatsim', 'aar');
+            addLine(rates.rw_aar, 'rw', 'aar');
         }
 
         if (direction === 'both' || direction === 'dep') {
-            addLine(rates.vatsim_adr, 'vatsim', 'adr', 'ADR');
-            addLine(rates.rw_adr, 'rw', 'adr', 'RW ADR');
+            addLine(rates.vatsim_adr, 'vatsim', 'adr');
+            addLine(rates.rw_adr, 'rw', 'adr');
         }
 
         return lines;
@@ -686,7 +661,7 @@ window.DemandChartCore = (function() {
                         itemGap: 10,   // Space between items
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                     },
-                    grid: { left: 50, right: 70, bottom: 100, top: 45, containLabel: false },  // Extra room for wrapped legend
+                    grid: { left: 50, right: 100, bottom: 135, top: 45, containLabel: false },  // Room for x-axis title + legend + dataZoom
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -883,6 +858,10 @@ const DEMAND_STATE = {
     cacheTimestamp: null, // When data was last loaded from API
     cacheValidityMs: 15000, // Cache is valid for 15 seconds
     summaryLoaded: false, // Whether summary breakdown data has been loaded
+    // Legend visibility (persisted in localStorage)
+    legendVisible: localStorage.getItem('demand_legend_visible') !== 'false', // default true
+    // ECharts legend selected state (preserved across auto-refresh)
+    legendSelected: {},
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -1162,6 +1141,88 @@ function getRegionOrder(region) {
 }
 
 /**
+ * Normalize a procedure name (DP/STAR) by replacing version number and suffix with placeholders
+ * Examples:
+ *   - CINDY2D, CINDY8S → CINDY#?    (international format: NAME + digit + letter)
+ *   - MARUN2D, MARUN6E → MARUN#?
+ *   - KERAX4D, KERAX5D → KERAX#?
+ *   - SKORR4, SKORR5 → SKORR#      (US format: NAME + digit)
+ *   - RNAV procedures often have numbers in the name, so we match trailing digit+letter
+ * @param {string} name - Procedure name
+ * @returns {string} Normalized procedure name
+ */
+function normalizeProcedureName(name) {
+    if (!name || name === 'UNKNOWN') return name;
+
+    // Pattern: Base name (letters) + digit(s) + optional single letter suffix
+    // Match: CINDY2D, MARUN6E, KERAX5D, SKORR4, DEBHI1C, EMPAX5C
+    // The pattern looks for: letters followed by one or more digits, optionally followed by a single letter at end
+    const match = name.match(/^([A-Z]+)(\d+)([A-Z])?$/);
+    if (match) {
+        const base = match[1];
+        const suffix = match[3]; // May be undefined for US procedures
+        if (suffix) {
+            return `${base}#?`;  // International: CINDY#?, KERAX#?
+        } else {
+            return `${base}#`;   // US: SKORR#
+        }
+    }
+
+    return name; // No match, return original
+}
+
+/**
+ * Normalize breakdown data by grouping procedures with the same base name
+ * @param {Object} breakdown - Breakdown data keyed by time bin
+ * @param {string} categoryKey - Key to read/write the category (e.g., 'dp', 'star')
+ * @returns {Object} Normalized breakdown with grouped procedures
+ */
+function normalizeBreakdownByProcedure(breakdown, categoryKey) {
+    if (!breakdown) return breakdown;
+
+    const normalized = {};
+
+    for (const timeBin in breakdown) {
+        const items = breakdown[timeBin];
+        if (!Array.isArray(items)) {
+            normalized[timeBin] = items;
+            continue;
+        }
+
+        // Group items by normalized procedure name
+        const grouped = {};
+        items.forEach(item => {
+            const originalName = item[categoryKey];
+            const normalizedName = normalizeProcedureName(originalName);
+
+            if (!grouped[normalizedName]) {
+                grouped[normalizedName] = {
+                    [categoryKey]: normalizedName,
+                    count: 0,
+                    phases: {},
+                };
+            }
+
+            // Sum counts
+            grouped[normalizedName].count += item.count || 0;
+
+            // Merge phase breakdowns
+            if (item.phases) {
+                for (const phase in item.phases) {
+                    grouped[normalizedName].phases[phase] =
+                        (grouped[normalizedName].phases[phase] || 0) + item.phases[phase];
+                }
+            }
+        });
+
+        // Convert back to array
+        normalized[timeBin] = Object.values(grouped);
+    }
+
+    return normalized;
+}
+
+/**
  * Check if a specific phase is enabled based on phase group selections
  * @param {string} phase - Phase name (e.g., 'enroute', 'taxiing', 'arrived')
  * @returns {boolean} True if the phase should be displayed
@@ -1183,6 +1244,30 @@ function getEnabledPhases() {
         }
     }
     return enabled;
+}
+
+/**
+ * Sync phase filter checkbox DOM state from DEMAND_STATE.phaseGroups.
+ * Ensures visual checkbox state matches JS state after refresh cycles.
+ */
+function syncPhaseCheckboxes() {
+    for (var group in DEMAND_STATE.phaseGroups) {
+        var $cb = $('#phase_' + group);
+        if ($cb.length) {
+            $cb.prop('checked', DEMAND_STATE.phaseGroups[group]);
+        }
+    }
+}
+
+/**
+ * Sync rate line checkbox DOM state from DEMAND_STATE.
+ * Ensures visual checkbox state matches JS state after refresh cycles.
+ */
+function syncRateCheckboxes() {
+    $('#rate_vatsim_aar').prop('checked', DEMAND_STATE.showVatsimAar);
+    $('#rate_vatsim_adr').prop('checked', DEMAND_STATE.showVatsimAdr);
+    $('#rate_rw_aar').prop('checked', DEMAND_STATE.showRwAar);
+    $('#rate_rw_adr').prop('checked', DEMAND_STATE.showRwAdr);
 }
 
 /**
@@ -1214,6 +1299,8 @@ function renderWithLoading() {
         // Small timeout to ensure overlay is visible before render blocks
         setTimeout(() => {
             renderCurrentView();
+            syncPhaseCheckboxes();
+            syncRateCheckboxes();
             hideChartLoading();
         }, 50);
     });
@@ -1627,6 +1714,7 @@ function setupEventHandlers() {
     // Uses cached breakdown data to avoid re-querying on view changes
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
+        DEMAND_STATE.legendSelected = {}; // Reset legend state when series names change
         if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
             // Check if we need to load breakdown data (only if not cached or cache expired)
             const needsSummaryData = DEMAND_STATE.chartView !== 'status';
@@ -1650,21 +1738,25 @@ function setupEventHandlers() {
     // Rate line visibility toggles
     $('#rate_vatsim_aar').on('change', function() {
         DEMAND_STATE.showVatsimAar = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_vatsim_adr').on('change', function() {
         DEMAND_STATE.showVatsimAdr = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_rw_aar').on('change', function() {
         DEMAND_STATE.showRwAar = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
     $('#rate_rw_adr').on('change', function() {
         DEMAND_STATE.showRwAdr = $(this).is(':checked');
+        updateHeaderRateDisplay(DEMAND_STATE.rateData);
         renderWithLoading();
     });
 
@@ -1675,6 +1767,24 @@ function setupEventHandlers() {
             renderWithLoading();
         });
     });
+
+    // Legend toggle button
+    $('#demand_legend_toggle_btn').on('click', function() {
+        toggleLegendVisibility();
+    });
+
+    // Initialize legend toggle button state from localStorage
+    const toggleText = document.getElementById('legend_toggle_text');
+    const toggleBtn = document.getElementById('demand_legend_toggle_btn');
+    if (toggleText && toggleBtn) {
+        if (DEMAND_STATE.legendVisible) {
+            toggleText.textContent = 'Hide Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
+        } else {
+            toggleText.textContent = 'Show Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye';
+        }
+    }
 
     // Initialize floating phase filter panel
     initPhaseFilterFloatingPanel();
@@ -1855,9 +1965,14 @@ function updateTierOptions() {
  * Show prompt to select an airport
  */
 function showSelectAirportPrompt() {
-    // Show empty state, hide chart
+    // Show empty state, hide chart and legend toggle
     $('#demand_empty_state').show();
     $('#demand_chart').hide();
+    $('#demand_legend_toggle_area').hide();
+
+    // Hide header rate display
+    $('#demand_header_aar_row').hide();
+    $('#demand_header_adr_row').hide();
 
     // Reset info bar
     $('#demand_selected_airport').text('----');
@@ -1891,9 +2006,10 @@ function loadDemandData() {
     $('#demand_selected_airport').text(airport);
     $('#demand_airport_name').text(airportName);
 
-    // Hide empty state, show chart
+    // Hide empty state, show chart and legend toggle
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
+    $('#demand_legend_toggle_area').show();
 
     // Calculate time range - use custom values or preset offsets
     let start, end;
@@ -2042,6 +2158,10 @@ function loadDemandData() {
 
             updateInfoBarStats(demandResponse);
             updateLastUpdateDisplay(demandResponse.last_adl_update);
+
+            // Sync checkbox DOM state to ensure visual state matches JS state after refresh
+            syncPhaseCheckboxes();
+            syncRateCheckboxes();
         });
 }
 
@@ -2057,6 +2177,8 @@ function updateRateInfoDisplay(rateData) {
         $('#rate_override_badge').hide();
         $('#rate_arr_runways').text('--');
         $('#rate_dep_runways').text('--');
+        // Also clear header rate display
+        updateHeaderRateDisplay(null);
         return;
     }
 
@@ -2169,6 +2291,9 @@ function updateRateInfoDisplay(rateData) {
         sourceText = 'Suggested';
     }
     $('#rate_source').text(sourceText);
+
+    // Also update header rate display
+    updateHeaderRateDisplay(rateData);
 }
 
 /**
@@ -2429,6 +2554,9 @@ function renderChart(data) {
         return;
     }
 
+    // Capture legend selected state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
+
     // Hide loading indicator
     DEMAND_STATE.chart.hideLoading();
 
@@ -2649,53 +2777,13 @@ function renderChart(data) {
                 return tooltip;
             },
         },
-        legend: direction === 'both' ? [
-            {
-                // Arrivals row (circles)
-                bottom: 115,
-                left: 'center',
-                width: '85%',  // Allow wrapping
-                type: 'scroll',
-                itemWidth: 14,
-                itemHeight: 10,
-                itemGap: 12,   // Space between items
-                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-                data: series.filter(s => s.name.includes('(Arr)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Arr)', ''); },
-            },
-            {
-                // Departures row (rectangles)
-                bottom: 90,
-                left: 'center',
-                width: '85%',  // Allow wrapping
-                type: 'scroll',
-                itemWidth: 14,
-                itemHeight: 10,
-                itemGap: 12,   // Space between items
-                textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-                icon: 'rect',
-                data: series.filter(s => s.name.includes('(Dep)')).map(s => s.name),
-                formatter: function(name) { return name.replace(' (Dep)', ''); },
-            },
-        ] : {
-            bottom: 70,  // Single row - no overlap issue
-            left: 'center',
-            width: '85%',  // Allow wrapping
-            type: 'scroll',
-            itemWidth: 14,
-            itemHeight: 10,
-            itemGap: 12,   // Space between items
-            textStyle: { fontSize: 11, fontFamily: '"Segoe UI", sans-serif' },
-        },
+        legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible),
+            direction === 'both' ? {} : {},
+            { selected: DEMAND_STATE.legendSelected }
+        ),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
-        grid: {
-            left: 55,
-            right: 70,   // Room for AAR/ADR labels
-            bottom: direction === 'both' ? 165 : 140, // Extra room for 2 legend rows
-            top: 55,
-            containLabel: false,
-        },
+        grid: getStandardGridConfig(),
         xAxis: {
             type: 'time',
             name: getXAxisLabel(),
@@ -2847,38 +2935,15 @@ function renderOriginChart() {
         regionGroups[region].sort();
     });
 
-    // Build legend array - one row per region (only for regions with ARTCCs)
-    const legendRows = [];
-    const baseBottom = 75;
-    const rowHeight = 22;
+    // Build single legend with all ARTCCs (using standard config for fixed height)
+    // The scroll feature will handle overflow for many items
+    const allArtccs = [];
     const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
-    const numRows = activeRegions.length;
-
-    activeRegions.forEach((region, idx) => {
-        const artccs = regionGroups[region];
-        if (artccs.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: artccs,
-        });
+    activeRegions.forEach(region => {
+        allArtccs.push(...regionGroups[region]);
     });
 
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
-
-    // Use shared renderBreakdownChart with DCC regional colors and custom legend
+    // Use shared renderBreakdownChart with DCC regional colors and standard legend
     renderBreakdownChart(
         DEMAND_STATE.originBreakdown,
         `${dirLabel} by Origin ARTCC`,
@@ -2888,14 +2953,11 @@ function renderOriginChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            // Use standard legend config - scroll handles overflow
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: allArtccs,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -2917,6 +2979,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         console.error('Chart not initialized');
         return;
     }
+
+    // Capture legend selected state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
 
     DEMAND_STATE.chart.hideLoading();
 
@@ -3226,28 +3291,15 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                 return tooltip;
             },
         },
-        legend: (extraOptions && extraOptions.legend) ? extraOptions.legend : {
-            bottom: 75,  // Above sliders
-            left: 'center',
-            width: '85%',  // Allow wrapping
-            type: 'scroll',
-            itemWidth: 14,
-            itemHeight: 10,
-            itemGap: 12,   // Space between items
-            textStyle: {
-                fontSize: 11,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-        },
+        legend: Object.assign({},
+            (extraOptions && extraOptions.legend)
+                ? Object.assign({}, extraOptions.legend, { show: DEMAND_STATE.legendVisible })
+                : getStandardLegendConfig(DEMAND_STATE.legendVisible),
+            { selected: DEMAND_STATE.legendSelected }
+        ),
         // DataZoom sliders for customizable time/demand ranges
         dataZoom: getDataZoomConfig(),
-        grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : {
-            left: 55,
-            right: 70,   // Room for AAR/ADR labels
-            bottom: 145, // Room for slider + legend (with wrapping)
-            top: 55,
-            containLabel: false,
-        },
+        grid: (extraOptions && extraOptions.grid) ? extraOptions.grid : getStandardGridConfig(),
         xAxis: {
             type: 'time',
             name: getXAxisLabel(),
@@ -3378,36 +3430,12 @@ function renderDestChart() {
         regionGroups[region].sort();
     });
 
-    // Build legend array - one row per region (only for regions with ARTCCs)
-    const legendRows = [];
-    const baseBottom = 75;
-    const rowHeight = 22;
+    // Build single legend with all ARTCCs (using standard config for fixed height)
+    const allArtccs = [];
     const activeRegions = sortedRegions.filter(r => regionGroups[r].length > 0);
-    const numRows = activeRegions.length;
-
-    activeRegions.forEach((region, idx) => {
-        const artccs = regionGroups[region];
-        if (artccs.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: artccs,
-        });
+    activeRegions.forEach(region => {
+        allArtccs.push(...regionGroups[region]);
     });
-
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
 
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
@@ -3418,14 +3446,11 @@ function renderDestChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            // Use standard legend config - scroll handles overflow
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: allArtccs,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -3527,7 +3552,7 @@ function renderEquipmentChart() {
         }
     }
 
-    // Group aircraft types by manufacturer
+    // Group aircraft types by manufacturer for sorting
     const mfrGroups = {};
     allTypes.forEach(acType => {
         const mfr = getAircraftManufacturer(acType);
@@ -3543,39 +3568,13 @@ function renderEquipmentChart() {
         mfrGroups[mfr].sort();
     });
 
-    // Build legend array - one row per manufacturer
-    const legendRows = [];
-    const baseBottom = 75;  // Base position for first legend row
-    const rowHeight = 22;   // Height between legend rows
-    const numRows = sortedMfrs.length;
-
-    sortedMfrs.forEach((mfr, idx) => {
-        const types = mfrGroups[mfr];
-        if (types.length === 0) {return;}
-
-        legendRows.push({
-            bottom: baseBottom + (numRows - 1 - idx) * rowHeight,
-            left: 10,
-            width: '95%',
-            type: 'scroll',
-            orient: 'horizontal',
-            itemWidth: 12,
-            itemHeight: 8,
-            itemGap: 8,
-            textStyle: {
-                fontSize: 10,
-                fontFamily: '"Segoe UI", sans-serif',
-            },
-            data: types,
-            formatter: function(name) {
-                return name;  // Just show the aircraft type code
-            },
-        });
+    // Build flat sorted list of all aircraft types (manufacturer-grouped order)
+    const sortedTypes = [];
+    sortedMfrs.forEach(mfr => {
+        sortedTypes.push(...mfrGroups[mfr]);
     });
 
-    // Calculate grid bottom to accommodate all legend rows
-    const gridBottom = 145 + (numRows > 1 ? (numRows - 1) * rowHeight : 0);
-
+    // Use standard scrolling legend like other charts
     renderBreakdownChart(
         DEMAND_STATE.equipmentBreakdown,
         `${dirLabel} by Aircraft Type`,
@@ -3590,14 +3589,10 @@ function renderEquipmentChart() {
         null,
         null,
         {
-            legend: legendRows.length > 0 ? legendRows : undefined,
-            grid: {
-                left: 55,
-                right: 70,
-                bottom: gridBottom,
-                top: 55,
-                containLabel: false,
-            },
+            legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+                data: sortedTypes,
+            }),
+            grid: getStandardGridConfig(),
         },
     );
 }
@@ -3696,14 +3691,7 @@ function renderDepFixChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
-            // Fallback: generate color from hash
-            if (!fix) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < fix.length; i++) {
-                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 65%, 45%)`;
+            return getCategoricalColor(fix);
         },
         null,
         null,
@@ -3733,14 +3721,7 @@ function renderArrFixChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.fix && typeof FILTER_CONFIG.fix.getColor === 'function') {
                 return FILTER_CONFIG.fix.getColor(fix);
             }
-            // Fallback: generate color from hash
-            if (!fix) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < fix.length; i++) {
-                hash = fix.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 65%, 45%)`;
+            return getCategoricalColor(fix);
         },
         null,
         null,
@@ -3770,14 +3751,7 @@ function renderDPChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(dp);
             }
-            // Fallback: generate color from hash
-            if (!dp) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < dp.length; i++) {
-                hash = dp.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 70%, 50%)`;
+            return getCategoricalColor(dp);
         },
         null,
         null,
@@ -3807,14 +3781,7 @@ function renderSTARChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.procedure && typeof FILTER_CONFIG.procedure.getColor === 'function') {
                 return FILTER_CONFIG.procedure.getColor(star);
             }
-            // Fallback: generate color from hash
-            if (!star) {return '#6c757d';}
-            let hash = 0;
-            for (let i = 0; i < star.length; i++) {
-                hash = star.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 70%, 50%)`;
+            return getCategoricalColor(star);
         },
         null,
         null,
@@ -4914,7 +4881,7 @@ function generateAllTimeBins() {
     const timeBins = [];
     const current = new Date(start);
 
-    while (current <= end) {
+    while (current < end) {
         // Format without milliseconds to match PHP's format: "2026-01-10T14:00:00Z"
         timeBins.push(current.toISOString().replace('.000Z', 'Z'));
         current.setUTCMinutes(current.getUTCMinutes() + intervalMinutes);
@@ -5153,6 +5120,203 @@ function getDataZoomConfig() {
 }
 
 /**
+ * Get the standard legend configuration for demand charts
+ * Uses fixed positioning and scroll for overflow, with visibility toggle support
+ * @param {boolean} visible - Whether the legend should be visible
+ * @returns {Object} ECharts legend configuration
+ */
+function getStandardLegendConfig(visible) {
+    return {
+        show: visible,
+        bottom: 55,  // Fixed position above dataZoom slider
+        left: 'center',
+        width: '90%',
+        type: 'scroll',
+        itemWidth: 14,
+        itemHeight: 10,
+        itemGap: 12,
+        pageButtonItemGap: 5,
+        pageButtonGap: 10,
+        pageIconSize: 12,
+        textStyle: {
+            fontSize: 11,
+            fontFamily: '"Segoe UI", sans-serif',
+        },
+    };
+}
+
+/**
+ * Capture the current ECharts legend selected state before re-render.
+ * Preserves which legend items the user has toggled on/off across auto-refreshes.
+ */
+function captureLegendSelected() {
+    if (!DEMAND_STATE.chart) return {};
+    var option = DEMAND_STATE.chart.getOption();
+    if (option && option.legend && option.legend[0] && option.legend[0].selected) {
+        return Object.assign({}, option.legend[0].selected);
+    }
+    return {};
+}
+
+/**
+ * Get the standard grid configuration for demand charts
+ * Uses fixed bottom padding (no longer varies based on legend content)
+ * @returns {Object} ECharts grid configuration
+ */
+function getStandardGridConfig() {
+    return {
+        left: 55,
+        right: 100,  // Room for vertical dataZoom slider (30px) + rate labels (70px)
+        bottom: 135, // Room for x-axis title + legend + dataZoom slider
+        top: 55,
+        containLabel: false,
+    };
+}
+
+/**
+ * Curated categorical color palette for fixes, DPs, STARs
+ * Designed for maximum visual distinction between adjacent items
+ * Based on ColorBrewer qualitative palettes with aviation-friendly tones
+ */
+const CATEGORICAL_COLORS = [
+    '#1f77b4', // blue
+    '#ff7f0e', // orange
+    '#2ca02c', // green
+    '#d62728', // red
+    '#9467bd', // purple
+    '#8c564b', // brown
+    '#e377c2', // pink
+    '#17becf', // cyan
+    '#bcbd22', // olive
+    '#7f7f7f', // gray
+    '#aec7e8', // light blue
+    '#ffbb78', // light orange
+    '#98df8a', // light green
+    '#ff9896', // light red
+    '#c5b0d5', // light purple
+    '#c49c94', // light brown
+    '#f7b6d2', // light pink
+    '#9edae5', // light cyan
+    '#dbdb8d', // light olive
+    '#393b79', // dark blue
+    '#637939', // dark olive
+    '#8c6d31', // dark tan
+    '#843c39', // dark red-brown
+    '#7b4173', // dark magenta
+];
+
+/**
+ * Get a consistent color for a category name (fix, DP, STAR)
+ * Uses curated palette with hash-based selection for consistency
+ * @param {string} name - Category name
+ * @param {number} index - Optional index for sequential coloring
+ * @returns {string} - Hex color code
+ */
+function getCategoricalColor(name, index) {
+    if (!name) return '#6c757d';
+
+    // If UNKNOWN, use a distinct gray
+    if (name === 'UNKNOWN' || name === 'UNK') {
+        return '#6c757d';
+    }
+
+    // Use index if provided, otherwise hash the name for consistent colors
+    let idx;
+    if (typeof index === 'number') {
+        idx = index;
+    } else {
+        // Hash the name to get a consistent index
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        idx = Math.abs(hash);
+    }
+
+    return CATEGORICAL_COLORS[idx % CATEGORICAL_COLORS.length];
+}
+
+/**
+ * Toggle legend visibility and update chart
+ */
+function toggleLegendVisibility() {
+    DEMAND_STATE.legendVisible = !DEMAND_STATE.legendVisible;
+    localStorage.setItem('demand_legend_visible', DEMAND_STATE.legendVisible);
+
+    // Update toggle button text
+    const toggleText = document.getElementById('legend_toggle_text');
+    const toggleBtn = document.getElementById('demand_legend_toggle_btn');
+    if (toggleText && toggleBtn) {
+        if (DEMAND_STATE.legendVisible) {
+            toggleText.textContent = 'Hide Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
+        } else {
+            toggleText.textContent = 'Show Legend';
+            toggleBtn.querySelector('i').className = 'fas fa-eye';
+        }
+    }
+
+    // Re-render current chart view to apply legend visibility
+    if (DEMAND_STATE.chart && DEMAND_STATE.lastDemandData) {
+        renderCurrentView();
+    }
+}
+
+/**
+ * Update the header rate display with current rate values
+ * @param {Object} rateData - Rate data object with rates property
+ */
+function updateHeaderRateDisplay(rateData) {
+    const aarRow = document.getElementById('demand_header_aar_row');
+    const adrRow = document.getElementById('demand_header_adr_row');
+
+    if (!aarRow || !adrRow) return;
+
+    // Get current rate values
+    const rates = rateData && rateData.rates ? rateData.rates : null;
+    const direction = DEMAND_STATE.direction;
+
+    // Check which rates are enabled
+    const showVatsimAar = DEMAND_STATE.showVatsimAar;
+    const showVatsimAdr = DEMAND_STATE.showVatsimAdr;
+    const showRwAar = DEMAND_STATE.showRwAar;
+    const showRwAdr = DEMAND_STATE.showRwAdr;
+
+    // Show/hide rows based on direction
+    const showAar = direction === 'both' || direction === 'arr';
+    const showAdr = direction === 'both' || direction === 'dep';
+
+    aarRow.style.display = showAar && rates ? '' : 'none';
+    adrRow.style.display = showAdr && rates ? '' : 'none';
+
+    if (!rates) return;
+
+    // Update AAR row values
+    const vatsimAarEl = document.getElementById('header_vatsim_aar');
+    const rwAarEl = document.getElementById('header_rw_aar');
+    if (vatsimAarEl) {
+        vatsimAarEl.textContent = (showVatsimAar && rates.vatsim_aar) ? rates.vatsim_aar : '--';
+        vatsimAarEl.style.opacity = (showVatsimAar && rates.vatsim_aar) ? '1' : '0.4';
+    }
+    if (rwAarEl) {
+        rwAarEl.textContent = (showRwAar && rates.rw_aar) ? rates.rw_aar : '--';
+        rwAarEl.style.opacity = (showRwAar && rates.rw_aar) ? '1' : '0.4';
+    }
+
+    // Update ADR row values
+    const vatsimAdrEl = document.getElementById('header_vatsim_adr');
+    const rwAdrEl = document.getElementById('header_rw_adr');
+    if (vatsimAdrEl) {
+        vatsimAdrEl.textContent = (showVatsimAdr && rates.vatsim_adr) ? rates.vatsim_adr : '--';
+        vatsimAdrEl.style.opacity = (showVatsimAdr && rates.vatsim_adr) ? '1' : '0.4';
+    }
+    if (rwAdrEl) {
+        rwAdrEl.textContent = (showRwAdr && rates.rw_adr) ? rates.rw_adr : '--';
+        rwAdrEl.style.opacity = (showRwAdr && rates.rw_adr) ? '1' : '0.4';
+    }
+}
+
+/**
  * Build chart title in FSM/TBFM style
  * Format: "KATL          01/10/2026          16:30Z"
  * Airport code (left), ADL date (center), ADL time (right)
@@ -5198,9 +5362,10 @@ function updateLastUpdateDisplay(adlUpdate) {
  * Show loading indicator on chart
  */
 function showLoading() {
-    // Make sure chart is visible
+    // Make sure chart and legend toggle are visible
     $('#demand_empty_state').hide();
     $('#demand_chart').show();
+    $('#demand_legend_toggle_area').show();
 
     // Resize chart in case it was hidden
     if (DEMAND_STATE.chart) {
@@ -5304,8 +5469,8 @@ function loadFlightSummary(renderOriginChartAfter) {
                 DEMAND_STATE.ruleBreakdown = response.rule_breakdown || {};
                 DEMAND_STATE.depFixBreakdown = response.dep_fix_breakdown || {};
                 DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
-                DEMAND_STATE.dpBreakdown = response.dp_breakdown || {};
-                DEMAND_STATE.starBreakdown = response.star_breakdown || {};
+                DEMAND_STATE.dpBreakdown = normalizeBreakdownByProcedure(response.dp_breakdown || {}, 'dp');
+                DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(response.star_breakdown || {}, 'star');
 
                 // Mark summary data as loaded (for caching)
                 DEMAND_STATE.summaryLoaded = true;
@@ -5718,6 +5883,533 @@ function getHashColor(str) {
     const hue = Math.abs(hash % 360);
     return `hsl(${hue}, 65%, 45%)`;
 }
+
+// ============================================================================
+// Set Airport Config from Demand Page
+// Allows users to publish a CONFIG NTML entry directly from the demand page
+// ============================================================================
+
+(function() {
+    'use strict';
+
+    // State for the config modal
+    let configPresets = [];
+    let defaultAar = null; // Preset default AAR for Strat/Dyn determination
+
+    // ---- Helper functions ----
+
+    function getCurrentDateDDHHMM() {
+        const now = new Date();
+        return String(now.getUTCDate()).padStart(2, '0') + '/' +
+               String(now.getUTCHours()).padStart(2, '0') +
+               String(now.getUTCMinutes()).padStart(2, '0');
+    }
+
+    function formatDateTimeLocalUTC(d) {
+        const year = d.getUTCFullYear();
+        const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const hours = String(d.getUTCHours()).padStart(2, '0');
+        const mins = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${mins}`;
+    }
+
+    function snapEndTimeToQuarter(date) {
+        const d = new Date(date);
+        const mins = d.getUTCMinutes();
+        let snap;
+        if (mins <= 14) {snap = 14;}
+        else if (mins <= 29) {snap = 29;}
+        else if (mins <= 44) {snap = 44;}
+        else {snap = 59;}
+        d.setUTCMinutes(snap);
+        d.setUTCSeconds(0);
+        d.setUTCMilliseconds(0);
+        return d;
+    }
+
+    function getSmartDefaults() {
+        const now = new Date();
+        const start = new Date(now);
+        start.setUTCSeconds(0);
+        start.setUTCMilliseconds(0);
+
+        const end = new Date(start);
+        end.setUTCHours(end.getUTCHours() + 4);
+        const snappedEnd = snapEndTimeToQuarter(end);
+
+        return {
+            start: formatDateTimeLocalUTC(start),
+            end: formatDateTimeLocalUTC(snappedEnd)
+        };
+    }
+
+    function formatValidTimeSuffix(from, until) {
+        if (!from && !until) {return '';}
+        const extractHHMM = (val) => {
+            if (!val || !val.includes('T')) {return '';}
+            const timePart = val.split('T')[1] || '00:00';
+            return timePart.replace(':', '').substring(0, 4);
+        };
+        const fromStr = extractHHMM(from);
+        const untilStr = extractHHMM(until);
+        if (fromStr && untilStr) {return fromStr + '-' + untilStr;}
+        if (untilStr) {return untilStr;}
+        return '';
+    }
+
+    function formatConfigMessage(data) {
+        const logTime = getCurrentDateDDHHMM();
+        const airport = (data.ctl_element || 'N/A').toUpperCase();
+        const weather = (data.weather || 'VMC').toUpperCase();
+        const arrRwys = (data.arr_runways || 'N/A').toUpperCase();
+        const depRwys = (data.dep_runways || 'N/A').toUpperCase();
+        const aar = data.aar || '60';
+        const adr = data.adr || '60';
+        const aarType = data.aar_type || 'Strat';
+        const validSuffix = formatValidTimeSuffix(data.valid_from, data.valid_until);
+
+        let line = `${logTime}    ${airport} ${weather} ARR:${arrRwys} DEP:${depRwys} AAR(${aarType}):${aar}`;
+
+        // Add AAR Adjustment reason if dynamic
+        if (aarType === 'Dyn' && data.aar_adjustment) {
+            line += ` AAR Adjustment:${data.aar_adjustment}`;
+        }
+
+        line += ` ADR:${adr}`;
+
+        if (validSuffix && validSuffix !== 'TFN') {
+            line += ` ${validSuffix}`;
+        }
+
+        return line;
+    }
+
+    // ---- Show/hide button ----
+
+    function updateSetConfigButtonVisibility() {
+        const btn = document.getElementById('set_config_btn');
+        if (!btn) {return;}
+        btn.style.display = DEMAND_STATE.selectedAirport ? '' : 'none';
+    }
+
+    // Hook into airport selection changes
+    $(document).on('change', '#demand_airport', function() {
+        // Small delay to let DEMAND_STATE update
+        setTimeout(updateSetConfigButtonVisibility, 50);
+    });
+
+    // ---- Modal ----
+
+    function showSetConfigModal() {
+        const airport = DEMAND_STATE.selectedAirport;
+        if (!airport) {return;}
+
+        // Collect pre-population data
+        const rd = DEMAND_STATE.rateData;
+        const tmi = DEMAND_STATE.tmiConfig;
+        const atis = DEMAND_STATE.atisData;
+
+        // Prefer TMI config values, then rate data, then defaults
+        let preAar = tmi?.aar ?? rd?.rates?.vatsim_aar ?? '';
+        let preAdr = tmi?.adr ?? rd?.rates?.vatsim_adr ?? '';
+        let preWeather = tmi?.weather_category ?? rd?.weather_category ?? 'VMC';
+        let preArrRwys = tmi?.arr_runways ?? rd?.arr_runways ?? '';
+        let preDepRwys = tmi?.dep_runways ?? rd?.dep_runways ?? '';
+        let preAarType = tmi?.aar_type ?? 'Strat';
+
+        // If ATIS has runway data and no TMI/rate runways, use ATIS
+        if (!preArrRwys && atis?.runways?.arr_runways) {
+            preArrRwys = atis.runways.arr_runways;
+        }
+        if (!preDepRwys && atis?.runways?.dep_runways) {
+            preDepRwys = atis.runways.dep_runways;
+        }
+
+        const defaults = getSmartDefaults();
+        const user = window.DEMAND_USER || {};
+
+        // Store default AAR for Strat/Dyn comparison
+        defaultAar = preAar || null;
+
+        // Load config presets
+        loadConfigPresets(airport, function() {
+            buildAndShowModal(airport, {
+                aar: preAar, adr: preAdr, weather: preWeather,
+                arrRwys: preArrRwys, depRwys: preDepRwys, aarType: preAarType,
+                validFrom: defaults.start, validUntil: defaults.end,
+                user: user
+            });
+        });
+    }
+
+    function loadConfigPresets(airport, callback) {
+        configPresets = [];
+        $.getJSON('api/mgt/tmi/airport_configs.php', {airport: airport, active_only: 1})
+            .done(function(resp) {
+                if (resp.success && resp.configs) {
+                    configPresets = resp.configs;
+                }
+                callback();
+            })
+            .fail(function() { callback(); });
+    }
+
+    function buildAndShowModal(airport, pre) {
+        // Build preset options
+        let presetOptions = '<option value="">-- Select Preset --</option>';
+        configPresets.forEach(function(c) {
+            presetOptions += `<option value="${c.configId}">${c.configName || c.configCode || 'Config #' + c.configId}</option>`;
+        });
+
+        // Determine if AAR adjustment row should show
+        const showAdjustment = pre.aarType === 'Dyn';
+
+        const formHtml = `
+            <div class="text-left" style="font-size: 0.85rem;">
+                <div class="form-group mb-2">
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Config Preset</label>
+                    <select class="form-control form-control-sm" id="sc_preset">${presetOptions}</select>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Weather</label>
+                        <select class="form-control form-control-sm" id="sc_weather">
+                            <option value="VMC"${pre.weather === 'VMC' ? ' selected' : ''}>VMC</option>
+                            <option value="MVFR"${pre.weather === 'MVFR' ? ' selected' : ''}>MVFR</option>
+                            <option value="IMC"${pre.weather === 'IMC' ? ' selected' : ''}>IMC</option>
+                            <option value="LIMC"${pre.weather === 'LIMC' ? ' selected' : ''}>LIMC</option>
+                        </select>
+                    </div>
+                    <div class="col-6">&nbsp;</div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Arrival Runways</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_arr_rwys" value="${pre.arrRwys}" placeholder="e.g. 27R">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Departure Runways</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_dep_rwys" value="${pre.depRwys}" placeholder="e.g. 27L/35">
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR</label>
+                        <input type="number" class="form-control form-control-sm" id="sc_aar" value="${pre.aar}" min="0" max="200">
+                    </div>
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">ADR</label>
+                        <input type="number" class="form-control form-control-sm" id="sc_adr" value="${pre.adr}" min="0" max="200">
+                    </div>
+                    <div class="col-4">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Type</label>
+                        <input type="text" class="form-control form-control-sm bg-light" id="sc_aar_type" value="${pre.aarType}" readonly>
+                    </div>
+                </div>
+                <div class="form-group mb-2" id="sc_adjustment_row" style="display: ${showAdjustment ? '' : 'none'};">
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Adjustment Reason</label>
+                    <input type="text" class="form-control form-control-sm" id="sc_aar_adjustment" placeholder="e.g. XW-TLWD">
+                </div>
+                <hr class="my-2">
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid From (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_from" value="${pre.validFrom}">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid Until (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_until" value="${pre.validUntil}">
+                    </div>
+                </div>
+                ${!pre.user.loggedIn ? `
+                <hr class="my-2">
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Your Name</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_name" placeholder="First Last">
+                    </div>
+                    <div class="col-6">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">CID (optional)</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_cid" placeholder="VATSIM CID">
+                    </div>
+                </div>` : ''}
+            </div>
+        `;
+
+        Swal.fire({
+            title: '<i class="fas fa-tachometer-alt"></i> Set Config: ' + airport,
+            html: formHtml,
+            width: 520,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-paper-plane"></i> Publish',
+            confirmButtonColor: '#2c3e50',
+            cancelButtonText: 'Cancel',
+            didOpen: function() {
+                // Preset change handler
+                $('#sc_preset').on('change', function() {
+                    const id = parseInt($(this).val());
+                    const cfg = configPresets.find(c => c.configId === id);
+                    if (!cfg) {return;}
+
+                    $('#sc_arr_rwys').val(cfg.arrRunways || '');
+                    $('#sc_dep_rwys').val(cfg.depRunways || '');
+
+                    const weather = $('#sc_weather').val();
+                    let aar = cfg.rates.vmcAar;
+                    let adr = cfg.rates.vmcAdr;
+                    if (weather === 'IMC' || weather === 'LIMC') {
+                        aar = cfg.rates.imcAar || cfg.rates.vmcAar;
+                        adr = cfg.rates.imcAdr || cfg.rates.vmcAdr;
+                    }
+                    if (aar) {$('#sc_aar').val(aar);}
+                    if (adr) {$('#sc_adr').val(adr);}
+
+                    // Store preset default AAR
+                    defaultAar = aar || null;
+                    updateAarType();
+                });
+
+                // Weather change handler
+                $('#sc_weather').on('change', function() {
+                    const id = parseInt($('#sc_preset').val());
+                    const cfg = configPresets.find(c => c.configId === id);
+                    if (!cfg) {return;}
+
+                    const weather = $(this).val();
+                    let aar = cfg.rates.vmcAar;
+                    let adr = cfg.rates.vmcAdr;
+                    if (weather === 'IMC' || weather === 'LIMC') {
+                        aar = cfg.rates.imcAar || cfg.rates.vmcAar;
+                        adr = cfg.rates.imcAdr || cfg.rates.vmcAdr;
+                    }
+                    if (aar) {$('#sc_aar').val(aar);}
+                    if (adr) {$('#sc_adr').val(adr);}
+
+                    defaultAar = aar || null;
+                    updateAarType();
+                });
+
+                // AAR change handler - auto-determine Strat/Dyn
+                $('#sc_aar').on('input change', function() {
+                    updateAarType();
+                });
+            },
+            preConfirm: function() {
+                return validateAndCollect(airport, pre.user);
+            }
+        }).then(function(result) {
+            if (result.isConfirmed && result.value) {
+                publishConfig(result.value);
+            }
+        });
+    }
+
+    function updateAarType() {
+        const currentAar = parseInt($('#sc_aar').val());
+        const isDyn = defaultAar !== null && !isNaN(currentAar) && currentAar !== parseInt(defaultAar);
+
+        $('#sc_aar_type').val(isDyn ? 'Dyn' : 'Strat');
+        $('#sc_adjustment_row').toggle(isDyn);
+
+        if (!isDyn) {
+            $('#sc_aar_adjustment').val('');
+        }
+    }
+
+    function validateAndCollect(airport, user) {
+        const aar = $('#sc_aar').val();
+        const adr = $('#sc_adr').val();
+        const weather = $('#sc_weather').val();
+        const validFrom = $('#sc_valid_from').val();
+        const validUntil = $('#sc_valid_until').val();
+        const aarType = $('#sc_aar_type').val();
+        const aarAdjustment = $('#sc_aar_adjustment').val()?.trim() || '';
+
+        if (!aar || !adr) {
+            Swal.showValidationMessage('AAR and ADR are required');
+            return false;
+        }
+        if (!validFrom || !validUntil) {
+            Swal.showValidationMessage('Valid From and Valid Until are required');
+            return false;
+        }
+        if (aarType === 'Dyn' && !aarAdjustment) {
+            Swal.showValidationMessage('AAR Adjustment reason is required when AAR differs from default');
+            return false;
+        }
+
+        // Determine user identity
+        let userName, userCid;
+        if (user.loggedIn) {
+            userName = user.name;
+            userCid = user.cid;
+        } else {
+            userName = ($('#sc_user_name').val() || '').trim();
+            userCid = ($('#sc_user_cid').val() || '').trim() || null;
+            if (!userName) {
+                Swal.showValidationMessage('Your name is required');
+                return false;
+            }
+        }
+
+        return {
+            data: {
+                type: 'CONFIG',
+                ctl_element: airport.toUpperCase(),
+                req_facility: '',
+                prov_facility: '',
+                valid_from: validFrom,
+                valid_until: validUntil,
+                qualifiers: [],
+                weather: weather,
+                config_name: undefined,
+                arr_runways: ($('#sc_arr_rwys').val() || '').trim().toUpperCase(),
+                dep_runways: ($('#sc_dep_rwys').val() || '').trim().toUpperCase(),
+                aar: aar,
+                aar_type: aarType,
+                adr: adr,
+                aar_adjustment: aarAdjustment.toUpperCase()
+            },
+            userName: userName,
+            userCid: userCid
+        };
+    }
+
+    // ---- Publish ----
+
+    function publishConfig(collected) {
+        // Check for duplicate CONFIG first
+        checkDuplicateConfig(collected.data.ctl_element, function(existing) {
+            if (existing) {
+                showDuplicatePrompt(collected, existing);
+            } else {
+                doPublish(collected);
+            }
+        });
+    }
+
+    function checkDuplicateConfig(airport, callback) {
+        $.ajax({
+            url: 'api/mgt/tmi/active.php',
+            method: 'GET',
+            data: {type: 'ntml', source: 'ALL'},
+            success: function(response) {
+                if (response.success && response.data) {
+                    const all = [...(response.data.active || []), ...(response.data.scheduled || [])];
+                    const existing = all.find(function(item) {
+                        return item.entryType === 'CONFIG' &&
+                            item.ctlElement &&
+                            item.ctlElement.toUpperCase() === airport.toUpperCase() &&
+                            item.status !== 'CANCELLED';
+                    });
+                    callback(existing || null);
+                } else {
+                    callback(null);
+                }
+            },
+            error: function() { callback(null); }
+        });
+    }
+
+    function showDuplicatePrompt(collected, existing) {
+        const existingTime = existing.validFrom
+            ? new Date(existing.validFrom).toLocaleString('en-US', {timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false}) + 'Z'
+            : 'Unknown';
+
+        Swal.fire({
+            title: '<i class="fas fa-exclamation-triangle text-warning"></i> Existing CONFIG',
+            html: `
+                <div class="text-left">
+                    <p>An active CONFIG already exists for <strong>${collected.data.ctl_element}</strong>:</p>
+                    <div class="alert alert-secondary">
+                        <strong>Status:</strong> ${existing.status || 'ACTIVE'}<br>
+                        <strong>Posted:</strong> ${existingTime}<br>
+                        <strong>ID:</strong> #${existing.entityId}
+                    </div>
+                    <p>Publishing will update the existing entry.</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-edit"></i> Update & Publish',
+            confirmButtonColor: '#2c3e50',
+            cancelButtonText: 'Cancel'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                doPublish(collected);
+            }
+        });
+    }
+
+    function doPublish(collected) {
+        Swal.fire({
+            title: 'Publishing...',
+            allowOutsideClick: false,
+            didOpen: function() { Swal.showLoading(); }
+        });
+
+        const message = formatConfigMessage(collected.data);
+
+        const entry = {
+            id: 'demand_config_' + Date.now(),
+            type: 'ntml',
+            entryType: 'CONFIG',
+            data: collected.data,
+            preview: message,
+            orgs: ['vatcscc'],
+            timestamp: new Date().toISOString()
+        };
+
+        const payload = {
+            production: true,
+            entries: [entry],
+            userCid: collected.userCid,
+            userName: collected.userName
+        };
+
+        $.ajax({
+            url: 'api/mgt/tmi/publish.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload)
+        }).done(function(response) {
+            if (response.success || (response.results && response.results.some(function(r) { return r.success; }))) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Config Published',
+                    text: collected.data.ctl_element + ' configuration published to NTML',
+                    timer: 2500,
+                    showConfirmButton: false
+                });
+
+                // Refresh demand data to pick up new active config
+                if (typeof loadDemandData === 'function') {
+                    setTimeout(function() { loadDemandData(); }, 1000);
+                }
+            } else {
+                const errMsg = response.error || (response.results && response.results[0] && response.results[0].error) || 'Unknown error';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Publish Failed',
+                    html: '<p>' + errMsg + '</p>'
+                });
+            }
+        }).fail(function(xhr) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Publish Failed',
+                html: '<p>' + (xhr.responseText || 'Connection error') + '</p>'
+            });
+        });
+    }
+
+    // ---- Button click handler ----
+    $(document).on('click', '#set_config_btn', function() {
+        showSetConfigModal();
+    });
+
+})();
 
 // Initialize when document is ready (only on demand.php page)
 $(document).ready(function() {

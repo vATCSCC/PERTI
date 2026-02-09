@@ -217,6 +217,20 @@ const PERTIColors = (function() {
     };
 
     // ========================================
+    // TMI COMPLIANCE ANALYSIS
+    // Neutral data distinction (not judgmental)
+    // ========================================
+    const tmiCompliance = {
+        neutral: '#6b7280',        // Compliant pairs - baseline gray
+        attention: '#374151',      // Non-compliant pairs - darker, draws eye
+        scaleBar: '#374151',       // Required spacing reference
+        gapIndicator: '#9ca3af',   // Time gaps between non-consecutive flights
+        flowConeFill: 'rgba(107, 114, 128, 0.12)',
+        flowConeBorder: 'rgba(107, 114, 128, 0.35)',
+        streamHighlight: '#4b5563',
+    };
+
+    // ========================================
     // CSS VARIABLE REFERENCES
     // Use these when you need to get CSS variable values in JS
     // ========================================
@@ -464,6 +478,7 @@ const PERTIColors = (function() {
         rate,
         status,
         airspace,
+        tmiCompliance,
         chartPalette,
 
         // CSS variable access

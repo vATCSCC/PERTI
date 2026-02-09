@@ -1,0 +1,2009 @@
+/**
+ * TMI Compliance Analysis Styles
+ * ==============================
+ * Progressive disclosure UI with master-detail layout
+ *
+ * Layout Structure:
+ *   L1: Summary Header (5-second answer)
+ *   L2: TMI List Panel (scannable index)
+ *   L3: Detail Panel (selected TMI details)
+ *
+ * Color tokens from perti-colors.css:
+ *   --tmi-data-neutral, --tmi-data-attention, --tmi-scale-bar, --tmi-gap-indicator
+ */
+
+/* ===========================================
+ * MASTER LAYOUT
+ * =========================================== */
+
+.tmi-analysis-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 600px;
+}
+
+.tmi-analysis-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--light-bg-page);
+}
+
+.tmi-list-panel {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--light-border);
+    overflow-y: auto;
+    background: var(--light-bg-surface);
+}
+
+.tmi-detail-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-width: 0;
+}
+
+/* ===========================================
+ * L1: SUMMARY HEADER
+ * =========================================== */
+
+.tmi-summary-header {
+    padding: 20px 24px;
+    background: var(--light-bg-surface);
+    border-bottom: 1px solid var(--light-border);
+    margin-bottom: 0;
+}
+
+.tmi-summary-header .event-identity {
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    margin-bottom: 4px;
+}
+
+.tmi-summary-header .event-window {
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+    margin-bottom: 16px;
+}
+
+.tmi-summary-entries {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+}
+
+.tmi-summary-group {
+    min-width: 200px;
+}
+
+.tmi-summary-group h4 {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--light-text-muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.tmi-summary-line {
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: var(--light-text-secondary);
+}
+
+.tmi-summary-line strong {
+    color: var(--light-text-primary);
+    font-weight: 600;
+}
+
+.tmi-data-quality {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--light-border);
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-data-quality .gap-warning {
+    color: var(--status-warning);
+}
+
+/* ===========================================
+ * L2: LIST PANEL
+ * =========================================== */
+
+.tmi-list-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--light-border);
+    background: var(--light-bg-page);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.tmi-list-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.tmi-list-controls select {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    background: var(--light-bg-page);
+    color: var(--light-text-secondary);
+    cursor: pointer;
+}
+
+.tmi-list-controls select:hover {
+    border-color: var(--light-border-strong);
+}
+
+.tmi-list-section-label {
+    padding: 8px 16px;
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--light-text-muted);
+    background: var(--light-bg-subtle);
+    font-weight: 600;
+    position: sticky;
+    top: 45px;
+    z-index: 1;
+}
+
+.tmi-list-item {
+    display: grid;
+    grid-template-columns: 1fr 70px 45px;
+    gap: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.85em;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.tmi-list-item:hover {
+    background: var(--light-bg-hover);
+}
+
+.tmi-list-item.selected {
+    background: rgba(118, 109, 244, 0.08);
+    border-left-color: var(--brand-primary);
+}
+
+.tmi-list-item .identifier {
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    color: var(--light-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tmi-list-item .type-value {
+    color: var(--light-text-secondary);
+    text-align: right;
+}
+
+.tmi-list-item .metric {
+    text-align: right;
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+}
+
+/* Non-compliant indicator dot */
+.tmi-nc-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tmi-data-attention);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Empty state for list */
+.tmi-list-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--light-text-muted);
+    font-size: 0.9em;
+}
+
+/* ===========================================
+ * L3: DETAIL PANEL
+ * =========================================== */
+
+.tmi-detail-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--light-text-muted);
+    font-size: 0.95em;
+}
+
+.tmi-detail-header {
+    margin-bottom: 20px;
+}
+
+.tmi-detail-header .tmi-identity {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    margin-bottom: 6px;
+}
+
+.tmi-detail-header .tmi-standardized {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+/* Overview stats */
+.tmi-detail-overview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    padding: 20px;
+    background: var(--light-bg-subtle);
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.tmi-detail-overview .stat {
+    text-align: center;
+    min-width: 80px;
+}
+
+.tmi-detail-overview .stat-value {
+    font-size: 1.75em;
+    font-weight: 600;
+    color: var(--light-text-primary);
+    line-height: 1.2;
+}
+
+.tmi-detail-overview .stat-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--light-text-muted);
+    margin-top: 4px;
+}
+
+.tmi-detail-overview .spacing-range {
+    font-size: 0.9em;
+    color: var(--light-text-secondary);
+}
+
+/* ===========================================
+ * EXPANDABLE SECTIONS
+ * =========================================== */
+
+.tmi-section {
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.tmi-section-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--light-bg-page);
+    transition: background 0.15s;
+}
+
+.tmi-section-header:hover {
+    background: var(--light-bg-subtle);
+}
+
+.tmi-section-header .chevron {
+    width: 16px;
+    margin-right: 10px;
+    color: var(--light-text-muted);
+    transition: transform 0.2s ease;
+}
+
+.tmi-section.expanded .tmi-section-header .chevron {
+    transform: rotate(90deg);
+}
+
+.tmi-section-header .section-title {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--light-text-primary);
+}
+
+.tmi-section-header .section-count {
+    margin-left: 8px;
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-section-content {
+    padding: 16px;
+    border-top: 1px solid var(--light-border);
+    display: none;
+    background: var(--light-bg-page);
+}
+
+.tmi-section.expanded .tmi-section-content {
+    display: block;
+}
+
+/* ===========================================
+ * SPACING DIAGRAM
+ * =========================================== */
+
+.tmi-spacing-diagram {
+    padding: 20px 0;
+    overflow-x: auto;
+}
+
+.tmi-spacing-timeline {
+    display: flex;
+    align-items: flex-start;
+    min-width: max-content;
+    padding: 10px 0;
+}
+
+.tmi-spacing-flight {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+}
+
+.tmi-spacing-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--tmi-data-neutral);
+    flex-shrink: 0;
+}
+
+.tmi-spacing-dot.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+.tmi-spacing-callsign {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.75em;
+    font-weight: 600;
+    margin-top: 6px;
+    color: var(--light-text-primary);
+}
+
+.tmi-spacing-time {
+    font-size: 0.65em;
+    color: var(--light-text-muted);
+    margin-top: 2px;
+}
+
+.tmi-spacing-segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 4px;
+    min-width: 50px;
+}
+
+.tmi-spacing-line {
+    height: 2px;
+    background: var(--tmi-data-neutral);
+    width: 100%;
+    min-width: 40px;
+    margin-top: 4px;
+}
+
+.tmi-spacing-line.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+.tmi-spacing-value {
+    font-size: 0.7em;
+    color: var(--light-text-secondary);
+    margin-top: 6px;
+    white-space: nowrap;
+}
+
+/* Gap indicator between non-consecutive flights */
+.tmi-spacing-gap {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    color: var(--tmi-gap-indicator);
+    font-size: 0.75em;
+    white-space: nowrap;
+    margin-top: 4px;
+}
+
+.tmi-spacing-gap::before,
+.tmi-spacing-gap::after {
+    content: '';
+    width: 12px;
+    height: 1px;
+    background: var(--tmi-gap-indicator);
+}
+
+.tmi-spacing-gap::before {
+    margin-right: 6px;
+}
+
+.tmi-spacing-gap::after {
+    margin-left: 6px;
+}
+
+/* Scale bar (map-style reference) */
+.tmi-spacing-scale {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-left: 10px;
+}
+
+.tmi-spacing-scale-bar {
+    width: 60px;
+    height: 4px;
+    background: var(--tmi-scale-bar);
+    border-radius: 2px;
+}
+
+.tmi-spacing-scale-label {
+    font-size: 0.75em;
+    color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * PAIRS TABLE
+ * =========================================== */
+
+.tmi-pairs-table {
+    width: 100%;
+    font-size: 0.85em;
+    border-collapse: collapse;
+}
+
+.tmi-pairs-table th {
+    font-weight: 600;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--light-text-muted);
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--light-border);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tmi-pairs-table th.sortable {
+    cursor: pointer;
+}
+
+.tmi-pairs-table th.sortable:hover {
+    color: var(--light-text-secondary);
+}
+
+.tmi-pairs-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--light-border);
+    vertical-align: middle;
+}
+
+.tmi-pairs-table tbody tr:hover {
+    background: var(--light-bg-subtle);
+}
+
+.tmi-pairs-table .flight-cell {
+    line-height: 1.4;
+}
+
+.tmi-pairs-table .callsign {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-pairs-table .crossing-time {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+}
+
+.tmi-pairs-table .gap-cell {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    color: var(--light-text-secondary);
+}
+
+.tmi-pairs-table .spacing-cell {
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-pairs-table .spacing-bar-cell {
+    min-width: 140px;
+}
+
+/* Inline spacing bar in table */
+.tmi-spacing-bar-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tmi-spacing-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--light-bg-subtle);
+    border-radius: 4px;
+    min-width: 60px;
+    position: relative;
+}
+
+.tmi-spacing-bar-fill {
+    height: 100%;
+    background: var(--tmi-data-neutral);
+    border-radius: 4px;
+    transition: width 0.2s ease;
+}
+
+.tmi-spacing-bar-fill.non-compliant {
+    background: var(--tmi-data-attention);
+}
+
+/* Required value marker line on the bar */
+.tmi-required-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--light-text-secondary);
+    border-radius: 1px;
+    opacity: 0.7;
+    z-index: 1;
+}
+
+.tmi-spacing-diff {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    white-space: nowrap;
+    min-width: 55px;
+}
+
+/* Required label in header */
+.visual-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.visual-header .required-label {
+    font-size: 0.75em;
+    font-weight: normal;
+    color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * CONTEXT MAP
+ * =========================================== */
+
+.tmi-map-section {
+    margin-top: 16px;
+}
+
+.tmi-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--light-bg-subtle);
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--light-text-primary);
+    transition: all 0.15s ease;
+}
+
+.tmi-map-toggle:hover {
+    background: var(--light-bg-hover);
+    border-color: var(--brand-primary);
+}
+
+.tmi-map-toggle i.fa-chevron-down {
+    transition: transform 0.2s ease;
+    font-size: 0.8em;
+    color: var(--light-text-muted);
+}
+
+.tmi-map-toggle:not(.collapsed) i.fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.tmi-map-toggle .small {
+    color: var(--light-text-muted);
+    font-weight: normal;
+}
+
+.tmi-map-collapse {
+    border: 1px solid var(--light-border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+}
+
+.tmi-map-layer-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--light-bg-elevated);
+    border-bottom: 1px solid var(--light-border);
+}
+
+.tmi-map-layer-controls .layer-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-right: 4px;
+}
+
+.tmi-map-layer-controls .layer-btn {
+    padding: 4px 10px;
+    font-size: 0.75em;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    background: var(--light-bg-primary);
+    color: var(--light-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tmi-map-layer-controls .layer-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+}
+
+.tmi-map-layer-controls .layer-btn.active {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: white;
+}
+
+.tmi-map-layer-controls .layer-divider {
+    color: var(--light-border);
+    margin: 0 4px;
+}
+
+.tmi-map-container {
+    height: 400px;
+    background: var(--light-bg-subtle);
+    position: relative;
+}
+
+.tmi-map-container .leaflet-container {
+    height: 100%;
+    width: 100%;
+    background: var(--light-bg-subtle);
+}
+
+/* Loading state */
+.tmi-map-container > div {
+    height: 100%;
+    color: var(--light-text-muted);
+}
+
+/* ===========================================
+ * CONFIGURATION PANEL
+ * =========================================== */
+
+.tmi-config-panel {
+    margin-bottom: 16px;
+}
+
+.tmi-config-panel.collapsed .tmi-config-content {
+    display: none;
+}
+
+.tmi-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--light-bg-surface);
+    border: 1px solid var(--light-border);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.tmi-config-panel:not(.collapsed) .tmi-config-header {
+    border-radius: 6px 6px 0 0;
+    border-bottom: none;
+}
+
+.tmi-config-header .config-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--light-text-primary);
+}
+
+.tmi-config-header .chevron {
+    transition: transform 0.2s;
+}
+
+.tmi-config-panel:not(.collapsed) .tmi-config-header .chevron {
+    transform: rotate(180deg);
+}
+
+.tmi-config-content {
+    padding: 20px;
+    background: var(--light-bg-surface);
+    border: 1px solid var(--light-border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.tmi-config-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.tmi-config-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.tmi-config-field label {
+    display: block;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-bottom: 6px;
+}
+
+.tmi-config-field input,
+.tmi-config-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--light-border);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.tmi-config-field textarea {
+    min-height: 120px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+.tmi-config-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--light-border);
+}
+
+.tmi-config-status {
+    font-size: 0.85em;
+    color: var(--light-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tmi-config-status.saved {
+    color: var(--status-success);
+}
+
+/* ===========================================
+ * LOADING & EMPTY STATES
+ * =========================================== */
+
+.tmi-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--light-text-muted);
+}
+
+.tmi-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--light-border);
+    border-top-color: var(--brand-primary);
+    border-radius: 50%;
+    animation: tmi-spin 0.8s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes tmi-spin {
+    to { transform: rotate(360deg); }
+}
+
+.tmi-loading .progress-text {
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+.tmi-loading .progress-bar {
+    width: 200px;
+    height: 6px;
+    background: var(--light-bg-subtle);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.tmi-loading .progress-fill {
+    height: 100%;
+    background: var(--brand-primary);
+    transition: width 0.3s ease;
+}
+
+.tmi-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--light-text-muted);
+}
+
+.tmi-empty-state .icon {
+    font-size: 2.5em;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.tmi-empty-state .title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--light-text-secondary);
+    margin-bottom: 8px;
+}
+
+.tmi-empty-state .description {
+    font-size: 0.9em;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* ===========================================
+ * RESPONSIVE BEHAVIOR
+ * =========================================== */
+
+@media (max-width: 1400px) {
+    .tmi-list-panel {
+        width: 240px;
+    }
+
+    .tmi-list-item {
+        grid-template-columns: 1fr 60px 40px;
+        padding: 8px 12px;
+    }
+
+    .tmi-detail-overview {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .tmi-analysis-container {
+        flex-direction: column;
+    }
+
+    .tmi-list-panel {
+        width: 100%;
+        max-height: 300px;
+        border-right: none;
+        border-bottom: 1px solid var(--light-border);
+    }
+
+    .tmi-detail-panel {
+        padding: 16px;
+    }
+
+    .tmi-summary-entries {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* Back to list link for mobile */
+    .tmi-detail-back {
+        display: block;
+        margin-bottom: 16px;
+        font-size: 0.85em;
+        color: var(--brand-primary);
+        cursor: pointer;
+    }
+
+    .tmi-detail-back:hover {
+        text-decoration: underline;
+    }
+}
+
+@media (min-width: 1001px) {
+    .tmi-detail-back {
+        display: none;
+    }
+}
+
+/* ===========================================
+ * V2 LIGHT THEME ENFORCEMENT
+ * The redesigned V2 layout uses light backgrounds
+ * even when the page is in dark theme
+ * =========================================== */
+
+/* Force light theme variables within V2 layout */
+.tmi-analysis-wrapper {
+    --v2-bg-page: #ffffff;
+    --v2-bg-surface: #f7f7fc;
+    --v2-bg-subtle: #f3f3f9;
+    --v2-bg-hover: #e9e9f2;
+    --v2-bg-elevated: #ffffff;
+    --v2-border: #e9e9f2;
+    --v2-border-strong: #dfdfeb;
+    --v2-text-primary: #1a1a2e;
+    --v2-text-secondary: #4a4a6a;
+    --v2-text-muted: #6b7280;
+}
+
+/* Override all component backgrounds */
+.tmi-analysis-wrapper .tmi-analysis-container {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-panel {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-summary-header {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-header {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-section-label {
+    background: var(--v2-bg-subtle) !important;
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item:hover {
+    background: var(--v2-bg-hover) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item.selected {
+    background: rgba(118, 109, 244, 0.08) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item .identifier {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item .type-value {
+    color: var(--v2-text-secondary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-list-item .metric {
+    color: var(--v2-text-muted) !important;
+}
+
+/* Detail panel */
+.tmi-analysis-wrapper .tmi-detail-panel {
+    background: var(--v2-bg-page) !important;
+}
+
+.tmi-analysis-wrapper .tmi-detail-overview {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .tmi-detail-overview .stat-value {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-detail-overview .stat-label {
+    color: var(--v2-text-muted) !important;
+}
+
+/* Expandable sections */
+.tmi-analysis-wrapper .tmi-section {
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-section-header {
+    background: var(--v2-bg-page) !important;
+}
+
+.tmi-analysis-wrapper .tmi-section-header:hover {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .tmi-section-header .section-title {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-section-header .chevron,
+.tmi-analysis-wrapper .tmi-section-header .section-count {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-section-content {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+}
+
+/* Pairs table */
+.tmi-analysis-wrapper .tmi-pairs-table th {
+    color: var(--v2-text-muted) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-pairs-table td {
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-pairs-table .callsign {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-pairs-table .crossing-time {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-pairs-table tbody tr:hover {
+    background: var(--v2-bg-subtle) !important;
+}
+
+/* Spacing elements */
+.tmi-analysis-wrapper .tmi-spacing-bar-track {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .tmi-spacing-diff {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-required-marker {
+    background: var(--v2-text-secondary) !important;
+}
+
+/* Map section - V2 light styling */
+.tmi-analysis-wrapper .tmi-map-section {
+    margin-top: 16px;
+}
+
+.tmi-analysis-wrapper .tmi-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--v2-bg-subtle) !important;
+    border: 1px solid var(--v2-border) !important;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--v2-text-primary) !important;
+    transition: all 0.15s ease;
+}
+
+.tmi-analysis-wrapper .tmi-map-toggle:hover {
+    background: var(--v2-bg-hover) !important;
+    border-color: var(--brand-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-toggle i {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-toggle .small {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-collapse {
+    border: 1px solid var(--v2-border) !important;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+    background: var(--v2-bg-page) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--v2-bg-elevated) !important;
+    border-bottom: 1px solid var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .layer-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--v2-text-secondary) !important;
+    margin-right: 4px;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .layer-btn {
+    padding: 4px 10px;
+    font-size: 0.75em;
+    border: 1px solid var(--v2-border) !important;
+    border-radius: 4px;
+    background: var(--v2-bg-page) !important;
+    color: var(--v2-text-secondary) !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .layer-btn:hover {
+    border-color: var(--brand-primary) !important;
+    color: var(--brand-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .layer-btn.active {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: white !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .layer-divider {
+    color: var(--v2-border) !important;
+    margin: 0 4px;
+}
+
+/* Cone legend in map controls - light styling */
+.tmi-analysis-wrapper .tmi-map-layer-controls .cone-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.7em;
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .legend-swatch.cone-75 {
+    background: rgba(255, 212, 59, 0.3);
+    border: 2px solid #ffd43b;
+}
+
+.tmi-analysis-wrapper .tmi-map-layer-controls .legend-swatch.cone-90 {
+    background: rgba(255, 146, 43, 0.3);
+    border: 2px solid #ff922b;
+}
+
+/* Map loading state */
+.tmi-analysis-wrapper .tmi-map-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--v2-text-muted);
+    gap: 8px;
+}
+
+.tmi-analysis-wrapper .tmi-map-container {
+    height: 400px;
+    background: var(--v2-bg-subtle) !important;
+    position: relative;
+}
+
+/* Loading state in map */
+.tmi-analysis-wrapper .tmi-map-container > div {
+    color: var(--v2-text-muted) !important;
+}
+
+/* Config panel */
+.tmi-analysis-wrapper .tmi-config-header,
+.tmi-analysis-wrapper .tmi-config-content {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .tmi-config-header .config-title {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-config-field label {
+    color: var(--v2-text-secondary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-config-field input,
+.tmi-analysis-wrapper .tmi-config-field textarea {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+    color: var(--v2-text-primary) !important;
+}
+
+/* Summary header typography */
+.tmi-analysis-wrapper .tmi-summary-header .event-identity {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-summary-header .event-window {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-summary-group h4 {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-summary-line {
+    color: var(--v2-text-secondary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-summary-line strong {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-data-quality {
+    border-color: var(--v2-border) !important;
+    color: var(--v2-text-muted) !important;
+}
+
+/* Controls */
+.tmi-analysis-wrapper .tmi-list-controls select {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+    color: var(--v2-text-secondary) !important;
+}
+
+/* Detail header */
+.tmi-analysis-wrapper .tmi-detail-header .tmi-identity {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .tmi-detail-header .tmi-standardized {
+    color: var(--v2-text-muted) !important;
+}
+
+/* Empty/loading states */
+.tmi-analysis-wrapper .tmi-detail-empty {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-loading {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .tmi-loading .spinner {
+    border-color: var(--v2-border) !important;
+    border-top-color: var(--brand-primary) !important;
+}
+
+/* Reroute and GS timeline - V2 light theme */
+.tmi-analysis-wrapper .reroute-card {
+    background: var(--v2-bg-surface) !important;
+    border-color: var(--v2-border) !important;
+    border-left: 3px solid #ffc107 !important;
+}
+
+.tmi-analysis-wrapper .reroute-card .compliance-split .filed,
+.tmi-analysis-wrapper .reroute-card .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .compliance-split .filed,
+.tmi-analysis-wrapper .compliance-split .flown {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-timeline {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .gs-cnx-comments,
+.tmi-analysis-wrapper .reroute-card .exemption-box,
+.tmi-analysis-wrapper .exemption-box {
+    background: rgba(23, 162, 184, 0.08) !important;
+}
+
+.tmi-analysis-wrapper .program-history .history-item {
+    border-color: var(--v2-border) !important;
+}
+
+.tmi-analysis-wrapper .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.12) !important;
+}
+
+/* ===========================================
+ * FLOW ANALYSIS SECTION (progressive UI)
+ * Overlays the dark map — hardcoded dark colors
+ * =========================================== */
+
+.flow-analysis-section {
+    background: rgba(15, 15, 30, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 5px 10px;
+    font-size: 0.78em;
+}
+
+.fa-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.fa-row + .fa-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fa-row-icon {
+    color: #6b7280;
+    font-size: 0.85em;
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.fa-row-label {
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.fa-stream-badges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.fa-stream-badge {
+    font-size: 0.88em;
+    color: #a78bfa;
+    padding: 1px 6px;
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    border-radius: 3px;
+    background: rgba(167, 139, 250, 0.08);
+    white-space: nowrap;
+}
+
+.fa-badge-count {
+    color: #c4b5fd;
+    font-weight: 600;
+}
+
+.fa-filter-badge {
+    font-size: 0.88em;
+    color: #6b7280;
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+}
+
+.fa-filter-badge i {
+    margin-right: 3px;
+}
+
+.fa-computing {
+    color: #6b7280;
+    font-style: italic;
+    margin-left: auto;
+}
+
+.fa-loading .fa-row-label {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.fa-branch-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0 2px 22px;
+}
+
+.branch-select-btn {
+    padding: 1px 8px;
+    font-size: 0.7em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.branch-select-btn:hover {
+    border-color: #4dabf7;
+    color: #4dabf7;
+}
+
+.branch-panel-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.branch-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    background: rgba(25, 25, 45, 0.9);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin: 0;
+    font-size: 0.75em;
+}
+
+.branch-item:hover {
+    border-color: #4dabf7;
+}
+
+.branch-item input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.branch-color-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.branch-name {
+    font-weight: 600;
+    color: #e0e0e0;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.branch-count {
+    color: #9ca3af;
+    font-size: 0.9em;
+}
+
+.branch-compliance {
+    font-weight: 700;
+    font-size: 0.9em;
+    padding: 0 3px;
+    border-radius: 2px;
+}
+
+.branch-compliance.excellent {
+    color: #28a745;
+}
+
+.branch-compliance.good {
+    color: #5cb85c;
+}
+
+.branch-compliance.warn {
+    color: #ffc107;
+}
+
+.branch-compliance.poor {
+    color: #fd7e14;
+}
+
+.branch-compliance.bad {
+    color: #dc3545;
+}
+
+/* Branch toggle button special styling */
+.branch-toggle-btn {
+    border-style: dashed !important;
+}
+
+.branch-toggle-btn.active {
+    border-style: solid !important;
+}
+
+/* ===========================================
+ * REROUTE CARD STYLES
+ * =========================================== */
+
+.reroute-card {
+    border-left: 3px solid #ffc107;
+    background: var(--light-bg-surface, #1e1e38);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.reroute-card .action-badge {
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.reroute-card .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.reroute-card .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+.reroute-card .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.reroute-card .compliance-split .filed,
+.reroute-card .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.reroute-card .program-history {
+    font-size: 0.8rem;
+}
+
+.reroute-card .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.reroute-card .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.reroute-card .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+/* ===========================================
+ * GS PROGRAM TIMELINE
+ * =========================================== */
+
+.gs-timeline {
+    display: flex;
+    height: 24px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.gs-timeline .phase {
+    position: relative;
+    min-width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+}
+
+.gs-timeline .phase-initial {
+    background: #dc3545;
+}
+
+.gs-timeline .phase-extension {
+    background: #fd7e14;
+}
+
+.gs-timeline .phase-cnx {
+    background: #28a745;
+    width: 4px;
+    flex: 0 0 4px;
+}
+
+.gs-per-origin {
+    font-size: 0.85rem;
+}
+
+.gs-per-origin table {
+    width: 100%;
+}
+
+.gs-cnx-comments {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.gs-ended-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.gs-ended-badge.cnx {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.gs-ended-badge.expired {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+/* V2 reroute detail compliance split (outside card context) */
+.tmi-detail-panel .compliance-split {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.tmi-detail-panel .compliance-split .filed,
+.tmi-detail-panel .compliance-split .flown {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: var(--light-bg-subtle, #141428);
+}
+
+.tmi-detail-panel .program-history {
+    font-size: 0.8rem;
+}
+
+.tmi-detail-panel .program-history .history-item {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--light-border, #2a2a4a);
+}
+
+.tmi-detail-panel .program-history .history-item:last-child {
+    border-bottom: none;
+}
+
+.tmi-detail-panel .exemption-box {
+    background: rgba(23, 162, 184, 0.1);
+    border-left: 3px solid #17a2b8;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.tmi-detail-panel .route-table {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.tmi-detail-panel .route-table .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+
+/* ===========================================
+ * ADVISORY DETAIL CARDS
+ * =========================================== */
+
+.advisory-chain {
+    margin-top: 0.5rem;
+}
+
+.advisory-detail-card {
+    background: var(--light-bg-subtle, #f3f3f9);
+    border: 1px solid var(--light-border, #e9e9f2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.advisory-detail-card .badge {
+    font-size: 0.7rem;
+}
+
+.advisory-meta {
+    margin-top: 4px;
+    padding-left: 4px;
+}
+
+/* V2 wrapper advisory cards */
+.tmi-analysis-wrapper .advisory-detail-card {
+    background: var(--v2-bg-subtle) !important;
+    border-color: var(--v2-border) !important;
+}
+
+/* ===========================================
+ * EXPANDABLE FLIGHT ROWS (Reroute)
+ * =========================================== */
+
+.reroute-flight-row.expandable:hover {
+    background: rgba(0, 123, 255, 0.04);
+}
+
+.reroute-flight-row .expand-chevron {
+    transition: transform 0.15s ease;
+    font-size: 0.7rem;
+}
+
+.flight-detail-row {
+    background: var(--light-bg-subtle, #f8f9fa) !important;
+}
+
+.flight-detail-row > td {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.flight-route-detail {
+    padding: 10px 16px 10px 28px;
+    font-size: 0.85rem;
+}
+
+/* ===========================================
+ * FIX CHECKLIST (Reroute route match)
+ * =========================================== */
+
+.fix-checklist {
+    margin-bottom: 6px;
+}
+
+.fix-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fix-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.fix-check.fix-matched {
+    background: rgba(40, 167, 69, 0.12);
+    color: #28a745;
+}
+
+.fix-check.fix-missing {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+}
+
+.fix-check.fix-partial {
+    background: rgba(255, 193, 7, 0.12);
+    color: #856404;
+}
+
+/* Filed route display with highlighted fixes */
+.filed-route {
+    margin-top: 6px;
+}
+
+.filed-route code.route-string {
+    font-size: 0.8rem;
+    word-break: break-all;
+    display: block;
+    padding: 6px 8px;
+    background: var(--light-bg-subtle, #f8f9fa);
+    border-radius: 4px;
+    border: 1px solid var(--light-border, #e9e9f2);
+}
+
+.filed-route .fix-matched {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    font-weight: 700;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.filed-route .fix-missing {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    text-decoration: line-through;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* ===========================================
+ * CROSSING DETAIL TABLE
+ * =========================================== */
+
+.crossing-detail-table {
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.crossing-detail-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 8px !important;
+}
+
+.crossing-detail-table td {
+    padding: 3px 8px !important;
+}
+
+/* ===========================================
+ * COMPLIANCE BAR (per-origin inline)
+ * =========================================== */
+
+.compliance-bar {
+    display: flex;
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 3px;
+}
+
+.compliance-bar span {
+    display: block;
+    height: 100%;
+}
+
+/* ===========================================
+ * SORTABLE TABLE HEADERS
+ * =========================================== */
+
+.sortable-table th[onclick] {
+    position: relative;
+    padding-right: 16px !important;
+    user-select: none;
+}
+
+.sortable-table th[onclick]:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sortable-table th[onclick]::after {
+    content: '\2195';
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    opacity: 0.4;
+}
+
+.sortable-table th.sort-asc::after {
+    content: '\2191';
+    opacity: 0.9;
+}
+
+.sortable-table th.sort-desc::after {
+    content: '\2193';
+    opacity: 0.9;
+}
+
+/* ===========================================
+ * V2 WRAPPER OVERRIDES FOR NEW ELEMENTS
+ * =========================================== */
+
+/* Flight detail row in V2 light theme */
+.tmi-analysis-wrapper .flight-detail-row {
+    background: var(--v2-bg-subtle) !important;
+}
+
+.tmi-analysis-wrapper .flight-route-detail {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .filed-route code.route-string {
+    background: var(--v2-bg-page) !important;
+    border-color: var(--v2-border) !important;
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .fix-check {
+    color: inherit;
+}
+
+.tmi-analysis-wrapper .crossing-detail-table th {
+    color: var(--v2-text-muted) !important;
+}
+
+.tmi-analysis-wrapper .crossing-detail-table td {
+    color: var(--v2-text-primary) !important;
+}
+
+.tmi-analysis-wrapper .sortable-table th[onclick]:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.tmi-analysis-wrapper .sortable-table th[onclick]::after {
+    color: var(--v2-text-muted);
+}
+
+/* ===========================================
+ * LEGACY DARK THEME SUPPORT (non-V2 layouts)
+ * =========================================== */
+
+/* Dark theme - advisory detail cards */
+.dark-theme .advisory-detail-card {
+    background: var(--dark-bg-surface, #1e1e38);
+    border-color: var(--dark-border, #2a2a4a);
+}
+
+/* Dark theme - flight detail row */
+.dark-theme .flight-detail-row {
+    background: var(--dark-bg-surface, #1e1e38) !important;
+}
+
+.dark-theme .filed-route code.route-string {
+    background: var(--dark-bg-surface, #1e1e38);
+    border-color: var(--dark-border, #2a2a4a);
+    color: var(--dark-text-primary, #e0e0e0);
+}
+
+/* Dark theme - fix checklist (colors remain same as they have good contrast) */
+
+/* Dark theme - sortable headers */
+.dark-theme .sortable-table th[onclick]:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Dark theme - crossing detail table */
+.dark-theme .crossing-detail-table th {
+    color: var(--dark-text-muted, #888);
+}
+
+.dark-theme .tmi-card {
+    background: var(--dark-bg-surface);
+    border-color: var(--dark-border);
+}

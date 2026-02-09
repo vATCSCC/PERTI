@@ -3210,7 +3210,7 @@ $(document).ready(function() {
         // Tier lists loaded from apts.csv via FacilityHierarchy.AIRPORT_GROUPS
         // ─────────────────────────────────────────────────────────────────────
         const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
-            'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM77': '#ffc107', 'OTHER': '#6c757d',
+            'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
         };
 
         function getAirportTier(icao) {
@@ -4220,7 +4220,7 @@ $(document).ready(function() {
                     items = [
                         { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                         { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                        { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                        { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                         { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                     ];
                     break;

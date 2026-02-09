@@ -1501,7 +1501,7 @@ include('load/nav.php');
                                 <div class="perti-stat-section">
                                     <div class="perti-info-sublabel">Airport Tier</div>
                                     <div class="perti-badge-group">
-                                        <span class="badge badge-warning text-dark" title="ASPM 77 Airports"><strong>ASPM77</strong> <span id="route_stats_aspm77">-</span></span>
+                                        <span class="badge badge-warning text-dark" title="ASPM 82 Airports"><strong>ASPM82</strong> <span id="route_stats_aspm82">-</span></span>
                                         <span class="badge badge-primary" title="OEP 35 Airports"><strong>OEP35</strong> <span id="route_stats_oep35">-</span></span>
                                         <span class="badge badge-danger" title="Core 30 Airports"><strong>Core30</strong> <span id="route_stats_core30">-</span></span>
                                     </div>
@@ -2746,7 +2746,7 @@ document.addEventListener('DOMContentLoaded', function () {
         dccMw: document.getElementById("route_stats_dcc_mw"),
         dccSc: document.getElementById("route_stats_dcc_sc"),
         dccW: document.getElementById("route_stats_dcc_w"),
-        aspm77: document.getElementById("route_stats_aspm77"),
+        aspm82: document.getElementById("route_stats_aspm82"),
         oep35: document.getElementById("route_stats_oep35"),
         core30: document.getElementById("route_stats_core30")
     };
@@ -2798,8 +2798,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             statsElements.domesticTotal.textContent = domesticArrTotal;
                         }
 
-                        if (data.domestic.arr_aspm77 && statsElements.aspm77) {
-                            statsElements.aspm77.textContent = data.domestic.arr_aspm77.yes || 0;
+                        if (data.domestic.arr_aspm82 && statsElements.aspm82) {
+                            statsElements.aspm82.textContent = data.domestic.arr_aspm82.yes || 0;
                         }
                         if (data.domestic.arr_oep35 && statsElements.oep35) {
                             statsElements.oep35.textContent = data.domestic.arr_oep35.yes || 0;

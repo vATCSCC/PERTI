@@ -8,14 +8,15 @@ Handles raw Discord-pasted content with usernames, timestamps, and Unicode forma
 
 import re
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
 from .models import (
     TMI, TMIType, MITModifier, DelayEntry, DelayType, DelayTrend, HoldingStatus,
     AirportConfig, CancelEntry, TrafficDirection, TrafficFilter, AircraftType, AltitudeFilter,
-    ComparisonOp, ThruType, ThruFilter, ScopeLogic, create_thru_filter, SkippedLine
+    ComparisonOp, ThruType, ThruFilter, ScopeLogic, create_thru_filter, SkippedLine,
+    GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry
 )
 
 logger = logging.getLogger(__name__)
@@ -28,9 +29,12 @@ class ParseResult:
 
     Contains both successfully parsed TMIs and lines that couldn't be parsed.
     Skipped lines can be displayed to users for manual definition.
+    Also contains GS and Reroute program chains built from ADVZY blocks.
     """
     tmis: List[TMI]
     skipped_lines: List[SkippedLine]
+    gs_programs: List[GSProgram] = field(default_factory=list)
+    reroute_programs: List[RerouteProgram] = field(default_factory=list)
 
     def __iter__(self):
         """Allow unpacking: tmis, skipped = parse_result"""
@@ -88,7 +92,11 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
         Tuple of (line_type, metadata_dict or None)
 
     Line types:
-        - "advzy_header": vATCSCC ADVZY header line
+        - "advzy_header": vATCSCC ADVZY header line (generic/unrecognized)
+        - "advzy_gs": vATCSCC ADVZY Ground Stop header
+        - "advzy_gs_cnx": vATCSCC ADVZY GS Cancellation header
+        - "advzy_reroute": vATCSCC ADVZY Reroute header (ROUTE RQD, FEA FYI, etc.)
+        - "advzy_reroute_cnx": vATCSCC ADVZY Reroute Cancellation header
         - "advzy_content": Content within an ADVZY block
         - "mit": Miles-in-trail restriction
         - "stop": STOP restriction
@@ -104,8 +112,18 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
     if not line:
         return ("empty", None)
 
-    # ADVZY header: "vATCSCC ADVZY 001 DCC 01/30/2026 ROUTE RQD"
+    # ADVZY header detection - type-specific
     if re.match(r'^vATCSCC\s+ADVZY\s+\d+', line, re.IGNORECASE):
+        upper = line.upper()
+        if 'CDM GS CNX' in upper or 'GS CNX' in upper:
+            return ("advzy_gs_cnx", {"line": line})
+        if 'REROUTE CANCELLATION' in upper:
+            return ("advzy_reroute_cnx", {"line": line})
+        if 'GROUND STOP' in upper or 'CDM GROUND STOP' in upper:
+            return ("advzy_gs", {"line": line})
+        # Reroute types: ROUTE RQD, ROUTE RMD, FEA FYI, FCA RQD, ICR RQD, etc.
+        if re.search(r'\b(ROUTE|FEA|FCA|ICR)\s+(RQD|RMD|PLN|FYI)\b', upper):
+            return ("advzy_reroute", {"line": line})
         return ("advzy_header", {"line": line})
 
     # Airport configuration: "30/2328    BOS    VMC    ARR:27/32 DEP:33L    AAR:40 ADR:40"
@@ -183,7 +201,7 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
 
 
 def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datetime, event_end: datetime,
-                            destinations: List[str]) -> Tuple[Optional[TMI], int]:
+                            destinations: List[str]) -> Tuple[Optional[TMI], Optional[GSAdvisory], int]:
     """
     Parse an ADVZY Ground Stop block starting at the given index.
 
@@ -192,21 +210,31 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
         CTL ELEMENT: LAS
         ELEMENT TYPE: APT
         ADL TIME: 0244Z
-        GROUND STOP PERIOD: 18/0230Z – 18/0315Z
-        DEP FACILITIES INCLUDED: (Manual) ZOA
-        ...
+        GROUND STOP PERIOD: 18/0230Z - 18/0315Z
+        CUMULATIVE PROGRAM PERIOD: 18/0230Z - 18/0315Z
+        DEP FACILITIES INCLUDED: (1stTier) ZAB, ZKC, ZMP
+        IMPACTING CONDITION: LOW CEILINGS
+        PROBABILITY OF EXTENSION: HIGH
+        FLT INCL: ALL
+        PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: 0, 0, 0
+        NEW TOTAL, MAXIMUM, AVERAGE DELAYS: 10, 5, 3
+        COMMENTS: Expect extensions if weather persists
 
     Returns:
-        Tuple of (TMI or None, number of lines consumed)
+        Tuple of (TMI or None, GSAdvisory or None, number of lines consumed)
     """
     if start_idx >= len(lines):
-        return (None, 0)
+        return (None, None, 0)
 
     header_line = lines[start_idx]
 
     # Verify this is a Ground Stop ADVZY
     if 'GROUND STOP' not in header_line.upper():
-        return (None, 0)
+        return (None, None, 0)
+
+    # Extract advisory number from header (e.g., "ADVZY 001" -> "001")
+    advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
+    advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
 
     # Extract airport from header (format: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP")
     header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', header_line, re.IGNORECASE)
@@ -216,9 +244,20 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
     dest = dest_from_header
     gs_start = None
     gs_end = None
+    cumulative_start = None
+    cumulative_end = None
     issued_time = None
-    provider = None
+    dep_facilities = []
+    dep_facility_tier = ''
+    prob_extension = ''
+    impacting_condition = ''
+    flt_incl = ''
+    delay_prev = None
+    delay_new = None
+    comments_lines = []
+    in_comments = False
     lines_consumed = 1  # Start with the header line
+    raw_lines = [header_line]
 
     event_date = event_start.date()
 
@@ -239,11 +278,21 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
                 return None
         return None
 
+    def parse_delay_triple(text: str) -> Optional[tuple]:
+        """Parse 'X, Y, Z' delay format into (total, max, avg) tuple"""
+        m = re.search(r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', text)
+        if m:
+            return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return None
+
     # Scan subsequent lines for ADVZY fields
-    for i in range(start_idx + 1, min(start_idx + 15, len(lines))):  # Look at most 15 lines ahead
+    for i in range(start_idx + 1, min(start_idx + 25, len(lines))):  # Look at most 25 lines ahead
         line = lines[i].strip()
         if not line:
             lines_consumed += 1
+            if in_comments:
+                # Empty line in comments section - end of comments
+                in_comments = False
             continue
 
         # Check if we've hit another TMI or ADVZY (end of this block)
@@ -251,6 +300,19 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             break
 
         lines_consumed += 1
+        raw_lines.append(line)
+
+        upper_line = line.upper()
+
+        # If we're accumulating comments, check if this is a new field or continuation
+        if in_comments:
+            # Check if this line starts a new known field
+            if re.match(r'^(CTL|ELEMENT|ADL|GROUND|CUMULATIVE|DEP|IMPACTING|PROBABILITY|FLT|PREVIOUS|NEW\s+TOTAL|COMMENTS)\s', upper_line, re.IGNORECASE):
+                in_comments = False
+                # Fall through to field parsing below
+            else:
+                comments_lines.append(line)
+                continue
 
         # CTL ELEMENT: LAS
         ctl_match = re.match(r'^CTL\s+ELEMENT:\s*(\w+)', line, re.IGNORECASE)
@@ -258,13 +320,8 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             dest = ctl_match.group(1).upper()
             continue
 
-        # GROUND STOP PERIOD: 18/0230Z – 18/0315Z
-        # Handle various dash types (– — -)
-        gs_period_match = re.search(r'GROUND\s+STOP\s+PERIOD:\s*\d{2}/(\d{4})Z?\s*[-–—]\s*\d{2}/(\d{4})Z?',
-                                    line, re.IGNORECASE)
-        if gs_period_match:
-            gs_start = parse_time(gs_period_match.group(1))
-            gs_end = parse_time(gs_period_match.group(2))
+        # ELEMENT TYPE: APT (skip, just informational)
+        if upper_line.startswith('ELEMENT TYPE:'):
             continue
 
         # ADL TIME: 0244Z (issued time)
@@ -273,29 +330,953 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             issued_time = parse_time(adl_match.group(1))
             continue
 
-        # DEP FACILITIES INCLUDED: (Manual) ZOA
-        dep_fac_match = re.search(r'DEP\s+FACILITIES\s+INCLUDED:.*?([A-Z]{3})', line, re.IGNORECASE)
-        if dep_fac_match:
-            provider = dep_fac_match.group(1).upper()
+        # GROUND STOP PERIOD: 18/0230Z - 18/0315Z
+        # Handle various dash types (- en-dash em-dash)
+        gs_period_match = re.search(r'GROUND\s+STOP\s+PERIOD:\s*\d{2}/(\d{4})Z?\s*[-\u2013\u2014]\s*\d{2}/(\d{4})Z?',
+                                    line, re.IGNORECASE)
+        if gs_period_match:
+            gs_start = parse_time(gs_period_match.group(1))
+            gs_end = parse_time(gs_period_match.group(2))
             continue
 
+        # CUMULATIVE PROGRAM PERIOD: 18/0230Z - 18/0315Z
+        cum_match = re.search(r'CUMULATIVE\s+PROGRAM\s+PERIOD:\s*\d{2}/(\d{4})Z?\s*[-\u2013\u2014]\s*\d{2}/(\d{4})Z?',
+                              line, re.IGNORECASE)
+        if cum_match:
+            cumulative_start = parse_time(cum_match.group(1))
+            cumulative_end = parse_time(cum_match.group(2))
+            continue
+
+        # DEP FACILITIES INCLUDED: (1stTier) ZAB, ZKC, ZMP
+        dep_fac_match = re.match(r'^DEP\s+FACILITIES\s+INCLUDED:\s*(.*)', line, re.IGNORECASE)
+        if dep_fac_match:
+            fac_text = dep_fac_match.group(1).strip()
+            # Extract tier from (1stTier), (2ndTier), (Manual)
+            tier_match = re.search(r'\((\w+(?:Tier)?)\)', fac_text, re.IGNORECASE)
+            if tier_match:
+                dep_facility_tier = tier_match.group(1)
+                fac_text = re.sub(r'\([^)]+\)\s*', '', fac_text).strip()
+            # Parse comma-separated facility codes
+            dep_facilities = [f.strip() for f in re.findall(r'[A-Z]{2,4}', fac_text.upper()) if f.strip()]
+            continue
+
+        # IMPACTING CONDITION: LOW CEILINGS
+        imp_match = re.match(r'^IMPACTING\s+CONDITION:\s*(.*)', line, re.IGNORECASE)
+        if imp_match:
+            impacting_condition = imp_match.group(1).strip()
+            continue
+
+        # PROBABILITY OF EXTENSION: HIGH
+        prob_match = re.match(r'^PROBABILITY\s+OF\s+EXTENSION:\s*(.*)', line, re.IGNORECASE)
+        if prob_match:
+            prob_extension = prob_match.group(1).strip()
+            continue
+
+        # FLT INCL: ALL
+        flt_match = re.match(r'^FLT\s+INCL:\s*(.*)', line, re.IGNORECASE)
+        if flt_match:
+            flt_incl = flt_match.group(1).strip()
+            continue
+
+        # PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: X, Y, Z
+        if 'PREVIOUS TOTAL' in upper_line and 'DELAYS' in upper_line:
+            delay_prev = parse_delay_triple(line)
+            continue
+
+        # NEW TOTAL, MAXIMUM, AVERAGE DELAYS: X, Y, Z
+        if 'NEW TOTAL' in upper_line and 'DELAYS' in upper_line:
+            delay_new = parse_delay_triple(line)
+            continue
+
+        # COMMENTS: (start accumulating multi-line comments)
+        comments_match = re.match(r'^COMMENTS:\s*(.*)', line, re.IGNORECASE)
+        if comments_match:
+            first_comment = comments_match.group(1).strip()
+            if first_comment:
+                comments_lines.append(first_comment)
+            in_comments = True
+            continue
+
+    # Build raw_text
+    raw_text = '\n'.join(raw_lines)
+    comments_text = '\n'.join(comments_lines).strip()
+
+    # Use first dep facility as provider for backward-compat TMI
+    provider = dep_facilities[0] if dep_facilities else 'ALL'
+
     # Create TMI if we have enough info
+    tmi = None
+    gs_advisory = None
+
     if dest and (gs_start or gs_end):
         tmi = TMI(
-            tmi_id=f'GS_ADVZY_{dest}_{provider or "ALL"}',
+            tmi_id=f'GS_ADVZY_{dest}_{advzy_number or provider}',
             tmi_type=TMIType.GS,
             destinations=[dest] if dest not in ['ALL', 'ANY'] else destinations,
             origins=[],
-            provider=provider or 'ALL',
+            provider=provider,
             requestor=dest,
             start_utc=gs_start or event_start,
             end_utc=gs_end or event_end,
             issued_utc=issued_time,
-            reason=f'ADVZY Ground Stop'
+            reason=impacting_condition or 'ADVZY Ground Stop',
+            raw_text=raw_text
         )
-        return (tmi, lines_consumed)
+
+        gs_advisory = GSAdvisory(
+            advzy_number=advzy_number,
+            advisory_type='INITIAL',  # Default; chaining may change to EXTENSION
+            adl_time=issued_time,
+            gs_period_start=gs_start,
+            gs_period_end=gs_end,
+            cumulative_start=cumulative_start,
+            cumulative_end=cumulative_end,
+            dep_facilities=dep_facilities,
+            dep_facility_tier=dep_facility_tier,
+            delay_prev=delay_prev,
+            delay_new=delay_new,
+            prob_extension=prob_extension,
+            impacting_condition=impacting_condition,
+            flt_incl=flt_incl,
+            comments=comments_text,
+            raw_text=raw_text
+        )
+
+    return (tmi, gs_advisory, lines_consumed)
+
+
+def parse_advzy_gs_cnx(lines: List[str], start_idx: int, event_start: datetime, event_end: datetime) -> Tuple[Optional[GSAdvisory], int]:
+    """
+    Parse an ADVZY GS CNX (Ground Stop Cancellation) block.
+
+    Format:
+        vATCSCC ADVZY 003 SFO/ZOA 12/07/2025 CDM GS CNX
+        CTL ELEMENT: SFO
+        ELEMENT TYPE: APT
+        ADL TIME: 0310Z
+        GS CNX PERIOD: 07/0310 - 07/0330
+        COMMENTS: 15 MIT ON SFO ARRIVALS VIA ...
+
+    Returns:
+        Tuple of (GSAdvisory or None, number of lines consumed)
+    """
+    if start_idx >= len(lines):
+        return (None, 0)
+
+    header_line = lines[start_idx]
+
+    # Extract advisory number
+    advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
+    advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
+
+    # Extract airport from header
+    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', header_line, re.IGNORECASE)
+    airport = header_match.group(1).upper() if header_match else ''
+
+    issued_time = None
+    cnx_start = None
+    cnx_end = None
+    comments_lines = []
+    in_comments = False
+    lines_consumed = 1
+    raw_lines = [header_line]
+
+    event_date = event_start.date()
+
+    def parse_time(time_str: str) -> Optional[datetime]:
+        """Parse HHMM or HH:MMZ format time"""
+        if not time_str:
+            return None
+        time_str = time_str.replace(':', '').replace('Z', '').strip()
+        if len(time_str) >= 4:
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:4])
+                result = datetime(event_date.year, event_date.month, event_date.day, hour, minute)
+                if result < event_start - timedelta(hours=2):
+                    result = result + timedelta(days=1)
+                return result
+            except ValueError:
+                return None
+        return None
+
+    for i in range(start_idx + 1, min(start_idx + 15, len(lines))):
+        line = lines[i].strip()
+        if not line:
+            lines_consumed += 1
+            if in_comments:
+                in_comments = False
+            continue
+
+        # Check if we've hit another TMI or ADVZY
+        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+            break
+
+        lines_consumed += 1
+        raw_lines.append(line)
+
+        upper_line = line.upper()
+
+        if in_comments:
+            if re.match(r'^(CTL|ELEMENT|ADL|GS\s+CNX|COMMENTS)\s', upper_line, re.IGNORECASE):
+                in_comments = False
+            else:
+                comments_lines.append(line)
+                continue
+
+        # CTL ELEMENT: SFO
+        ctl_match = re.match(r'^CTL\s+ELEMENT:\s*(\w+)', line, re.IGNORECASE)
+        if ctl_match:
+            airport = ctl_match.group(1).upper()
+            continue
+
+        # ELEMENT TYPE: APT (skip)
+        if upper_line.startswith('ELEMENT TYPE:'):
+            continue
+
+        # ADL TIME: 0310Z
+        adl_match = re.match(r'^ADL\s+TIME:\s*(\d{4})Z?', line, re.IGNORECASE)
+        if adl_match:
+            issued_time = parse_time(adl_match.group(1))
+            continue
+
+        # GS CNX PERIOD: 07/0310 - 07/0330
+        cnx_period_match = re.search(r'GS\s+CNX\s+PERIOD:\s*\d{2}/(\d{4})Z?\s*[-\u2013\u2014]\s*\d{2}/(\d{4})Z?',
+                                     line, re.IGNORECASE)
+        if cnx_period_match:
+            cnx_start = parse_time(cnx_period_match.group(1))
+            cnx_end = parse_time(cnx_period_match.group(2))
+            continue
+
+        # COMMENTS:
+        comments_match = re.match(r'^COMMENTS:\s*(.*)', line, re.IGNORECASE)
+        if comments_match:
+            first_comment = comments_match.group(1).strip()
+            if first_comment:
+                comments_lines.append(first_comment)
+            in_comments = True
+            continue
+
+    raw_text = '\n'.join(raw_lines)
+    comments_text = '\n'.join(comments_lines).strip()
+
+    if airport:
+        advisory = GSAdvisory(
+            advzy_number=advzy_number,
+            advisory_type='CNX',
+            adl_time=issued_time,
+            gs_period_start=cnx_start,
+            gs_period_end=cnx_end,
+            comments=comments_text,
+            raw_text=raw_text
+        )
+        return (advisory, lines_consumed)
 
     return (None, lines_consumed)
+
+
+def build_gs_programs(gs_tmis: List[TMI], gs_advisories: List[GSAdvisory],
+                      gs_cnx_advisories: List[GSAdvisory]) -> List[GSProgram]:
+    """
+    Chain GS advisories into programs by airport.
+
+    Logic:
+    1. Group GS TMIs + advisories by airport (CTL ELEMENT)
+    2. Sort by issued time within each airport
+    3. First advisory -> INITIAL, subsequent -> EXTENSION/UPDATE
+    4. Match CNX advisories by airport -> close program
+    5. No CNX -> EXPIRATION at last advisory's end time
+    """
+    from collections import defaultdict
+
+    # Group advisories by airport
+    # Use advisories first; for TMIs without a matching advisory, create synthetic ones
+    airport_advisories = defaultdict(list)
+
+    # Index advisories by their raw_text to avoid duplicates when matching TMIs
+    advisory_raw_texts = set()
+    for adv in gs_advisories:
+        # Determine airport from the advisory's raw_text or from associated TMI
+        airport = ''
+        ctl_match = re.search(r'CTL\s+ELEMENT:\s*(\w+)', adv.raw_text, re.IGNORECASE)
+        if ctl_match:
+            airport = ctl_match.group(1).upper()
+        if not airport:
+            # Try header
+            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', adv.raw_text, re.IGNORECASE)
+            if header_match:
+                airport = header_match.group(1).upper()
+
+        if airport:
+            airport_advisories[airport].append(adv)
+            advisory_raw_texts.add(adv.raw_text)
+
+    # For GS TMIs that have no matching advisory, create synthetic wrappers
+    for tmi in gs_tmis:
+        if tmi.raw_text and tmi.raw_text in advisory_raw_texts:
+            continue  # Already have a real advisory for this
+
+        for dest in (tmi.destinations or []):
+            if dest not in airport_advisories or not any(
+                a.advzy_number for a in airport_advisories[dest]
+                if a.raw_text == tmi.raw_text
+            ):
+                synthetic = GSAdvisory(
+                    advzy_number='',
+                    advisory_type='INITIAL',
+                    adl_time=tmi.issued_utc,
+                    gs_period_start=tmi.start_utc,
+                    gs_period_end=tmi.end_utc,
+                    dep_facilities=[tmi.provider] if tmi.provider and tmi.provider != 'ALL' else [],
+                    impacting_condition=tmi.reason if tmi.reason != 'ADVZY Ground Stop' else '',
+                    raw_text=tmi.raw_text or ''
+                )
+                airport_advisories[dest].append(synthetic)
+
+    # Index CNX advisories by airport
+    cnx_by_airport = defaultdict(list)
+    for cnx in gs_cnx_advisories:
+        airport = ''
+        ctl_match = re.search(r'CTL\s+ELEMENT:\s*(\w+)', cnx.raw_text, re.IGNORECASE)
+        if ctl_match:
+            airport = ctl_match.group(1).upper()
+        if not airport:
+            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', cnx.raw_text, re.IGNORECASE)
+            if header_match:
+                airport = header_match.group(1).upper()
+        if airport:
+            cnx_by_airport[airport].append(cnx)
+
+    # Build programs
+    programs = []
+    for airport, advisories in airport_advisories.items():
+        # Sort by adl_time (issued time), falling back to gs_period_start
+        advisories.sort(key=lambda a: a.adl_time or a.gs_period_start or datetime.min)
+
+        # Set advisory types: first = INITIAL, subsequent = EXTENSION
+        for idx, adv in enumerate(advisories):
+            if adv.advisory_type == 'CNX':
+                continue  # Don't change CNX type
+            if idx == 0:
+                adv.advisory_type = 'INITIAL'
+            else:
+                adv.advisory_type = 'EXTENSION'
+
+        # Compute effective times
+        starts = [a.gs_period_start for a in advisories if a.gs_period_start]
+        ends = [a.gs_period_end for a in advisories if a.gs_period_end]
+        effective_start = min(starts) if starts else None
+        effective_end = max(ends) if ends else None
+
+        # Union of dep facilities
+        all_dep_facilities = []
+        dep_fac_set = set()
+        for adv in advisories:
+            for f in adv.dep_facilities:
+                if f not in dep_fac_set:
+                    dep_fac_set.add(f)
+                    all_dep_facilities.append(f)
+
+        # Latest tier
+        latest_tier = ''
+        for adv in reversed(advisories):
+            if adv.dep_facility_tier:
+                latest_tier = adv.dep_facility_tier
+                break
+
+        # Latest impacting condition and prob extension
+        latest_impact = ''
+        latest_prob = ''
+        for adv in reversed(advisories):
+            if adv.impacting_condition and not latest_impact:
+                latest_impact = adv.impacting_condition
+            if adv.prob_extension and not latest_prob:
+                latest_prob = adv.prob_extension
+            if latest_impact and latest_prob:
+                break
+
+        # All comments
+        all_comments = [adv.comments for adv in advisories if adv.comments]
+
+        # Check for CNX
+        cnx_list = cnx_by_airport.get(airport, [])
+        ended_by = 'EXPIRATION'
+        cnx_comments = ''
+        if cnx_list:
+            ended_by = 'CNX'
+            # Use the last CNX advisory's end time
+            cnx_sorted = sorted(cnx_list, key=lambda c: c.adl_time or c.gs_period_start or datetime.min)
+            last_cnx = cnx_sorted[-1]
+            if last_cnx.gs_period_end:
+                effective_end = last_cnx.gs_period_end
+            elif last_cnx.adl_time:
+                effective_end = last_cnx.adl_time
+            cnx_comments = last_cnx.comments
+            # Add CNX advisories to the advisory chain
+            advisories.extend(cnx_sorted)
+
+        program = GSProgram(
+            airport=airport,
+            advisories=advisories,
+            dep_facilities=all_dep_facilities,
+            dep_facility_tier=latest_tier,
+            effective_start=effective_start,
+            effective_end=effective_end,
+            ended_by=ended_by,
+            impacting_condition=latest_impact,
+            prob_extension=latest_prob,
+            comments=all_comments,
+            cnx_comments=cnx_comments
+        )
+        programs.append(program)
+
+    logger.debug(f"Built {len(programs)} GS programs from {len(gs_advisories)} advisories + {len(gs_cnx_advisories)} CNX")
+    return programs
+
+
+def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime, event_end: datetime,
+                        destinations: List[str]) -> Tuple[Optional[TMI], Optional[RerouteAdvisory], int]:
+    """
+    Parse a Reroute ADVZY block (ROUTE RQD, FEA FYI, FCA RQD, ICR RQD, etc.).
+
+    Format:
+        vATCSCC ADVZY 026 DCC 06/22/2025 ROUTE RQD
+        NAME: MCO_NO_GRNCH_PRICY
+        CONSTRAINED AREA: ZJX
+        REASON: WEATHER
+        INCLUDE TRAFFIC: ETD FROM MCO
+        FACILITIES INCLUDED: ZJX, ZMA
+        VALID: ETD 1900-2359
+        TMI ID: RRDCC506
+        ORIG       DEST    ROUTE
+        ----       ----    -----
+        MCO        BOS     V547 SAV >J79 HPW BBOBO Q22 RBV Q419 JFK< ROBUC3
+        MCO        EWR     V547 SAV >J79 HPW< BIGGY3
+        REMARKS: REPLACES ADVZY 020
+        MODIFICATIONS: ARRIVAL CHANGED TO SNFLD3
+        ASSOCIATED RESTRICTIONS: 20 MIT OVER BUGSY
+        PROBABILITY OF EXTENSION: HIGH
+        EXEMPTIONS: AR AND Y ROUTES, Q75 EXEMPT
+
+    Returns:
+        Tuple of (TMI or None, RerouteAdvisory or None, number of lines consumed)
+    """
+    if start_idx >= len(lines):
+        return (None, None, 0)
+
+    header_line = lines[start_idx]
+
+    # Extract advisory number
+    advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
+    advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
+
+    # Extract route_type and action from header (e.g., "ROUTE RQD", "FEA FYI")
+    type_action_match = re.search(r'\b(ROUTE|FEA|FCA|ICR)\s+(RQD|RMD|PLN|FYI)\b', header_line, re.IGNORECASE)
+    route_type = type_action_match.group(1).upper() if type_action_match else ''
+    action = type_action_match.group(2).upper() if type_action_match else ''
+
+    name = ''
+    constrained_area = ''
+    reason = ''
+    time_type = ''
+    origins = []
+    reroute_destinations = []
+    facilities = []
+    valid_start = None
+    valid_end = None
+    tmi_id = ''
+    routes = []
+    modifications = ''
+    replaces_advzy = ''
+    associated_restrictions = ''
+    prob_extension = ''
+    exemptions = ''
+    comments = ''
+    in_route_table = False
+    lines_consumed = 1
+    raw_lines = [header_line]
+
+    event_date = event_start.date()
+
+    def parse_time(time_str: str) -> Optional[datetime]:
+        """Parse HHMM or HH:MMZ format time"""
+        if not time_str:
+            return None
+        time_str = time_str.replace(':', '').replace('Z', '').strip()
+        if len(time_str) >= 4:
+            try:
+                hour = int(time_str[:2])
+                minute = int(time_str[2:4])
+                result = datetime(event_date.year, event_date.month, event_date.day, hour, minute)
+                if result < event_start - timedelta(hours=2):
+                    result = result + timedelta(days=1)
+                return result
+            except ValueError:
+                return None
+        return None
+
+    for i in range(start_idx + 1, min(start_idx + 50, len(lines))):  # Reroutes can be long
+        line = lines[i].strip()
+        if not line:
+            lines_consumed += 1
+            if in_route_table:
+                in_route_table = False  # Empty line ends route table
+            continue
+
+        # Check if we've hit another TMI or ADVZY
+        if re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+            break
+        if re.match(r'^\d{2}/\d{4}\s+', line) and not in_route_table:
+            break
+
+        lines_consumed += 1
+        raw_lines.append(line)
+
+        upper_line = line.upper()
+
+        # Route table parsing - check this first since route entries could look like other patterns
+        if in_route_table:
+            # Separator line (---- ---- -----)
+            if re.match(r'^-+\s+-+\s+-+', line):
+                continue
+            # Route entry: "MCO        BOS     V547 SAV >J79 HPW BBOBO Q22 RBV Q419 JFK< ROBUC3"
+            route_match = re.match(r'([A-Z]{3})\s+([A-Z]{3})\s+(.*)', line, re.IGNORECASE)
+            if route_match:
+                orig_code = route_match.group(1).upper()
+                dest_code = route_match.group(2).upper()
+                route_string = route_match.group(3).strip()
+
+                # Extract required fixes from >...< markers
+                required_fixes = re.findall(r'>([^<]+)<', route_string)
+                required_fix_list = []
+                for segment in required_fixes:
+                    # Split segment into individual fixes
+                    for fix in segment.split():
+                        fix_clean = fix.strip()
+                        if fix_clean and re.match(r'^[A-Z0-9]+$', fix_clean, re.IGNORECASE):
+                            required_fix_list.append(fix_clean.upper())
+
+                routes.append(RouteEntry(
+                    origins=[orig_code],
+                    destination=dest_code,
+                    route_string=route_string,
+                    required_fixes=required_fix_list
+                ))
+
+                if orig_code not in origins:
+                    origins.append(orig_code)
+                if dest_code not in reroute_destinations:
+                    reroute_destinations.append(dest_code)
+                continue
+            else:
+                # No longer a route entry; exit route table mode
+                in_route_table = False
+                # Fall through to field parsing
+
+        # NAME: MCO_NO_GRNCH_PRICY
+        name_match = re.match(r'^NAME:\s*(.*)', line, re.IGNORECASE)
+        if name_match:
+            name = name_match.group(1).strip()
+            continue
+
+        # CONSTRAINED AREA: ZJX
+        ca_match = re.match(r'^CONSTRAINED\s+AREA:\s*(.*)', line, re.IGNORECASE)
+        if ca_match:
+            constrained_area = ca_match.group(1).strip()
+            continue
+
+        # REASON: WEATHER
+        reason_match = re.match(r'^REASON:\s*(.*)', line, re.IGNORECASE)
+        if reason_match:
+            reason = reason_match.group(1).strip()
+            continue
+
+        # INCLUDE TRAFFIC: ETD FROM MCO
+        incl_match = re.match(r'^INCLUDE\s+TRAFFIC:\s*(.*)', line, re.IGNORECASE)
+        if incl_match:
+            incl_text = incl_match.group(1).strip()
+            # Extract time_type (ETD/ETA) and origins/destinations
+            tt_match = re.search(r'\b(ETD|ETA)\b', incl_text, re.IGNORECASE)
+            if tt_match:
+                time_type = tt_match.group(1).upper()
+            # Extract airport codes after FROM/TO
+            from_match = re.search(r'\bFROM\s+([A-Z,\s]+)', incl_text, re.IGNORECASE)
+            if from_match:
+                for code in re.findall(r'[A-Z]{3}', from_match.group(1).upper()):
+                    if code not in origins:
+                        origins.append(code)
+            to_match = re.search(r'\bTO\s+([A-Z,\s]+)', incl_text, re.IGNORECASE)
+            if to_match:
+                for code in re.findall(r'[A-Z]{3}', to_match.group(1).upper()):
+                    if code not in reroute_destinations:
+                        reroute_destinations.append(code)
+            continue
+
+        # FACILITIES INCLUDED: ZJX, ZMA
+        fac_match = re.match(r'^FACILITIES\s+INCLUDED:\s*(.*)', line, re.IGNORECASE)
+        if fac_match:
+            fac_text = fac_match.group(1).strip()
+            facilities = [f.strip() for f in re.findall(r'[A-Z]{2,4}', fac_text.upper()) if f.strip()]
+            continue
+
+        # VALID: ETD 1900-2359
+        valid_match = re.match(r'^VALID:\s*(.*)', line, re.IGNORECASE)
+        if valid_match:
+            valid_text = valid_match.group(1).strip()
+            # Extract time_type if present
+            vtt_match = re.search(r'\b(ETD|ETA)\b', valid_text, re.IGNORECASE)
+            if vtt_match:
+                time_type = vtt_match.group(1).upper()
+            # Extract time range HHMM-HHMM
+            vtime_match = re.search(r'(\d{4})\s*[-\u2013\u2014]\s*(\d{4})', valid_text)
+            if vtime_match:
+                valid_start = parse_time(vtime_match.group(1))
+                valid_end = parse_time(vtime_match.group(2))
+            continue
+
+        # TMI ID: RRDCC506
+        tmi_id_match = re.match(r'^TMI\s+ID:\s*(.*)', line, re.IGNORECASE)
+        if tmi_id_match:
+            tmi_id = tmi_id_match.group(1).strip()
+            continue
+
+        # ORIG DEST ROUTE header -> start route table
+        if re.match(r'^ORIG\s+DEST\s+ROUTE', line, re.IGNORECASE):
+            in_route_table = True
+            continue
+
+        # Separator line within route table context
+        if re.match(r'^-+\s+-+\s+-+', line):
+            in_route_table = True
+            continue
+
+        # REMARKS: REPLACES ADVZY 020
+        remarks_match = re.match(r'^REMARKS:\s*(.*)', line, re.IGNORECASE)
+        if remarks_match:
+            remarks_text = remarks_match.group(1).strip()
+            # Check for "REPLACES ADVZY NNN"
+            replaces_match = re.search(r'REPLACES\s+ADVZY\s+(\d+)', remarks_text, re.IGNORECASE)
+            if replaces_match:
+                replaces_advzy = replaces_match.group(1)
+            if not comments:
+                comments = remarks_text
+            continue
+
+        # MODIFICATIONS:
+        mod_match = re.match(r'^MODIFICATIONS:\s*(.*)', line, re.IGNORECASE)
+        if mod_match:
+            modifications = mod_match.group(1).strip()
+            continue
+
+        # ASSOCIATED RESTRICTIONS:
+        assoc_match = re.match(r'^ASSOCIATED\s+RESTRICTIONS:\s*(.*)', line, re.IGNORECASE)
+        if assoc_match:
+            associated_restrictions = assoc_match.group(1).strip()
+            continue
+
+        # PROBABILITY OF EXTENSION:
+        prob_match = re.match(r'^PROBABILITY\s+OF\s+EXTENSION:\s*(.*)', line, re.IGNORECASE)
+        if prob_match:
+            prob_extension = prob_match.group(1).strip()
+            continue
+
+        # EXEMPTIONS:
+        exempt_match = re.match(r'^EXEMPTIONS:\s*(.*)', line, re.IGNORECASE)
+        if exempt_match:
+            exemptions = exempt_match.group(1).strip()
+            continue
+
+    raw_text = '\n'.join(raw_lines)
+
+    # Build TMI for backward compatibility
+    tmi = None
+    advisory = None
+
+    if name or routes or tmi_id:
+        # Determine destinations for TMI
+        tmi_dests = reroute_destinations if reroute_destinations else destinations
+
+        tmi = TMI(
+            tmi_id=tmi_id or f'REROUTE_{name}',
+            tmi_type=TMIType.REROUTE,
+            destinations=tmi_dests,
+            origins=origins,
+            start_utc=valid_start or event_start,
+            end_utc=valid_end or event_end,
+            reroute_name=name,
+            reroute_mandatory=(action == 'RQD'),
+            reroute_routes=[{'orig': ','.join(rt.origins), 'dest': rt.destination, 'route': rt.route_string} for rt in routes],
+            time_type=time_type,
+            reason=reason,
+            raw_text=raw_text
+        )
+
+        advisory = RerouteAdvisory(
+            advzy_number=advzy_number,
+            advisory_type='INITIAL',  # Default; chaining may change
+            route_type=route_type,
+            action=action,
+            adl_time=None,  # Reroute ADVZYs don't have ADL TIME
+            valid_start=valid_start,
+            valid_end=valid_end,
+            time_type=time_type,
+            routes=routes,
+            origins=origins,
+            destinations=reroute_destinations,
+            facilities=facilities,
+            modifications=modifications,
+            replaces_advzy=replaces_advzy,
+            associated_restrictions=associated_restrictions,
+            prob_extension=prob_extension,
+            exemptions=exemptions,
+            comments=comments,
+            raw_text=raw_text
+        )
+
+    return (tmi, advisory, lines_consumed)
+
+
+def parse_advzy_reroute_cancellation(lines: List[str], start_idx: int,
+                                     event_start: datetime) -> Tuple[Optional[RerouteAdvisory], int]:
+    """
+    Parse an ADVZY Reroute Cancellation block.
+
+    Format:
+        vATCSCC ADVZY 100 DCC 06/22/2025 REROUTE CANCELLATION
+        MCO_NO_GRNCH_PRICY HAS BEEN CANCELLED AT 2108Z
+
+    Returns:
+        Tuple of (RerouteAdvisory or None, number of lines consumed)
+    """
+    if start_idx >= len(lines):
+        return (None, 0)
+
+    header_line = lines[start_idx]
+
+    # Extract advisory number
+    advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
+    advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
+
+    name = ''
+    cancel_time = None
+    lines_consumed = 1
+    raw_lines = [header_line]
+
+    event_date = event_start.date()
+
+    for i in range(start_idx + 1, min(start_idx + 10, len(lines))):
+        line = lines[i].strip()
+        if not line:
+            lines_consumed += 1
+            continue
+
+        # Check if we've hit another ADVZY or TMI
+        if re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+            break
+        if re.match(r'^\d{2}/\d{4}\s+', line):
+            break
+
+        lines_consumed += 1
+        raw_lines.append(line)
+
+        # Pattern: "MCO_NO_GRNCH_PRICY HAS BEEN CANCELLED AT 2108Z"
+        cancel_match = re.search(r'(\S+)\s+HAS\s+BEEN\s+CANCEL', line, re.IGNORECASE)
+        if cancel_match:
+            name = cancel_match.group(1).upper()
+
+            # Extract cancellation time
+            time_match = re.search(r'AT\s+(\d{4})Z?', line, re.IGNORECASE)
+            if time_match:
+                time_str = time_match.group(1)
+                try:
+                    hour = int(time_str[:2])
+                    minute = int(time_str[2:4])
+                    cancel_time = datetime(event_date.year, event_date.month, event_date.day, hour, minute)
+                    if cancel_time < event_start - timedelta(hours=2):
+                        cancel_time = cancel_time + timedelta(days=1)
+                except ValueError:
+                    pass
+            continue
+
+    raw_text = '\n'.join(raw_lines)
+
+    if name:
+        advisory = RerouteAdvisory(
+            advzy_number=advzy_number,
+            advisory_type='CANCELLATION',
+            route_type='',
+            action='',
+            adl_time=cancel_time,
+            valid_start=None,
+            valid_end=cancel_time,
+            raw_text=raw_text
+        )
+        # Store name for matching in program chaining
+        advisory.comments = name  # Use comments to carry the reroute name
+        return (advisory, lines_consumed)
+
+    return (None, lines_consumed)
+
+
+def build_reroute_programs(reroute_tmis: List[TMI], reroute_advisories: List[RerouteAdvisory],
+                           reroute_cnx_advisories: List[RerouteAdvisory]) -> List[RerouteProgram]:
+    """
+    Chain reroute advisories into programs by name/TMI ID.
+
+    Logic:
+    1. Group by NAME (primary) or TMI ID (fallback)
+    2. Sort by advisory number within each group
+    3. First -> INITIAL, "REPLACES ADVZY NNN" -> UPDATE/EXTENSION
+    4. REROUTE CANCELLATION matching NAME -> close
+    5. No cancellation -> EXPIRATION at last advisory's VALID end
+    6. Update route_type and action to latest non-cancelled advisory
+    7. current_routes = routes from latest non-cancelled advisory
+    """
+    from collections import defaultdict
+
+    # Group advisories by name
+    name_groups = defaultdict(list)
+    tmi_id_to_name = {}
+
+    for adv in reroute_advisories:
+        # Get name from the advisory raw text
+        name_match = re.search(r'^NAME:\s*(\S+)', adv.raw_text, re.MULTILINE | re.IGNORECASE)
+        name = name_match.group(1).upper() if name_match else ''
+
+        # Get TMI ID
+        id_match = re.search(r'^TMI\s+ID:\s*(\S+)', adv.raw_text, re.MULTILINE | re.IGNORECASE)
+        reroute_tmi_id = id_match.group(1).upper() if id_match else ''
+
+        if name:
+            name_groups[name].append(adv)
+            if reroute_tmi_id:
+                tmi_id_to_name[reroute_tmi_id] = name
+        elif reroute_tmi_id:
+            name_groups[reroute_tmi_id].append(adv)
+
+    # For reroute TMIs without matching advisories, create synthetic entries
+    for tmi in reroute_tmis:
+        rr_name = tmi.reroute_name or tmi.tmi_id
+        if rr_name and rr_name.upper() not in name_groups:
+            synthetic = RerouteAdvisory(
+                advzy_number='',
+                advisory_type='INITIAL',
+                route_type='ROUTE',
+                action='RQD' if tmi.reroute_mandatory else 'FYI',
+                valid_start=tmi.start_utc,
+                valid_end=tmi.end_utc,
+                time_type=tmi.time_type or '',
+                origins=tmi.origins,
+                destinations=tmi.destinations,
+                raw_text=tmi.raw_text or ''
+            )
+            name_groups[rr_name.upper()].append(synthetic)
+
+    # Index CNX advisories by reroute name
+    cnx_by_name = defaultdict(list)
+    for cnx in reroute_cnx_advisories:
+        # The reroute name is stored in comments by parse_advzy_reroute_cancellation
+        cnx_name = cnx.comments.upper() if cnx.comments else ''
+        if cnx_name:
+            cnx_by_name[cnx_name].append(cnx)
+
+    # Build programs
+    programs = []
+    for group_name, advisories in name_groups.items():
+        # Sort by advisory number
+        advisories.sort(key=lambda a: int(a.advzy_number) if a.advzy_number.isdigit() else 0)
+
+        # Set advisory types
+        for idx, adv in enumerate(advisories):
+            if adv.advisory_type == 'CANCELLATION':
+                continue
+            if idx == 0:
+                adv.advisory_type = 'INITIAL'
+            elif adv.replaces_advzy:
+                adv.advisory_type = 'UPDATE'
+            else:
+                adv.advisory_type = 'EXTENSION'
+
+        # Get latest non-cancelled advisory for current state
+        active_advisories = [a for a in advisories if a.advisory_type != 'CANCELLATION']
+        latest = active_advisories[-1] if active_advisories else advisories[0]
+
+        # Compute effective times
+        starts = [a.valid_start for a in active_advisories if a.valid_start]
+        ends = [a.valid_end for a in active_advisories if a.valid_end]
+        effective_start = min(starts) if starts else None
+        effective_end = max(ends) if ends else None
+
+        # Union of origins, destinations, facilities
+        all_origins = []
+        all_dests = []
+        all_facilities = []
+        for adv in active_advisories:
+            for o in adv.origins:
+                if o not in all_origins:
+                    all_origins.append(o)
+            for d in adv.destinations:
+                if d not in all_dests:
+                    all_dests.append(d)
+            for f in adv.facilities:
+                if f not in all_facilities:
+                    all_facilities.append(f)
+
+        # Check for cancellation
+        cnx_list = cnx_by_name.get(group_name, [])
+        ended_by = 'EXPIRATION'
+        if cnx_list:
+            ended_by = 'CNX'
+            cnx_sorted = sorted(cnx_list, key=lambda c: c.adl_time or datetime.min)
+            last_cnx = cnx_sorted[-1]
+            if last_cnx.valid_end:
+                effective_end = last_cnx.valid_end
+            elif last_cnx.adl_time:
+                effective_end = last_cnx.adl_time
+            advisories.extend(cnx_sorted)
+
+        # Get TMI ID from any advisory
+        reroute_tmi_id = ''
+        for adv in active_advisories:
+            id_match = re.search(r'^TMI\s+ID:\s*(\S+)', adv.raw_text, re.MULTILINE | re.IGNORECASE)
+            if id_match:
+                reroute_tmi_id = id_match.group(1).upper()
+                break
+
+        program = RerouteProgram(
+            name=group_name,
+            tmi_id=reroute_tmi_id,
+            route_type=latest.route_type,
+            action=latest.action,
+            advisories=advisories,
+            constrained_area='',  # From latest advisory
+            reason='',
+            effective_start=effective_start,
+            effective_end=effective_end,
+            ended_by=ended_by,
+            current_routes=latest.routes if latest.routes else [],
+            origins=all_origins,
+            destinations=all_dests,
+            facilities=all_facilities,
+            exemptions=latest.exemptions,
+            associated_restrictions=latest.associated_restrictions
+        )
+
+        # Extract constrained_area and reason from latest advisory
+        for adv in reversed(active_advisories):
+            ca_match = re.search(r'^CONSTRAINED\s+AREA:\s*(.*)', adv.raw_text, re.MULTILINE | re.IGNORECASE)
+            if ca_match and not program.constrained_area:
+                program.constrained_area = ca_match.group(1).strip()
+            reason_match = re.search(r'^REASON:\s*(.*)', adv.raw_text, re.MULTILINE | re.IGNORECASE)
+            if reason_match and not program.reason:
+                program.reason = reason_match.group(1).strip()
+            if program.constrained_area and program.reason:
+                break
+
+        programs.append(program)
+
+    logger.debug(f"Built {len(programs)} reroute programs from {len(reroute_advisories)} advisories + {len(reroute_cnx_advisories)} CNX")
+    return programs
 
 
 def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> ParseResult:
@@ -734,6 +1715,10 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         return ScopeLogic.ANY_TRAFFIC
 
     skipped_lines = []
+    gs_advisories = []
+    gs_cnx_advisories = []
+    reroute_advisories = []
+    reroute_cnx_advisories = []
 
     i = 0
     while i < len(lines):
@@ -746,13 +1731,56 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         tmi = None
 
         # Handle ADVZY Ground Stops (multi-line format)
-        if line_type == 'advzy_header' and 'GROUND STOP' in line.upper():
-            gs_tmi, lines_consumed = parse_advzy_ground_stop(lines, i, event_start, event_end, destinations)
+        if line_type == 'advzy_gs':
+            gs_tmi, gs_advisory, lines_consumed = parse_advzy_ground_stop(lines, i, event_start, event_end, destinations)
             if gs_tmi:
                 tmis.append(gs_tmi)
                 logger.debug(f"Parsed ADVZY Ground Stop: {gs_tmi.destinations} from {gs_tmi.provider}")
+            if gs_advisory:
+                gs_advisories.append(gs_advisory)
             i += lines_consumed
             continue
+
+        # Handle ADVZY GS CNX (cancellation)
+        if line_type == 'advzy_gs_cnx':
+            cnx_advisory, lines_consumed = parse_advzy_gs_cnx(lines, i, event_start, event_end)
+            if cnx_advisory:
+                gs_cnx_advisories.append(cnx_advisory)
+                logger.debug(f"Parsed ADVZY GS CNX: {cnx_advisory.advzy_number}")
+            i += lines_consumed
+            continue
+
+        # Handle ADVZY Reroutes (ROUTE RQD, FEA FYI, etc.)
+        if line_type == 'advzy_reroute':
+            rte_tmi, rte_advisory, lines_consumed = parse_advzy_reroute(lines, i, event_start, event_end, destinations)
+            if rte_tmi:
+                tmis.append(rte_tmi)
+                logger.debug(f"Parsed ADVZY Reroute: {rte_advisory.route_type if rte_advisory else 'unknown'}")
+            if rte_advisory:
+                reroute_advisories.append(rte_advisory)
+            i += lines_consumed
+            continue
+
+        # Handle ADVZY Reroute Cancellation
+        if line_type == 'advzy_reroute_cnx':
+            cnx_advisory, lines_consumed = parse_advzy_reroute_cancellation(lines, i, event_start)
+            if cnx_advisory:
+                reroute_cnx_advisories.append(cnx_advisory)
+                logger.debug(f"Parsed ADVZY Reroute Cancellation: {cnx_advisory.advzy_number}")
+            i += lines_consumed
+            continue
+
+        # === ADVZY-ONLY RULE: Skip NTML single-line GS and reroute entries ===
+        if line_type in ('mit', 'stop', 'cfr', 'minit', 'unknown'):
+            upper_line = line.upper()
+            if re.search(r'\bGS\b', upper_line) and 'GROUND STOP' not in upper_line:
+                logger.debug(f"Skipping NTML GS line (ADVZY-only): {line[:60]}...")
+                i += 1
+                continue
+            if re.search(r'\bRE-?ROUTE\b|\bROUTE\s+RQD\b|\bFEA\s+FYI\b', upper_line):
+                logger.debug(f"Skipping NTML reroute line (ADVZY-only): {line[:60]}...")
+                i += 1
+                continue
 
         # Skip non-TMI informational lines (not candidates for user override)
         if line_type in ('advzy_header', 'advzy_field', 'airport_config',
@@ -1202,8 +2230,24 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
         if line_type == 'unparsed'  # Only unparsed lines need user definition
     ]
 
-    logger.info(f"Parsed {len(tmis)} TMIs from NTML text, {len(skipped_line_objects)} unparsed lines")
-    return ParseResult(tmis=tmis, skipped_lines=skipped_line_objects)
+    # Build GS programs from parsed TMIs and advisories
+    gs_programs = build_gs_programs(
+        [t for t in tmis if t.tmi_type == TMIType.GS],
+        gs_advisories,
+        gs_cnx_advisories
+    )
+
+    # Build reroute programs from parsed TMIs and advisories
+    reroute_programs = build_reroute_programs(
+        [t for t in tmis if t.tmi_type == TMIType.REROUTE],
+        reroute_advisories,
+        reroute_cnx_advisories
+    )
+
+    logger.info(f"Parsed {len(tmis)} TMIs from NTML text, {len(skipped_line_objects)} unparsed lines, "
+                f"{len(gs_programs)} GS programs, {len(reroute_programs)} reroute programs")
+    return ParseResult(tmis=tmis, skipped_lines=skipped_line_objects,
+                       gs_programs=gs_programs, reroute_programs=reroute_programs)
 
 
 @dataclass
@@ -1214,6 +2258,8 @@ class NTMLParseResult:
     airport_configs: List[AirportConfig]
     cancellations: List[CancelEntry]
     skipped_lines: List[SkippedLine]  # Lines that couldn't be parsed (for user override)
+    gs_programs: List[GSProgram] = field(default_factory=list)
+    reroute_programs: List[RerouteProgram] = field(default_factory=list)
 
 
 def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, destinations: List[str]) -> NTMLParseResult:
@@ -1569,7 +2615,9 @@ def parse_ntml_full(ntml_text: str, event_start: datetime, event_end: datetime, 
         delays=delays,
         airport_configs=airport_configs,
         cancellations=cancellations,
-        skipped_lines=skipped_lines
+        skipped_lines=skipped_lines,
+        gs_programs=parse_result.gs_programs,
+        reroute_programs=parse_result.reroute_programs
     )
 
 

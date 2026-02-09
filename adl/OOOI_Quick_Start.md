@@ -23,7 +23,7 @@ Phase 4 (OOOI Zone Detection) code is **done**. You just need to:
 | Transition Summary | `OOOI_Zone_Detection_Transition_Summary.md` | Documentation |
 | Updated OOOI Design Doc | `oooi_enhanced_design_v2.1.md` | In adl/ folder |
 
-**Airport Coverage:** 201 airports (ASPM77 + Canada + Mexico + LatAm + Caribbean)
+**Airport Coverage:** 201 airports (ASPM82 + Canada + Mexico + LatAm + Caribbean)
 
 ---
 

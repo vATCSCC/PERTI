@@ -582,10 +582,9 @@
                     const type = opt.dataset.type;
                     const val = opt.value;
                     if (type === 'tier' || type === 'special') {
-                    // Use the tier code as the name (e.g., "1stTier", "All+Canada")
-                        selectedNames.push(val);
+                        selectedNames.push(opt.dataset.tierLabel || val);
                     } else if (type === 'fac') {
-                        selectedNames.push(val);
+                        selectedNames.push(opt.dataset.tierLabel || val);
                     } else if (type === 'manual') {
                         selectedNames.push('Manual');
                     }
@@ -936,10 +935,10 @@
             // Convert seconds to milliseconds if epoch is in seconds (before year 2100)
             depEpoch = f.filed_dep_epoch < 4102444800 ? f.filed_dep_epoch * 1000 : f.filed_dep_epoch;
         } else if (f.filed_dep_utc || f.dep_utc || f.planned_dep_utc ||
-                   f.estimated_dep_utc || f.etd_runway_utc) {
+                   f.estimated_dep_utc || f.etd_runway_utc || f.etd_utc) {
             depEpoch = parseSimtrafficTimeToEpoch(
                 f.filed_dep_utc || f.dep_utc || f.planned_dep_utc ||
-                f.estimated_dep_utc || f.etd_runway_utc,
+                f.estimated_dep_utc || f.etd_runway_utc || f.etd_utc,
             );
         } else if (f.deptime) {
             depEpoch = parseVatsimDepartureTimeToEpoch(f.deptime);
@@ -1609,6 +1608,7 @@
             const opt = document.createElement('option');
             opt.value = code;
             opt.dataset.type = (code === 'Manual') ? 'manual' : 'special';
+            opt.dataset.tierLabel = code;
             if (entry && entry.label) {
                 opt.textContent = code + ' ' + entry.label;
             } else {
@@ -1634,8 +1634,9 @@
                 opt.value = e.code;
                 opt.dataset.type = 'tier';
                 const label = e.label || e.code;
+                opt.dataset.tierLabel = label.replace(/[()]/g, '');
                 group.appendChild(opt);
-                opt.textContent = fac + ' ' + label.replace(/[()]/g, '');
+                opt.textContent = fac + ' ' + opt.dataset.tierLabel;
             });
             sel.appendChild(group);
         });
@@ -1648,6 +1649,7 @@
                 const opt = document.createElement('option');
                 opt.value = f;
                 opt.dataset.type = 'fac';
+                opt.dataset.tierLabel = f;
                 opt.textContent = f;
                 groupInd.appendChild(opt);
             });
@@ -3871,6 +3873,9 @@
 
                 renderFlightsFromAdlRowsForWorkflow(flights, 'GS-PREVIEW');
 
+                // Apply GS EDCT to table rows so delay stats are computed
+                applyGroundStopEdctToTable();
+
                 if (statusEl) {
                     const summary = modelResp.data.summary || {};
                     statusEl.textContent = 'Preview: ' + flights.length + ' flights | ' +
@@ -3879,6 +3884,11 @@
                         'Program ID: ' + GS_CURRENT_PROGRAM_ID;
                 }
                 buildAdvisory();
+
+                // Refresh demand chart with program data
+                var apStr = getValue('gs_airports') || getValue('gs_ctl_element') || '';
+                var demandApt = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length >= 3; })[0];
+                if (demandApt) { loadGsDemandData(demandApt); }
 
                 // Enable simulate since we have a PROPOSED program
                 setSendActualEnabled(false, "Run 'Simulate' to finalize before sending");
@@ -3935,6 +3945,9 @@
                 setGsTableMode('GS');
                 renderFlightsFromAdlRowsForWorkflow(flights, 'GS-SIM');
 
+                // Apply GS EDCT to table rows so delay stats are computed
+                applyGroundStopEdctToTable();
+
                 if (statusEl) {
                     const summary = modelResp.data.summary || {};
                     let msg = 'Simulated ' + flights.length + ' flights.';
@@ -3945,6 +3958,11 @@
                     statusEl.textContent = msg;
                 }
                 buildAdvisory();
+
+                // Refresh demand chart with program data
+                var apStr = getValue('gs_airports') || getValue('gs_ctl_element') || '';
+                var demandApt = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length >= 3; })[0];
+                if (demandApt) { loadGsDemandData(demandApt); }
 
                 // Enable "Send Actual" button now that simulation is ready
                 GS_SIMULATION_READY = true;
@@ -5199,7 +5217,7 @@
             dccMw: document.getElementById('tmi_stats_dcc_mw'),
             dccSc: document.getElementById('tmi_stats_dcc_sc'),
             dccW: document.getElementById('tmi_stats_dcc_w'),
-            aspm77: document.getElementById('tmi_stats_aspm77'),
+            aspm82: document.getElementById('tmi_stats_aspm82'),
             oep35: document.getElementById('tmi_stats_oep35'),
             core30: document.getElementById('tmi_stats_core30'),
         };
@@ -5253,8 +5271,8 @@
                             }
 
                             // Airport tiers
-                            if (data.domestic.arr_aspm77 && statsElements.aspm77) {
-                                statsElements.aspm77.textContent = data.domestic.arr_aspm77.yes || 0;
+                            if (data.domestic.arr_aspm82 && statsElements.aspm82) {
+                                statsElements.aspm82.textContent = data.domestic.arr_aspm82.yes || 0;
                             }
                             if (data.domestic.arr_oep35 && statsElements.oep35) {
                                 statsElements.oep35.textContent = data.domestic.arr_oep35.yes || 0;
@@ -7436,10 +7454,10 @@
     function renderFlightRow(f, dcenterCounts, origCounts, destCounts, carrierCounts) {
         const acid = f.acid || f.callsign || '';
         const carrier = extractCarrier(acid);
-        const orig = f.orig || f.fp_dept_icao || '';
-        const dest = f.dest || f.fp_dest_icao || '';
-        const dcenter = f.dcenter || f.dep_center || f.fp_dept_artcc || '';
-        const acenter = f.acenter || f.arr_center || f.fp_dest_artcc || '';
+        const orig = f.orig || f.fp_dept_icao || f.dep || f.dep_airport || '';
+        const dest = f.dest || f.fp_dest_icao || f.arr || f.arr_airport || '';
+        const dcenter = f.dcenter || f.dep_center || f.fp_dept_artcc || f.dep_artcc || '';
+        const acenter = f.acenter || f.arr_center || f.fp_dest_artcc || f.arr_artcc || '';
 
         // Original times (OETD/OETA) - check both suffixed and non-suffixed field names
         const oetdVal = f.oetd_utc || f.oetd || f.etd_utc || f.etd || '';
@@ -7448,9 +7466,9 @@
         const oetaText = oetaVal ? formatZuluFromIso(oetaVal) : '';
 
         // Current times - check both suffixed and non-suffixed field names
-        const etdVal = f.etd_utc || f.etd || '';
+        const etdVal = f.etd_utc || f.etd || f.etd_runway_utc || '';
         const ctdVal = f.ctd_utc || f.edct_utc || f.gs_release_utc || '';
-        const etaVal = f.eta_utc || f.eta || '';
+        const etaVal = f.eta_utc || f.eta || f.eta_runway_utc || '';
         const ctaVal = f.cta_utc || f.cta || '';
         const etdText = etdVal ? formatZuluFromIso(etdVal) : '';
         const ctdText = ctdVal ? formatZuluFromIso(ctdVal) : '';
@@ -7515,13 +7533,13 @@
             case 'carrier':
                 return extractCarrier(flight.acid || flight.callsign || '') || 'Unknown';
             case 'orig_airport':
-                return flight.orig || flight.fp_dept_icao || 'Unknown';
+                return flight.orig || flight.fp_dept_icao || flight.dep || flight.dep_airport || 'Unknown';
             case 'orig_center':
-                return flight.dcenter || flight.dep_center || 'Unknown';
+                return flight.dcenter || flight.dep_center || flight.dep_artcc || 'Unknown';
             case 'dest_airport':
-                return flight.dest || flight.fp_dest_icao || 'Unknown';
+                return flight.dest || flight.fp_dest_icao || flight.arr || flight.arr_airport || 'Unknown';
             case 'dest_center':
-                return flight.acenter || flight.arr_center || 'Unknown';
+                return flight.acenter || flight.arr_center || flight.arr_artcc || 'Unknown';
             case 'delay_bucket': {
                 const delay = flight.program_delay_min || 0;
                 if (delay === 0) {return '0 min (No Delay)';}
@@ -8056,17 +8074,17 @@
 
             return {
                 acid: f.callsign || f.CALLSIGN || '',
-                orig: f.orig || f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || '',
-                dest: f.dest || f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || '',
+                orig: f.orig || f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || f.dep || f.dep_airport || '',
+                dest: f.dest || f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || f.arr || f.arr_airport || '',
                 dcenter: f.dcenter || f.dep_center || f.fp_dept_artcc || f.FP_DEPT_ARTCC || '',
                 acenter: f.acenter || f.arr_center || f.fp_dest_artcc || f.FP_DEST_ARTCC || '',
                 // Original times (before GS control)
                 oetd_utc: f.oetd_utc || f.OETD_UTC || f.orig_etd_utc || f.ORIG_ETD_UTC || f.etd_runway_utc || '',
                 oeta_utc: f.oeta_utc || f.OETA_UTC || f.orig_eta_utc || f.ORIG_ETA_UTC || f.eta_runway_utc || '',
                 // Current times
-                etd_utc: f.etd_runway_utc || f.ETD_RUNWAY_UTC || '',
+                etd_utc: f.etd_runway_utc || f.ETD_RUNWAY_UTC || f.etd_utc || f.ETD_UTC || '',
                 ctd_utc: f.ctd_utc || f.CTD_UTC || '',
-                eta_utc: f.eta_runway_utc || f.ETA_RUNWAY_UTC || '',
+                eta_utc: f.eta_runway_utc || f.ETA_RUNWAY_UTC || f.eta_utc || f.ETA_UTC || '',
                 cta_utc: f.cta_utc || f.CTA_UTC || '',
                 program_delay_min: delay,
                 delay_status: f.delay_status || f.DELAY_STATUS || f.ctl_type || 'GS',

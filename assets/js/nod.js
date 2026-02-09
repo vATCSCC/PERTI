@@ -2039,7 +2039,7 @@
         const apt = icao.toUpperCase();
         if (CORE30_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['CORE30'];}
         if (OEP35_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['OEP35'];}
-        if (ASPM77_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['ASPM77'];}
+        if (ASPM82_AIRPORTS.includes(apt)) {return AIRPORT_TIER_COLORS['ASPM82'];}
         return AIRPORT_TIER_COLORS['OTHER'];
     }
 
@@ -3334,7 +3334,7 @@
 
     // Airport tier colors - use FacilityHierarchy as source of truth
     const AIRPORT_TIER_COLORS = FacilityHierarchy.AIRPORT_TIER_COLORS || {
-        'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM77': '#ffc107', 'OTHER': '#6c757d',
+        'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
     };
 
     // ARTCC colors - inherit from DCC region with variations
@@ -3409,12 +3409,12 @@
     const getAirportTierLists = () => ({
         CORE30: FacilityHierarchy.AIRPORT_GROUPS?.CORE30?.airports || [],
         OEP35: FacilityHierarchy.AIRPORT_GROUPS?.OEP35?.airports || [],
-        ASPM77: FacilityHierarchy.AIRPORT_GROUPS?.ASPM77?.airports || [],
+        ASPM82: FacilityHierarchy.AIRPORT_GROUPS?.ASPM82?.airports || [],
     });
     // Legacy accessors for compatibility
     const CORE30_AIRPORTS = { includes: apt => getAirportTierLists().CORE30.includes(apt) };
     const OEP35_AIRPORTS = { includes: apt => getAirportTierLists().OEP35.includes(apt) };
-    const ASPM77_AIRPORTS = { includes: apt => getAirportTierLists().ASPM77.includes(apt) };
+    const ASPM82_AIRPORTS = { includes: apt => getAirportTierLists().ASPM82.includes(apt) };
 
     // Aircraft Manufacturer Patterns and Colors
     // Use PERTIAircraft as source of truth with fallback for load order
@@ -4650,7 +4650,7 @@
                 items = [
                     { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                     { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;
@@ -4871,7 +4871,7 @@
                 items = [
                     { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
                     { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM77'], label: 'ASPM 77' },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
                     { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
                 ];
                 break;
