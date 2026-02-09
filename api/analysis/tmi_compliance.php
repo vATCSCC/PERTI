@@ -282,9 +282,9 @@ function launch_analysis_async($plan_id, $base_path) {
         );
         $pid_cmd = $cmd;
     } else {
-        // Linux: nohup + & for background, capture PID via echo $!
+        // Linux: env vars BEFORE nohup (nohup treats first arg as the command)
         $cmd = sprintf(
-            'nohup %s%s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
+            '%snohup %s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
             $env_prefix,
             escapeshellcmd($python),
             escapeshellarg($script_path),
