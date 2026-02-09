@@ -421,7 +421,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }, 4000); // Poll every 4 seconds
 
-        // Safety: stop polling after 15 minutes
+        // Safety: stop polling after 30 minutes
         setTimeout(() => {
             clearInterval(pollInterval);
             clearInterval(progressInterval);
@@ -430,10 +430,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 Swal.fire({
                     icon: 'error',
                     title: 'Analysis Timeout',
-                    text: 'Analysis did not complete within 15 minutes. Check server logs.',
+                    text: 'Analysis did not complete within 30 minutes. Check server logs.',
                 });
             }
-        }, 900000);
+        }, 1800000);
     },
 
     _handleAnalysisComplete: function(response, startTime) {
