@@ -43,7 +43,7 @@ server {
 
     # Extensionless URL rewrites - map clean URLs to .php files
     # This prevents nginx from treating these as directories and adding trailing slashes
-    location ~ ^/(advisory-builder|airport_config|airspace-elements|data|demand|event-aar|gdt|jatoc|logout|nod|plan|privacy|reroutes|reroutes_index|review|route|schedule|sheet|simulator|splits|status|sua|swim|swim-doc|swim-docs|swim-keys|tmi-publish|transparency)$ {
+    location ~ ^/(advisory-builder|airport_config|airspace-elements|data|demand|event-aar|gdt|jatoc|logout|nod|plan|privacy|reroutes|review|route|schedule|sheet|simulator|splits|status|sua|swim|swim-doc|swim-docs|swim-keys|tmi-publish|transparency)$ {
         try_files /$1.php =404;
         fastcgi_split_path_info ^(.+?\.php)(/.*)$;
         fastcgi_pass 127.0.0.1:9000;

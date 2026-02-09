@@ -59,8 +59,8 @@ require_once 'load/nav.php';
     <!-- Header -->
     <div class="row mb-4 align-items-center">
         <div class="col-auto">
-            <a href="reroutes_index.php" class="btn btn-link text-muted">
-                <i class="fas fa-arrow-left"></i> Back to List
+            <a href="route" class="btn btn-link text-muted">
+                <i class="fas fa-arrow-left"></i> Back to Route Plotter
             </a>
         </div>
         <div class="col">

@@ -53,9 +53,9 @@ try {
             category,
             description,
             created_by,
-            created_at,
-            updated_at,
-            is_active,
+            e.created_at,
+            e.updated_at,
+            e.is_active,
             -- Get boundary info if referenced
             b.boundary_code AS ref_boundary_code,
             b.boundary_type AS ref_boundary_type
