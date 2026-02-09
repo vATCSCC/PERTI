@@ -167,21 +167,50 @@ function loadOutlook() {
     });
 }
 
-loadGoals();
-loadDCCStaffing();
-loadHistorical();
-loadForecast();
-loadTermInits();
-loadTermStaffing();
-loadConfigs();
-loadTermPlanning();
-loadTermConstraints();
-loadEnrouteInits();
-loadEnrouteStaffing();
-loadEnroutePlanning();
-loadEnrouteConstraints();
-loadGroupFlights();
-loadOutlook();
+// Load all plan sections in parallel for faster page load
+(function loadAllSections() {
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+
+    Promise.all([
+        $.get(`api/data/plans/goals?p_id=${p_id}`),
+        $.get(`api/data/plans/dcc_staffing?p_id=${p_id}&position_facility=DCC`),
+        $.get(`api/data/plans/dcc_staffing?p_id=${p_id}`),
+        $.get(`api/data/plans/historical?p_id=${p_id}`),
+        $.get(`api/data/plans/forecast?p_id=${p_id}`),
+        $.get(`api/data/plans/term_inits?p_id=${p_id}`),
+        $.get(`api/data/plans/term_staffing?p_id=${p_id}`),
+        $.get(`api/data/plans/configs?p_id=${p_id}`),
+        $.get(`api/data/plans/term_planning?p_id=${p_id}`),
+        $.get(`api/data/plans/term_constraints?p_id=${p_id}`),
+        $.get(`api/data/plans/enroute_inits?p_id=${p_id}`),
+        $.get(`api/data/plans/enroute_staffing?p_id=${p_id}`),
+        $.get(`api/data/plans/enroute_planning?p_id=${p_id}`),
+        $.get(`api/data/plans/enroute_constraints?p_id=${p_id}`),
+        $.get(`api/data/plans/group_flights?p_id=${p_id}`),
+        $.get(`api/data/plans/outlook?p_id=${p_id}`)
+    ]).then(function(results) {
+        $('#goals_table').html(results[0]);
+        $('#dcc_table').html(results[1]);
+        $('#dcc_staffing_table').html(results[2]);
+        $('#historicaldata').html(results[3]);
+        $('#forecastdata').html(results[4]);
+        $('#term_inits').html(results[5]);
+        $('#term_staffing_table').html(results[6]);
+        $('#configs_table').html(results[7]);
+        $('#termplanningdata').html(results[8]);
+        $('#term_constraints_table').html(results[9]);
+        $('#enroute_inits').html(results[10]);
+        $('#enroute_staffing_table').html(results[11]);
+        $('#enrouteplanningdata').html(results[12]);
+        $('#enroute_constraints_table').html(results[13]);
+        $('#group_flights_table').html(results[14]);
+        $('#outlook_data').html(results[15]);
+        tooltips();
+        if (typeof opsPlanUpdateMessage === 'function') {
+            opsPlanUpdateMessage();
+        }
+    });
+})();
 
 // AJAX: #addgoal POST
 $('#addgoal').submit(function(e) {

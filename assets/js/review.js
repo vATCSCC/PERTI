@@ -56,9 +56,21 @@ function loadData() {
     });
 }
 
-loadScores();
-loadComments();
-loadData();
+// Load all review sections in parallel for faster page load
+(function loadAllSections() {
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+
+    Promise.all([
+        $.get(`api/data/review/scores?p_id=${p_id}`),
+        $.get(`api/data/review/comments?p_id=${p_id}`),
+        $.get(`api/data/review/data?p_id=${p_id}`)
+    ]).then(function(results) {
+        $('#scores').html(results[0]);
+        $('#comments').html(results[1]);
+        $('#data').html(results[2]);
+        tooltips();
+    });
+})();
 
 // AJAX: #addscore POST
 $('#addscore').submit(function(e) {
