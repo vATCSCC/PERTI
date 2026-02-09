@@ -285,9 +285,10 @@ function launch_analysis_async($plan_id, $base_path) {
         );
         $pid_cmd = $cmd;
     } else {
-        // Linux: env vars BEFORE nohup (nohup treats first arg as the command)
+        // Linux: env vars BEFORE setsid/nohup (nohup treats first arg as the command)
+        // setsid creates a new session so the process is fully detached from PHP-FPM
         $cmd = sprintf(
-            '%snohup %s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
+            '%ssetsid nohup %s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
             $env_prefix,
             escapeshellcmd($python),
             escapeshellarg($script_path),

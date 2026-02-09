@@ -30,7 +30,7 @@ from core.models import (
     EventConfig, TMI, TMIType,
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry
 )
-from core.ntml_parser import parse_ntml_to_tmis, parse_ntml_full
+from core.ntml_parser import parse_ntml_to_tmis, parse_ntml_full, extract_programs_from_ntml
 from core.analyzer import TMIComplianceAnalyzer
 
 # Configure logging to stderr (so stdout is clean JSON)
@@ -424,15 +424,17 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             ntml_text = config.get('ntml_text', '')
             if ntml_text and ('GROUND STOP' in ntml_text or 'ROUTE RQD' in ntml_text
                               or 'ROUTE RMD' in ntml_text or 'FEA' in ntml_text):
-                logger.info("No programs in parsed_tmis, supplementing from NTML text")
+                logger.info("No programs in parsed_tmis, extracting from ADVZY blocks")
                 try:
-                    parse_result = parse_ntml_full(ntml_text, event_start, event_end, destinations)
-                    if parse_result.gs_programs:
-                        event.gs_programs = parse_result.gs_programs
-                        logger.info(f"Supplemented {len(parse_result.gs_programs)} GS programs from NTML")
-                    if parse_result.reroute_programs:
-                        event.reroute_programs = parse_result.reroute_programs
-                        logger.info(f"Supplemented {len(parse_result.reroute_programs)} reroute programs from NTML")
+                    gs_progs, reroute_progs = extract_programs_from_ntml(
+                        ntml_text, event_start, event_end, destinations
+                    )
+                    if gs_progs:
+                        event.gs_programs = gs_progs
+                        logger.info(f"Supplemented {len(gs_progs)} GS programs from NTML")
+                    if reroute_progs:
+                        event.reroute_programs = reroute_progs
+                        logger.info(f"Supplemented {len(reroute_progs)} reroute programs from NTML")
                 except Exception as e:
                     logger.warning(f"Failed to supplement programs from NTML: {e}")
     else:
