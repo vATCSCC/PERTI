@@ -11,7 +11,6 @@ if (session_status() == PHP_SESSION_NONE) {
 // Session Start (E)
 
 include("../../../load/config.php");
-define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
 header('Content-Type: application/json');
