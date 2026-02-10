@@ -166,7 +166,10 @@
 
             if (!airports || !from || !to) {return null;}
 
-            return `https://statsim.net/events/custom/?airports=${airports}&period=custom&from=${from}&to=${to}`;
+            // Path-based URL: /events/custom/{startISO}/{endISO}/{airports}
+            const fromISO = from.replace(' ', 'T');
+            const toISO = to.replace(' ', 'T');
+            return `https://statsim.net/events/custom/${encodeURIComponent(fromISO)}/${encodeURIComponent(toISO)}/${airports}`;
         },
 
         updateUrlDisplay: function() {
