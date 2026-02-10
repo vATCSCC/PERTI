@@ -492,6 +492,46 @@
       "reason": "Reason: {reason}",
       "origins": "Origins: {facilities}",
       "linkedProgram": "Program: {name}"
+    },
+    "flows": {
+      "title": "Facility Flows",
+      "selectFacility": "Select facility",
+      "selectConfig": "Select configuration",
+      "newConfig": "New Configuration",
+      "saveConfig": "Save",
+      "deleteConfig": "Delete",
+      "boundaries": "Boundaries",
+      "arrivalFixes": "Arrival Fixes",
+      "departureFixes": "Departure Fixes",
+      "gates": "Gates",
+      "procedures": "Procedures",
+      "routes": "Routes",
+      "monitorAllFea": "Monitor All as FEA",
+      "clearFeas": "Clear FEAs",
+      "addFix": "Add fix",
+      "addGate": "Add gate",
+      "addProcedure": "Add procedure",
+      "addRoute": "Add route",
+      "fixPlaceholder": "Enter fix name...",
+      "routePlaceholder": "Enter route string...",
+      "gateName": "Gate name",
+      "noArrivalFixes": "No arrival fixes configured",
+      "noDepartureFixes": "No departure fixes configured",
+      "noGates": "No gates configured",
+      "noProcedures": "No procedures configured",
+      "noRoutes": "No routes configured",
+      "direction": {
+        "arrival": "Arrival",
+        "departure": "Departure",
+        "both": "Both"
+      },
+      "feaActive": "Monitoring as FEA",
+      "feaCreate": "Monitor as FEA",
+      "confirmDelete": "Delete this configuration?",
+      "configSaved": "Configuration saved",
+      "configDeleted": "Configuration deleted",
+      "elementAdded": "Element added",
+      "elementDeleted": "Element removed"
     }
   }
 }
