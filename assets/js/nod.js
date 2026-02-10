@@ -7195,13 +7195,20 @@
     /**
      * Submit the add element form.
      */
+    let _flowAddPending = false;
     async function submitAddFlowElement(elementType, direction) {
+        if (_flowAddPending) return;
         const input = document.getElementById('flow-add-input');
         if (!input || !input.value.trim()) return;
 
         const value = input.value.trim().toUpperCase();
         const config = state.flows.activeConfig;
         if (!config) return;
+
+        // Prevent double-submit
+        _flowAddPending = true;
+        const form = input.closest('.nod-flow-add-form');
+        if (form) form.querySelectorAll('button').forEach(b => b.disabled = true);
 
         const payload = {
             config_id: config.config_id,
@@ -7225,13 +7232,15 @@
             const data = await resp.json();
 
             if (data.element_id) {
-                // Reload config to get fresh state
+                if (form) form.remove();
                 await onConfigChange(config.config_id);
             } else {
                 console.warn('[NOD] Failed to add element:', data.error);
             }
         } catch (e) {
             console.warn('[NOD] Failed to add flow element:', e);
+        } finally {
+            _flowAddPending = false;
         }
     }
 
@@ -7327,10 +7336,16 @@
     /**
      * Submit add gate form.
      */
+    let _gateAddPending = false;
     async function submitAddGate() {
+        if (_gateAddPending) return;
         const input = document.getElementById('flow-add-gate-input');
         const dirSelect = document.getElementById('flow-add-gate-dir');
         if (!input || !input.value.trim() || !state.flows.activeConfig) return;
+
+        _gateAddPending = true;
+        const form = input.closest('.nod-flow-add-form');
+        if (form) form.querySelectorAll('button').forEach(b => b.disabled = true);
 
         try {
             const resp = await fetch('api/nod/flows/gates.php', {
@@ -7344,10 +7359,13 @@
             });
             const data = await resp.json();
             if (data.gate_id) {
+                if (form) form.remove();
                 await onConfigChange(state.flows.activeConfig.config_id);
             }
         } catch (e) {
             console.warn('[NOD] Failed to add gate:', e);
+        } finally {
+            _gateAddPending = false;
         }
     }
 
@@ -7404,13 +7422,27 @@
             });
             const data = await resp.json();
             if (data.config_id) {
-                await onFacilityChange(state.flows.facility);
-                // Select the new config
+                // Refresh config list without auto-selecting
                 const configSelect = document.getElementById('flow-config');
-                if (configSelect) {
-                    configSelect.value = data.config_id;
-                    await onConfigChange(data.config_id);
+                try {
+                    const listResp = await fetch(`api/nod/flows/configs.php?facility_code=${encodeURIComponent(state.flows.facility)}`);
+                    const listData = await listResp.json();
+                    state.flows.configs = listData.configs || [];
+                    if (configSelect) {
+                        configSelect.innerHTML = '<option value="">Select config...</option>';
+                        state.flows.configs.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.config_id;
+                            opt.textContent = c.config_name + (c.is_default ? ' (default)' : '');
+                            configSelect.appendChild(opt);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[NOD] Failed to refresh config list:', e);
                 }
+                // Select the new config (single load)
+                if (configSelect) configSelect.value = data.config_id;
+                await onConfigChange(data.config_id);
             }
         } catch (e) {
             console.warn('[NOD] Failed to create flow config:', e);
