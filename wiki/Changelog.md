@@ -4,7 +4,98 @@ This document tracks significant changes to PERTI across versions.
 
 ---
 
-## Version 17 (Current)
+## Version 18 (Current)
+
+*Released: February 2026*
+
+### New Features
+
+#### Traffic Management Review (TMR) Report System (PR #18)
+
+- **TMR Report** - Guided review workflow based on NTMO Guide structure
+- Sidebar navigation with sections: triggers, overview, airport conditions, weather, TMIs, equipment, personnel, findings
+- TMR report CRUD API with auto-save (`api/data/review/tmr_report.php`)
+- Historical TMI lookup from VATSIM_TMI database (`api/data/review/tmr_tmis.php`)
+- Bulk NTML paste parser for rapid TMI entry
+- Discord-formatted TMR export (`api/data/review/tmr_export.php`)
+- Embedded demand charts (DemandChartCore) per plan airport
+- Database migration: `r_tmr_reports` table
+
+#### NOD TMI Enhancements & Facility Flows (PRs #19-21)
+
+- **Phase 1:** Enhanced TMI sidebar with rich data cards
+  - GS cards: countdown timer, flights held, prob extension, origin centers
+  - GDP cards: controlled/exempt counts, avg/max delay, compliance bar, GDT link
+  - Reroute cards: assigned/compliant counts, compliance bar
+  - MIT/AFP section with restriction details and fix coordinates
+  - Delay Reports section with severity coloring and trend indicators
+  - Map TMI status layer: airport rings by severity, delay glow circles, MIT fix markers, GS pulse animation
+- **Phase 2:** Facility flow configuration system
+  - 3 new tables: `facility_flow_configs`, `facility_flow_elements`, `facility_flow_gates`
+  - CRUD APIs for configs, elements, gates, and suggestions
+  - Flows tab in NOD sidebar with facility/config selectors
+  - Flow element management (fixes, procedures, routes, gates)
+  - Inline color picker, visibility toggle, FEA toggle per element
+  - Fix/procedure autocomplete from nav_fixes/nav_procedures
+  - 8 map layers: boundary, procedure/route lines, fix markers
+- **Phase 3-4:** Flow map rendering & FEA integration
+  - Per-element line weight selector for PROCEDURE/ROUTE elements
+  - FEA bridge API (`api/nod/fea.php`): demand monitor toggle, bulk create/clear
+  - Demand count feedback on sidebar and map labels
+  - Route GeoJSON LineString support in demand layer
+
+#### Internationalization (i18n) System (PR #18)
+
+- Core translation module (`PERTII18n`) with `t()`, `tp()`, `formatNumber()`, `formatDate()`
+- Locale loader with auto-detection (URL param, localStorage, browser language)
+- SweetAlert2 dialog wrapper (`PERTIDialog`) with i18n key resolution
+- 450+ translation keys in `assets/locales/en-US.json`
+- Integrated across 13 JS modules: demand, gdt, jatoc, nod, plan, review, schedule, sheet, splits, sua, weather_impact, reroute, tmi-publish
+
+### Performance Improvements
+
+#### PERTI_MYSQL_ONLY Optimization (PR #17)
+
+- `define('PERTI_MYSQL_ONLY', true)` before `include connect.php` skips 5 Azure SQL connections
+- Applied to ~98 plan/sheet/review PHP endpoints, saving ~500-1000ms per request
+- Lazy-loaded database connection getters (`get_conn_adl()`, `get_conn_tmi()`, etc.)
+- Removed closing `?>` tag from `connect.php` (PSR-12)
+
+#### Frontend Parallelization (PR #17)
+
+- `plan.js`: 16 sequential AJAX calls replaced with `Promise.all()` batch
+- `sheet.js`: 5 calls parallelized
+- `review.js`: 3 calls parallelized
+
+### Codebase Cleanup (PR #16)
+
+- Removed 13 unused files (4,829 lines deleted):
+  - `reroutes.php` (replaced by `route.php` + `tmi-publish.php`)
+  - `advisory-builder.php` and `advisory-builder.js`
+  - `reroute.js` (orphaned, replaced by new module)
+  - Legacy admin migration scripts (`migrate_public_routes.php`, `migrate_reroutes.php`, etc.)
+  - `test_star_parsing.php`
+
+### Bug Fixes
+
+- Fix: PERTI_MYSQL_ONLY removed from `config_data/` endpoints that use Azure SQL (PR #17 hotfix)
+- Fix: GS compliance analysis shows human-readable phase labels
+- Fix: i18n locale loader loads full JSON instead of partial
+- Fix: Missing MapLibre GL and i18n dependencies on review and demand pages
+- Fix: NOD loads i18n scripts required by merged main branch code
+- Fix: i18n key inconsistencies resolved in en-US.json
+
+### Infrastructure Changes
+
+- VATSIM_ADL migrated from General Purpose Serverless to Hyperscale Serverless (16 vCores, min 3)
+- PostgreSQL GIS database (vatcscc-gis) deployed: Burstable B2s, PostGIS, PostgreSQL 16
+- MySQL upgraded from Burstable to General Purpose D2ds_v4
+- Geo-replica server and VATSIM_Data database decommissioned
+- Monthly costs increased from ~$670 to ~$3,500 (primarily Hyperscale compute)
+
+---
+
+## Version 17
 
 *Released: January 2026*
 
@@ -225,6 +316,14 @@ This document tracks significant changes to PERTI across versions.
 
 ## Migration Notes
 
+### Upgrading to v18
+
+1. Apply NOD flow migrations: `database/migrations/nod/001_facility_flow_tables.sql`, `002_flow_element_fea_linkage.sql`
+2. Apply TMR migration: `r_tmr_reports` table in perti_site MySQL
+3. Deploy new API endpoints: `api/nod/flows/*`, `api/nod/fea.php`, `api/data/review/tmr_*.php`
+4. Ensure `assets/locales/en-US.json` and `assets/js/lib/i18n.js` are deployed
+5. Verify `PERTI_MYSQL_ONLY` is NOT set in any files that use Azure SQL connections
+
 ### Upgrading to v17
 
 1. Apply migrations 092-095 to Azure SQL (config modifiers, ATIS priority)
@@ -250,6 +349,13 @@ This document tracks significant changes to PERTI across versions.
 
 ## Deprecations
 
+### v18
+
+- `reroutes.php` removed (use `route.php` + `tmi-publish.php`)
+- `advisory-builder.php` / `advisory-builder.js` removed (functionality in tmi-publish)
+- Legacy admin migration scripts removed
+- Hardcoded English strings in JS (use `PERTII18n.t()` for new strings)
+
 ### v16
 
 - Legacy GDP endpoints (use new GDT API)
@@ -264,13 +370,14 @@ This document tracks significant changes to PERTI across versions.
 
 ## Upcoming (Planned)
 
-### v18 (Planned)
+### v19 (Planned)
 
 - ATFM Simulator Phase 2 (Enhanced GDP slot management, AFP support)
+- TMI Historical Import (NTML compact parser, ADVZY parser)
 - Reroute compliance automation
 - StatSim v2 integration
-- Performance dashboard
-- Airspace demand visualization UI
+- Airspace demand visualization UI enhancements
+- Additional i18n locale support
 
 ---
 
