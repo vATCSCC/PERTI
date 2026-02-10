@@ -1,9 +1,10 @@
 # PERTI Azure Cost Optimization Analysis
 
-**Date:** January 21, 2026 (Updated)
-**Current Monthly Cost:** ~$2,100-2,400 (after ADL right-sizing)
-**Previous Monthly Cost:** ~$3,900 (before optimization)
-**Savings Achieved:** ~$1,140/month (~$13,700/year)
+**Date:** February 10, 2026 (Updated)
+**Current Monthly Cost:** ~$3,500 (January 2026 actual: $3,640)
+**Previous Monthly Cost (pre-Hyperscale):** ~$670 (November 2025)
+**Key Change:** VATSIM_ADL migrated to Hyperscale Serverless in December 2025
+**vCore Right-sizing Savings:** ~$1,140/month (reduced from 4/24 to 3/16 vCores)
 
 ---
 
@@ -154,16 +155,18 @@ The VATSIM_ADL database (284 GB) contains **217 GB of legacy data** that is no l
 
 ## Compute Cost Considerations
 
-### Current Hyperscale Serverless Configuration (Updated January 21, 2026)
+### Current Hyperscale Serverless Configuration (Updated February 2026)
 
 | Database | SKU | Min vCores | Max vCores | Max Workers | Est. Monthly |
 |----------|-----|------------|------------|-------------|--------------|
-| **VATSIM_ADL** | HS_S_Gen5_16 | **3** | **16** | 1,200 | ~$2,100 |
-| VATSIM_Data | HS_S_Gen5_4 | 0.5 | 4 | 240 | ~$536 |
+| **VATSIM_ADL** | HS_S_Gen5_16 | **3** | **16** | 1,200 | ~$3,200 |
+
+**Decommissioned:**
+- ~~VATSIM_Data (HS_S_Gen5_4, 0.5/4 vCores, ~$536/mo)~~ - Deleted along with vatsim-georeplica server
 
 **Previous Configuration (before Jan 21, 2026):**
 - VATSIM_ADL: 4/24 vCores (~$3,241/month)
-- Changed to 3/16 based on actual usage analysis
+- Changed to 3/16 based on actual usage analysis, saving ~$1,140/month
 
 ### Why 3/16 vCores?
 
@@ -261,14 +264,20 @@ The VATSIM_ADL database (284 GB) contains **217 GB of legacy data** that is no l
 
 ## Projected Monthly Cost After Optimization
 
-| Component | Current | After Phase 1 | After Phase 2 | After Phase 3 |
-|-----------|---------|---------------|---------------|---------------|
-| SQL Storage | ~$27 | ~$24 | ~$3 | ~$3 |
-| SQL Compute | ~$800-1,200 | ~$800-1,200 | ~$800-1,200 | ~$600-900 |
+*Note: These projections focus on storage optimization only. Compute costs (the dominant factor) are addressed separately via vCore right-sizing.*
+
+| Component | Current (Feb 2026) | After Phase 1 | After Phase 2 | After Phase 3 |
+|-----------|-------------------|---------------|---------------|---------------|
+| SQL Compute (ADL Hyperscale) | ~$3,200 | ~$3,200 | ~$3,200 | ~$3,200 |
+| SQL Storage (ADL) | ~$27 | ~$24 | ~$3 | ~$3 |
+| SQL Basic (TMI/SWIM/REF) | ~$15 | ~$15 | ~$15 | ~$15 |
 | Blob Archive | $0 | $0 | $2.25 | $2.50 |
-| App Service | ~$73 | ~$73 | ~$73 | ~$73 |
-| MySQL | ~$13 | ~$13 | ~$13 | ~$13 |
-| **Total** | **~$900-1,300** | **~$900-1,300** | **~$880-1,290** | **~$690-990** |
+| App Service | ~$81 | ~$81 | ~$81 | ~$81 |
+| MySQL (D2ds_v4) | ~$134 | ~$134 | ~$134 | ~$134 |
+| PostgreSQL (B2s) | ~$58 | ~$58 | ~$58 | ~$58 |
+| **Total** | **~$3,500** | **~$3,500** | **~$3,480** | **~$3,480** |
+
+*Storage optimization saves ~$25/month. The primary cost driver is VATSIM_ADL Hyperscale compute (~92% of total). To significantly reduce costs, consider Reserved Capacity (30% discount on Hyperscale compute).*
 
 ---
 

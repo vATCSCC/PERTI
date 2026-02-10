@@ -22,6 +22,7 @@ This guide covers setting up PERTI for local development or deployment.
 ```
 pdo_mysql
 pdo_sqlsrv (for Azure SQL)
+pdo_pgsql  (for PostgreSQL/PostGIS)
 sqlsrv
 curl
 json
@@ -31,9 +32,11 @@ openssl
 
 ### Azure Resources (Production)
 
-- Azure SQL Database (for ADL)
-- Azure App Service (for hosting)
-- VATSIM Connect OAuth application
+- **Azure SQL Database** - VATSIM_ADL (Hyperscale Serverless), VATSIM_TMI, SWIM_API, VATSIM_REF (Basic)
+- **Azure Database for MySQL** - perti_site (General Purpose D2ds_v4)
+- **Azure Database for PostgreSQL** - vatcscc_gis with PostGIS extension (Burstable B2s)
+- **Azure App Service** - P1v2 Linux with custom startup
+- **VATSIM Connect OAuth** application
 
 ---
 

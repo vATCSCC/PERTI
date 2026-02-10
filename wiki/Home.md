@@ -67,12 +67,13 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 
 ## Current Version
 
-**v17** - Includes:
-- **ATFM Training Simulator** (NEW) - TMU training with Node.js flight engine
-- Airport demand analysis with weather-aware rate suggestions
-- Normalized runway configuration schema
-- VATSIM ATIS import with weather extraction
-- Multi-level rate suggestion algorithm
+**v18** - Includes:
+- **Traffic Management Review (TMR)** - Guided NTMO-style post-event review reports
+- **NOD TMI Enhancements** - Rich TMI sidebar cards, map status layer, facility flow configs, FEA integration
+- **Internationalization (i18n)** - 450+ translation keys, locale loader, dialog wrapper across 13 JS modules
+- **PERTI_MYSQL_ONLY Optimization** - ~98 endpoints skip Azure SQL connections (~500-1000ms faster)
+- **Frontend Parallelization** - Promise.all() batching on plan, sheet, and review pages
+- **Codebase Cleanup** - 13 unused files removed (4,829 lines)
 
 See [[Changelog]] for full version history.
 
@@ -86,4 +87,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-02-10*

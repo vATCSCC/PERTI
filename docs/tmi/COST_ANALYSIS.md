@@ -198,24 +198,26 @@ For GDT slot generation and flight assignments:
 
 ## 6. Elastic Pool Consideration
 
-### 6.1 Current Database Architecture
+### 6.1 Current Database Architecture (Updated February 2026)
 
 ```
 vatsim.database.windows.net
-├── VATSIM_ADL    - Flight data (high-volume, continuous)
-├── SWIM_API      - Public API (read-heavy, cached)
-└── VATSIM_TMI    - TMI data (low-volume, bursty)
+├── VATSIM_ADL    - Flight data (Hyperscale Serverless 3/16 vCores, ~$3,200/mo)
+├── VATSIM_REF    - Reference data (Basic, ~$5/mo)
+├── SWIM_API      - Public API (Basic, ~$5/mo)
+└── VATSIM_TMI    - TMI data (Basic, ~$5/mo)
 ```
 
 ### 6.2 Elastic Pool vs. Individual DBs
 
 | Option | Configuration | Monthly Cost | Notes |
 |--------|---------------|--------------|-------|
-| **Individual DBs** | ADL (S0) + SWIM (Basic) + TMI (Basic) | $25.01 | Simple, isolated |
-| Elastic Pool | 50 eDTU shared | $74.78 | Shared resources |
-| Elastic Pool | 100 eDTU shared | $225.04 | Overkill |
+| **Individual DBs (current)** | ADL (Hyperscale) + REF/SWIM/TMI (Basic) | ~$3,215 | ADL on Hyperscale, others Basic |
+| Elastic Pool | Not applicable | N/A | ADL uses Hyperscale (not DTU-based) |
 
-**Recommendation:** Keep individual databases. VATSIM_ADL has consistent high load that doesn't share well with others.
+**Note:** VATSIM_ADL was migrated from General Purpose Serverless to Hyperscale Serverless in December 2025. Elastic Pools are not compatible with Hyperscale databases. The Basic-tier databases (REF, SWIM, TMI) at $5/mo each are already cost-optimal for their workloads.
+
+**Recommendation:** Keep individual databases. VATSIM_ADL requires Hyperscale for its workload and cannot participate in Elastic Pools.
 
 ---
 
@@ -331,4 +333,4 @@ Serverless is **not recommended** as it costs 6x more than Basic for this worklo
 
 ---
 
-*Last Updated: January 17, 2026*
+*Last Updated: February 10, 2026*

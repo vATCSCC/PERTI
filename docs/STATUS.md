@@ -1,7 +1,7 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-01-27
-> **System Version:** v17 - Main Branch
+> **Last Updated:** 2026-02-10
+> **System Version:** v18 - Main Branch
 
 ---
 
@@ -17,98 +17,88 @@
 | Weather Integration | [OK] Active | SIGMET/AIRMET monitoring |
 | ATIS Import | [OK] Active | Runway assignment parsing with weather extraction |
 | Event Statistics | [OK] Active | VATUSA event tracking |
-| **Demand Analysis (NEW v16)** | [OK] Active | Airport demand/capacity visualization |
-| **Airport Config (NEW v16)** | [OK] Active | Runway configuration & rate management |
-| **Rate Suggestions (NEW v16)** | [OK] Active | Weather-aware AAR/ADR recommendations |
-| **ATFM Simulator (NEW v17)** | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
-| **SWIM API (NEW v17)** | [DEV] Phase 1 | System Wide Information Management API |
-| **TMI Database (NEW v17)** | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
-| **TMI Publisher (NEW v17)** | [OK] v1.6.0 | Unified NTML/Advisory publishing with multi-Discord |
+| Demand Analysis | [OK] Active | Airport demand/capacity visualization |
+| Airport Config | [OK] Active | Runway configuration & rate management |
+| Rate Suggestions | [OK] Active | Weather-aware AAR/ADR recommendations |
+| ATFM Simulator | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
+| SWIM API | [OK] Active | System Wide Information Management API |
+| TMI Database | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
+| TMI Publisher | [OK] v1.6.0 | Unified NTML/Advisory publishing with multi-Discord |
+| **TMR Reports (NEW v18)** | [OK] Active | NTMO Guide-style post-event review reports |
+| **NOD TMI Cards (NEW v18)** | [OK] Active | Rich TMI sidebar cards with map status layer |
+| **NOD Facility Flows (NEW v18)** | [OK] Active | Facility flow configs, elements, gates, FEA |
+| **i18n System (NEW v18)** | [OK] Active | 450+ keys, 13 JS modules, locale auto-detection |
+| **PERTI_MYSQL_ONLY (NEW v18)** | [OK] Active | ~98 endpoints skip Azure SQL (~500-1000ms faster) |
+| **PostgreSQL GIS (NEW v18)** | [OK] Active | PostGIS spatial queries (boundaries, routes) |
 
 ---
 
-## SWIM API Subsystem (NEW v17)
+## SWIM API Subsystem
 
-> **Documentation:** [docs/swim/](./swim/)  
-> **Status:** Phase 0 - Infrastructure Migration (BLOCKING)
+> **Documentation:** [docs/swim/](./swim/)
+> **Status:** ✅ Active - Infrastructure Deployed
 
 SWIM (System Wide Information Management) provides centralized flight data exchange across the VATSIM ecosystem.
 
-### ⚠️ Infrastructure Migration Required
-
-**Current Problem:** API endpoints query VATSIM_ADL Serverless directly = expensive under load ($500-7,500+/mo)
-
-**Solution:** Create dedicated `SWIM_API` database (Azure SQL Basic, **$5/month fixed**)
+### Architecture
 
 ```
 ┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
 │    VATSIM_ADL       │      │     SWIM_API        │      │    Public API       │
-│  (Serverless $$)   │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
+│ (Hyperscale $$)    │─────▶│   (Basic $5/mo)     │─────▶│    Endpoints        │
 │  Internal only      │ sync │  Dedicated for API  │      │                     │
-└─────────────────────┘ 15s  └─────────────────────┘      └─────────────────────┘
+└─────────────────────┘ 2min └─────────────────────┘      └─────────────────────┘
 ```
 
-### Blocking Tasks
+### Infrastructure Status
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Create Azure SQL Basic `SWIM_API` | [ERR] Blocking | $5/mo fixed cost |
-| Run `002_swim_api_database.sql` | [ERR] Blocking | Creates swim_flights table |
-| Add `$conn_swim` to config | [ERR] Blocking | New connection string |
-| Update endpoints to use SWIM_API | [ERR] Blocking | Change from `$conn_adl` |
-| Schedule sync (every 15 sec) | [ERR] Blocking | After ADL refresh |
+| Create Azure SQL Basic `SWIM_API` | [OK] Deployed | $5/mo fixed cost |
+| Run `002_swim_api_database.sql` | [OK] Deployed | swim_flights table created |
+| Add `$conn_swim` to config | [OK] Deployed | Connection string configured |
+| SWIM sync daemon | [OK] Active | `scripts/swim_sync_daemon.php` (2min interval) |
+| WebSocket server | [OK] Active | `scripts/swim_ws_server.php` (port 8090) |
 
 ### API Endpoints
 
 | Endpoint | Status | Description |
 |----------|--------|-------------|
 | `GET /api/swim/v1` | [OK] Working | API info/router |
-| `GET /api/swim/v1/flights` | [WARN] Needs DB switch | List flights (1,100+ active) |
-| `GET /api/swim/v1/flight` | [WARN] Needs DB switch | Single flight lookup |
-| `GET /api/swim/v1/positions` | [WARN] Needs DB switch | Bulk positions (GeoJSON) |
-| `GET /api/swim/v1/tmi/programs` | [ERR] 500 Error | Active TMI programs |
-| `GET /api/swim/v1/tmi/controlled` | [WARN] Needs DB switch | TMI-controlled flights |
+| `GET /api/swim/v1/flights` | [OK] Working | List flights (1,100+ active) |
+| `GET /api/swim/v1/flight` | [OK] Working | Single flight lookup |
+| `GET /api/swim/v1/positions` | [OK] Working | Bulk positions (GeoJSON) |
+| `GET /api/swim/v1/health` | [OK] Working | Health check |
+| `GET /api/swim/v1/metering` | [OK] Working | Metering data |
+| `GET /api/swim/v1/tmi/programs` | [OK] Working | Active TMI programs |
+| `GET /api/swim/v1/tmi/advisories` | [OK] Working | Active advisories |
+| `GET /api/swim/v1/tmi/entries` | [OK] Working | NTML entries |
+| `GET /api/swim/v1/tmi/controlled` | [OK] Working | TMI-controlled flights |
+| `GET /api/swim/v1/tmi/reroutes` | [OK] Working | Active reroutes |
+| `GET /api/swim/v1/tmi/routes` | [OK] Working | Public routes |
+| `GET /api/swim/v1/reference/taxi-times` | [OK] Working | Airport taxi reference |
 | `POST /api/swim/v1/ingest/adl` | [OK] Working | ADL data ingest |
-
-### SWIM Files
-
-| File | Location | Status |
-|------|----------|--------|
-| Configuration | `load/swim_config.php` | [WARN] Needs SWIM_API connection |
-| Auth Middleware | `api/swim/v1/auth.php` | [WARN] Needs DB switch |
-| Flights Endpoint | `api/swim/v1/flights.php` | [WARN] Needs DB switch |
-| Flight Endpoint | `api/swim/v1/flight.php` | [WARN] Needs DB switch |
-| Positions Endpoint | `api/swim/v1/positions.php` | [WARN] Needs DB switch |
-| TMI Programs | `api/swim/v1/tmi/programs.php` | [ERR] 500 error |
-| TMI Controlled | `api/swim/v1/tmi/controlled.php` | [WARN] Needs DB switch |
-| ADL Ingest | `api/swim/v1/ingest/adl.php` | [OK] Complete |
-| DB Migration (existing) | `database/migrations/swim/001_swim_tables.sql` | [OK] Deployed to VATSIM_ADL |
-| DB Migration (new) | `database/migrations/swim/002_swim_api_database.sql` | [ERR] Not deployed |
+| `POST /api/swim/v1/ingest/acars` | [OK] Working | ACARS data ingest |
+| `POST /api/swim/v1/ingest/metering` | [OK] Working | Metering data ingest |
+| `POST /api/swim/v1/ingest/simtraffic` | [OK] Working | SimTraffic data ingest |
+| `POST /api/swim/v1/keys/provision` | [OK] Working | API key provisioning |
 
 ### SWIM Database Architecture
 
 | Database | Purpose | Tier | Cost | API Access |
 |----------|---------|------|------|------------|
-| **VATSIM_ADL** | Internal ADL processing | Serverless | Variable | ❌ No (internal only) |
+| **VATSIM_ADL** | Internal ADL processing | Hyperscale Serverless | ~$3,200/mo | ❌ No (internal only) |
 | **SWIM_API** | Public API queries | Basic | $5/mo fixed | ✅ Yes |
-| **MySQL (PERTI)** | Ground stops, site data | Existing | Already paid | ✅ Yes |
-
-### Cost Comparison
-
-| API Traffic | Direct VATSIM_ADL | Dedicated SWIM_API |
-|-------------|-------------------|-------------------|
-| 10K req/day | ~$15-45/mo | **$5/mo** |
-| 100K req/day | ~$150-450/mo | **$5/mo** |
-| 1M req/day | ~$1,500-4,500/mo | **$5/mo** |
+| **MySQL (PERTI)** | Ground stops, site data | General Purpose | ~$134/mo | ✅ Yes |
 
 ---
 
-## TMI Database Subsystem (NEW v17)
+## TMI Database Subsystem
 
-> **Documentation:** [docs/tmi/](./tmi/)  
+> **Documentation:** [docs/tmi/](./tmi/)
 > **Status:** ✅ Deployed & Live (January 17, 2026)
 
-Unified Traffic Management Initiative database consolidating NTML entries, Advisories, GDT Programs, Reroutes, and Public Routes.
+Unified Traffic Management Initiative database consolidating NTML entries, Advisories, GDT Programs, Reroutes, Public Routes, Coordination Proposals, and Delay Reports.
 
 ### Database Info
 
@@ -116,33 +106,33 @@ Unified Traffic Management Initiative database consolidating NTML entries, Advis
 |---------|-------|
 | **Server** | `vatsim.database.windows.net` |
 | **Database** | `VATSIM_TMI` |
-| **Username** | `TMI_admin` |
 | **Tier** | Basic (5 DTU, 2 GB) |
 | **Cost** | ~$5/month |
 
-### Database Architecture
+### Full Database Architecture (February 2026)
 
 ```
 Azure SQL Server: vatsim.database.windows.net
-├── VATSIM_ADL   (~$2,100/mo) - Flight data (Hyperscale Serverless 3/16 vCores)
-├── SWIM_API     ($5/mo)      - Public API (Basic)
-├── VATSIM_REF   ($5/mo)      - Reference data (Basic)
-└── VATSIM_TMI   ($5/mo)      - TMI data (Basic)
-                 ───────────
-                 Total: ~$2,115/mo (database compute + storage)
-```
+├── VATSIM_ADL   (~$3,200/mo)  - Flight data (Hyperscale Serverless 3/16 vCores)
+├── SWIM_API     ($5/mo)       - Public API (Basic)
+├── VATSIM_REF   ($5/mo)       - Reference data (Basic)
+├── VATSIM_TMI   ($5/mo)       - TMI data (Basic)
+└── VATSIM_STATS ($0 paused)   - Statistics (GP Serverless, paused)
 
-**VATSIM_ADL Configuration (Updated January 21, 2026):**
-- SKU: HS_S_Gen5_16 (Hyperscale Serverless)
-- Min/Max vCores: 3/16 (reduced from 4/24)
-- Max Workers: 1,200 (peak observed: 558 during major events)
-- Savings from right-sizing: ~$1,140/month
+MySQL Server: vatcscc-perti.mysql.database.azure.com
+└── perti_site   (~$134/mo)    - Web app data (General Purpose D2ds_v4)
+
+PostgreSQL Server: vatcscc-gis.postgres.database.azure.com
+└── vatcscc_gis  (~$58/mo)     - Spatial data (Burstable B2s, PostGIS)
+                 ───────────
+                 Total: ~$3,500/mo (7 databases, 3 engines)
+```
 
 ### Database Objects
 
 | Object Type | Count | Status |
 |-------------|-------|--------|
-| Tables | 10 | ✅ Verified |
+| Tables | 20+ | ✅ Verified |
 | Views | 6 | ✅ Verified |
 | Stored Procedures | 4 | ✅ Verified |
 | Indexes | 30+ | ✅ Verified |
@@ -157,23 +147,11 @@ Azure SQL Server: vatsim.database.windows.net
 | `GET/POST/PUT/DELETE /api/tmi/programs.php` | [OK] Live | GDT programs CRUD |
 | `GET/POST/PUT/DELETE /api/tmi/advisories.php` | [OK] Live | Advisories CRUD |
 | `GET/POST/PUT/DELETE /api/tmi/public-routes.php` | [OK] Live | Public routes CRUD |
-| `GET/POST/PUT/DELETE /api/tmi/reroutes.php` | [ERR] Not created | Reroutes CRUD |
-
-### TMI Files
-
-| File | Location | Status |
-|------|----------|--------|
-| API Helpers | `api/tmi/helpers.php` | [OK] Deployed |
-| Index Endpoint | `api/tmi/index.php` | [OK] Deployed |
-| Active Endpoint | `api/tmi/active.php` | [OK] Deployed |
-| Entries Endpoint | `api/tmi/entries.php` | [OK] Deployed |
-| Programs Endpoint | `api/tmi/programs.php` | [OK] Deployed |
-| Advisories Endpoint | `api/tmi/advisories.php` | [OK] Deployed |
-| Public Routes Endpoint | `api/tmi/public-routes.php` | [OK] Deployed |
-| URL Rewriting | `api/tmi/.htaccess`, `web.config` | [OK] Deployed |
-| Verification Script | `scripts/tmi/verify_deployment.php` | [OK] Deployed |
-| Migration Script | `database/migrations/tmi/001_tmi_core_schema_azure_sql.sql` | [OK] Deployed |
-| User Script | `database/migrations/tmi/002_create_tmi_user.sql` | [OK] Deployed |
+| `GET/POST/PUT/DELETE /api/tmi/reroutes.php` | [OK] Live | Reroutes CRUD |
+| `GET/POST /api/tmi/gs/*.php` | [OK] Live | Full GS lifecycle (create, activate, extend, purge, flights, demand) |
+| `GET/POST /api/tmi/gdp_*.php` | [OK] Live | GDP preview, apply, simulate, purge |
+| `POST /api/mgt/tmi/coordinate.php` | [OK] Live | Multi-facility coordination |
+| `POST /api/mgt/tmi/publish.php` | [OK] Live | Discord NTML/Advisory publishing |
 
 ### TMI Tables
 
@@ -181,24 +159,36 @@ Azure SQL Server: vatsim.database.windows.net
 |-------|--------|--------|
 | `tmi_entries` | 35 | NTML log (MIT, MINIT, DELAY, CONFIG, APREQ, etc.) |
 | `tmi_programs` | 47 | GS/GDP/AFP programs with rates, scope, exemptions |
-| `tmi_slots` | 22 | GDP slot allocation (RBS algorithm) |
+| `tmi_slots` | 25 | GDP slot allocation (RBS algorithm) |
+| `tmi_flight_control` | 30 | Per-flight TMI control records |
+| `tmi_flight_list` | 15 | Flight lists for programs |
 | `tmi_advisories` | 40 | Formal advisories (GS, GDP, AFP, Reroute, etc.) |
 | `tmi_reroutes` | 45 | Reroute definitions with filtering |
+| `tmi_reroute_routes` | 10 | Reroute route strings per O/D pair |
 | `tmi_reroute_flights` | 30 | Flight assignments to reroutes |
 | `tmi_reroute_compliance_log` | 9 | Compliance history snapshots |
+| `tmi_reroute_drafts` | 15 | User reroute drafts |
 | `tmi_public_routes` | 21 | Public route display on map |
+| `tmi_proposals` | 20 | Multi-facility coordination proposals |
+| `tmi_proposal_facilities` | 8 | Proposal approval tracking |
+| `tmi_airport_configs` | 12 | TMI airport config snapshots |
+| `tmi_delay_entries` | 15 | Delay reports with severity/trend |
+| `tmi_discord_posts` | 12 | Discord posting queue (multi-org) |
+| `tmi_popup_queue` | 8 | Popup flight detection queue |
 | `tmi_events` | 18 | Unified audit log |
 | `tmi_advisory_sequences` | 2 | Advisory numbering by date |
 
-### Remaining TMI Work
+### Completed TMI Work (v17-v18)
 
-| Task | Status | Priority |
-|------|--------|----------|
-| Create `reroutes.php` API endpoint | [ERR] Pending | High |
-| Test CRUD operations | [WARN] Pending | High |
-| Update existing `gs/*.php` to use `tmi_programs` | [WARN] Pending | High |
-| Discord bot integration | [WARN] Pending | Medium |
-| SWIM TMI endpoints (`/api/swim/v1/tmi/`) | [WARN] Pending | Medium |
+| Task | Status | Version |
+|------|--------|---------|
+| Reroutes API endpoint | [OK] Deployed | v17 |
+| GS lifecycle endpoints (create/activate/extend/purge) | [OK] Deployed | v15 |
+| Discord Gateway bot for coordination reactions | [OK] Deployed | v17 |
+| Multi-org Discord posting | [OK] Deployed | v17 |
+| SWIM TMI endpoints (`/api/swim/v1/tmi/`) | [OK] Deployed | v17 |
+| GS compliance analysis | [OK] Deployed | v18 |
+| Delay report system | [OK] Deployed | v18 |
 
 ---
 
@@ -292,11 +282,24 @@ Azure SQL Server: vatsim.database.windows.net
 
 ### Active Daemons
 
+**All daemons started via `scripts/startup.sh` at App Service boot.**
+
 | Daemon | Status | Location | Interval | Purpose |
 |--------|--------|----------|----------|---------|
-| Parse Queue Daemon | [WARN] Modified | [parse_queue_daemon.php](../adl/php/parse_queue_daemon.php) | 5s (configurable) | Continuous route parsing |
-| Waypoint ETA Daemon | [OK] NEW v17 | [waypoint_eta_daemon.php](../adl/php/waypoint_eta_daemon.php) | 15s (tiered) | Waypoint ETA calculation |
-| Boundary Daemon | [OK] NEW v17 | [boundary_daemon.php](../adl/php/boundary_daemon.php) | 15s (adaptive) | ARTCC/TRACON boundary detection |
+| ADL Ingest | [OK] Active | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS |
+| Parse Queue (GIS) | [OK] Active | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
+| Boundary (GIS) | [OK] Active | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
+| Crossing Calc | [OK] Active | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |
+| Waypoint ETA | [OK] Active | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
+| SWIM WebSocket | [OK] Active | `scripts/swim_ws_server.php` | Persistent | Real-time events (port 8090) |
+| SWIM Sync | [OK] Active | `scripts/swim_sync_daemon.php` | 2min | Sync ADL → SWIM_API |
+| SimTraffic Poll | [OK] Active | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data |
+| Reverse Sync | [OK] Active | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic → ADL |
+| Scheduler | [OK] Active | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation |
+| Archival | [OK] Active | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
+| Monitoring | [OK] Active | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
+| Discord Queue | [OK] Active | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
+| Event Sync | [OK] Active | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
 
 **Parse Queue Usage:**
 ```bash
@@ -481,12 +484,20 @@ python atis_daemon.py
 
 | Task | Frequency | Type | Description |
 |------|-----------|------|-------------|
-| VATSIM ATIS Import | 15 seconds | Python Daemon | Fetch and parse runway assignments |
-| Parse Queue Processing | 5 seconds | PHP Daemon | Route expansion pipeline |
+| ADL Flight Ingestion | 15 seconds | PHP Daemon | VATSIM flight data + ATIS processing |
+| Parse Queue (GIS) | 10s batch | PHP Daemon | Route parsing with PostGIS geometry |
+| Boundary Detection (GIS) | 15 seconds | PHP Daemon | ARTCC/TRACON spatial detection |
+| Crossing Calculation | Tiered | PHP Daemon | Boundary crossing ETA prediction |
+| Waypoint ETA | Tiered | PHP Daemon | Waypoint ETA calculation |
+| SWIM Sync | 2 minutes | PHP Daemon | ADL → SWIM_API sync |
+| SimTraffic Poll | 2 minutes | PHP Daemon | SimTraffic time data polling |
+| Scheduler | 60 seconds | PHP Daemon | Splits/routes auto-activation |
+| Archival | 1-4 hours | PHP Daemon | Trajectory tiering, changelog purge |
+| Monitoring | 60 seconds | PHP Daemon | System metrics collection |
+| Discord Queue | Continuous | PHP Daemon | TMI Discord posting |
+| Event Sync | 6 hours | PHP Daemon | VATUSA/VATCAN/VATSIM events |
 | Weather Alert Import | 5 minutes | Cron/Scheduler | SIGMET/AIRMET updates |
-| Daily Event Update | Daily | Cron | VATUSA event synchronization |
-| Navigation Data Refresh | On-demand | Manual | FAA NASR data update |
-| Boundary Import | On-demand | Manual | ARTCC/TRACON geometry refresh |
+| Navigation Data Refresh | On-demand | Manual | FAA NASR/AIRAC data update |
 
 ---
 
@@ -526,118 +537,97 @@ python atis_daemon.py
        |             |             |             |              |
        v             v             v             v              v
 +-------------------------------------------------------------------------+
-|                          IMPORT LAYER                                    |
+|                          IMPORT LAYER (14 Daemons)                      |
 +-------------+-------------+-------------+-------------+----------------+
-| atis_daemon | import_wx   | import_wind | nasr_updater| fetch_events   |
-| (Python)    | (PHP)       | (PHP)       | (Python)    | (Python)       |
+| adl_daemon  | import_wx   | import_wind | nasr_updater| event_sync     |
+| atis_daemon | boundary_gis| crossing_gis| waypoint_eta| simtraffic     |
 +------+------+------+------+------+------+------+------+-------+--------+
        |             |             |             |              |
        +-------------+-------------+-------------+--------------+
                                    |
-                                   v
-+-------------------------------------------------------------------------+
-|                      AZURE SQL (VATSIM_ADL)                             |
-+-------------------------------------------------------------------------+
-|  adl_flights  |  adl_trajectories  |  adl_parse_queue  |  adl_zones    |
-|  adl_weather  |  adl_boundaries    |  adl_statistics   |  adl_atis     |
-+-------------------------------------------------------------------------+
+            +----------------------+----------------------+
+            v                      v                      v
++---------------------+ +--------------------+ +-------------------+
+| Azure SQL           | | PostgreSQL/PostGIS | | MySQL             |
+| VATSIM_ADL (~$3.2K) | | VATSIM_GIS (~$58)  | | perti_site (~$134)|
+| VATSIM_TMI ($5)     | | Boundary detection | | Plans, users      |
+| SWIM_API ($5)       | | Route geometry     | | TMR reports       |
+| VATSIM_REF ($5)     | | Fix spatial lookup | | NOD flow configs  |
++---------------------+ +--------------------+ +-------------------+
+            |                      |                      |
+            +----------------------+----------------------+
                                    |
                                    v
 +-------------------------------------------------------------------------+
-|                       PROCESSING LAYER (Stored Procedures)              |
+|                       PROCESSING LAYER                                  |
 +-------------------------------------------------------------------------+
-|  sp_ParseRoute*          |  sp_CalculateETA*       |  sp_ProcessZone*  |
-|  sp_ProcessBoundary*     |  sp_LogTrajectory*      |  fn_IsRelevant    |
-+-------------------------------------------------------------------------+
-                                   |
-                                   v
-+-------------------------------------------------------------------------+
-|                       MySQL (PERTI Application)                         |
-+-------------------------------------------------------------------------+
-|  Plans & Schedules  |  Initiatives  |  Ground Stops  |  User Config    |
+|  PostGIS spatial queries  |  Azure SQL stored procs |  PHP processing |
+|  Boundary intersection    |  sp_CalculateETA*       |  Route parsing  |
+|  Route geometry           |  sp_ProcessZone*        |  i18n (450+ keys)|
 +-------------------------------------------------------------------------+
                                    |
                                    v
 +-------------------------------------------------------------------------+
 |                         API LAYER (PHP)                                 |
 +-------------+-------------+-------------+-------------+----------------+
-|  /api/adl   |  /api/tmi   |  /api/jatoc |  /api/nod   |  /api/routes   |
-|  /api/demand (NEW v16)    |  /api/splits|  /api/data  |  /api/statsim  |
+|  /api/adl   |  /api/tmi   |  /api/jatoc |  /api/nod   |  /api/swim     |
+|  /api/demand|  /api/splits|  /api/data  |  /api/nod/  |  /api/stats    |
+|             |             |             |  flows/*    |                |
 +-------------+-------------+-------------+-------------+----------------+
                                    |
                                    v
 +-------------------------------------------------------------------------+
-|                      INTEGRATIONS                                       |
+|                      OUTPUT / INTEGRATIONS                              |
 +-------------------------------------------------------------------------+
-|                    Discord Webhooks (TMI Sync)                          |
+|  Discord (multi-org webhooks + Gateway bot)  |  SWIM WebSocket (8090) |
 +-------------------------------------------------------------------------+
 ```
 
 ---
 
-## Recent Changes
+## Recent Changes (v18)
 
-### Modified Files (Uncommitted)
-
-| File | Status | Notes |
-|------|--------|-------|
-| `.claude/settings.local.json` | [WARN] Modified | Local settings update |
-| `api/adl/AdlQueryHelper.php` | [WARN] Modified | Query improvements |
-| `assets/js/nod.js` | [WARN] Modified | NOD enhancements |
-
-### New Files (v17)
+### New Files (v18)
 
 | File | Status | Notes |
 |------|--------|-------|
-| `simulator.php` | [DEV] In Progress | ATFM Training Simulator main page |
-| `api/simulator/navdata.php` | [DEV] In Progress | Navigation data API |
-| `api/simulator/engine.php` | [DEV] In Progress | Flight engine control API |
-| `api/simulator/routes.php` | [DEV] In Progress | Route pattern data API |
-| `api/simulator/traffic.php` | [DEV] In Progress | Traffic generation API |
-| `simulator/engine/` | [DEV] In Progress | Node.js flight engine |
-| `adl/migrations/sim_ref_*.sql` | [OK] Created | Simulator reference data tables |
-| `docs/ATFM_Simulator_Design_Document_v1.md` | [OK] Created | Simulator design reference |
-| `api/adl/demand/fix.php` | [OK] Created | Fix demand API endpoint |
-| `api/adl/demand/airway.php` | [OK] Created | Airway segment demand API |
-| `api/adl/demand/segment.php` | [OK] Created | Route segment demand API |
-| `adl/migrations/demand/*.sql` | [OK] Created | Airspace demand indexes & functions |
+| `assets/js/lib/i18n.js` | [OK] Deployed | Core i18n translation module (PERTII18n) |
+| `assets/js/lib/dialog.js` | [OK] Deployed | SweetAlert2 wrapper with i18n (PERTIDialog) |
+| `assets/locales/en-US.json` | [OK] Deployed | 450+ translation keys |
+| `assets/locales/index.js` | [OK] Deployed | Locale auto-detection loader |
+| `assets/js/nod-demand-layer.js` | [OK] Deployed | NOD demand overlay rendering |
+| `api/data/review/tmr_report.php` | [OK] Deployed | TMR report CRUD with auto-save |
+| `api/data/review/tmr_tmis.php` | [OK] Deployed | Historical TMI lookup |
+| `api/data/review/tmr_export.php` | [OK] Deployed | Discord-formatted TMR export |
+| `api/nod/flows/configs.php` | [OK] Deployed | Flow configuration CRUD |
+| `api/nod/flows/elements.php` | [OK] Deployed | Flow element CRUD |
+| `api/nod/flows/gates.php` | [OK] Deployed | Flow gate CRUD |
+| `api/nod/flows/suggestions.php` | [OK] Deployed | Element autocomplete |
+| `api/nod/fea.php` | [OK] Deployed | FEA bridge API |
+| `database/migrations/nod/001_facility_flow_tables.sql` | [OK] Deployed | NOD flow tables |
+| `database/migrations/nod/002_flow_element_fea_linkage.sql` | [OK] Deployed | FEA linkage |
 
-### New Files (v16)
+### Removed Files (v18 - PR #16)
 
-| File | Status | Notes |
-|------|--------|-------|
-| `demand.php` | [OK] Created | Airport demand analysis page |
-| `api/demand/airports.php` | [OK] Created | Airport list API |
-| `api/demand/airport.php` | [OK] Created | Single airport demand details |
-| `api/demand/rates.php` | [OK] Created | Rate data API |
-| `api/demand/summary.php` | [OK] Created | Demand summary API |
-| `api/demand/override.php` | [OK] Created | Manual rate override API |
-| `api/demand/configs.php` | [OK] Created | Available runway configs API |
-| `api/demand/atis.php` | [OK] Created | ATIS info with runway config |
-| `adl/migrations/080-091_*.sql` | [OK] Created | Airport config & ATIS schema |
-| `assets/js/demand.js` | [OK] Created | Demand page frontend |
+| File | Notes |
+|------|-------|
+| `reroutes.php` | Replaced by `route.php` + `tmi-publish.php` |
+| `advisory-builder.php` / `advisory-builder.js` | Functionality in tmi-publish |
+| `reroute.js` (orphaned) | Replaced by new module |
+| `migrate_public_routes.php` | Legacy admin migration |
+| `migrate_reroutes.php` | Legacy admin migration |
+| `test_star_parsing.php` | Test script |
+| 7 other legacy scripts | 4,829 total lines deleted |
 
-### New Files (v15)
-
-| File | Status | Notes |
-|------|--------|-------|
-| `adl/migrations/tmi/001_ntml_schema.sql` | [OK] Created | NTML tables schema |
-| `adl/migrations/tmi/002_gs_procedures.sql` | [OK] Created | GS stored procedures |
-| `adl/migrations/tmi/003_gdt_views.sql` | [OK] Created | GDT views |
-| `adl/migrations/core/007_remove_flight_status.sql` | [OK] Created | Schema cleanup |
-| `api/tmi/gs/*.php` | [OK] Created | 10 new GS API endpoints |
-| `docs/GDT_Unified_Design_Document_v1.md` | [OK] Created | GDT design reference |
-| `docs/GDT_GS_Transition_Summary_20260110.md` | [OK] Created | Implementation summary |
-
-### Recent Commits
+### Recent Commits (v18)
 
 | Commit | Description |
 |--------|-------------|
-| `ef29cef` | Fix ATIS parser syntax error |
-| `0d38c3f` | Update demand, daemon, and ATIS systems |
-| `1ea19ae` | Add runway config detection and update demand system |
-| `8f5870d` | Update demand.js |
-| `3561e80` | Update status page |
+| `d85a77e` | Merge PR #21: feature/nod-tmi |
+| `aa184c0` | Fix i18n: load full locale JSON in locale loader |
+| `6b6549f` | Fix: add missing MapLibre GL and i18n dependencies |
+| `65a1ec4` | Merge PR #20: feature/nod-tmi |
+| `7b81624` | Fix NOD: load i18n scripts required by merged main branch |
 
 ---
 
@@ -682,4 +672,4 @@ EXEC diagnostic_check;
 
 ---
 
-*Generated by PERTI System Documentation*
+*Generated by PERTI System Documentation — Last Updated February 10, 2026*

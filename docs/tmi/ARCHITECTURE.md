@@ -1,8 +1,8 @@
 # TMI System Architecture
 
-**Version:** 2.0  
-**Date:** January 17, 2026  
-**Status:** Design Approved
+**Version:** 2.1
+**Date:** February 10, 2026
+**Status:** Deployed & Live
 
 ---
 
@@ -90,21 +90,35 @@ The TMI (Traffic Management Initiative) system consolidates all traffic manageme
 
 ```
 Azure SQL Server: vatsim.database.windows.net
-├── VATSIM_ADL    ($15/mo S0)   - Flight data (high-volume)
+├── VATSIM_ADL    (~$3,200/mo Hyperscale Serverless 3/16 vCores) - Flight data (high-volume)
 │   └── adl_flight_tmi          - Flight-level TMI assignments
 │
-├── SWIM_API     ($5/mo Basic)  - Public API (read-cached)
+├── VATSIM_REF    ($5/mo Basic)  - Reference data (navdata, airways)
 │
-└── VATSIM_TMI   ($5/mo Basic)  - TMI data (NEW)
+├── SWIM_API      ($5/mo Basic)  - Public API (read-cached)
+│
+└── VATSIM_TMI    ($5/mo Basic)  - TMI data
     ├── tmi_entries             - NTML log
     ├── tmi_programs            - GS/GDP programs
     ├── tmi_slots               - GDP slot allocation
+    ├── tmi_flight_control      - Per-flight TMI control records
+    ├── tmi_flight_list         - Flight lists for programs
     ├── tmi_advisories          - Formal advisories
     ├── tmi_reroutes            - Reroute definitions
+    ├── tmi_reroute_routes      - Reroute route strings per O/D pair
     ├── tmi_reroute_flights     - Flight assignments
     ├── tmi_reroute_compliance_log
+    ├── tmi_reroute_drafts      - User reroute drafts
     ├── tmi_public_routes       - Map display
-    ├── tmi_events              - Audit log
+    ├── tmi_events              - Unified audit log
+    ├── tmi_proposals           - Coordination proposals
+    ├── tmi_proposal_facilities - Proposal approval tracking
+    ├── tmi_proposal_reactions
+    ├── tmi_entries             - TMI log entries
+    ├── tmi_airport_configs     - TMI airport config snapshots
+    ├── tmi_delay_entries       - Delay reports
+    ├── tmi_discord_posts       - Discord message posting queue
+    ├── tmi_popup_queue         - Popup flight detection
     └── tmi_advisory_sequences  - Number generation
 ```
 
@@ -352,46 +366,63 @@ The `sp_ExpireOldEntries` stored procedure runs every minute to:
 |-----------|---------------|--------------|
 | VATSIM_TMI | Azure SQL Basic (5 DTU) | $4.99 |
 | Event scale-up | S1 for CTP/FNO (~6/year) | ~$2 |
-| **Total** | | **~$7/month** |
+| **TMI Database Total** | | **~$7/month** |
 
-**Annual Cost:** ~$72-84
+**TMI Annual Cost:** ~$72-84
 
-See [COST_ANALYSIS.md](COST_ANALYSIS.md) for detailed breakdown.
+**Full System Context (February 2026):**
+
+| Component | Configuration | Monthly Cost |
+|-----------|---------------|--------------|
+| VATSIM_ADL | Hyperscale Serverless (3/16 vCores) | ~$3,200 |
+| VATSIM_TMI | Basic (5 DTU) | ~$5 |
+| SWIM_API | Basic (5 DTU) | ~$5 |
+| VATSIM_REF | Basic (5 DTU) | ~$5 |
+| MySQL (perti_site) | General Purpose D2ds_v4 | ~$134 |
+| PostgreSQL (GIS) | Burstable B2s | ~$58 |
+| App Service | P1v2 (3.5GB, 1 vCPU) | ~$81 |
+| **Total System** | | **~$3,500/month** |
+
+See [COST_ANALYSIS.md](COST_ANALYSIS.md) for TMI-specific breakdown.
 
 ---
 
-## 9. Implementation Phases
+## 9. Implementation Status
 
-### Phase 1: Database (Week 1) ✅
-- [x] Design complete schema (10 tables)
+### Phase 1: Database ✅
+- [x] Design complete schema (20+ tables)
 - [x] Create migration script
 - [x] Update config files
-- [ ] Deploy VATSIM_TMI to Azure
-- [ ] Run migration
+- [x] Deploy VATSIM_TMI to Azure
+- [x] Run migration
 
-### Phase 2: Core Procedures (Week 2)
-- [ ] `sp_TMI_CreateProgram`
-- [ ] `sp_TMI_GenerateSlots`
-- [ ] `sp_TMI_AssignFlightsToSlots`
-- [ ] `sp_TMI_SimulateGDP`
-- [ ] `sp_TMI_ApplyGroundStop`
+### Phase 2: Core Procedures ✅
+- [x] GS stored procedures (sp_GS_Create, sp_GS_Model, sp_GS_IssueEDCTs, sp_GS_Extend, sp_GS_Purge, sp_GS_GetFlights, sp_GS_DetectPopups)
+- [x] GDP slot allocation (RBS algorithm)
+- [x] TMI expiration procedures
 
-### Phase 3: API Layer (Week 3)
-- [ ] `/api/tmi/entries/*` endpoints
-- [ ] `/api/gdt/*` endpoints
-- [ ] `/api/reroutes/*` endpoints
-- [ ] SWIM TMI endpoints
+### Phase 3: API Layer ✅
+- [x] `/api/tmi/entries/*` endpoints
+- [x] `/api/tmi/programs/*` endpoints
+- [x] `/api/tmi/advisories/*` endpoints
+- [x] `/api/tmi/public-routes/*` endpoints
+- [x] `/api/tmi/reroutes/*` endpoints
+- [x] `/api/tmi/gs/*` endpoints (full GS lifecycle)
+- [x] SWIM TMI endpoints
 
-### Phase 4: UI & Bot (Week 4)
-- [ ] Update `gdt.js` for new APIs
-- [ ] Update Discord bot commands
-- [ ] Add GS→GDP transition UI
+### Phase 4: UI & Bot ✅
+- [x] GDT interface with FSM-style GDP
+- [x] TMI publisher (Discord NTML/Advisory posting)
+- [x] Discord Gateway bot for reaction-based coordination
+- [x] Multi-org Discord support
+- [x] GS→GDP transition UI
 
-### Phase 5: Advanced Features (Week 5+)
+### Phase 5: Advanced Features (Partial)
+- [x] Pop-up flight detection
+- [x] Reroute compliance tracking
+- [x] Multi-facility coordination proposals
 - [ ] Compression algorithm
 - [ ] Slot substitution (SCS)
-- [ ] Pop-up/re-control handling
-- [ ] Advisory auto-generation
 
 ---
 
@@ -404,4 +435,4 @@ See [COST_ANALYSIS.md](COST_ANALYSIS.md) for detailed breakdown.
 
 ---
 
-*Last Updated: January 17, 2026*
+*Last Updated: February 10, 2026*

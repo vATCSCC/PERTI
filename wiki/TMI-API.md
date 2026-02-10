@@ -6,14 +6,14 @@ Traffic Management Initiative APIs for Ground Stops, GDPs, and related operation
 
 ## Database Architecture
 
-TMI data is stored in two databases:
+TMI data is stored across two databases:
 
 | Database | Purpose | Status |
 |----------|---------|--------|
-| **VATSIM_TMI** | Unified GDT operations (new) | Active |
-| **VATSIM_ADL** | Legacy NTML tables | Being migrated |
+| **VATSIM_TMI** | Unified TMI operations (20+ tables) | Active |
+| **VATSIM_ADL** | Flight-level TMI assignments (`adl_flight_tmi`) | Active |
 
-The new `/api/gdt/` endpoints use `VATSIM_TMI.tmi_programs` while legacy `/api/tmi/gs/` endpoints still use `VATSIM_ADL.ntml`. Migration is ongoing.
+All TMI program management, advisories, reroutes, and coordination use `VATSIM_TMI`. Flight-level control data (`adl_flight_tmi`) remains in `VATSIM_ADL` for tight coupling with flight data. Cross-database joins are supported since both databases are on the same Azure SQL Server.
 
 ---
 
@@ -440,8 +440,52 @@ Cancels a GDP.
 
 ---
 
+## NOD Flow APIs (NEW v18)
+
+### Flow Configuration CRUD
+
+**Base Path:** `/api/nod/flows/`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/nod/flows/configs.php` | List flow configs (filter by facility) |
+| POST | `/api/nod/flows/configs.php` | Create flow config |
+| PUT | `/api/nod/flows/configs.php` | Update flow config |
+| DELETE | `/api/nod/flows/configs.php` | Delete flow config |
+| GET | `/api/nod/flows/elements.php` | List elements for a config |
+| POST | `/api/nod/flows/elements.php` | Create flow element (FIX/PROCEDURE/ROUTE/GATE) |
+| PUT | `/api/nod/flows/elements.php` | Update element properties |
+| DELETE | `/api/nod/flows/elements.php` | Delete flow element |
+| GET | `/api/nod/flows/gates.php` | List gates for an element |
+| POST | `/api/nod/flows/gates.php` | Create gate |
+| DELETE | `/api/nod/flows/gates.php` | Delete gate |
+| GET | `/api/nod/flows/suggestions.php` | Autocomplete fixes/procedures |
+
+### FEA Bridge API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/nod/fea.php` | FEA actions: demand monitor toggle, bulk create/clear |
+
+---
+
+## TMR APIs (NEW v18)
+
+Traffic Management Review report management.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/data/review/tmr_report.php` | Get TMR report for a plan |
+| POST | `/api/data/review/tmr_report.php` | Create/update TMR report (auto-save) |
+| DELETE | `/api/data/review/tmr_report.php` | Delete TMR report |
+| GET | `/api/data/review/tmr_tmis.php` | Historical TMI lookup from VATSIM_TMI |
+| GET | `/api/data/review/tmr_export.php` | Export TMR as Discord-formatted text |
+
+---
+
 ## See Also
 
 - [[API Reference]] - Complete API overview
 - [[GDT Ground Delay Tool]] - GDT user interface
+- [[NOD Dashboard]] - NOD with facility flows
 - [[ADL API]] - Flight data APIs

@@ -119,10 +119,27 @@ Viewing is public. Creating and updating incidents requires DCC role authorizati
 
 ### What does NOD display?
 
-- Active Traffic Management Initiatives (Ground Stops, GDPs, Reroutes)
+- Active Traffic Management Initiatives with rich data cards:
+  - **GS cards**: countdown timer, flights held, prob extension, origin centers
+  - **GDP cards**: controlled/exempt counts, avg/max delay, compliance bar, GDT link
+  - **Reroute cards**: assigned/compliant counts, compliance bar
+  - **MIT/AFP**: restriction details and fix coordinates
+  - **Delay Reports**: severity coloring and trend indicators
+- Map TMI status layer: airport rings by severity, delay glow circles, MIT fix markers
+- Facility flow configurations with FEA demand integration
 - DCC Advisories
 - Current operations status
 - Weather impacts
+
+### What are Facility Flows? (NEW v18)
+
+Facility Flow Configurations define traffic flow patterns for ATC facilities. Each config contains:
+- **Elements**: Fixes, procedures, routes, and gates that define a flow pattern
+- **Visual controls**: Color, line weight, visibility toggles per element
+- **FEA Integration**: Elements can be linked to Flow Evaluation Areas for demand monitoring
+- **Map layers**: 8 layer types including boundaries, procedure/route lines, fix markers
+
+Flows are managed in the Flows tab of the NOD sidebar, with per-facility and per-config selectors.
 
 ### How often is NOD updated?
 
@@ -149,6 +166,45 @@ The weather radar displays NEXRAD/MRMS data from the Iowa Environmental Mesonet.
 
 ---
 
+## Traffic Management Review (TMR) - NEW v18
+
+### What is a TMR Report?
+
+A Traffic Management Review (TMR) report is a structured post-event analysis following the NTMO Guide format. It includes sections for:
+- **Triggers** - What initiated the review
+- **Overview** - Event summary
+- **Airport Conditions** - Configuration, rates, weather
+- **Weather** - Weather impacts and forecasts
+- **TMIs** - Traffic management initiatives applied (with historical TMI lookup and bulk NTML paste parser)
+- **Equipment** - System/equipment issues
+- **Personnel** - Staffing considerations
+- **Findings** - Conclusions and recommendations
+
+### How do I create a TMR Report?
+
+Navigate to the Review page and select "Create TMR Report" for an existing plan. The report auto-saves as you work, and can be exported in Discord format for sharing.
+
+### What is the embedded demand chart?
+
+TMR reports include per-airport demand charts (DemandChartCore) that visualize arrival/departure demand during the event period.
+
+---
+
+## Internationalization (i18n) - NEW v18
+
+### Is PERTI available in other languages?
+
+PERTI has a full i18n infrastructure with 450+ translation keys. Currently only English (en-US) is supported, but the system is ready for additional locales.
+
+### How does locale detection work?
+
+1. URL parameter (`?locale=en-US`)
+2. localStorage (`PERTI_LOCALE`)
+3. Browser language (`navigator.language`)
+4. Fallback: `en-US`
+
+---
+
 ## Technical Questions
 
 ### What browsers are supported?
@@ -171,7 +227,12 @@ Yes. See [[API Reference]] for available endpoints. Most endpoints require authe
 
 ### Where is PERTI hosted?
 
-PERTI runs on Microsoft Azure App Service with databases on Azure SQL and Azure Database for MySQL.
+PERTI runs on Microsoft Azure App Service (P1v2) with 7 databases across 3 engines:
+- **Azure SQL** (vatsim.database.windows.net): VATSIM_ADL (Hyperscale Serverless), VATSIM_TMI, SWIM_API, VATSIM_REF, VATSIM_STATS
+- **MySQL** (vatcscc-perti.mysql.database.azure.com): perti_site (General Purpose D2ds_v4)
+- **PostgreSQL/PostGIS** (vatcscc-gis.postgres.database.azure.com): vatcscc_gis (Burstable B2s)
+
+Total infrastructure cost is approximately $3,500/month. See the [transparency page](https://perti.vatcscc.org/transparency.php) for details.
 
 ---
 
