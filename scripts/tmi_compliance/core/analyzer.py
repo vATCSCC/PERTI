@@ -2058,8 +2058,8 @@ class TMIComplianceAnalyzer:
                 carrier = airline_icao
             else:
                 # Fallback: extract letter prefix from callsign (e.g., "AAL" from "AAL123")
-                m = re.match(r'^([A-Z]{2,4})', callsign)
-                carrier = m.group(1) if m else callsign
+                m = re.match(r'^([A-Za-z]{2,4})', callsign.upper() if callsign else '')
+                carrier = m.group(1).upper() if m else (callsign or 'UNK')
 
             flight_info = {
                 'callsign': callsign,
@@ -2152,6 +2152,7 @@ class TMIComplianceAnalyzer:
                     gs_duration = (gs_end - gs_start).total_seconds()
                     into_gs = (dep_time - gs_start).total_seconds()
                     flight_info['pct_into_gs'] = round(100 * into_gs / gs_duration, 1) if gs_duration > 0 else 0
+                    flight_info['into_gs_min'] = round(into_gs / 60, 1)
                 non_compliant.append(flight_info)
                 per_origin[dept]['non_compliant'] += 1
                 per_carrier[carrier]['non_compliant'] += 1
