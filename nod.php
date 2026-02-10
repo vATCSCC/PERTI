@@ -1411,9 +1411,9 @@ include("load/config.php");
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
                            title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div><!-- /nod-layer-item radar -->
-                <div class="nod-layer-toggle">
+                <div class="nod-layer-item">
                     <input type="checkbox" id="layer-facility-flows" checked onchange="NOD.toggleLayer('facility-flows', this.checked)">
-                    <span class="nod-control-icon"><i class="fas fa-project-diagram"></i></span>
+                    <span class="nod-layer-color" style="background: #17a2b8;"></span>
                     <label for="layer-facility-flows">Facility Flows</label>
                     <input type="range" class="nod-opacity-slider" id="opacity-facility-flows" min="0" max="100" value="80"
                            title="Opacity" onchange="NOD.setLayerOpacity('facility-flows', this.value/100)">
