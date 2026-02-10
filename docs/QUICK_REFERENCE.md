@@ -1,6 +1,6 @@
 # PERTI Quick Reference Index
 
-Quick lookup for common codebase elements. Last updated: 2026-01-17
+Quick lookup for common codebase elements. Last updated: 2026-02-10
 
 ---
 
@@ -51,7 +51,7 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | `/api/tmi/programs.php` | GET/POST/PUT/DELETE | GDT programs CRUD |
 | `/api/tmi/advisories.php` | GET/POST/PUT/DELETE | Advisories CRUD |
 | `/api/tmi/public-routes.php` | GET/POST/PUT/DELETE | Public routes CRUD |
-| `/api/tmi/reroutes.php` | GET/POST/PUT/DELETE | Reroutes CRUD (pending) |
+| `/api/tmi/reroutes.php` | GET/POST/PUT/DELETE | Reroutes CRUD |
 
 ### Airport Configuration
 
@@ -61,6 +61,24 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | `/api/demand/summary.php` | GET | Demand summary |
 | `/api/demand/rates.php` | GET | Airport rate data |
 | `/api/demand/override.php` | POST | Manual rate override |
+
+### NOD Flow APIs (v18)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/nod/flows/configs.php` | GET/POST/PUT/DELETE | Flow configuration CRUD |
+| `/api/nod/flows/elements.php` | GET/POST/PUT/DELETE | Flow element CRUD |
+| `/api/nod/flows/gates.php` | GET/POST/PUT/DELETE | Flow gate CRUD |
+| `/api/nod/flows/suggestions.php` | GET | Element autocomplete |
+| `/api/nod/fea.php` | POST | FEA bridge (demand monitor toggle, bulk ops) |
+
+### TMR APIs (v18)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/data/review/tmr_report.php` | GET/POST/PUT/DELETE | TMR report CRUD (auto-save) |
+| `/api/data/review/tmr_tmis.php` | GET | Historical TMI lookup |
+| `/api/data/review/tmr_export.php` | GET | Discord-formatted TMR export |
 
 ### ATFM Simulator
 
@@ -130,20 +148,24 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 
 ## Daemons & Scripts Index
 
-### PHP Daemons
+### PHP Daemons (14 total, all started via startup.sh)
 
 | Daemon | File | Interval | Purpose |
 |--------|------|----------|---------|
-| Parse Queue | `adl/php/parse_queue_daemon.php` | 5s | Route parsing |
-| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | 15s tiered | Waypoint ETA calc (v17) |
-| Boundary | `adl/php/boundary_daemon.php` | 15s adaptive | Boundary detection (v17) |
-
-### Python Daemons
-
-| Daemon | File | Interval | Purpose |
-|--------|------|----------|---------|
-| ATIS | `scripts/vatsim_atis/atis_daemon.py` | 15s | VATSIM ATIS import |
-| Events | `scripts/statsim/daily_event_update.py` | Daily | VATUSA event sync |
+| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data + ATIS |
+| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
+| Boundary (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
+| Crossing Calc | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETAs |
+| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calc |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events (port 8090) |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | ADL → SWIM_API sync |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic → ADL |
+| Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activate |
+| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, purge |
+| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics |
+| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | TMI Discord posting |
+| Event Sync | `scripts/event_sync_daemon.php` | 6h | Event sync (VATUSA/VATCAN) |
 
 ### Import Scripts
 
@@ -152,6 +174,8 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | Weather Alerts | `adl/php/import_weather_alerts.php` | 5 min | SIGMET/AIRMET |
 | Wind Data | `adl/php/import_wind_data.php` | Hourly | NOAA RAP/GFS |
 | Boundaries | `adl/php/import_boundaries.php` | On-demand | ARTCC/TRACON |
+| NASR Update | `scripts/nasr_navdata_updater.py` | AIRAC cycle | FAA navdata |
+| AIRAC Full | `scripts/airac_full_update.py` | 28 days | Full AIRAC update |
 
 ---
 
@@ -176,20 +200,40 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | `gdp_programs` | GDP definitions |
 | `gdp_slots` | GDP slot allocations |
 
-### TMI Tables (VATSIM_TMI - New v17)
+### TMI Tables (VATSIM_TMI)
 
 | Table | Purpose |
 |-------|---------|
 | `tmi_entries` | NTML log (MIT, MINIT, DELAY, etc.) |
 | `tmi_programs` | GS/GDP/AFP programs |
 | `tmi_slots` | GDP slot allocation |
+| `tmi_flight_control` | Per-flight TMI control records |
 | `tmi_advisories` | Formal advisories |
 | `tmi_reroutes` | Reroute definitions |
+| `tmi_reroute_routes` | Reroute route strings per O/D pair |
 | `tmi_reroute_flights` | Flight assignments to reroutes |
 | `tmi_reroute_compliance_log` | Compliance history |
 | `tmi_public_routes` | Public route display |
+| `tmi_proposals` | Multi-facility coordination |
+| `tmi_airport_configs` | TMI airport config snapshots |
+| `tmi_delay_entries` | Delay reports (v18) |
+| `tmi_discord_posts` | Discord posting queue |
 | `tmi_events` | Unified audit log |
 | `tmi_advisory_sequences` | Advisory numbering |
+
+### NOD Flow Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `facility_flow_configs` | Flow configuration definitions |
+| `facility_flow_elements` | Elements (FIX/PROCEDURE/ROUTE/GATE) |
+| `facility_flow_gates` | Gate definitions with coordinates |
+
+### MySQL Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `r_tmr_reports` | TMR review reports (auto-save) |
 
 ### Airport Configuration (v16)
 
@@ -259,10 +303,10 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | JATOC | `jatoc.php` | Incident monitoring |
 | Splits | `splits.php` | Sector configuration |
 | Plan | `plan.php` | Planning worksheets |
-| NTML | `ntml.php` | Traffic Management Log entry |
+| Transparency | `transparency.php` | Infrastructure transparency page |
 | Airport Configs | `airport_config.php` | Runway configuration |
 | Airspace Elements | `airspace-elements.php` | Custom airspace elements |
-| Advisory Builder | `advisory-builder.php` | TMI advisory creation |
+| TMI Publisher | `tmi-publish.php` | TMI publishing to Discord |
 | System Status | `status.php` | System health dashboard |
 
 ### JavaScript Components
@@ -273,12 +317,21 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 | Map/Route | `assets/js/map/*.js` | MapLibre integration |
 | Simulator | `assets/js/simulator/*.js` | Simulator UI controllers |
 
+### i18n System (v18)
+
+| File | Purpose |
+|------|---------|
+| `assets/js/lib/i18n.js` | Core translation module (PERTII18n) |
+| `assets/js/lib/dialog.js` | SweetAlert2 wrapper with i18n (PERTIDialog) |
+| `assets/locales/en-US.json` | 450+ translation keys |
+| `assets/locales/index.js` | Locale auto-detection loader |
+
 ### Configuration
 
 | File | Purpose |
 |------|---------|
 | `load/config.php` | Database and API config |
-| `load/connect.php` | Database connections ($conn_adl, $conn_swim, $conn_tmi) |
+| `load/connect.php` | Database connections ($conn_adl, $conn_swim, $conn_tmi, $conn_ref, $conn_gis) |
 
 ### TMI API Files (v17)
 
@@ -295,6 +348,15 @@ Quick lookup for common codebase elements. Last updated: 2026-01-17
 ---
 
 ## Migration Sequences
+
+### v18 Migrations
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/nod/001_facility_flow_tables.sql` | NOD flow configs, elements, gates |
+| `database/migrations/nod/002_flow_element_fea_linkage.sql` | FEA linkage for flow elements |
+| `r_tmr_reports` table (MySQL) | TMR review reports |
+| `adl/migrations/oooi/010_airport_taxi_reference.sql` | Airport taxi reference data |
 
 ### v17 Migrations
 

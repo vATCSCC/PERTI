@@ -36,6 +36,27 @@ define('ADL_USERNAME', 'your_username');
 define('ADL_PASSWORD', 'your_password');
 ```
 
+### Azure SQL (TMI Database)
+
+```php
+// VATSIM_TMI (Traffic Management Initiatives)
+define('TMI_SERVER', 'your-server.database.windows.net');
+define('TMI_DATABASE', 'VATSIM_TMI');
+define('TMI_USERNAME', 'your_username');
+define('TMI_PASSWORD', 'your_password');
+```
+
+### PostgreSQL/PostGIS (GIS Database)
+
+```php
+// PostGIS spatial queries (boundaries, route geometry)
+define('GIS_HOST', 'your-server.postgres.database.azure.com');
+define('GIS_DATABASE', 'vatcscc_gis');
+define('GIS_USERNAME', 'your_username');
+define('GIS_PASSWORD', 'your_password');
+define('GIS_PORT', 5432);
+```
+
 ### VATSIM OAuth
 
 Register an application at [VATSIM Connect](https://auth.vatsim.net/) to obtain credentials:
@@ -76,7 +97,21 @@ define('DISCORD_TMI_CHANNEL', 'webhook_url_for_tmi_channel');
 define('FEATURE_WEATHER_RADAR', true);
 define('FEATURE_SUA_DISPLAY', true);
 define('FEATURE_DEMAND_ANALYSIS', true);
+
+// TMI features
+define('DISCORD_MULTI_ORG_ENABLED', true);  // Multi-organization Discord posting
+define('TMI_STAGING_REQUIRED', false);       // Require staging before publishing
 ```
+
+### Performance Optimization
+
+For PHP endpoints that only need MySQL (plans, sheets, reviews), add before `include connect.php`:
+
+```php
+define('PERTI_MYSQL_ONLY', true);  // Skips 5 Azure SQL connections (~500-1000ms saved)
+```
+
+**Important:** Never apply `PERTI_MYSQL_ONLY` to files that use `$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, or `$conn_gis`. Always grep for these before adding the flag.
 
 ### Debug Settings
 
