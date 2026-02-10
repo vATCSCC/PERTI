@@ -74,6 +74,9 @@ include("sessions/handler.php");
         }
     </script>
 
+    <!-- MapLibre GL for TMI compliance maps -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin=""/>
+
     <!-- ECharts for demand charts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <!-- Chart.js for statsim rates -->
@@ -1123,12 +1126,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <?php } ?>
 
 <!-- Scripts -->
+<script src="assets/js/lib/i18n.js"></script>
+<script src="assets/locales/index.js"></script>
 <script src="assets/js/config/phase-colors.js"></script>
 <script src="assets/js/config/filter-colors.js"></script>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
 <script src="assets/js/demand.js"></script>
 <script src="assets/js/review.js"></script>
 <script src="assets/js/tmr_report.js?v=4"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js"></script>
 
 </html>
