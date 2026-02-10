@@ -1925,6 +1925,12 @@ class TMIComplianceAnalyzer:
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
+                # Calculate hold time: delay from the GS (overlap of ready time with GS window)
+                ready_time = normalize_datetime(out_utc) if out_utc else (normalize_datetime(first_seen) if first_seen else None)
+                if ready_time and ready_time < gs_end:
+                    hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
+                    if hold_min > 0:
+                        flight_info['hold_time_min'] = round(hold_min, 1)
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
@@ -2156,9 +2162,17 @@ class TMIComplianceAnalyzer:
                 compliant.append(flight_info)
                 per_origin[dept]['compliant'] += 1
                 per_carrier[carrier]['compliant'] += 1
-                # Calculate hold time: how long after GS ended they departed
-                if gs_end:
-                    hold_min = (dep_time - gs_end).total_seconds() / 60
+                # Calculate hold time: delay incurred as a result of the GS
+                # = overlap between when the flight was ready and the GS window
+                # Ready time: out_utc (gate push) or first_seen (VATSIM connect)
+                ready_time = None
+                if out_utc:
+                    ready_time = normalize_datetime(out_utc)
+                elif first_seen:
+                    ready_time = first_seen_dt
+
+                if ready_time and gs_start and gs_end and ready_time < gs_end:
+                    hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
                         per_origin[dept]['hold_times'].append(hold_min)
