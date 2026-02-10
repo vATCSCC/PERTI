@@ -180,6 +180,9 @@ Ensure your changes:
 - [ ] Database operations succeed
 - [ ] Authentication/authorization enforced
 - [ ] Works across supported browsers
+- [ ] i18n keys added for all new user-facing strings
+- [ ] `PERTI_MYSQL_ONLY` flag not applied to files using Azure SQL connections
+- [ ] New API endpoints documented in wiki
 
 ---
 
@@ -287,7 +290,7 @@ We particularly welcome contributions in:
 | Accessibility | WCAG compliance improvements |
 | Testing | Automated test coverage |
 | Performance | Query optimization, caching |
-| Internationalization | Multi-language support |
+| Internationalization | i18n dialog migration (~267 remaining Swal.fire calls), locale file expansion, PHP-side i18n layer |
 
 ---
 
@@ -295,7 +298,11 @@ We particularly welcome contributions in:
 
 ### Database Changes
 
-1. Create migration file in `database/migrations/` or `adl/migrations/`
+1. Create migration file in the appropriate directory:
+   - **MySQL (perti_site)**: `database/migrations/` organized by feature (e.g., `tmi/`, `initiatives/`, `jatoc/`)
+   - **Azure SQL (ADL)**: `adl/migrations/` organized by feature area (`core/`, `boundaries/`, `crossings/`, `eta/`, `navdata/`, `changelog/`, `cifp/`, `demand/`)
+   - **PostGIS (GIS)**: `database/migrations/postgis/`
+   - **TMI**: `database/migrations/tmi/`
 2. Use sequential numbering
 3. Include rollback SQL if possible
 4. Document in PR
@@ -312,6 +319,36 @@ We particularly welcome contributions in:
 2. Test responsive behavior
 3. Ensure accessibility
 4. Match existing visual style
+
+### i18n Requirements
+
+All new user-facing strings in JavaScript must use the `PERTII18n.t()` translation system rather than hardcoded English strings.
+
+1. Add translation keys to `assets/locales/en-US.json` using the nested key structure
+2. Reference keys in code via `PERTII18n.t('section.key')` with interpolation support for dynamic values
+3. Use the `PERTIDialog` wrapper for all modal dialogs instead of calling `Swal.fire()` directly -- `PERTIDialog` resolves i18n keys automatically
+4. Test locale detection by verifying behavior with the `?locale=` URL parameter, `localStorage` (`PERTI_LOCALE`), and `navigator.language` fallback
+
+See the Internationalization section in `CLAUDE.md` for the full API reference and current coverage status.
+
+### Performance Considerations
+
+1. **`PERTI_MYSQL_ONLY` flag** -- For PHP endpoints that only need MySQL, add `define('PERTI_MYSQL_ONLY', true);` before `include connect.php` to skip the 5 eager Azure SQL connections (~500-1000ms saved per request):
+   ```php
+   include("../../../load/config.php");
+   define('PERTI_MYSQL_ONLY', true);
+   include("../../../load/connect.php");
+   ```
+   **Always grep for** `$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, and `$conn_gis` in the file before applying this flag. Applying it to a file that uses any Azure SQL connection will cause silent failures or HTTP 500 errors.
+
+2. **Parallel API calls** -- Use `Promise.all()` for independent API calls in JavaScript to avoid sequential waterfalls:
+   ```javascript
+   const [configs, staffing, forecasts] = await Promise.all([
+       fetch('/api/data/plans/configs.php?p_id=' + planId),
+       fetch('/api/data/plans/term_staffing.php?p_id=' + planId),
+       fetch('/api/data/plans/forecast.php?p_id=' + planId)
+   ]);
+   ```
 
 ---
 

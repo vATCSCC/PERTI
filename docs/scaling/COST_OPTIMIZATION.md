@@ -1,18 +1,31 @@
 # PERTI/SWIM Cost Optimization Guide
 
-> **Last Updated:** January 21, 2026
+> **Last Updated:** February 10, 2026
 
 ## Current Infrastructure
 
 | Component | Tier | Cost/Month |
 |-----------|------|------------|
+| **VATSIM_ADL** | **Hyperscale Serverless (3/16 vCores)** | **~$3,200** |
+| SWIM_API | Basic (5 DTU, 2GB) | ~$5 |
+| VATSIM_REF | Basic (5 DTU, 2GB) | ~$5 |
+| VATSIM_TMI | Basic (5 DTU, 2GB) | ~$5 |
+| VATSIM_STATS | GP Serverless (paused) | ~$0 (paused) |
+| MySQL (perti_site) | General Purpose D2ds_v4 | ~$134 |
+| PostgreSQL (GIS) | Burstable B2s, PostGIS | ~$58 |
 | App Service | P1v2 (3.5GB, 1 vCPU) | ~$81 |
-| **VATSIM_ADL** | **Hyperscale Serverless (3/16 vCores)** | **~$2,100** |
-| SWIM_API | Basic (2GB) | ~$5 |
-| VATSIM_REF | Basic (2GB) | ~$5 |
-| VATSIM_TMI | Basic (2GB) | ~$5 |
-| MySQL (PERTI) | B1ms Burstable | ~$13 |
-| **Total** | | **~$2,200/month** |
+| **Total** | | **~$3,500/month** |
+
+**Cost Trend (4-month actual from Azure Cost Management):**
+
+| Month | Total | SQL | App Service | MySQL | PostgreSQL |
+|-------|-------|-----|-------------|-------|------------|
+| Oct 2025 | $684 | $536 | $73 | $15 | - |
+| Nov 2025 | $670 | $524 | $73 | $15 | - |
+| Dec 2025 | $2,172 | $2,020 | $73 | $21 | $6 |
+| Jan 2026 | $3,640 | $3,479 | $73 | $50 | $19 |
+
+*Dec 2025 increase: VATSIM_ADL migrated from GP Serverless to Hyperscale Serverless. MySQL upgraded from Burstable B1ms to General Purpose D2ds_v4. PostgreSQL GIS deployed.*
 
 ### VATSIM_ADL Configuration (Updated January 21, 2026)
 
@@ -22,9 +35,14 @@
 | Min vCores | 3 | Auto-pause disabled for production |
 | Max vCores | 16 | Reduced from 24 (Jan 21, 2026) |
 | Max Workers | 1,200 | Sufficient for peak events (558 observed) |
+| HA Replicas | 1 | High availability replica |
 | Storage | ~270 GB | Legacy data pending archival |
 
 **Recent Optimization:** Reduced from 4/24 vCores to 3/16 vCores based on actual usage analysis. Peak worker utilization during major VATSIM events (Jan 16, 2026) was 558 workers (46.5% of 1,200 capacity), providing 54% headroom. **Savings: ~$1,140/month (~$13,700/year)**
+
+### Decommissioned Resources
+- **vatsim-georeplica** server: Deleted (was ~$411/mo)
+- **VATSIM_Data** database: Deleted (was Hyperscale HS_S_Gen5_4)
 
 ---
 

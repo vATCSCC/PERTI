@@ -14,8 +14,17 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **GDT** | Ground Delay Tool |
 | **JATOC** | Joint Air Traffic Operations Command |
 | **NOD** | NAS Operations Dashboard |
+| **TMR** | Traffic Management Review - NTMO Guide-style post-event review report (NEW v18) |
 | **TSD** | Traffic Situation Display |
 | **NTML** | National Traffic Management Log - record of TMI actions |
+| **SWIM** | System Wide Information Management - PERTI's public API layer |
+| **FEA** | Flow Evaluation Area - airspace element for traffic demand analysis |
+| **OpLevel** | Operational Level 1-4 (traffic impact severity) |
+| **RBS** | Ration By Schedule - GDP slot assignment algorithm |
+| **ASPM82** | FAA Aviation System Performance Metrics 82-airport set |
+| **OPSNET45** | FAA Operations Network 45-airport performance metric set |
+| **CID** | VATSIM Certificate ID (user identifier) |
+| **i18n** | Internationalization - multi-language support system (NEW v18) |
 
 ---
 
@@ -304,6 +313,10 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **ASD** | Aircraft Situation Display (legacy, replaced by TSD) |
 | **OAG** | Official Airline Guide (schedule data source) |
 | **ARINC** | Aeronautical Radio Inc. |
+| **CIFP** | Coded Instrument Flight Procedures (DPs/STARs) |
+| **BADA** | Base of Aircraft Data - EUROCONTROL aircraft performance model |
+| **NASR** | National Airspace System Resources - FAA navdata source |
+| **AIRAC** | Aeronautical Information Regulation and Control - 28-day navdata cycle |
 
 ---
 
@@ -312,9 +325,28 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | Acronym | Definition |
 |---------|------------|
 | **VATSIM** | Virtual Air Traffic Simulation Network |
-| **CID** | VATSIM Controller ID |
+| **CID** | VATSIM Certificate ID (user identifier) |
 | **VATUSA** | VATSIM USA Division |
+| **VATCAN** | VATSIM Canada Division |
 | **vATCSCC** | Virtual Air Traffic Control System Command Center |
+| **CTP** | Cross The Pond - major transatlantic VATSIM event |
+| **FNO** | Friday Night Operations - regular VATSIM event |
+| **NTMO** | National Traffic Management Officer |
+
+---
+
+## Infrastructure & Technology
+
+| Acronym | Definition |
+|---------|------------|
+| **PostGIS** | PostgreSQL extension for spatial/geographic data |
+| **GIS** | Geographic Information System |
+| **CDN** | Content Delivery Network |
+| **HA** | High Availability |
+| **DTU** | Database Transaction Unit (Azure SQL performance metric) |
+| **vCore** | Virtual CPU core (Azure SQL compute unit) |
+| **PERTI_MYSQL_ONLY** | Optimization flag to skip Azure SQL connections (~500-1000ms saved) |
+| **PSR-12** | PHP Standard Recommendation 12 (coding style) |
 
 ---
 

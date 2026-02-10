@@ -1,5 +1,7 @@
 # API Reference
 
+> **Version:** v18 | **Updated:** February 2026
+
 This document provides a comprehensive reference for PERTI's RESTful API endpoints. These APIs enable integration with external systems and support the web interface.
 
 ---
@@ -237,6 +239,59 @@ Ground Delay Tool unified API for managing GS, GDP, and AFP programs. Uses `VATS
 | `/api/gdt/slots/list.php` | GET | List slots for a program |
 | `/api/gdt/demand/hourly.php` | GET | Get hourly demand/capacity |
 
+### GS/GDP Compliance Analysis (v18)
+
+#### GET /api/gdt/programs/flight_list.php
+
+Returns the dynamic flight list for a GS/GDP program with compliance status tracking and summary statistics. Supports filtering by compliance status and pagination.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `program_id` | int | Program ID (required) |
+| `status` | string | Filter by compliance status: `PENDING`, `COMPLIANT`, `NON_COMPLIANT`, `EXEMPT`, `CANCELLED` |
+| `include_stats` | bool | Include summary statistics (default: true) |
+| `limit` | int | Max flights to return (default: 500) |
+| `offset` | int | Pagination offset (default: 0) |
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "program_id": 123,
+    "flights": [
+      {
+        "callsign": "DAL456",
+        "flight_uid": 98765,
+        "dep_airport": "KATL",
+        "arr_airport": "KJFK",
+        "compliance_status": "COMPLIANT",
+        "edct_utc": "2026-01-10T15:30:00Z",
+        "actual_dep_utc": "2026-01-10T15:28:00Z",
+        "delay_minutes": 47
+      }
+    ],
+    "stats": {
+      "total": 145,
+      "controlled": 120,
+      "exempt": 25,
+      "pending": 90,
+      "compliant": 25,
+      "non_compliant": 5,
+      "cancelled": 0,
+      "avg_delay_min": 47,
+      "max_delay_min": 123
+    },
+    "generated_at": "2026-01-10T15:00:00Z"
+  }
+}
+```
+
+**Compliance Status Values:** `PENDING` (not yet departed), `COMPLIANT` (departed within EDCT window), `NON_COMPLIANT` (departed outside EDCT window), `EXEMPT` (exempt from program), `CANCELLED` (flight cancelled)
+
 See [[TMI API]] for full request/response documentation.
 
 ---
@@ -455,6 +510,213 @@ Discord TMI integration for NOD.
 
 See [[NOD Discord API]] for full documentation.
 
+### NOD Flow Configuration APIs (v18)
+
+Facility-specific flow element configuration for the NOD map display. Manages flow configs, elements (fixes, procedures, routes, gates), and gate groupings. All data is stored in VATSIM_ADL via Azure SQL (`sqlsrv`).
+
+**Base Path:** `/api/nod/flows/`
+
+#### Flow Config CRUD
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `configs.php?facility_code=ZNY` | GET | List all configs for a facility |
+| `configs.php?config_id=1` | GET | Get single config with nested elements and gates |
+| `configs.php` | POST | Create new flow config |
+| `configs.php` | PUT | Update flow config |
+| `configs.php?config_id=1` | DELETE | Delete config (cascades to elements/gates) |
+
+**POST/PUT Request Body (configs):**
+
+```json
+{
+  "facility_code": "ZNY",
+  "facility_type": "ARTCC",
+  "config_name": "Default ZNY Flows",
+  "is_shared": 1,
+  "is_default": 1,
+  "map_center_lat": 40.63,
+  "map_center_lon": -73.77,
+  "map_zoom": 7,
+  "boundary_layers": ["artcc", "tracon"]
+}
+```
+
+#### Flow Element CRUD
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `elements.php?config_id=1` | GET | List elements for a config (with fix lat/lon for FIX types) |
+| `elements.php?element_id=5` | GET | Get single element |
+| `elements.php` | POST | Create new element |
+| `elements.php` | PUT | Update element |
+| `elements.php?element_id=5` | DELETE | Delete element |
+
+**Element Types:** `FIX`, `PROCEDURE`, `ROUTE`, `GATE`
+
+**POST/PUT Request Body (elements):**
+
+```json
+{
+  "config_id": 1,
+  "element_type": "FIX",
+  "element_name": "MERIT Arrivals",
+  "fix_name": "MERIT",
+  "direction": "arrival",
+  "color": "#FF6600",
+  "line_weight": 2,
+  "line_style": "solid",
+  "sort_order": 1,
+  "is_visible": 1,
+  "auto_fea": "via_fix"
+}
+```
+
+FIX-type elements automatically resolve `fix_lat`/`fix_lon` from `nav_fixes` via LEFT JOIN.
+
+#### Flow Gate CRUD
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `gates.php?config_id=1` | GET | List gates for a config (with member element count) |
+| `gates.php?gate_id=3` | GET | Get single gate with member elements |
+| `gates.php` | POST | Create new gate |
+| `gates.php` | PUT | Update gate |
+| `gates.php?gate_id=3` | DELETE | Delete gate (detaches member elements first) |
+
+**POST/PUT Request Body (gates):**
+
+```json
+{
+  "config_id": 1,
+  "gate_name": "West Gate",
+  "direction": "arrival",
+  "color": "#3388FF",
+  "label_format": "{name}: {count}",
+  "sort_order": 1,
+  "auto_fea": "via_fix"
+}
+```
+
+#### Element Autocomplete Suggestions
+
+##### GET /api/nod/flows/suggestions.php
+
+Returns autocomplete suggestions from `nav_fixes` or `nav_procedures` for the flow element editor.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | `fix` or `procedure` (required) |
+| `q` | string | Search prefix/substring (required) |
+| `airport` | string | Airport ICAO code (required for `procedure` type) |
+
+**Examples:**
+
+```http
+GET /api/nod/flows/suggestions.php?type=fix&q=MER
+GET /api/nod/flows/suggestions.php?type=procedure&airport=KATL&q=RPTOR
+```
+
+**Response (fix):**
+
+```json
+{
+  "suggestions": [
+    {"fix_name": "MERIT", "fix_type": "FIX", "lat": 40.818, "lon": -73.467},
+    {"fix_name": "MERCE", "fix_type": "FIX", "lat": 37.456, "lon": -122.012}
+  ]
+}
+```
+
+**Response (procedure):**
+
+```json
+{
+  "suggestions": [
+    {"procedure_id": 1234, "procedure_type": "STAR", "procedure_name": "RPTOR2", "airport_icao": "KATL"}
+  ]
+}
+```
+
+### FEA Bridge API (v18)
+
+##### POST /api/nod/fea.php
+
+Creates or removes demand monitors linked to NOD flow elements or TMI entries. Bridges the flow configuration layer with the demand analysis system.
+
+**Access:** Authenticated
+
+**Source Types:**
+
+| `source_type` | Required Field | Description |
+|----------------|----------------|-------------|
+| `flow_element` | `element_id` | Create demand monitor from a flow element (FIX, ROUTE, or PROCEDURE type) |
+| `tmi_entry` | `entry_id` | Create demand monitor from a TMI NTML entry (MIT fix) |
+| `bulk` | `config_id` | Bulk-create monitors for all visible FIX/ROUTE elements in a config |
+
+**POST Request Body (flow_element):**
+
+```json
+{
+  "source_type": "flow_element",
+  "element_id": 5
+}
+```
+
+**POST Response:**
+
+```json
+{
+  "monitor_id": 42,
+  "monitor_key": "via_fix_MERIT",
+  "monitor_type": "via_fix",
+  "definition": {
+    "via": "MERIT",
+    "filter": {"type": "airport", "code": "ZNY", "direction": "arrival"}
+  }
+}
+```
+
+**POST Request Body (bulk):**
+
+```json
+{
+  "source_type": "bulk",
+  "config_id": 1
+}
+```
+
+**Bulk Response:**
+
+```json
+{
+  "created": 5,
+  "monitors": [
+    {"element_id": 5, "monitor_id": 42, "monitor_key": "via_fix_MERIT", "monitor_type": "via_fix", "definition": {...}},
+    {"element_id": 6, "monitor_id": 43, "monitor_key": "route_elem_6", "monitor_type": "segment", "definition": {...}}
+  ]
+}
+```
+
+##### DELETE /api/nod/fea.php
+
+Removes demand monitors linked to flow elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `source_type` | string | `flow_element` or `config` (required) |
+| `element_id` | int | Element ID (required when `source_type=flow_element`) |
+| `config_id` | int | Config ID (required when `source_type=config`) |
+
+**Examples:**
+
+```http
+DELETE /api/nod/fea.php?source_type=flow_element&element_id=5
+DELETE /api/nod/fea.php?source_type=config&config_id=1
+```
+
 ---
 
 ## Demand Analysis APIs
@@ -648,6 +910,163 @@ Returns individual flights captured by a demand monitor.
 | `minutes_ahead` | int | Time window (default: 60, max: 720) |
 | `airline` | string | Filter by airline prefix |
 | `aircraft_category` | string | HEAVY, LARGE, or SMALL |
+
+---
+
+## TMR (Traffic Management Review) APIs (v18)
+
+Post-event Traffic Management Review report management. TMR reports are linked to PERTI plans and follow the NTMO Guide template format.
+
+**Base Path:** `/api/data/review/`
+
+### GET /api/data/review/tmr_report.php
+
+Loads a saved TMR report for a plan, or returns empty defaults populated from plan metadata if no report exists yet.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `p_id` | int | PERTI plan ID (required) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "report": {
+    "p_id": 42,
+    "host_artcc": "ZNY",
+    "tmr_triggers": ["holding_15", "ground_stop"],
+    "overview": "Significant weather impact...",
+    "airport_conditions": "KJFK | ILS 22L/22R | DEP 31L | 44/40",
+    "airport_config_correct": true,
+    "weather_category": "IMC",
+    "weather_summary": "Embedded thunderstorms...",
+    "special_events": null,
+    "tmi_list": [
+      {"type": "GS", "element": "KJFK", "start_utc": "2026-01-10 14:00", "end_utc": "2026-01-10 16:30"}
+    ],
+    "tmi_source": "historical",
+    "tmi_complied": true,
+    "tmi_effective": true,
+    "tmi_timely": false,
+    "tmi_timely_details": "GDP issued 15 minutes late",
+    "equipment": "All equipment operational",
+    "personnel_adequate": true,
+    "operational_plan_link": "https://perti.vatcscc.org/plan?42",
+    "findings": "TMIs were effective but delayed...",
+    "recommendations": "Establish earlier coordination...",
+    "status": "draft"
+  },
+  "is_new": false
+}
+```
+
+### POST /api/data/review/tmr_report.php
+
+Saves or updates a TMR report using upsert (INSERT ON DUPLICATE KEY UPDATE) keyed on `p_id`. Supports both `application/json` and form-encoded POST bodies. Auto-save friendly.
+
+**Access:** Authenticated
+
+**Request Body:**
+
+```json
+{
+  "p_id": 42,
+  "host_artcc": "ZNY",
+  "tmr_triggers": ["holding_15", "ground_stop"],
+  "overview": "Significant weather impact...",
+  "airport_conditions": "KJFK | ILS 22L/22R | DEP 31L | 44/40",
+  "airport_config_correct": true,
+  "weather_category": "IMC",
+  "weather_summary": "Embedded thunderstorms...",
+  "tmi_list": [...],
+  "tmi_source": "historical",
+  "tmi_complied": true,
+  "tmi_effective": true,
+  "tmi_timely": false,
+  "tmi_timely_details": "GDP issued 15 minutes late",
+  "findings": "...",
+  "recommendations": "...",
+  "status": "draft"
+}
+```
+
+**TMR Trigger Values:** `holding_15`, `delays_30`, `no_notice_holding`, `reroutes`, `ground_stop`, `gdp`, `equipment`
+
+**Status Values:** `draft`, `final`
+
+### GET /api/data/review/tmr_tmis.php
+
+Queries historical TMIs from the `VATSIM_TMI` database for the plan's event time window (+/- 1 hour padding). Returns a combined, time-sorted list of NTML entries, programs (GDP/GS), advisories, and reroutes that overlapped with the event.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `p_id` | int | PERTI plan ID (required) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "tmis": [
+    {
+      "id": 156,
+      "category": "program",
+      "type": "GS",
+      "element": "KJFK",
+      "facility": "KJFK",
+      "detail": "Weather - thunderstorms",
+      "start_utc": "2026-01-10 14:00",
+      "end_utc": "2026-01-10 16:30",
+      "status": "expired",
+      "created_by": "1234567"
+    },
+    {
+      "id": 89,
+      "category": "ntml",
+      "type": "MIT",
+      "element": "MERIT",
+      "facility": "ZNY",
+      "detail": "15 MIT | Reason: WEATHER",
+      "start_utc": "2026-01-10 13:30",
+      "end_utc": "2026-01-10 17:00",
+      "status": "active"
+    }
+  ],
+  "event_window": {
+    "start": "2026-01-10 14:00",
+    "end": "2026-01-10 22:00"
+  },
+  "count": 7
+}
+```
+
+**TMI Categories:** `ntml` (NTML log entries), `program` (GDP/GS), `advisory`, `reroute`
+
+### GET /api/data/review/tmr_export.php
+
+Generates a Discord-formatted TMR message following the NTMO Guide template. Returns the complete formatted text ready for copy/paste or Discord posting.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `p_id` | int | PERTI plan ID (required) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "**BEGIN SATURDAY KJFK EVENT TMR**\nZNY | 01/10 2026 | 1400-2200z\n\n**TMR Triggers:** Ground stop, Holding in excess of 15 minutes\n...\n**END SATURDAY KJFK EVENT TMR**",
+  "char_count": 1847,
+  "plan_name": "Saturday KJFK Event"
+}
+```
 
 ---
 
@@ -969,6 +1388,81 @@ Returns flights under TMI control (with EDCTs).
 | `program_id` | int | Filter by specific program |
 | `airport` | string | Filter by control element |
 
+### Reference Data (v18)
+
+#### GET /api/swim/v1/reference/taxi-times.php
+
+Returns unimpeded taxi-out reference times per airport, computed using FAA ASPM methodology (p5-p15 average over a 90-day rolling window). Refreshed daily at 02:00Z.
+
+**Access:** API Key (read-only)
+
+**Endpoints:**
+
+| Path | Description |
+|------|-------------|
+| `/reference/taxi-times` | All airports with taxi reference data |
+| `/reference/taxi-times/{airport}` | Single airport with dimensional breakdown (weight class, carrier, engine config, destination region) |
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `confidence` | string | Filter by confidence level: `HIGH`, `MEDIUM`, `LOW`, `DEFAULT` |
+| `min_samples` | int | Minimum sample count filter |
+| `format` | string | Response format: `json` (default), `fixm`, `xml`, `csv`, `ndjson` |
+
+**Example:**
+
+```http
+GET /api/swim/v1/reference/taxi-times/KJFK?format=json
+```
+
+**Response (single airport):**
+
+```json
+{
+  "success": true,
+  "airport": {
+    "airport_icao": "KJFK",
+    "unimpeded_taxi_out_sec": 720,
+    "sample_size": 4521,
+    "confidence": "HIGH",
+    "p05_taxi_sec": 480,
+    "p15_taxi_sec": 600,
+    "last_refreshed_utc": "2026-02-10T02:00:00+00:00"
+  },
+  "details": [
+    {"dimension": "WEIGHT_CLASS", "dimension_value": "HEAVY", "unimpeded_taxi_out_sec": 780, "sample_size": 1205},
+    {"dimension": "CARRIER", "dimension_value": "DAL", "unimpeded_taxi_out_sec": 700, "sample_size": 890}
+  ],
+  "detail_count": 12,
+  "methodology": {
+    "description": "FAA ASPM p5-p15 average, 90-day rolling window",
+    "min_samples": 50,
+    "default_taxi_sec": 600,
+    "refresh_schedule": "Daily at 02:00Z",
+    "source": "VATSIM OOOI data (out_utc, off_utc)"
+  }
+}
+```
+
+**Response (airport list):**
+
+```json
+{
+  "success": true,
+  "airports": [...],
+  "count": 3628,
+  "summary": {
+    "high_confidence": 245,
+    "medium_confidence": 412,
+    "low_confidence": 891,
+    "default": 2080
+  },
+  "methodology": {...}
+}
+```
+
+**FIXM Format:** When `format=fixm`, field names use camelCase (e.g., `aerodromeIcao`, `unimpededTaxiOutSeconds`, `confidenceLevel`, `sampleCount`).
+
 ### WebSocket
 
 #### /api/swim/v1/ws/
@@ -1186,5 +1680,8 @@ Returns reroute details with assigned flights.
 
 - [[ADL API]] - Detailed ADL API documentation
 - [[TMI API]] - Traffic Management Initiative details
+- [[GIS API]] - PostGIS spatial query documentation
+- [[NOD Discord API]] - NOD Discord integration details
+- [[Simulator API]] - ATFM training simulator details
 - [[Architecture]] - System architecture overview
 - [[Navigation Helper]] - Find the right documentation quickly

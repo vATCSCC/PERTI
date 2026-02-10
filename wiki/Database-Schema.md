@@ -1,6 +1,8 @@
 # Database Schema
 
-PERTI uses two databases: MySQL for application data and Azure SQL for flight/ADL data.
+> **Last updated:** February 10, 2026 (v18)
+
+PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
 
 ---
 
@@ -31,6 +33,24 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 | `incidents` | ATC incidents |
 | `incident_updates` | Incident timeline |
 | `incident_types` | Incident categories |
+
+### Review Tables
+
+| Table | Purpose |
+|-------|---------|
+| `r_tmr_reports` | TMR (Traffic Management Review) reports - NTMO Guide-style post-event reviews with auto-save (v18) |
+
+#### r_tmr_reports (v18)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INT | Primary key (auto-increment) |
+| `plan_id` | INT | FK to p_plans |
+| `report_data` | JSON | Full report content (NTMO Guide structure) |
+| `status` | VARCHAR | Report status (draft, submitted, finalized) |
+| `created_by` | VARCHAR | CID of report creator |
+| `created_at` | DATETIME | Creation timestamp |
+| `updated_at` | DATETIME | Last update timestamp |
 
 ### Configuration Tables
 
@@ -273,6 +293,92 @@ PERTI uses two databases: MySQL for application data and Azure SQL for flight/AD
 |-------|---------|
 | `demand_monitors` | Shared demand monitor definitions (fix, segment, airway, via_fix types) |
 
+### NOD Facility Flow Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `facility_flow_configs` | NOD facility flow configurations |
+| `facility_flow_elements` | Flow configuration elements (fixes, procedures, routes, gates) |
+| `facility_flow_gates` | Flow gate definitions with geographic coordinates |
+
+#### facility_flow_configs
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `config_id` | INT | Primary key (identity) |
+| `facility_code` | NVARCHAR(8) | Facility identifier (ARTCC/TRACON code) |
+| `config_name` | NVARCHAR(64) | Configuration display name |
+| `config_description` | NVARCHAR(512) | Configuration description |
+| `is_active` | BIT | Configuration is currently active |
+| `is_default` | BIT | Default configuration for the facility |
+| `created_by` | NVARCHAR(64) | Creating user CID |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+| `updated_at` | DATETIME2(0) | Last update timestamp |
+
+#### facility_flow_elements
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `element_id` | INT | Primary key (identity) |
+| `config_id` | INT | FK to facility_flow_configs |
+| `element_type` | NVARCHAR(16) | FIX, PROCEDURE, ROUTE, or GATE |
+| `element_name` | NVARCHAR(64) | Element display name |
+| `element_data` | NVARCHAR(MAX) | Element definition data (JSON) |
+| `color` | NVARCHAR(16) | Display color (hex) |
+| `line_weight` | INT | Display line weight |
+| `line_style` | NVARCHAR(16) | Display line style (solid, dashed, dotted) |
+| `is_visible` | BIT | Element is visible on map |
+| `fea_enabled` | BIT | Flow element analysis enabled |
+| `display_order` | INT | Rendering order |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+| `updated_at` | DATETIME2(0) | Last update timestamp |
+
+#### facility_flow_gates
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `gate_id` | INT | Primary key (identity) |
+| `element_id` | INT | FK to facility_flow_elements |
+| `gate_name` | NVARCHAR(64) | Gate display name |
+| `gate_type` | NVARCHAR(16) | Gate type classification |
+| `lat` | DECIMAL(10,7) | Gate latitude |
+| `lon` | DECIMAL(11,7) | Gate longitude |
+| `geojson` | NVARCHAR(MAX) | Gate geometry (GeoJSON) |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+
+### Airport Taxi Reference (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `airport_taxi_reference` | Airport taxi time reference data (3,628 airports) |
+| `airport_taxi_reference_detail` | Taxi reference detail breakdowns (EAV pattern) |
+
+Methodology: FAA ASPM p5-p15 average, 90-day rolling window, minimum 50 samples. Default value is 600 seconds (10 minutes), blended toward observed data as sample count grows. Refreshed daily via `dbo.sp_RefreshAirportTaxiReference` stored procedure run through the stats job framework.
+
+#### airport_taxi_reference
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `airport_icao` | NVARCHAR(4) | Primary key - airport ICAO code |
+| `taxi_out_seconds` | INT | Average taxi-out time (seconds) |
+| `taxi_in_seconds` | INT | Average taxi-in time (seconds) |
+| `sample_count` | INT | Number of observations in rolling window |
+| `last_updated` | DATETIME2(0) | Last refresh timestamp |
+
+#### airport_taxi_reference_detail
+
+Entity-Attribute-Value (EAV) pattern for breakdowns by weight class, carrier, engine configuration, and destination region.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INT | Primary key (identity) |
+| `airport_icao` | NVARCHAR(4) | FK to airport_taxi_reference |
+| `detail_type` | NVARCHAR(16) | WEIGHT_CLASS, CARRIER, ENGINE_CONFIG, or DEST_REGION |
+| `detail_value` | NVARCHAR(32) | Type-specific value (e.g., "H" for heavy, "AAL" for carrier) |
+| `taxi_out_seconds` | INT | Average taxi-out time for this segment |
+| `taxi_in_seconds` | INT | Average taxi-in time for this segment |
+| `sample_count` | INT | Number of observations for this segment |
+
 ---
 
 ## Azure SQL (VATSIM_TMI)
@@ -448,6 +554,246 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 | `queue_status` | NVARCHAR(16) | PENDING, PROCESSING, ASSIGNED, EXEMPT, FAILED, EXPIRED |
 | `assigned_slot_id` | BIGINT | FK to tmi_slots |
 | `assignment_type` | NVARCHAR(16) | RESERVED, DAS, GAAP |
+
+### TMI Advisory & Entry Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_advisories` | TMI advisory messages (ADVZY, NTML postings) |
+| `tmi_entries` | TMI log entries (MIT, AFP, restrictions) |
+| `tmi_flight_list` | Flight lists for programs (per-program flight roster) |
+| `tmi_public_routes` | Published public route visualizations |
+
+#### tmi_advisories
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `advisory_id` | INT | Primary key (identity) |
+| `advisory_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `advisory_number` | NVARCHAR(16) | Advisory number (e.g., ADVZY 001) |
+| `advisory_type` | NVARCHAR(16) | Advisory type classification |
+| `ctl_element` | NVARCHAR(8) | Control element (airport/FCA) |
+| `element_type` | NVARCHAR(8) | APT, FCA, or FEA |
+| `scope_facilities` | NVARCHAR(MAX) | Affected facilities |
+| `program_id` | INT | FK to tmi_programs (if program-related) |
+| `program_rate` | INT | Program rate (if applicable) |
+| `delay_cap` | INT | Delay cap (if applicable) |
+| `effective_from` | DATETIME2(0) | Effective start |
+| `effective_until` | DATETIME2(0) | Effective end |
+| `subject` | NVARCHAR(256) | Advisory subject line |
+| `body_text` | NVARCHAR(MAX) | Full advisory text |
+| `reason_code` | NVARCHAR(32) | Reason code |
+| `reroute_id` | INT | FK to tmi_reroutes (if reroute advisory) |
+| `reroute_name` | NVARCHAR(64) | Reroute name |
+| `reroute_string` | NVARCHAR(MAX) | Reroute string |
+| `mit_miles` | INT | MIT distance (if MIT advisory) |
+| `mit_type` | NVARCHAR(16) | MIT type |
+| `mit_fix` | NVARCHAR(8) | MIT fix |
+| `status` | NVARCHAR(16) | Advisory status |
+| `source_type` | NVARCHAR(16) | Source type (USER, SYSTEM) |
+| `discord_message_id` | NVARCHAR(32) | Discord message ID (if posted) |
+| `created_by` | NVARCHAR(64) | Creating user |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+
+#### tmi_entries
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `entry_id` | INT | Primary key (identity) |
+| `entry_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `determinant_code` | NVARCHAR(16) | Determinant code |
+| `protocol_type` | NVARCHAR(16) | Protocol type |
+| `entry_type` | NVARCHAR(16) | Entry type (MIT, AFP, restriction) |
+| `ctl_element` | NVARCHAR(8) | Control element |
+| `requesting_facility` | NVARCHAR(8) | Requesting facility |
+| `providing_facility` | NVARCHAR(8) | Providing facility |
+| `restriction_value` | INT | Restriction value |
+| `restriction_unit` | NVARCHAR(8) | Restriction unit (NM, MIN) |
+| `reason_code` | NVARCHAR(32) | Reason code |
+| `valid_from` | DATETIME2(0) | Valid from |
+| `valid_until` | DATETIME2(0) | Valid until |
+| `status` | NVARCHAR(16) | Entry status |
+| `source_type` | NVARCHAR(16) | Source type |
+| `discord_message_id` | NVARCHAR(32) | Discord message ID |
+
+#### tmi_flight_list
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `list_id` | BIGINT | Primary key (identity) |
+| `program_id` | INT | FK to tmi_programs |
+| `flight_gufi` | NVARCHAR(64) | Flight GUFI |
+| `callsign` | NVARCHAR(12) | Flight callsign |
+| `flight_uid` | BIGINT | FK to adl_flight_core |
+| `dep_airport` | NVARCHAR(4) | Departure airport |
+| `arr_airport` | NVARCHAR(4) | Arrival airport |
+| `original_etd_utc` | DATETIME2(0) | Original ETD |
+| `original_eta_utc` | DATETIME2(0) | Original ETA |
+| `edct_utc` | DATETIME2(0) | Assigned EDCT |
+| `cta_utc` | DATETIME2(0) | Controlled time of arrival |
+| `delay_minutes` | INT | Assigned delay |
+| `slot_id` | BIGINT | FK to tmi_slots |
+| `is_exempt` | BIT | Flight is exempt |
+| `compliance_status` | NVARCHAR(16) | Compliance status |
+
+#### tmi_public_routes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `route_id` | INT | Primary key (identity) |
+| `route_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `status` | NVARCHAR(16) | Route status (ACTIVE, EXPIRED) |
+| `name` | NVARCHAR(64) | Route display name |
+| `adv_number` | NVARCHAR(16) | Advisory number |
+| `route_string` | NVARCHAR(MAX) | Route string |
+| `advisory_text` | NVARCHAR(MAX) | Advisory text |
+| `color` | NVARCHAR(16) | Map display color |
+| `line_weight` | INT | Map line weight |
+| `line_style` | NVARCHAR(16) | Map line style |
+| `valid_start_utc` | DATETIME2(0) | Validity start |
+| `valid_end_utc` | DATETIME2(0) | Validity end |
+| `route_geojson` | NVARCHAR(MAX) | Route geometry (GeoJSON) |
+| `coordination_status` | NVARCHAR(16) | Coordination status |
+
+### TMI Coordination & Proposal Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_proposals` | Multi-facility coordination proposals |
+| `tmi_proposal_facilities` | Facilities involved in proposal approval |
+| `tmi_proposal_reactions` | Facility approval/denial reactions |
+
+#### tmi_proposals
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `proposal_id` | INT | Primary key (identity) |
+| `proposal_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `entry_id` | INT | FK to tmi_entries |
+| `entry_type` | NVARCHAR(16) | Entry type being proposed |
+| `requesting_facility` | NVARCHAR(8) | Facility requesting coordination |
+| `providing_facility` | NVARCHAR(8) | Facility providing coordination |
+| `ctl_element` | NVARCHAR(8) | Control element |
+| `entry_data_json` | NVARCHAR(MAX) | Full proposal data (JSON) |
+| `approval_deadline_utc` | DATETIME2(0) | Deadline for facility responses |
+| `status` | NVARCHAR(16) | PENDING, APPROVED, DENIED, EXPIRED, WITHDRAWN |
+| `requires_unanimous` | BIT | Requires all facilities to approve |
+| `facilities_approved` | INT | Count of approvals |
+| `facilities_denied` | INT | Count of denials |
+| `discord_channel_id` | NVARCHAR(32) | Coordination thread channel |
+| `discord_message_id` | NVARCHAR(32) | Coordination message |
+| `program_id` | INT | FK to tmi_programs (if promoted) |
+
+#### tmi_proposal_facilities
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INT | Primary key |
+| `proposal_id` | INT | FK to tmi_proposals |
+| `facility_code` | NVARCHAR(8) | Facility code |
+| `role` | NVARCHAR(16) | REQUESTING, PROVIDING, AFFECTED |
+| `status` | NVARCHAR(16) | PENDING, APPROVED, DENIED |
+| `responded_at` | DATETIME2(0) | Response timestamp |
+| `responded_by` | NVARCHAR(64) | Responding user |
+
+#### tmi_proposal_reactions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INT | Primary key |
+| `proposal_id` | INT | FK to tmi_proposals |
+| `facility_code` | NVARCHAR(8) | Reacting facility |
+| `reaction_type` | NVARCHAR(16) | APPROVE, DENY |
+| `user_id` | NVARCHAR(64) | Reacting user |
+| `reacted_at` | DATETIME2(0) | Reaction timestamp |
+
+### TMI Reroute Support Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_reroute_routes` | Reroute route strings per origin/destination pair |
+| `tmi_reroute_drafts` | User-saved reroute drafts |
+
+#### tmi_reroute_routes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `route_id` | INT | Primary key (identity) |
+| `reroute_id` | INT | FK to tmi_reroutes |
+| `origin` | NVARCHAR(4) | Origin airport |
+| `destination` | NVARCHAR(4) | Destination airport |
+| `route_string` | NVARCHAR(MAX) | Route string for this O/D pair |
+| `origin_filter` | NVARCHAR(MAX) | Origin filter criteria |
+| `dest_filter` | NVARCHAR(MAX) | Destination filter criteria |
+
+#### tmi_reroute_drafts
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `draft_id` | INT | Primary key (identity) |
+| `reroute_id` | INT | FK to tmi_reroutes (if editing existing) |
+| `user_id` | NVARCHAR(64) | Draft owner CID |
+| `draft_data` | NVARCHAR(MAX) | Draft reroute data (JSON) |
+| `status` | NVARCHAR(16) | DRAFT, SUBMITTED |
+| `created_at` | DATETIME2(0) | Creation timestamp |
+| `updated_at` | DATETIME2(0) | Last update timestamp |
+
+### TMI Airport & Delay Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_airport_configs` | TMI airport configuration snapshots |
+| `tmi_delay_entries` | Delay reports and trends |
+| `tmi_discord_posts` | Discord message posting queue (multi-org) |
+
+#### tmi_airport_configs
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `config_id` | INT | Primary key (identity) |
+| `config_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `airport` | NVARCHAR(4) | Airport code |
+| `timestamp_utc` | DATETIME2(0) | Config snapshot timestamp |
+| `conditions` | NVARCHAR(16) | Weather conditions (VMC, IFR, etc.) |
+| `arrival_runways` | NVARCHAR(MAX) | Active arrival runways |
+| `departure_runways` | NVARCHAR(MAX) | Active departure runways |
+| `aar` | INT | Airport Acceptance Rate |
+| `adr` | INT | Airport Departure Rate |
+| `source_type` | NVARCHAR(16) | Source (ATIS, MANUAL, AUTO) |
+| `event_id` | INT | FK to tmi_events (triggering event) |
+
+#### tmi_delay_entries
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `delay_id` | INT | Primary key (identity) |
+| `delay_guid` | UNIQUEIDENTIFIER | External reference GUID |
+| `delay_type` | NVARCHAR(16) | Delay classification |
+| `airport` | NVARCHAR(4) | Affected airport |
+| `facility` | NVARCHAR(8) | Reporting facility |
+| `timestamp_utc` | DATETIME2(0) | Report timestamp |
+| `delay_minutes` | INT | Average delay (minutes) |
+| `delay_trend` | NVARCHAR(16) | INCREASING, STABLE, DECREASING |
+| `holding_status` | NVARCHAR(16) | Holding status |
+| `holding_fix` | NVARCHAR(8) | Holding fix (if applicable) |
+| `reason` | NVARCHAR(256) | Delay reason |
+| `program_id` | INT | FK to tmi_programs (if TMI-related) |
+
+#### tmi_discord_posts
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `post_id` | INT | Primary key (identity) |
+| `entity_type` | NVARCHAR(16) | Entity type (PROGRAM, ADVISORY, ENTRY) |
+| `entity_id` | INT | Entity ID |
+| `org_code` | NVARCHAR(8) | Discord organization code |
+| `channel_purpose` | NVARCHAR(32) | Channel purpose (NTML, ADVZY, etc.) |
+| `channel_id` | NVARCHAR(32) | Discord channel ID |
+| `message_id` | NVARCHAR(32) | Discord message ID |
+| `status` | NVARCHAR(16) | PENDING, SENT, FAILED, RETRY |
+| `retry_count` | INT | Number of retry attempts |
+| `direction` | NVARCHAR(8) | OUTBOUND or INBOUND |
+| `approval_status` | NVARCHAR(16) | Approval status (for coordination) |
 
 ---
 
@@ -722,10 +1068,44 @@ Critical indexes for performance:
 ## Migrations
 
 Migrations are located in:
-- `database/migrations/` - MySQL
-- `adl/migrations/` - Azure SQL
+- `database/migrations/` - MySQL and Azure SQL feature migrations
+- `adl/migrations/` - ADL-specific schema changes
 
 Apply in numerical order within each category.
+
+### v18 Migrations
+
+| Migration | Database | Purpose |
+|-----------|----------|---------|
+| `database/migrations/nod/001_facility_flow_tables.sql` | VATSIM_ADL | NOD facility flow configs, elements, and gates |
+| `database/migrations/nod/002_flow_element_fea_linkage.sql` | VATSIM_ADL | Flow element FEA (Flow Element Analysis) linkage |
+| `database/migrations/tmr/` | perti_site (MySQL) | TMR report table (`r_tmr_reports`) |
+| `adl/migrations/oooi/010_airport_taxi_reference.sql` | VATSIM_ADL | Airport taxi reference and detail tables, stored procedure |
+
+### Earlier Migration Directories
+
+| Directory | Feature Area |
+|-----------|-------------|
+| `database/migrations/tmi/` | TMI programs, slots, procedures, views |
+| `database/migrations/swim/` | SWIM API schema (FIXM tables, telemetry, keys) |
+| `database/migrations/schema/` | ADL schema changes, splits, ACD data |
+| `database/migrations/postgis/` | PostGIS boundary tables |
+| `database/migrations/gdp/` | GDP-specific tables |
+| `database/migrations/initiatives/` | Plan initiative timeline |
+| `database/migrations/jatoc/` | Incident reporting |
+| `database/migrations/reroute/` | Reroute tables |
+| `database/migrations/sua/` | Special Use Airspace |
+| `database/migrations/advisories/` | DCC/NOD advisories |
+| `database/migrations/vatsim_stats/` | Statistics schema |
+| `database/migrations/adl/` | ADL event tables |
+| `adl/migrations/core/` | Core 8-table flight schema |
+| `adl/migrations/boundaries/` | Boundary detection |
+| `adl/migrations/crossings/` | Boundary crossing predictions |
+| `adl/migrations/demand/` | Fix/segment demand functions |
+| `adl/migrations/eta/` | ETA trajectory calculation |
+| `adl/migrations/navdata/` | Waypoint/procedure imports |
+| `adl/migrations/changelog/` | Flight change tracking triggers |
+| `adl/migrations/cifp/` | CIFP procedure legs |
 
 ---
 
