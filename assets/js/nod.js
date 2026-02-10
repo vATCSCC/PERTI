@@ -6984,26 +6984,39 @@
     function renderFlowConfig() {
         const config = state.flows.activeConfig;
 
-        // Render each section
-        renderFlowSection('flow-arr-fixes-list', 'flow-arr-fixes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
-            'No arrival fixes configured');
+        const sections = [
+            { list: 'flow-arr-fixes-list', count: 'flow-arr-fixes-count', section: 'section-flow-arr-fixes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
+              empty: 'No arrival fixes configured' },
+            { list: 'flow-dep-fixes-list', count: 'flow-dep-fixes-count', section: 'section-flow-dep-fixes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
+              empty: 'No departure fixes configured' },
+            { list: 'flow-procedures-list', count: 'flow-procedures-count', section: 'section-flow-procedures',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
+              empty: 'No procedures configured' },
+            { list: 'flow-routes-list', count: 'flow-routes-count', section: 'section-flow-routes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
+              empty: 'No routes configured' },
+        ];
 
-        renderFlowSection('flow-dep-fixes-list', 'flow-dep-fixes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
-            'No departure fixes configured');
+        sections.forEach(s => {
+            renderFlowSection(s.list, s.count, s.items, s.empty);
+            // Auto-expand sections that have content
+            const sectionEl = document.getElementById(s.section);
+            if (sectionEl && s.items.length > 0) {
+                sectionEl.classList.add('expanded');
+            }
+        });
 
         renderFlowGatesSection(
             config ? (config.gates || []) : [],
             config ? (config.elements || []).filter(e => e.gate_id) : []);
 
-        renderFlowSection('flow-procedures-list', 'flow-procedures-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
-            'No procedures configured');
-
-        renderFlowSection('flow-routes-list', 'flow-routes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
-            'No routes configured');
+        // Auto-expand gates if any exist
+        const gateSection = document.getElementById('section-flow-gates');
+        if (gateSection && config && (config.gates || []).length > 0) {
+            gateSection.classList.add('expanded');
+        }
     }
 
     /**
@@ -7132,6 +7145,10 @@
         const containerId = sectionMap[`${elementType}_${direction}`] || sectionMap[`${elementType}_ARRIVAL`];
         const container = document.getElementById(containerId);
         if (!container) return;
+
+        // Expand the parent section so the form is visible
+        const section = container.closest('.nod-section');
+        if (section) section.classList.add('expanded');
 
         // Remove any existing add forms
         document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
@@ -7280,6 +7297,10 @@
 
         const container = document.getElementById('flow-gates-list');
         if (!container) return;
+
+        // Expand the gates section
+        const section = container.closest('.nod-section');
+        if (section) section.classList.add('expanded');
 
         document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
 
