@@ -135,12 +135,10 @@ try {
 // Build Statsim URL
 $statsim_url = '';
 if (!empty($defaults['airports']) && !empty($defaults['from']) && !empty($defaults['to'])) {
-    $statsim_url = 'https://statsim.net/events/custom/?' . http_build_query([
-        'airports' => str_replace(' ', '', $defaults['airports']),
-        'period' => 'custom',
-        'from' => $defaults['from'],
-        'to' => $defaults['to']
-    ]);
+    $fromISO = str_replace(' ', 'T', $defaults['from']);
+    $toISO = str_replace(' ', 'T', $defaults['to']);
+    $airports_clean = str_replace(' ', '', $defaults['airports']);
+    $statsim_url = 'https://statsim.net/events/custom/' . rawurlencode($fromISO) . '/' . rawurlencode($toISO) . '/' . $airports_clean;
 }
 
 echo json_encode([

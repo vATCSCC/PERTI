@@ -2,7 +2,9 @@
 const puppeteer = require('puppeteer');
 
 async function scrapeStatsim(airports, fromDate, toDate) {
-    const url = `https://statsim.net/events/custom/?airports=${encodeURIComponent(airports)}&period=custom&from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
+    const fromISO = fromDate.replace(' ', 'T');
+    const toISO = toDate.replace(' ', 'T');
+    const url = `https://statsim.net/events/custom/${encodeURIComponent(fromISO)}/${encodeURIComponent(toISO)}/${airports}`;
 
     let browser;
     try {
