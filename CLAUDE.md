@@ -108,6 +108,26 @@ $conn = get_conn_gis();   // VATSIM_GIS
 - PostgreSQL uses **PDO pgsql** extension
 - Use `PERTI\Lib\Database` class for parameterized queries (see `lib/Database.php`)
 
+#### `PERTI_MYSQL_ONLY` Optimization
+
+Endpoints that only need MySQL can skip the 5 eager Azure SQL connections by defining `PERTI_MYSQL_ONLY` before including `connect.php`:
+
+```php
+include("../../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
+include("../../../load/connect.php");
+```
+
+This skips `$conn_adl`, `$conn_swim`, `$conn_tmi`, `$conn_ref`, and `$conn_gis` initialization (~500-1000ms saved per request). The `$conn_*` globals remain `null` so code checking them will see falsy values.
+
+**Applied to**: `api/data/plans/`, `api/data/sheet/`, `api/data/review/`, and most `api/mgt/` plan endpoints (~98 files).
+
+**NEVER apply to** files that use Azure SQL connections (`$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, `$conn_gis`). Always `grep` for these before adding the flag. Known Azure SQL users in the API layer:
+- `api/mgt/config_data/` (bulk, post, update, delete) — uses `$conn_adl`
+- `api/mgt/tmi/reroutes/`, `api/mgt/tmi/airport_configs.php` — uses `$conn_adl`, `$conn_tmi`
+- `api/mgt/sua/` — uses `$conn_adl`
+- `api/data/configs.php`, `api/data/tmi/reroute.php`, `api/data/sua/`, `api/data/rate_history.php`, `api/data/weather_impacts.php` — uses `$conn_adl`
+
 ### Key Database Tables by Database
 
 Column format: `column_name (type)` — PK = primary key, FK = foreign key reference.
