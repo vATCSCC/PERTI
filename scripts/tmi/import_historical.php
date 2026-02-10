@@ -26,7 +26,10 @@
  */
 
 if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
     header('Content-Type: application/json');
+    echo json_encode(['error' => 'This script must be run from the command line']);
+    exit(1);
 }
 
 // =============================================================================
@@ -50,20 +53,11 @@ $CREATED_BY_NAME = 'Historical Import';
 // Input Handling
 // =============================================================================
 
-// Accept both POST and CLI
-if (php_sapi_name() === 'cli') {
-    $input = file_get_contents('php://stdin');
-    if (empty($input)) {
-        echo json_encode(['error' => 'No input provided. Pipe JSON to stdin.']);
-        exit(1);
-    }
-} else {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        http_response_code(405);
-        echo json_encode(['error' => 'POST required']);
-        exit;
-    }
-    $input = file_get_contents('php://input');
+// CLI only — read JSON from stdin
+$input = file_get_contents('php://stdin');
+if (empty($input)) {
+    echo json_encode(['error' => 'No input provided. Pipe JSON to stdin.']);
+    exit(1);
 }
 
 $payload = json_decode($input, true);
@@ -87,7 +81,13 @@ if (!empty($payload['ntml_raw'])) {
     $preParsedEntries = parseNtmlFile($payload['ntml_raw']);
 } elseif (!empty($payload['ntml_file'])) {
     $INPUT_MODE = 'ntml';
-    $fileContent = @file_get_contents($payload['ntml_file']);
+    $filePath = realpath($payload['ntml_file']);
+    $allowedDir = realpath(__DIR__ . '/../../DCC');
+    if ($filePath === false || ($allowedDir !== false && strpos($filePath, $allowedDir) !== 0)) {
+        echo json_encode(['error' => 'ntml_file must be within the DCC/ directory']);
+        exit(1);
+    }
+    $fileContent = @file_get_contents($filePath);
     if ($fileContent === false) {
         echo json_encode(['error' => 'Cannot read ntml_file: ' . $payload['ntml_file']]);
         exit(1);
@@ -98,7 +98,13 @@ if (!empty($payload['ntml_raw'])) {
     $preParsedEntries = parseAdvzyFile($payload['advzy_raw']);
 } elseif (!empty($payload['advzy_file'])) {
     $INPUT_MODE = 'advzy';
-    $fileContent = @file_get_contents($payload['advzy_file']);
+    $filePath = realpath($payload['advzy_file']);
+    $allowedDir = realpath(__DIR__ . '/../../DCC');
+    if ($filePath === false || ($allowedDir !== false && strpos($filePath, $allowedDir) !== 0)) {
+        echo json_encode(['error' => 'advzy_file must be within the DCC/ directory']);
+        exit(1);
+    }
+    $fileContent = @file_get_contents($filePath);
     if ($fileContent === false) {
         echo json_encode(['error' => 'Cannot read advzy_file: ' . $payload['advzy_file']]);
         exit(1);
