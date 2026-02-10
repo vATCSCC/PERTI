@@ -1916,6 +1916,12 @@ class TMIComplianceAnalyzer:
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
             elif dep_time > gs_end:
+                # Only count if departed within reasonable window after GS ended
+                gs_duration_min = (gs_end - gs_start).total_seconds() / 60
+                max_hold_window_min = max(gs_duration_min * 3, 120)
+                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
+                if time_after_gs_min > max_hold_window_min:
+                    continue  # Not GS-related, just normal traffic
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
@@ -1935,7 +1941,7 @@ class TMIComplianceAnalyzer:
             'gs_end': gs_end.strftime('%H:%MZ'),
             'gs_issued': gs_issued.strftime('%H:%MZ'),
             'cancelled': tmi.cancelled_utc is not None,
-            'total_flights': len(flights),
+            'total_flights': len(exempt) + len(compliant) + len(non_compliant),
             'exempt': exempt,
             'compliant': compliant,
             'non_compliant': non_compliant,
@@ -2137,14 +2143,22 @@ class TMIComplianceAnalyzer:
                 per_origin[dept]['exempt'] += 1
                 per_carrier[carrier]['exempt'] += 1
             elif gs_end and dep_time > gs_end:
+                # Only count as GS-affected if departed within reasonable window after GS ended
+                # Flights departing hours later are normal traffic, not held by the GS
+                gs_duration_min = (gs_end - gs_start).total_seconds() / 60 if gs_start else 60
+                max_hold_window_min = max(gs_duration_min * 3, 120)  # 3x GS duration or 2 hours, whichever is larger
+                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
+                if time_after_gs_min > max_hold_window_min:
+                    continue  # Skip - departed too long after GS to be related
+
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
                 per_origin[dept]['compliant'] += 1
                 per_carrier[carrier]['compliant'] += 1
-                # Calculate hold time (how long they waited)
-                if gs_start:
-                    hold_min = (dep_time - gs_start).total_seconds() / 60
+                # Calculate hold time: how long after GS ended they departed
+                if gs_end:
+                    hold_min = (dep_time - gs_end).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
                         per_origin[dept]['hold_times'].append(hold_min)
@@ -2223,7 +2237,7 @@ class TMIComplianceAnalyzer:
             'gs_issued': first_issued.strftime('%H:%MZ') if first_issued else None,
             'cancelled': program.is_cancelled(),
             'ended_by': program.ended_by,
-            'total_flights': len(flights),
+            'total_flights': len(exempt) + len(compliant) + len(non_compliant) + len(not_in_scope),
             'exempt': exempt,
             'compliant': compliant,
             'non_compliant': non_compliant,
