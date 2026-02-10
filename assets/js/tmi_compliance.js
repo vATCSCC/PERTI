@@ -7609,19 +7609,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        // For proportional mode, compute scale factor
+        // For proportional mode, compute scale factor to fit container
         let pixelsPerUnit = 0;
         if (isProportional && allPairs.length > 0) {
-            const maxSpacing = Math.max(...allPairs.map(p => p.spacing || 0));
-            // Target: largest segment ~200px, minimum segment 30px
-            if (maxSpacing > 0) {
-                pixelsPerUnit = 200 / maxSpacing;
-                // Ensure minimum visibility for small values
+            const totalSpacing = allPairs.reduce((sum, p) => sum + (p.spacing || 0), 0);
+            // Target total width ~700px for segments, leaving room for flight dots (~50px each)
+            const flightDotWidth = flights.length * 50;
+            const availableForSegments = Math.max(300, 700 - flightDotWidth * 0.3);
+            if (totalSpacing > 0) {
+                pixelsPerUnit = availableForSegments / totalSpacing;
+                // Clamp: minimum 8px per segment, maximum 120px per segment
+                const maxSpacing = Math.max(...allPairs.map(p => p.spacing || 0));
+                if (maxSpacing * pixelsPerUnit > 120) pixelsPerUnit = 120 / maxSpacing;
                 const positiveSpacings = allPairs.filter(p => p.spacing > 0).map(p => p.spacing);
                 const minSpacing = positiveSpacings.length > 0 ? Math.min(...positiveSpacings) : maxSpacing;
-                if (minSpacing > 0 && minSpacing * pixelsPerUnit < 30) {
-                    pixelsPerUnit = 30 / minSpacing;
-                }
+                if (minSpacing > 0 && minSpacing * pixelsPerUnit < 8) pixelsPerUnit = 8 / minSpacing;
             }
         }
 
@@ -7652,12 +7654,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 } else if (flight.spacing !== undefined) {
                     // Render segment line between consecutive flights
                     const isNonCompliant = flight.category === 'UNDER';
-                    const segStyle = isProportional && pixelsPerUnit > 0
-                        ? `width:${Math.max(30, Math.round(flight.spacing * pixelsPerUnit))}px; min-width:30px;`
-                        : '';
-                    const lineStyle = isProportional && pixelsPerUnit > 0
-                        ? `min-width:${Math.max(20, Math.round(flight.spacing * pixelsPerUnit) - 10)}px;`
-                        : '';
+                    const segPx = isProportional && pixelsPerUnit > 0
+                        ? Math.max(8, Math.round(flight.spacing * pixelsPerUnit)) : 0;
+                    const segStyle = segPx > 0 ? `width:${segPx}px; min-width:8px; padding:0 2px;` : '';
+                    const lineStyle = segPx > 0 ? `min-width:${Math.max(4, segPx - 4)}px;` : '';
                     html += `
                         <div class="tmi-spacing-segment" style="${segStyle}">
                             <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}" style="${lineStyle}"></div>
