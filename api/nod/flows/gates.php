@@ -199,11 +199,11 @@ function handlePost($conn) {
     $params = [
         intval($input['config_id']),
         $input['gate_name'],
-        $input['direction'] ?? null,
-        $input['color'] ?? null,
+        $input['direction'] ?? 'ARRIVAL',
+        $input['color'] ?? '#17a2b8',
         $input['label_format'] ?? null,
         $input['sort_order'] ?? 0,
-        $input['auto_fea'] ?? null
+        $input['auto_fea'] ?? 0
     ];
 
     $stmt = sqlsrv_query($conn, $sql, $params);
