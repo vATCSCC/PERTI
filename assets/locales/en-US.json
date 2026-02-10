@@ -1821,5 +1821,123 @@
       "publishedMsg": "{airport} configuration published to NTML",
       "publishFailed": "Publish Failed"
     }
+  },
+  "tmr": {
+    "status": {
+      "loading": "Loading...",
+      "loadFailed": "Load failed",
+      "newReport": "New report",
+      "draft": "Draft",
+      "saved": "Saved",
+      "saving": "Saving...",
+      "saveFailed": "Save failed",
+      "generating": "Generating..."
+    },
+    "tmi": {
+      "loadFromDb": "Load TMIs from Database",
+      "queryingDb": "Querying TMI database...",
+      "loadFailed": "Failed to load TMIs",
+      "errorPrefix": "Error: {message}",
+      "foundCount": "{count} TMI(s) found for event window",
+      "addedEntries": {
+        "one": "{count} entry added",
+        "other": "{count} entries added"
+      },
+      "emptyHint": "Click \"Load TMIs from Database\" or add entries manually.",
+      "missingInfo": "Missing Info",
+      "missingInfoText": "Enter at least an element or detail.",
+      "nothingToParse": "Nothing to parse",
+      "nothingToParseText": "Paste NTML entries first.",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "batchAssess": "Batch Assess",
+      "searchPlaceholder": "Search TMIs...",
+      "importCompliance": "Import from Compliance Analysis",
+      "source": {
+        "db": "DB",
+        "manual": "Manual",
+        "saved": "Saved"
+      },
+      "category": {
+        "ntml": "NTML",
+        "program": "Program",
+        "advisory": "Advisory",
+        "reroute": "Reroute",
+        "manual": "Manual"
+      }
+    },
+    "assessment": {
+      "complied": "Complied",
+      "effective": "Effective",
+      "timely": "Timely",
+      "notes": "Assessment Notes",
+      "yes": "Y",
+      "no": "N",
+      "na": "N/A"
+    },
+    "export": {
+      "button": "Export to Discord",
+      "failed": "Export Failed",
+      "failedText": "Unknown error",
+      "failedNetwork": "Network error",
+      "copiedToClipboard": "Copied to Clipboard",
+      "done": "Done",
+      "characters": "{count} characters"
+    },
+    "trigger": {
+      "holding15": "Airborne holding in excess of 15 minutes",
+      "delays30": "Departure delays in excess of 30 minutes",
+      "noNoticeHolding": "No notice airborne holding",
+      "reroutes": "Reroutes",
+      "groundStop": "Ground stop",
+      "gdp": "Ground Delay Program",
+      "equipment": "Equipment",
+      "dccInitiated": "DCC-initiated TMR",
+      "other": "Other (specify)",
+      "otherPlaceholder": "Describe the trigger..."
+    },
+    "weather": {
+      "fetchMetars": "Fetch METARs",
+      "fetching": "Fetching METARs...",
+      "noMetars": "No METARs found for this time window.",
+      "fetchFailed": "Failed to fetch METARs",
+      "category": {
+        "vfr": "VFR",
+        "mvfr": "MVFR",
+        "ifr": "IFR",
+        "lifr": "LIFR"
+      },
+      "dominantCategory": "Dominant category: {category}",
+      "metarTimeline": "METAR Timeline"
+    },
+    "staffing": {
+      "loadPlanned": "Load Planned Staffing",
+      "loading": "Loading staffing data...",
+      "noData": "No staffing data found for this plan.",
+      "planned": "Planned",
+      "actual": "Actual",
+      "adequate": "Adequate",
+      "short": "Short",
+      "overstaffed": "Overstaffed",
+      "facility": "Facility",
+      "status": "Status",
+      "quantity": "Quantity",
+      "comments": "Comments",
+      "terminal": "Terminal",
+      "enroute": "Enroute",
+      "dcc": "DCC"
+    },
+    "opsPlan": {
+      "loadGoals": "Load Plan Goals",
+      "loading": "Loading plan data...",
+      "noGoals": "No operational goals found for this plan.",
+      "noInitiatives": "No initiatives found for this plan.",
+      "met": "Met",
+      "notMet": "Not Met",
+      "partial": "Partial",
+      "goal": "Goal",
+      "assessment": "Assessment",
+      "initiatives": "Initiatives"
+    }
   }
 }

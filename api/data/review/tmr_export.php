@@ -69,10 +69,16 @@ $triggerLabels = [
     'ground_stop' => 'Ground stop',
     'gdp' => 'Ground Delay Program',
     'equipment' => 'Equipment',
+    'dcc_initiated' => 'DCC-initiated TMR',
+    'other' => 'Other',
 ];
 $triggerList = [];
 foreach ($triggers as $key) {
-    $triggerList[] = $triggerLabels[$key] ?? $key;
+    $label = $triggerLabels[$key] ?? $key;
+    if ($key === 'other' && !empty($report['tmr_trigger_other_text'])) {
+        $label .= ': ' . $report['tmr_trigger_other_text'];
+    }
+    $triggerList[] = $label;
 }
 $lines[] = '**TMR Triggers:** ' . (count($triggerList) > 0 ? implode(', ', $triggerList) : 'None');
 $lines[] = '';
@@ -108,6 +114,14 @@ if (is_array($tmiList) && count($tmiList) > 0) {
             $tmiLine = '- ' . ($tmi['type'] ?? 'TMI') . ' | ' . ($tmi['element'] ?? '');
             if (!empty($tmi['start_utc']) || !empty($tmi['end_utc'])) {
                 $tmiLine .= ' | ' . ($tmi['start_utc'] ?? '?') . '-' . ($tmi['end_utc'] ?? '?');
+            }
+            // Per-TMI C/E/T assessment
+            $cet = [];
+            if (isset($tmi['complied'])) $cet[] = 'C:' . $tmi['complied'];
+            if (isset($tmi['effective'])) $cet[] = 'E:' . $tmi['effective'];
+            if (isset($tmi['timely'])) $cet[] = 'T:' . $tmi['timely'];
+            if (!empty($cet)) {
+                $tmiLine .= ' [' . implode(' ', $cet) . ']';
             }
             $lines[] = $tmiLine;
         } else {
