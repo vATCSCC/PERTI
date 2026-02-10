@@ -6985,11 +6985,11 @@
         const config = state.flows.activeConfig;
 
         // Render each section
-        renderFlowSection('flow-arr-fixes', 'flow-arr-fixes-count',
+        renderFlowSection('flow-arr-fixes-list', 'flow-arr-fixes-count',
             config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
             'No arrival fixes configured');
 
-        renderFlowSection('flow-dep-fixes', 'flow-dep-fixes-count',
+        renderFlowSection('flow-dep-fixes-list', 'flow-dep-fixes-count',
             config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
             'No departure fixes configured');
 
@@ -6997,11 +6997,11 @@
             config ? (config.gates || []) : [],
             config ? (config.elements || []).filter(e => e.gate_id) : []);
 
-        renderFlowSection('flow-procedures', 'flow-procedures-count',
+        renderFlowSection('flow-procedures-list', 'flow-procedures-count',
             config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
             'No procedures configured');
 
-        renderFlowSection('flow-routes', 'flow-routes-count',
+        renderFlowSection('flow-routes-list', 'flow-routes-count',
             config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
             'No routes configured');
     }
