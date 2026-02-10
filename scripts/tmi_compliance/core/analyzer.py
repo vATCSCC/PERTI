@@ -2084,15 +2084,18 @@ class TMIComplianceAnalyzer:
 
             # Determine which advisory phase this flight's departure falls in
             phase = None
+            phase_type = None
             for adv in program.advisories:
                 if adv.advisory_type == 'CNX':
                     continue
                 if adv.gs_period_start and adv.gs_period_end:
                     if adv.gs_period_start <= dep_time <= adv.gs_period_end:
                         phase = adv.advzy_number
+                        phase_type = adv.advisory_type
                         break
 
             flight_info['phase'] = phase
+            flight_info['phase_type'] = phase_type
 
             # Determine compliance
             if first_issued and dep_time < first_issued:
