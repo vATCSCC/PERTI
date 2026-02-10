@@ -186,13 +186,13 @@ const WeatherImpact = (function() {
      * Build summary panel HTML
      */
     function buildSummaryPanel() {
-        if (!stats) {return '<div class="weather-impact-loading">Loading...</div>';}
+        if (!stats) {return '<div class="weather-impact-loading">' + PERTII18n.t('common.loading') + '</div>';}
 
         if (stats.flights_affected === 0) {
             return `
                 <div class="weather-impact-clear">
                     <i class="fa fa-check-circle"></i>
-                    <span>No weather impacts</span>
+                    <span>${PERTII18n.t('weather.noImpacts')}</span>
                 </div>
             `;
         }
@@ -201,19 +201,19 @@ const WeatherImpact = (function() {
             <div class="weather-impact-summary">
                 <div class="impact-stat">
                     <span class="stat-value">${stats.flights_affected}</span>
-                    <span class="stat-label">Flights Affected</span>
+                    <span class="stat-label">${PERTII18n.t('weather.flightsAffected')}</span>
                 </div>
                 <div class="impact-stat direct">
                     <span class="stat-value">${stats.direct_impacts}</span>
-                    <span class="stat-label">Direct</span>
+                    <span class="stat-label">${PERTII18n.t('weather.direct')}</span>
                 </div>
                 <div class="impact-stat near">
                     <span class="stat-value">${stats.near_impacts}</span>
-                    <span class="stat-label">Near</span>
+                    <span class="stat-label">${PERTII18n.t('weather.near')}</span>
                 </div>
                 <div class="impact-stat alerts">
                     <span class="stat-value">${stats.active_alerts}</span>
-                    <span class="stat-label">Active Alerts</span>
+                    <span class="stat-label">${PERTII18n.t('weather.activeAlerts')}</span>
                 </div>
             </div>
         `;
@@ -224,7 +224,7 @@ const WeatherImpact = (function() {
      */
     function buildAffectedList() {
         if (affectedFlights.size === 0) {
-            return '<div class="no-affected-flights">No flights currently affected</div>';
+            return '<div class="no-affected-flights">' + PERTII18n.t('weather.noFlightsAffected') + '</div>';
         }
 
         let html = '<div class="affected-flights-list">';
@@ -264,7 +264,7 @@ const WeatherImpact = (function() {
             }
 
             if (flights.length > 20) {
-                html += `<div class="more-flights">+${flights.length - 20} more</div>`;
+                html += `<div class="more-flights">${PERTII18n.t('weather.moreFlights', { count: flights.length - 20 })}</div>`;
             }
 
             html += '</div></div>';

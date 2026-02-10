@@ -3275,7 +3275,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>No active ground stops</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>' + PERTII18n.t('nod.tmi.noActiveGS') + '</p></div>';
             return;
         }
 
@@ -3293,7 +3293,7 @@
                     ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
-                    ${gs.comments ? escapeHtml(gs.comments) : 'Ground Stop in effect'}
+                    ${gs.comments ? escapeHtml(gs.comments) : PERTII18n.t('nod.tmi.gsInEffect')}
                 </div>
                 ${probExt || origins || held ? `<div class="nod-tmi-info">${[probExt, origins, held].filter(Boolean).join('<br>')}</div>` : ''}
                 <div class="nod-tmi-time">
@@ -3324,7 +3324,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>No active GDPs</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>' + PERTII18n.t('nod.tmi.noActiveGDPs') + '</p></div>';
             return;
         }
 
@@ -3345,7 +3345,7 @@
                     ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
-                    ${gdp.impacting_condition ? escapeHtml(gdp.impacting_condition) : 'Ground Delay Program'}
+                    ${gdp.impacting_condition ? escapeHtml(gdp.impacting_condition) : PERTII18n.t('tmi.gdp')}
                 </div>
                 ${controlled > 0 || exempt > 0 ? `<div class="nod-tmi-info">
                     <span class="nod-tmi-metric">Controlled: <strong>${controlled}</strong></span>
@@ -3384,7 +3384,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>No active reroutes</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-check-circle"></i><p>' + PERTII18n.t('nod.tmi.noActiveReroutes') + '</p></div>';
             return;
         }
 
@@ -3439,7 +3439,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-route"></i><p>No public routes active</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-route"></i><p>' + PERTII18n.t('nod.tmi.noPublicRoutes') + '</p></div>';
             return;
         }
 
@@ -3450,8 +3450,8 @@
                     <span class="nod-tmi-airport">${escapeHtml(pr.name || 'Public Route')}</span>
                 </div>
                 <div class="nod-tmi-info">
-                    ${pr.constrained_area ? `Area: ${escapeHtml(pr.constrained_area)}` : ''}
-                    ${pr.reason ? `<br>Reason: ${escapeHtml(pr.reason)}` : ''}
+                    ${pr.constrained_area ? `${PERTII18n.t('nod.tmi.area')}: ${escapeHtml(pr.constrained_area)}` : ''}
+                    ${pr.reason ? `<br>${PERTII18n.t('nod.tmi.reason')}: ${escapeHtml(pr.reason)}` : ''}
                 </div>
                 <div class="nod-tmi-time">
                     ${formatTimeRange(pr.valid_start_utc, pr.valid_end_utc)}
@@ -3576,8 +3576,8 @@
             container.innerHTML = `
                 <div class="nod-empty">
                     <i class="fab fa-discord"></i>
-                    <p>No active Discord TMIs</p>
-                    <small class="text-muted">Configure Discord integration to see TMIs</small>
+                    <p>${PERTII18n.t('nod.discord.noActiveTMIs')}</p>
+                    <small class="text-muted">${PERTII18n.t('nod.discord.configureHint')}</small>
                 </div>
             `;
             return;
@@ -3591,7 +3591,7 @@
                 </div>
                 <div class="nod-tmi-info">${escapeHtml(tmi.reason || tmi.raw_content?.substring(0, 100) || '')}</div>
                 <div class="nod-tmi-time">
-                    Received: ${formatDateTime(tmi.received_at)}
+                    ${PERTII18n.t('nod.discord.received')}: ${formatDateTime(tmi.received_at)}
                 </div>
             </div>
         `).join('');
@@ -3605,9 +3605,9 @@
             container.innerHTML = `
                 <div class="nod-empty">
                     <i class="fas fa-bullhorn"></i>
-                    <p>No advisories today</p>
+                    <p>${PERTII18n.t('nod.advisories.noAdvisories')}</p>
                     <button class="btn btn-sm btn-outline-primary mt-2" onclick="NOD.showAdvisoryModal()">
-                        <i class="fas fa-plus mr-1"></i> Create Advisory
+                        <i class="fas fa-plus mr-1"></i> ${PERTII18n.t('nod.advisories.create')}
                     </button>
                 </div>
             `;
@@ -3640,7 +3640,7 @@
             container.innerHTML = `
                 <div class="nod-empty">
                     <i class="fas fa-check-circle text-success"></i>
-                    <p>No active incidents</p>
+                    <p>${PERTII18n.t('nod.incidents.noActive')}</p>
                 </div>
             `;
             return;
@@ -3672,7 +3672,7 @@
             const typeColor = incidentTypeColors[typeKey] || incidentTypeColors[typeClass] || '#6c757d';
 
             // Use trigger_desc or remarks for description
-            const description = inc.trigger_desc || inc.remarks || 'No details';
+            const description = inc.trigger_desc || inc.remarks || PERTII18n.t('nod.incidents.noDetails');
             // Use start_utc for opened time
             const openedTime = inc.start_utc || inc.opened_at;
             // Use update_utc, updated_at, or created_utc for last update
@@ -3681,10 +3681,10 @@
             // Build the time info line
             let timeInfo = `#${inc.incident_number || inc.id || '?'}`;
             if (openedTime) {
-                timeInfo += ` · Opened: ${formatDateTime(openedTime)}`;
+                timeInfo += ` · ${PERTII18n.t('nod.incidents.opened')}: ${formatDateTime(openedTime)}`;
             }
             if (lastUpdated && lastUpdated !== openedTime) {
-                timeInfo += ` · Updated: ${formatDateTime(lastUpdated)}`;
+                timeInfo += ` · ${PERTII18n.t('nod.incidents.updated')}: ${formatDateTime(lastUpdated)}`;
             }
             if (inc.update_count && inc.update_count > 0) {
                 timeInfo += ` (${inc.update_count} updates)`;
@@ -4101,7 +4101,7 @@
             // No active event
             badge.textContent = '—';
             badge.className = 'nod-status-badge tmu-none';
-            badge.title = 'No active PERTI Plan';
+            badge.title = PERTII18n.t('nod.tmu.noActivePlan');
         } else {
             // Active event with OpLevel
             badge.textContent = level;
@@ -4109,10 +4109,10 @@
 
             // Set tooltip with event name and level description
             const levelDescriptions = {
-                1: 'Steady State',
-                2: 'Localized Impact',
-                3: 'Regional Impact',
-                4: 'NAS-Wide Impact',
+                1: PERTII18n.t('nod.tmu.level1'),
+                2: PERTII18n.t('nod.tmu.level2'),
+                3: PERTII18n.t('nod.tmu.level3'),
+                4: PERTII18n.t('nod.tmu.level4'),
             };
             const desc = levelDescriptions[level] || '';
             badge.title = eventName ? `${eventName} - ${desc}` : desc;
@@ -4986,27 +4986,27 @@
 
         // Update mode label
         const modeLabels = {
-            'weight_class': 'Weight Class',
-            'aircraft_category': 'AC Category',
-            'aircraft_type': 'Manufacturer',
-            'aircraft_config': 'Configuration',
-            'operator_group': 'Operator',
-            'altitude': 'Altitude',
-            'speed': 'Speed',
-            'status': 'Status',
-            'arr_dep': 'Arr/Dep',
-            'dcc_region': 'DCC Region',
-            'eta_relative': 'ETA',
-            'eta_hour': 'ETA Hour',
-            'carrier': 'Carrier',
-            'dep_center': 'Dep Center',
-            'arr_center': 'Arr Center',
-            'dep_tracon': 'Dep TRACON',
-            'arr_tracon': 'Arr TRACON',
-            'dep_airport': 'Dep Airport',
-            'arr_airport': 'Arr Airport',
-            'reroute_match': 'Reroute Match',
-            'fea_match': 'FEA Match',
+            'weight_class': PERTII18n.t('nod.colorMode.weightClass'),
+            'aircraft_category': PERTII18n.t('nod.colorMode.acCategory'),
+            'aircraft_type': PERTII18n.t('nod.colorMode.manufacturer'),
+            'aircraft_config': PERTII18n.t('nod.colorMode.configuration'),
+            'operator_group': PERTII18n.t('nod.colorMode.operator'),
+            'altitude': PERTII18n.t('nod.colorMode.altitude'),
+            'speed': PERTII18n.t('nod.colorMode.speed'),
+            'status': PERTII18n.t('nod.colorMode.status'),
+            'arr_dep': PERTII18n.t('nod.colorMode.arrDep'),
+            'dcc_region': PERTII18n.t('nod.colorMode.dccRegion'),
+            'eta_relative': PERTII18n.t('nod.colorMode.eta'),
+            'eta_hour': PERTII18n.t('nod.colorMode.etaHour'),
+            'carrier': PERTII18n.t('nod.colorMode.carrier'),
+            'dep_center': PERTII18n.t('nod.colorMode.depCenter'),
+            'arr_center': PERTII18n.t('nod.colorMode.arrCenter'),
+            'dep_tracon': PERTII18n.t('nod.colorMode.depTracon'),
+            'arr_tracon': PERTII18n.t('nod.colorMode.arrTracon'),
+            'dep_airport': PERTII18n.t('nod.colorMode.depAirport'),
+            'arr_airport': PERTII18n.t('nod.colorMode.arrAirport'),
+            'reroute_match': PERTII18n.t('nod.colorMode.rerouteMatch'),
+            'fea_match': PERTII18n.t('nod.colorMode.feaMatch'),
         };
         $modeLabel.text(modeLabels[mode] || mode);
 
@@ -5029,10 +5029,10 @@
         switch (mode) {
             case 'weight_class':
                 items = [
-                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'Super' },
-                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'Heavy' },
-                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'Large' },
-                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'Small' },
+                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: PERTII18n.t('weightClass.J') },
+                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: PERTII18n.t('weightClass.H') },
+                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: PERTII18n.t('weightClass.L') },
+                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: PERTII18n.t('weightClass.S') },
                 ];
                 break;
             case 'aircraft_category':
@@ -5051,30 +5051,30 @@
                     { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['CESSNA'], label: 'Cessna' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: 'Other' },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'aircraft_config':
                 items = [
                     { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
                     { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
-                    { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: 'Quad Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: 'Heavy Twin' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: 'Tri Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: 'Twin Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: 'Regional' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: 'Turboprop' },
-                    { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: 'Prop' },
+                    { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: PERTII18n.t('nod.legend.quadJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: PERTII18n.t('nod.legend.heavyTwin') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: PERTII18n.t('nod.legend.triJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: PERTII18n.t('nod.legend.twinJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: PERTII18n.t('nod.legend.regional') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: PERTII18n.t('nod.legend.turboprop') },
+                    { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: PERTII18n.t('nod.legend.prop') },
                 ];
                 break;
             case 'operator_group':
                 items = [
-                    { color: OPERATOR_GROUP_COLORS['MAJOR'], label: 'Major' },
-                    { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: 'Regional' },
-                    { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: 'Freight' },
-                    { color: OPERATOR_GROUP_COLORS['GA'], label: 'Gen Aviation' },
-                    { color: OPERATOR_GROUP_COLORS['MILITARY'], label: 'Military' },
-                    { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' },
+                    { color: OPERATOR_GROUP_COLORS['MAJOR'], label: PERTII18n.t('nod.legend.major') },
+                    { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: PERTII18n.t('nod.legend.regional') },
+                    { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: PERTII18n.t('nod.legend.freight') },
+                    { color: OPERATOR_GROUP_COLORS['GA'], label: PERTII18n.t('nod.legend.genAviation') },
+                    { color: OPERATOR_GROUP_COLORS['MILITARY'], label: PERTII18n.t('nod.legend.military') },
+                    { color: OPERATOR_GROUP_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'wake_category':
@@ -5090,8 +5090,8 @@
                 break;
             case 'altitude':
                 items = [
-                    { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: 'Ground' },
-                    { color: ALTITUDE_BLOCK_COLORS['SURFACE'], label: 'Surface' },
+                    { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: PERTII18n.t('nod.legend.ground') },
+                    { color: ALTITUDE_BLOCK_COLORS['SURFACE'], label: PERTII18n.t('nod.legend.surface') },
                     { color: ALTITUDE_BLOCK_COLORS['LOW'], label: '<FL100' },
                     { color: ALTITUDE_BLOCK_COLORS['LOWMED'], label: 'FL100-180' },
                     { color: ALTITUDE_BLOCK_COLORS['MED'], label: 'FL180-240' },
@@ -5126,27 +5126,27 @@
                         { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
                         { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
                         { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
-                        { color: '#dc3545', label: 'GS Affected' },
-                        { color: '#ffc107', label: 'EDCT' },
+                        { color: '#dc3545', label: PERTII18n.t('nod.legend.gsAffected') },
+                        { color: '#ffc107', label: PERTII18n.t('nod.legend.edct') },
                         { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
                     ];
                 })();
                 break;
             case 'arr_dep':
                 items = [
-                    { color: ARR_DEP_COLORS['ARR'], label: 'Enroute' },
-                    { color: ARR_DEP_COLORS['DEP'], label: 'Climbing' },
-                    { color: '#666666', label: 'Ground' },
+                    { color: ARR_DEP_COLORS['ARR'], label: PERTII18n.t('nod.legend.enroute') },
+                    { color: ARR_DEP_COLORS['DEP'], label: PERTII18n.t('nod.legend.climbing') },
+                    { color: '#666666', label: PERTII18n.t('nod.legend.ground') },
                 ];
                 break;
             case 'dcc_region':
                 // Ordered by color: red, orange, yellow, green, blue
                 items = [
-                    { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                    { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                    { color: DCC_REGION_COLORS['WEST'], label: PERTII18n.t('dccRegion.west') },
+                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: PERTII18n.t('dccRegion.southCentral') },
+                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: PERTII18n.t('dccRegion.southeast') },
+                    { color: DCC_REGION_COLORS['MIDWEST'], label: PERTII18n.t('dccRegion.midwest') },
+                    { color: DCC_REGION_COLORS['NORTHEAST'], label: PERTII18n.t('dccRegion.northeast') },
                 ];
                 break;
             case 'eta_relative':
@@ -5183,7 +5183,7 @@
                     { color: CARRIER_COLORS['FFT'], label: 'Frontier' },
                     { color: CARRIER_COLORS['FDX'], label: 'FedEx' },
                     { color: CARRIER_COLORS['UPS'], label: 'UPS' },
-                    { color: CARRIER_COLORS[''], label: 'Other' },
+                    { color: CARRIER_COLORS[''], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'dep_center':
@@ -5220,20 +5220,20 @@
             case 'dep_tracon':
             case 'arr_tracon':
                 items = [
-                    { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                    { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                    { color: DCC_REGION_COLORS['WEST'], label: PERTII18n.t('dccRegion.west') },
+                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: PERTII18n.t('dccRegion.southCentral') },
+                    { color: DCC_REGION_COLORS['MIDWEST'], label: PERTII18n.t('dccRegion.midwest') },
+                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: PERTII18n.t('dccRegion.southeast') },
+                    { color: DCC_REGION_COLORS['NORTHEAST'], label: PERTII18n.t('dccRegion.northeast') },
                 ];
                 break;
             case 'dep_airport':
             case 'arr_airport':
                 items = [
-                    { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
-                    { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
-                    { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
+                    { color: AIRPORT_TIER_COLORS['CORE30'], label: PERTII18n.t('nod.legend.core30') },
+                    { color: AIRPORT_TIER_COLORS['OEP35'], label: PERTII18n.t('nod.legend.oep35') },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: PERTII18n.t('nod.legend.aspm82') },
+                    { color: AIRPORT_TIER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'reroute_match': {
@@ -5244,7 +5244,7 @@
                     label: route.name || 'Route',
                 }));
                 // Add "No Match" at the end
-                items.push({ color: '#666666', label: 'No Match' });
+                items.push({ color: '#666666', label: PERTII18n.t('nod.legend.noMatch') });
                 break;
             }
             case 'fea_match':
@@ -5257,7 +5257,7 @@
                     }));
                 }
                 // Add "No Match" at the end
-                items.push({ color: '#6c757d', label: 'No Match' });
+                items.push({ color: '#6c757d', label: PERTII18n.t('nod.legend.noMatch') });
                 break;
             default:
                 items = [{ color: '#6c757d', label: mode }];
@@ -5279,10 +5279,10 @@
         switch (mode) {
             case 'weight_class':
                 items = [
-                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'Super (▬▬)' },
-                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'Heavy (═)' },
-                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'Large (✈)' },
-                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'Small (○)' },
+                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: PERTII18n.t('weightClass.J') + ' (▬▬)' },
+                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: PERTII18n.t('weightClass.H') + ' (═)' },
+                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: PERTII18n.t('weightClass.L') + ' (✈)' },
+                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: PERTII18n.t('weightClass.S') + ' (○)' },
                 ];
                 break;
             case 'aircraft_category':
@@ -5300,20 +5300,20 @@
                     { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: 'Embraer' },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: 'Other' },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'aircraft_config':
                 items = [
                     { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
                     { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
-                    { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: 'Quad Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: 'Heavy Twin' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: 'Tri Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: 'Twin Jet' },
-                    { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: 'Regional' },
-                    { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: 'Turboprop' },
-                    { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: 'Prop' },
+                    { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: PERTII18n.t('nod.legend.quadJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: PERTII18n.t('nod.legend.heavyTwin') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: PERTII18n.t('nod.legend.triJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: PERTII18n.t('nod.legend.twinJet') },
+                    { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: PERTII18n.t('nod.legend.regional') },
+                    { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: PERTII18n.t('nod.legend.turboprop') },
+                    { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: PERTII18n.t('nod.legend.prop') },
                 ];
                 break;
             case 'wake_category':
@@ -5329,7 +5329,7 @@
                 break;
             case 'altitude':
                 items = [
-                    { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: 'Ground' },
+                    { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: PERTII18n.t('nod.legend.ground') },
                     { color: ALTITUDE_BLOCK_COLORS['LOW'], label: '<FL100' },
                     { color: ALTITUDE_BLOCK_COLORS['LOWMED'], label: 'FL100-180' },
                     { color: ALTITUDE_BLOCK_COLORS['MED'], label: 'FL180-240' },
@@ -5364,26 +5364,26 @@
                         { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
                         { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
                         { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
-                        { color: '#dc3545', label: 'GS Affected' },
-                        { color: '#ffc107', label: 'EDCT' },
+                        { color: '#dc3545', label: PERTII18n.t('nod.legend.gsAffected') },
+                        { color: '#ffc107', label: PERTII18n.t('nod.legend.edct') },
                         { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
                     ];
                 })();
                 break;
             case 'arr_dep':
                 items = [
-                    { color: ARR_DEP_COLORS['ARR'], label: 'Enroute' },
-                    { color: ARR_DEP_COLORS['DEP'], label: 'Climbing' },
-                    { color: '#666666', label: 'Parked' },
+                    { color: ARR_DEP_COLORS['ARR'], label: PERTII18n.t('nod.legend.enroute') },
+                    { color: ARR_DEP_COLORS['DEP'], label: PERTII18n.t('nod.legend.climbing') },
+                    { color: '#666666', label: PERTII18n.t('nod.legend.parked') },
                 ];
                 break;
             case 'dcc_region':
                 items = [
-                    { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'South Central' },
-                    { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                    { color: DCC_REGION_COLORS['WEST'], label: PERTII18n.t('dccRegion.west') },
+                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: PERTII18n.t('dccRegion.southCentral') },
+                    { color: DCC_REGION_COLORS['MIDWEST'], label: PERTII18n.t('dccRegion.midwest') },
+                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: PERTII18n.t('dccRegion.southeast') },
+                    { color: DCC_REGION_COLORS['NORTHEAST'], label: PERTII18n.t('dccRegion.northeast') },
                 ];
                 break;
             case 'eta_relative':
@@ -5422,12 +5422,12 @@
                 break;
             case 'operator_group':
                 items = [
-                    { color: OPERATOR_GROUP_COLORS['MAJOR'], label: 'Major' },
-                    { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: 'Regional' },
-                    { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: 'Freight' },
-                    { color: OPERATOR_GROUP_COLORS['GA'], label: 'GA' },
-                    { color: OPERATOR_GROUP_COLORS['MILITARY'], label: 'Military' },
-                    { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' },
+                    { color: OPERATOR_GROUP_COLORS['MAJOR'], label: PERTII18n.t('nod.legend.major') },
+                    { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: PERTII18n.t('nod.legend.regional') },
+                    { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: PERTII18n.t('nod.legend.freight') },
+                    { color: OPERATOR_GROUP_COLORS['GA'], label: PERTII18n.t('nod.legend.genAviation') },
+                    { color: OPERATOR_GROUP_COLORS['MILITARY'], label: PERTII18n.t('nod.legend.military') },
+                    { color: OPERATOR_GROUP_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'dep_center':
@@ -5441,20 +5441,20 @@
             case 'dep_tracon':
             case 'arr_tracon':
                 items = [
-                    { color: DCC_REGION_COLORS['WEST'], label: 'West' },
-                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: 'S.Central' },
-                    { color: DCC_REGION_COLORS['MIDWEST'], label: 'Midwest' },
-                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: 'Southeast' },
-                    { color: DCC_REGION_COLORS['NORTHEAST'], label: 'Northeast' },
+                    { color: DCC_REGION_COLORS['WEST'], label: PERTII18n.t('dccRegion.west') },
+                    { color: DCC_REGION_COLORS['SOUTH_CENTRAL'], label: PERTII18n.t('dccRegion.southCentral') },
+                    { color: DCC_REGION_COLORS['MIDWEST'], label: PERTII18n.t('dccRegion.midwest') },
+                    { color: DCC_REGION_COLORS['SOUTHEAST'], label: PERTII18n.t('dccRegion.southeast') },
+                    { color: DCC_REGION_COLORS['NORTHEAST'], label: PERTII18n.t('dccRegion.northeast') },
                 ];
                 break;
             case 'dep_airport':
             case 'arr_airport':
                 items = [
-                    { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
-                    { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
-                    { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
+                    { color: AIRPORT_TIER_COLORS['CORE30'], label: PERTII18n.t('nod.legend.core30') },
+                    { color: AIRPORT_TIER_COLORS['OEP35'], label: PERTII18n.t('nod.legend.oep35') },
+                    { color: AIRPORT_TIER_COLORS['ASPM82'], label: PERTII18n.t('nod.legend.aspm82') },
+                    { color: AIRPORT_TIER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'reroute_match': {
@@ -5464,7 +5464,7 @@
                     color: route.color || '#17a2b8',
                     label: route.name || 'Route',
                 }));
-                items.push({ color: '#666666', label: 'No Match' });
+                items.push({ color: '#666666', label: PERTII18n.t('nod.legend.noMatch') });
                 break;
             }
             case 'fea_match':
@@ -5476,10 +5476,10 @@
                         label: m.label,
                     }));
                 }
-                items.push({ color: '#6c757d', label: 'No Match' });
+                items.push({ color: '#6c757d', label: PERTII18n.t('nod.legend.noMatch') });
                 break;
             default:
-                items = [{ color: '#6c757d', label: 'Default' }];
+                items = [{ color: '#6c757d', label: PERTII18n.t('nod.legend.default') }];
         }
 
         $legend.html(items.map(item =>
@@ -5508,10 +5508,10 @@
         document.getElementById('advisoryStart').value = now.toISOString().slice(0, 16);
 
         if (id) {
-            title.textContent = 'Edit Advisory';
+            title.textContent = PERTII18n.t('nod.advisories.editTitle');
             loadAdvisoryForEdit(id);
         } else {
-            title.textContent = 'New Advisory';
+            title.textContent = PERTII18n.t('nod.advisories.newTitle');
         }
 
         $('#advisoryModal').modal('show');
@@ -5538,7 +5538,7 @@
             }
         } catch (error) {
             console.error('[NOD] Error loading advisory:', error);
-            alert('Error loading advisory');
+            alert(PERTII18n.t('nod.advisories.loadError'));
         }
     }
 
@@ -5581,11 +5581,11 @@
                 $('#advisoryModal').modal('hide');
                 loadAdvisories();
             } else {
-                alert('Error: ' + (result.error || 'Failed to save advisory'));
+                alert(PERTII18n.t('common.error') + ': ' + (result.error || PERTII18n.t('nod.advisories.saveFailed')));
             }
         } catch (error) {
             console.error('[NOD] Error saving advisory:', error);
-            alert('Error saving advisory');
+            alert(PERTII18n.t('nod.advisories.saveFailed'));
         }
     }
 
@@ -5597,12 +5597,12 @@
             if (data.advisory) {
                 const adv = data.advisory;
 
-                document.getElementById('advisoryDetailTitle').textContent = adv.adv_number || 'Advisory Details';
+                document.getElementById('advisoryDetailTitle').textContent = adv.adv_number || PERTII18n.t('nod.advisories.detailTitle');
                 document.getElementById('advisoryDetailBody').innerHTML = `
                     <div class="mb-3">
                         <span class="badge badge-secondary">${escapeHtml(adv.adv_type || '')}</span>
                         <span class="badge badge-${adv.priority == 1 ? 'danger' : (adv.priority == 3 ? 'secondary' : 'primary')}">
-                            ${adv.priority == 1 ? 'HIGH' : (adv.priority == 3 ? 'LOW' : 'NORMAL')}
+                            ${adv.priority == 1 ? PERTII18n.t('nod.advisories.priorityHigh') : (adv.priority == 3 ? PERTII18n.t('nod.advisories.priorityLow') : PERTII18n.t('nod.advisories.priorityNormal'))}
                         </span>
                     </div>
                     <h5>${escapeHtml(adv.subject || '')}</h5>
@@ -5610,12 +5610,12 @@
                     <hr class="border-secondary">
                     <div class="row">
                         <div class="col-md-6">
-                            <p class="mb-1"><strong>Valid:</strong> ${formatTimeRange(adv.valid_start_utc, adv.valid_end_utc)}</p>
-                            <p class="mb-1"><strong>Area:</strong> ${escapeHtml(adv.impacted_area || 'N/A')}</p>
+                            <p class="mb-1"><strong>${PERTII18n.t('nod.advisories.valid')}:</strong> ${formatTimeRange(adv.valid_start_utc, adv.valid_end_utc)}</p>
+                            <p class="mb-1"><strong>${PERTII18n.t('nod.advisories.areaLabel')}:</strong> ${escapeHtml(adv.impacted_area || 'N/A')}</p>
                         </div>
                         <div class="col-md-6">
-                            <p class="mb-1"><strong>Facilities:</strong> ${Array.isArray(adv.impacted_facilities) ? adv.impacted_facilities.join(', ') : (adv.impacted_facilities || 'N/A')}</p>
-                            <p class="mb-1"><strong>Created:</strong> ${formatDateTime(adv.created_at)} by ${escapeHtml(adv.created_by || 'Unknown')}</p>
+                            <p class="mb-1"><strong>${PERTII18n.t('nod.advisories.facilities')}:</strong> ${Array.isArray(adv.impacted_facilities) ? adv.impacted_facilities.join(', ') : (adv.impacted_facilities || 'N/A')}</p>
+                            <p class="mb-1"><strong>${PERTII18n.t('nod.advisories.created')}:</strong> ${formatDateTime(adv.created_at)} ${PERTII18n.t('nod.advisories.by')} ${escapeHtml(adv.created_by || PERTII18n.t('common.unknown'))}</p>
                         </div>
                     </div>
                 `;
@@ -5658,7 +5658,7 @@
         if (matchingRoutes.length > 0) {
             routeMatchHtml = `
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
-                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">MATCHING ROUTES:</div>
+                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">${PERTII18n.t('nod.popup.matchingRoutes')}:</div>
                     ${matchingRoutes.map(r => `<span style="display:inline-block; margin-right:4px; padding:1px 4px; background:${r.color}; color:#fff; border-radius:2px; font-size:9px;">${escapeHtml(r.name)}</span>`).join('')}
                 </div>
             `;
@@ -5675,29 +5675,29 @@
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">Route:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.route')}:</td>
                         <td style="text-align:right;">${props.origin || '???'} → ${props.dest || '???'}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">Alt:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.alt')}:</td>
                         <td style="text-align:right;">${alt}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">GS:</td>
-                        <td style="text-align:right;">${props.speed || '---'} kts</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.gs')}:</td>
+                        <td style="text-align:right;">${props.speed || '---'} ${PERTII18n.t('units.kts')}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">Hdg:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.hdg')}:</td>
                         <td style="text-align:right;">${hdg}</td>
                     </tr>
                     ${props.current_artcc ? `<tr>
-                        <td style="color:var(--dark-text-subtle);">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.artcc')}:</td>
                         <td style="text-align:right;">${props.current_artcc}</td>
                     </tr>` : ''}
                 </table>
                 ${props.route ? `
                 <div style="margin-top:6px; padding-top:6px; border-top:1px solid #444;">
-                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">FLIGHT PLAN:</div>
+                    <div style="font-size:9px; color:var(--dark-text-subtle); margin-bottom:2px;">${PERTII18n.t('nod.popup.flightPlan')}:</div>
                     <div style="font-size:9px; color:var(--dark-text-subtle); word-break:break-all; max-height:60px; overflow-y:auto;">${escapeHtml(props.route)}</div>
                 </div>` : ''}
                 ${statusIcon ? `<div style="margin-top:6px; text-align:center;">${statusIcon}</div>` : ''}
@@ -5706,7 +5706,7 @@
                     <button class="btn btn-sm btn-outline-info show-route-btn"
                             data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
                             style="font-size:10px; padding:2px 8px;">
-                        ${isFlightRouteDisplayed(props) ? '✓ Hide Route' : '➤ Show Route'}
+                        ${isFlightRouteDisplayed(props) ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute')}
                     </button>
                 </div>
             </div>
@@ -5752,7 +5752,7 @@
         if (matchingRoutes.length > 0) {
             routeMatchHtml = `
                 <tr><td colspan="2" style="padding-top:8px;border-top:1px solid #444;">
-                    <div style="font-size:9px;color:var(--dark-text-subtle);margin-bottom:4px;">MATCHING PUBLIC ROUTES:</div>
+                    <div style="font-size:9px;color:var(--dark-text-subtle);margin-bottom:4px;">${PERTII18n.t('nod.popup.matchingPublicRoutes')}:</div>
                     ${matchingRoutes.map(r => `<span style="display:inline-block;margin:2px;padding:2px 6px;background:${r.color};color:#fff;border-radius:3px;font-size:9px;">${escapeHtml(r.name)}</span>`).join('')}
                 </td></tr>
             `;
@@ -5765,73 +5765,73 @@
                         <strong style="font-size:16px;color:#4a9eff;">${escapeHtml(props.callsign || 'Unknown')}</strong>
                         <span style="margin-left:8px;font-size:12px;" title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
                     </div>
-                    <span style="font-size:10px;color:var(--dark-text-subtle);background:#333;padding:2px 6px;border-radius:3px;">DETAILED VIEW</span>
+                    <span style="font-size:10px;color:var(--dark-text-subtle);background:#333;padding:2px 6px;border-radius:3px;">${PERTII18n.t('nod.popup.detailedView')}</span>
                 </div>
 
                 <table style="width:100%;border-collapse:collapse;font-size:11px;">
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:4px 0;"><strong style="color:var(--dark-text-muted);">Aircraft Information</strong></td>
+                        <td colspan="2" style="padding:4px 0;"><strong style="color:var(--dark-text-muted);">${PERTII18n.t('nod.popup.aircraftInfo')}</strong></td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Type:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.type')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.ac_type || '---')}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Weight Class:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.weightClass')}:</td>
                         <td style="text-align:right;">${props.weight_class || '---'}</td>
                     </tr>
                     ${props.aircraft_icao ? `<tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">ICAO Code:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.icaoCode')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.aircraft_icao)}</td>
                     </tr>` : ''}
 
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Flight Data</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">${PERTII18n.t('nod.popup.flightData')}</strong></td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Route:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.route')}:</td>
                         <td style="text-align:right;font-weight:bold;">${props.origin || '???'} → ${props.dest || '???'}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Altitude:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.altitude')}:</td>
                         <td style="text-align:right;">${alt} <span style="color:var(--dark-text-disabled);font-size:10px;">(${altFt})</span></td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Ground Speed:</td>
-                        <td style="text-align:right;">${props.speed || '---'} kts</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.groundSpeed')}:</td>
+                        <td style="text-align:right;">${props.speed || '---'} ${PERTII18n.t('units.kts')}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Heading:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.heading')}:</td>
                         <td style="text-align:right;">${hdg}</td>
                     </tr>
                     ${props.squawk ? `<tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Squawk:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.squawk')}:</td>
                         <td style="text-align:right;font-family:monospace;">${escapeHtml(props.squawk)}</td>
                     </tr>` : ''}
 
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Position & Airspace</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">${PERTII18n.t('nod.popup.positionAirspace')}</strong></td>
                     </tr>
                     ${props.current_artcc ? `<tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Current ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.currentArtcc')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.current_artcc)}</td>
                     </tr>` : ''}
                     ${props.dep_artcc ? `<tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Departure ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.depArtcc')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.dep_artcc)}</td>
                     </tr>` : ''}
                     ${props.arr_artcc ? `<tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Arrival ARTCC:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.arrArtcc')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.arr_artcc)}</td>
                     </tr>` : ''}
                     <tr>
-                        <td style="color:var(--dark-text-disabled);padding:2px 0;">Coordinates:</td>
+                        <td style="color:var(--dark-text-disabled);padding:2px 0;">${PERTII18n.t('nod.popup.coordinates')}:</td>
                         <td style="text-align:right;font-size:10px;">${props.lat?.toFixed(4) || '---'}, ${props.lng?.toFixed(4) || '---'}</td>
                     </tr>
 
                     ${props.route ? `
                     <tr style="border-bottom:1px solid #333;">
-                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">Flight Plan Route</strong></td>
+                        <td colspan="2" style="padding:8px 0 4px 0;"><strong style="color:var(--dark-text-muted);">${PERTII18n.t('nod.popup.flightPlanRoute')}</strong></td>
                     </tr>
                     <tr>
                         <td colspan="2" style="padding:4px 0;">
@@ -5855,7 +5855,7 @@
                     <button class="btn btn-sm btn-outline-info show-route-btn"
                             data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
                             style="font-size:10px;padding:2px 10px;margin-right:4px;">
-                        ${isFlightRouteDisplayed(props) ? '✓ Hide Route' : '➤ Show Route'}
+                        ${isFlightRouteDisplayed(props) ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute')}
                     </button>
                 </div>
             </div>
@@ -5887,7 +5887,7 @@
 
                     // Show loading state if we're adding a route
                     if (!wasAlreadyDisplayed) {
-                        e.target.textContent = '⏳ Loading...';
+                        e.target.textContent = PERTII18n.t('nod.popup.loadingRoute');
                         e.target.disabled = true;
                     }
 
@@ -5896,7 +5896,7 @@
 
                     // Update button text
                     e.target.disabled = false;
-                    e.target.textContent = isNowDisplayed ? '✓ Hide Route' : '➤ Show Route';
+                    e.target.textContent = isNowDisplayed ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute');
                 }
             }
         }
@@ -5906,11 +5906,11 @@
         const html = `
             <div style="font-family: 'Consolas', monospace; font-size: 12px;">
                 <strong style="color: ${props.color || '#ffc107'}">${escapeHtml(props.facility || 'Unknown')}</strong><br>
-                Type: ${escapeHtml(props.incident_type || props.type || 'N/A')}<br>
-                Status: ${escapeHtml(props.status || 'N/A')}<br>
-                ${props.trigger_desc ? `Trigger: ${escapeHtml(props.trigger_desc)}<br>` : ''}
+                ${PERTII18n.t('nod.popup.incidentType')}: ${escapeHtml(props.incident_type || props.type || 'N/A')}<br>
+                ${PERTII18n.t('nod.popup.incidentStatus')}: ${escapeHtml(props.status || 'N/A')}<br>
+                ${props.trigger_desc ? `${PERTII18n.t('nod.popup.incidentTrigger')}: ${escapeHtml(props.trigger_desc)}<br>` : ''}
                 ${props.incident_number ? `#${escapeHtml(props.incident_number)}<br>` : ''}
-                <a href="jatoc.php" target="_blank">View in JATOC →</a>
+                <a href="jatoc.php" target="_blank">${PERTII18n.t('nod.popup.viewInJatoc')}</a>
             </div>
         `;
 
@@ -6021,15 +6021,15 @@
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:var(--dark-text-subtle); padding:1px 0;">Sector:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">${PERTII18n.t('nod.popup.sector')}:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(sectorId)}${boundaryLabel}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle); padding:1px 0;">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">${PERTII18n.t('nod.popup.artcc')}:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(props.artcc || 'N/A')}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle); padding:1px 0;">Config:</td>
+                        <td style="color:var(--dark-text-subtle); padding:1px 0;">${PERTII18n.t('nod.popup.config')}:</td>
                         <td style="text-align:right; padding:1px 0;">${escapeHtml(props.config_name || 'N/A')}</td>
                     </tr>
                 </table>
@@ -6058,15 +6058,15 @@
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">Route:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.route')}:</td>
                         <td style="text-align:right;">${escapeHtml(origin)} → ${escapeHtml(dest)}</td>
                     </tr>
                     <tr>
-                        <td style="color:var(--dark-text-subtle);">Status:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.status')}:</td>
                         <td style="text-align:right;">${escapeHtml(status)}</td>
                     </tr>
                     ${props.artcc ? `<tr>
-                        <td style="color:var(--dark-text-subtle);">ARTCC:</td>
+                        <td style="color:var(--dark-text-subtle);">${PERTII18n.t('nod.popup.artcc')}:</td>
                         <td style="text-align:right;">${escapeHtml(props.artcc)}</td>
                     </tr>` : ''}
                     ${props.remarks ? `<tr>
@@ -6231,7 +6231,7 @@
         const html = `
             <div class="nod-feature-picker">
                 <div class="nod-feature-picker-header">
-                    ${features.length} features at this location
+                    ${PERTII18n.t('nod.popup.featuresAtLocation', { count: features.length })}
                 </div>
                 ${items}
             </div>
@@ -6284,7 +6284,7 @@
 
     function formatTimeRange(start, end) {
         const startStr = start ? formatTime(start) : '???';
-        const endStr = end ? formatTime(end) : 'UFN';
+        const endStr = end ? formatTime(end) : PERTII18n.t('nod.time.ufn');
         return `${startStr} - ${endStr}`;
     }
 
@@ -6299,7 +6299,7 @@
     }
 
     function formatDateTime(dateStr) {
-        if (!dateStr) {return 'N/A';}
+        if (!dateStr) {return PERTII18n.t('common.na');}
         try {
             const d = new Date(dateStr);
             return d.toISOString().substr(0, 16).replace('T', ' ') + 'Z';

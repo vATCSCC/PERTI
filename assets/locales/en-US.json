@@ -39,9 +39,10 @@
     "none": "None",
     "all": "All",
     "other": "Other",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "unknownError": "Unknown error",
+    "na": "N/A"
   },
-
   "status": {
     "active": "Active",
     "pending": "Pending",
@@ -57,7 +58,6 @@
     "failed": "Failed",
     "unknown": "Unknown"
   },
-
   "phase": {
     "arrived": "Arrived",
     "departed": "Departed",
@@ -68,7 +68,6 @@
     "disconnected": "Disconnected",
     "unknown": "Unknown"
   },
-
   "phaseDesc": {
     "arrived": "landed",
     "departed": "climbing",
@@ -78,7 +77,6 @@
     "descending": "approach",
     "disconnected": "disconnected"
   },
-
   "tmi": {
     "gdp": "Ground Delay Program",
     "gdpShort": "GDP",
@@ -99,7 +97,6 @@
     "simulatedGs": "GS (Simulated)",
     "proposedGs": "GS (Proposed)"
   },
-
   "weightClass": {
     "J": "Super",
     "H": "Heavy",
@@ -107,12 +104,10 @@
     "S": "Small",
     "unknown": "Unknown"
   },
-
   "flightRule": {
     "I": "IFR",
     "V": "VFR"
   },
-
   "dccRegion": {
     "west": "West",
     "southCentral": "South Central",
@@ -122,25 +117,53 @@
     "canadaEast": "Canada East",
     "canadaWest": "Canada West"
   },
-
   "sua": {
-    "moa": "MOA",
-    "restricted": "Restricted",
-    "prohibited": "Prohibited",
-    "warning": "Warning",
-    "alert": "Alert",
-    "tfr": "TFR",
-    "atcaa": "ATCAA",
-    "sua": "SUA"
+    "cancelActivation": {
+      "title": "Cancel Activation?",
+      "text": "Are you sure you want to cancel \"{name}\"?",
+      "confirm": "Yes, cancel it"
+    },
+    "loadFailed": "Failed to load SUA data",
+    "failedToLoadActivations": "Failed to load activations",
+    "noSuasFound": "No SUAs found",
+    "errorLoadingSuas": "Error loading SUAs",
+    "activate": "Activate",
+    "activationCancelled": "Activation cancelled",
+    "failedToCancelActivation": "Failed to cancel activation",
+    "activationScheduled": "Activation scheduled",
+    "failedToScheduleActivation": "Failed to schedule activation",
+    "activationUpdated": "Activation updated",
+    "failedToUpdateActivation": "Failed to update activation",
+    "tfrCreated": "TFR created",
+    "failedToCreateTfr": "Failed to create TFR",
+    "altrvCreated": "ALTRV created",
+    "failedToCreateAltrv": "Failed to create ALTRV",
+    "noGeometry": "No Geometry",
+    "noGeometryText": "Please draw the ALTRV route on the map before submitting.",
+    "noGeometryDrawn": "No geometry drawn",
+    "noGeometryClickToDraw": "No geometry drawn. Click on the map to start drawing.",
+    "drawInstructions": "Click on the map to draw points. Double-click to finish.",
+    "altrvDrawToast": "Click points on the map to draw the ALTRV route. Double-click to finish.",
+    "mapNotReady": "Map Not Ready",
+    "mapNotReadyText": "Please wait for the map to load before drawing.",
+    "lineDrawnWithPoints": "Line drawn with <strong>{count} points</strong>",
+    "polygonDrawnWithPoints": "Polygon drawn with <strong>{count} points</strong>",
+    "route": "Route",
+    "area": "Area",
+    "popupId": "ID",
+    "popupArtcc": "ARTCC",
+    "popupAltitude": "Altitude",
+    "popupSchedule": "Schedule"
   },
-
   "dialog": {
     "loading": "Loading...",
     "submitting": "Submitting...",
     "publishing": "Publishing...",
     "saving": "Saving...",
     "processing": "Processing...",
-
+    "confirm": {
+      "title": "Are you sure?"
+    },
     "confirmDelete": {
       "title": "Delete?",
       "text": "Are you sure you want to delete this? This action cannot be undone."
@@ -153,7 +176,6 @@
       "title": "Clear?",
       "text": "Are you sure you want to clear all items?"
     },
-
     "success": {
       "saved": "Saved!",
       "deleted": "Deleted!",
@@ -162,7 +184,6 @@
       "published": "Published!",
       "submitted": "Submitted!"
     },
-
     "error": {
       "generic": "An error occurred",
       "network": "Network error",
@@ -171,7 +192,6 @@
       "notFound": "Not found"
     }
   },
-
   "tmiPublish": {
     "enableProdMode": {
       "title": "Enable Production Mode?",
@@ -293,7 +313,6 @@
     "awaitingApprovals": "Awaiting facility approvals on Discord.",
     "viewInCoordTab": "View in Coordination Tab"
   },
-
   "reroute": {
     "noRoutesSelected": "No Routes Selected",
     "selectRoutesMandatory": "Please select one or more routes to make mandatory.",
@@ -309,68 +328,666 @@
     "needTwoRoutesFilters": "Need at least 2 routes to detect filters.",
     "cannotAutoDetect": "Cannot Auto-Detect",
     "hierarchyNotAvailable": "Facility hierarchy data not available.",
-    "filtersDetected": "Filters Detected",
-    "appliedFilters": "Applied {count} automatic filter(s) to overlapping routes.",
-    "noFiltersNeeded": "No Filters Needed",
-    "noOverlapping": "No overlapping ARTCC/airport routes detected.",
-    "needMoreRoutes": "Need More Routes",
-    "needTwoRoutesSegments": "Need at least 2 routes to detect common segments.",
-    "pivotsDetected": "{count} Pivot Waypoint(s) Detected",
-    "foundPivots": "Found {count} pivot waypoint(s) across {routes} routes.",
-    "routesNoMatch": "{count} routes don't match any pivot.",
-    "useSplitFormat": "Use Split Format",
-    "noPivotsFound": "No Pivot Waypoints Found",
-    "noPivotsText": "No waypoint found in at least 3 routes (or 30% of {count} routes).",
-    "routesGroupedFallback": "Routes will be displayed grouped by origin and destination.",
-    "draftSaved": "Draft Saved",
-    "draftLoaded": "Draft Loaded",
-    "deleteDraft": "Delete Draft?",
-    "cannotUndo": "This cannot be undone.",
-    "noPreview": "No Preview",
-    "generatePreviewFirst": "Generate a preview first before copying.",
-    "copyFailed": "Copy Failed",
-    "copyFailedText": "Could not copy to clipboard. Please select and copy manually.",
-    "resetForm": "Reset Form?",
-    "clearAllFields": "This will clear all fields."
+    "refreshAgo": "Refresh: {seconds}s ago",
+    "loadError": "Load error: {message}",
+    "nameRequired": "Name required",
+    "rerouteSaved": "Reroute {action}",
+    "saveError": "Save error: {message}",
+    "genericError": "Error: {message}",
+    "confirmActivate": "Activate and assign flights?",
+    "activated": "Activated! {count} flights assigned",
+    "confirmDeactivate": "Move to Monitoring?",
+    "movedToMonitoring": "Moved to Monitoring",
+    "noReroutes": "No reroutes",
+    "specifyOriginOrDest": "Specify origin or destination",
+    "adlCount": "ADL: {count}",
+    "foundFlights": "Found {count} flights",
+    "preview": "Preview",
+    "saveFirst": "Save first",
+    "promptFlightKey": "Flight key or callsign:",
+    "addedFlights": "Added {count} flight(s)",
+    "confirmRemoveFlights": "Remove {count} flight(s)?",
+    "removedFlights": "Removed {count} flight(s)",
+    "promptOverrideStatus": "Override {callsign}:\nCOMPLIANT, PARTIAL, NON_COMPLIANT, EXEMPT",
+    "invalidStatus": "Invalid status",
+    "promptReason": "Reason:",
+    "reasonRequired": "Reason required",
+    "updatedToStatus": "Updated to {status}",
+    "clickPreview": "Click \"Preview\"",
+    "noExemptFlights": "No exempt flights",
+    "noExempt": "No exempt",
+    "notFound": "Not found",
+    "flightDetail": {
+      "key": "Key",
+      "route": "Route",
+      "aircraft": "Aircraft",
+      "altitude": "Altitude",
+      "filed": "Filed",
+      "current": "Current",
+      "status": "Status",
+      "protectedCrossed": "Protected ✓",
+      "avoidCrossed": "Avoid ✗"
+    },
+    "history": {
+      "title": "History: {callsign}",
+      "time": "Time",
+      "status": "Status"
+    }
   },
-
+  "weather": {
+    "noImpacts": "No weather impacts",
+    "flightsAffected": "Flights Affected",
+    "direct": "Direct",
+    "near": "Near",
+    "activeAlerts": "Active Alerts",
+    "noFlightsAffected": "No flights currently affected",
+    "moreFlights": "+{count} more"
+  },
   "gdt": {
     "advisoryPreview": {
       "notFound": "Advisory preview not found.",
       "empty": "Advisory preview is empty."
     },
     "copy": {
-      "failed": "Failed to copy advisory. Please select and copy manually."
+      "failed": "Failed to copy advisory. Please select and copy manually.",
+      "advisoryCopied": "Advisory copied to clipboard!"
     },
-    "edct": {
-      "check": "EDCT Check for {callsign}",
-      "update": "EDCT Update for {callsign}",
-      "ctd": "CTD",
-      "eta": "ETA",
-      "cta": "CTA",
-      "delay": "Delay"
+    "scope": {
+      "manual": "Manual",
+      "presets": "Presets",
+      "individualFacilities": "Individual ARTCCs / FIRs"
+    },
+    "table": {
+      "exempt": "EXEMPT",
+      "exemptTooltip": "Exemption reason: flights not subject to GS hold",
+      "eligibleCount": "Eligible: {count}",
+      "exemptCount": "Exempt: {count}",
+      "eligibleFlights": " eligible flights",
+      "noFlightsMatching": "No flights matching current filter criteria.",
+      "noFlightsLoaded": "No flights loaded."
+    },
+    "exempt": {
+      "departed": "Departed",
+      "enroute": "Enroute",
+      "descending": "Descending",
+      "arrived": "Arrived",
+      "disconnected": "Disconnected",
+      "airborne": "Airborne"
+    },
+    "status": {
+      "updated": "Updated",
+      "loadingFlights": "Loading flights from VATSIM...",
+      "errorLoadingFlights": "Error loading VATSIM data.",
+      "createNewProgram": "Create a new program to begin."
+    },
+    "validation": {
+      "enterAirportsFirst": "Enter arrival airports first.",
+      "enterArrivalAirports": "Enter arrival airports to begin.",
+      "enterStartEndTimes": "Enter start and end times.",
+      "scopeRequired": "Scope is required. Select facilities or airports."
     },
     "flight": {
+      "actualTakeoff": "Actual Takeoff",
+      "adlDateTime": "ADL Date/Time",
+      "adlTime": "ADL Time",
+      "aircraftType": "Aircraft Type",
+      "airport": "Airport",
+      "arrival": "Arrival",
+      "arrivalTimeline": "Arrival Timeline",
+      "carrier": "Carrier",
+      "center": "Center",
+      "controlType": "Control Type",
+      "ctlElement": "CTL Element",
+      "ctlProgram": "CTL Program",
+      "delayMin": "Delay (min)",
+      "delayStatus": "Delay Status",
+      "departure": "Departure",
+      "departureTimeline": "Departure Timeline",
+      "dest": "Dest",
       "detail": "Flight Detail",
+      "detailFor": "Flight Detail for {callsign}",
+      "detailTitle": "Flight Detail: {callsign}",
+      "edctCtd": "EDCT / CTD",
+      "edctLabel": "EDCT",
+      "eta": "ETA",
+      "etd": "ETD",
+      "ete": "ETE",
+      "eteMin": "ETE (min)",
+      "filed": "Filed",
+      "filedDeparture": "Filed Departure",
+      "flightId": "Flight ID",
+      "flightLabel": "Flight",
+      "flightPlanRoute": "Flight Plan Route",
+      "gsPeriod": "GS Period",
+      "infoTitle": "Flight Info: {callsign}",
+      "infoTitleGeneric": "Flight Info",
+      "mft": "MFT",
+      "noRoute": "(No route in flight plan)",
+      "oeta": "OETA",
+      "oetd": "OETD",
       "orig": "Orig",
-      "dest": "Dest"
+      "programDelay": "Program Delay",
+      "route": "Route",
+      "routeTitle": "Route for {callsign}",
+      "source": "Source",
+      "status": "Status",
+      "tmaRt": "TMA Rt",
+      "type": "Type",
+      "vertexTime": "Vertex Time"
+    },
+    "contextMenu": {
+      "flightInfo": "Flight Info",
+      "flightDetail": "Flight Detail",
+      "edctCheck": "EDCT Check",
+      "edctUpdate": "EDCT Update",
+      "ecr": "EDCT Change Request",
+      "flightPlanRoute": "Flight Plan Route"
+    },
+    "edct": {
+      "acid": "ACID",
+      "check": "EDCT Check for {callsign}",
+      "checkNote": "This is a query-only check. No changes are made to the flight.",
+      "ctd": "CTD",
+      "ctdEdct": "CTD / EDCT",
+      "currentCtd": "Current CTD",
+      "currentStatus": "Current Status",
+      "delay": "Delay",
+      "enterNewEdct": "Enter new EDCT in HHmm format (UTC)",
+      "enterNewEdctValidation": "Please enter a valid EDCT time in HHmm format.",
+      "cta": "CTA",
+      "newEdctLabel": "New EDCT",
+      "newEdctUtc": "New EDCT (UTC)",
+      "queryStatus": "EDCT status for {callsign}",
+      "sendUpdate": "Send Update",
+      "simulatedMessage": "EDCT update simulated successfully.",
+      "update": "EDCT Update for {callsign}",
+      "updateFor": "Update EDCT for {callsign}",
+      "updateNote": "This will update the flight's EDCT. Verify the time before submitting.",
+      "updateSimulated": "EDCT Update Simulated",
+      "simulationDisclaimer": "(In simulation mode, EDCT updates are not applied to live data.)"
+    },
+    "ecr": {
+      "title": "EDCT Change Request",
+      "accepted": "Accepted",
+      "acidRequired": "ACID Required",
+      "enterAcid": "Please enter an ACID (callsign) for the ECR.",
+      "enterEarliestEdct": "Please enter the earliest acceptable EDCT.",
+      "couldNotFindFlight": "Could not find flight: {acid}",
+      "flightNotFound": "Flight Not Found",
+      "getFlightAndApplyFirst": "Get flight data and apply GS first before submitting ECR.",
+      "getFlightFirst": "Get flight data first before submitting ECR.",
+      "method": "Method",
+      "noFlight": "No Flight",
+      "earliestEdctRequired": "Earliest EDCT is required.",
+      "requestProcessed": "ECR Request Processed",
+      "requestProcessedFor": "ECR processed for {acid}",
+      "requestSent": "ECR Sent"
+    },
+    "badge": {
+      "adlGs": "ADL-GS",
+      "adlLive": "ADL-LIVE"
+    },
+    "gs": {
+      "activateAndPublish": "Activate & Publish",
+      "activateConfirmation": "This will activate the Ground Stop and publish to all channels.",
+      "activatingProgram": "Activating program {id}...",
+      "activeStatus": "ACTIVE: Program {programId} | {controlled} controlled flights",
+      "advisoryText": "Advisory Text",
+      "advisoryToPublish": "Advisory to Publish",
+      "affectedFlights": "Affected Flights ({count})",
+      "airborneFlights": "Airborne Flights",
+      "airport": "Airport",
+      "andMoreFlights": "...and {count} more flights",
+      "avgDelay": "Avg Delay",
+      "avgDelayMin": "Avg Delay (min)",
+      "controlled": "Controlled",
+      "controlledFlights": "Controlled Flights",
+      "creatingProgram": "Creating GS program...",
+      "exemptFlights": "Exempt Flights",
+      "gsActivated": "Ground Stop Activated",
+      "gsActiveDisabled": "GS is active - no further activation needed",
+      "gsIssued": "Ground Stop Issued",
+      "handoffFailedText": "Failed to hand off GS to TMI system: {message}",
+      "handoffFailedTitle": "TMI Handoff Failed",
+      "maxDelay": "Max Delay",
+      "maxDelayLabel": "Max Delay: {delay} min",
+      "maxDelayMin": "Max Delay (min)",
+      "modelingProgram": "Modeling program {id}...",
+      "noFlightsInSimulation": "No flights affected in simulation.",
+      "noProgramCreatingPreview": "No program - creating preview...",
+      "noProgramToActivate": "No program to activate. Create a program first.",
+      "noProgramToSubmit": "No program to submit. Create a program first.",
+      "period": "Period",
+      "powerRunResults": "Power Run Results",
+      "previewFailed": "Preview failed",
+      "previewFailedShort": "Preview failed",
+      "previewStatus": "Preview: {flights} flights | {controlled} controlled | {exempt} exempt",
+      "program": "Program",
+      "programCreated": "Program created: {id}",
+      "publishedToSwim": "Published to SWIM",
+      "redirectingToTmi": "Redirecting to TMI...",
+      "runSimulateFirst": "Run Simulate first",
+      "runSimulateFirstTmi": "Run Simulate first before submitting to TMI",
+      "simulateFailed": "Simulation failed",
+      "simulateFailedShort": "Simulation failed",
+      "simulateToFinalize": "Run Simulate to finalize",
+      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Program {programId}",
+      "simulationFailedRetry": "Simulation failed - retry required",
+      "simulationRequired": "Simulation Required",
+      "submitToTmiTooltip": "Submit to TMI system for coordination",
+      "simulateFirstTooltip": "Run Simulate first to enable",
+      "activateTitle": "Activate Ground Stop?",
+      "simulationRequiredText": "Please run 'Simulate' before sending actual GS to verify impacts.",
+      "activateFailed": "GS activation failed",
+      "simulationRequiredTmiText": "Please run 'Simulate' before submitting to TMI to verify impacts.",
+      "handoffFailed": "TMI handoff failed",
+      "totalDelay": "Total Delay",
+      "viewFlightList": "View Flight List"
+    },
+    "purge": {
+      "purgeAllTitle": "Purge All GS Programs?",
+      "purgeAllText": "This will purge ALL active and proposed GS programs. This cannot be undone.",
+      "purgeAllBtn": "Purge All",
+      "purgeAllFailed": "Purge all failed",
+      "fetchingPrograms": "Fetching active GS programs...",
+      "purgingPrograms": "Purging {count} GS programs...",
+      "fetchProgramListFailed": "Failed to fetch program list",
+      "noProgramsToPurge": "No active GS programs to purge.",
+      "allPurgedCreateNew": "All GS programs purged. Create a new program to begin.",
+      "allPurged": "All GS programs have been purged.",
+      "purgeLocalTitle": "Purge Program {id}?",
+      "purgeLocalText": "This will purge this GS program. This cannot be undone.",
+      "purgeLocalBtn": "Purge Program",
+      "noCurrentProgram": "No current GS program to purge.",
+      "purgingProgram": "Purging GS program {id}...",
+      "purgeGsProgramFailed": "Failed to purge GS program",
+      "programPurgedStatus": "Program {id} purged.",
+      "programPurgedCreateNew": "Program purged. Create a new program to begin.",
+      "programPurged": "GS program has been purged.",
+      "purgedCount": "{count} program(s) purged",
+      "purgeFailed": "Purge failed"
+    },
+    "adl": {
+      "applyingGsToAdl": "Applying GS to ADL...",
+      "ctdUpdated": "{count} CTD(s) updated",
+      "errorApplyingGs": "Error applying GS to ADL",
+      "gsApplied": "GS applied: {count} flights updated",
+      "loading": "Loading ADL data...",
+      "noFlightsToApply": "No flights to apply",
+      "refreshError": "ADL refresh failed: {error}",
+      "updated": "ADL updated: {time}"
+    },
+    "dataSource": {
+      "gsProgramMode": "GS Program Mode",
+      "label": "{mode} | {programInfo} | Cache: {cache}",
+      "liveAdl": "Live ADL",
+      "notLoaded": "Not loaded"
+    },
+    "exemption": {
+      "aboveFl": "Above FL{fl}",
+      "activeOnly": "Active flights only",
+      "aircraftJet": "Exempt: Jet aircraft",
+      "aircraftProp": "Exempt: Prop aircraft",
+      "aircraftTurboprop": "Exempt: Turboprop aircraft",
+      "belowFl": "Below FL{fl}",
+      "departWithin": "Departing within {minutes} min",
+      "destApts": "Dest Airports",
+      "destArtccs": "Dest ARTCCs",
+      "destTracons": "Dest TRACONs",
+      "flights": "Flights",
+      "hasEdct": "Exempt: Has EDCT",
+      "noRules": "No exemption rules defined",
+      "origApts": "Orig Airports",
+      "origArtccs": "Orig ARTCCs",
+      "origTracons": "Orig TRACONs",
+      "ruleCount": "{count} exemption rule(s)"
+    },
+    "time": {
+      "estimatedPrefix": "E",
+      "controlledPrefix": "C"
+    },
+    "edit": {
+      "editingProgram": "Editing {type} program {id} ({status})",
+      "loadFailed": "Failed to load program",
+      "loadingProgram": "Loading program {id} for editing...",
+      "programNotFound": "Program not found"
+    },
+    "chart": {
+      "dataGraph": "Data Graph",
+      "noFlightData": "No flight data available for chart.",
+      "titleHourly": "Data Graph - Hourly Distribution",
+      "titleOrigArtcc": "Data Graph - Origin ARTCC",
+      "titleDestArtcc": "Data Graph - Dest ARTCC",
+      "titleOrigAp": "Data Graph - Origin Airport",
+      "titleDestAp": "Data Graph - Dest Airport",
+      "titleOrigTracon": "Data Graph - Origin TRACON",
+      "titleDestTracon": "Data Graph - Dest TRACON",
+      "titleCarrier": "Data Graph - Carrier",
+      "titleTier": "Data Graph - Tier",
+      "noData": "No data available for selected view.",
+      "totalFlts": "Total Flts",
+      "affectedFlts": "Affected Flts",
+      "maxDelay": "Max Delay",
+      "avgDelay": "Avg Delay",
+      "axisHourUtc": "Hour (UTC)",
+      "axisFlights": "# Flights",
+      "axisDelayMin": "Delay (min)",
+      "prefixDataGraph": "Data Graph -",
+      "originalEtd": "Original (ETD)",
+      "controlledCtd": "Controlled (CTD)",
+      "comparisonTitle": "Flight Distribution: Original ETD vs Controlled CTD by Hour",
+      "other": "Other"
+    },
+    "delayRange": {
+      "zero": "0 min",
+      "1to15": "1-15 min",
+      "16to30": "16-30 min",
+      "31to60": "31-60 min",
+      "61to90": "61-90 min",
+      "over90": "90+ min",
+      "noDelay": "0 min (No Delay)"
+    },
+    "flightList": {
+      "countBadge": "{count} flights",
+      "noGsFlights": "No GS-controlled flights found.",
+      "noGsFlightsTitle": "No GS Flights",
+      "noGsFlightsText": "No flights are currently under GS control. Run 'Simulate' to preview GS impacts.",
+      "all": "All",
+      "others": "Others",
+      "noDataAvailable": "No flight list data available.",
+      "adlTime": "ADL Time:",
+      "totalFlightsLabel": "Total Flights:",
+      "totalDelayLabel": "Total Delay:",
+      "maxDelayLabel": "Max Delay:",
+      "avgDelayLabel": "Avg Delay:",
+      "snapshotTime": "Snapshot Time:",
+      "copiedToClipboard": "Flight list copied to clipboard!",
+      "unableToCopy": "Unable to copy. Please copy manually.",
+      "copied": "Copied!",
+      "tableNotFound": "Flight list table not found.",
+      "noFlightListTitle": "No Flight List",
+      "noFlightListText": "Run 'Simulate' first to generate a GS flight list, or 'Send Actual' to view applied GS flights.",
+      "fetching": "Fetching GS flight list...",
+      "loaded": "Flight list loaded: {count} GS flights.",
+      "fetchFailed": "Failed to fetch flight list.",
+      "fetchFailedDetail": "Failed to fetch GS flight list."
+    },
+    "print": {
+      "title": "GS Flight List",
+      "heading": "GS FLIGHT LIST",
+      "subheading": "Ground Stop - Affected Flights for ATC Coordination",
+      "ctlElement": "CTL Element:",
+      "total": "Total:",
+      "maxDelay": "Max Delay:",
+      "avgDelay": "Avg Delay:",
+      "generated": "Generated:",
+      "reference": "TFMS/FSM Flight List Reference (Ch 6 & 19)"
     }
   },
-
-  "plan": {
-    "loadFailed": "Failed to load plan data",
-    "saveFailed": "Failed to save plan",
-    "saveSuccess": "Plan saved successfully"
-  },
-
-  "sua": {
-    "cancelActivation": {
-      "title": "Cancel Activation?",
-      "confirm": "Yes, cancel it"
+  "review": {
+    "scores": {
+      "addSuccess": {
+        "title": "Successfully Added",
+        "text": "You have successfully added the event scores."
+      },
+      "addError": {
+        "title": "Not Added",
+        "text": "There was an error in adding these event scores."
+      },
+      "editSuccess": {
+        "title": "Successfully Edited",
+        "text": "You have successfully edited the event scores."
+      },
+      "editError": {
+        "title": "Not Edited",
+        "text": "There was an error in editing event scores."
+      },
+      "deleteSuccess": {
+        "title": "Successfully Deleted",
+        "text": "You have successfully deleted the selected event scores."
+      },
+      "deleteError": {
+        "title": "Not Deleted",
+        "text": "There was an error in deleting these event scores."
+      }
     },
-    "loadFailed": "Failed to load SUA data"
+    "comments": {
+      "addSuccess": {
+        "title": "Successfully Added",
+        "text": "You have successfully added score comments."
+      },
+      "addError": {
+        "title": "Not Added",
+        "text": "There was an error in adding these score comments."
+      },
+      "editSuccess": {
+        "title": "Successfully Edited",
+        "text": "You have successfully edited the score comments."
+      },
+      "editError": {
+        "title": "Not Edited",
+        "text": "There was an error in editing these score comments."
+      },
+      "deleteSuccess": {
+        "title": "Successfully Deleted",
+        "text": "You have successfully deleted the selected score comments."
+      },
+      "deleteError": {
+        "title": "Not Deleted",
+        "text": "There was an error in deleting these score comments."
+      }
+    },
+    "data": {
+      "addSuccess": {
+        "title": "Successfully Added",
+        "text": "You have successfully added event data."
+      },
+      "addError": {
+        "title": "Not Added",
+        "text": "There was an error in adding this event data."
+      },
+      "editSuccess": {
+        "title": "Successfully Edited",
+        "text": "You have successfully edited this event data."
+      },
+      "editError": {
+        "title": "Not Edited",
+        "text": "There was an error in editing this event data."
+      },
+      "deleteSuccess": {
+        "title": "Successfully Deleted",
+        "text": "You have successfully deleted the selected event data."
+      },
+      "deleteError": {
+        "title": "Not Deleted",
+        "text": "There was an error in deleting this event data."
+      }
+    }
   },
-
+  "schedule": {
+    "event": {
+      "addSuccess": "Successfully Added",
+      "addSuccessText": "You have successfully added this event to the schedule.",
+      "addFailed": "Not Added",
+      "addFailedText": "There was an error in adding this event to the schedule.",
+      "removeSuccess": "Successfully Removed",
+      "removeSuccessText": "You have successfully removed this event from the schedule.",
+      "removeFailed": "Not Removed",
+      "removeFailedText": "There was an error in removing this event from the schedule."
+    },
+    "assignment": {
+      "editSuccess": "Successfully Edited",
+      "editSuccessText": "You have successfully edited this event's team schedule.",
+      "editFailed": "Not Edited",
+      "editFailedText": "There was an error in editing this event's team schedule."
+    },
+    "personnel": {
+      "addSuccess": "Successfully Added",
+      "addSuccessText": "You have successfully added another personnel to the system.",
+      "addFailed": "Not Added",
+      "addFailedText": "There was an error in adding additional personnel.",
+      "removeSuccess": "Successfully Removed",
+      "removeSuccessText": "You have successfully removed this personnel from the system.",
+      "removeFailed": "Not Removed",
+      "removeFailedText": "There was an error in removing this personnel from the system."
+    }
+  },
+  "plan": {
+    "successAdded": "Successfully Added",
+    "successEdited": "Successfully Edited",
+    "successDeleted": "Successfully Deleted",
+    "successCreated": "Successfully Created",
+    "successUpdated": "Successfully Updated",
+    "notAdded": "Not Added",
+    "notEdited": "Not Edited",
+    "notDeleted": "Not Deleted",
+    "notCreated": "Not Created",
+    "notUpdated": "Not Updated",
+    "goal": {
+      "added": "You have successfully added an operational goal.",
+      "addError": "There was an error in adding an operational goal.",
+      "edited": "You have successfully edited an operational goal.",
+      "editError": "There was an error in editing an operational goal.",
+      "deleted": "You have successfully deleted the selected operational goal.",
+      "deleteError": "There was an error in deleting this operational goal."
+    },
+    "dccStaffing": {
+      "added": "You have successfully added a TMU personnel to the roster.",
+      "addError": "There was an error in adding a TMU personnel to the roster.",
+      "edited": "You have successfully edited the selected TMU personnel/position.",
+      "editError": "There was an error in editing the selected TMU personnel/position.",
+      "deleted": "You have successfully deleted the selected TMU personnel/position.",
+      "deleteError": "There was an error in deleting this TMU personnel/position."
+    },
+    "historical": {
+      "added": "You have successfully added historical data for this plan.",
+      "addError": "There was an error in adding historical data for this plan.",
+      "edited": "You have successfully edited an entry of historical data for this plan.",
+      "editError": "There was an error in editing an entry of historical data for this plan.",
+      "deleted": "You have successfully deleted an entry of historical data for this plan.",
+      "deleteError": "There was an error in deleting an entry of historical data for this plan."
+    },
+    "forecast": {
+      "added": "You have successfully added forecast data for this plan.",
+      "addError": "There was an error in adding forecast data for this plan.",
+      "edited": "You have successfully edited an entry of forecast data for this plan.",
+      "editError": "There was an error in editing an entry of forecast data for this plan.",
+      "deleted": "You have successfully deleted an entry of forecast data for this plan.",
+      "deleteError": "There was an error in deleting an entry of forecast data for this plan."
+    },
+    "termInit": {
+      "added": "You have successfully added a terminal initiative for this plan.",
+      "addError": "There was an error in adding a terminal initiative for this plan.",
+      "edited": "You have successfully edited a terminal initiative for this plan.",
+      "editError": "There was an error in editing a terminal initiative for this plan.",
+      "deleted": "You have successfully deleted a terminal initiative for this plan.",
+      "deleteError": "There was an error in deleting a terminal initiative for this plan."
+    },
+    "termStaffing": {
+      "added": "You have successfully added a terminal staffing entry for this plan.",
+      "addError": "There was an error in adding a terminal staffing entry for this plan.",
+      "edited": "You have successfully edited a terminal staffing entry for this plan.",
+      "editError": "There was an error in editing a terminal staffing entry for this plan.",
+      "deleted": "You have successfully deleted a terminal staffing entry for this plan.",
+      "deleteError": "There was an error in deleting a terminal staffing entry for this plan."
+    },
+    "config": {
+      "added": "You have successfully added a field config entry for this plan.",
+      "addError": "There was an error in adding a field config entry for this plan.",
+      "edited": "You have successfully edited a field config for this plan.",
+      "editError": "There was an error in editing a field config entry for this plan.",
+      "deleted": "You have successfully deleted a field config entry for this plan.",
+      "deleteError": "There was an error in deleting a field config entry for this plan.",
+      "successAutofilled": "Successfully Autofilled",
+      "autofilled": "You have successfully autofilled a field config entry for this plan.",
+      "autofillError": "There was an error in autofilling a field config entry for this plan.",
+      "selectConfig": "-- Select configuration --",
+      "noConfigsFound": "No configs found for this airport"
+    },
+    "termPlanning": {
+      "added": "You have successfully added a terminal planning entry for this plan.",
+      "addError": "There was an error in adding a terminal planning entry for this plan.",
+      "edited": "You have successfully edited a terminal planning entry for this plan.",
+      "editError": "There was an error in editing a terminal planning entry for this plan.",
+      "deleted": "You have successfully deleted a terminal planning entry for this plan.",
+      "deleteError": "There was an error in deleting a terminal planning entry for this plan."
+    },
+    "termConstraint": {
+      "added": "You have successfully added a terminal constraint entry for this plan.",
+      "addError": "There was an error in adding a terminal constraint entry for this plan.",
+      "edited": "You have successfully edited a terminal constraint entry for this plan.",
+      "editError": "There was an error in editing a terminal constraint entry for this plan.",
+      "deleted": "You have successfully deleted a terminal constraint entry for this plan.",
+      "deleteError": "There was an error in deleting a terminal constraint entry for this plan."
+    },
+    "enrouteInit": {
+      "added": "You have successfully added an enroute initiative for this plan.",
+      "addError": "There was an error in adding an enroute initiative for this plan.",
+      "edited": "You have successfully edited an enroute initiative for this plan.",
+      "editError": "There was an error in editing an enroute initiative for this plan.",
+      "deleted": "You have successfully deleted an enroute initiative for this plan.",
+      "deleteError": "There was an error in deleting an enroute initiative for this plan."
+    },
+    "enrouteStaffing": {
+      "added": "You have successfully added an enroute staffing entry for this plan.",
+      "addError": "There was an error in adding an enroute staffing entry for this plan.",
+      "edited": "You have successfully edited an enroute staffing entry for this plan.",
+      "editError": "There was an error in editing an enroute staffing entry for this plan.",
+      "deleted": "You have successfully deleted an enroute staffing entry for this plan.",
+      "deleteError": "There was an error in deleting an enroute staffing entry for this plan."
+    },
+    "enroutePlanning": {
+      "added": "You have successfully added an enroute planning entry for this plan.",
+      "addError": "There was an error in adding an enroute planning entry for this plan.",
+      "edited": "You have successfully edited an enroute planning entry for this plan.",
+      "editError": "There was an error in editing an enroute planning entry for this plan.",
+      "deleted": "You have successfully deleted an enroute planning entry for this plan.",
+      "deleteError": "There was an error in deleting an enroute planning entry for this plan."
+    },
+    "enrouteConstraint": {
+      "added": "You have successfully added an enroute constraint entry for this plan.",
+      "addError": "There was an error in adding an enroute constraint entry for this plan.",
+      "edited": "You have successfully edited an enroute constraint entry for this plan.",
+      "editError": "There was an error in editing an enroute constraint entry for this plan.",
+      "deleted": "You have successfully deleted an enroute constraint entry for this plan.",
+      "deleteError": "There was an error in deleting an enroute constraint entry for this plan."
+    },
+    "groupFlight": {
+      "added": "You have successfully added a group flight entry for this plan.",
+      "addError": "There was an error in adding a group flight entry for this plan.",
+      "edited": "You have successfully edited a group flight entry for this plan.",
+      "editError": "There was an error in editing a group flight entry for this plan.",
+      "deleted": "You have successfully deleted a group flight entry for this plan.",
+      "deleteError": "There was an error in deleting a group flight entry for this plan."
+    },
+    "termInitTime": {
+      "created": "You have successfully created an entry of terminal initiatives for this plan.",
+      "createError": "There was an error in creating an entry of terminal initiatives for this plan.",
+      "updated": "You have successfully updated an entry of terminal initiatives for this plan.",
+      "updateError": "There was an error in updating an entry of terminal initiatives for this plan.",
+      "deleted": "You have successfully deleted an entry of terminal initiatives for this plan.",
+      "deleteError": "There was an error in deleting an entry of terminal initiatives for this plan."
+    },
+    "enrouteInitTime": {
+      "created": "You have successfully created an entry of enroute initiatives for this plan.",
+      "createError": "There was an error in creating an entry of enroute initiatives for this plan.",
+      "updated": "You have successfully updated an entry of enroute initiatives for this plan.",
+      "updateError": "There was an error in updating an entry of enroute initiatives for this plan.",
+      "deleted": "You have successfully deleted an entry of enroute initiatives for this plan.",
+      "deleteError": "There was an error in deleting an entry of enroute initiatives for this plan."
+    },
+    "initDialog": {
+      "updateTerminal": "Update Terminal Initiative",
+      "updateEnroute": "Update Enroute Initiative",
+      "clearNoInit": "Clear (no initiative)",
+      "criticalDecisionWindow": "Critical Decision Window",
+      "possible": "Possible",
+      "probable": "Probable",
+      "expected": "Expected",
+      "actual": "Actual",
+      "selectState": "Select initiative state"
+    }
+  },
   "error": {
     "loadFailed": "Failed to load {resource}",
     "saveFailed": "Failed to save {resource}",
@@ -388,7 +1005,6 @@
     "unauthorized": "You are not authorized to perform this action",
     "timeout": "Request timed out"
   },
-
   "validation": {
     "required": "This field is required",
     "invalidEmail": "Invalid email address",
@@ -416,7 +1032,6 @@
     "routeRequired": "At least one route is required.",
     "facilityCoordRequired": "Select at least one facility for coordination."
   },
-
   "units": {
     "nm": "NM",
     "ft": "ft",
@@ -425,7 +1040,6 @@
     "min": "min",
     "hr": "hr"
   },
-
   "time": {
     "now": "Now",
     "today": "Today",
@@ -436,17 +1050,333 @@
     "ago": "{time} ago",
     "remaining": "{time} remaining"
   },
-
   "flight": {
     "one": "{count} flight",
     "other": "{count} flights"
   },
-
   "aircraft": {
     "one": "{count} aircraft",
     "other": "{count} aircraft"
   },
-
+  "jatoc": {
+    "layers": {
+      "artccBoundaries": "ARTCC Boundaries",
+      "traconBoundaries": "TRACON Boundaries",
+      "activeIncidents": "Active Incidents",
+      "weatherRadar": "Weather Radar"
+    },
+    "map": {
+      "layers": "Layers"
+    },
+    "triggers": {
+      "A": "AFV (Audio for VATSIM)",
+      "B": "Other Audio Issue",
+      "C": "Multiple Audio Issues",
+      "D": "Datafeed (VATSIM)",
+      "E": "Datafeed (Other)",
+      "F": "Frequency Issue",
+      "H": "Radar Client Issue",
+      "J": "Staffing (Below Min)",
+      "K": "Staffing (At Min)",
+      "M": "No Staffing",
+      "Q": "Other",
+      "R": "Pilot Issue",
+      "S": "Security (RW)",
+      "T": "Security (VATSIM)",
+      "U": "Unknown",
+      "V": "Volume",
+      "W": "Weather"
+    },
+    "profile": {
+      "setProfile": "Set Profile",
+      "selectPlaceholder": "Select...",
+      "clearConfirm": "Clear your profile?",
+      "requiredAlert": "You must set your User Profile before {action}.\nClick the profile button in the top right.",
+      "validation": {
+        "nameRequired": "Name is required",
+        "oisFormat": "OIs must be 2 characters (A-Z, 0-9)",
+        "facilityTypeRequired": "Facility type is required",
+        "roleRequired": "Role is required",
+        "customCodeRequired": "Custom facility code is required"
+      }
+    },
+    "auth": {
+      "loginRequired": "You must be logged in to {action}.\nPlease log in with your VATSIM account.",
+      "dccOnly": "Only DCC users may {action}."
+    },
+    "opsLevel": {
+      "changeConfirm": "Change Ops Level to {level}? This will log to all active incidents.",
+      "changeSuccess": "Ops Level changed and logged to all active incidents."
+    },
+    "calendar": {
+      "unableToLoad": "Unable to load",
+      "noScheduledEvents": "No scheduled events",
+      "noScheduledSpaceOps": "No scheduled space operations",
+      "unableToLoadSpaceOps": "Unable to load space ops"
+    },
+    "events": {
+      "noEvents": "No events",
+      "today": "Today",
+      "next7d": "T+7D",
+      "next30d": "T+30D",
+      "event": "Event"
+    },
+    "incidents": {
+      "errorLoading": "Error loading",
+      "noIncidents": "No incidents found",
+      "pagedYes": "YES",
+      "pagedNo": "No",
+      "show": "Show",
+      "hide": "Hide",
+      "page": "Page",
+      "viewReport": "View Report",
+      "newIncident": "New Incident",
+      "editFacility": "Edit {facility}",
+      "fillRequired": "Fill required fields",
+      "noRemarks": "No remarks",
+      "markPagedConfirm": "Mark paged?",
+      "closeOutConfirm": "Close out?",
+      "closeOutThisConfirm": "Close out this incident?",
+      "reopenConfirm": "Reopen this incident?",
+      "deleteConfirm": "Delete?",
+      "personnelPaged": "Personnel paged",
+      "incidentClosedOut": "Incident closed out",
+      "incidentReopened": "Incident reopened"
+    },
+    "updates": {
+      "noUpdates": "No updates",
+      "enterNotes": "Enter notes"
+    },
+    "report": {
+      "alreadyHas": "Already has: {number}",
+      "generateConfirm": "Generate report number?",
+      "generated": "Report: {number}",
+      "notGenerated": "No report generated yet"
+    },
+    "retrieve": {
+      "enterCriteria": "Enter search criteria above",
+      "searching": "Searching...",
+      "colIncNum": "INC#",
+      "colFacility": "Facility",
+      "colIncidentType": "Incident Type",
+      "colLifecycle": "Lifecycle",
+      "colStart": "Start",
+      "colAction": "Action",
+      "open": "Open"
+    },
+    "error": {
+      "generic": "Error: {message}",
+      "apiError": "API error"
+    }
+  },
+  "splits": {
+    "help": {
+      "hide": "Hide Help",
+      "show": "Show Help"
+    },
+    "map": {
+      "overlappingSectors": "{count} Overlapping Sectors",
+      "selectSector": "Select Sector",
+      "overlappingFeatures": "{count} Overlapping Features",
+      "featureInfo": "Feature Info"
+    },
+    "sectors": {
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "noSectorsCheckFilters": "No sectors found (check strata filters)",
+      "noSectorsFound": "No sectors found for this ARTCC.",
+      "noSectors": "No sectors"
+    },
+    "feature": {
+      "activeSector": "Active Sector",
+      "sector": "Sector",
+      "artcc": "ARTCC",
+      "tracon": "TRACON",
+      "area": "Area",
+      "preset": "Preset",
+      "feature": "Feature"
+    },
+    "layerType": {
+      "split": "Split",
+      "high": "High",
+      "low": "Low",
+      "superhigh": "Superhigh",
+      "artcc": "ARTCC",
+      "tracon": "TRACON",
+      "area": "Area",
+      "preset": "Preset"
+    },
+    "popup": {
+      "unknownFeatureType": "Unknown feature type",
+      "position": "Position",
+      "frequency": "Frequency",
+      "config": "Config",
+      "artcc": "ARTCC",
+      "controller": "Controller",
+      "alsoInPosition": "Also in this position ({count})",
+      "sector": "Sector",
+      "label": "Label",
+      "level": "Level",
+      "assignedTo": "Assigned to",
+      "type": "Type",
+      "artccBoundary": "ARTCC Boundary",
+      "designations": "Designations",
+      "airports": "Airports",
+      "airportsCount": "Airports ({count})",
+      "showLess": "Show less",
+      "showAllAirports": "Show all {count} airports",
+      "dccRegion": "DCC Region",
+      "traconBoundary": "TRACON Boundary",
+      "sectors": "Sectors",
+      "includes": "Includes",
+      "positionLabel": "Position",
+      "preset": "Preset"
+    },
+    "areas": {
+      "allArtccs": "All ARTCCs",
+      "noAreasDefined": "No areas defined.",
+      "noAreasDefinedYet": "No areas defined yet.",
+      "showAll": "Show all {artcc} areas",
+      "hideAll": "Hide all {artcc} areas",
+      "allBtn": "All",
+      "noneBtn": "None",
+      "selectArtccToLoad": "Select an ARTCC to load sectors",
+      "noneSelected": "None selected",
+      "selectArtccFirst": "Select an ARTCC first",
+      "noSectorsFound": "No sectors found for this ARTCC.",
+      "noAreasForArtcc": "No areas defined for this ARTCC",
+      "quickSelectArea": "Quick Select Area",
+      "selectSectors": "Select {count} sectors",
+      "validation": {
+        "title": "Missing Information",
+        "fillArtccAndName": "Please fill in ARTCC and Area Name.",
+        "selectSector": "Please select at least one sector.",
+        "selectArtccFirst": "Please select an ARTCC first."
+      },
+      "saved": {
+        "title": "Area Saved",
+        "text": "Area has been saved successfully."
+      },
+      "error": {
+        "title": "Error",
+        "saveFailed": "Failed to save area.",
+        "deleteFailed": "Failed to delete area."
+      },
+      "deleteConfirm": {
+        "title": "Delete Area?",
+        "text": "Are you sure you want to delete this area? This cannot be undone."
+      }
+    },
+    "mapSelection": {
+      "areaMode": "Selecting sectors for area",
+      "selected": "{count} selected",
+      "done": "Done",
+      "selectingFor": "Selecting sectors for",
+      "clickToSelect": "Click sectors on the map to select/deselect",
+      "sectorAssignedElsewhere": "Sector assigned to another position!"
+    },
+    "presets": {
+      "noPresetsSaved": "No presets saved.",
+      "noSavedPresetsYet": "No saved presets yet.",
+      "noPresetsForArtcc": "No presets for {artcc}",
+      "noPresetsAvailable": "No presets available",
+      "selectPreset": "Select a saved preset...",
+      "newPreset": "New Preset",
+      "editPreset": "Edit Preset",
+      "validation": {
+        "title": "Missing Information",
+        "selectPreset": "Please select a preset first.",
+        "fillNameAndArtcc": "Please fill in preset name and ARTCC.",
+        "addPosition": "Please add at least one position."
+      },
+      "error": {
+        "title": "Error",
+        "loadFailed": "Failed to load preset.",
+        "saveFailed": "Failed to save preset.",
+        "deleteFailed": "Failed to delete preset."
+      },
+      "saved": {
+        "title": "Preset Saved",
+        "text": "Preset has been saved successfully."
+      },
+      "deleteConfirm": {
+        "title": "Delete Preset?",
+        "text": "Are you sure you want to delete this preset? This cannot be undone."
+      },
+      "deleted": {
+        "title": "Preset Deleted",
+        "text": "Preset has been deleted."
+      }
+    },
+    "positions": {
+      "noPositionsYet": "No positions added yet.",
+      "editPosition": "Edit Position",
+      "savePosition": "Save Position",
+      "addPosition": "Add Position",
+      "addNewPosition": "Add New Position",
+      "noPositionsDefined": "No positions defined",
+      "validation": {
+        "title": "Missing Information",
+        "enterName": "Please enter a position name.",
+        "selectPositionFirst": "Please select a position first."
+      },
+      "deleteConfirm": {
+        "title": "Delete Position?",
+        "text": "Are you sure you want to delete this position?"
+      }
+    },
+    "config": {
+      "editConfig": "Edit Configuration: {name}",
+      "untitled": "Untitled",
+      "newConfig": "New Configuration",
+      "editConfigTitle": "Edit Configuration",
+      "schedule": "Schedule",
+      "activate": "Activate",
+      "saveAsDraft": "Save as Draft",
+      "noConfigsYet": "No configurations yet.",
+      "noActiveConfigs": "No active configurations.",
+      "hideActiveSplits": "Hide Active Splits",
+      "showActiveSplits": "Show Active Splits",
+      "validation": {
+        "title": "Missing Information",
+        "fillRequired": "Please fill in all required fields.",
+        "addSplit": "Please add at least one position/split.",
+        "selectArtcc": "Please select an ARTCC first.",
+        "addPosition": "Please add at least one position."
+      },
+      "saved": {
+        "title": "Configuration Saved",
+        "text": "Configuration has been saved successfully."
+      },
+      "error": {
+        "title": "Error",
+        "saveFailed": "Failed to save configuration.",
+        "deleteFailed": "Failed to delete configuration.",
+        "notFound": "Configuration not found.",
+        "loadFailed": "Failed to load configuration."
+      },
+      "deleteConfirm": {
+        "title": "Delete Configuration?",
+        "text": "Are you sure you want to delete this configuration? This cannot be undone.",
+        "textNamed": "Are you sure you want to delete \"{name}\"? This cannot be undone."
+      }
+    },
+    "scheduled": {
+      "noScheduled": "No scheduled configurations.",
+      "inDaysHours": "in {days}d {hours}h",
+      "inHoursMinutes": "in {hours}h {minutes}m",
+      "inMinutes": "in {minutes}m",
+      "startingSoon": "Starting soon",
+      "notSet": "Not set",
+      "activateConfirm": {
+        "title": "Activate Now?",
+        "text": "Are you sure you want to activate this configuration immediately?"
+      },
+      "error": {
+        "activateFailed": "Failed to activate configuration."
+      }
+    }
+  },
   "nod": {
     "tmi": {
       "noActiveGS": "No active ground stops",
@@ -490,8 +1420,133 @@
       },
       "holding": "Holding: {fix}",
       "reason": "Reason: {reason}",
+      "area": "Area",
+      "flights": "Flights",
       "origins": "Origins: {facilities}",
       "linkedProgram": "Program: {name}"
+    },
+    "discord": {
+      "noActiveTMIs": "No active TMIs from Discord",
+      "configureHint": "Configure Discord integration in settings",
+      "received": "Received"
+    },
+    "advisories": {
+      "noAdvisories": "No active advisories",
+      "create": "Create Advisory",
+      "editTitle": "Edit Advisory",
+      "newTitle": "New Advisory",
+      "loadError": "Failed to load advisory",
+      "saveFailed": "Failed to save advisory",
+      "detailTitle": "Advisory Detail",
+      "valid": "Valid",
+      "areaLabel": "Area",
+      "facilities": "Facilities",
+      "created": "Created",
+      "by": "by",
+      "priorityHigh": "HIGH",
+      "priorityLow": "LOW",
+      "priorityNormal": "NORMAL"
+    },
+    "incidents": {
+      "noActive": "No active incidents",
+      "noDetails": "No incident details available",
+      "opened": "Opened",
+      "updated": "Updated"
+    },
+    "tmu": {
+      "noActivePlan": "No active PERTI plan",
+      "level1": "Level 1 - Normal",
+      "level2": "Level 2 - Moderate",
+      "level3": "Level 3 - Severe",
+      "level4": "Level 4 - Critical"
+    },
+    "colorMode": {
+      "weightClass": "Weight Class",
+      "acCategory": "AC Category",
+      "manufacturer": "Manufacturer",
+      "configuration": "Configuration",
+      "operator": "Operator",
+      "altitude": "Altitude",
+      "speed": "Speed",
+      "status": "Status",
+      "arrDep": "Arr/Dep",
+      "dccRegion": "DCC Region",
+      "eta": "ETA (Relative)",
+      "etaHour": "ETA (Hour)",
+      "carrier": "Carrier",
+      "depCenter": "Dep Center",
+      "arrCenter": "Arr Center",
+      "depTracon": "Dep TRACON",
+      "arrTracon": "Arr TRACON",
+      "depAirport": "Dep Airport",
+      "arrAirport": "Arr Airport",
+      "rerouteMatch": "Reroute Match",
+      "feaMatch": "FEA Match"
+    },
+    "legend": {
+      "gsAffected": "GS Affected",
+      "edct": "EDCT",
+      "noMatch": "No Match",
+      "genAviation": "Gen. Aviation",
+      "enroute": "Enroute",
+      "climbing": "Climbing",
+      "ground": "Ground",
+      "parked": "Parked",
+      "surface": "Surface",
+      "default": "Default",
+      "major": "Major",
+      "regional": "Regional",
+      "freight": "Freight",
+      "military": "Military",
+      "core30": "Core 30",
+      "oep35": "OEP 35",
+      "aspm82": "ASPM 82",
+      "quadJet": "Quad Jet",
+      "heavyTwin": "Heavy Twin",
+      "triJet": "Tri Jet",
+      "twinJet": "Twin Jet",
+      "turboprop": "Turboprop",
+      "prop": "Prop"
+    },
+    "popup": {
+      "matchingRoutes": "Matching Routes",
+      "matchingPublicRoutes": "MATCHING PUBLIC ROUTES",
+      "flightPlan": "Flight Plan",
+      "flightPlanRoute": "Flight Plan Route",
+      "route": "Route",
+      "alt": "Alt",
+      "gs": "GS",
+      "hdg": "Hdg",
+      "artcc": "ARTCC",
+      "detailedView": "Detailed View",
+      "aircraftInfo": "Aircraft Info",
+      "type": "Type",
+      "weightClass": "Weight Class",
+      "icaoCode": "ICAO Code",
+      "flightData": "Flight Data",
+      "altitude": "Altitude",
+      "groundSpeed": "Ground Speed",
+      "heading": "Heading",
+      "squawk": "Squawk",
+      "positionAirspace": "Position & Airspace",
+      "currentArtcc": "Current ARTCC",
+      "depArtcc": "Dep ARTCC",
+      "arrArtcc": "Arr ARTCC",
+      "coordinates": "Coordinates",
+      "incidentType": "Type",
+      "incidentStatus": "Status",
+      "incidentTrigger": "Trigger",
+      "viewInJatoc": "View in JATOC →",
+      "sector": "Sector",
+      "config": "Config",
+      "status": "Status",
+      "showRoute": "➤ Show Route",
+      "hideRoute": "✓ Hide Route",
+      "loadingRoute": "⏳ Loading...",
+      "featuresAtLocation": "{count} features at this location"
+    },
+    "time": {
+      "ufn": "UFN"
     },
     "flows": {
       "title": "Facility Flows",
@@ -532,6 +1587,239 @@
       "configDeleted": "Configuration deleted",
       "elementAdded": "Element added",
       "elementDeleted": "Element removed"
+    }
+  },
+  "sheet": {
+    "editFailed": "Not Edited",
+    "dccStaffing": {
+      "editSuccess": "Successfully Edited",
+      "editSuccessText": "You have successfully edited this DCC staffing entry.",
+      "editFailedText": "There was an error in editing this DCC staffing entry."
+    },
+    "termStaffing": {
+      "editSuccess": "Successfully Edited",
+      "editSuccessText": "You have successfully edited this terminal staffing entry.",
+      "editFailedText": "There was an error in editing this terminal staffing entry."
+    },
+    "enrouteStaffing": {
+      "editSuccess": "Successfully Edited",
+      "editSuccessText": "You have successfully edited this enroute staffing entry.",
+      "editFailedText": "There was an error in editing this enroute staffing entry."
+    },
+    "config": {
+      "editSuccess": "Successfully Edited",
+      "editSuccessText": "You have successfully edited this configuration entry.",
+      "editFailedText": "There was an error in editing this configuration entry.",
+      "selectConfiguration": "Select Configuration...",
+      "noConfigsFound": "No configurations found"
+    }
+  },
+  "demand": {
+    "config": {
+      "arrDepFormat": "ARR: {arr} | DEP: {dep}",
+      "selectPreset": "Select Preset"
+    },
+    "phase": {
+      "actualGs": "GS (EDCT)",
+      "simulatedGs": "GS (Simulated)",
+      "proposedGs": "GS (Proposed)",
+      "actualGdp": "GDP (EDCT)",
+      "simulatedGdp": "GDP (Simulated)",
+      "proposedGdp": "GDP (Proposed)",
+      "exempt": "Exempt",
+      "uncontrolled": "Uncontrolled"
+    },
+    "chart": {
+      "xAxisLabel": "Time in {minutes}-Minute Increments",
+      "yAxisLabel": "Demand",
+      "total": "Total"
+    },
+    "direction": {
+      "arrShort": "Arr",
+      "depShort": "Dep",
+      "arrivals": "Arrivals",
+      "departures": "Departures",
+      "flights": "Flights",
+      "both": "Both",
+      "arrivalsOnly": "Arrivals Only",
+      "departuresOnly": "Departures Only",
+      "arrivalsAndDepartures": "Arrivals & Departures"
+    },
+    "timeRange": {
+      "custom": "Custom..."
+    },
+    "filter": {
+      "allArtccs": "All ARTCCs",
+      "selectAirport": "Select Airport",
+      "allTiers": "All Tiers",
+      "internal": "Internal",
+      "firstTier": "1st Tier",
+      "secondTier": "2nd Tier"
+    },
+    "prompt": {
+      "selectAirport": "Select an airport"
+    },
+    "legend": {
+      "hide": "Hide Legend",
+      "show": "Show Legend"
+    },
+    "panel": {
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "phaseFilter": {
+      "floatingPanelOpen": "Filters in floating panel"
+    },
+    "status": {
+      "refreshed": "Refreshed: {time}",
+      "adlTime": "ADL: {time}"
+    },
+    "table": {
+      "noData": "No data"
+    },
+    "error": {
+      "noAirportSpecified": "No airport specified",
+      "loadAirportList": "Failed to load airport list",
+      "connectingToServer": "Error connecting to server",
+      "selectBothTimes": "Please select both start and end times",
+      "endAfterStart": "End time must be after start time",
+      "loadDemandData": "Failed to load demand data"
+    },
+    "rate": {
+      "override": "Override: {reason}",
+      "tmiPublishedConfig": "TMI Published Config",
+      "aarType": "AAR Type: {type}",
+      "publishedBy": "Published by: {name}",
+      "validFrom": "Valid from: {time}",
+      "validUntil": "Valid until: {time}",
+      "overrideActiveUntil": "Override active until {time}"
+    },
+    "matchType": {
+      "exact": "Exact",
+      "partial": "Partial",
+      "subset": "Subset",
+      "wind": "Wind",
+      "default": "Default",
+      "fallback": "Fallback",
+      "detected": "Detected",
+      "manual": "Manual",
+      "tmi": "TMI",
+      "suggested": "Suggested"
+    },
+    "atis": {
+      "noAtisAvailable": "No ATIS Available",
+      "noAtisText": "No ATIS data is currently available for this airport.",
+      "noAtisTextAvailable": "No ATIS text available",
+      "runwayDetails": "Runway Details",
+      "arrivalRunways": "Arrival Runways",
+      "departureRunways": "Departure Runways",
+      "approaches": "Approaches",
+      "atisInformation": "ATIS Information",
+      "typeArrival": "ARRIVAL",
+      "typeDeparture": "DEPARTURE",
+      "typeCombined": "COMBINED",
+      "sourceCombined": "Combined ATIS",
+      "sourceSeparate": "Separate ARR/DEP ATIS",
+      "sourceArrOnly": "Arrival ATIS Only",
+      "sourceDepOnly": "Departure ATIS Only",
+      "badgeTooltip": "{type} ATIS - Info {code} ({age} ago)"
+    },
+    "breakdown": {
+      "originArtcc": "Origin ARTCC",
+      "byOriginArtcc": "{direction} by Origin ARTCC",
+      "byDestArtcc": "{direction} by Dest ARTCC",
+      "destNotApplicableArr": "Destination ARTCC breakdown is not applicable for arrivals-only view",
+      "destSwitchDirection": "Switch to Departures or Both to see destination breakdown",
+      "byCarrier": "{direction} by Carrier",
+      "byWeightClass": "{direction} by Weight Class",
+      "byAircraftType": "{direction} by Aircraft Type",
+      "byFlightRule": "{direction} by Flight Rule",
+      "depFix": "Departure Fix",
+      "byDepFix": "{direction} by Departure Fix",
+      "arrFix": "Arrival Fix",
+      "byArrFix": "{direction} by Arrival Fix",
+      "dpSid": "DP/SID",
+      "byDpSid": "{direction} by DP/SID",
+      "star": "STAR",
+      "byStar": "{direction} by STAR"
+    },
+    "emptyState": {
+      "arrOrBoth": "Arrivals or Both",
+      "depOrBoth": "Departures or Both",
+      "notApplicableFor": "{view} is not applicable for {direction}-only view",
+      "switchDirection": "Switch direction to see {view} breakdown.\n{view} applies to {appliesTo}.\nSelect \"{dirText}\" in the direction filter."
+    },
+    "tmiMarker": {
+      "start": "Start",
+      "update": "Update",
+      "cnx": "CNX",
+      "end": "End"
+    },
+    "flightDetail": {
+      "title": "Flights: {start} - {end}",
+      "loading": "Loading flights...",
+      "noFlights": "No flights found for this time period.",
+      "loadFailed": "Failed to load flight details.",
+      "arrival": "Arrival",
+      "departure": "Departure",
+      "col": {
+        "callsign": "Callsign",
+        "type": "Type",
+        "origin": "Origin",
+        "dest": "Dest",
+        "time": "Time",
+        "eta": "ETA",
+        "etd": "ETD",
+        "status": "Status",
+        "originArtcc": "Origin ARTCC",
+        "destArtcc": "Dest ARTCC",
+        "carrier": "Carrier",
+        "weight": "Weight",
+        "equipment": "Equipment",
+        "rule": "Rule",
+        "depFix": "Dep Fix",
+        "arrFix": "Arr Fix",
+        "sid": "SID",
+        "star": "STAR"
+      }
+    },
+    "setConfig": {
+      "title": "Set Config: {airport}",
+      "publish": "Publish",
+      "configPreset": "Config Preset",
+      "weather": "Weather",
+      "arrivalRunways": "Arrival Runways",
+      "departureRunways": "Departure Runways",
+      "aar": "AAR",
+      "adr": "ADR",
+      "aarType": "AAR Type",
+      "aarAdjustmentReason": "AAR Adjustment Reason",
+      "validFromUtc": "Valid From (UTC)",
+      "validUntilUtc": "Valid Until (UTC)",
+      "yourName": "Your Name",
+      "cidOptional": "CID (optional)",
+      "configNum": "Config #{id}",
+      "placeholder": {
+        "name": "First Last",
+        "cid": "VATSIM CID"
+      },
+      "validation": {
+        "aarAdrRequired": "AAR and ADR are required",
+        "validTimesRequired": "Valid From and Valid Until are required",
+        "adjustmentRequired": "AAR Adjustment reason is required when AAR differs from default",
+        "nameRequired": "Your name is required"
+      },
+      "existingConfig": "Existing CONFIG",
+      "existingConfigMsg": "An active CONFIG already exists for <strong>{airport}</strong>:",
+      "statusLabel": "Status",
+      "postedLabel": "Posted",
+      "idLabel": "ID",
+      "willUpdate": "Publishing will update the existing entry.",
+      "updateAndPublish": "Update & Publish",
+      "publishing": "Publishing...",
+      "publishedTitle": "Config Published",
+      "publishedMsg": "{airport} configuration published to NTML",
+      "publishFailed": "Publish Failed"
     }
   }
 }

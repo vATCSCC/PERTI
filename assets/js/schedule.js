@@ -29,8 +29,8 @@ function schedule(id, title, date) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added this event to the schedule.',
+                title:      PERTII18n.t('schedule.event.addSuccess'),
+                text:       PERTII18n.t('schedule.event.addSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -40,8 +40,8 @@ function schedule(id, title, date) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding this event to the schedule.',
+                title:  PERTII18n.t('schedule.event.addFailed'),
+                text:   PERTII18n.t('schedule.event.addFailedText'),
             });
         },
     });
@@ -77,8 +77,8 @@ $('#editassigned').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       "You have successfully edited this event's team schedule.",
+                title:      PERTII18n.t('schedule.assignment.editSuccess'),
+                text:       PERTII18n.t('schedule.assignment.editSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -90,8 +90,8 @@ $('#editassigned').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   "There was an error in editing this event's team schedule.",
+                title:  PERTII18n.t('schedule.assignment.editFailed'),
+                text:   PERTII18n.t('schedule.assignment.editFailedText'),
             });
         },
     });
@@ -108,8 +108,8 @@ function deleteEvent(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Removed',
-                text:       'You have successfully removed this event from the schedule.',
+                title:      PERTII18n.t('schedule.event.removeSuccess'),
+                text:       PERTII18n.t('schedule.event.removeSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -119,8 +119,8 @@ function deleteEvent(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Removed',
-                text:   'There was an error in removing this event from the schedule.',
+                title:  PERTII18n.t('schedule.event.removeFailed'),
+                text:   PERTII18n.t('schedule.event.removeFailedText'),
             });
         },
     });
@@ -141,8 +141,8 @@ $('#addpersonnel').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added another personnel to the system.',
+                title:      PERTII18n.t('schedule.personnel.addSuccess'),
+                text:       PERTII18n.t('schedule.personnel.addSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -154,8 +154,8 @@ $('#addpersonnel').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding additional personnel.',
+                title:  PERTII18n.t('schedule.personnel.addFailed'),
+                text:   PERTII18n.t('schedule.personnel.addFailedText'),
             });
         },
     });
@@ -172,8 +172,8 @@ function deletePersonnel(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Removed',
-                text:       'You have successfully removed this personnel from the system.',
+                title:      PERTII18n.t('schedule.personnel.removeSuccess'),
+                text:       PERTII18n.t('schedule.personnel.removeSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -181,7 +181,7 @@ function deletePersonnel(id) {
             loadData();
         },
         error:function(xhr, status, error) {
-            let errorMsg = 'There was an error in removing this personnel from the system.';
+            let errorMsg = PERTII18n.t('schedule.personnel.removeFailedText');
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.error) {
@@ -192,7 +192,7 @@ function deletePersonnel(id) {
             }
             Swal.fire({
                 icon:   'error',
-                title:  'Not Removed',
+                title:  PERTII18n.t('schedule.personnel.removeFailed'),
                 text:   errorMsg,
             });
         },

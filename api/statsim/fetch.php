@@ -145,13 +145,10 @@ $airports = preg_replace('/[^A-Za-z,\s]/', '', $params['airports']);
 $from = preg_replace('/[^0-9\-:\s]/', '', $params['from']);
 $to = preg_replace('/[^0-9\-:\s]/', '', $params['to']);
 
-// Build Statsim URL for reference
-$statsim_url = 'https://statsim.net/events/custom/?' . http_build_query([
-    'airports' => $airports,
-    'period' => 'custom',
-    'from' => $from,
-    'to' => $to
-]);
+// Build Statsim URL for reference (path-based format)
+$fromISO = str_replace(' ', 'T', $from);
+$toISO = str_replace(' ', 'T', $to);
+$statsim_url = 'https://statsim.net/events/custom/' . rawurlencode($fromISO) . '/' . rawurlencode($toISO) . '/' . $airports;
 
 // Check if Node.js and Puppeteer are available
 $node_check = shell_exec('which node 2>/dev/null');

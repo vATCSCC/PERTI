@@ -43,11 +43,25 @@ function loadEnrouteStaffing() {
     });
 }
 
-loadGoals();
-loadDCCStaffing();
-loadTermStaffing();
-loadConfigs();
-loadEnrouteStaffing();
+// Load all sheet sections in parallel for faster page load
+(function loadAllSections() {
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+
+    Promise.all([
+        $.get(`api/data/plans/goals?p_id=${p_id}`),
+        $.get(`api/data/sheet/dcc_staffing?p_id=${p_id}`),
+        $.get(`api/data/sheet/term_staffing?p_id=${p_id}`),
+        $.get(`api/data/sheet/configs?p_id=${p_id}`),
+        $.get(`api/data/sheet/enroute_staffing?p_id=${p_id}`)
+    ]).then(function(results) {
+        $('#goals_table').html(results[0]);
+        $('#dcc_staffing_table').html(results[1]);
+        $('#term_staffing_table').html(results[2]);
+        $('#configs_table').html(results[3]);
+        $('#enroute_staffing_table').html(results[4]);
+        tooltips();
+    });
+})();
 
 
 // edit_dccstaffing Modal
@@ -78,8 +92,8 @@ $('#edit_dccstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited the select TMU personnel/position.',
+                title:      PERTII18n.t('sheet.dccStaffing.editSuccess'),
+                text:       PERTII18n.t('sheet.dccStaffing.editSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -91,8 +105,8 @@ $('#edit_dccstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing the selected TMU personnel/position.',
+                title:  PERTII18n.t('sheet.editFailed'),
+                text:   PERTII18n.t('sheet.dccStaffing.editFailedText'),
             });
         },
     });
@@ -126,8 +140,8 @@ $('#edittermstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a terminal staffing entry for this plan.',
+                title:      PERTII18n.t('sheet.termStaffing.editSuccess'),
+                text:       PERTII18n.t('sheet.termStaffing.editSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -139,8 +153,8 @@ $('#edittermstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a terminal staffing entry for this plan.',
+                title:  PERTII18n.t('sheet.editFailed'),
+                text:   PERTII18n.t('sheet.termStaffing.editFailedText'),
             });
         },
     });
@@ -155,7 +169,7 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     // Reset config picker state
     $('#sheet_editconfig_use_adl').prop('checked', false);
     $('#sheet_editconfig_picker').hide();
-    $('#sheet_editconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    $('#sheet_editconfig_select').empty().append('<option value="">' + PERTII18n.t('sheet.config.selectConfiguration') + '</option>').prop('disabled', true);
     sheetEditconfigSelectedConfig = null;
 
     modal.find('.modal-body #sheet_editconfig_id').val(button.data('id'));
@@ -189,8 +203,8 @@ $('#editconfig').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a field config for this plan.',
+                title:      PERTII18n.t('sheet.config.editSuccess'),
+                text:       PERTII18n.t('sheet.config.editSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -202,8 +216,8 @@ $('#editconfig').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a field config entry for this plan.',
+                title:  PERTII18n.t('sheet.editFailed'),
+                text:   PERTII18n.t('sheet.config.editFailedText'),
             });
         },
     });
@@ -238,8 +252,8 @@ $('#editenroutestaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an enroute staffing entry for this plan.',
+                title:      PERTII18n.t('sheet.enrouteStaffing.editSuccess'),
+                text:       PERTII18n.t('sheet.enrouteStaffing.editSuccessText'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -251,8 +265,8 @@ $('#editenroutestaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an enroute staffing entry for this plan.',
+                title:  PERTII18n.t('sheet.editFailed'),
+                text:   PERTII18n.t('sheet.enrouteStaffing.editFailedText'),
             });
         },
     });
@@ -296,7 +310,7 @@ function fetchAirportConfigs(airport, callback) {
 // Populate config dropdown with fetched configs
 function populateConfigDropdown(configs, selectElement) {
     const $select = $(selectElement);
-    $select.empty().append('<option value="">-- Select configuration --</option>');
+    $select.empty().append('<option value="">' + PERTII18n.t('sheet.config.selectConfiguration') + '</option>');
 
     if (configs && configs.length > 0) {
         configs.forEach(function(cfg, idx) {
@@ -308,7 +322,7 @@ function populateConfigDropdown(configs, selectElement) {
         });
         $select.prop('disabled', false);
     } else {
-        $select.append('<option value="" disabled>No configs found for this airport</option>');
+        $select.append('<option value="" disabled>' + PERTII18n.t('sheet.config.noConfigsFound') + '</option>');
         $select.prop('disabled', true);
     }
 }
