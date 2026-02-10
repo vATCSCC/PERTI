@@ -45,22 +45,8 @@ $dateEnd = ($plan['event_end_date'] ?: $plan['event_date']) . ' ' . ($plan['even
 $dateStartPadded = date('Y-m-d H:i', strtotime($dateStart . ' UTC') - 3600);
 $dateEndPadded = date('Y-m-d H:i', strtotime($dateEnd . ' UTC') + 3600);
 
-// Connect to VATSIM_TMI
-$tmiConn = null;
-try {
-    if (defined('TMI_SQL_HOST') && TMI_SQL_HOST) {
-        $tmiConn = new PDO(
-            "sqlsrv:Server=" . TMI_SQL_HOST . ";Database=" . TMI_SQL_DATABASE,
-            TMI_SQL_USERNAME,
-            TMI_SQL_PASSWORD
-        );
-        $tmiConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    }
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'TMI database connection failed']);
-    exit;
-}
+// Connect to VATSIM_TMI via sqlsrv
+$tmiConn = get_conn_tmi();
 
 if (!$tmiConn) {
     echo json_encode([
@@ -99,7 +85,7 @@ echo json_encode([
     'count' => count($tmis)
 ]);
 
-// ---- Query functions ----
+// ---- Query functions (sqlsrv) ----
 
 function fetchNtmlEntries($conn, $dateStart, $dateEnd, $limit) {
     $sql = "SELECT TOP $limit
@@ -107,123 +93,102 @@ function fetchNtmlEntries($conn, $dateStart, $dateEnd, $limit) {
                 requesting_facility, providing_facility,
                 restriction_value, restriction_unit,
                 reason_code, valid_from, valid_until, status,
-                raw_input, created_at, created_by_name
+                source_type
             FROM dbo.tmi_entries
-            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
-              AND (valid_until >= :dateStart OR valid_until IS NULL)
-              AND created_at <= :dateEnd2
+            WHERE (valid_from <= ? OR valid_from IS NULL)
+              AND (valid_until >= ? OR valid_until IS NULL)
             ORDER BY valid_from DESC";
 
-    try {
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            ':dateStart' => $dateStart,
-            ':dateEnd' => $dateEnd,
-            ':dateEnd2' => $dateEnd
-        ]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart]);
+    if ($stmt === false) return [];
 
-        $results = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $results[] = [
-                'id' => $row['entry_id'],
-                'category' => 'ntml',
-                'type' => $row['entry_type'] ?: $row['determinant_code'],
-                'element' => $row['ctl_element'],
-                'facility' => $row['requesting_facility'] ?: $row['providing_facility'],
-                'detail' => buildNtmlDetail($row),
-                'start_utc' => formatDt($row['valid_from']),
-                'end_utc' => formatDt($row['valid_until']),
-                'status' => $row['status'],
-                'raw' => $row['raw_input'],
-                'created_by' => $row['created_by_name'],
-            ];
-        }
-        return $results;
-    } catch (Exception $e) {
-        return [];
+    $results = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $results[] = [
+            'id' => $row['entry_id'],
+            'category' => 'ntml',
+            'type' => $row['entry_type'] ?: $row['determinant_code'],
+            'element' => $row['ctl_element'],
+            'facility' => $row['requesting_facility'] ?: $row['providing_facility'],
+            'detail' => buildNtmlDetail($row),
+            'start_utc' => formatDt($row['valid_from']),
+            'end_utc' => formatDt($row['valid_until']),
+            'status' => $row['status'],
+        ];
     }
+    sqlsrv_free_stmt($stmt);
+    return $results;
 }
 
 function fetchPrograms($conn, $dateStart, $dateEnd, $limit) {
     $sql = "SELECT TOP $limit
-                program_id, program_type, ctl_element,
-                scope_airports, start_utc, end_utc, status,
-                parameters, remarks, created_at, created_by
+                program_id, program_type, program_name, ctl_element,
+                start_utc, end_utc, status,
+                program_rate, cause_text, impacting_condition,
+                scope_json, created_at, created_by
             FROM dbo.tmi_programs
-            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
-              AND (end_utc >= :dateStart OR end_utc IS NULL)
-              AND created_at <= :dateEnd2
+            WHERE (start_utc <= ? OR start_utc IS NULL)
+              AND (end_utc >= ? OR end_utc IS NULL)
+              AND created_at <= ?
             ORDER BY start_utc DESC";
 
-    try {
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            ':dateStart' => $dateStart,
-            ':dateEnd' => $dateEnd,
-            ':dateEnd2' => $dateEnd
-        ]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    if ($stmt === false) return [];
 
-        $results = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $results[] = [
-                'id' => $row['program_id'],
-                'category' => 'program',
-                'type' => $row['program_type'],
-                'element' => $row['ctl_element'],
-                'facility' => $row['scope_airports'],
-                'detail' => $row['remarks'] ?: $row['parameters'],
-                'start_utc' => formatDt($row['start_utc']),
-                'end_utc' => formatDt($row['end_utc']),
-                'status' => $row['status'],
-                'created_by' => $row['created_by'],
-            ];
-        }
-        return $results;
-    } catch (Exception $e) {
-        return [];
+    $results = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $results[] = [
+            'id' => $row['program_id'],
+            'category' => 'program',
+            'type' => $row['program_type'],
+            'element' => $row['ctl_element'],
+            'facility' => $row['program_name'],
+            'detail' => $row['cause_text'] ?: $row['program_rate'],
+            'start_utc' => formatDt($row['start_utc']),
+            'end_utc' => formatDt($row['end_utc']),
+            'status' => $row['status'],
+            'program_rate' => $row['program_rate'],
+            'impacting_condition' => $row['impacting_condition'],
+            'created_by' => $row['created_by'],
+        ];
     }
+    sqlsrv_free_stmt($stmt);
+    return $results;
 }
 
 function fetchAdvisories($conn, $dateStart, $dateEnd, $limit) {
     $sql = "SELECT TOP $limit
                 advisory_id, advisory_type, advisory_number,
-                title, summary, constrained_area, facilities,
-                valid_from, valid_until, status,
+                subject, body_text, ctl_element, scope_facilities,
+                effective_from, effective_until, status,
                 created_at, created_by
             FROM dbo.tmi_advisories
-            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
-              AND (valid_until >= :dateStart OR valid_until IS NULL)
-              AND created_at <= :dateEnd2
-            ORDER BY valid_from DESC";
+            WHERE (effective_from <= ? OR effective_from IS NULL)
+              AND (effective_until >= ? OR effective_until IS NULL)
+              AND created_at <= ?
+            ORDER BY effective_from DESC";
 
-    try {
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            ':dateStart' => $dateStart,
-            ':dateEnd' => $dateEnd,
-            ':dateEnd2' => $dateEnd
-        ]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    if ($stmt === false) return [];
 
-        $results = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $results[] = [
-                'id' => $row['advisory_id'],
-                'category' => 'advisory',
-                'type' => $row['advisory_type'],
-                'element' => $row['constrained_area'] ?: $row['facilities'],
-                'facility' => $row['facilities'],
-                'detail' => $row['title'] ?: $row['summary'],
-                'start_utc' => formatDt($row['valid_from']),
-                'end_utc' => formatDt($row['valid_until']),
-                'status' => $row['status'],
-                'advisory_number' => $row['advisory_number'],
-                'created_by' => $row['created_by'],
-            ];
-        }
-        return $results;
-    } catch (Exception $e) {
-        return [];
+    $results = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $results[] = [
+            'id' => $row['advisory_id'],
+            'category' => 'advisory',
+            'type' => $row['advisory_type'],
+            'element' => $row['ctl_element'] ?: $row['scope_facilities'],
+            'facility' => $row['scope_facilities'],
+            'detail' => $row['subject'] ?: $row['body_text'],
+            'start_utc' => formatDt($row['effective_from']),
+            'end_utc' => formatDt($row['effective_until']),
+            'status' => $row['status'],
+            'advisory_number' => $row['advisory_number'],
+            'created_by' => $row['created_by'],
+        ];
     }
+    sqlsrv_free_stmt($stmt);
+    return $results;
 }
 
 function fetchReroutes($conn, $dateStart, $dateEnd, $limit) {
@@ -232,41 +197,33 @@ function fetchReroutes($conn, $dateStart, $dateEnd, $limit) {
                 protected_segment, protected_fixes, avoid_fixes,
                 origin_airports, origin_centers, dest_airports, dest_centers,
                 comments, start_utc, end_utc,
-                created_at, created_by
+                created_at
             FROM dbo.tmi_reroutes
-            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
-              AND (end_utc >= :dateStart OR end_utc IS NULL)
-              AND created_at <= :dateEnd2
+            WHERE (start_utc <= ? OR start_utc IS NULL)
+              AND (end_utc >= ? OR end_utc IS NULL)
+              AND created_at <= ?
             ORDER BY start_utc DESC";
 
-    try {
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            ':dateStart' => $dateStart,
-            ':dateEnd' => $dateEnd,
-            ':dateEnd2' => $dateEnd
-        ]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    if ($stmt === false) return [];
 
-        $results = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $results[] = [
-                'id' => $row['reroute_id'],
-                'category' => 'reroute',
-                'type' => 'Reroute',
-                'element' => $row['name'],
-                'facility' => trim(($row['origin_airports'] ?? '') . ' ' . ($row['origin_centers'] ?? '')),
-                'detail' => $row['comments'] ?: $row['protected_segment'],
-                'start_utc' => formatDt($row['start_utc']),
-                'end_utc' => formatDt($row['end_utc']),
-                'status' => $row['status'],
-                'adv_number' => $row['adv_number'],
-                'created_by' => $row['created_by'],
-            ];
-        }
-        return $results;
-    } catch (Exception $e) {
-        return [];
+    $results = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $results[] = [
+            'id' => $row['reroute_id'],
+            'category' => 'reroute',
+            'type' => 'Reroute',
+            'element' => $row['name'],
+            'facility' => trim(($row['origin_airports'] ?? '') . ' ' . ($row['origin_centers'] ?? '')),
+            'detail' => $row['comments'] ?: $row['protected_segment'],
+            'start_utc' => formatDt($row['start_utc']),
+            'end_utc' => formatDt($row['end_utc']),
+            'status' => $row['status'],
+            'adv_number' => $row['adv_number'],
+        ];
     }
+    sqlsrv_free_stmt($stmt);
+    return $results;
 }
 
 function buildNtmlDetail($row) {
