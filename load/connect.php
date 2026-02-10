@@ -359,13 +359,15 @@ $conn_ref = null;
 $conn_gis = null;
 
 // For backward compatibility with code that checks $conn_adl directly,
-// we connect eagerly here. Remove these lines once all code migrates to getters.
-// TODO: Migrate callers to use get_conn_adl() etc., then remove eager loading
-$conn_adl = get_conn_adl();
-$conn_swim = get_conn_swim();
-$conn_tmi = get_conn_tmi();
-$conn_ref = get_conn_ref();
-$conn_gis = get_conn_gis();
+// we connect eagerly here. Pages that only need MySQL can define
+// PERTI_MYSQL_ONLY before including connect.php to skip Azure connections.
+if (!defined('PERTI_MYSQL_ONLY')) {
+    $conn_adl = get_conn_adl();
+    $conn_swim = get_conn_swim();
+    $conn_tmi = get_conn_tmi();
+    $conn_ref = get_conn_ref();
+    $conn_gis = get_conn_gis();
+}
 
 // -------------------------------------------------------------------------
 // Helper: Trigger SWIM sync after ADL refresh
@@ -401,5 +403,3 @@ if (!function_exists('swim_trigger_sync')) {
         return ['success' => false, 'message' => 'SWIM sync script not found', 'stats' => []];
     }
 }
-
-?>
