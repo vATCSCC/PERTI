@@ -221,6 +221,20 @@
         // Also load as primary strings
         PERTII18n.loadStrings(strings);
 
+        // Load full locale JSON synchronously for page-specific keys (nod.*, demand.*, etc.)
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'assets/locales/' + locale + '.json', false);
+            xhr.send();
+            if (xhr.status === 200) {
+                var fullData = JSON.parse(xhr.responseText);
+                PERTII18n.loadStrings(fullData);
+                console.log('[LocaleLoader] Full locale loaded:', Object.keys(fullData).length, 'top-level sections');
+            }
+        } catch (e) {
+            console.warn('[LocaleLoader] Could not load full locale file:', e.message);
+        }
+
         // Store detected locale
         if (typeof localStorage !== 'undefined') {
             try {
