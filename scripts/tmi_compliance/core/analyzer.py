@@ -406,6 +406,34 @@ class TMIComplianceAnalyzer:
         """Get unimpeded taxi-out time in seconds for an airport. Default: 600s (10 min)."""
         return self._taxi_references.get(airport_icao, 600)
 
+    def _load_airport_facility_map(self):
+        """
+        Load airport → ARTCC mapping from the apts reference table.
+
+        Used as fallback when fp_dept_artcc is NULL in flight data
+        (common for first_seen-only flights without parsed routes).
+        Maps ICAO code → RESP_ARTCC_ID (e.g., KJFK → ZNY).
+        """
+        self._airport_artcc = {}
+        cursor = self.adl_conn.cursor()
+
+        query = self.adl.format_query(
+            "SELECT ICAO_ID, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID IS NOT NULL AND RESP_ARTCC_ID IS NOT NULL"
+        )
+        try:
+            cursor.execute(query)
+            for row in cursor.fetchall():
+                self._airport_artcc[row[0]] = row[1].upper()
+            logger.info(f"Loaded {len(self._airport_artcc)} airport→ARTCC mappings")
+        except Exception as e:
+            logger.warning(f"Could not load airport facility map: {e}")
+        finally:
+            cursor.close()
+
+    def _get_airport_artcc(self, airport_icao: str) -> str:
+        """Get responsible ARTCC for an airport (e.g., KJFK → ZNY). Returns '' if unknown."""
+        return self._airport_artcc.get(airport_icao, '')
+
     def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
         """
         Validate trajectory data quality for reliable boundary crossing detection.
@@ -526,6 +554,9 @@ class TMIComplianceAnalyzer:
 
                 # Load airport taxi references for GS delay calculation
                 self._load_airport_taxi_references()
+
+                # Load airport→ARTCC mapping for GS facility scope filtering
+                self._load_airport_facility_map()
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -2061,8 +2092,6 @@ class TMIComplianceAnalyzer:
             else:
                 continue
 
-            time_source_counts[time_source] += 1
-
             # Extract carrier from airline_icao or callsign prefix
             airline_icao = flight.get('airline_icao')
             airline_name = flight.get('airline_name', '')
@@ -2106,15 +2135,15 @@ class TMIComplianceAnalyzer:
                 flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
                 flight_info['actual_taxi_min'] = round(actual_taxi_sec / 60, 1)
                 flight_info['unimpeded_taxi_min'] = round(unimpeded_sec / 60, 1)
-                if gs_delay_sec > 0:
-                    gs_delays.append(gs_delay_sec / 60)
 
             # Check if flight is from a listed DEP FACILITY
             # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
             if dep_facilities:
-                # Simple check: is the origin airport's ARTCC in the dep_facilities list?
+                # Check flight plan data first, fall back to apts reference table
                 origin_artcc = (flight.get('dept_artcc') or '').upper()
                 origin_tracon = (flight.get('dept_tracon') or '').upper()
+                if not origin_artcc:
+                    origin_artcc = self._get_airport_artcc(dept)
                 in_scope = (origin_artcc in dep_facilities or
                            origin_tracon in dep_facilities or
                            dept.upper() in dep_facilities or
@@ -2125,6 +2154,11 @@ class TMIComplianceAnalyzer:
                     flight_info['reason'] = f'Origin facility not in DEP FACILITIES'
                     not_in_scope.append(flight_info)
                     continue
+
+            # Track stats for in-scope flights only
+            time_source_counts[time_source] += 1
+            if flight_info.get('gs_delay_min', 0) > 0:
+                gs_delays.append(flight_info['gs_delay_min'])
 
             # Determine which advisory phase this flight's departure falls in
             phase = None
