@@ -322,6 +322,7 @@
             // Initialize demand layer module
             if (typeof NODDemandLayer !== 'undefined') {
                 NODDemandLayer.init(state.map);
+                NODDemandLayer.onRefresh(() => updateFlowDemandCounts());
             }
 
             // Load data now that map sources are ready
@@ -7068,10 +7069,22 @@
         const isVisible = el.is_visible !== false && el.is_visible !== 0;
         const hasFEA = el.demand_monitor_id != null;
         const showFEA = el.element_type === 'FIX' || el.element_type === 'ROUTE';
+        const showLineWeight = el.element_type === 'PROCEDURE' || el.element_type === 'ROUTE';
+        const lineWeight = el.line_weight || 2;
 
         let label = escapeHtml(el.element_name);
         if (el.element_type === 'FIX' && el.fix_name) {
             label = escapeHtml(el.fix_name);
+        }
+
+        // Build line weight options
+        let lineWeightHtml = '';
+        if (showLineWeight) {
+            lineWeightHtml = `<select class="form-control form-control-sm bg-dark text-light border-secondary"
+                style="width: 38px; font-size: 10px; padding: 0 2px; height: 22px;"
+                title="Line weight" onchange="NOD.updateFlowElement(${el.element_id}, {line_weight: parseInt(this.value)})">
+                ${[1, 2, 3, 4, 5].map(w => `<option value="${w}" ${w === lineWeight ? 'selected' : ''}>${w}</option>`).join('')}
+            </select>`;
         }
 
         return `<div class="nod-flow-element" data-element-id="${el.element_id}">
@@ -7082,6 +7095,7 @@
             <span class="nod-flow-element-controls">
                 <input type="color" value="${el.color || '#17a2b8'}" title="Color"
                        onchange="NOD.updateFlowElement(${el.element_id}, {color: this.value})">
+                ${lineWeightHtml}
                 ${showFEA ? `<button class="btn-icon ${hasFEA ? 'fea-active' : ''}" title="${hasFEA ? 'Remove FEA' : 'Monitor as FEA'}"
                        onclick="NOD.toggleFlowFEA(${el.element_id})">
                     <i class="fas fa-chart-bar"></i>
@@ -7509,24 +7523,193 @@
     }
 
     /**
-     * Toggle FEA monitoring for a flow element (placeholder for Phase 4).
+     * Toggle FEA monitoring for a flow element.
+     * Creates or removes a demand monitor linked to this element.
      */
     async function toggleFlowFEA(elementId) {
-        console.log('[NOD] FEA toggle for element', elementId, '(Phase 4 - not yet implemented)');
+        const el = (state.flows.activeConfig?.elements || []).find(e => e.element_id === elementId);
+        if (!el) return;
+
+        try {
+            if (el.demand_monitor_id) {
+                // Remove FEA
+                const resp = await fetch(`api/nod/fea.php?source_type=flow_element&element_id=${elementId}`, {
+                    method: 'DELETE',
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    // Remove from demand layer
+                    if (typeof NODDemandLayer !== 'undefined' && data.removed_monitor_id) {
+                        NODDemandLayer.removeMonitor('monitor_' + data.removed_monitor_id);
+                    }
+                    el.demand_monitor_id = null;
+                    renderFlowConfig();
+                }
+            } else {
+                // Create FEA
+                const resp = await fetch('api/nod/fea.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_type: 'flow_element', element_id: elementId }),
+                });
+                const data = await resp.json();
+                if (data.monitor_id) {
+                    el.demand_monitor_id = data.monitor_id;
+
+                    // Add to demand layer for immediate tracking
+                    if (typeof NODDemandLayer !== 'undefined' && data.definition) {
+                        const monitor = {
+                            type: data.monitor_type === 'via_fix' ? 'via_fix' : 'segment',
+                            id: data.monitor_key,
+                        };
+                        if (data.monitor_type === 'via_fix' && data.definition.via) {
+                            monitor.via = data.definition.via;
+                            monitor.filter = data.definition.filter;
+                        } else if (data.definition.route_geojson) {
+                            // Route segment - parse from/to from geojson
+                            try {
+                                const geom = typeof data.definition.route_geojson === 'string'
+                                    ? JSON.parse(data.definition.route_geojson) : data.definition.route_geojson;
+                                if (geom.coordinates && geom.coordinates.length >= 2) {
+                                    monitor.from = geom.coordinates[0].join(',');
+                                    monitor.to = geom.coordinates[geom.coordinates.length - 1].join(',');
+                                    monitor.route_geojson = geom;
+                                }
+                            } catch (e) {
+                                // Skip
+                            }
+                        }
+                        NODDemandLayer.addMonitor(monitor);
+                    }
+
+                    renderFlowConfig();
+                }
+            }
+        } catch (e) {
+            console.warn('[NOD] FEA toggle failed:', e);
+        }
     }
 
     /**
-     * Bulk create FEA monitors for all elements (placeholder for Phase 4).
+     * Bulk create FEA monitors for all visible FIX and ROUTE elements.
      */
     async function bulkCreateFEA() {
-        console.log('[NOD] Bulk FEA create (Phase 4 - not yet implemented)');
+        const config = state.flows.activeConfig;
+        if (!config) return;
+
+        try {
+            const resp = await fetch('api/nod/fea.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_type: 'bulk', config_id: config.config_id }),
+            });
+            const data = await resp.json();
+
+            if (data.monitors && data.monitors.length > 0) {
+                // Update local state with new monitor IDs
+                data.monitors.forEach(m => {
+                    const el = (config.elements || []).find(e => e.element_id === m.element_id);
+                    if (el) el.demand_monitor_id = m.monitor_id;
+
+                    // Add to demand layer
+                    if (typeof NODDemandLayer !== 'undefined' && m.definition) {
+                        const monitor = {
+                            type: m.monitor_type === 'via_fix' ? 'via_fix' : 'segment',
+                            id: m.monitor_key,
+                        };
+                        if (m.monitor_type === 'via_fix' && m.definition.via) {
+                            monitor.via = m.definition.via;
+                            monitor.filter = m.definition.filter;
+                        }
+                        NODDemandLayer.addMonitor(monitor);
+                    }
+                });
+
+                renderFlowConfig();
+                console.log(`[NOD] Created ${data.created} FEA monitors`);
+            }
+        } catch (e) {
+            console.warn('[NOD] Bulk FEA create failed:', e);
+        }
     }
 
     /**
-     * Bulk clear FEA monitors (placeholder for Phase 4).
+     * Bulk clear all FEA monitors for the active config.
      */
     async function bulkClearFEA() {
-        console.log('[NOD] Bulk FEA clear (Phase 4 - not yet implemented)');
+        const config = state.flows.activeConfig;
+        if (!config) return;
+
+        try {
+            const resp = await fetch(`api/nod/fea.php?source_type=config&config_id=${config.config_id}`, {
+                method: 'DELETE',
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                // Clear all monitor IDs from local state
+                (config.elements || []).forEach(el => {
+                    el.demand_monitor_id = null;
+                });
+
+                renderFlowConfig();
+                console.log(`[NOD] Cleared ${data.removed} FEA monitors`);
+            }
+        } catch (e) {
+            console.warn('[NOD] Bulk FEA clear failed:', e);
+        }
+    }
+
+    /**
+     * Update demand counts on flow elements from the demand layer.
+     * Called after demand layer refreshes (via callback).
+     */
+    function updateFlowDemandCounts() {
+        if (!state.flows.activeConfig) return;
+
+        const demandData = (typeof NODDemandLayer !== 'undefined' && NODDemandLayer.getDemandData)
+            ? NODDemandLayer.getDemandData() : null;
+        if (!demandData || !demandData.monitors) return;
+
+        let changed = false;
+        (state.flows.activeConfig.elements || []).forEach(el => {
+            if (!el.demand_monitor_id) {
+                if (el.demand_count != null) {
+                    el.demand_count = null;
+                    changed = true;
+                }
+                return;
+            }
+
+            // Find matching monitor data
+            const monitorData = demandData.monitors.find(m =>
+                m.id && m.id.includes(String(el.demand_monitor_id)));
+
+            if (monitorData) {
+                const newCount = monitorData.total || 0;
+                if (el.demand_count !== newCount) {
+                    el.demand_count = newCount;
+                    changed = true;
+                }
+            }
+        });
+
+        // Update gate aggregate counts
+        (state.flows.activeConfig.gates || []).forEach(gate => {
+            const members = (state.flows.activeConfig.elements || [])
+                .filter(e => e.gate_id === gate.gate_id && e.demand_count != null);
+            const total = members.reduce((sum, e) => sum + (e.demand_count || 0), 0);
+            if (gate.demand_count !== total) {
+                gate.demand_count = total;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            renderFlowConfig();
+            // Update map labels with counts
+            updateFlowMapLayers();
+        }
     }
 
     // =========================================
