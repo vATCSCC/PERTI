@@ -2196,7 +2196,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (!table) return;
         var tbody = table.querySelector('tbody');
         if (!tbody) return;
-        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var allRows = Array.from(tbody.querySelectorAll('tr'));
 
         // Determine sort direction from header state
         var th = table.querySelectorAll('thead th')[colIdx];
@@ -2212,9 +2212,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             th.classList.add(asc ? 'sort-asc' : 'sort-desc');
         }
 
-        rows.sort(function(a, b) {
-            var aVal = (a.cells[colIdx] && a.cells[colIdx].textContent.trim()) || '';
-            var bVal = (b.cells[colIdx] && b.cells[colIdx].textContent.trim()) || '';
+        // Group rows: pair each data row with its following detail row (if any).
+        // Detail rows have an id containing '_detail_' and a colspan cell.
+        var groups = [];
+        for (var i = 0; i < allRows.length; i++) {
+            var row = allRows[i];
+            if (row.id && row.id.indexOf('_detail_') !== -1) continue; // skip detail rows (handled as part of group)
+            var group = [row];
+            // Check if next row is a detail row for this one
+            if (i + 1 < allRows.length) {
+                var next = allRows[i + 1];
+                if (next.id && next.id.indexOf('_detail_') !== -1) {
+                    group.push(next);
+                    i++; // skip the detail row in the outer loop
+                }
+            }
+            groups.push(group);
+        }
+
+        groups.sort(function(a, b) {
+            var aRow = a[0], bRow = b[0];
+            var aVal = (aRow.cells[colIdx] && aRow.cells[colIdx].textContent.trim()) || '';
+            var bVal = (bRow.cells[colIdx] && bRow.cells[colIdx].textContent.trim()) || '';
             if (isNumeric) {
                 var aNum = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
                 var bNum = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
@@ -2223,7 +2242,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         });
 
-        rows.forEach(function(row) { tbody.appendChild(row); });
+        groups.forEach(function(group) {
+            group.forEach(function(row) { tbody.appendChild(row); });
+        });
     },
 
     /**
@@ -7370,6 +7391,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Timeline events as a vertical list with connecting line
                     const events = [];
+                    if (f.first_seen_time) events.push({ time: f.first_seen_time, label: 'First Seen (connected)', icon: 'fa-wifi', color: '#6f42c1' });
                     if (f.out_time) events.push({ time: f.out_time, label: 'Gate Push (OUT)', icon: 'fa-door-open', color: '#6c757d' });
                     if (f.off_time) events.push({ time: f.off_time, label: 'Wheels-Off (OFF)', icon: 'fa-plane-departure', color: '#17a2b8' });
                     if (f.dept_time) events.push({ time: f.dept_time, label: 'Departure Time (' + (f.time_source || '') + ')', icon: 'fa-clock', color: f.status === 'NON-COMPLIANT' ? '#dc3545' : '#28a745' });
@@ -7396,6 +7418,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                         // Right: computed metrics
                         tbl += `<div style="display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-start;">`;
+                        if (f.gate_wait_min) tbl += `<div><span class="text-muted">Gate Wait:</span> <strong>${TMICompliance.formatDuration(f.gate_wait_min)}</strong></div>`;
                         if (f.actual_taxi_min !== undefined) tbl += `<div><span class="text-muted">Taxi:</span> <strong>${TMICompliance.formatDuration(f.actual_taxi_min)}</strong></div>`;
                         if (f.unimpeded_taxi_min !== undefined) tbl += `<div><span class="text-muted">Unimpeded:</span> <strong>${TMICompliance.formatDuration(f.unimpeded_taxi_min)}</strong></div>`;
                         if (f.gs_delay_min !== undefined) tbl += `<div><span class="text-muted">GS Delay:</span> <strong>${TMICompliance.formatDuration(f.gs_delay_min)}</strong></div>`;
