@@ -701,6 +701,11 @@ const NODDemandLayer = (function() {
             updateTimeline(data);
             updateThresholdInfo();
 
+            // Notify external listeners (e.g., flow demand counts)
+            if (typeof state.onRefresh === 'function') {
+                try { state.onRefresh(data); } catch (e) { console.warn('[DemandLayer] onRefresh callback error:', e); }
+            }
+
             console.log('[DemandLayer] Refreshed:', data.monitors?.length || 0, 'monitors');
         } catch (error) {
             console.error('[DemandLayer] Refresh failed:', error);
@@ -754,27 +759,52 @@ const NODDemandLayer = (function() {
                     },
                 });
             }
-            // Segment monitors - render as lines
-            else if (monitor.type === 'segment' && monitor.from_lat != null && monitor.to_lat != null) {
-                segmentFeatures.push({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: [
-                            [monitor.from_lon, monitor.from_lat],
-                            [monitor.to_lon, monitor.to_lat],
-                        ],
-                    },
-                    properties: {
-                        id: monitor.id,
-                        from_fix: monitor.from_fix,
-                        to_fix: monitor.to_fix,
-                        count: count,
-                        total: monitor.total,
-                        color: color,
-                        label: `${monitor.from_fix}→${monitor.to_fix}`,
-                    },
-                });
+            // Segment monitors - render as lines (supports full route_geojson geometry)
+            else if (monitor.type === 'segment') {
+                let coordinates = null;
+                let label = '';
+
+                // Use full route_geojson geometry if available (from flow element FEAs)
+                if (monitor.route_geojson) {
+                    try {
+                        const geom = typeof monitor.route_geojson === 'string'
+                            ? JSON.parse(monitor.route_geojson) : monitor.route_geojson;
+                        if (geom.coordinates && geom.coordinates.length >= 2) {
+                            coordinates = geom.coordinates;
+                        }
+                    } catch (e) {
+                        // Fall through to from/to
+                    }
+                    label = monitor.route_string || monitor.id || 'Route';
+                }
+
+                // Fallback to from/to endpoint coordinates
+                if (!coordinates && monitor.from_lat != null && monitor.to_lat != null) {
+                    coordinates = [
+                        [monitor.from_lon, monitor.from_lat],
+                        [monitor.to_lon, monitor.to_lat],
+                    ];
+                    label = `${monitor.from_fix}→${monitor.to_fix}`;
+                }
+
+                if (coordinates) {
+                    segmentFeatures.push({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: coordinates,
+                        },
+                        properties: {
+                            id: monitor.id,
+                            from_fix: monitor.from_fix,
+                            to_fix: monitor.to_fix,
+                            count: count,
+                            total: monitor.total,
+                            color: color,
+                            label: label,
+                        },
+                    });
+                }
             }
             // Airway segment monitors - render as lines with full geometry if available
             else if (monitor.type === 'airway_segment' && monitor.from_lat != null && monitor.to_lat != null) {
@@ -2418,6 +2448,8 @@ const NODDemandLayer = (function() {
         closeFlightDetailsPopup,
         showMonitorFlights,
         getState: () => ({ ...state }),
+        getDemandData: () => state.demandData,
+        onRefresh: (cb) => { state.onRefresh = cb; },
         COLORS: DEMAND_COLORS,
         // FEA matching functions
         FEA_COLORS,
