@@ -34,6 +34,8 @@ if (php_sapi_name() !== 'cli') {
 // =============================================================================
 
 require_once __DIR__ . '/../../load/perti_constants.php';
+require_once __DIR__ . '/ntml_parser.php';
+require_once __DIR__ . '/advzy_parser.php';
 
 // =============================================================================
 // Configuration
@@ -75,14 +77,39 @@ $FORCE = !empty($payload['force']);
 $CREATED_BY = $payload['created_by'] ?? null;
 $CREATED_BY_NAME = $payload['created_by_name'] ?? 'Historical Import';
 
-// Get entries from either format
+// Detect input mode: ntml_raw, advzy_raw, entries, or raw
+$INPUT_MODE = 'tfms'; // default: TFMS code-block format
 $rawEntries = [];
-if (!empty($payload['entries'])) {
+$preParsedEntries = [];
+
+if (!empty($payload['ntml_raw'])) {
+    $INPUT_MODE = 'ntml';
+    $preParsedEntries = parseNtmlFile($payload['ntml_raw']);
+} elseif (!empty($payload['ntml_file'])) {
+    $INPUT_MODE = 'ntml';
+    $fileContent = @file_get_contents($payload['ntml_file']);
+    if ($fileContent === false) {
+        echo json_encode(['error' => 'Cannot read ntml_file: ' . $payload['ntml_file']]);
+        exit(1);
+    }
+    $preParsedEntries = parseNtmlFile($fileContent);
+} elseif (!empty($payload['advzy_raw'])) {
+    $INPUT_MODE = 'advzy';
+    $preParsedEntries = parseAdvzyFile($payload['advzy_raw']);
+} elseif (!empty($payload['advzy_file'])) {
+    $INPUT_MODE = 'advzy';
+    $fileContent = @file_get_contents($payload['advzy_file']);
+    if ($fileContent === false) {
+        echo json_encode(['error' => 'Cannot read advzy_file: ' . $payload['advzy_file']]);
+        exit(1);
+    }
+    $preParsedEntries = parseAdvzyFile($fileContent);
+} elseif (!empty($payload['entries'])) {
     $rawEntries = $payload['entries'];
 } elseif (!empty($payload['raw'])) {
     $rawEntries = splitRawPaste($payload['raw']);
 } else {
-    echo json_encode(['error' => 'Provide "entries" array or "raw" string']);
+    echo json_encode(['error' => 'Provide "entries", "raw", "ntml_raw", "ntml_file", "advzy_raw", or "advzy_file"']);
     exit(1);
 }
 
@@ -106,39 +133,63 @@ if (!$DRY_RUN) {
 }
 
 // =============================================================================
+// Build Unified Entry List
+// =============================================================================
+
+$entriesToProcess = []; // [{type, data, line?} or {skip_reason, preview?}]
+
+if ($INPUT_MODE === 'ntml' || $INPUT_MODE === 'advzy') {
+    // Pre-parsed entries from file parsers
+    foreach ($preParsedEntries as $pe) {
+        $entriesToProcess[] = [
+            'type' => $pe['_type'],
+            'data' => $pe,
+            'line' => $pe['_line'] ?? null,
+        ];
+    }
+} else {
+    // TFMS code-block entries (existing path)
+    foreach ($rawEntries as $rawText) {
+        $cleanText = cleanDiscordMessage($rawText);
+        if (empty(trim($cleanText))) {
+            $entriesToProcess[] = ['type' => null, 'data' => null, 'skip_reason' => 'Empty after cleaning'];
+            continue;
+        }
+        $type = detectEntryType($cleanText);
+        if (!$type) {
+            $entriesToProcess[] = ['type' => null, 'data' => null, 'skip_reason' => 'Unrecognized type', 'preview' => substr($cleanText, 0, 100)];
+            continue;
+        }
+        $parsed = parseEntry($cleanText, $type);
+        $parsed['_raw'] = $cleanText;
+        $parsed['_type'] = $type;
+        $entriesToProcess[] = ['type' => $type, 'data' => $parsed];
+    }
+}
+
+// =============================================================================
 // Process Each Entry
 // =============================================================================
 
 $results = [];
 $counts = ['total' => 0, 'inserted' => 0, 'skipped' => 0, 'errors' => 0];
 
-foreach ($rawEntries as $i => $rawText) {
+foreach ($entriesToProcess as $i => $entry) {
     $counts['total']++;
 
+    // Handle pre-skipped entries
+    if (isset($entry['skip_reason'])) {
+        $results[] = ['index' => $i, 'status' => 'skipped', 'reason' => $entry['skip_reason'], 'preview' => $entry['preview'] ?? null];
+        $counts['skipped']++;
+        continue;
+    }
+
+    $type = $entry['type'];
+    $parsed = $entry['data'];
+
     try {
-        // Clean Discord formatting
-        $cleanText = cleanDiscordMessage($rawText);
-        if (empty(trim($cleanText))) {
-            $results[] = ['index' => $i, 'status' => 'skipped', 'reason' => 'Empty after cleaning'];
-            $counts['skipped']++;
-            continue;
-        }
-
-        // Detect entry type
-        $type = detectEntryType($cleanText);
-        if (!$type) {
-            $results[] = ['index' => $i, 'status' => 'error', 'reason' => 'Could not detect entry type', 'preview' => substr($cleanText, 0, 100)];
-            $counts['errors']++;
-            continue;
-        }
-
-        // Parse the entry
-        $parsed = parseEntry($cleanText, $type);
-        $parsed['_raw'] = $cleanText;
-        $parsed['_type'] = $type;
-
         if ($DRY_RUN) {
-            $results[] = ['index' => $i, 'status' => 'dry_run', 'type' => $type, 'parsed' => $parsed];
+            $results[] = ['index' => $i, 'status' => 'dry_run', 'type' => $type, 'parsed' => $parsed, 'line' => $entry['line'] ?? null];
             continue;
         }
 
@@ -158,7 +209,7 @@ foreach ($rawEntries as $i => $rawText) {
         $counts['inserted']++;
 
     } catch (Exception $e) {
-        $results[] = ['index' => $i, 'status' => 'error', 'reason' => $e->getMessage()];
+        $results[] = ['index' => $i, 'status' => 'error', 'reason' => $e->getMessage(), 'line' => $entry['line'] ?? null];
         $counts['errors']++;
     }
 }
@@ -663,6 +714,37 @@ function insertEntry(PDO $conn, string $type, array $data): array {
             $entryId = insertNtmlEntry($conn, 'MISC', $data);
             $ids['entry_id'] = $entryId;
             break;
+
+        // NTML compact format types
+        case 'STOP':
+            $entryId = insertNtmlEntry($conn, 'CONTINGENCY', $data);
+            $ids['entry_id'] = $entryId;
+            break;
+
+        case 'CONFIG':
+            $entryId = insertNtmlEntry($conn, 'CONFIG', $data);
+            $ids['entry_id'] = $entryId;
+            break;
+
+        case 'DD':
+        case 'ED':
+        case 'AD':
+            $entryId = insertNtmlEntry($conn, 'DELAY', $data);
+            $ids['entry_id'] = $entryId;
+            break;
+
+        case 'CFR':
+        case 'APREQ':
+            $entryId = insertNtmlEntry($conn, 'APREQ', $data);
+            $ids['entry_id'] = $entryId;
+            break;
+
+        case 'TBM':
+        case 'CANCEL':
+        case 'PLANNING':
+            $entryId = insertNtmlEntry($conn, 'MISC', $data);
+            $ids['entry_id'] = $entryId;
+            break;
     }
 
     return $ids;
@@ -708,8 +790,12 @@ function insertProgram(PDO $conn, string $type, array $data): int {
 
     $programType = mapProgramType($type);
     $scopeJson = null;
-    if ($data['scope_centers']) {
+    if (!empty($data['scope_centers'])) {
         $scopeJson = json_encode(['centers' => $data['scope_centers']]);
+    }
+    $ratesJson = null;
+    if (!empty($data['rates_hourly'])) {
+        $ratesJson = json_encode($data['rates_hourly']);
     }
 
     $sql = "INSERT INTO dbo.tmi_programs (
@@ -717,7 +803,8 @@ function insertProgram(PDO $conn, string $type, array $data): int {
                 start_utc, end_utc,
                 status, is_proposed, is_active,
                 program_rate, delay_limit_min,
-                scope_json, impacting_condition, cause_text, comments,
+                rates_hourly_json, scope_json,
+                impacting_condition, cause_text, comments,
                 source_type,
                 created_by, created_at, updated_at
             ) VALUES (
@@ -725,24 +812,27 @@ function insertProgram(PDO $conn, string $type, array $data): int {
                 :start_utc, :end_utc,
                 'COMPLETED', 0, 0,
                 :program_rate, :delay_limit_min,
-                :scope_json, :impacting_condition, :cause_text, :comments,
+                :rates_hourly_json, :scope_json,
+                :impacting_condition, :cause_text, :comments,
                 'IMPORT',
                 :created_by, :created_at, :updated_at
-            )";
+            );
+            SELECT SCOPE_IDENTITY() AS id";
 
     $stmt = $conn->prepare($sql);
 
-    $createdAt = $data['start_utc'] ?? gmdate('Y-m-d H:i:s');
+    $createdAt = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
 
     $stmt->execute([
         ':ctl_element' => $data['ctl_element'] ?? 'UNKN',
         ':element_type' => $data['element_type'] ?? perti_detect_element_type($data['ctl_element'] ?? '') ?? 'APT',
         ':program_type' => $programType,
-        ':adv_number' => $data['advisory_number'],
+        ':adv_number' => $data['advisory_number'] ?? null,
         ':start_utc' => $data['start_utc'],
         ':end_utc' => $data['end_utc'] ?? $data['start_utc'],
         ':program_rate' => $data['program_rate'],
         ':delay_limit_min' => $data['delay_limit_min'],
+        ':rates_hourly_json' => $ratesJson,
         ':scope_json' => $scopeJson,
         ':impacting_condition' => $data['impacting_condition'],
         ':cause_text' => $data['cause_text'],
@@ -751,8 +841,9 @@ function insertProgram(PDO $conn, string $type, array $data): int {
         ':created_at' => $createdAt,
         ':updated_at' => $createdAt,
     ]);
-
-    return (int) $conn->lastInsertId();
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['id'] ?? 0);
 }
 
 /**
@@ -791,11 +882,12 @@ function insertAdvisory(PDO $conn, string $type, array $data, ?int $programId): 
                 'IMPORT',
                 :created_by, :created_by_name,
                 :created_at, :updated_at
-            )";
+            );
+            SELECT SCOPE_IDENTITY() AS id";
 
     $stmt = $conn->prepare($sql);
 
-    $createdAt = $data['start_utc'] ?? gmdate('Y-m-d H:i:s');
+    $createdAt = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
     $scopeFacilities = null;
     if ($data['scope_centers']) {
         $scopeFacilities = implode(' ', $data['scope_centers']);
@@ -834,8 +926,9 @@ function insertAdvisory(PDO $conn, string $type, array $data, ?int $programId): 
         ':created_at' => $createdAt,
         ':updated_at' => $createdAt,
     ]);
-
-    return (int) $conn->lastInsertId();
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['id'] ?? 0);
 }
 
 /**
@@ -850,6 +943,7 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
     $sql = "INSERT INTO dbo.tmi_entries (
                 determinant_code, protocol_type, entry_type,
                 ctl_element, element_type,
+                requesting_facility, providing_facility,
                 restriction_value, restriction_unit, condition_text,
                 reason_code,
                 valid_from, valid_until,
@@ -860,6 +954,7 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
             ) VALUES (
                 :determinant_code, 1, :entry_type,
                 :ctl_element, :element_type,
+                :requesting_facility, :providing_facility,
                 :restriction_value, :restriction_unit, :condition_text,
                 :reason_code,
                 :valid_from, :valid_until,
@@ -867,22 +962,27 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
                 :raw_input, :parsed_data,
                 :created_by, :created_by_name,
                 :created_at, :updated_at
-            )";
+            );
+            SELECT SCOPE_IDENTITY() AS id";
 
     $stmt = $conn->prepare($sql);
 
-    $createdAt = $data['start_utc'] ?? gmdate('Y-m-d H:i:s');
+    // Use _entry_timestamp as fallback for entries without explicit time ranges
+    $validFrom = $data['start_utc'] ?? $data['_entry_timestamp'] ?? null;
+    $createdAt = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
 
     $stmt->execute([
         ':determinant_code' => $determinantCode,
         ':entry_type' => $determinantCode,
         ':ctl_element' => $data['ctl_element'],
         ':element_type' => $data['element_type'] ?? perti_detect_element_type($data['ctl_element'] ?? ''),
+        ':requesting_facility' => $data['requesting_facility'] ?? null,
+        ':providing_facility' => $data['providing_facility'] ?? null,
         ':restriction_value' => $data['restriction_value'],
         ':restriction_unit' => $data['restriction_unit'],
         ':condition_text' => $data['mit_fix'],
         ':reason_code' => $data['impacting_condition'],
-        ':valid_from' => $data['start_utc'],
+        ':valid_from' => $validFrom,
         ':valid_until' => $data['end_utc'],
         ':raw_input' => $data['_raw'] ?? '',
         ':parsed_data' => json_encode($data, JSON_UNESCAPED_SLASHES),
@@ -891,8 +991,9 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
         ':created_at' => $createdAt,
         ':updated_at' => $createdAt,
     ]);
-
-    return (int) $conn->lastInsertId();
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['id'] ?? 0);
 }
 
 /**
@@ -916,11 +1017,12 @@ function insertReroute(PDO $conn, array $data, ?int $advisoryId): int {
                 :comments, :impacting_condition,
                 'IMPORT',
                 :created_by, :created_at, :updated_at
-            )";
+            );
+            SELECT SCOPE_IDENTITY() AS id";
 
     $stmt = $conn->prepare($sql);
 
-    $createdAt = $data['start_utc'] ?? gmdate('Y-m-d H:i:s');
+    $createdAt = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
     $name = $data['route_name'] ?? $data['constrained_area'] ?? 'Imported Route';
 
     $stmt->execute([
@@ -936,11 +1038,26 @@ function insertReroute(PDO $conn, array $data, ?int $advisoryId): int {
         ':created_at' => $createdAt,
         ':updated_at' => $createdAt,
     ]);
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $rerouteId = (int) ($row['id'] ?? 0);
 
-    $rerouteId = (int) $conn->lastInsertId();
-
-    // Insert the route string if available
-    if ($data['route_string']) {
+    // Insert route table entries (ADVZY-parsed multi-route tables)
+    if (!empty($data['_routes'])) {
+        $routeSql = "INSERT INTO dbo.tmi_reroute_routes (
+                        reroute_id, origin, destination, route_string
+                     ) VALUES (?, ?, ?, ?)";
+        $routeStmt = $conn->prepare($routeSql);
+        foreach ($data['_routes'] as $route) {
+            $routeStmt->execute([
+                $rerouteId,
+                $route['orig'] ?? $data['traffic_from'],
+                $route['dest'] ?? $data['traffic_to'],
+                $route['route'],
+            ]);
+        }
+    } elseif ($data['route_string']) {
+        // Single route string (TFMS format)
         $routeSql = "INSERT INTO dbo.tmi_reroute_routes (
                         reroute_id, origin, destination, route_string
                      ) VALUES (?, ?, ?, ?)";
