@@ -201,16 +201,16 @@ function handlePost($conn) {
         $input['procedure_id'] ?? null,
         $input['route_string'] ?? null,
         $routeGeojson,
-        $input['direction'] ?? null,
+        $input['direction'] ?? 'ARRIVAL',
         isset($input['gate_id']) ? intval($input['gate_id']) : null,
         $input['sort_order'] ?? 0,
-        $input['color'] ?? null,
-        $input['line_weight'] ?? null,
-        $input['line_style'] ?? null,
+        $input['color'] ?? '#17a2b8',
+        $input['line_weight'] ?? 2,
+        $input['line_style'] ?? 'solid',
         $input['label_format'] ?? null,
         $input['icon'] ?? null,
         $input['is_visible'] ?? 1,
-        $input['auto_fea'] ?? null
+        $input['auto_fea'] ?? 0
     ];
 
     $stmt = sqlsrv_query($conn, $sql, $params);
