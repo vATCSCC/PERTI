@@ -92,6 +92,61 @@ function resolveFixLatLon($conn, $fixName) {
 }
 
 /**
+ * Resolve a route string into a GeoJSON LineString.
+ * Splits on spaces and dots, looks up each token in nav_fixes,
+ * skips airways/procedures that don't resolve, and builds a
+ * LineString from the resolved coordinates in route order.
+ *
+ * Examples:
+ *   "COATE Q436 RAAKK"    → LineString through COATE, RAAKK (Q436 skipped)
+ *   "MERIT HFD PUT"        → LineString through MERIT, HFD, PUT
+ *   "RPTOR1.RPTOR MERIT"   → LineString through RPTOR, MERIT
+ */
+function resolveRouteGeojson($conn, $routeString) {
+    if (!$routeString) return null;
+
+    // Split on spaces and dots, filter empty/long tokens
+    $tokens = preg_split('/[\s.]+/', trim($routeString));
+    $tokens = array_values(array_filter($tokens, function($t) {
+        $t = trim($t);
+        return $t !== '' && strlen($t) <= 16;
+    }));
+
+    if (count($tokens) < 1) return null;
+
+    // Dedupe for the SQL query while preserving order
+    $unique = array_values(array_unique($tokens));
+
+    // Batch-resolve all tokens against nav_fixes
+    $placeholders = implode(',', array_fill(0, count($unique), '?'));
+    $sql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN ($placeholders)";
+    $stmt = sqlsrv_query($conn, $sql, $unique);
+    if ($stmt === false) return null;
+
+    $fixMap = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $fixMap[$row['fix_name']] = [floatval($row['lon']), floatval($row['lat'])];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    // Build coordinates in route order (skip airways/unresolved tokens)
+    $coords = [];
+    foreach ($tokens as $token) {
+        $token = trim($token);
+        if (isset($fixMap[$token])) {
+            $coords[] = $fixMap[$token];
+        }
+    }
+
+    if (count($coords) < 2) return null;
+
+    return json_encode([
+        'type' => 'LineString',
+        'coordinates' => $coords,
+    ]);
+}
+
+/**
  * Format SQL Server errors for display
  */
 function formatSqlError($errors) {
@@ -183,6 +238,9 @@ function handlePost($conn) {
         $routeGeojson = is_array($input['route_geojson'])
             ? json_encode($input['route_geojson'])
             : $input['route_geojson'];
+    } elseif (strtoupper($input['element_type']) === 'ROUTE' && !empty($input['route_string'])) {
+        // Auto-resolve route string to GeoJSON LineString
+        $routeGeojson = resolveRouteGeojson($conn, $input['route_string']);
     }
 
     $sql = "INSERT INTO dbo.facility_flow_elements (
@@ -201,16 +259,16 @@ function handlePost($conn) {
         $input['procedure_id'] ?? null,
         $input['route_string'] ?? null,
         $routeGeojson,
-        $input['direction'] ?? null,
+        $input['direction'] ?? 'ARRIVAL',
         isset($input['gate_id']) ? intval($input['gate_id']) : null,
         $input['sort_order'] ?? 0,
-        $input['color'] ?? null,
-        $input['line_weight'] ?? null,
-        $input['line_style'] ?? null,
+        $input['color'] ?? '#17a2b8',
+        $input['line_weight'] ?? 2,
+        $input['line_style'] ?? 'solid',
         $input['label_format'] ?? null,
         $input['icon'] ?? null,
         $input['is_visible'] ?? 1,
-        $input['auto_fea'] ?? null
+        $input['auto_fea'] ?? 0
     ];
 
     $stmt = sqlsrv_query($conn, $sql, $params);
@@ -229,11 +287,18 @@ function handlePost($conn) {
         [$fixLat, $fixLon] = resolveFixLatLon($conn, $input['fix_name']);
     }
 
-    echo json_encode([
+    $response = [
         'element_id' => intval($elementId),
         'fix_lat' => $fixLat,
-        'fix_lon' => $fixLon
-    ]);
+        'fix_lon' => $fixLon,
+    ];
+
+    // Include resolved route_geojson for ROUTE elements
+    if ($routeGeojson) {
+        $response['route_geojson'] = json_decode($routeGeojson, true);
+    }
+
+    echo json_encode($response);
 }
 
 /**
@@ -259,6 +324,14 @@ function handlePut($conn) {
         'color', 'line_weight', 'line_style', 'label_format', 'icon',
         'is_visible', 'auto_fea'
     ];
+
+    // If route_string is being updated without explicit route_geojson, auto-resolve
+    if (array_key_exists('route_string', $input) && !array_key_exists('route_geojson', $input)) {
+        $resolved = resolveRouteGeojson($conn, $input['route_string']);
+        if ($resolved) {
+            $input['route_geojson'] = $resolved;
+        }
+    }
 
     foreach ($allowedFields as $field) {
         if (array_key_exists($field, $input)) {

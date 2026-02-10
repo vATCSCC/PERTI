@@ -1,6 +1,6 @@
 # PERTI Internationalization (i18n) Tracking
 
-> Last updated: 2026-02-02
+> Last updated: 2026-02-10
 
 ## Overview
 
@@ -12,7 +12,7 @@ This document tracks the progress of globalizing the PERTI codebase for internat
 |-------|-------------|--------|
 | 1 | Core i18n module | ✅ Complete |
 | 2 | Config file updates | ✅ Complete |
-| 3 | Dialog migration | 🔄 In Progress |
+| 3 | Dialog migration | 🔄 In Progress (25% - tmi-publish partial) |
 | 4 | Error message migration | ⏳ Pending |
 | 5 | Date/time localization | ⏳ Pending |
 
@@ -86,7 +86,7 @@ PERTIDialog.confirm('dialog.confirmDelete.title', 'dialog.confirmDelete.text')
 | `public-routes.js` | 7 | 0 | 7 | ⏳ Pending |
 | `demand.js` | 4 | 0 | 4 | ⏳ Pending |
 | `route-maplibre.js` | 3 | 0 | 3 | ⏳ Pending |
-| `advisory-builder.js` | 2 | 0 | 2 | ⏳ Pending |
+| ~~`advisory-builder.js`~~ | ~~2~~ | ~~0~~ | ~~2~~ | ❌ Removed (v18 PR #16) |
 | `gdp.js` | 1 | 0 | 1 | ⏳ Pending |
 | `initiative_timeline.js` | 1 | 0 | 1 | ⏳ Pending |
 | `tmi-gdp.js` | 1 | 0 | 1 | ⏳ Pending |

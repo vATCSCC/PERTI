@@ -10,8 +10,38 @@ const TMICompliance = {
     // HTML escape utility for free-text fields (NTML advisory text, comments, etc.)
     escapeHtml: function(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; },
 
+    // Format decimal minutes into human-readable duration
+    formatDuration: function(minutes) {
+        if (minutes === undefined || minutes === null) return typeof PERTII18n !== 'undefined' ? PERTII18n.t('gsAnalysis.duration.na') : '-';
+        const totalSec = Math.round(Math.abs(minutes) * 60);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        if (typeof PERTII18n !== 'undefined') {
+            if (h > 0) return PERTII18n.t('gsAnalysis.duration.hours', { h: h, m: String(m).padStart(2, '0') });
+            if (m > 0 && s > 0) return PERTII18n.t('gsAnalysis.duration.minutes', { m: m, s: String(s).padStart(2, '0') });
+            if (m > 0) return PERTII18n.t('gsAnalysis.duration.minutesOnly', { m: m });
+            return PERTII18n.t('gsAnalysis.duration.seconds', { s: s });
+        }
+        if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm';
+        if (m > 0 && s > 0) return m + 'm ' + String(s).padStart(2, '0') + 's';
+        if (m > 0) return m + 'm';
+        return s + 's';
+    },
+
+    // Format a phase value with type label
+    formatPhase: function(phase, phaseType) {
+        if (!phase) return '';
+        let label = 'Adv ' + phase;
+        if (phaseType) label += ' (' + phaseType.charAt(0) + phaseType.slice(1).toLowerCase() + ')';
+        return label;
+    },
+
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
+
+    // Spacing diagram scale mode: 'equal' (equal-width segments) or 'proportional' (to-scale)
+    spacingDiagramScale: 'equal',
 
     // Filters for TMI results
     filters: {
@@ -1863,10 +1893,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Avg hold time with min/max/median tooltip
         if (r.avg_hold_time_min && r.avg_hold_time_min > 0) {
             const stats = r.hold_time_stats || {};
-            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            const tooltip = stats.min ? `Min: ${this.formatDuration(stats.min)} | Median: ${this.formatDuration(stats.median)} | Max: ${this.formatDuration(stats.max)}` : '';
             html += `
                     <div class="tmi-stat" ${tooltip ? `title="${tooltip}"` : ''}>
-                        <div class="tmi-stat-value">${r.avg_hold_time_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-value">${this.formatDuration(r.avg_hold_time_min)}</div>
                         <div class="tmi-stat-label">Avg Hold</div>
                     </div>
             `;
@@ -1875,10 +1905,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // GS delay stat (from OOOI taxi time analysis)
         const gsDelay = r.gs_delay_stats || {};
         if (gsDelay.flights_with_delay_data > 0) {
-            const delayTooltip = `Median: ${gsDelay.median_delay_min || 0}m | Max: ${gsDelay.max_delay_min || 0}m | Total: ${gsDelay.total_delay_min || 0}m | Based on ${gsDelay.flights_with_delay_data} flights with OOOI data`;
+            const delayTooltip = `Median: ${this.formatDuration(gsDelay.median_delay_min)} | Max: ${this.formatDuration(gsDelay.max_delay_min)} | Total: ${this.formatDuration(gsDelay.total_delay_min)} | Based on ${gsDelay.flights_with_delay_data} flights with OOOI data`;
             html += `
                     <div class="tmi-stat" title="${delayTooltip}">
-                        <div class="tmi-stat-value">${gsDelay.avg_delay_min.toFixed(0)}m</div>
+                        <div class="tmi-stat-value">${this.formatDuration(gsDelay.avg_delay_min)}</div>
                         <div class="tmi-stat-label">Avg GS Delay</div>
                     </div>
             `;
@@ -1924,6 +1954,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',4,true)" style="cursor:pointer;">Exempt</th>
                                     <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',5,true)" style="cursor:pointer;">Rate</th>
                                     <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',7,true)" style="cursor:pointer;">Avg Delay</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1934,7 +1965,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
                                     const exW = 100 - compW - ncW;
                                     return `<tr>
-                                        <td><code>${o.origin}</code>
+                                        <td>${o.origin}
                                             <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
                                         </td>
                                         <td>${o.total || 0}</td>
@@ -1942,7 +1973,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                         <td class="text-danger">${o.non_compliant || 0}</td>
                                         <td class="text-info">${o.exempt || 0}</td>
                                         <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
-                                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                                        <td>${o.avg_hold_time_min ? TMICompliance.formatDuration(o.avg_hold_time_min) : '-'}</td>
+                                        <td>${o.avg_gs_delay_min ? TMICompliance.formatDuration(o.avg_gs_delay_min) : '-'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
@@ -1981,13 +2013,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
                                         <tr class="table-danger">
-                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.callsign}</td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
-                                            ${hasPhase ? `<td><small>${f.phase ? ('Adv ' + f.phase + (f.phase_type ? ' (' + f.phase_type.charAt(0) + f.phase_type.slice(1).toLowerCase() + ')' : '')) : ''}</small></td>` : ''}
-                                            ${hasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
-                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
+                                            ${hasPhase ? `<td>${TMICompliance.formatPhase(f.phase, f.phase_type)}</td>` : ''}
+                                            ${hasGsDelay ? `<td>${f.gs_delay_min !== undefined ? TMICompliance.formatDuration(f.gs_delay_min) : ''}</td>` : ''}
+                                            <td class="text-muted">${f.time_source || ''}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -2010,10 +2042,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 <tbody>
                                     ${exemptFlights.map(f => `
                                         <tr>
-                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.callsign}</td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
-                                            <td><small>${f.reason || ''}</small></td>
+                                            <td class="text-muted">${f.reason || ''}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -2037,12 +2069,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 <tbody>
                                     ${compliantFlights.map(f => `
                                         <tr>
-                                            <td><code>${f.callsign}</code></td>
+                                            <td>${f.callsign}</td>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
-                                            <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
-                                            ${hasCompGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
-                                            <td><small class="text-muted">${f.time_source || ''}</small></td>
+                                            <td>${f.hold_time_min ? TMICompliance.formatDuration(f.hold_time_min) : ''}</td>
+                                            ${hasCompGsDelay ? `<td>${f.gs_delay_min !== undefined ? TMICompliance.formatDuration(f.gs_delay_min) : ''}</td>` : ''}
+                                            <td class="text-muted">${f.time_source || ''}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -2164,7 +2196,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (!table) return;
         var tbody = table.querySelector('tbody');
         if (!tbody) return;
-        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var allRows = Array.from(tbody.querySelectorAll('tr'));
 
         // Determine sort direction from header state
         var th = table.querySelectorAll('thead th')[colIdx];
@@ -2180,9 +2212,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             th.classList.add(asc ? 'sort-asc' : 'sort-desc');
         }
 
-        rows.sort(function(a, b) {
-            var aVal = (a.cells[colIdx] && a.cells[colIdx].textContent.trim()) || '';
-            var bVal = (b.cells[colIdx] && b.cells[colIdx].textContent.trim()) || '';
+        // Group rows: pair each data row with its following detail row (if any).
+        // Detail rows have an id containing '_detail_' and a colspan cell.
+        var groups = [];
+        for (var i = 0; i < allRows.length; i++) {
+            var row = allRows[i];
+            if (row.id && row.id.indexOf('_detail_') !== -1) continue; // skip detail rows (handled as part of group)
+            var group = [row];
+            // Check if next row is a detail row for this one
+            if (i + 1 < allRows.length) {
+                var next = allRows[i + 1];
+                if (next.id && next.id.indexOf('_detail_') !== -1) {
+                    group.push(next);
+                    i++; // skip the detail row in the outer loop
+                }
+            }
+            groups.push(group);
+        }
+
+        groups.sort(function(a, b) {
+            var aRow = a[0], bRow = b[0];
+            var aVal = (aRow.cells[colIdx] && aRow.cells[colIdx].textContent.trim()) || '';
+            var bVal = (bRow.cells[colIdx] && bRow.cells[colIdx].textContent.trim()) || '';
             if (isNumeric) {
                 var aNum = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
                 var bNum = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
@@ -2191,7 +2242,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         });
 
-        rows.forEach(function(row) { tbody.appendChild(row); });
+        groups.forEach(function(group) {
+            group.forEach(function(row) { tbody.appendChild(row); });
+        });
     },
 
     /**
@@ -7118,10 +7171,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (data.avg_hold_time_min && data.avg_hold_time_min > 0) {
             const stats = data.hold_time_stats || {};
-            const tooltip = stats.min ? `Min: ${stats.min}m | Median: ${stats.median}m | Max: ${stats.max}m` : '';
+            const tooltip = stats.min ? `Min: ${this.formatDuration(stats.min)} | Median: ${this.formatDuration(stats.median)} | Max: ${this.formatDuration(stats.max)}` : '';
             html += `
                 <div class="stat" ${tooltip ? `title="${tooltip}"` : ''}>
-                    <div class="stat-value">${data.avg_hold_time_min.toFixed(0)}m</div>
+                    <div class="stat-value">${this.formatDuration(data.avg_hold_time_min)}</div>
                     <div class="stat-label">Avg Hold</div>
                 </div>
             `;
@@ -7130,10 +7183,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // GS delay stat (from OOOI taxi time analysis)
         const v2GsDelay = data.gs_delay_stats || {};
         if (v2GsDelay.flights_with_delay_data > 0) {
-            const delayTooltip = `Median: ${v2GsDelay.median_delay_min || 0}m | Max: ${v2GsDelay.max_delay_min || 0}m | Total: ${v2GsDelay.total_delay_min || 0}m | Based on ${v2GsDelay.flights_with_delay_data} flights with OOOI data`;
+            const delayTooltip = `Median: ${this.formatDuration(v2GsDelay.median_delay_min)} | Max: ${this.formatDuration(v2GsDelay.max_delay_min)} | Total: ${this.formatDuration(v2GsDelay.total_delay_min)} | Based on ${v2GsDelay.flights_with_delay_data} flights with OOOI data`;
             html += `
                 <div class="stat" title="${delayTooltip}">
-                    <div class="stat-value">${v2GsDelay.avg_delay_min.toFixed(0)}m</div>
+                    <div class="stat-value">${this.formatDuration(v2GsDelay.avg_delay_min)}</div>
                     <div class="stat-label">Avg GS Delay</div>
                 </div>
             `;
@@ -7209,6 +7262,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <th onclick="TMICompliance.sortTable('${v2OriginTblId}',4,true)" style="cursor:pointer;">Exempt</th>
                         <th onclick="TMICompliance.sortTable('${v2OriginTblId}',5,true)" style="cursor:pointer;">Rate</th>
                         <th onclick="TMICompliance.sortTable('${v2OriginTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',7,true)" style="cursor:pointer;">Avg Delay</th>
                     </tr></thead><tbody>`;
                 perOrigin.forEach(o => {
                     const oPct = o.compliance_pct || 0;
@@ -7217,7 +7271,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const ncW = o.total > 0 ? Math.round(((o.non_compliant || 0) / o.total) * 100) : 0;
                     const exW = 100 - compW - ncW;
                     tbl += `<tr>
-                        <td><code>${o.origin}</code>
+                        <td>${o.origin}
                             <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
                         </td>
                         <td>${o.total || 0}</td>
@@ -7225,7 +7279,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <td class="text-danger">${o.non_compliant || 0}</td>
                         <td class="text-info">${o.exempt || 0}</td>
                         <td><span class="compliance-badge ${oClass}" style="font-size:0.8rem;">${oPct.toFixed(1)}%</span></td>
-                        <td>${o.avg_hold_time_min ? o.avg_hold_time_min.toFixed(0) + 'm' : '-'}</td>
+                        <td>${o.avg_hold_time_min ? TMICompliance.formatDuration(o.avg_hold_time_min) : '-'}</td>
+                        <td>${o.avg_gs_delay_min ? TMICompliance.formatDuration(o.avg_gs_delay_min) : '-'}</td>
                     </tr>`;
                 });
                 tbl += `</tbody></table></div></div>`;
@@ -7233,62 +7288,156 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        // Flight detail expandable sections
-        if (nonCompliantFlights.length > 0) {
-            const hasPhase = nonCompliantFlights.some(f => f.phase);
-            const v2HasGsDelay = nonCompliantFlights.some(f => f.gs_delay_min !== undefined);
-            html += this.renderExpandableSectionV2('gs-violations', 'Violations', `(${nonCompliantFlights.length})`, () => {
-                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
-                    <thead class="thead-dark"><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}${v2HasGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr></thead><tbody>`;
-                nonCompliantFlights.forEach(f => {
-                    tbl += `<tr class="table-danger">
-                        <td><code>${f.callsign}</code></td>
-                        <td>${f.dept || 'N/A'}</td>
-                        <td>${f.dept_time || 'N/A'}</td>
-                        <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
-                        ${hasPhase ? `<td><small>${f.phase ? ('Adv ' + f.phase + (f.phase_type ? ' (' + f.phase_type.charAt(0) + f.phase_type.slice(1).toLowerCase() + ')' : '')) : ''}</small></td>` : ''}
-                        ${v2HasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
-                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+        // Per-carrier breakdown (expandable section)
+        const perCarrier = data.per_carrier_breakdown || [];
+        if (perCarrier.length > 0) {
+            const v2CarrierTblId = `gs_carrier_v2_tbl_${++this.detailIdCounter}`;
+            html += this.renderExpandableSectionV2('gs-per-carrier', 'Per-Carrier Breakdown', `(${perCarrier.length})`, () => {
+                let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped sortable-table" id="${v2CarrierTblId}">
+                    <thead><tr>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',0,false)" style="cursor:pointer;">Carrier</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',1,true)" style="cursor:pointer;">Total</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',2,true)" style="cursor:pointer;">Compliant</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',3,true)" style="cursor:pointer;">Non-Comp</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',4,true)" style="cursor:pointer;">Exempt</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',5,true)" style="cursor:pointer;">Rate</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',7,true)" style="cursor:pointer;">Avg Delay</th>
+                    </tr></thead><tbody>`;
+                perCarrier.forEach(c => {
+                    const cPct = c.compliance_pct || 0;
+                    const cClass = this.getComplianceClass(cPct);
+                    const compW = c.total > 0 ? Math.round(((c.compliant || 0) / c.total) * 100) : 0;
+                    const ncW = c.total > 0 ? Math.round(((c.non_compliant || 0) / c.total) * 100) : 0;
+                    const exW = 100 - compW - ncW;
+                    const nameTooltip = c.airline_name ? ` title="${this.escapeHtml(c.airline_name)}"` : '';
+                    tbl += `<tr>
+                        <td${nameTooltip}>${c.carrier}${c.airline_name ? ' <span class="text-muted" style="font-size:0.78rem;">(' + this.escapeHtml(c.airline_name) + ')</span>' : ''}
+                            <div class="compliance-bar"><span class="bg-success" style="width:${compW}%"></span><span class="bg-danger" style="width:${ncW}%"></span><span class="bg-info" style="width:${exW}%"></span></div>
+                        </td>
+                        <td>${c.total || 0}</td>
+                        <td class="text-success">${c.compliant || 0}</td>
+                        <td class="text-danger">${c.non_compliant || 0}</td>
+                        <td class="text-info">${c.exempt || 0}</td>
+                        <td><span class="compliance-badge ${cClass}" style="font-size:0.8rem;">${cPct.toFixed(1)}%</span></td>
+                        <td>${c.avg_hold_time_min ? TMICompliance.formatDuration(c.avg_hold_time_min) : '-'}</td>
+                        <td>${c.avg_gs_delay_min ? TMICompliance.formatDuration(c.avg_gs_delay_min) : '-'}</td>
                     </tr>`;
                 });
-                tbl += `</tbody></table></div>`;
+                tbl += `</tbody></table></div></div>`;
                 return tbl;
             });
         }
 
-        if (exemptFlights.length > 0) {
-            html += this.renderExpandableSectionV2('gs-exempt', 'Exempt Flights', `(${exemptFlights.length})`, () => {
-                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
-                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr></thead><tbody>`;
-                exemptFlights.forEach(f => {
-                    tbl += `<tr>
-                        <td><code>${f.callsign}</code></td>
-                        <td>${f.dept || 'N/A'}</td>
-                        <td>${f.dept_time || 'N/A'}</td>
-                        <td><small>${f.reason || ''}</small></td>
-                    </tr>`;
-                });
-                tbl += `</tbody></table></div>`;
-                return tbl;
-            });
-        }
+        // Unified Flight Catalog (expandable section with drill-down)
+        // Order: violations first, then compliant, then exempt
+        const allFlights = [].concat(nonCompliantFlights, compliantFlights, exemptFlights);
+        if (allFlights.length > 0) {
+            const catalogTblId = `gs_catalog_v2_tbl_${++this.detailIdCounter}`;
+            const hasAnyPhase = allFlights.some(f => f.phase);
+            const hasAnyGsDelay = allFlights.some(f => f.gs_delay_min !== undefined);
 
-        // Compliant flights with hold time and GS delay
-        if (compliantFlights.length > 0) {
-            const v2HasCompGsDelay = compliantFlights.some(f => f.gs_delay_min !== undefined);
-            html += this.renderExpandableSectionV2('gs-compliant', 'Compliant Flights', `(${compliantFlights.length})`, () => {
-                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped">
-                    <thead><tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${v2HasCompGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr></thead><tbody>`;
-                compliantFlights.forEach(f => {
-                    tbl += `<tr>
-                        <td><code>${f.callsign}</code></td>
+            html += this.renderExpandableSectionV2('gs-flight-catalog', 'Flight Catalog', `(${allFlights.length})`, () => {
+                let tbl = `<div class="table-responsive" style="max-height:500px; overflow-y:auto;">
+                    <table class="table table-sm sortable-table" id="${catalogTblId}" style="font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace; font-size:0.8rem;">
+                    <thead class="thead-dark sticky-top"><tr>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',0,false)" style="cursor:pointer;">Status</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',1,false)" style="cursor:pointer;">Callsign</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',2,false)" style="cursor:pointer;">Carrier</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',3,false)" style="cursor:pointer;">Origin</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',4,false)" style="cursor:pointer;">Dept Time</th>
+                        <th>Into GS / Hold</th>
+                        ${hasAnyGsDelay ? '<th>GS Delay</th>' : ''}
+                        ${hasAnyPhase ? '<th>Phase</th>' : ''}
+                        <th>Source</th>
+                    </tr></thead><tbody>`;
+
+                allFlights.forEach((f, idx) => {
+                    const statusBadge = f.status === 'NON-COMPLIANT'
+                        ? '<span class="badge badge-danger" style="font-size:0.7rem;">VIOLATION</span>'
+                        : f.status === 'COMPLIANT'
+                            ? '<span class="badge badge-success" style="font-size:0.7rem;">COMPLIANT</span>'
+                            : '<span class="badge badge-info" style="font-size:0.7rem;">EXEMPT</span>';
+                    const rowClass = f.status === 'NON-COMPLIANT' ? 'table-danger' : '';
+                    const detailRowId = `gs_catalog_detail_${catalogTblId}_${idx}`;
+
+                    // Into GS / Hold column: violations show time + %, compliant show hold time
+                    let holdCell = '';
+                    if (f.into_gs_min !== undefined && f.pct_into_gs !== undefined) {
+                        holdCell = TMICompliance.formatDuration(f.into_gs_min) + ' (' + f.pct_into_gs + '%)';
+                    } else if (f.hold_time_min) {
+                        holdCell = TMICompliance.formatDuration(f.hold_time_min);
+                    }
+
+                    tbl += `<tr class="${rowClass}" style="cursor:pointer;" onclick="document.getElementById('${detailRowId}').classList.toggle('d-none')">
+                        <td>${statusBadge}</td>
+                        <td>${f.callsign}</td>
+                        <td>${f.carrier || ''}</td>
                         <td>${f.dept || 'N/A'}</td>
                         <td>${f.dept_time || 'N/A'}</td>
-                        <td>${f.hold_time_min ? f.hold_time_min + 'm' : ''}</td>
-                        ${v2HasCompGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
-                        <td><small class="text-muted">${f.time_source || ''}</small></td>
+                        <td>${holdCell}</td>
+                        ${hasAnyGsDelay ? `<td>${f.gs_delay_min !== undefined ? TMICompliance.formatDuration(f.gs_delay_min) : ''}</td>` : ''}
+                        ${hasAnyPhase ? `<td>${TMICompliance.formatPhase(f.phase, f.phase_type)}</td>` : ''}
+                        <td class="text-muted">${f.time_source || ''}</td>
                     </tr>`;
+
+                    // Inline detail row: flight timeline (hidden by default, toggled on click)
+                    const colSpan = 6 + (hasAnyGsDelay ? 1 : 0) + (hasAnyPhase ? 1 : 0);
+                    tbl += `<tr id="${detailRowId}" class="d-none">
+                        <td colspan="${colSpan}" style="padding:10px 16px; background:var(--light-bg-subtle, #1e2128);">`;
+
+                    // Build visual timeline
+                    tbl += `<div style="font-size:0.82rem;">`;
+
+                    // Timeline events as a vertical list with connecting line
+                    const events = [];
+                    if (f.first_seen_time) events.push({ time: f.first_seen_time, label: 'First Seen (connected)', icon: 'fa-wifi', color: '#6f42c1' });
+                    if (f.out_time) events.push({ time: f.out_time, label: 'Gate Push (OUT)', icon: 'fa-door-open', color: '#6c757d' });
+                    if (f.off_time) events.push({ time: f.off_time, label: 'Wheels-Off (OFF)', icon: 'fa-plane-departure', color: '#17a2b8' });
+                    if (f.dept_time) events.push({ time: f.dept_time, label: 'Departure Time (' + (f.time_source || '') + ')', icon: 'fa-clock', color: f.status === 'NON-COMPLIANT' ? '#dc3545' : '#28a745' });
+
+                    if (events.length > 0) {
+                        tbl += `<div style="display:flex; gap:24px; align-items:flex-start;">`;
+                        // Left: vertical timeline
+                        tbl += `<div style="position:relative; padding-left:20px; min-width:260px;">`;
+                        events.forEach((ev, i) => {
+                            const isLast = i === events.length - 1;
+                            tbl += `<div style="display:flex; align-items:flex-start; margin-bottom:${isLast ? '0' : '12px'}; position:relative;">`;
+                            // Dot + connector line
+                            tbl += `<div style="position:absolute; left:-20px; top:2px;">
+                                <div style="width:10px; height:10px; border-radius:50%; background:${ev.color}; border:2px solid ${ev.color};"></div>
+                                ${!isLast ? `<div style="position:absolute; left:4px; top:12px; width:2px; height:20px; background:var(--light-border, #333);"></div>` : ''}
+                            </div>`;
+                            tbl += `<div>
+                                <span style="color:${ev.color}; font-weight:600;">${ev.time}</span>
+                                <span class="text-muted" style="margin-left:8px;">${ev.label}</span>
+                            </div>`;
+                            tbl += `</div>`;
+                        });
+                        tbl += `</div>`;
+
+                        // Right: computed metrics
+                        tbl += `<div style="display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-start;">`;
+                        if (f.gate_wait_min) tbl += `<div><span class="text-muted">Gate Wait:</span> <strong>${TMICompliance.formatDuration(f.gate_wait_min)}</strong></div>`;
+                        if (f.actual_taxi_min !== undefined) tbl += `<div><span class="text-muted">Taxi:</span> <strong>${TMICompliance.formatDuration(f.actual_taxi_min)}</strong></div>`;
+                        if (f.unimpeded_taxi_min !== undefined) tbl += `<div><span class="text-muted">Unimpeded:</span> <strong>${TMICompliance.formatDuration(f.unimpeded_taxi_min)}</strong></div>`;
+                        if (f.gs_delay_min !== undefined) tbl += `<div><span class="text-muted">GS Delay:</span> <strong>${TMICompliance.formatDuration(f.gs_delay_min)}</strong></div>`;
+                        if (f.hold_time_min) tbl += `<div><span class="text-muted">Hold Time:</span> <strong>${TMICompliance.formatDuration(f.hold_time_min)}</strong></div>`;
+                        if (f.into_gs_min !== undefined) tbl += `<div><span class="text-muted">Into GS:</span> <strong>${TMICompliance.formatDuration(f.into_gs_min)} (${f.pct_into_gs}%)</strong></div>`;
+                        if (f.phase) tbl += `<div><span class="text-muted">Phase:</span> <strong>${TMICompliance.formatPhase(f.phase, f.phase_type)}</strong></div>`;
+                        tbl += `<div><span class="text-muted">Reason:</span> ${f.reason || ''}</div>`;
+                        tbl += `</div>`;
+
+                        tbl += `</div>`;
+                    } else {
+                        // No OOOI data - show simple reason
+                        tbl += `<span class="text-muted">Reason:</span> ${f.reason || ''}`;
+                        if (f.phase) tbl += ` &nbsp;|&nbsp; <span class="text-muted">Phase:</span> ${TMICompliance.formatPhase(f.phase, f.phase_type)}`;
+                    }
+
+                    tbl += `</div></td></tr>`;
                 });
+
                 tbl += `</tbody></table></div>`;
                 return tbl;
             });
@@ -7399,7 +7548,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
-     * Simplified spacing diagram (v2)
+     * Toggle spacing diagram scale mode and re-render
+     */
+    toggleSpacingDiagramScale: function() {
+        this.spacingDiagramScale = this.spacingDiagramScale === 'equal' ? 'proportional' : 'equal';
+        // Re-render the spacing diagram section content
+        const tmi = this.findTmiById(this.selectedTmiId);
+        if (tmi) {
+            const data = tmi.data;
+            const section = $(`.tmi-section[data-section-id="spacing-diagram"]`);
+            section.find('.tmi-section-content').html(
+                this.renderSpacingDiagramV2(data.all_pairs || [], data.required || 0, data.unit)
+            );
+        }
+    },
+
+    /**
+     * Simplified spacing diagram (v2) with optional proportional scale
      */
     renderSpacingDiagramV2: function(allPairs, required, unit) {
         if (!allPairs || allPairs.length === 0) {
@@ -7407,6 +7572,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         const unitLabel = unit === 'min' ? 'min' : 'nm';
+        const isProportional = this.spacingDiagramScale === 'proportional';
+
+        // Toggle button
+        const t = typeof PERTII18n !== 'undefined' ? (k, p) => PERTII18n.t(k, p) : null;
+        const descText = isProportional
+            ? (t ? t('spacingDiagram.proportionalDesc') : 'Proportional spacing (segment widths reflect actual values)')
+            : (t ? t('spacingDiagram.equalDesc') : 'Equal-width segments');
+        const btnText = isProportional
+            ? (t ? t('spacingDiagram.switchToEqual') : 'Switch to Equal Width')
+            : (t ? t('spacingDiagram.switchToProportional') : 'Switch to To-Scale');
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.8em; color:var(--light-text-muted, #6b7280);">
+                ${descText}
+            </span>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75em; padding:2px 10px;"
+                onclick="TMICompliance.toggleSpacingDiagramScale()">
+                ${btnText}
+            </button>
+        </div>`;
 
         // Build flight sequence
         const flights = [];
@@ -7425,7 +7609,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        let html = '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
+        // For proportional mode, compute scale factor to fit container
+        let pixelsPerUnit = 0;
+        if (isProportional && allPairs.length > 0) {
+            const totalSpacing = allPairs.reduce((sum, p) => sum + (p.spacing || 0), 0);
+            // Target total width ~700px for segments, leaving room for flight dots (~50px each)
+            const flightDotWidth = flights.length * 50;
+            const availableForSegments = Math.max(300, 700 - flightDotWidth * 0.3);
+            if (totalSpacing > 0) {
+                pixelsPerUnit = availableForSegments / totalSpacing;
+                // Clamp: minimum 8px per segment, maximum 120px per segment
+                const maxSpacing = Math.max(...allPairs.map(p => p.spacing || 0));
+                if (maxSpacing * pixelsPerUnit > 120) pixelsPerUnit = 120 / maxSpacing;
+                const positiveSpacings = allPairs.filter(p => p.spacing > 0).map(p => p.spacing);
+                const minSpacing = positiveSpacings.length > 0 ? Math.min(...positiveSpacings) : maxSpacing;
+                if (minSpacing > 0 && minSpacing * pixelsPerUnit < 8) pixelsPerUnit = 8 / minSpacing;
+            }
+        }
+
+        html += '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
 
         let lastTime = null;
         let lastTimeMs = null;
@@ -7452,9 +7654,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 } else if (flight.spacing !== undefined) {
                     // Render segment line between consecutive flights
                     const isNonCompliant = flight.category === 'UNDER';
+                    const segPx = isProportional && pixelsPerUnit > 0
+                        ? Math.max(8, Math.round(flight.spacing * pixelsPerUnit)) : 0;
+                    const segStyle = segPx > 0 ? `width:${segPx}px; min-width:8px; padding:0 2px;` : '';
+                    const lineStyle = segPx > 0 ? `min-width:${Math.max(4, segPx - 4)}px;` : '';
                     html += `
-                        <div class="tmi-spacing-segment">
-                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                        <div class="tmi-spacing-segment" style="${segStyle}">
+                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}" style="${lineStyle}"></div>
                             <div class="tmi-spacing-value">${flight.spacing?.toFixed(1) || '?'}${unitLabel}</div>
                         </div>
                     `;
@@ -7477,13 +7683,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         html += '</div>';
 
-        // Scale bar
-        html += `
-            <div class="tmi-spacing-scale">
-                <div class="tmi-spacing-scale-bar"></div>
-                <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
-            </div>
-        `;
+        // Scale bar - in proportional mode, show reference bar at required value width
+        if (isProportional && pixelsPerUnit > 0) {
+            const scaleBarWidth = Math.round(required * pixelsPerUnit);
+            html += `
+                <div class="tmi-spacing-scale" style="margin-top:16px;">
+                    <div style="width:${scaleBarWidth}px; height:4px; background:var(--tmi-scale-bar, #adb5bd); border-radius:2px; position:relative;">
+                        <div style="position:absolute; left:0; top:-2px; bottom:-2px; width:2px; background:var(--light-text-secondary, #4a4a6a); border-radius:1px;"></div>
+                        <div style="position:absolute; right:0; top:-2px; bottom:-2px; width:2px; background:var(--light-text-secondary, #4a4a6a); border-radius:1px;"></div>
+                    </div>
+                    <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="tmi-spacing-scale">
+                    <div class="tmi-spacing-scale-bar"></div>
+                    <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+                </div>
+            `;
+        }
 
         html += '</div>';
         return html;

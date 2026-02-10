@@ -140,7 +140,8 @@ class ParseQueueGISDaemon
                 next_eligible_utc = SYSUTCDATETIME(),
                 started_utc = NULL
             WHERE status = 'PROCESSING'
-              AND started_utc < DATEADD(MINUTE, -5, SYSUTCDATETIME())
+              AND (started_utc < DATEADD(MINUTE, -5, SYSUTCDATETIME())
+                   OR started_utc IS NULL)
         ";
 
         $stmt = sqlsrv_query($this->conn_adl, $sql);
@@ -151,6 +152,39 @@ class ParseQueueGISDaemon
 
         if ($rows > 0) {
             $this->log("Reset {$rows} stuck PROCESSING items");
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Backfill orphaned flights that have parse_status=PENDING in adl_flight_plan
+     * but no corresponding row in adl_parse_queue. This can happen if the ingest
+     * procedure's MERGE into the queue fails silently (e.g., NULL parse_tier).
+     */
+    private function backfillOrphanedFlights(): int
+    {
+        $sql = "
+            INSERT INTO dbo.adl_parse_queue (flight_uid, parse_tier, status, queued_utc, next_eligible_utc)
+            SELECT fp.flight_uid, COALESCE(fp.parse_tier, 2), 'PENDING', SYSUTCDATETIME(), SYSUTCDATETIME()
+            FROM dbo.adl_flight_plan fp
+            JOIN dbo.adl_flight_core c ON c.flight_uid = fp.flight_uid
+            LEFT JOIN dbo.adl_parse_queue q ON q.flight_uid = fp.flight_uid
+            WHERE c.is_active = 1
+              AND fp.parse_status = 'PENDING'
+              AND q.flight_uid IS NULL
+              AND fp.fp_route IS NOT NULL
+              AND fp.fp_route != ''
+        ";
+
+        $stmt = sqlsrv_query($this->conn_adl, $sql);
+        if ($stmt === false) return 0;
+
+        $rows = sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+
+        if ($rows > 0) {
+            $this->log("Backfilled {$rows} orphaned PENDING flights into parse queue");
         }
 
         return $rows;
@@ -570,6 +604,7 @@ class ParseQueueGISDaemon
         $this->failures = 0;
 
         $this->resetStuckItems();
+        $this->backfillOrphanedFlights();
 
         $queueStats = $this->getQueueStats();
         $pending = $queueStats['pending'] ?? 0;

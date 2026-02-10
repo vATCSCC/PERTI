@@ -8,12 +8,18 @@ This guide covers deploying PERTI to Azure App Service and managing the producti
 
 PERTI runs on Microsoft Azure with the following components:
 
-| Component | Azure Service | Purpose |
-|-----------|---------------|---------|
-| Web Application | Azure App Service | PHP hosting |
-| Application Database | Azure Database for MySQL | Plans, configs, user data |
-| ADL Database | Azure SQL Database | Flight data, TMI workflows |
-| CI/CD | GitHub Actions + Azure Pipelines | Automated deployment |
+| Component | Azure Service | Tier | Monthly Cost |
+|-----------|---------------|------|-------------|
+| Web Application | Azure App Service | P1v2 (3.5GB, 1 vCPU) | ~$81 |
+| Application Database | Azure Database for MySQL | General Purpose D2ds_v4 | ~$134 |
+| ADL Database | Azure SQL Database | Hyperscale Serverless (3/16 vCores) | ~$3,200 |
+| TMI Database | Azure SQL Database | Basic (5 DTU) | ~$5 |
+| SWIM API Database | Azure SQL Database | Basic (5 DTU) | ~$5 |
+| Reference Database | Azure SQL Database | Basic (5 DTU) | ~$5 |
+| GIS Database | Azure Database for PostgreSQL | Burstable B2s, PostGIS | ~$58 |
+| CI/CD | GitHub Actions | N/A | Free |
+
+**Total: ~$3,500/month** (as of February 2026)
 
 ---
 
@@ -24,8 +30,10 @@ PERTI runs on Microsoft Azure with the following components:
 | Setting | Value |
 |---------|-------|
 | Runtime | PHP 8.2 |
-| Platform | Windows (or Linux) |
-| App Service Plan | B2 or higher recommended |
+| Platform | Linux (custom startup via `scripts/startup.sh`) |
+| App Service Plan | P1v2 (3.5GB RAM, 1 vCPU) |
+| PHP-FPM Workers | 40 |
+| ODBC Driver | 18 (installed via startup.sh) |
 
 ### Application Settings
 

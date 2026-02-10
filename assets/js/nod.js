@@ -6984,26 +6984,39 @@
     function renderFlowConfig() {
         const config = state.flows.activeConfig;
 
-        // Render each section
-        renderFlowSection('flow-arr-fixes', 'flow-arr-fixes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
-            'No arrival fixes configured');
+        const sections = [
+            { list: 'flow-arr-fixes-list', count: 'flow-arr-fixes-count', section: 'section-flow-arr-fixes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
+              empty: 'No arrival fixes configured' },
+            { list: 'flow-dep-fixes-list', count: 'flow-dep-fixes-count', section: 'section-flow-dep-fixes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
+              empty: 'No departure fixes configured' },
+            { list: 'flow-procedures-list', count: 'flow-procedures-count', section: 'section-flow-procedures',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
+              empty: 'No procedures configured' },
+            { list: 'flow-routes-list', count: 'flow-routes-count', section: 'section-flow-routes',
+              items: config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
+              empty: 'No routes configured' },
+        ];
 
-        renderFlowSection('flow-dep-fixes', 'flow-dep-fixes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
-            'No departure fixes configured');
+        sections.forEach(s => {
+            renderFlowSection(s.list, s.count, s.items, s.empty);
+            // Auto-expand sections that have content
+            const sectionEl = document.getElementById(s.section);
+            if (sectionEl && s.items.length > 0) {
+                sectionEl.classList.add('expanded');
+            }
+        });
 
         renderFlowGatesSection(
             config ? (config.gates || []) : [],
             config ? (config.elements || []).filter(e => e.gate_id) : []);
 
-        renderFlowSection('flow-procedures', 'flow-procedures-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
-            'No procedures configured');
-
-        renderFlowSection('flow-routes', 'flow-routes-count',
-            config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
-            'No routes configured');
+        // Auto-expand gates if any exist
+        const gateSection = document.getElementById('section-flow-gates');
+        if (gateSection && config && (config.gates || []).length > 0) {
+            gateSection.classList.add('expanded');
+        }
     }
 
     /**
@@ -7133,6 +7146,10 @@
         const container = document.getElementById(containerId);
         if (!container) return;
 
+        // Expand the parent section so the form is visible
+        const section = container.closest('.nod-section');
+        if (section) section.classList.add('expanded');
+
         // Remove any existing add forms
         document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
 
@@ -7178,13 +7195,20 @@
     /**
      * Submit the add element form.
      */
+    let _flowAddPending = false;
     async function submitAddFlowElement(elementType, direction) {
+        if (_flowAddPending) return;
         const input = document.getElementById('flow-add-input');
         if (!input || !input.value.trim()) return;
 
         const value = input.value.trim().toUpperCase();
         const config = state.flows.activeConfig;
         if (!config) return;
+
+        // Prevent double-submit
+        _flowAddPending = true;
+        const form = input.closest('.nod-flow-add-form');
+        if (form) form.querySelectorAll('button').forEach(b => b.disabled = true);
 
         const payload = {
             config_id: config.config_id,
@@ -7208,13 +7232,15 @@
             const data = await resp.json();
 
             if (data.element_id) {
-                // Reload config to get fresh state
+                if (form) form.remove();
                 await onConfigChange(config.config_id);
             } else {
                 console.warn('[NOD] Failed to add element:', data.error);
             }
         } catch (e) {
             console.warn('[NOD] Failed to add flow element:', e);
+        } finally {
+            _flowAddPending = false;
         }
     }
 
@@ -7281,6 +7307,10 @@
         const container = document.getElementById('flow-gates-list');
         if (!container) return;
 
+        // Expand the gates section
+        const section = container.closest('.nod-section');
+        if (section) section.classList.add('expanded');
+
         document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
 
         const form = document.createElement('div');
@@ -7306,10 +7336,16 @@
     /**
      * Submit add gate form.
      */
+    let _gateAddPending = false;
     async function submitAddGate() {
+        if (_gateAddPending) return;
         const input = document.getElementById('flow-add-gate-input');
         const dirSelect = document.getElementById('flow-add-gate-dir');
         if (!input || !input.value.trim() || !state.flows.activeConfig) return;
+
+        _gateAddPending = true;
+        const form = input.closest('.nod-flow-add-form');
+        if (form) form.querySelectorAll('button').forEach(b => b.disabled = true);
 
         try {
             const resp = await fetch('api/nod/flows/gates.php', {
@@ -7323,10 +7359,13 @@
             });
             const data = await resp.json();
             if (data.gate_id) {
+                if (form) form.remove();
                 await onConfigChange(state.flows.activeConfig.config_id);
             }
         } catch (e) {
             console.warn('[NOD] Failed to add gate:', e);
+        } finally {
+            _gateAddPending = false;
         }
     }
 
@@ -7383,13 +7422,27 @@
             });
             const data = await resp.json();
             if (data.config_id) {
-                await onFacilityChange(state.flows.facility);
-                // Select the new config
+                // Refresh config list without auto-selecting
                 const configSelect = document.getElementById('flow-config');
-                if (configSelect) {
-                    configSelect.value = data.config_id;
-                    await onConfigChange(data.config_id);
+                try {
+                    const listResp = await fetch(`api/nod/flows/configs.php?facility_code=${encodeURIComponent(state.flows.facility)}`);
+                    const listData = await listResp.json();
+                    state.flows.configs = listData.configs || [];
+                    if (configSelect) {
+                        configSelect.innerHTML = '<option value="">Select config...</option>';
+                        state.flows.configs.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.config_id;
+                            opt.textContent = c.config_name + (c.is_default ? ' (default)' : '');
+                            configSelect.appendChild(opt);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[NOD] Failed to refresh config list:', e);
                 }
+                // Select the new config (single load)
+                if (configSelect) configSelect.value = data.config_id;
+                await onConfigChange(data.config_id);
             }
         } catch (e) {
             console.warn('[NOD] Failed to create flow config:', e);
