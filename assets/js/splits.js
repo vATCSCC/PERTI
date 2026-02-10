@@ -895,7 +895,7 @@ const SplitsController = {
         if (!container) {return;}
 
         if (!this.presets || this.presets.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-2" style="font-size: 11px;">No presets saved.</div>';
+            container.innerHTML = `<div class="text-muted text-center py-2" style="font-size: 11px;">${PERTII18n.t('splits.presets.noPresetsSaved')}</div>`;
             return;
         }
 
@@ -1136,7 +1136,7 @@ const SplitsController = {
             if (panel && btn) {
                 const isHidden = panel.style.display === 'none' || panel.style.display === '';
                 panel.style.display = isHidden ? 'block' : 'none';
-                btn.textContent = isHidden ? 'Hide Help' : 'Show Help';
+                btn.textContent = isHidden ? PERTII18n.t('splits.help.hide') : PERTII18n.t('splits.help.show');
             }
         });
 
@@ -1729,7 +1729,7 @@ const SplitsController = {
         popup.id = 'sector-select-popup';
         popup.className = 'layer-select-popup sector-select-popup';
 
-        const headerText = features.length > 1 ? `${features.length} Overlapping Sectors` : 'Select Sector';
+        const headerText = features.length > 1 ? PERTII18n.t('splits.map.overlappingSectors', { count: features.length }) : PERTII18n.t('splits.map.selectSector');
 
         popup.innerHTML = `
             <div class="layer-select-header">
@@ -1753,9 +1753,9 @@ const SplitsController = {
     }).join('')}
             </div>
             <div class="sector-select-actions">
-                <button class="btn btn-xs btn-outline-secondary" id="sector-select-all-btn">Select All</button>
-                <button class="btn btn-xs btn-outline-secondary" id="sector-deselect-all-btn">Deselect All</button>
-                <button class="btn btn-xs btn-primary" id="sector-apply-btn">Apply</button>
+                <button class="btn btn-xs btn-outline-secondary" id="sector-select-all-btn">${PERTII18n.t('splits.sectors.selectAll')}</button>
+                <button class="btn btn-xs btn-outline-secondary" id="sector-deselect-all-btn">${PERTII18n.t('splits.sectors.deselectAll')}</button>
+                <button class="btn btn-xs btn-primary" id="sector-apply-btn">${PERTII18n.t('common.apply')}</button>
             </div>
         `;
 
@@ -2029,21 +2029,21 @@ const SplitsController = {
         const props = item.feature.properties;
         switch (item.layerType) {
             case 'active':
-                return props.sector_id || props.position || 'Active Sector';
+                return props.sector_id || props.position || PERTII18n.t('splits.feature.activeSector');
             case 'high':
             case 'low':
             case 'superhigh':
-                return props.label || props.name || props.id || 'Sector';
+                return props.label || props.name || props.id || PERTII18n.t('splits.feature.sector');
             case 'artcc':
-                return props.id || props.name || props.ID || 'ARTCC';
+                return props.id || props.name || props.ID || PERTII18n.t('splits.feature.artcc');
             case 'tracon':
-                return props.sector || props.label || props.id || props.name || 'TRACON';
+                return props.sector || props.label || props.id || props.name || PERTII18n.t('splits.feature.tracon');
             case 'areas':
-                return props.area_name || 'Area';
+                return props.area_name || PERTII18n.t('splits.feature.area');
             case 'presets':
-                return props.position_name || props.preset_name || 'Preset';
+                return props.position_name || props.preset_name || PERTII18n.t('splits.feature.preset');
             default:
-                return 'Feature';
+                return PERTII18n.t('splits.feature.feature');
         }
     },
 
@@ -2068,14 +2068,14 @@ const SplitsController = {
         const listHtml = features.map((item, index) => {
             const props = item.feature.properties;
             const typeName = {
-                'active': 'Split',
-                'high': 'High',
-                'low': 'Low',
-                'superhigh': 'Superhigh',
-                'artcc': 'ARTCC',
-                'tracon': 'TRACON',
-                'areas': 'Area',
-                'presets': 'Preset',
+                'active': PERTII18n.t('splits.layerType.split'),
+                'high': PERTII18n.t('splits.layerType.high'),
+                'low': PERTII18n.t('splits.layerType.low'),
+                'superhigh': PERTII18n.t('splits.layerType.superhigh'),
+                'artcc': PERTII18n.t('splits.layerType.artcc'),
+                'tracon': PERTII18n.t('splits.layerType.tracon'),
+                'areas': PERTII18n.t('splits.layerType.area'),
+                'presets': PERTII18n.t('splits.layerType.preset'),
             }[item.layerType] || item.layerType;
 
             const typeColor = typeColors[item.layerType] || '#888';
@@ -2099,7 +2099,7 @@ const SplitsController = {
             `;
         }).join('');
 
-        const headerText = features.length > 1 ? `${features.length} Overlapping Features` : 'Feature Info';
+        const headerText = features.length > 1 ? PERTII18n.t('splits.map.overlappingFeatures', { count: features.length }) : PERTII18n.t('splits.map.featureInfo');
 
         // Create popup dynamically inside map container
         popup = document.createElement('div');
@@ -2200,7 +2200,7 @@ const SplitsController = {
                 html = this.buildPresetPopup(props);
                 break;
             default:
-                html = `<div class="sector-popup"><div class="popup-body">Unknown feature type</div></div>`;
+                html = `<div class="sector-popup"><div class="popup-body">${PERTII18n.t('splits.popup.unknownFeatureType')}</div></div>`;
         }
 
         this.sectorPopup
@@ -2236,14 +2236,14 @@ const SplitsController = {
             const sectors = pos.sectors || [];
 
             html += `
-                    <div class="popup-row"><span>Position:</span> <strong style="color: ${pos.color}">${pos.position_name}</strong></div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.position')}:</span> <strong style="color: ${pos.color}">${pos.position_name}</strong></div>
             `;
-            if (pos.frequency) {html += `<div class="popup-row"><span>Frequency:</span> <strong>${pos.frequency}</strong></div>`;}
+            if (pos.frequency) {html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.frequency')}:</span> <strong>${pos.frequency}</strong></div>`;}
             html += `
-                    <div class="popup-row"><span>Config:</span> ${configInfo.config.config_name}</div>
-                    <div class="popup-row"><span>ARTCC:</span> ${configInfo.config.artcc}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.config')}:</span> ${configInfo.config.config_name}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${configInfo.config.artcc}</div>
             `;
-            if (pos.controller_oi) {html += `<div class="popup-row"><span>Controller:</span> ${pos.controller_oi}</div>`;}
+            if (pos.controller_oi) {html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.controller')}:</span> ${pos.controller_oi}</div>`;}
 
             // Show other sectors in this position
             if (sectors.length > 1) {
@@ -2251,13 +2251,13 @@ const SplitsController = {
                 html += `
                     <hr style="margin: 6px 0; border-color: #444;">
                     <div class="popup-row" style="flex-direction: column; align-items: flex-start;">
-                        <span style="margin-bottom: 2px;">Also in this position (${sectors.length} total):</span>
+                        <span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.alsoInPosition', { count: sectors.length })}:</span>
                         <div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${otherSectors.join(', ')}</div>
                     </div>
                 `;
             }
         } else {
-            html += `<div class="popup-row"><span>Position:</span> <strong>${props.position || 'Unknown'}</strong></div>`;
+            html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.position')}:</span> <strong>${props.position || PERTII18n.t('common.unknown')}</strong></div>`;
         }
 
         html += `</div></div>`;
@@ -2268,10 +2268,10 @@ const SplitsController = {
         const isHigh = type === 'high';
         const isSuperhigh = type === 'superhigh';
         const color = isSuperhigh ? AIRSPACE_COLORS.superhigh : (isHigh ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
-        const levelName = isSuperhigh ? 'Superhigh' : (isHigh ? 'High' : 'Low');
+        const levelName = isSuperhigh ? PERTII18n.t('splits.layerType.superhigh') : (isHigh ? PERTII18n.t('splits.layerType.high') : PERTII18n.t('splits.layerType.low'));
 
         const artcc = (props.artcc || '').toUpperCase();
-        const label = props.label || props.name || 'Unknown';
+        const label = props.label || props.name || PERTII18n.t('common.unknown');
         const sector = props.sector || props.id || 'N/A';
 
         // Check if assigned to any active config
@@ -2292,17 +2292,17 @@ const SplitsController = {
                     <strong>${label}</strong>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>ARTCC:</span> <strong>${artcc}</strong></div>
-                    <div class="popup-row"><span>Sector:</span> ${sector}</div>
-                    <div class="popup-row"><span>Label:</span> ${label}</div>
-                    <div class="popup-row"><span>Level:</span> ${levelName}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> <strong>${artcc}</strong></div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.sector')}:</span> ${sector}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.label')}:</span> ${label}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.level')}:</span> ${levelName}</div>
         `;
 
         if (assignedTo) {
             html += `
                     <hr style="margin: 6px 0; border-color: #444;">
-                    <div class="popup-row"><span>Assigned to:</span> <strong style="color: ${assignedTo.position.color}">${assignedTo.position.position_name}</strong></div>
-                    <div class="popup-row"><span>Config:</span> ${assignedTo.config.config_name}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.assignedTo')}:</span> <strong style="color: ${assignedTo.position.color}">${assignedTo.position.position_name}</strong></div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.config')}:</span> ${assignedTo.config.config_name}</div>
             `;
         }
 
@@ -2317,7 +2317,7 @@ const SplitsController = {
                     <strong>${props.id || props.name || props.ID || 'ARTCC'}</strong>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>Type:</span> ARTCC Boundary</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t('splits.popup.artccBoundary')}</div>
                 </div>
             </div>
         `;
@@ -2395,7 +2395,7 @@ const SplitsController = {
         if (traconData?.contains_oep35) {flags.push('OEP 35');}
         if (traconData?.contains_aspm82) {flags.push('ASPM 82');}
         const flagsHtml = flags.length > 0
-            ? `<div class="popup-row"><span>Designations:</span> ${flags.join(', ')}</div>`
+            ? `<div class="popup-row"><span>${PERTII18n.t('splits.popup.designations')}:</span> ${flags.join(', ')}</div>`
             : '';
 
         // Format airports for display with expandable toggle
@@ -2403,14 +2403,14 @@ const SplitsController = {
         if (airports) {
             const airportList = airports.split(',').map(a => a.trim()).filter(a => a);
             if (airportList.length <= 6) {
-                airportsHtml = `<div class="popup-row"><span>Airports:</span> ${airportList.join(', ')}</div>`;
+                airportsHtml = `<div class="popup-row"><span>${PERTII18n.t('splits.popup.airports')}:</span> ${airportList.join(', ')}</div>`;
             } else {
                 const shown = airportList.slice(0, 6).join(', ');
                 const allAirports = airportList.join(', ');
                 const more = airportList.length - 6;
                 const uniqueId = 'airports-' + Date.now();
                 airportsHtml = `<div class="popup-row" style="flex-direction: column; align-items: flex-start;">
-                    <span>Airports (${airportList.length}):</span>
+                    <span>${PERTII18n.t('splits.popup.airportsCount', { count: airportList.length })}:</span>
                     <div id="${uniqueId}-short" style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted); margin-top: 2px;">${shown}</div>
                     <div id="${uniqueId}-full" style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted); margin-top: 2px; display: none;">${allAirports}</div>
                     <div id="${uniqueId}-toggle" 
@@ -2422,13 +2422,13 @@ const SplitsController = {
                             if (short.style.display !== 'none') {
                                 short.style.display = 'none';
                                 full.style.display = 'block';
-                                toggle.textContent = '▲ Show less';
+                                toggle.textContent = PERTII18n.t('splits.popup.showLess');
                             } else {
                                 short.style.display = 'block';
                                 full.style.display = 'none';
-                                toggle.textContent = '▼ Show all ${airportList.length} airports';
+                                toggle.textContent = PERTII18n.t('splits.popup.showAllAirports', { count: ${airportList.length} });
                             }
-                         ">▼ Show all ${airportList.length} airports</div>
+                         ">${PERTII18n.t('splits.popup.showAllAirports', { count: airportList.length })}</div>
                 </div>`;
             }
         }
@@ -2440,11 +2440,11 @@ const SplitsController = {
                     ${displayName ? `<span style="font-weight: normal; font-size: 10px; opacity: 0.8; display: block;">${displayName}</span>` : ''}
                 </div>
                 <div class="popup-body">
-                    ${artcc ? `<div class="popup-row"><span>ARTCC:</span> ${artcc}</div>` : ''}
-                    ${region ? `<div class="popup-row"><span>DCC Region:</span> ${region}</div>` : ''}
+                    ${artcc ? `<div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${artcc}</div>` : ''}
+                    ${region ? `<div class="popup-row"><span>${PERTII18n.t('splits.popup.dccRegion')}:</span> ${region}</div>` : ''}
                     ${flagsHtml}
                     ${airportsHtml}
-                    ${!traconData && !artcc ? '<div class="popup-row"><span>Type:</span> TRACON Boundary</div>' : ''}
+                    ${!traconData && !artcc ? `<div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t('splits.popup.traconBoundary')}</div>` : ''}
                 </div>
             </div>
         `;
@@ -2488,9 +2488,9 @@ const SplitsController = {
                     <strong>${props.artcc || ''} ${props.area_name || 'Area'}</strong>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>ARTCC:</span> ${props.artcc || 'N/A'}</div>
-                    <div class="popup-row"><span>Sectors:</span> ${sectors.length}</div>
-                    ${sectorList ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectorList}</div></div>` : ''}
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || 'N/A'}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.sectors')}:</span> ${sectors.length}</div>
+                    ${sectorList ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.includes')}:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectorList}</div></div>` : ''}
                 </div>
             </div>
         `;
@@ -2508,14 +2508,14 @@ const SplitsController = {
         return `
             <div class="sector-popup">
                 <div class="popup-header" style="background: ${props.color || '#f59e0b'}; display: flex; justify-content: space-between; align-items: center; padding-right: 24px;">
-                    <strong>${props.position_name || 'Position'}</strong>
+                    <strong>${props.position_name || PERTII18n.t('splits.popup.positionLabel')}</strong>
                     <span style="opacity: 0.8; font-size: 11px;">${props.preset_name || ''}</span>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>Preset:</span> ${props.preset_name || 'N/A'}</div>
-                    <div class="popup-row"><span>ARTCC:</span> ${props.artcc || 'N/A'}</div>
-                    <div class="popup-row"><span>Sectors:</span> ${sectors.length}</div>
-                    ${sectors.length > 0 ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">Includes:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectors.join(', ')}</div></div>` : ''}
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.preset')}:</span> ${props.preset_name || 'N/A'}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || 'N/A'}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.sectors')}:</span> ${sectors.length}</div>
+                    ${sectors.length > 0 ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.includes')}:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectors.join(', ')}</div></div>` : ''}
                 </div>
             </div>
         `;
@@ -2796,7 +2796,7 @@ const SplitsController = {
         if (!select) {return;}
 
         const artccs = [...new Set(this.areas.map(a => a.artcc))].sort();
-        select.innerHTML = '<option value="">All ARTCCs</option>' +
+        select.innerHTML = `<option value="">${PERTII18n.t('splits.areas.allArtccs')}</option>` +
             artccs.map(a => `<option value="${a}">${a}</option>`).join('');
     },
 
@@ -2808,7 +2808,7 @@ const SplitsController = {
         const filtered = filter ? this.areas.filter(a => a.artcc === filter) : this.areas;
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-3" style="font-size: 11px;">No areas defined.</div>';
+            container.innerHTML = `<div class="text-muted text-center py-3" style="font-size: 11px;">${PERTII18n.t('splits.areas.noAreasDefined')}</div>`;
             return;
         }
 
@@ -2828,8 +2828,8 @@ const SplitsController = {
                 <div class="area-toggle-header">
                     <span>${artcc}</span>
                     <div class="artcc-toggle-btns">
-                        <button class="btn btn-xs btn-link artcc-show-all-btn" data-artcc="${artcc}" title="Show all ${artcc}">All</button>
-                        <button class="btn btn-xs btn-link artcc-hide-all-btn" data-artcc="${artcc}" title="Hide all ${artcc}">None</button>
+                        <button class="btn btn-xs btn-link artcc-show-all-btn" data-artcc="${artcc}" title="${PERTII18n.t('splits.areas.showAll', { artcc })}">${PERTII18n.t('splits.areas.allBtn')}</button>
+                        <button class="btn btn-xs btn-link artcc-hide-all-btn" data-artcc="${artcc}" title="${PERTII18n.t('splits.areas.hideAll', { artcc })}">${PERTII18n.t('splits.areas.noneBtn')}</button>
                     </div>
                 </div>`;
 
@@ -2952,7 +2952,7 @@ const SplitsController = {
         const filtered = filter ? this.areas.filter(a => a.artcc === filter) : this.areas;
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-3">No areas defined yet.</div>';
+            container.innerHTML = `<div class="text-muted text-center py-3">${PERTII18n.t('splits.areas.noAreasDefinedYet')}</div>`;
             return;
         }
 
@@ -2995,8 +2995,8 @@ const SplitsController = {
         document.getElementById('area-artcc').value = '';
         document.getElementById('area-name').value = '';
         document.getElementById('area-description').value = '';
-        document.getElementById('area-sector-grid').innerHTML = '<div class="text-muted">Select an ARTCC to load sectors</div>';
-        document.getElementById('area-selected-sectors').innerHTML = '<span class="text-muted">None selected</span>';
+        document.getElementById('area-sector-grid').innerHTML = `<div class="text-muted">${PERTII18n.t('splits.areas.selectArtccToLoad')}</div>`;
+        document.getElementById('area-selected-sectors').innerHTML = `<span class="text-muted">${PERTII18n.t('splits.areas.noneSelected')}</span>`;
 
         document.getElementById('no-area-selected').style.display = 'none';
         document.getElementById('area-editor').style.display = 'block';
@@ -3021,13 +3021,13 @@ const SplitsController = {
     loadAreaSectors(artcc, selectedSectors = []) {
         const container = document.getElementById('area-sector-grid');
         if (!artcc) {
-            container.innerHTML = '<div class="text-muted">Select an ARTCC first</div>';
+            container.innerHTML = `<div class="text-muted">${PERTII18n.t('splits.areas.selectArtccFirst')}</div>`;
             return;
         }
 
         const sectors = this.getSectorsForArtcc(artcc);
         if (sectors.length === 0) {
-            container.innerHTML = '<div class="text-muted">No sectors found for this ARTCC</div>';
+            container.innerHTML = `<div class="text-muted">${PERTII18n.t('splits.areas.noSectorsFound')}</div>`;
             return;
         }
 
@@ -3084,7 +3084,7 @@ const SplitsController = {
                 .map(c => c.dataset.sector);
 
         if (selected.length === 0) {
-            container.innerHTML = '<span class="text-muted">None selected</span>';
+            container.innerHTML = `<span class="text-muted">${PERTII18n.t('splits.areas.noneSelected')}</span>`;
         } else {
             container.innerHTML = selected.join(', ');
         }
@@ -3148,11 +3148,11 @@ const SplitsController = {
             .map(c => c.dataset.sector);
 
         if (!artcc || !areaName) {
-            alert('Please fill in ARTCC and Area Name');
+            PERTIDialog.warning('splits.areas.validation.title', 'splits.areas.validation.fillArtccAndName');
             return;
         }
         if (sectors.length === 0) {
-            alert('Please select at least one sector');
+            PERTIDialog.warning('splits.areas.validation.title', 'splits.areas.validation.selectSector');
             return;
         }
 
@@ -3186,19 +3186,20 @@ const SplitsController = {
                 await this.loadAreas();
                 this.renderAreasList();
                 this.showNoAreaSelected();
-                alert(result.message || 'Area saved successfully');
+                PERTIDialog.success('splits.areas.saved.title', 'splits.areas.saved.text');
             } else {
-                alert(result.error || 'Failed to save area');
+                PERTIDialog.error('splits.areas.error.title', 'splits.areas.error.saveFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to save area:', err);
-            alert('Failed to save area: ' + err.message);
+            PERTIDialog.error('splits.areas.error.title', 'splits.areas.error.saveFailed');
         }
     },
 
     async deleteArea() {
         if (!this.editingAreaId) {return;}
-        if (!confirm('Are you sure you want to delete this area?')) {return;}
+        const { isConfirmed } = await PERTIDialog.confirmDanger('splits.areas.deleteConfirm.title', 'splits.areas.deleteConfirm.text');
+        if (!isConfirmed) {return;}
 
         try {
             const response = await fetch(`api/splits/areas.php?id=${this.editingAreaId}`, {
@@ -3211,11 +3212,11 @@ const SplitsController = {
                 this.showNoAreaSelected();
             } else {
                 const result = await response.json();
-                alert(result.error || 'Failed to delete area');
+                PERTIDialog.error('splits.areas.error.title', 'splits.areas.error.deleteFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to delete area:', err);
-            alert('Failed to delete area: ' + err.message);
+            PERTIDialog.error('splits.areas.error.title', 'splits.areas.error.deleteFailed');
         }
     },
 
@@ -3251,7 +3252,7 @@ const SplitsController = {
     enableAreaMapSelection() {
         const artcc = document.getElementById('area-artcc').value;
         if (!artcc) {
-            alert('Please select an ARTCC first');
+            PERTIDialog.warning('splits.areas.validation.title', 'splits.areas.validation.selectArtccFirst');
             return;
         }
 
@@ -3319,13 +3320,13 @@ const SplitsController = {
         indicator.innerHTML = `
             <div class="selection-indicator-content">
                 <span class="indicator-dot" style="background: #a855f7"></span>
-                <span class="indicator-text">Area Map Selection Mode - Click sectors to add/remove</span>
-                <span class="badge badge-info ml-2">${count} selected</span>
+                <span class="indicator-text">${PERTII18n.t('splits.mapSelection.areaMode')}</span>
+                <span class="badge badge-info ml-2">${PERTII18n.t('splits.mapSelection.selected', { count })}</span>
                 <button class="btn btn-sm btn-success ml-3" id="finish-area-selection-btn">
-                    <i class="fas fa-check"></i> Done
+                    <i class="fas fa-check"></i> ${PERTII18n.t('splits.mapSelection.done')}
                 </button>
                 <button class="btn btn-sm btn-secondary ml-1" id="cancel-area-selection-btn">
-                    Cancel
+                    ${PERTII18n.t('common.cancel')}
                 </button>
             </div>
         `;
@@ -3338,7 +3339,7 @@ const SplitsController = {
     updateAreaMapSelectionIndicator() {
         const badge = document.querySelector('#area-map-selection-indicator .badge');
         if (badge) {
-            badge.textContent = `${this._areaSelectedSectors?.length || 0} selected`;
+            badge.textContent = PERTII18n.t('splits.mapSelection.selected', { count: this._areaSelectedSectors?.length || 0 });
         }
     },
 
@@ -3474,7 +3475,7 @@ const SplitsController = {
         const select = document.getElementById('presets-artcc-filter');
         if (!select) {return;}
         const artccs = [...new Set(this.presets.map(p => p.artcc))].sort();
-        select.innerHTML = '<option value="">All ARTCCs</option>' +
+        select.innerHTML = `<option value="">${PERTII18n.t('splits.areas.allArtccs')}</option>` +
             artccs.map(a => `<option value="${a}">${a}</option>`).join('');
     },
 
@@ -3489,7 +3490,7 @@ const SplitsController = {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">⭐</div>
-                    <div class="empty-state-text">No saved presets yet.<br>Click "+ New Preset" to create one.</div>
+                    <div class="empty-state-text">${PERTII18n.t('splits.presets.noSavedPresetsYet')}</div>
                 </div>`;
             return;
         }
@@ -3555,14 +3556,14 @@ const SplitsController = {
         const filtered = artcc ? this.presets.filter(p => p.artcc === artcc) : this.presets;
 
         if (filtered.length === 0) {
-            select.innerHTML = `<option value="">No presets available${artcc ? ` for ${artcc}` : ''}</option>`;
+            select.innerHTML = `<option value="">${artcc ? PERTII18n.t('splits.presets.noPresetsForArtcc', { artcc }) : PERTII18n.t('splits.presets.noPresetsAvailable')}</option>`;
             select.disabled = true;
             document.getElementById('load-preset-btn')?.setAttribute('disabled', 'disabled');
             return;
         }
 
         select.disabled = false;
-        select.innerHTML = '<option value="">Select a saved preset...</option>';
+        select.innerHTML = `<option value="">${PERTII18n.t('splits.presets.selectPreset')}</option>`;
 
         if (!artcc) {
             const grouped = {};
@@ -3597,7 +3598,7 @@ const SplitsController = {
     async loadPresetIntoConfig() {
         const select = document.getElementById('load-preset-dropdown');
         const presetId = select?.value;
-        if (!presetId) {return alert('Please select a preset');}
+        if (!presetId) {return PERTIDialog.warning('splits.presets.validation.title', 'splits.presets.validation.selectPreset');}
 
         try {
             const response = await fetch(`api/splits/presets.php?id=${presetId}`);
@@ -3639,7 +3640,7 @@ const SplitsController = {
             console.log(`[SPLITS] Loaded preset "${preset.preset_name}" with ${preset.positions.length} positions`);
         } catch (err) {
             console.error('[SPLITS] Failed to load preset:', err);
-            alert('Failed to load preset: ' + err.message);
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.loadFailed');
         }
     },
 
@@ -3677,7 +3678,7 @@ const SplitsController = {
             this.updateMapPreview();
         } catch (err) {
             console.error('[SPLITS] Failed to use preset:', err);
-            alert('Failed to load preset');
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.loadFailed');
         }
     },
 
@@ -3695,7 +3696,7 @@ const SplitsController = {
         document.getElementById('preset-name').value = '';
         document.getElementById('preset-artcc').value = '';
         document.getElementById('preset-description').value = '';
-        document.getElementById('preset-modal-title').textContent = 'New Preset';
+        document.getElementById('preset-modal-title').textContent = PERTII18n.t('splits.presets.newPreset');
         document.getElementById('delete-preset-btn').style.display = 'none';
 
         this.updatePresetWizardStep();
@@ -3729,7 +3730,7 @@ const SplitsController = {
             document.getElementById('preset-name').value = preset.preset_name;
             document.getElementById('preset-artcc').value = preset.artcc;
             document.getElementById('preset-description').value = preset.description || '';
-            document.getElementById('preset-modal-title').textContent = 'Edit Preset';
+            document.getElementById('preset-modal-title').textContent = PERTII18n.t('splits.presets.editPreset');
             document.getElementById('delete-preset-btn').style.display = 'block';
 
             this.updatePresetWizardStep();
@@ -3738,7 +3739,7 @@ const SplitsController = {
             $('#preset-modal').modal('show');
         } catch (err) {
             console.error('[SPLITS] Failed to edit preset:', err);
-            alert('Failed to load preset');
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.loadFailed');
         }
     },
 
@@ -3771,7 +3772,7 @@ const SplitsController = {
             const name = document.getElementById('preset-name').value.trim();
 
             if (!artcc || !name) {
-                alert('Please fill in preset name and ARTCC');
+                PERTIDialog.warning('splits.presets.validation.title', 'splits.presets.validation.fillNameAndArtcc');
                 return;
             }
 
@@ -3868,7 +3869,7 @@ const SplitsController = {
         if (positions.length === 0) {
             container.innerHTML = `
                 <div class="empty-state py-4">
-                    <div class="empty-state-text">No positions added yet.<br>Click "+ Add Position" to start.</div>
+                    <div class="empty-state-text">${PERTII18n.t('splits.positions.noPositionsYet')}</div>
                 </div>`;
             return;
         }
@@ -4006,16 +4007,16 @@ const SplitsController = {
             const pos = this._presetPositions[editIndex];
             document.getElementById('preset-position-name').value = pos.name || '';
             document.getElementById('preset-position-frequency').value = pos.frequency || '';
-            document.getElementById('preset-position-modal-title').textContent = 'Edit Position';
-            document.getElementById('save-preset-position-btn').textContent = 'Save Position';
+            document.getElementById('preset-position-modal-title').textContent = PERTII18n.t('splits.positions.editPosition');
+            document.getElementById('save-preset-position-btn').textContent = PERTII18n.t('splits.positions.savePosition');
 
             // Select color
             colorPicker?.querySelectorAll('.color-swatch').forEach(s => {
                 s.classList.toggle('selected', s.dataset.color === pos.color);
             });
         } else {
-            document.getElementById('preset-position-modal-title').textContent = 'Add Position';
-            document.getElementById('save-preset-position-btn').textContent = 'Add Position';
+            document.getElementById('preset-position-modal-title').textContent = PERTII18n.t('splits.positions.addPosition');
+            document.getElementById('save-preset-position-btn').textContent = PERTII18n.t('splits.positions.addPosition');
         }
 
         $('#preset-position-modal').modal('show');
@@ -4023,7 +4024,7 @@ const SplitsController = {
 
     savePresetPosition() {
         const name = document.getElementById('preset-position-name').value.trim();
-        if (!name) {return alert('Please enter a position name');}
+        if (!name) {return PERTIDialog.warning('splits.positions.validation.title', 'splits.positions.validation.enterName');}
 
         const colorEl = document.querySelector('#preset-position-color-picker .color-swatch.selected');
         const color = colorEl ? colorEl.dataset.color : this.colorPalette[0];
@@ -4051,8 +4052,9 @@ const SplitsController = {
         this._editingPresetPositionModalIndex = -1;
     },
 
-    deletePresetPosition(index) {
-        if (!confirm('Delete this position?')) {return;}
+    async deletePresetPosition(index) {
+        const { isConfirmed } = await PERTIDialog.confirmDanger('splits.positions.deleteConfirm.title', 'splits.positions.deleteConfirm.text');
+        if (!isConfirmed) {return;}
         this._presetPositions.splice(index, 1);
         if (this._editingPresetPositionIndex === index) {
             this._editingPresetPositionIndex = -1;
@@ -4143,7 +4145,7 @@ const SplitsController = {
         });
 
         if (sectors.length === 0) {
-            container.innerHTML = '<div class="text-muted">No sectors found (check strata filters)</div>';
+            container.innerHTML = `<div class="text-muted">${PERTII18n.t('splits.sectors.noSectorsCheckFilters')}</div>`;
             return;
         }
 
@@ -4184,16 +4186,16 @@ const SplitsController = {
         const artccAreas = this.areas.filter(a => a.artcc === this._presetArtcc);
 
         if (artccAreas.length === 0) {
-            container.innerHTML = '<span class="text-muted" style="font-size: 10px;">No areas defined for this ARTCC</span>';
+            container.innerHTML = `<span class="text-muted" style="font-size: 10px;">${PERTII18n.t('splits.areas.noAreasForArtcc')}</span>`;
             return;
         }
 
-        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">Quick Select Area:</label>';
+        container.innerHTML = `<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">${PERTII18n.t('splits.areas.quickSelectArea')}:</label>`;
         artccAreas.forEach(area => {
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-outline-info mr-1 mb-1';
             btn.textContent = area.area_name;
-            btn.title = `Select ${area.sectors.length} sectors`;
+            btn.title = PERTII18n.t('splits.areas.selectSectors', { count: area.sectors.length });
             btn.addEventListener('click', () => this.selectPresetAreaSectors(area.sectors));
             container.appendChild(btn);
         });
@@ -4243,7 +4245,7 @@ const SplitsController = {
 
     enablePresetMapSelection() {
         if (this._editingPresetPositionIndex < 0) {
-            alert('Please select a position first');
+            PERTIDialog.warning('splits.positions.validation.title', 'splits.positions.validation.selectPositionFirst');
             return;
         }
 
@@ -4251,7 +4253,7 @@ const SplitsController = {
         const artcc = this._presetArtcc;
 
         if (!artcc) {
-            alert('Please select an ARTCC first');
+            PERTIDialog.warning('splits.areas.validation.title', 'splits.areas.validation.selectArtccFirst');
             return;
         }
 
@@ -4318,13 +4320,13 @@ const SplitsController = {
         indicator.innerHTML = `
             <div class="selection-indicator-content">
                 <span class="indicator-dot" style="background: ${color}"></span>
-                <span class="indicator-text">Selecting sectors for: <strong>${position.name}</strong></span>
-                <span class="badge badge-info ml-2">${count} selected</span>
+                <span class="indicator-text">${PERTII18n.t('splits.mapSelection.selectingFor')} <strong>${position.name}</strong></span>
+                <span class="badge badge-info ml-2">${PERTII18n.t('splits.mapSelection.selected', { count })}</span>
                 <button class="btn btn-sm btn-success ml-3" id="finish-preset-selection-btn">
-                    <i class="fas fa-check"></i> Done
+                    <i class="fas fa-check"></i> ${PERTII18n.t('splits.mapSelection.done')}
                 </button>
                 <button class="btn btn-sm btn-secondary ml-1" id="cancel-preset-selection-btn">
-                    Cancel
+                    ${PERTII18n.t('common.cancel')}
                 </button>
             </div>
         `;
@@ -4339,7 +4341,7 @@ const SplitsController = {
         const position = this._presetPositions[this._editingPresetPositionIndex];
         const badge = document.querySelector('#preset-map-selection-indicator .badge');
         if (badge) {
-            badge.textContent = `${position.sectors?.length || 0} selected`;
+            badge.textContent = PERTII18n.t('splits.mapSelection.selected', { count: position.sectors?.length || 0 });
         }
     },
 
@@ -4391,8 +4393,8 @@ const SplitsController = {
         const artcc = document.getElementById('preset-artcc')?.value;
         const description = document.getElementById('preset-description')?.value.trim();
 
-        if (!presetName || !artcc) {return alert('Please fill in preset name and ARTCC');}
-        if (!this._presetPositions || this._presetPositions.length === 0) {return alert('Please add at least one position');}
+        if (!presetName || !artcc) {return PERTIDialog.warning('splits.presets.validation.title', 'splits.presets.validation.fillNameAndArtcc');}
+        if (!this._presetPositions || this._presetPositions.length === 0) {return PERTIDialog.warning('splits.presets.validation.title', 'splits.presets.validation.addPosition');}
 
         const payload = {
             preset_name: presetName,
@@ -4425,19 +4427,20 @@ const SplitsController = {
             if (response.ok) {
                 $('#preset-modal').modal('hide');
                 await this.loadPresets();
-                alert(result.message || 'Preset saved successfully!');
+                PERTIDialog.success('splits.presets.saved.title', 'splits.presets.saved.text');
             } else {
-                alert(result.error || 'Failed to save preset');
+                PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.saveFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to save preset:', err);
-            alert('Failed to save preset: ' + err.message);
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.saveFailed');
         }
     },
 
     async deletePreset() {
         if (!this._editingPresetId) {return;}
-        if (!confirm('Delete this preset? This cannot be undone.')) {return;}
+        const { isConfirmed } = await PERTIDialog.confirmDanger('splits.presets.deleteConfirm.title', 'splits.presets.deleteConfirm.text');
+        if (!isConfirmed) {return;}
 
         try {
             const response = await fetch(`api/splits/presets.php?id=${this._editingPresetId}`, { method: 'DELETE' });
@@ -4446,13 +4449,13 @@ const SplitsController = {
             if (response.ok) {
                 $('#preset-modal').modal('hide');
                 await this.loadPresets();
-                alert('Preset deleted successfully');
+                PERTIDialog.success('splits.presets.deleted.title', 'splits.presets.deleted.text');
             } else {
-                alert(result.error || 'Failed to delete preset');
+                PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.deleteFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to delete preset:', err);
-            alert('Failed to delete preset: ' + err.message);
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.deleteFailed');
         }
     },
 
@@ -4463,8 +4466,8 @@ const SplitsController = {
         const presetName = document.getElementById('save-preset-name')?.value.trim() ||
             `${this.currentConfig.artcc} Preset - ${new Date().toLocaleDateString()}`;
 
-        if (!this.currentConfig.artcc) {return alert('Please select an ARTCC first');}
-        if (this.currentConfig.splits.length === 0) {return alert('Please add at least one position');}
+        if (!this.currentConfig.artcc) {return PERTIDialog.warning('splits.config.validation.title', 'splits.config.validation.selectArtcc');}
+        if (this.currentConfig.splits.length === 0) {return PERTIDialog.warning('splits.config.validation.title', 'splits.config.validation.addPosition');}
 
         const payload = {
             preset_name: presetName,
@@ -4492,13 +4495,13 @@ const SplitsController = {
             if (response.ok) {
                 await this.loadPresets();
                 document.getElementById('save-preset-name').value = '';
-                alert(result.message || 'Preset saved successfully!');
+                PERTIDialog.success('splits.presets.saved.title', 'splits.presets.saved.text');
             } else {
-                alert(result.error || 'Failed to save preset');
+                PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.saveFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to save preset:', err);
-            alert('Failed to save preset: ' + err.message);
+            PERTIDialog.error('splits.presets.error.title', 'splits.presets.error.saveFailed');
         }
     },
 
@@ -4524,8 +4527,8 @@ const SplitsController = {
         // Set modal title based on whether we're editing
         const isEditing = existingConfig && existingConfig.id;
         document.getElementById('config-modal-title').textContent = isEditing
-            ? `Edit Configuration: ${existingConfig.name || 'Untitled'}`
-            : 'New Configuration';
+            ? PERTII18n.t('splits.config.editConfig', { name: existingConfig.name || PERTII18n.t('splits.config.untitled') })
+            : PERTII18n.t('splits.config.newConfig');
 
         // Populate form
         document.getElementById('config-artcc').value = this.currentConfig.artcc || '';
@@ -4614,7 +4617,7 @@ const SplitsController = {
             const end = document.getElementById('config-end').value;
 
             if (!artcc || !name || !start || !end) {
-                alert('Please fill in all required fields');
+                PERTIDialog.warning('splits.config.validation.title', 'splits.config.validation.fillRequired');
                 return;
             }
 
@@ -4626,7 +4629,7 @@ const SplitsController = {
         }
 
         if (this.currentStep === 2 && this.currentConfig.splits.length === 0) {
-            alert('Please add at least one split');
+            PERTIDialog.warning('splits.config.validation.title', 'splits.config.validation.addSplit');
             return;
         }
 
@@ -4647,7 +4650,7 @@ const SplitsController = {
         const container = document.getElementById('sector-grid');
 
         if (sectors.length === 0) {
-            container.innerHTML = '<div class="text-muted">No sectors found</div>';
+            container.innerHTML = `<div class="text-muted">${PERTII18n.t('splits.sectors.noSectorsFound')}</div>`;
             return;
         }
 
@@ -4687,16 +4690,16 @@ const SplitsController = {
         const artccAreas = this.areas.filter(a => a.artcc === artcc);
 
         if (artccAreas.length === 0) {
-            container.innerHTML = '<span class="text-muted" style="font-size: 10px;">No areas defined for this ARTCC</span>';
+            container.innerHTML = `<span class="text-muted" style="font-size: 10px;">${PERTII18n.t('splits.areas.noAreasForArtcc')}</span>`;
             return;
         }
 
-        container.innerHTML = '<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">Quick Select Area:</label>';
+        container.innerHTML = `<label class="d-block mb-1" style="font-size: 10px; color: var(--dark-text-subtle);">${PERTII18n.t('splits.areas.quickSelectArea')}:</label>`;
         artccAreas.forEach(area => {
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-outline-info mr-1 mb-1';
             btn.textContent = area.area_name;
-            btn.title = `Select ${area.sectors.length} sectors`;
+            btn.title = PERTII18n.t('splits.areas.selectSectors', { count: area.sectors.length });
             btn.addEventListener('click', () => this.selectAreaSectors(area.sectors));
             container.appendChild(btn);
         });
@@ -4825,7 +4828,7 @@ const SplitsController = {
     saveSplit() {
         const name = document.getElementById('split-name').value.trim();
         if (!name) {
-            alert('Please enter a position name');
+            PERTIDialog.warning('splits.positions.validation.title', 'splits.positions.validation.enterName');
             return;
         }
 
@@ -4925,8 +4928,8 @@ const SplitsController = {
             // Editing existing split
             const split = this.currentConfig.splits[editIndex];
 
-            document.getElementById('split-modal-title').textContent = 'Edit Position';
-            document.getElementById('save-split-btn').textContent = 'Save Position';
+            document.getElementById('split-modal-title').textContent = PERTII18n.t('splits.positions.editPosition');
+            document.getElementById('save-split-btn').textContent = PERTII18n.t('splits.positions.savePosition');
 
             document.getElementById('split-name').value = split.name || '';
             document.getElementById('split-frequency').value = split.frequency || '';
@@ -4965,8 +4968,8 @@ const SplitsController = {
             });
         } else {
             // New split
-            document.getElementById('split-modal-title').textContent = 'Add New Position';
-            document.getElementById('save-split-btn').textContent = 'Add Position';
+            document.getElementById('split-modal-title').textContent = PERTII18n.t('splits.positions.addNewPosition');
+            document.getElementById('save-split-btn').textContent = PERTII18n.t('splits.positions.addPosition');
         }
 
         $('#split-modal').modal('show');
@@ -4976,7 +4979,7 @@ const SplitsController = {
         const container = document.getElementById('config-splits-list');
 
         if (this.currentConfig.splits.length === 0) {
-            container.innerHTML = '<div class="empty-state py-4"><div class="empty-state-text">No positions added yet.</div></div>';
+            container.innerHTML = `<div class="empty-state py-4"><div class="empty-state-text">${PERTII18n.t('splits.positions.noPositionsYet')}</div></div>`;
             return;
         }
 
@@ -5071,12 +5074,12 @@ const SplitsController = {
         this.updateMapSelectionOverlay();
 
         // Show selection mode indicator
-        this.showMapSelectionIndicator('Click sectors on the map to select/deselect', highlightColor);
+        this.showMapSelectionIndicator(PERTII18n.t('splits.mapSelection.clickToSelect'), highlightColor);
     },
 
     enableSplitMapSelection() {
         if (this.editingSplitIndex < 0) {
-            alert('Please select a position first');
+            PERTIDialog.warning('splits.positions.validation.title', 'splits.positions.validation.selectPositionFirst');
             return;
         }
 
@@ -5147,13 +5150,13 @@ const SplitsController = {
         indicator.innerHTML = `
             <div class="selection-indicator-content">
                 <span class="indicator-dot" style="background: ${split.color}"></span>
-                <span class="indicator-text">Selecting sectors for: <strong>${split.name}</strong></span>
-                <span class="badge badge-info ml-2">${count} selected</span>
+                <span class="indicator-text">${PERTII18n.t('splits.mapSelection.selectingFor')} <strong>${split.name}</strong></span>
+                <span class="badge badge-info ml-2">${PERTII18n.t('splits.mapSelection.selected', { count })}</span>
                 <button class="btn btn-sm btn-success ml-3" id="finish-split-selection-btn">
-                    <i class="fas fa-check"></i> Done
+                    <i class="fas fa-check"></i> ${PERTII18n.t('splits.mapSelection.done')}
                 </button>
                 <button class="btn btn-sm btn-secondary ml-1" id="cancel-split-selection-btn">
-                    Cancel
+                    ${PERTII18n.t('common.cancel')}
                 </button>
             </div>
         `;
@@ -5168,7 +5171,7 @@ const SplitsController = {
         const split = this.currentConfig.splits[this.editingSplitIndex];
         const badge = document.querySelector('#split-map-selection-indicator .badge');
         if (badge) {
-            badge.textContent = `${split.sectors?.length || 0} selected`;
+            badge.textContent = PERTII18n.t('splits.mapSelection.selected', { count: split.sectors?.length || 0 });
         }
     },
 
@@ -5334,7 +5337,7 @@ const SplitsController = {
                     const textEl = indicator.querySelector('.indicator-text');
                     if (textEl) {
                         const original = textEl.innerHTML;
-                        textEl.innerHTML = '⚠️ <span style="color:#ff6b6b">Sector assigned to another position!</span>';
+                        textEl.innerHTML = `⚠️ <span style="color:#ff6b6b">${PERTII18n.t('splits.mapSelection.sectorAssignedElsewhere')}</span>`;
                         setTimeout(() => { textEl.innerHTML = original; }, 1500);
                     }
                 }
@@ -5396,7 +5399,7 @@ const SplitsController = {
                     const textEl = indicator.querySelector('.indicator-text');
                     if (textEl) {
                         const original = textEl.innerHTML;
-                        textEl.innerHTML = '⚠️ <span style="color:#ff6b6b">Sector assigned to another position!</span>';
+                        textEl.innerHTML = `⚠️ <span style="color:#ff6b6b">${PERTII18n.t('splits.mapSelection.sectorAssignedElsewhere')}</span>`;
                         setTimeout(() => { textEl.innerHTML = original; }, 1500);
                     }
                 }
@@ -5465,15 +5468,15 @@ const SplitsController = {
 
         if (hasFutureStartTime) {
             // Future start time = Schedule (regardless of checkbox)
-            btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Schedule';
+            btn.innerHTML = `<i class="fas fa-clock mr-1"></i> ${PERTII18n.t('splits.config.schedule')}`;
             btn.className = 'btn btn-info';
         } else if (publishImmediately) {
             // Present/past time + publish = Activate
-            btn.innerHTML = '<i class="fas fa-play mr-1"></i> Activate';
+            btn.innerHTML = `<i class="fas fa-play mr-1"></i> ${PERTII18n.t('splits.config.activate')}`;
             btn.className = 'btn btn-success';
         } else {
             // No publish = Save as Draft
-            btn.innerHTML = '<i class="fas fa-save mr-1"></i> Save as Draft';
+            btn.innerHTML = `<i class="fas fa-save mr-1"></i> ${PERTII18n.t('splits.config.saveAsDraft')}`;
             btn.className = 'btn btn-secondary';
         }
     },
@@ -5556,20 +5559,20 @@ const SplitsController = {
                 $('#config-modal').modal('hide');
 
                 // Reset modal title
-                document.getElementById('config-modal-title').textContent = 'New Configuration';
+                document.getElementById('config-modal-title').textContent = PERTII18n.t('splits.config.newConfig');
 
                 // Refresh all lists
                 await this.loadMyConfigs();
                 await this.loadActiveConfigs();
                 await this.loadScheduledConfigs();
 
-                alert(result.message || 'Configuration saved successfully');
+                PERTIDialog.success('splits.config.saved.title', 'splits.config.saved.text');
             } else {
-                alert(result.error || 'Failed to save configuration');
+                PERTIDialog.error('splits.config.error.title', 'splits.config.error.saveFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to save config:', err);
-            alert('Failed to save configuration: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.saveFailed');
         }
     },
 
@@ -5595,7 +5598,7 @@ const SplitsController = {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📋</div>
-                    <div class="empty-state-text">No configurations yet.<br>Click "+ New Config" to create one.</div>
+                    <div class="empty-state-text">${PERTII18n.t('splits.config.noConfigsYet')}</div>
                 </div>
             `;
             return;
@@ -5650,7 +5653,8 @@ const SplitsController = {
     },
 
     async deleteConfig(configId) {
-        if (!confirm('Delete this configuration? This cannot be undone.')) {return;}
+        const { isConfirmed } = await PERTIDialog.confirmDanger('splits.config.deleteConfirm.title', 'splits.config.deleteConfirm.text');
+        if (!isConfirmed) {return;}
 
         try {
             const response = await fetch(`api/splits/configs.php?id=${configId}`, {
@@ -5665,11 +5669,11 @@ const SplitsController = {
                 await this.loadActiveConfigs();
                 await this.loadScheduledConfigs();
             } else {
-                alert(result.error || 'Failed to delete config');
+                PERTIDialog.error('splits.config.error.title', 'splits.config.error.deleteFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to delete config:', err);
-            alert('Failed to delete config: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.deleteFailed');
         }
     },
 
@@ -5733,7 +5737,7 @@ const SplitsController = {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📅</div>
-                    <div class="empty-state-text">No scheduled configurations.<br>Create a config with a future start time.</div>
+                    <div class="empty-state-text">${PERTII18n.t('splits.scheduled.noScheduled')}</div>
                 </div>
             `;
             return;
@@ -5755,20 +5759,20 @@ const SplitsController = {
                     const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
                     if (diffHrs > 24) {
                         const days = Math.floor(diffHrs / 24);
-                        countdownText = `in ${days}d ${diffHrs % 24}h`;
+                        countdownText = PERTII18n.t('splits.scheduled.inDaysHours', { days, hours: diffHrs % 24 });
                     } else if (diffHrs > 0) {
-                        countdownText = `in ${diffHrs}h ${diffMins}m`;
+                        countdownText = PERTII18n.t('splits.scheduled.inHoursMinutes', { hours: diffHrs, minutes: diffMins });
                     } else {
-                        countdownText = `in ${diffMins}m`;
+                        countdownText = PERTII18n.t('splits.scheduled.inMinutes', { minutes: diffMins });
                     }
                 } else {
-                    countdownText = 'Starting soon';
+                    countdownText = PERTII18n.t('splits.scheduled.startingSoon');
                 }
             }
 
             // Format times for display
-            const startDisplay = startTime ? this.formatUTCTime(startTime) : 'Not set';
-            const endDisplay = endTime ? this.formatUTCTime(endTime) : 'Not set';
+            const startDisplay = startTime ? this.formatUTCTime(startTime) : PERTII18n.t('splits.scheduled.notSet');
+            const endDisplay = endTime ? this.formatUTCTime(endTime) : PERTII18n.t('splits.scheduled.notSet');
 
             html += `
                 <div class="scheduled-config-item" data-config-id="${config.id}" data-artcc="${config.artcc}">
@@ -5858,7 +5862,7 @@ const SplitsController = {
             console.log('[SPLITS] Loaded config for editing:', config);
 
             if (!config) {
-                alert('Configuration not found');
+                PERTIDialog.error('splits.config.error.title', 'splits.config.error.notFound');
                 return;
             }
 
@@ -5890,7 +5894,7 @@ const SplitsController = {
             this.openConfigWizard(transformedConfig);
         } catch (err) {
             console.error('[SPLITS] Failed to edit scheduled config:', err);
-            alert('Failed to load configuration: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.loadFailed');
         }
     },
 
@@ -5898,7 +5902,8 @@ const SplitsController = {
      * Activate a scheduled configuration immediately
      */
     async activateScheduledConfig(configId) {
-        if (!confirm('Activate this configuration now? It will become immediately active.')) {
+        const { isConfirmed } = await PERTIDialog.confirm('splits.scheduled.activateConfirm.title', 'splits.scheduled.activateConfirm.text');
+        if (!isConfirmed) {
             return;
         }
 
@@ -5922,11 +5927,11 @@ const SplitsController = {
                 await this.loadScheduledConfigs();
                 await this.loadActiveConfigs();
             } else {
-                alert(result.error || 'Failed to activate config');
+                PERTIDialog.error('splits.config.error.title', 'splits.scheduled.error.activateFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to activate scheduled config:', err);
-            alert('Failed to activate config: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.scheduled.error.activateFailed');
         }
     },
 
@@ -5937,7 +5942,8 @@ const SplitsController = {
         const config = this.scheduledConfigs.find(c => c.id == configId);
         const configName = config ? config.config_name : 'this configuration';
 
-        if (!confirm(`Delete "${configName}"? This cannot be undone.`)) {
+        const { isConfirmed } = await PERTIDialog.confirmDanger('splits.config.deleteConfirm.title', 'splits.config.deleteConfirm.textNamed', { name: configName });
+        if (!isConfirmed) {
             return;
         }
 
@@ -5951,11 +5957,11 @@ const SplitsController = {
             if (response.ok && result.success) {
                 await this.loadScheduledConfigs();
             } else {
-                alert(result.error || 'Failed to delete config');
+                PERTIDialog.error('splits.config.error.title', 'splits.config.error.deleteFailed');
             }
         } catch (err) {
             console.error('[SPLITS] Failed to delete scheduled config:', err);
-            alert('Failed to delete config: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.deleteFailed');
         }
     },
 
@@ -5990,7 +5996,7 @@ const SplitsController = {
             const hasActiveConfigs = this.activeConfigs && this.activeConfigs.length > 0;
             toggleBtn.style.display = (!show && hasActiveConfigs) ? 'flex' : 'none';
             toggleBtn.classList.toggle('active', show);
-            toggleBtn.title = show ? 'Hide Active Splits' : 'Show Active Splits';
+            toggleBtn.title = show ? PERTII18n.t('splits.config.hideActiveSplits') : PERTII18n.t('splits.config.showActiveSplits');
         }
     },
 
@@ -6005,7 +6011,7 @@ const SplitsController = {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">🔴</div>
-                    <div class="empty-state-text">No active configurations right now.</div>
+                    <div class="empty-state-text">${PERTII18n.t('splits.config.noActiveConfigs')}</div>
                 </div>
             `;
             return;
@@ -6120,7 +6126,7 @@ const SplitsController = {
                                 });
                             }
                         } else {
-                            html += `<span class="text-muted">No sectors</span>`;
+                            html += `<span class="text-muted">${PERTII18n.t('splits.sectors.noSectors')}</span>`;
                         }
 
                         html += `
@@ -6129,7 +6135,7 @@ const SplitsController = {
                         `;
                     });
                 } else {
-                    html += '<div class="text-muted small px-2 py-1">No positions defined</div>';
+                    html += `<div class="text-muted small px-2 py-1">${PERTII18n.t('splits.positions.noPositionsDefined')}</div>`;
                 }
 
                 html += `
@@ -6515,12 +6521,12 @@ const SplitsController = {
             }
         } catch (err) {
             console.error('[SPLITS] Failed to fetch config:', err);
-            alert('Could not load configuration: ' + err.message);
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.loadFailed');
             return;
         }
 
         if (!config) {
-            alert('Could not load configuration');
+            PERTIDialog.error('splits.config.error.title', 'splits.config.error.notFound');
             return;
         }
 
@@ -6567,7 +6573,7 @@ const SplitsController = {
         document.getElementById('config-end').value = this.currentConfig.endTime || '';
 
         // Update modal title
-        document.getElementById('config-modal-title').textContent = 'Edit Configuration';
+        document.getElementById('config-modal-title').textContent = PERTII18n.t('splits.config.editConfigTitle');
 
         this.updateWizardStep();
         this.renderConfigSplitsList();

@@ -227,8 +227,8 @@ $('#addgoal').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added an operational goal.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.goal.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -240,8 +240,8 @@ $('#addgoal').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding an operational goal.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.goal.addError'),
             });
         },
     });
@@ -272,8 +272,8 @@ $('#editgoal').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an operational goal.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.goal.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -285,8 +285,8 @@ $('#editgoal').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an operational goal.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.goal.editError'),
             });
         },
     });
@@ -303,8 +303,8 @@ function deleteGoal(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted the selected operational goal.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.goal.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -314,8 +314,8 @@ function deleteGoal(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting this operational goal.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.goal.deleteError'),
             });
         },
     });
@@ -336,8 +336,8 @@ $('#add_dccstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a TMU personnel to the roster.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.dccStaffing.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -349,8 +349,8 @@ $('#add_dccstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a TMU personnel to the roster.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.dccStaffing.addError'),
             });
         },
     });
@@ -384,8 +384,8 @@ $('#edit_dccstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited the select TMU personnel/position.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.dccStaffing.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -397,8 +397,8 @@ $('#edit_dccstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing the selected TMU personnel/position.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.dccStaffing.editError'),
             });
         },
     });
@@ -415,8 +415,8 @@ function deleteDCCStaffing(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted the selected TMU personnel/position',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.dccStaffing.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -426,8 +426,8 @@ function deleteDCCStaffing(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting this TMU personnel/position.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.dccStaffing.deleteError'),
             });
         },
     });
@@ -458,8 +458,8 @@ $('#addhistorical').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added historical data for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.historical.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -471,8 +471,8 @@ $('#addhistorical').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding historical data for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.historical.addError'),
             });
         },
     });
@@ -514,8 +514,8 @@ $('#edithistorical').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an entry of historical data for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.historical.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -527,8 +527,8 @@ $('#edithistorical').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an entry of historical data for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.historical.editError'),
             });
         },
     });
@@ -545,8 +545,8 @@ function deleteHistorical(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of historical data for this plan',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.historical.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -556,8 +556,8 @@ function deleteHistorical(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of historical data for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.historical.deleteError'),
             });
         },
     });
@@ -588,8 +588,8 @@ $('#addforecast').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added forecast data for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.forecast.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -601,8 +601,8 @@ $('#addforecast').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding forecast data for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.forecast.addError'),
             });
         },
     });
@@ -643,8 +643,8 @@ $('#editforecast').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an entry of forecast data for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.forecast.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -656,8 +656,8 @@ $('#editforecast').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an entry of forecast data for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.forecast.editError'),
             });
         },
     });
@@ -674,8 +674,8 @@ function deleteForecast(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of forecast data for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.forecast.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -685,8 +685,8 @@ function deleteForecast(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of forecast data for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.forecast.deleteError'),
             });
         },
     });
@@ -708,8 +708,8 @@ $('#addterminalinit').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a terminal initiative for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.termInit.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -721,8 +721,8 @@ $('#addterminalinit').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a terminal initiative for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.termInit.addError'),
             });
         },
     });
@@ -755,8 +755,8 @@ $('#editterminalinit').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a terminal initiative for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.termInit.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -768,8 +768,8 @@ $('#editterminalinit').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a terminal initiative for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.termInit.editError'),
             });
         },
     });
@@ -786,8 +786,8 @@ function deleteTerminalInit(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a terminal initiative for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.termInit.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -797,8 +797,8 @@ function deleteTerminalInit(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal initiative for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.termInit.deleteError'),
             });
         },
     });
@@ -819,8 +819,8 @@ $('#addtermstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a terminal staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.termStaffing.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -832,8 +832,8 @@ $('#addtermstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a terminal staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.termStaffing.addError'),
             });
         },
     });
@@ -868,8 +868,8 @@ $('#edittermstaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a terminal staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.termStaffing.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -881,8 +881,8 @@ $('#edittermstaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a terminal staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.termStaffing.editError'),
             });
         },
     });
@@ -899,8 +899,8 @@ function deleteTermStaffing(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a terminal staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.termStaffing.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -910,8 +910,8 @@ function deleteTermStaffing(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.termStaffing.deleteError'),
             });
         },
     });
@@ -932,8 +932,8 @@ $('#addconfig').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a field config entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.config.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -945,8 +945,8 @@ $('#addconfig').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a field config entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.config.addError'),
             });
         },
     });
@@ -962,7 +962,7 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     // Reset config picker state
     $('#editconfig_use_adl').prop('checked', false);
     $('#editconfig_picker').hide();
-    $('#editconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    $('#editconfig_select').empty().append('<option value="">' + PERTII18n.t('plan.config.selectConfig') + '</option>').prop('disabled', true);
     editconfigSelectedConfig = null;
 
     modal.find('.modal-body #editconfig_id').val(button.data('id'));
@@ -998,8 +998,8 @@ $('#editconfig').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a field config for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.config.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1011,8 +1011,8 @@ $('#editconfig').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a field config entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.config.editError'),
             });
         },
     });
@@ -1029,8 +1029,8 @@ function deleteConfig(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a field config entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.config.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1040,8 +1040,8 @@ function deleteConfig(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a field config entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.config.deleteError'),
             });
         },
     });
@@ -1058,8 +1058,8 @@ function autoConfig(id, aar, adr) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Autofilled',
-                text:       'You have successfully autofilled a field config entry for this plan.',
+                title:      PERTII18n.t('plan.config.successAutofilled'),
+                text:       PERTII18n.t('plan.config.autofilled'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1069,8 +1069,8 @@ function autoConfig(id, aar, adr) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in autofilling a field config entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.config.autofillError'),
             });
         },
     });
@@ -1115,7 +1115,7 @@ function fetchAirportConfigs(airport, callback) {
 // Populate config dropdown with fetched configs
 function populateConfigDropdown(configs, selectElement) {
     const $select = $(selectElement);
-    $select.empty().append('<option value="">-- Select configuration --</option>');
+    $select.empty().append('<option value="">' + PERTII18n.t('plan.config.selectConfig') + '</option>');
 
     if (configs && configs.length > 0) {
         configs.forEach(function(cfg, idx) {
@@ -1127,7 +1127,7 @@ function populateConfigDropdown(configs, selectElement) {
         });
         $select.prop('disabled', false);
     } else {
-        $select.append('<option value="" disabled>No configs found for this airport</option>');
+        $select.append('<option value="" disabled>' + PERTII18n.t('plan.config.noConfigsFound') + '</option>');
         $select.prop('disabled', true);
     }
 }
@@ -1226,7 +1226,7 @@ $('#addconfig_weather').on('change', function() {
 $('#addconfigModal').on('show.bs.modal', function() {
     $('#addconfig_use_adl').prop('checked', false);
     $('#addconfig_picker').hide();
-    $('#addconfig_select').empty().append('<option value="">-- Select configuration --</option>').prop('disabled', true);
+    $('#addconfig_select').empty().append('<option value="">' + PERTII18n.t('plan.config.selectConfig') + '</option>').prop('disabled', true);
     addconfigSelectedConfig = null;
 });
 
@@ -1305,8 +1305,8 @@ $('#addtermplanning').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a terminal planning entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.termPlanning.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1318,8 +1318,8 @@ $('#addtermplanning').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a terminal planning entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.termPlanning.addError'),
             });
         },
     });
@@ -1352,8 +1352,8 @@ $('#edittermplanning').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a terminal planning entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.termPlanning.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1365,8 +1365,8 @@ $('#edittermplanning').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a terminal planning entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.termPlanning.editError'),
             });
         },
     });
@@ -1383,8 +1383,8 @@ function deleteTermPlanning(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a terminal planning entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.termPlanning.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1394,8 +1394,8 @@ function deleteTermPlanning(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal planning entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.termPlanning.deleteError'),
             });
         },
     });
@@ -1426,8 +1426,8 @@ $('#addtermconstraint').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a terminal constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.termConstraint.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1439,8 +1439,8 @@ $('#addtermconstraint').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a terminal constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.termConstraint.addError'),
             });
         },
     });
@@ -1482,8 +1482,8 @@ $('#edittermconstraint').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a terminal constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.termConstraint.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1495,8 +1495,8 @@ $('#edittermconstraint').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a terminal constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.termConstraint.editError'),
             });
         },
     });
@@ -1513,8 +1513,8 @@ function deleteTermConstraint(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a terminal constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.termConstraint.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1524,8 +1524,8 @@ function deleteTermConstraint(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a terminal constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.termConstraint.deleteError'),
             });
         },
     });
@@ -1547,8 +1547,8 @@ $('#addenrouteinit').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a enroute initiative for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.enrouteInit.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1560,8 +1560,8 @@ $('#addenrouteinit').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a enroute initiative for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.enrouteInit.addError'),
             });
         },
     });
@@ -1594,8 +1594,8 @@ $('#editenrouteinit').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an enroute initiative for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.enrouteInit.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1607,8 +1607,8 @@ $('#editenrouteinit').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an enroute initiative for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.enrouteInit.editError'),
             });
         },
     });
@@ -1625,8 +1625,8 @@ function deleteEnrouteInit(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an enroute initiative for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.enrouteInit.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1636,8 +1636,8 @@ function deleteEnrouteInit(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute initiative for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.enrouteInit.deleteError'),
             });
         },
     });
@@ -1658,8 +1658,8 @@ $('#addenroutestaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added an enroute staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.enrouteStaffing.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1671,8 +1671,8 @@ $('#addenroutestaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding an enroute staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.enrouteStaffing.addError'),
             });
         },
     });
@@ -1707,8 +1707,8 @@ $('#editenroutestaffing').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an enroute staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.enrouteStaffing.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1720,8 +1720,8 @@ $('#editenroutestaffing').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an enroute staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.enrouteStaffing.editError'),
             });
         },
     });
@@ -1738,8 +1738,8 @@ function deleteEnrouteStaffing(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an enroute staffing entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.enrouteStaffing.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1749,8 +1749,8 @@ function deleteEnrouteStaffing(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute staffing entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.enrouteStaffing.deleteError'),
             });
         },
     });
@@ -1776,8 +1776,8 @@ $('#addenrouteplanning').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added an enroute planning entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.enroutePlanning.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1789,8 +1789,8 @@ $('#addenrouteplanning').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding an enroute planning entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.enroutePlanning.addError'),
             });
         },
     });
@@ -1823,8 +1823,8 @@ $('#editenrouteplanning').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an enroute planning entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.enroutePlanning.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1836,8 +1836,8 @@ $('#editenrouteplanning').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an enroute planning entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.enroutePlanning.editError'),
             });
         },
     });
@@ -1854,8 +1854,8 @@ function deleteEnroutePlanning(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an enroute planning entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.enroutePlanning.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1865,8 +1865,8 @@ function deleteEnroutePlanning(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute planning entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.enroutePlanning.deleteError'),
             });
         },
     });
@@ -1897,8 +1897,8 @@ $('#addenrouteconstraint').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added an enroute constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.enrouteConstraint.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1910,8 +1910,8 @@ $('#addenrouteconstraint').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding an enroute constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.enrouteConstraint.addError'),
             });
         },
     });
@@ -1953,8 +1953,8 @@ $('#editenrouteconstraint').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited an enroute constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.enrouteConstraint.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1966,8 +1966,8 @@ $('#editenrouteconstraint').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing an enroute constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.enrouteConstraint.editError'),
             });
         },
     });
@@ -1984,8 +1984,8 @@ function deleteEnrouteConstraint(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an enroute constraint entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.enrouteConstraint.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -1995,8 +1995,8 @@ function deleteEnrouteConstraint(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an enroute constraint entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.enrouteConstraint.deleteError'),
             });
         },
     });
@@ -2017,8 +2017,8 @@ $('#addgroupflight').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added a group flight entry for this plan.',
+                title:      PERTII18n.t('plan.successAdded'),
+                text:       PERTII18n.t('plan.groupFlight.added'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -2030,8 +2030,8 @@ $('#addgroupflight').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding a group flight entry for this plan.',
+                title:  PERTII18n.t('plan.notAdded'),
+                text:   PERTII18n.t('plan.groupFlight.addError'),
             });
         },
     });
@@ -2069,8 +2069,8 @@ $('#editgroupflight').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited a group flight entry for this plan.',
+                title:      PERTII18n.t('plan.successEdited'),
+                text:       PERTII18n.t('plan.groupFlight.edited'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -2082,8 +2082,8 @@ $('#editgroupflight').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing a group flight entry entry for this plan.',
+                title:  PERTII18n.t('plan.notEdited'),
+                text:   PERTII18n.t('plan.groupFlight.editError'),
             });
         },
     });
@@ -2100,8 +2100,8 @@ function deleteGroupFlight(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted a group flight entry for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.groupFlight.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -2111,8 +2111,8 @@ function deleteGroupFlight(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting a group flight entry for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.groupFlight.deleteError'),
             });
         },
     });
@@ -2131,8 +2131,8 @@ function termInitDeleteAjax(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of terminal initiatives for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.termInitTime.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -2142,8 +2142,8 @@ function termInitDeleteAjax(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of terminal initiatives for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.termInitTime.deleteError'),
             });
         },
     });
@@ -2165,18 +2165,18 @@ function termInitStateDialog(options) {
     }
 
     Swal.fire({
-        title: 'Update Terminal Initiative',
+        title: PERTII18n.t('plan.initDialog.updateTerminal'),
         input: 'select',
         inputOptions: {
-            '':  'Clear (no initiative)',
-            '0': 'Critical Decision Window',
-            '1': 'Possible',
-            '2': 'Probable',
-            '3': 'Expected',
-            '4': 'Actual',
+            '':  PERTII18n.t('plan.initDialog.clearNoInit'),
+            '0': PERTII18n.t('plan.initDialog.criticalDecisionWindow'),
+            '1': PERTII18n.t('plan.initDialog.possible'),
+            '2': PERTII18n.t('plan.initDialog.probable'),
+            '3': PERTII18n.t('plan.initDialog.expected'),
+            '4': PERTII18n.t('plan.initDialog.actual'),
         },
         inputValue: currentVal,
-        inputPlaceholder: 'Select initiative state',
+        inputPlaceholder: PERTII18n.t('plan.initDialog.selectState'),
         showCancelButton: true,
         confirmButtonText: 'Save',
     }).then(function(result) {
@@ -2206,8 +2206,8 @@ function termInitStateDialog(options) {
                         toast:      true,
                         position:   'bottom-right',
                         icon:       'success',
-                        title:      'Successfully Created',
-                        text:       'You have successfully created an entry of terminal initiatives for this plan.',
+                        title:      PERTII18n.t('plan.successCreated'),
+                        text:       PERTII18n.t('plan.termInitTime.created'),
                         timer:      3000,
                         showConfirmButton: false,
                     });
@@ -2217,8 +2217,8 @@ function termInitStateDialog(options) {
                 error:function(data) {
                     Swal.fire({
                         icon:   'error',
-                        title:  'Not Created',
-                        text:   'There was an error in creating an entry of terminal initiatives for this plan.',
+                        title:  PERTII18n.t('plan.notCreated'),
+                        text:   PERTII18n.t('plan.termInitTime.createError'),
                     });
                 },
             });
@@ -2233,8 +2233,8 @@ function termInitStateDialog(options) {
                         toast:      true,
                         position:   'bottom-right',
                         icon:       'success',
-                        title:      'Successfully Updated',
-                        text:       'You have successfully updated an entry of terminal initiatives for this plan.',
+                        title:      PERTII18n.t('plan.successUpdated'),
+                        text:       PERTII18n.t('plan.termInitTime.updated'),
                         timer:      3000,
                         showConfirmButton: false,
                     });
@@ -2244,8 +2244,8 @@ function termInitStateDialog(options) {
                 error:function(data) {
                     Swal.fire({
                         icon:   'error',
-                        title:  'Not Updated',
-                        text:   'There was an error in updating an entry of terminal initiatives for this plan.',
+                        title:  PERTII18n.t('plan.notUpdated'),
+                        text:   PERTII18n.t('plan.termInitTime.updateError'),
                     });
                 },
             });
@@ -2278,8 +2278,8 @@ function enrouteInitDeleteAjax(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted an entry of enroute initiatives for this plan.',
+                title:      PERTII18n.t('plan.successDeleted'),
+                text:       PERTII18n.t('plan.enrouteInitTime.deleted'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -2289,8 +2289,8 @@ function enrouteInitDeleteAjax(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting an entry of enroute initiatives for this plan.',
+                title:  PERTII18n.t('plan.notDeleted'),
+                text:   PERTII18n.t('plan.enrouteInitTime.deleteError'),
             });
         },
     });
@@ -2312,18 +2312,18 @@ function enrouteInitStateDialog(options) {
     }
 
     Swal.fire({
-        title: 'Update Enroute Initiative',
+        title: PERTII18n.t('plan.initDialog.updateEnroute'),
         input: 'select',
         inputOptions: {
-            '':  'Clear (no initiative)',
-            '0': 'Critical Decision Window',
-            '1': 'Possible',
-            '2': 'Probable',
-            '3': 'Expected',
-            '4': 'Actual',
+            '':  PERTII18n.t('plan.initDialog.clearNoInit'),
+            '0': PERTII18n.t('plan.initDialog.criticalDecisionWindow'),
+            '1': PERTII18n.t('plan.initDialog.possible'),
+            '2': PERTII18n.t('plan.initDialog.probable'),
+            '3': PERTII18n.t('plan.initDialog.expected'),
+            '4': PERTII18n.t('plan.initDialog.actual'),
         },
         inputValue: currentVal,
-        inputPlaceholder: 'Select initiative state',
+        inputPlaceholder: PERTII18n.t('plan.initDialog.selectState'),
         showCancelButton: true,
         confirmButtonText: 'Save',
     }).then(function(result) {
@@ -2350,8 +2350,8 @@ function enrouteInitStateDialog(options) {
                         toast:      true,
                         position:   'bottom-right',
                         icon:       'success',
-                        title:      'Successfully Created',
-                        text:       'You have successfully created an entry of enroute initiatives for this plan.',
+                        title:      PERTII18n.t('plan.successCreated'),
+                        text:       PERTII18n.t('plan.enrouteInitTime.created'),
                         timer:      3000,
                         showConfirmButton: false,
                     });
@@ -2361,8 +2361,8 @@ function enrouteInitStateDialog(options) {
                 error:function(data) {
                     Swal.fire({
                         icon:   'error',
-                        title:  'Not Created',
-                        text:   'There was an error in creating an entry of enroute initiatives for this plan.',
+                        title:  PERTII18n.t('plan.notCreated'),
+                        text:   PERTII18n.t('plan.enrouteInitTime.createError'),
                     });
                 },
             });
@@ -2376,8 +2376,8 @@ function enrouteInitStateDialog(options) {
                         toast:      true,
                         position:   'bottom-right',
                         icon:       'success',
-                        title:      'Successfully Updated',
-                        text:       'You have successfully updated an entry of enroute initiatives for this plan.',
+                        title:      PERTII18n.t('plan.successUpdated'),
+                        text:       PERTII18n.t('plan.enrouteInitTime.updated'),
                         timer:      3000,
                         showConfirmButton: false,
                     });
@@ -2387,8 +2387,8 @@ function enrouteInitStateDialog(options) {
                 error:function(data) {
                     Swal.fire({
                         icon:   'error',
-                        title:  'Not Updated',
-                        text:   'There was an error in updating an entry of enroute initiatives for this plan.',
+                        title:  PERTII18n.t('plan.notUpdated'),
+                        text:   PERTII18n.t('plan.enrouteInitTime.updateError'),
                     });
                 },
             });

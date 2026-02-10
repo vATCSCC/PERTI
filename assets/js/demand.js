@@ -16,7 +16,7 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
     if (arrRunways || depRunways) {
         const arrPart = (arrRunways || '--').replace(/\//g, ' ');
         const depPart = (depRunways || '--').replace(/\//g, ' ');
-        return `ARR: ${arrPart} | DEP: ${depPart}`;
+        return PERTII18n.t('demand.config.arrDepFormat', { arr: arrPart, dep: depPart });
     }
 
     if (!configName) {return '--';}
@@ -37,7 +37,7 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
     if (match) {
         const arrPart = match[1].trim().replace(/\//g, ' ');
         const depPart = match[2].trim().replace(/\//g, ' ');
-        return `ARR: ${arrPart} | DEP: ${depPart}`;
+        return PERTII18n.t('demand.config.arrDepFormat', { arr: arrPart, dep: depPart });
     }
 
     return configName;
@@ -95,24 +95,24 @@ window.DemandChartCore = (function() {
 
     // Phase labels - use shared config if available
     const PHASE_LABELS = (typeof window.PHASE_LABELS !== 'undefined') ? window.PHASE_LABELS : {
-        'arrived': 'Arrived',
-        'disconnected': 'Disconnected',
-        'descending': 'Descending',
-        'enroute': 'Enroute',
-        'departed': 'Departed',
-        'taxiing': 'Taxiing',
-        'prefile': 'Prefile',
-        'actual_gs': 'GS (EDCT)',
-        'simulated_gs': 'GS (Simulated)',
-        'proposed_gs': 'GS (Proposed)',
-        'gs': 'Ground Stop',
-        'actual_gdp': 'GDP (EDCT)',
-        'simulated_gdp': 'GDP (Simulated)',
-        'proposed_gdp': 'GDP (Proposed)',
-        'gdp': 'GDP',
-        'exempt': 'Exempt',
-        'uncontrolled': 'Uncontrolled',
-        'unknown': 'Unknown',
+        'arrived': PERTII18n.t('phase.arrived'),
+        'disconnected': PERTII18n.t('phase.disconnected'),
+        'descending': PERTII18n.t('phase.descending'),
+        'enroute': PERTII18n.t('phase.enroute'),
+        'departed': PERTII18n.t('phase.departed'),
+        'taxiing': PERTII18n.t('phase.taxiing'),
+        'prefile': PERTII18n.t('phase.prefile'),
+        'actual_gs': PERTII18n.t('demand.phase.actualGs'),
+        'simulated_gs': PERTII18n.t('demand.phase.simulatedGs'),
+        'proposed_gs': PERTII18n.t('demand.phase.proposedGs'),
+        'gs': PERTII18n.t('tmi.gs'),
+        'actual_gdp': PERTII18n.t('demand.phase.actualGdp'),
+        'simulated_gdp': PERTII18n.t('demand.phase.simulatedGdp'),
+        'proposed_gdp': PERTII18n.t('demand.phase.proposedGdp'),
+        'gdp': PERTII18n.t('tmi.gdpShort'),
+        'exempt': PERTII18n.t('demand.phase.exempt'),
+        'uncontrolled': PERTII18n.t('demand.phase.uncontrolled'),
+        'unknown': PERTII18n.t('phase.unknown'),
     };
 
     // Phase stacking order (bottom to top) - use shared config if available
@@ -403,7 +403,7 @@ window.DemandChartCore = (function() {
      */
     function getXAxisLabel(granularity) {
         const minutes = getGranularityMinutes(granularity);
-        return `Time in ${minutes}-Minute Increments`;
+        return PERTII18n.t('demand.chart.xAxisLabel', { minutes: minutes });
     }
 
     /**
@@ -446,7 +446,7 @@ window.DemandChartCore = (function() {
                 opts = opts || {};
                 if (!airport) {
                     this.clear();
-                    return Promise.resolve({ success: false, error: 'No airport specified' });
+                    return Promise.resolve({ success: false, error: PERTII18n.t('demand.error.noAirportSpecified') });
                 }
 
                 state.airport = airport;
@@ -475,7 +475,7 @@ window.DemandChartCore = (function() {
                     params.append('program_id', state.programId);
                 }
 
-                state.chart.showLoading({ text: 'Loading...', maskColor: 'rgba(255,255,255,0.8)', textColor: '#333' });
+                state.chart.showLoading({ text: PERTII18n.t('common.loading'), maskColor: 'rgba(255,255,255,0.8)', textColor: '#333' });
 
                 const self = this;
                 const demandPromise = fetch('api/demand/airport.php?' + params.toString()).then(function(r) { return r.json(); });
@@ -548,14 +548,14 @@ window.DemandChartCore = (function() {
 
                 if (direction === 'arr' || direction === 'both') {
                     phasesToRender.forEach(function(phase) {
-                        const suffix = direction === 'both' ? ' (Arr)' : '';
+                        const suffix = direction === 'both' ? ' (' + PERTII18n.t('demand.direction.arrShort') + ')' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction, state.granularity));
                     });
                 }
 
                 if (direction === 'dep' || direction === 'both') {
                     phasesToRender.forEach(function(phase) {
-                        const suffix = direction === 'both' ? ' (Dep)' : '';
+                        const suffix = direction === 'both' ? ' (' + PERTII18n.t('demand.direction.depShort') + ')' : '';
                         series.push(buildPhaseSeriesTimeAxis(PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction, state.granularity));
                     });
                 }
@@ -606,7 +606,7 @@ window.DemandChartCore = (function() {
                                     total += val;
                                 }
                             });
-                            tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ' + total + '</strong>';
+                            tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>' + PERTII18n.t('demand.chart.total') + ': ' + total + '</strong>';
                             // Add rate information if available
                             if (state.rateData && state.rateData.rates) {
                                 const rates = state.rateData.rates;
@@ -686,7 +686,7 @@ window.DemandChartCore = (function() {
                     },
                     yAxis: {
                         type: 'value',
-                        name: 'Demand',
+                        name: PERTII18n.t('demand.chart.yAxisLabel'),
                         nameLocation: 'middle',
                         nameGap: 35,
                         nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
@@ -879,14 +879,14 @@ const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : 
 
 // Phase labels - use shared config if available
 const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {
-    'arrived': 'Arrived',
-    'disconnected': 'Disconnected',
-    'descending': 'Descending',
-    'enroute': 'Enroute',
-    'departed': 'Departed',
-    'taxiing': 'Taxiing',
-    'prefile': 'Prefile',
-    'unknown': 'Unknown',
+    'arrived': PERTII18n.t('phase.arrived'),
+    'disconnected': PERTII18n.t('phase.disconnected'),
+    'descending': PERTII18n.t('phase.descending'),
+    'enroute': PERTII18n.t('phase.enroute'),
+    'departed': PERTII18n.t('phase.departed'),
+    'taxiing': PERTII18n.t('phase.taxiing'),
+    'prefile': PERTII18n.t('phase.prefile'),
+    'unknown': PERTII18n.t('phase.unknown'),
 };
 
 // Phase group mapping - maps logical UI groups to database phase values
@@ -1013,7 +1013,7 @@ function getAircraftManufacturer(acType) {
     }
 
     // Fallback to local lookup
-    if (!acType) {return 'Other';}
+    if (!acType) {return PERTII18n.t('common.other');}
     const upper = acType.toUpperCase();
 
     // Check exact type matches first
@@ -1032,7 +1032,7 @@ function getAircraftManufacturer(acType) {
         }
     }
 
-    return 'Other';
+    return PERTII18n.t('common.other');
 }
 
 // Get manufacturer order for sorting
@@ -1123,7 +1123,7 @@ const DCC_REGION_ORDER = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PE
 
 // Get DCC region name for an ARTCC (uses global FacilityHierarchy if available)
 function getARTCCRegion(artcc) {
-    if (!artcc) {return 'Other';}
+    if (!artcc) {return PERTII18n.t('common.other');}
 
     // Use global FacilityHierarchy if available
     if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
@@ -1131,7 +1131,7 @@ function getARTCCRegion(artcc) {
         if (region) {return region;}
     }
 
-    return 'Other';
+    return PERTII18n.t('common.other');
 }
 
 // Get region display name
@@ -1346,7 +1346,7 @@ const TIME_RANGE_OPTIONS = [
     { value: 'T-6/+6', label: '+/- 6H', start: -6, end: 6 },
     { value: 'T-12/+12', label: '+/- 12H', start: -12, end: 12 },
     { value: 'T-24/+24', label: '+/- 24H', start: -24, end: 24 },
-    { value: 'custom', label: 'Custom...', start: null, end: null },
+    { value: 'custom', label: PERTII18n.t('demand.timeRange.custom'), start: null, end: null },
 ];
 
 // ARTCC tier data (loaded from JSON)
@@ -1496,7 +1496,7 @@ function populateTimeRanges() {
 function populateARTCCDropdown() {
     const select = $('#demand_artcc');
     select.empty();
-    select.append('<option value="">All ARTCCs</option>');
+    select.append('<option value="">' + PERTII18n.t('demand.filter.allArtccs') + '</option>');
 
     if (ARTCC_TIERS && ARTCC_TIERS.facilityList) {
         ARTCC_TIERS.facilityList.forEach(function(artcc) {
@@ -1527,12 +1527,12 @@ function loadAirportList() {
                 populateAirportDropdown(response.airports);
             } else {
                 console.error('Failed to load airports:', response.error);
-                showError('Failed to load airport list');
+                showError(PERTII18n.t('demand.error.loadAirportList'));
             }
         })
         .fail(function(err) {
             console.error('API error loading airports:', err);
-            showError('Error connecting to server');
+            showError(PERTII18n.t('demand.error.connectingToServer'));
         });
 }
 
@@ -1544,7 +1544,7 @@ function populateAirportDropdown(airports) {
     const currentValue = select.val();
 
     select.empty();
-    select.append('<option value="">-- Select Airport --</option>');
+    select.append('<option value="">-- ' + PERTII18n.t('demand.filter.selectAirport') + ' --</option>');
 
     airports.forEach(function(apt) {
         // Show only FAA/ICAO code without category labels
@@ -1647,7 +1647,7 @@ function setupEventHandlers() {
         const endVal = $('#demand_custom_end').val();
 
         if (!startVal || !endVal) {
-            showError('Please select both start and end times');
+            showError(PERTII18n.t('demand.error.selectBothTimes'));
             return;
         }
 
@@ -1656,7 +1656,7 @@ function setupEventHandlers() {
         const endDate = parseDateTimeLocalAsUTC(endVal);
 
         if (endDate <= startDate) {
-            showError('End time must be after start time');
+            showError(PERTII18n.t('demand.error.endAfterStart'));
             return;
         }
 
@@ -1785,10 +1785,10 @@ function setupEventHandlers() {
     const toggleBtn = document.getElementById('demand_legend_toggle_btn');
     if (toggleText && toggleBtn) {
         if (DEMAND_STATE.legendVisible) {
-            toggleText.textContent = 'Hide Legend';
+            toggleText.textContent = PERTII18n.t('demand.legend.hide');
             toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
         } else {
-            toggleText.textContent = 'Show Legend';
+            toggleText.textContent = PERTII18n.t('demand.legend.show');
             toggleBtn.querySelector('i').className = 'fas fa-eye';
         }
     }
@@ -1820,7 +1820,7 @@ function initPhaseFilterFloatingPanel() {
 
         // Hide inline container content, show placeholder
         $inlineContainer.find('.demand-label').parent().hide();
-        $inlineContainer.append('<div id="phase-filter-placeholder" class="text-muted small" style="font-size:0.7rem;"><i class="fas fa-external-link-alt mr-1"></i> Floating panel open</div>');
+        $inlineContainer.append('<div id="phase-filter-placeholder" class="text-muted small" style="font-size:0.7rem;"><i class="fas fa-external-link-alt mr-1"></i> ' + PERTII18n.t('demand.phaseFilter.floatingPanelOpen') + '</div>');
 
         // Position and show floating panel
         $floatingPanel.css({
@@ -1835,10 +1835,10 @@ function initPhaseFilterFloatingPanel() {
         const $icon = $(this).find('i');
         if ($floatingPanel.hasClass('collapsed')) {
             $icon.removeClass('fa-minus').addClass('fa-plus');
-            $(this).attr('title', 'Expand');
+            $(this).attr('title', PERTII18n.t('demand.panel.expand'));
         } else {
             $icon.removeClass('fa-plus').addClass('fa-minus');
-            $(this).attr('title', 'Collapse');
+            $(this).attr('title', PERTII18n.t('demand.panel.collapse'));
         }
     });
 
@@ -1856,7 +1856,7 @@ function initPhaseFilterFloatingPanel() {
         // Hide floating panel and reset collapsed state
         $floatingPanel.removeClass('visible collapsed');
         $collapseBtn.find('i').removeClass('fa-plus').addClass('fa-minus');
-        $collapseBtn.attr('title', 'Collapse');
+        $collapseBtn.attr('title', PERTII18n.t('demand.panel.collapse'));
     });
 
     // Dragging functionality
@@ -1940,7 +1940,7 @@ function updateTierOptions() {
     const artcc = DEMAND_STATE.artcc;
     const select = $('#demand_tier');
     select.empty();
-    select.append('<option value="all">All Tiers</option>');
+    select.append('<option value="all">' + PERTII18n.t('demand.filter.allTiers') + '</option>');
 
     if (artcc && ARTCC_TIERS && ARTCC_TIERS.byFacility && ARTCC_TIERS.byFacility[artcc]) {
         const facilityTiers = ARTCC_TIERS.byFacility[artcc];
@@ -1962,9 +1962,9 @@ function updateTierOptions() {
             }
         }
 
-        if (hasInternal) {select.append(`<option value="${internalCode}">Internal</option>`);}
-        if (has1stTier) {select.append(`<option value="${tier1Code}">1st Tier</option>`);}
-        if (has2ndTier) {select.append(`<option value="${tier2Code}">2nd Tier</option>`);}
+        if (hasInternal) {select.append(`<option value="${internalCode}">${PERTII18n.t('demand.filter.internal')}</option>`);}
+        if (has1stTier) {select.append(`<option value="${tier1Code}">${PERTII18n.t('demand.filter.firstTier')}</option>`);}
+        if (has2ndTier) {select.append(`<option value="${tier2Code}">${PERTII18n.t('demand.filter.secondTier')}</option>`);}
     }
 }
 
@@ -1983,12 +1983,12 @@ function showSelectAirportPrompt() {
 
     // Reset info bar
     $('#demand_selected_airport').text('----');
-    $('#demand_airport_name').text('Select an airport');
+    $('#demand_airport_name').text(PERTII18n.t('demand.prompt.selectAirport'));
 
     // Reset stats
     $('#demand_arr_total, #demand_arr_active, #demand_arr_scheduled, #demand_arr_proposed').text('0');
     $('#demand_dep_total, #demand_dep_active, #demand_dep_scheduled, #demand_dep_proposed').text('0');
-    $('#demand_flight_count').text('0 flights');
+    $('#demand_flight_count').text(PERTII18n.t('flight.other', { count: 0 }));
 
     $('#demand_last_update').text('--');
 
@@ -2062,14 +2062,14 @@ function loadDemandData() {
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
                 console.error('Demand API failed:', demandResult.reason);
-                showError('Error connecting to server');
+                showError(PERTII18n.t('demand.error.connectingToServer'));
                 return;
             }
 
             const demandResponse = demandResult.value;
             if (!demandResponse.success) {
                 console.error('API error:', demandResponse.error);
-                showError('Failed to load demand data: ' + demandResponse.error);
+                showError(PERTII18n.t('demand.error.loadDemandData') + ': ' + demandResponse.error);
                 return;
             }
 
@@ -2210,21 +2210,21 @@ function updateRateInfoDisplay(rateData) {
     }
     // Add override info to tooltip
     if (rateData.has_override && rateData.override_reason) {
-        tooltip += `\n\nOverride: ${rateData.override_reason}`;
+        tooltip += '\n\n' + PERTII18n.t('demand.rate.override', { reason: rateData.override_reason });
     }
     // Add TMI config info to tooltip
     if (rateData.tmi_source && rateData.tmi_config) {
         const tmi = rateData.tmi_config;
-        tooltip += '\n\n--- TMI Published Config ---';
-        if (tmi.aar_type) {tooltip += `\nAAR Type: ${tmi.aar_type}`;}
-        if (tmi.created_by_name) {tooltip += `\nPublished by: ${tmi.created_by_name}`;}
+        tooltip += '\n\n--- ' + PERTII18n.t('demand.rate.tmiPublishedConfig') + ' ---';
+        if (tmi.aar_type) {tooltip += '\n' + PERTII18n.t('demand.rate.aarType', { type: tmi.aar_type });}
+        if (tmi.created_by_name) {tooltip += '\n' + PERTII18n.t('demand.rate.publishedBy', { name: tmi.created_by_name });}
         if (tmi.valid_from) {
             const validFrom = new Date(tmi.valid_from);
-            tooltip += `\nValid from: ${validFrom.toUTCString().replace('GMT', 'Z')}`;
+            tooltip += '\n' + PERTII18n.t('demand.rate.validFrom', { time: validFrom.toUTCString().replace('GMT', 'Z') });
         }
         if (tmi.valid_until) {
             const validUntil = new Date(tmi.valid_until);
-            tooltip += `\nValid until: ${validUntil.toUTCString().replace('GMT', 'Z')}`;
+            tooltip += '\n' + PERTII18n.t('demand.rate.validUntil', { time: validUntil.toUTCString().replace('GMT', 'Z') });
         }
     }
     $configEl.attr('title', tooltip.trim());
@@ -2249,7 +2249,7 @@ function updateRateInfoDisplay(rateData) {
             const endTime = new Date(rateData.override_end_utc);
             const endStr = endTime.getUTCHours().toString().padStart(2, '0') + ':' +
                            endTime.getUTCMinutes().toString().padStart(2, '0') + 'Z';
-            $overrideBadge.attr('title', `Override active until ${endStr}`);
+            $overrideBadge.attr('title', PERTII18n.t('demand.rate.overrideActiveUntil', { time: endStr }));
         }
     } else {
         $overrideBadge.hide();
@@ -2266,17 +2266,17 @@ function updateRateInfoDisplay(rateData) {
     if (rateData.match_type) {
         // Format match type for display
         const matchTypeMap = {
-            'EXACT': 'Exact',
-            'PARTIAL_ARR': 'Partial',
-            'PARTIAL_DEP': 'Partial',
-            'SUBSET_ARR': 'Subset',
-            'SUBSET_DEP': 'Subset',
-            'WIND_BASED': 'Wind',
-            'CAPACITY_DEFAULT': 'Default',
-            'VMC_FALLBACK': 'Fallback',
-            'DETECTED_TRACKS': 'Detected',
-            'MANUAL': 'Manual',
-            'TMI': 'TMI', // Active TMI CONFIG entry
+            'EXACT': PERTII18n.t('demand.matchType.exact'),
+            'PARTIAL_ARR': PERTII18n.t('demand.matchType.partial'),
+            'PARTIAL_DEP': PERTII18n.t('demand.matchType.partial'),
+            'SUBSET_ARR': PERTII18n.t('demand.matchType.subset'),
+            'SUBSET_DEP': PERTII18n.t('demand.matchType.subset'),
+            'WIND_BASED': PERTII18n.t('demand.matchType.wind'),
+            'CAPACITY_DEFAULT': PERTII18n.t('demand.matchType.default'),
+            'VMC_FALLBACK': PERTII18n.t('demand.matchType.fallback'),
+            'DETECTED_TRACKS': PERTII18n.t('demand.matchType.detected'),
+            'MANUAL': PERTII18n.t('demand.matchType.manual'),
+            'TMI': PERTII18n.t('demand.matchType.tmi'),
         };
         sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
 
@@ -2295,7 +2295,7 @@ function updateRateInfoDisplay(rateData) {
     } else if (rateData.rate_source) {
         sourceText = rateData.rate_source;
     } else if (rateData.is_suggested) {
-        sourceText = 'Suggested';
+        sourceText = PERTII18n.t('demand.matchType.suggested');
     }
     $('#rate_source').text(sourceText);
 
@@ -2334,7 +2334,7 @@ function buildAtisBadge(atis, type, labelPrefix) {
     const ageText = formatAgeText(ageMins);
     const typeLabel = labelPrefix ? `<span class="badge-atis-type">${labelPrefix}</span>` : '';
 
-    return `<span class="atis-badge-group" data-atis-type="${type}" title="${type.toUpperCase()} ATIS - Info ${code} (${ageText} ago)">
+    return `<span class="atis-badge-group" data-atis-type="${type}" title="${PERTII18n.t('demand.atis.badgeTooltip', { type: type.toUpperCase(), code: code, age: ageText })}">
         ${typeLabel}<span class="badge badge-atis">${code}</span><span class="badge badge-age" style="background-color: ${ageColor};">${ageText}</span>
     </span>`;
 }
@@ -2426,13 +2426,13 @@ function buildAtisSection(atis, typeLabel, typeBadgeColor) {
         <div class="atis-section mb-3 pb-3 border-bottom">
             <div class="mb-2">
                 <span class="badge" style="background-color: ${typeBadgeColor}; color: #fff;">${typeLabel}</span>
-                <span class="badge badge-secondary ml-1">${atis.callsign || 'Unknown'}</span>
+                <span class="badge badge-secondary ml-1">${atis.callsign || PERTII18n.t('common.unknown')}</span>
                 <span class="badge badge-atis ml-1">${atis.atis_code || '?'}</span>
                 <span class="badge badge-dark ml-1">${fetchedTime}</span>
                 <span class="badge ml-1" style="background-color: ${ageColor}; color: #fff;">${formatAgeText(atis.age_mins)}</span>
             </div>
             <div class="border rounded p-2" style="background: #f8f9fa; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
-${atis.atis_text || 'No ATIS text available'}
+${atis.atis_text || PERTII18n.t('demand.atis.noAtisTextAvailable')}
             </div>
         </div>
     `;
@@ -2448,8 +2448,8 @@ function showAtisModal() {
     if (!atisData || !atisData.has_atis) {
         Swal.fire({
             icon: 'info',
-            title: 'No ATIS Available',
-            text: 'No ATIS information is currently available for this airport.',
+            title: PERTII18n.t('demand.atis.noAtisAvailable'),
+            text: PERTII18n.t('demand.atis.noAtisText'),
             timer: 3000,
             showConfirmButton: false,
         });
@@ -2465,9 +2465,9 @@ function showAtisModal() {
     // Build runway details HTML
     let runwayDetailsHtml = '';
     if (runways && runways.details && runways.details.length > 0) {
-        runwayDetailsHtml = '<div class="mt-3"><strong>Runway Details:</strong><ul class="mb-0 pl-3">';
+        runwayDetailsHtml = '<div class="mt-3"><strong>' + PERTII18n.t('demand.atis.runwayDetails') + ':</strong><ul class="mb-0 pl-3">';
         runways.details.forEach(rwy => {
-            const useLabel = rwy.runway_use === 'ARR' ? 'Arrivals' : (rwy.runway_use === 'DEP' ? 'Departures' : 'Both');
+            const useLabel = rwy.runway_use === 'ARR' ? PERTII18n.t('demand.direction.arrivals') : (rwy.runway_use === 'DEP' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.both'));
             const approach = rwy.approach_type ? ` (${rwy.approach_type})` : '';
             runwayDetailsHtml += `<li><strong>${rwy.runway_id}</strong>: ${useLabel}${approach}</li>`;
         });
@@ -2480,15 +2480,15 @@ function showAtisModal() {
 
     if (effectiveSource === 'COMB' && atisComb) {
         // Combined ATIS only
-        atisSectionsHtml = buildAtisSection(atisComb, 'COMBINED', '#6366f1');
+        atisSectionsHtml = buildAtisSection(atisComb, PERTII18n.t('demand.atis.typeCombined'), '#6366f1');
         titleSuffix = atisComb.atis_code || '';
     } else if (effectiveSource === 'ARR_DEP') {
         // Both ARR and DEP available
         if (atisArr) {
-            atisSectionsHtml += buildAtisSection(atisArr, 'ARRIVAL', '#22c55e');
+            atisSectionsHtml += buildAtisSection(atisArr, PERTII18n.t('demand.atis.typeArrival'), '#22c55e');
         }
         if (atisDep) {
-            atisSectionsHtml += buildAtisSection(atisDep, 'DEPARTURE', '#f97316');
+            atisSectionsHtml += buildAtisSection(atisDep, PERTII18n.t('demand.atis.typeDeparture'), '#f97316');
         }
         const codes = [];
         if (atisArr?.atis_code) {codes.push('A:' + atisArr.atis_code);}
@@ -2496,17 +2496,17 @@ function showAtisModal() {
         titleSuffix = codes.join(' / ');
     } else if (effectiveSource === 'ARR_ONLY' && atisArr) {
         // Arrival only
-        atisSectionsHtml = buildAtisSection(atisArr, 'ARRIVAL', '#22c55e');
+        atisSectionsHtml = buildAtisSection(atisArr, PERTII18n.t('demand.atis.typeArrival'), '#22c55e');
         titleSuffix = atisArr.atis_code || '';
     } else if (effectiveSource === 'DEP_ONLY' && atisDep) {
         // Departure only
-        atisSectionsHtml = buildAtisSection(atisDep, 'DEPARTURE', '#f97316');
+        atisSectionsHtml = buildAtisSection(atisDep, PERTII18n.t('demand.atis.typeDeparture'), '#f97316');
         titleSuffix = atisDep.atis_code || '';
     } else {
         // Fallback to primary atis object
         const atis = atisData.atis;
         if (atis) {
-            const typeLabel = atis.atis_type === 'ARR' ? 'ARRIVAL' : (atis.atis_type === 'DEP' ? 'DEPARTURE' : 'COMBINED');
+            const typeLabel = atis.atis_type === 'ARR' ? PERTII18n.t('demand.atis.typeArrival') : (atis.atis_type === 'DEP' ? PERTII18n.t('demand.atis.typeDeparture') : PERTII18n.t('demand.atis.typeCombined'));
             const typeColor = atis.atis_type === 'ARR' ? '#22c55e' : (atis.atis_type === 'DEP' ? '#f97316' : '#6366f1');
             atisSectionsHtml = buildAtisSection(atis, typeLabel, typeColor);
             titleSuffix = atis.atis_code || '';
@@ -2515,11 +2515,11 @@ function showAtisModal() {
 
     // Source indicator
     const sourceLabel = {
-        'COMB': 'Combined ATIS',
-        'ARR_DEP': 'Separate ARR/DEP ATIS',
-        'ARR_ONLY': 'Arrival ATIS Only',
-        'DEP_ONLY': 'Departure ATIS Only',
-    }[effectiveSource] || 'Unknown';
+        'COMB': PERTII18n.t('demand.atis.sourceCombined'),
+        'ARR_DEP': PERTII18n.t('demand.atis.sourceSeparate'),
+        'ARR_ONLY': PERTII18n.t('demand.atis.sourceArrOnly'),
+        'DEP_ONLY': PERTII18n.t('demand.atis.sourceDepOnly'),
+    }[effectiveSource] || PERTII18n.t('common.unknown');
 
     Swal.fire({
         title: `<i class="fas fa-broadcast-tower mr-2"></i> ${atisData.airport_icao} ATIS ${titleSuffix}`,
@@ -2529,14 +2529,14 @@ function showAtisModal() {
                     <span class="badge badge-secondary">${sourceLabel}</span>
                 </div>
                 <div class="mb-3">
-                    <strong>Arrival Runways:</strong> ${runways?.arr_runways || 'N/A'}<br>
-                    <strong>Departure Runways:</strong> ${runways?.dep_runways || 'N/A'}<br>
-                    <strong>Approaches:</strong> ${runways?.approach_info || 'N/A'}
+                    <strong>${PERTII18n.t('demand.atis.arrivalRunways')}:</strong> ${runways?.arr_runways || PERTII18n.t('common.na')}<br>
+                    <strong>${PERTII18n.t('demand.atis.departureRunways')}:</strong> ${runways?.dep_runways || PERTII18n.t('common.na')}<br>
+                    <strong>${PERTII18n.t('demand.atis.approaches')}:</strong> ${runways?.approach_info || PERTII18n.t('common.na')}
                 </div>
                 ${runwayDetailsHtml}
                 <hr>
                 <div class="mt-3">
-                    <strong>ATIS Information:</strong>
+                    <strong>${PERTII18n.t('demand.atis.atisInformation')}:</strong>
                 </div>
                 <div class="mt-2">
                     ${atisSectionsHtml}
@@ -2601,7 +2601,7 @@ function renderChart(data) {
 
         // Add series in stacking order (bottom to top)
         phaseOrder.forEach(phase => {
-            const suffix = direction === 'both' ? ' (Arr)' : '';
+            const suffix = direction === 'both' ? ' (' + PERTII18n.t('demand.direction.arrShort') + ')' : '';
             series.push(
                 buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', direction),
             );
@@ -2615,7 +2615,7 @@ function renderChart(data) {
 
         // Add series in stacking order (bottom to top)
         phaseOrder.forEach(phase => {
-            const suffix = direction === 'both' ? ' (Dep)' : '';
+            const suffix = direction === 'both' ? ' (' + PERTII18n.t('demand.direction.depShort') + ')' : '';
             series.push(
                 buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', direction),
             );
@@ -2772,7 +2772,7 @@ function renderChart(data) {
                         total += val;
                     }
                 });
-                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>${PERTII18n.t('demand.chart.total')}: ${total}</strong>`;
                 // Add rate information if available
                 const rates = getRatesForTimestamp(timestamp);
                 if (rates && (rates.aar || rates.adr)) {
@@ -2844,7 +2844,7 @@ function renderChart(data) {
         },
         yAxis: {
             type: 'value',
-            name: 'Demand',
+            name: PERTII18n.t('demand.chart.yAxisLabel'),
             nameLocation: 'middle',
             nameGap: 40,
             nameTextStyle: {
@@ -2910,11 +2910,11 @@ function renderOriginChart() {
 
     // Origin breakdown only makes sense for arrivals (where did they come from?)
     if (direction === 'dep') {
-        showDirectionRestrictedEmptyState('Origin ARTCC breakdown', 'arr', 'departures');
+        showDirectionRestrictedEmptyState(PERTII18n.t('demand.breakdown.originArtcc'), 'arr', PERTII18n.t('demand.direction.departures').toLowerCase());
         return;
     }
 
-    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : PERTII18n.t('demand.direction.flights');
 
     // Get all ARTCCs from breakdown data
     const breakdown = DEMAND_STATE.originBreakdown || {};
@@ -2953,7 +2953,7 @@ function renderOriginChart() {
     // Use shared renderBreakdownChart with DCC regional colors and standard legend
     renderBreakdownChart(
         DEMAND_STATE.originBreakdown,
-        `${dirLabel} by Origin ARTCC`,
+        PERTII18n.t('demand.breakdown.byOriginArtcc', { direction: dirLabel }),
         'origin',
         'artcc',
         getDCCRegionColor,  // Use DCC regional color function
@@ -3286,7 +3286,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
                         total += val;
                     }
                 });
-                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>Total: ${total}</strong>`;
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>${PERTII18n.t('demand.chart.total')}: ${total}</strong>`;
                 // Add rate information if available
                 const rates = getRatesForTimestamp(timestamp);
                 if (rates && (rates.aar || rates.adr)) {
@@ -3338,7 +3338,7 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         },
         yAxis: {
             type: 'value',
-            name: 'Demand',
+            name: PERTII18n.t('demand.chart.yAxisLabel'),
             nameLocation: 'middle',
             nameGap: 40,
             nameTextStyle: { fontSize: 12, color: '#333', fontWeight: 500 },
@@ -3385,7 +3385,7 @@ function renderDestChart() {
             backgroundColor: '#ffffff',
             title: {
                 text: chartTitle,
-                subtext: 'Destination breakdown not applicable for arrivals',
+                subtext: PERTII18n.t('demand.breakdown.destNotApplicableArr'),
                 left: 'center',
                 top: 5,
                 textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
@@ -3399,7 +3399,7 @@ function renderDestChart() {
                 left: 'center',
                 top: 'middle',
                 style: {
-                    text: 'Destination ARTCC breakdown shows where departures go.\nSwitch direction to "Dep" or "Both" to view.',
+                    text: PERTII18n.t('demand.breakdown.destSwitchDirection'),
                     fontSize: 14,
                     fill: '#999',
                     textAlign: 'center',
@@ -3409,7 +3409,7 @@ function renderDestChart() {
         return;
     }
 
-    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
+    const dirLabel = direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights');
 
     // Get all ARTCCs from breakdown data
     const breakdown = DEMAND_STATE.destBreakdown || {};
@@ -3446,7 +3446,7 @@ function renderDestChart() {
 
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
-        `${dirLabel} by Destination ARTCC`,
+        PERTII18n.t('demand.breakdown.byDestArtcc', { direction: dirLabel }),
         'dest',
         'artcc',
         getDCCRegionColor,
@@ -3468,7 +3468,7 @@ function renderDestChart() {
  */
 function renderCarrierChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : (direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights'));
 
     // Calculate total flights per carrier for sorting
     const breakdown = DEMAND_STATE.carrierBreakdown || {};
@@ -3491,7 +3491,7 @@ function renderCarrierChart() {
 
     renderBreakdownChart(
         DEMAND_STATE.carrierBreakdown,
-        `${dirLabel} by Carrier`,
+        PERTII18n.t('demand.breakdown.byCarrier', { direction: dirLabel }),
         'carrier',
         'carrier',
         (carrier) => {
@@ -3510,7 +3510,7 @@ function renderCarrierChart() {
  */
 function renderWeightChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : (direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights'));
 
     let order = ['J', 'H', 'L', 'S', 'UNKNOWN'];
     if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.order) {
@@ -3519,7 +3519,7 @@ function renderWeightChart() {
 
     renderBreakdownChart(
         DEMAND_STATE.weightBreakdown,
-        `${dirLabel} by Weight Class`,
+        PERTII18n.t('demand.breakdown.byWeightClass', { direction: dirLabel }),
         'weight',
         'weight_class',
         (wc) => {
@@ -3534,7 +3534,7 @@ function renderWeightChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.weightClass && FILTER_CONFIG.weightClass.labels) {
                 return FILTER_CONFIG.weightClass.labels[wc] || wc;
             }
-            const labels = { 'J': 'Super', 'H': 'Heavy', 'L': 'Large', 'S': 'Small' };
+            const labels = { 'J': PERTII18n.t('weightClass.J'), 'H': PERTII18n.t('weightClass.H'), 'L': PERTII18n.t('weightClass.L'), 'S': PERTII18n.t('weightClass.S') };
             return labels[wc] || wc;
         },
         order,
@@ -3547,7 +3547,7 @@ function renderWeightChart() {
  */
 function renderEquipmentChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : (direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights'));
 
     // Get all aircraft types from breakdown data
     const breakdown = DEMAND_STATE.equipmentBreakdown || {};
@@ -3584,7 +3584,7 @@ function renderEquipmentChart() {
     // Use standard scrolling legend like other charts
     renderBreakdownChart(
         DEMAND_STATE.equipmentBreakdown,
-        `${dirLabel} by Aircraft Type`,
+        PERTII18n.t('demand.breakdown.byAircraftType', { direction: dirLabel }),
         'equipment',
         'equipment',
         (acType) => {
@@ -3609,7 +3609,7 @@ function renderEquipmentChart() {
  */
 function renderRuleChart() {
     const direction = DEMAND_STATE.direction;
-    const dirLabel = direction === 'arr' ? 'Arrivals' : (direction === 'dep' ? 'Departures' : 'Flights');
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : (direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights'));
 
     let order = ['I', 'V'];
     if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.order) {
@@ -3618,7 +3618,7 @@ function renderRuleChart() {
 
     renderBreakdownChart(
         DEMAND_STATE.ruleBreakdown,
-        `${dirLabel} by Flight Rule`,
+        PERTII18n.t('demand.breakdown.byFlightRule', { direction: dirLabel }),
         'rule',
         'rule',
         (rule) => {
@@ -3633,7 +3633,7 @@ function renderRuleChart() {
             if (typeof FILTER_CONFIG !== 'undefined' && FILTER_CONFIG.flightRule && FILTER_CONFIG.flightRule.labels) {
                 return FILTER_CONFIG.flightRule.labels[rule] || rule;
             }
-            const labels = { 'I': 'IFR', 'V': 'VFR' };
+            const labels = { 'I': PERTII18n.t('flightRule.I'), 'V': PERTII18n.t('flightRule.V') };
             return labels[rule] || rule;
         },
         order,
@@ -3647,12 +3647,12 @@ function showDirectionRestrictedEmptyState(viewName, requiredDirection, required
     if (!DEMAND_STATE.chart) {return;}
     const data = DEMAND_STATE.lastDemandData;
     const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
-    const dirText = requiredDirection === 'arr' ? '"Arr" or "Both"' : '"Dep" or "Both"';
+    const dirText = requiredDirection === 'arr' ? PERTII18n.t('demand.emptyState.arrOrBoth') : PERTII18n.t('demand.emptyState.depOrBoth');
     DEMAND_STATE.chart.setOption({
         backgroundColor: '#ffffff',
         title: {
             text: chartTitle,
-            subtext: `${viewName} not applicable for ${requiredLabel}`,
+            subtext: PERTII18n.t('demand.emptyState.notApplicableFor', { view: viewName, direction: requiredLabel }),
             left: 'center',
             top: 5,
             textStyle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
@@ -3666,7 +3666,7 @@ function showDirectionRestrictedEmptyState(viewName, requiredDirection, required
             left: 'center',
             top: 'middle',
             style: {
-                text: `${viewName} only applies to ${requiredDirection === 'arr' ? 'arrivals' : 'departures'}.\nSwitch direction to ${dirText} to view.`,
+                text: PERTII18n.t('demand.emptyState.switchDirection', { view: viewName, appliesTo: requiredDirection === 'arr' ? PERTII18n.t('demand.direction.arrivals').toLowerCase() : PERTII18n.t('demand.direction.departures').toLowerCase(), dirText: dirText }),
                 fontSize: 14,
                 fill: '#999',
                 textAlign: 'center',
@@ -3684,14 +3684,14 @@ function renderDepFixChart() {
 
     // Dep fix only makes sense for departures
     if (direction === 'arr') {
-        showDirectionRestrictedEmptyState('Departure fix breakdown', 'dep', 'arrivals');
+        showDirectionRestrictedEmptyState(PERTII18n.t('demand.breakdown.depFix'), 'dep', PERTII18n.t('demand.direction.arrivals').toLowerCase());
         return;
     }
 
-    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
+    const dirLabel = direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights');
     renderBreakdownChart(
         DEMAND_STATE.depFixBreakdown,
-        `${dirLabel} by Departure Fix`,
+        PERTII18n.t('demand.breakdown.byDepFix', { direction: dirLabel }),
         'dep_fix',
         'fix',
         (fix) => {
@@ -3714,14 +3714,14 @@ function renderArrFixChart() {
 
     // Arr fix only makes sense for arrivals
     if (direction === 'dep') {
-        showDirectionRestrictedEmptyState('Arrival fix breakdown', 'arr', 'departures');
+        showDirectionRestrictedEmptyState(PERTII18n.t('demand.breakdown.arrFix'), 'arr', PERTII18n.t('demand.direction.departures').toLowerCase());
         return;
     }
 
-    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : PERTII18n.t('demand.direction.flights');
     renderBreakdownChart(
         DEMAND_STATE.arrFixBreakdown,
-        `${dirLabel} by Arrival Fix`,
+        PERTII18n.t('demand.breakdown.byArrFix', { direction: dirLabel }),
         'arr_fix',
         'fix',
         (fix) => {
@@ -3744,14 +3744,14 @@ function renderDPChart() {
 
     // DP/SID only makes sense for departures
     if (direction === 'arr') {
-        showDirectionRestrictedEmptyState('DP (SID) breakdown', 'dep', 'arrivals');
+        showDirectionRestrictedEmptyState(PERTII18n.t('demand.breakdown.dpSid'), 'dep', PERTII18n.t('demand.direction.arrivals').toLowerCase());
         return;
     }
 
-    const dirLabel = direction === 'dep' ? 'Departures' : 'Flights';
+    const dirLabel = direction === 'dep' ? PERTII18n.t('demand.direction.departures') : PERTII18n.t('demand.direction.flights');
     renderBreakdownChart(
         DEMAND_STATE.dpBreakdown,
-        `${dirLabel} by Departure Procedure (SID)`,
+        PERTII18n.t('demand.breakdown.byDpSid', { direction: dirLabel }),
         'dp',
         'dp',
         (dp) => {
@@ -3774,14 +3774,14 @@ function renderSTARChart() {
 
     // STAR only makes sense for arrivals
     if (direction === 'dep') {
-        showDirectionRestrictedEmptyState('STAR breakdown', 'arr', 'departures');
+        showDirectionRestrictedEmptyState(PERTII18n.t('demand.breakdown.star'), 'arr', PERTII18n.t('demand.direction.departures').toLowerCase());
         return;
     }
 
-    const dirLabel = direction === 'arr' ? 'Arrivals' : 'Flights';
+    const dirLabel = direction === 'arr' ? PERTII18n.t('demand.direction.arrivals') : PERTII18n.t('demand.direction.flights');
     renderBreakdownChart(
         DEMAND_STATE.starBreakdown,
-        `${dirLabel} by STAR`,
+        PERTII18n.t('demand.breakdown.byStar', { direction: dirLabel }),
         'star',
         'star',
         (star) => {
@@ -3840,7 +3840,7 @@ function updateInfoBarStats(data) {
 
     // Update flight count
     const totalFlights = arrTotal + depTotal;
-    $('#demand_flight_count').text(totalFlights + ' flights');
+    $('#demand_flight_count').text(PERTII18n.tp('flight', totalFlights));
 }
 
 /**
@@ -4742,7 +4742,7 @@ function buildTmiProgramMarkLines() {
         if (program.start_utc) {
             markersToAdd.push({
                 timestamp: program.start_utc,
-                label: `${prefix} Start: ${formatTimeZ(program.start_utc)}`,
+                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.start')}: ${formatTimeZ(program.start_utc)}`,
                 color: color,
                 isDashed: false,
             });
@@ -4752,7 +4752,7 @@ function buildTmiProgramMarkLines() {
         if (program.was_updated && program.updated_at) {
             markersToAdd.push({
                 timestamp: program.updated_at,
-                label: `${prefix} Update: ${formatTimeZ(program.updated_at)}`,
+                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.update')}: ${formatTimeZ(program.updated_at)}`,
                 color: color,
                 isDashed: true,
             });
@@ -4762,14 +4762,14 @@ function buildTmiProgramMarkLines() {
         if (program.status === 'PURGED' && program.purged_at) {
             markersToAdd.push({
                 timestamp: program.purged_at,
-                label: `${prefix} CNX: ${formatTimeZ(program.purged_at)}`,
+                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.cnx')}: ${formatTimeZ(program.purged_at)}`,
                 color: color,
                 isDashed: false,
             });
         } else if (program.end_utc) {
             markersToAdd.push({
                 timestamp: program.end_utc,
-                label: `${prefix} End: ${formatTimeZ(program.end_utc)}`,
+                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.end')}: ${formatTimeZ(program.end_utc)}`,
                 color: color,
                 isDashed: false,
             });
@@ -4954,9 +4954,9 @@ function getCurrentTimeMarkLine(timeBins) {
  */
 function getDirectionLabel() {
     switch (DEMAND_STATE.direction) {
-        case 'arr': return 'Arrivals Only';
-        case 'dep': return 'Departures Only';
-        default: return 'Arrivals & Departures';
+        case 'arr': return PERTII18n.t('demand.direction.arrivalsOnly');
+        case 'dep': return PERTII18n.t('demand.direction.departuresOnly');
+        default: return PERTII18n.t('demand.direction.arrivalsAndDepartures');
     }
 }
 
@@ -4966,7 +4966,7 @@ function getDirectionLabel() {
  */
 function getXAxisLabel() {
     const minutes = getGranularityMinutes();
-    return `Time in ${minutes}-Minute Increments`;
+    return PERTII18n.t('demand.chart.xAxisLabel', { minutes: minutes });
 }
 
 /**
@@ -5255,10 +5255,10 @@ function toggleLegendVisibility() {
     const toggleBtn = document.getElementById('demand_legend_toggle_btn');
     if (toggleText && toggleBtn) {
         if (DEMAND_STATE.legendVisible) {
-            toggleText.textContent = 'Hide Legend';
+            toggleText.textContent = PERTII18n.t('demand.legend.hide');
             toggleBtn.querySelector('i').className = 'fas fa-eye-slash';
         } else {
-            toggleText.textContent = 'Show Legend';
+            toggleText.textContent = PERTII18n.t('demand.legend.show');
             toggleBtn.querySelector('i').className = 'fas fa-eye';
         }
     }
@@ -5358,9 +5358,9 @@ function buildChartTitle(airport, lastAdlUpdate) {
 function updateLastUpdateDisplay(adlUpdate) {
     const now = new Date();
     const localTime = now.toLocaleTimeString();
-    let display = `Refreshed: ${localTime}`;
+    let display = PERTII18n.t('demand.status.refreshed', { time: localTime });
     if (adlUpdate) {
-        display += ` | ADL: ${formatTimeLabel(adlUpdate)}`;
+        display += ' | ' + PERTII18n.t('demand.status.adlTime', { time: formatTimeLabel(adlUpdate) });
     }
     $('#demand_last_update').text(display);
 }
@@ -5378,7 +5378,7 @@ function showLoading() {
     if (DEMAND_STATE.chart) {
         DEMAND_STATE.chart.resize();
         DEMAND_STATE.chart.showLoading({
-            text: 'Loading...',
+            text: PERTII18n.t('common.loading'),
             color: '#007bff',
             textColor: '#000',
             maskColor: 'rgba(255, 255, 255, 0.8)',
@@ -5412,7 +5412,7 @@ function showError(message) {
             toast: true,
             position: 'bottom-right',
             icon: 'error',
-            title: 'Error',
+            title: PERTII18n.t('common.error'),
             text: message,
             timer: 5000,
             showConfirmButton: false,
@@ -5534,7 +5534,7 @@ function updateTopOrigins(origins) {
     $tbody.empty();
 
     if (origins.length === 0) {
-        $tbody.append('<tr><td class="text-muted text-center" colspan="2">No data</td></tr>');
+        $tbody.append('<tr><td class="text-muted text-center" colspan="2">' + PERTII18n.t('demand.table.noData') + '</td></tr>');
         return;
     }
 
@@ -5557,7 +5557,7 @@ function updateTopCarriers(carriers) {
     $tbody.empty();
 
     if (carriers.length === 0) {
-        $tbody.append('<tr><td class="text-muted text-center" colspan="2">No data</td></tr>');
+        $tbody.append('<tr><td class="text-muted text-center" colspan="2">' + PERTII18n.t('demand.table.noData') + '</td></tr>');
         return;
     }
 
@@ -5602,8 +5602,8 @@ function showFlightDetails(timeBin, clickedSeries) {
     const endLabel = formatTimeLabelZ(endTime.toISOString());
 
     Swal.fire({
-        title: `Flights: ${timeLabel} - ${endLabel}`,
-        html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Loading flights...</div>',
+        title: PERTII18n.t('demand.flightDetail.title', { start: timeLabel, end: endLabel }),
+        html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>' + PERTII18n.t('demand.flightDetail.loading') + '</div>',
         showConfirmButton: false,
         showCloseButton: true,
         width: '900px',
@@ -5617,13 +5617,13 @@ function showFlightDetails(timeBin, clickedSeries) {
                         });
                     } else {
                         Swal.update({
-                            html: '<p class="text-muted">No flights found for this time period.</p>',
+                            html: '<p class="text-muted">' + PERTII18n.t('demand.flightDetail.noFlights') + '</p>',
                         });
                     }
                 })
                 .fail(function() {
                     Swal.update({
-                        html: '<p class="text-danger">Failed to load flight details.</p>',
+                        html: '<p class="text-danger">' + PERTII18n.t('demand.flightDetail.loadFailed') + '</p>',
                     });
                 });
         },
@@ -5647,7 +5647,7 @@ function formatTimeLabelZ(isoString) {
  */
 function buildFlightListHtml(flights, clickedSeries) {
     if (!flights || flights.length === 0) {
-        return '<p class="text-muted">No flights found for this time period.</p>';
+        return '<p class="text-muted">' + PERTII18n.t('demand.flightDetail.noFlights') + '</p>';
     }
 
     const chartView = DEMAND_STATE.chartView || 'status';
@@ -5660,64 +5660,64 @@ function buildFlightListHtml(flights, clickedSeries) {
 
     switch (chartView) {
         case 'origin':
-            extraColumnHeader = 'Origin ARTCC';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.originArtcc');
             extraColumnField = 'origin_artcc';
             break;
         case 'dest':
-            extraColumnHeader = 'Dest ARTCC';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.destArtcc');
             extraColumnField = 'dest_artcc';
             break;
         case 'carrier':
-            extraColumnHeader = 'Carrier';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.carrier');
             extraColumnField = 'carrier';
             break;
         case 'weight':
-            extraColumnHeader = 'Weight';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.weight');
             extraColumnField = 'weight_class';
             break;
         case 'equipment':
-            extraColumnHeader = 'Equipment';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.equipment');
             extraColumnField = 'aircraft';
             break;
         case 'rule':
-            extraColumnHeader = 'Rule';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.rule');
             extraColumnField = 'flight_rules';
             break;
         case 'dep_fix':
-            extraColumnHeader = 'Dep Fix';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.depFix');
             extraColumnField = 'dfix';
             break;
         case 'arr_fix':
-            extraColumnHeader = 'Arr Fix';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.arrFix');
             extraColumnField = 'afix';
             break;
         case 'dp':
-            extraColumnHeader = 'SID';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.sid');
             extraColumnField = 'dp_name';
             break;
         case 'star':
-            extraColumnHeader = 'STAR';
+            extraColumnHeader = PERTII18n.t('demand.flightDetail.col.star');
             extraColumnField = 'star_name';
             break;
     }
 
     // Time column header based on direction
-    let timeHeader = 'Time';
-    if (direction === 'arr') {timeHeader = 'ETA';}
-    else if (direction === 'dep') {timeHeader = 'ETD';}
+    let timeHeader = PERTII18n.t('demand.flightDetail.col.time');
+    if (direction === 'arr') {timeHeader = PERTII18n.t('demand.flightDetail.col.eta');}
+    else if (direction === 'dep') {timeHeader = PERTII18n.t('demand.flightDetail.col.etd');}
 
     let html = `
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
                 <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
                     <tr>
-                        <th style="border-bottom: 2px solid #dee2e6;">Callsign</th>
-                        <th style="border-bottom: 2px solid #dee2e6;">Type</th>
-                        <th style="border-bottom: 2px solid #dee2e6;">Origin</th>
-                        <th style="border-bottom: 2px solid #dee2e6;">Dest</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${PERTII18n.t('demand.flightDetail.col.callsign')}</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${PERTII18n.t('demand.flightDetail.col.type')}</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${PERTII18n.t('demand.flightDetail.col.origin')}</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${PERTII18n.t('demand.flightDetail.col.dest')}</th>
                         <th style="border-bottom: 2px solid #dee2e6;">${timeHeader}</th>
                         ${showExtraColumn ? `<th style="border-bottom: 2px solid #dee2e6;">${extraColumnHeader}</th>` : ''}
-                        <th style="border-bottom: 2px solid #dee2e6;">Status</th>
+                        <th style="border-bottom: 2px solid #dee2e6;">${PERTII18n.t('demand.flightDetail.col.status')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -5781,10 +5781,10 @@ function buildFlightListHtml(flights, clickedSeries) {
         </div>
         <div class="mt-2 text-muted small d-flex justify-content-between align-items-center">
             <div>
-                <i class="fas fa-plane-arrival text-success"></i> Arrival &nbsp;
-                <i class="fas fa-plane-departure text-warning"></i> Departure
+                <i class="fas fa-plane-arrival text-success"></i> ${PERTII18n.t('demand.flightDetail.arrival')} &nbsp;
+                <i class="fas fa-plane-departure text-warning"></i> ${PERTII18n.t('demand.flightDetail.departure')}
             </div>
-            <div>Total: <strong>${flights.length}</strong> flights</div>
+            <div>${PERTII18n.t('demand.chart.total')}: <strong>${flights.length}</strong> ${PERTII18n.tp('flight', flights.length)}</div>
         </div>
     `;
 
@@ -6070,9 +6070,9 @@ function getHashColor(str) {
 
     function buildAndShowModal(airport, pre) {
         // Build preset options
-        let presetOptions = '<option value="">-- Select Preset --</option>';
+        let presetOptions = '<option value="">-- ' + PERTII18n.t('demand.config.selectPreset') + ' --</option>';
         configPresets.forEach(function(c) {
-            presetOptions += `<option value="${c.configId}">${c.configName || c.configCode || 'Config #' + c.configId}</option>`;
+            presetOptions += `<option value="${c.configId}">${c.configName || c.configCode || PERTII18n.t('demand.setConfig.configNum', { id: c.configId })}</option>`;
         });
 
         // Determine if AAR adjustment row should show
@@ -6081,12 +6081,12 @@ function getHashColor(str) {
         const formHtml = `
             <div class="text-left" style="font-size: 0.85rem;">
                 <div class="form-group mb-2">
-                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Config Preset</label>
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.configPreset')}</label>
                     <select class="form-control form-control-sm" id="sc_preset">${presetOptions}</select>
                 </div>
                 <div class="row mb-2">
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Weather</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.weather')}</label>
                         <select class="form-control form-control-sm" id="sc_weather">
                             <option value="VMC"${pre.weather === 'VMC' ? ' selected' : ''}>VMC</option>
                             <option value="MVFR"${pre.weather === 'MVFR' ? ' selected' : ''}>MVFR</option>
@@ -6098,40 +6098,40 @@ function getHashColor(str) {
                 </div>
                 <div class="row mb-2">
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Arrival Runways</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.arrivalRunways')}</label>
                         <input type="text" class="form-control form-control-sm" id="sc_arr_rwys" value="${pre.arrRwys}" placeholder="e.g. 27R">
                     </div>
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Departure Runways</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.departureRunways')}</label>
                         <input type="text" class="form-control form-control-sm" id="sc_dep_rwys" value="${pre.depRwys}" placeholder="e.g. 27L/35">
                     </div>
                 </div>
                 <div class="row mb-2">
                     <div class="col-4">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.aar')}</label>
                         <input type="number" class="form-control form-control-sm" id="sc_aar" value="${pre.aar}" min="0" max="200">
                     </div>
                     <div class="col-4">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">ADR</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.adr')}</label>
                         <input type="number" class="form-control form-control-sm" id="sc_adr" value="${pre.adr}" min="0" max="200">
                     </div>
                     <div class="col-4">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Type</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.aarType')}</label>
                         <input type="text" class="form-control form-control-sm bg-light" id="sc_aar_type" value="${pre.aarType}" readonly>
                     </div>
                 </div>
                 <div class="form-group mb-2" id="sc_adjustment_row" style="display: ${showAdjustment ? '' : 'none'};">
-                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">AAR Adjustment Reason</label>
+                    <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.aarAdjustmentReason')}</label>
                     <input type="text" class="form-control form-control-sm" id="sc_aar_adjustment" placeholder="e.g. XW-TLWD">
                 </div>
                 <hr class="my-2">
                 <div class="row mb-2">
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid From (UTC)</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.validFromUtc')}</label>
                         <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_from" value="${pre.validFrom}">
                     </div>
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Valid Until (UTC)</label>
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.validUntilUtc')}</label>
                         <input type="datetime-local" class="form-control form-control-sm" id="sc_valid_until" value="${pre.validUntil}">
                     </div>
                 </div>
@@ -6139,25 +6139,25 @@ function getHashColor(str) {
                 <hr class="my-2">
                 <div class="row mb-2">
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">Your Name</label>
-                        <input type="text" class="form-control form-control-sm" id="sc_user_name" placeholder="First Last">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.yourName')}</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_name" placeholder="${PERTII18n.t('demand.setConfig.placeholder.name')}">
                     </div>
                     <div class="col-6">
-                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">CID (optional)</label>
-                        <input type="text" class="form-control form-control-sm" id="sc_user_cid" placeholder="VATSIM CID">
+                        <label class="font-weight-bold mb-1" style="font-size: 0.75rem;">${PERTII18n.t('demand.setConfig.cidOptional')}</label>
+                        <input type="text" class="form-control form-control-sm" id="sc_user_cid" placeholder="${PERTII18n.t('demand.setConfig.placeholder.cid')}">
                     </div>
                 </div>` : ''}
             </div>
         `;
 
         Swal.fire({
-            title: '<i class="fas fa-tachometer-alt"></i> Set Config: ' + airport,
+            title: '<i class="fas fa-tachometer-alt"></i> ' + PERTII18n.t('demand.setConfig.title', { airport: airport }),
             html: formHtml,
             width: 520,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-paper-plane"></i> Publish',
+            confirmButtonText: '<i class="fas fa-paper-plane"></i> ' + PERTII18n.t('demand.setConfig.publish'),
             confirmButtonColor: '#2c3e50',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             didOpen: function() {
                 // Preset change handler
                 $('#sc_preset').on('change', function() {
@@ -6240,15 +6240,15 @@ function getHashColor(str) {
         const aarAdjustment = $('#sc_aar_adjustment').val()?.trim() || '';
 
         if (!aar || !adr) {
-            Swal.showValidationMessage('AAR and ADR are required');
+            Swal.showValidationMessage(PERTII18n.t('demand.setConfig.validation.aarAdrRequired'));
             return false;
         }
         if (!validFrom || !validUntil) {
-            Swal.showValidationMessage('Valid From and Valid Until are required');
+            Swal.showValidationMessage(PERTII18n.t('demand.setConfig.validation.validTimesRequired'));
             return false;
         }
         if (aarType === 'Dyn' && !aarAdjustment) {
-            Swal.showValidationMessage('AAR Adjustment reason is required when AAR differs from default');
+            Swal.showValidationMessage(PERTII18n.t('demand.setConfig.validation.adjustmentRequired'));
             return false;
         }
 
@@ -6261,7 +6261,7 @@ function getHashColor(str) {
             userName = ($('#sc_user_name').val() || '').trim();
             userCid = ($('#sc_user_cid').val() || '').trim() || null;
             if (!userName) {
-                Swal.showValidationMessage('Your name is required');
+                Swal.showValidationMessage(PERTII18n.t('demand.setConfig.validation.nameRequired'));
                 return false;
             }
         }
@@ -6328,26 +6328,26 @@ function getHashColor(str) {
     function showDuplicatePrompt(collected, existing) {
         const existingTime = existing.validFrom
             ? new Date(existing.validFrom).toLocaleString('en-US', {timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false}) + 'Z'
-            : 'Unknown';
+            : PERTII18n.t('common.unknown');
 
         Swal.fire({
-            title: '<i class="fas fa-exclamation-triangle text-warning"></i> Existing CONFIG',
+            title: '<i class="fas fa-exclamation-triangle text-warning"></i> ' + PERTII18n.t('demand.setConfig.existingConfig'),
             html: `
                 <div class="text-left">
-                    <p>An active CONFIG already exists for <strong>${collected.data.ctl_element}</strong>:</p>
+                    <p>${PERTII18n.t('demand.setConfig.existingConfigMsg', { airport: collected.data.ctl_element })}</p>
                     <div class="alert alert-secondary">
-                        <strong>Status:</strong> ${existing.status || 'ACTIVE'}<br>
-                        <strong>Posted:</strong> ${existingTime}<br>
-                        <strong>ID:</strong> #${existing.entityId}
+                        <strong>${PERTII18n.t('demand.setConfig.statusLabel')}:</strong> ${existing.status || 'ACTIVE'}<br>
+                        <strong>${PERTII18n.t('demand.setConfig.postedLabel')}:</strong> ${existingTime}<br>
+                        <strong>${PERTII18n.t('demand.setConfig.idLabel')}:</strong> #${existing.entityId}
                     </div>
-                    <p>Publishing will update the existing entry.</p>
+                    <p>${PERTII18n.t('demand.setConfig.willUpdate')}</p>
                 </div>
             `,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-edit"></i> Update & Publish',
+            confirmButtonText: '<i class="fas fa-edit"></i> ' + PERTII18n.t('demand.setConfig.updateAndPublish'),
             confirmButtonColor: '#2c3e50',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: PERTII18n.t('common.cancel')
         }).then(function(result) {
             if (result.isConfirmed) {
                 doPublish(collected);
@@ -6357,7 +6357,7 @@ function getHashColor(str) {
 
     function doPublish(collected) {
         Swal.fire({
-            title: 'Publishing...',
+            title: PERTII18n.t('demand.setConfig.publishing'),
             allowOutsideClick: false,
             didOpen: function() { Swal.showLoading(); }
         });
@@ -6390,8 +6390,8 @@ function getHashColor(str) {
             if (response.success || (response.results && response.results.some(function(r) { return r.success; }))) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Config Published',
-                    text: collected.data.ctl_element + ' configuration published to NTML',
+                    title: PERTII18n.t('demand.setConfig.publishedTitle'),
+                    text: PERTII18n.t('demand.setConfig.publishedMsg', { airport: collected.data.ctl_element }),
                     timer: 2500,
                     showConfirmButton: false
                 });
@@ -6401,18 +6401,18 @@ function getHashColor(str) {
                     setTimeout(function() { loadDemandData(); }, 1000);
                 }
             } else {
-                const errMsg = response.error || (response.results && response.results[0] && response.results[0].error) || 'Unknown error';
+                const errMsg = response.error || (response.results && response.results[0] && response.results[0].error) || PERTII18n.t('common.unknownError');
                 Swal.fire({
                     icon: 'error',
-                    title: 'Publish Failed',
+                    title: PERTII18n.t('demand.setConfig.publishFailed'),
                     html: '<p>' + errMsg + '</p>'
                 });
             }
         }).fail(function(xhr) {
             Swal.fire({
                 icon: 'error',
-                title: 'Publish Failed',
-                html: '<p>' + (xhr.responseText || 'Connection error') + '</p>'
+                title: PERTII18n.t('demand.setConfig.publishFailed'),
+                html: '<p>' + (xhr.responseText || PERTII18n.t('demand.error.connectingToServer')) + '</p>'
             });
         });
     }
