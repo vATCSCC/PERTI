@@ -92,32 +92,104 @@ function resolveFixLatLon($conn, $fixName) {
 }
 
 /**
+ * Expand a route string by resolving airways into their intermediate fixes.
+ * Same algorithm as ConvertRoute() in route-maplibre.js, using the airways
+ * table instead of the client-side awys[] array.
+ *
+ * "COATE Q436 RAAKK" → "COATE [intermediate fixes on Q436] RAAKK"
+ */
+function expandRouteAirways($conn, $tokens) {
+    if (count($tokens) < 3) return $tokens;
+
+    // Identify potential airway tokens (middle tokens not in nav_fixes)
+    // Airways are patterns like Q436, J75, V2, T297, etc.
+    $potentialAirways = [];
+    for ($i = 1; $i < count($tokens) - 1; $i++) {
+        if (preg_match('/^[A-Z][0-9]+$|^[A-Z]{1,2}[0-9]{1,4}$/', $tokens[$i])) {
+            $potentialAirways[] = $tokens[$i];
+        }
+    }
+
+    if (empty($potentialAirways)) return $tokens;
+
+    // Batch-fetch airway fix sequences
+    $placeholders = implode(',', array_fill(0, count($potentialAirways), '?'));
+    $sql = "SELECT airway_name, fix_sequence FROM dbo.airways WHERE airway_name IN ($placeholders)";
+    $stmt = sqlsrv_query($conn, $sql, $potentialAirways);
+    if ($stmt === false) return $tokens;
+
+    $airwayMap = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $fixes = array_filter(explode(' ', trim($row['fix_sequence'])));
+        $fixPosMap = [];
+        foreach (array_values($fixes) as $idx => $fix) {
+            if (!isset($fixPosMap[$fix])) $fixPosMap[$fix] = $idx;
+        }
+        $airwayMap[$row['airway_name']] = [
+            'fixes' => array_values($fixes),
+            'fixPosMap' => $fixPosMap,
+        ];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($airwayMap)) return $tokens;
+
+    // Expand airways (mirrors ConvertRoute logic)
+    $expanded = [];
+    for ($i = 0; $i < count($tokens); $i++) {
+        $token = $tokens[$i];
+
+        if ($i > 0 && $i < count($tokens) - 1 && isset($airwayMap[$token])) {
+            $prev = $tokens[$i - 1];
+            $next = $tokens[$i + 1];
+            $awy = $airwayMap[$token];
+
+            $fromIdx = $awy['fixPosMap'][$prev] ?? null;
+            $toIdx = $awy['fixPosMap'][$next] ?? null;
+
+            if ($fromIdx !== null && $toIdx !== null && abs($fromIdx - $toIdx) > 1) {
+                if ($fromIdx < $toIdx) {
+                    $middle = array_slice($awy['fixes'], $fromIdx + 1, $toIdx - $fromIdx - 1);
+                } else {
+                    $middle = array_reverse(array_slice($awy['fixes'], $toIdx + 1, $fromIdx - $toIdx - 1));
+                }
+                array_push($expanded, ...$middle);
+                continue;
+            }
+        }
+        $expanded[] = $token;
+    }
+
+    return $expanded;
+}
+
+/**
  * Resolve a route string into a GeoJSON LineString.
- * Splits on spaces and dots, looks up each token in nav_fixes,
- * skips airways/procedures that don't resolve, and builds a
- * LineString from the resolved coordinates in route order.
+ * Expands airways into intermediate fixes (same as route-maplibre.js
+ * ConvertRoute), then resolves all fix coordinates from nav_fixes.
  *
  * Examples:
- *   "COATE Q436 RAAKK"    → LineString through COATE, RAAKK (Q436 skipped)
- *   "MERIT HFD PUT"        → LineString through MERIT, HFD, PUT
- *   "RPTOR1.RPTOR MERIT"   → LineString through RPTOR, MERIT
+ *   "COATE Q436 RAAKK" → expands Q436 intermediate fixes → full LineString
+ *   "MERIT HFD PUT"     → LineString through all 3 fixes
  */
 function resolveRouteGeojson($conn, $routeString) {
     if (!$routeString) return null;
 
     // Split on spaces and dots, filter empty/long tokens
-    $tokens = preg_split('/[\s.]+/', trim($routeString));
+    $tokens = preg_split('/[\s.]+/', trim(strtoupper($routeString)));
     $tokens = array_values(array_filter($tokens, function($t) {
-        $t = trim($t);
-        return $t !== '' && strlen($t) <= 16;
+        return trim($t) !== '' && strlen(trim($t)) <= 16;
     }));
 
-    if (count($tokens) < 1) return null;
+    if (count($tokens) < 2) return null;
+
+    // Expand airways into intermediate fixes
+    $expanded = expandRouteAirways($conn, $tokens);
 
     // Dedupe for the SQL query while preserving order
-    $unique = array_values(array_unique($tokens));
+    $unique = array_values(array_unique($expanded));
 
-    // Batch-resolve all tokens against nav_fixes
+    // Batch-resolve all fix coordinates
     $placeholders = implode(',', array_fill(0, count($unique), '?'));
     $sql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN ($placeholders)";
     $stmt = sqlsrv_query($conn, $sql, $unique);
@@ -129,10 +201,9 @@ function resolveRouteGeojson($conn, $routeString) {
     }
     sqlsrv_free_stmt($stmt);
 
-    // Build coordinates in route order (skip airways/unresolved tokens)
+    // Build coordinates in route order (skip unresolved tokens)
     $coords = [];
-    foreach ($tokens as $token) {
-        $token = trim($token);
+    foreach ($expanded as $token) {
         if (isset($fixMap[$token])) {
             $coords[] = $fixMap[$token];
         }
