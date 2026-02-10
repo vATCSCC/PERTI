@@ -107,6 +107,7 @@
             radar: false,
             demand: false,
             'tmi-status': true,
+            'facility-flows': true,
         },
 
         // Splits strata visibility
@@ -129,6 +130,7 @@
             traffic: 1.0,
             radar: 0.6,
             'tmi-status': 0.8,
+            'facility-flows': 0.8,
         },
 
         // Map legend visibility
@@ -183,6 +185,15 @@
             eventId: null,
         },
 
+        // Facility Flows
+        flows: {
+            facility: null,
+            facilityType: null,
+            configs: [],
+            activeConfig: null,
+            dirty: false,
+        },
+
         // UI state
         ui: {
             panelCollapsed: false,
@@ -221,6 +232,9 @@
 
         // Restore UI state from localStorage
         restoreUIState();
+
+        // Initialize facility flows dropdown
+        loadFacilityList();
 
         // Initialize draggable panels
         initDraggablePanels();
@@ -605,6 +619,140 @@
                 },
             });
         }
+
+        // =========================================
+        // 6b. Facility Flow Layers
+        // =========================================
+
+        state.map.addSource('flow-boundary-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        state.map.addSource('flow-elements-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        // Facility boundary outline
+        state.map.addLayer({
+            id: 'flow-boundary',
+            type: 'line',
+            source: 'flow-boundary-source',
+            paint: {
+                'line-color': '#6c757d',
+                'line-width': 1.5,
+                'line-opacity': 0.5,
+                'line-dasharray': [4, 3],
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // Procedure/route glow (wider, semi-transparent behind)
+        state.map.addLayer({
+            id: 'flow-procedure-glow',
+            type: 'line',
+            source: 'flow-elements-source',
+            filter: ['in', ['get', 'element_type'], ['literal', ['PROCEDURE', 'ROUTE']]],
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['+', ['coalesce', ['get', 'line_weight'], 2], 3],
+                'line-opacity': 0.2,
+            },
+            layout: { visibility: 'visible', 'line-cap': 'round', 'line-join': 'round' },
+        });
+
+        // Procedure/route core line
+        state.map.addLayer({
+            id: 'flow-procedure-line',
+            type: 'line',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'PROCEDURE'],
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['coalesce', ['get', 'line_weight'], 2],
+                'line-opacity': 0.8,
+            },
+            layout: { visibility: 'visible', 'line-cap': 'round', 'line-join': 'round' },
+        });
+
+        // Route glow
+        state.map.addLayer({
+            id: 'flow-route-glow',
+            type: 'line',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'ROUTE'],
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['+', ['coalesce', ['get', 'line_weight'], 2], 4],
+                'line-opacity': 0.15,
+            },
+            layout: { visibility: 'visible', 'line-cap': 'round', 'line-join': 'round' },
+        });
+
+        // Route core line
+        state.map.addLayer({
+            id: 'flow-route-line',
+            type: 'line',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'ROUTE'],
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['coalesce', ['get', 'line_weight'], 2],
+                'line-opacity': 0.9,
+            },
+            layout: { visibility: 'visible', 'line-cap': 'round', 'line-join': 'round' },
+        });
+
+        // Fix outer ring (gate/element color, semi-transparent)
+        state.map.addLayer({
+            id: 'flow-fix-outer',
+            type: 'circle',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'FIX'],
+            paint: {
+                'circle-radius': 7,
+                'circle-color': ['get', 'color'],
+                'circle-opacity': 0.3,
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // Fix inner dot (solid)
+        state.map.addLayer({
+            id: 'flow-fix-inner',
+            type: 'circle',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'FIX'],
+            paint: {
+                'circle-radius': 4,
+                'circle-color': ['get', 'color'],
+                'circle-opacity': 1.0,
+            },
+            layout: { visibility: 'visible' },
+        });
+
+        // Fix labels
+        state.map.addLayer({
+            id: 'flow-fix-label',
+            type: 'symbol',
+            source: 'flow-elements-source',
+            filter: ['==', ['get', 'element_type'], 'FIX'],
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-size': 11,
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-anchor': 'top',
+                'text-offset': [0, 0.8],
+                'text-allow-overlap': false,
+                'visibility': 'visible',
+            },
+            paint: {
+                'text-color': '#e0e0e0',
+                'text-halo-color': '#000',
+                'text-halo-width': 1.5,
+            },
+        });
 
         // =========================================
         // 7. Public Routes Layer - Matching route-maplibre.js symbology
@@ -4075,6 +4223,9 @@
 
             // TMI Status
             'tmi-status': ['tmi-delay-glow', 'tmi-status-ring', 'tmi-status-label', 'tmi-mit-marker', 'tmi-mit-label'],
+
+            // Facility Flows
+            'facility-flows': ['flow-boundary', 'flow-procedure-glow', 'flow-procedure-line', 'flow-route-glow', 'flow-route-line', 'flow-fix-outer', 'flow-fix-inner', 'flow-fix-label'],
         };
 
         const layers = layerMappings[layerId];
@@ -4797,6 +4948,20 @@
                         if (layer === 'tmi-status-ring') {
                             state.map.setPaintProperty(layer, 'circle-stroke-opacity', opacity);
                         }
+                    } else if (type === 'symbol') {
+                        state.map.setPaintProperty(layer, 'text-opacity', opacity);
+                    }
+                }
+            });
+        } else if (layerName === 'facility-flows') {
+            const flowLayers = ['flow-boundary', 'flow-procedure-glow', 'flow-procedure-line', 'flow-route-glow', 'flow-route-line', 'flow-fix-outer', 'flow-fix-inner', 'flow-fix-label'];
+            flowLayers.forEach(layer => {
+                if (state.map.getLayer(layer)) {
+                    const type = state.map.getLayer(layer).type;
+                    if (type === 'line') {
+                        state.map.setPaintProperty(layer, 'line-opacity', opacity);
+                    } else if (type === 'circle') {
+                        state.map.setPaintProperty(layer, 'circle-opacity', opacity);
                     } else if (type === 'symbol') {
                         state.map.setPaintProperty(layer, 'text-opacity', opacity);
                     }
@@ -6649,6 +6814,852 @@
     }
 
     // =========================================
+    // Facility Flows — Tab Logic
+    // =========================================
+
+    /**
+     * Populate the facility dropdown from facility-hierarchy.js data.
+     * Called once on init (when Flows tab first loads).
+     */
+    function loadFacilityList() {
+        const select = document.getElementById('flow-facility');
+        if (!select) return;
+
+        // Build option groups from DCC_REGION_ARTCC or fallback
+        const artccs = typeof DCC_REGION_ARTCCS !== 'undefined' ? DCC_REGION_ARTCCS : {};
+        const allFacilities = [];
+
+        // Collect ARTCCs from DCC regions
+        Object.keys(artccs).forEach(region => {
+            (artccs[region] || []).forEach(code => {
+                allFacilities.push({ code, type: 'ARTCC', region });
+            });
+        });
+
+        // Sort alphabetically
+        allFacilities.sort((a, b) => a.code.localeCompare(b.code));
+
+        // Clear existing options except placeholder
+        select.innerHTML = '<option value="">Select facility...</option>';
+
+        // Add ARTCC optgroup
+        const artccGroup = document.createElement('optgroup');
+        artccGroup.label = 'ARTCCs';
+        allFacilities.filter(f => f.type === 'ARTCC').forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.code;
+            opt.textContent = f.code;
+            opt.dataset.type = 'ARTCC';
+            artccGroup.appendChild(opt);
+        });
+        if (artccGroup.children.length > 0) select.appendChild(artccGroup);
+
+        // Add major TRACONs if available
+        const tracons = [
+            'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'I90', 'L30',
+            'M98', 'N90', 'NCT', 'NMM', 'P50', 'P80', 'PCT', 'R90',
+            'S46', 'S56', 'SCT', 'T75', 'U90', 'Y90'
+        ];
+        const traconGroup = document.createElement('optgroup');
+        traconGroup.label = 'TRACONs';
+        tracons.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.textContent = code;
+            opt.dataset.type = 'TRACON';
+            traconGroup.appendChild(opt);
+        });
+        if (traconGroup.children.length > 0) select.appendChild(traconGroup);
+    }
+
+    /**
+     * Handle facility selection change.
+     * Fetches available configs for the selected facility.
+     */
+    async function onFacilityChange(facilityCode) {
+        const configSelect = document.getElementById('flow-config');
+        const btnNew = document.getElementById('flow-btn-new');
+
+        if (!facilityCode) {
+            state.flows.facility = null;
+            state.flows.facilityType = null;
+            state.flows.configs = [];
+            state.flows.activeConfig = null;
+            if (configSelect) {
+                configSelect.innerHTML = '<option value="">Select config...</option>';
+                configSelect.disabled = true;
+            }
+            if (btnNew) btnNew.disabled = true;
+            renderFlowConfig();
+            updateFlowMapLayers();
+            return;
+        }
+
+        // Determine facility type from the dropdown option
+        const facilityOpt = document.querySelector(`#flow-facility option[value="${facilityCode}"]`);
+        const facilityType = facilityOpt ? (facilityOpt.dataset.type || 'ARTCC') : 'ARTCC';
+
+        state.flows.facility = facilityCode;
+        state.flows.facilityType = facilityType;
+
+        if (btnNew) btnNew.disabled = false;
+
+        try {
+            const resp = await fetch(`api/nod/flows/configs.php?facility_code=${encodeURIComponent(facilityCode)}`);
+            const data = await resp.json();
+            state.flows.configs = data.configs || [];
+        } catch (e) {
+            console.warn('[NOD] Failed to load flow configs:', e);
+            state.flows.configs = [];
+        }
+
+        // Populate config dropdown
+        if (configSelect) {
+            configSelect.innerHTML = '<option value="">Select config...</option>';
+            state.flows.configs.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.config_id;
+                opt.textContent = c.config_name + (c.is_default ? ' (default)' : '');
+                configSelect.appendChild(opt);
+            });
+            configSelect.disabled = false;
+
+            // Auto-select default config
+            const defaultCfg = state.flows.configs.find(c => c.is_default);
+            if (defaultCfg) {
+                configSelect.value = defaultCfg.config_id;
+                await onConfigChange(defaultCfg.config_id);
+            } else {
+                state.flows.activeConfig = null;
+                renderFlowConfig();
+                updateFlowMapLayers();
+            }
+        }
+    }
+
+    /**
+     * Handle config selection change.
+     * Loads full config with elements and gates.
+     */
+    async function onConfigChange(configId) {
+        const btnSave = document.getElementById('flow-btn-save');
+        const btnDelete = document.getElementById('flow-btn-delete');
+        const btnMonitor = document.getElementById('flow-btn-monitor-all');
+        const btnClear = document.getElementById('flow-btn-clear-fea');
+
+        if (!configId) {
+            state.flows.activeConfig = null;
+            if (btnSave) btnSave.disabled = true;
+            if (btnDelete) btnDelete.disabled = true;
+            if (btnMonitor) btnMonitor.disabled = true;
+            if (btnClear) btnClear.disabled = true;
+            renderFlowConfig();
+            updateFlowMapLayers();
+            return;
+        }
+
+        try {
+            const resp = await fetch(`api/nod/flows/configs.php?config_id=${encodeURIComponent(configId)}`);
+            const data = await resp.json();
+            state.flows.activeConfig = data.config || null;
+            state.flows.dirty = false;
+        } catch (e) {
+            console.warn('[NOD] Failed to load flow config:', e);
+            state.flows.activeConfig = null;
+        }
+
+        if (btnSave) btnSave.disabled = !state.flows.activeConfig;
+        if (btnDelete) btnDelete.disabled = !state.flows.activeConfig;
+        if (btnMonitor) btnMonitor.disabled = !state.flows.activeConfig;
+        if (btnClear) btnClear.disabled = !state.flows.activeConfig;
+
+        renderFlowConfig();
+        updateFlowMapLayers();
+    }
+
+    /**
+     * Render all flow config sections in the sidebar.
+     */
+    function renderFlowConfig() {
+        const config = state.flows.activeConfig;
+
+        // Render each section
+        renderFlowSection('flow-arr-fixes', 'flow-arr-fixes-count',
+            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
+            'No arrival fixes configured');
+
+        renderFlowSection('flow-dep-fixes', 'flow-dep-fixes-count',
+            config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
+            'No departure fixes configured');
+
+        renderFlowGatesSection(
+            config ? (config.gates || []) : [],
+            config ? (config.elements || []).filter(e => e.gate_id) : []);
+
+        renderFlowSection('flow-procedures', 'flow-procedures-count',
+            config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
+            'No procedures configured');
+
+        renderFlowSection('flow-routes', 'flow-routes-count',
+            config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
+            'No routes configured');
+    }
+
+    /**
+     * Render a flow section (arrival fixes, departure fixes, procedures, routes).
+     */
+    function renderFlowSection(listId, countId, elements, emptyText) {
+        const container = document.getElementById(listId);
+        const badge = document.getElementById(countId);
+        if (!container) return;
+
+        if (badge) badge.textContent = elements.length;
+
+        if (elements.length === 0) {
+            container.innerHTML = `<div class="nod-empty"><p>${emptyText}</p></div>`;
+            return;
+        }
+
+        container.innerHTML = elements.map(el => renderFlowElementRow(el)).join('');
+    }
+
+    /**
+     * Render gates section with grouped member fixes.
+     */
+    function renderFlowGatesSection(gates, gatedElements) {
+        const container = document.getElementById('flow-gates-list');
+        const badge = document.getElementById('flow-gates-count');
+        if (!container) return;
+
+        if (badge) badge.textContent = gates.length;
+
+        if (gates.length === 0) {
+            container.innerHTML = '<div class="nod-empty"><p>No gates configured</p></div>';
+            return;
+        }
+
+        let html = '';
+        gates.forEach(gate => {
+            const members = gatedElements.filter(e => e.gate_id === gate.gate_id);
+            html += `<div class="nod-flow-gate-header" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                <i class="fas fa-door-open mr-1"></i>
+                <span>${escapeHtml(gate.gate_name)}</span>
+                <span class="badge badge-secondary ml-1">${members.length}</span>
+                <span class="nod-flow-element-controls ml-auto">
+                    <input type="color" value="${gate.color || '#17a2b8'}" title="Gate color"
+                           onchange="NOD.updateGate(${gate.gate_id}, {color: this.value})" onclick="event.stopPropagation()">
+                    <button class="btn-icon" onclick="event.stopPropagation(); NOD.deleteGate(${gate.gate_id})" title="Delete gate">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </span>
+            </div>
+            <div class="nod-flow-gate-members">
+                ${members.length > 0 ? members.map(el => renderFlowElementRow(el)).join('') : '<div class="p-1 text-muted small">No member fixes</div>'}
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    /**
+     * Render a single flow element row.
+     */
+    function renderFlowElementRow(el) {
+        const isVisible = el.is_visible !== false && el.is_visible !== 0;
+        const hasFEA = el.demand_monitor_id != null;
+        const showFEA = el.element_type === 'FIX' || el.element_type === 'ROUTE';
+
+        let label = escapeHtml(el.element_name);
+        if (el.element_type === 'FIX' && el.fix_name) {
+            label = escapeHtml(el.fix_name);
+        }
+
+        return `<div class="nod-flow-element" data-element-id="${el.element_id}">
+            <span class="nod-flow-element-name">
+                ${label}
+                ${el.demand_count != null ? `<span class="badge badge-info">${el.demand_count}</span>` : ''}
+            </span>
+            <span class="nod-flow-element-controls">
+                <input type="color" value="${el.color || '#17a2b8'}" title="Color"
+                       onchange="NOD.updateFlowElement(${el.element_id}, {color: this.value})">
+                ${showFEA ? `<button class="btn-icon ${hasFEA ? 'fea-active' : ''}" title="${hasFEA ? 'Remove FEA' : 'Monitor as FEA'}"
+                       onclick="NOD.toggleFlowFEA(${el.element_id})">
+                    <i class="fas fa-chart-bar"></i>
+                </button>` : ''}
+                <button class="btn-icon ${isVisible ? 'active' : ''}" title="Toggle visibility"
+                       onclick="NOD.toggleFlowVisibility(${el.element_id})">
+                    <i class="fas fa-${isVisible ? 'eye' : 'eye-slash'}"></i>
+                </button>
+                <button class="btn-icon" title="Delete" onclick="NOD.deleteFlowElement(${el.element_id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </span>
+        </div>`;
+    }
+
+    /**
+     * Show inline add form for a flow element type.
+     */
+    function showAddFlowElement(elementType, direction) {
+        if (!state.flows.activeConfig) {
+            console.warn('[NOD] No active config to add element to');
+            return;
+        }
+
+        const sectionMap = {
+            'FIX_ARRIVAL': 'flow-arr-fixes-list',
+            'FIX_DEPARTURE': 'flow-dep-fixes-list',
+            'PROCEDURE_ARRIVAL': 'flow-procedures-list',
+            'PROCEDURE_DEPARTURE': 'flow-procedures-list',
+            'ROUTE_ARRIVAL': 'flow-routes-list',
+            'ROUTE_DEPARTURE': 'flow-routes-list',
+        };
+
+        const containerId = sectionMap[`${elementType}_${direction}`] || sectionMap[`${elementType}_ARRIVAL`];
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Remove any existing add forms
+        document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
+
+        const placeholder = elementType === 'FIX' ? 'Enter fix name...'
+            : elementType === 'PROCEDURE' ? 'Enter procedure name...'
+            : 'Enter route string...';
+
+        const form = document.createElement('div');
+        form.className = 'nod-flow-add-form';
+        form.innerHTML = `
+            <input type="text" placeholder="${placeholder}" id="flow-add-input" autocomplete="off"
+                   style="text-transform: uppercase;">
+            <button class="btn btn-sm btn-info" onclick="NOD.submitAddFlowElement('${elementType}', '${direction}')">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        container.insertBefore(form, container.firstChild);
+
+        const input = form.querySelector('input');
+        input.focus();
+
+        // Setup autocomplete for fixes
+        if (elementType === 'FIX') {
+            setupFlowAutocomplete(input, 'fix');
+        } else if (elementType === 'PROCEDURE') {
+            setupFlowAutocomplete(input, 'procedure');
+        }
+
+        // Enter key submits
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                NOD.submitAddFlowElement(elementType, direction);
+            } else if (e.key === 'Escape') {
+                form.remove();
+            }
+        });
+    }
+
+    /**
+     * Submit the add element form.
+     */
+    async function submitAddFlowElement(elementType, direction) {
+        const input = document.getElementById('flow-add-input');
+        if (!input || !input.value.trim()) return;
+
+        const value = input.value.trim().toUpperCase();
+        const config = state.flows.activeConfig;
+        if (!config) return;
+
+        const payload = {
+            config_id: config.config_id,
+            element_type: elementType,
+            element_name: value,
+            direction: direction,
+        };
+
+        if (elementType === 'FIX') {
+            payload.fix_name = value;
+        } else if (elementType === 'ROUTE') {
+            payload.route_string = value;
+        }
+
+        try {
+            const resp = await fetch('api/nod/flows/elements.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+
+            if (data.element_id) {
+                // Reload config to get fresh state
+                await onConfigChange(config.config_id);
+            } else {
+                console.warn('[NOD] Failed to add element:', data.error);
+            }
+        } catch (e) {
+            console.warn('[NOD] Failed to add flow element:', e);
+        }
+    }
+
+    /**
+     * Update a flow element's properties.
+     */
+    let _flowUpdateDebounce = {};
+    async function updateFlowElement(elementId, changes) {
+        if (!state.flows.activeConfig) return;
+
+        // Update local state immediately for responsiveness
+        const el = (state.flows.activeConfig.elements || []).find(e => e.element_id === elementId);
+        if (el) {
+            Object.assign(el, changes);
+            updateFlowMapLayers(); // Immediate visual feedback
+        }
+
+        // Debounce API call
+        clearTimeout(_flowUpdateDebounce[elementId]);
+        _flowUpdateDebounce[elementId] = setTimeout(async () => {
+            try {
+                await fetch('api/nod/flows/elements.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ element_id: elementId, ...changes }),
+                });
+            } catch (e) {
+                console.warn('[NOD] Failed to update flow element:', e);
+            }
+        }, 500);
+    }
+
+    /**
+     * Toggle visibility of a flow element.
+     */
+    function toggleFlowVisibility(elementId) {
+        const el = (state.flows.activeConfig?.elements || []).find(e => e.element_id === elementId);
+        if (!el) return;
+        const newVisible = el.is_visible === false || el.is_visible === 0 ? 1 : 0;
+        updateFlowElement(elementId, { is_visible: newVisible });
+        renderFlowConfig(); // Re-render to update icon
+    }
+
+    /**
+     * Delete a flow element.
+     */
+    async function deleteFlowElement(elementId) {
+        if (!state.flows.activeConfig) return;
+
+        try {
+            await fetch(`api/nod/flows/elements.php?element_id=${elementId}`, { method: 'DELETE' });
+            await onConfigChange(state.flows.activeConfig.config_id);
+        } catch (e) {
+            console.warn('[NOD] Failed to delete flow element:', e);
+        }
+    }
+
+    /**
+     * Show add gate dialog.
+     */
+    function showAddGate() {
+        if (!state.flows.activeConfig) return;
+
+        const container = document.getElementById('flow-gates-list');
+        if (!container) return;
+
+        document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
+
+        const form = document.createElement('div');
+        form.className = 'nod-flow-add-form';
+        form.innerHTML = `
+            <input type="text" placeholder="Gate name..." id="flow-add-gate-input">
+            <select id="flow-add-gate-dir" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 80px; font-size: 11px;">
+                <option value="ARRIVAL">Arr</option>
+                <option value="DEPARTURE">Dep</option>
+            </select>
+            <button class="btn btn-sm btn-info" onclick="NOD.submitAddGate()">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        container.insertBefore(form, container.firstChild);
+        form.querySelector('input').focus();
+    }
+
+    /**
+     * Submit add gate form.
+     */
+    async function submitAddGate() {
+        const input = document.getElementById('flow-add-gate-input');
+        const dirSelect = document.getElementById('flow-add-gate-dir');
+        if (!input || !input.value.trim() || !state.flows.activeConfig) return;
+
+        try {
+            const resp = await fetch('api/nod/flows/gates.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    config_id: state.flows.activeConfig.config_id,
+                    gate_name: input.value.trim(),
+                    direction: dirSelect ? dirSelect.value : 'ARRIVAL',
+                }),
+            });
+            const data = await resp.json();
+            if (data.gate_id) {
+                await onConfigChange(state.flows.activeConfig.config_id);
+            }
+        } catch (e) {
+            console.warn('[NOD] Failed to add gate:', e);
+        }
+    }
+
+    /**
+     * Update a gate's properties.
+     */
+    async function updateGate(gateId, changes) {
+        try {
+            await fetch('api/nod/flows/gates.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gate_id: gateId, ...changes }),
+            });
+            // Update local state
+            const gate = (state.flows.activeConfig?.gates || []).find(g => g.gate_id === gateId);
+            if (gate) Object.assign(gate, changes);
+            updateFlowMapLayers();
+        } catch (e) {
+            console.warn('[NOD] Failed to update gate:', e);
+        }
+    }
+
+    /**
+     * Delete a gate.
+     */
+    async function deleteGate(gateId) {
+        if (!state.flows.activeConfig) return;
+        try {
+            await fetch(`api/nod/flows/gates.php?gate_id=${gateId}`, { method: 'DELETE' });
+            await onConfigChange(state.flows.activeConfig.config_id);
+        } catch (e) {
+            console.warn('[NOD] Failed to delete gate:', e);
+        }
+    }
+
+    /**
+     * Create a new flow configuration.
+     */
+    async function createFlowConfig() {
+        if (!state.flows.facility) return;
+
+        const name = prompt('Configuration name:');
+        if (!name || !name.trim()) return;
+
+        try {
+            const resp = await fetch('api/nod/flows/configs.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    facility_code: state.flows.facility,
+                    facility_type: state.flows.facilityType || 'ARTCC',
+                    config_name: name.trim(),
+                }),
+            });
+            const data = await resp.json();
+            if (data.config_id) {
+                await onFacilityChange(state.flows.facility);
+                // Select the new config
+                const configSelect = document.getElementById('flow-config');
+                if (configSelect) {
+                    configSelect.value = data.config_id;
+                    await onConfigChange(data.config_id);
+                }
+            }
+        } catch (e) {
+            console.warn('[NOD] Failed to create flow config:', e);
+        }
+    }
+
+    /**
+     * Save current flow configuration (map position, name changes).
+     */
+    async function saveFlowConfig() {
+        const config = state.flows.activeConfig;
+        if (!config) return;
+
+        const updates = {
+            config_id: config.config_id,
+            config_name: config.config_name,
+        };
+
+        // Save current map position if map is available
+        if (state.map) {
+            const center = state.map.getCenter();
+            updates.map_center_lat = center.lat;
+            updates.map_center_lon = center.lng;
+            updates.map_zoom = state.map.getZoom();
+        }
+
+        try {
+            await fetch('api/nod/flows/configs.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            });
+            state.flows.dirty = false;
+            console.log('[NOD] Flow config saved');
+        } catch (e) {
+            console.warn('[NOD] Failed to save flow config:', e);
+        }
+    }
+
+    /**
+     * Delete current flow configuration.
+     */
+    async function deleteFlowConfig() {
+        const config = state.flows.activeConfig;
+        if (!config) return;
+
+        if (!confirm('Delete configuration "' + config.config_name + '"?')) return;
+
+        try {
+            await fetch(`api/nod/flows/configs.php?config_id=${config.config_id}`, { method: 'DELETE' });
+            state.flows.activeConfig = null;
+            await onFacilityChange(state.flows.facility);
+        } catch (e) {
+            console.warn('[NOD] Failed to delete flow config:', e);
+        }
+    }
+
+    /**
+     * Setup autocomplete on an input for fix or procedure suggestions.
+     */
+    function setupFlowAutocomplete(inputEl, type) {
+        let debounceTimer = null;
+        let dropdown = null;
+
+        inputEl.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const q = inputEl.value.trim();
+            if (q.length < 2) {
+                if (dropdown) { dropdown.remove(); dropdown = null; }
+                return;
+            }
+
+            debounceTimer = setTimeout(async () => {
+                try {
+                    let url = `api/nod/flows/suggestions.php?type=${type}&q=${encodeURIComponent(q)}`;
+                    if (type === 'procedure' && state.flows.facility) {
+                        // For procedures, we need an airport - use facility code as hint
+                        url += `&facility=${encodeURIComponent(state.flows.facility)}`;
+                    }
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    showAutocompleteDropdown(inputEl, data.suggestions || [], type);
+                } catch (e) {
+                    // Silently fail
+                }
+            }, 300);
+        });
+
+        inputEl.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (dropdown) { dropdown.remove(); dropdown = null; }
+            }, 200);
+        });
+
+        function showAutocompleteDropdown(input, suggestions, suggestionType) {
+            if (dropdown) dropdown.remove();
+            if (suggestions.length === 0) return;
+
+            dropdown = document.createElement('div');
+            dropdown.className = 'nod-flow-autocomplete';
+
+            const rect = input.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = (rect.bottom + 2) + 'px';
+            dropdown.style.left = rect.left + 'px';
+            dropdown.style.width = Math.max(rect.width, 200) + 'px';
+
+            suggestions.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'nod-flow-autocomplete-item';
+                if (suggestionType === 'fix') {
+                    item.innerHTML = `<strong>${escapeHtml(s.fix_name)}</strong> <small>${escapeHtml(s.fix_type || '')}</small>`;
+                    item.addEventListener('mousedown', () => {
+                        input.value = s.fix_name;
+                        dropdown.remove();
+                        dropdown = null;
+                    });
+                } else {
+                    item.innerHTML = `<strong>${escapeHtml(s.procedure_name)}</strong> <small>${escapeHtml(s.procedure_type || '')} ${escapeHtml(s.airport_icao || '')}</small>`;
+                    item.addEventListener('mousedown', () => {
+                        input.value = s.procedure_name;
+                        dropdown.remove();
+                        dropdown = null;
+                    });
+                }
+                dropdown.appendChild(item);
+            });
+
+            document.body.appendChild(dropdown);
+        }
+    }
+
+    /**
+     * Toggle FEA monitoring for a flow element (placeholder for Phase 4).
+     */
+    async function toggleFlowFEA(elementId) {
+        console.log('[NOD] FEA toggle for element', elementId, '(Phase 4 - not yet implemented)');
+    }
+
+    /**
+     * Bulk create FEA monitors for all elements (placeholder for Phase 4).
+     */
+    async function bulkCreateFEA() {
+        console.log('[NOD] Bulk FEA create (Phase 4 - not yet implemented)');
+    }
+
+    /**
+     * Bulk clear FEA monitors (placeholder for Phase 4).
+     */
+    async function bulkClearFEA() {
+        console.log('[NOD] Bulk FEA clear (Phase 4 - not yet implemented)');
+    }
+
+    // =========================================
+    // Facility Flows — Map Layers (Phase 3)
+    // =========================================
+
+    /**
+     * Update flow map layers from current config.
+     * Builds GeoJSON from active config elements and updates map sources.
+     */
+    function updateFlowMapLayers() {
+        if (!state.map) return;
+
+        const config = state.flows.activeConfig;
+        const elements = config ? (config.elements || []) : [];
+
+        // Build element features
+        const pointFeatures = [];
+        const lineFeatures = [];
+
+        elements.forEach(el => {
+            if (el.is_visible === false || el.is_visible === 0) return;
+
+            if (el.element_type === 'FIX' && el.fix_lat != null && el.fix_lon != null) {
+                pointFeatures.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [parseFloat(el.fix_lon), parseFloat(el.fix_lat)] },
+                    properties: {
+                        element_id: el.element_id,
+                        element_type: el.element_type,
+                        label: el.fix_name || el.element_name,
+                        color: el.color || '#17a2b8',
+                        direction: el.direction,
+                        gate_name: el.gate_name || null,
+                    },
+                });
+            } else if ((el.element_type === 'ROUTE' || el.element_type === 'PROCEDURE') && el.route_geojson) {
+                try {
+                    const geom = typeof el.route_geojson === 'string' ? JSON.parse(el.route_geojson) : el.route_geojson;
+                    lineFeatures.push({
+                        type: 'Feature',
+                        geometry: geom,
+                        properties: {
+                            element_id: el.element_id,
+                            element_type: el.element_type,
+                            label: el.element_name,
+                            color: el.color || '#17a2b8',
+                            line_weight: el.line_weight || 2,
+                            line_style: el.line_style || 'solid',
+                            direction: el.direction,
+                        },
+                    });
+                } catch (e) {
+                    // Invalid GeoJSON, skip
+                }
+            }
+        });
+
+        // Combine all features
+        const allFeatures = [...pointFeatures, ...lineFeatures];
+        const geojson = { type: 'FeatureCollection', features: allFeatures };
+
+        // Update element source
+        const elemSrc = state.map.getSource('flow-elements-source');
+        if (elemSrc) {
+            elemSrc.setData(geojson);
+        }
+
+        // Update boundary source
+        updateFlowBoundary();
+
+        // Auto-zoom if we have features
+        if (allFeatures.length > 0 && config) {
+            // Use saved map position if available
+            if (config.map_center_lat && config.map_center_lon) {
+                state.map.flyTo({
+                    center: [parseFloat(config.map_center_lon), parseFloat(config.map_center_lat)],
+                    zoom: parseFloat(config.map_zoom) || 7,
+                    duration: 800,
+                });
+            } else {
+                // Auto-fit to elements
+                const bounds = new maplibregl.LngLatBounds();
+                allFeatures.forEach(f => {
+                    if (f.geometry.type === 'Point') {
+                        bounds.extend(f.geometry.coordinates);
+                    } else if (f.geometry.type === 'LineString') {
+                        f.geometry.coordinates.forEach(c => bounds.extend(c));
+                    }
+                });
+                if (!bounds.isEmpty()) {
+                    state.map.fitBounds(bounds, { padding: 50, maxZoom: 10, duration: 800 });
+                }
+            }
+        }
+    }
+
+    /**
+     * Update the facility boundary outline on the map.
+     */
+    function updateFlowBoundary() {
+        if (!state.map) return;
+        const src = state.map.getSource('flow-boundary-source');
+        if (!src) return;
+
+        const code = state.flows.facility;
+        if (!code) {
+            src.setData({ type: 'FeatureCollection', features: [] });
+            return;
+        }
+
+        // Try to find boundary from cached data
+        const type = state.flows.facilityType;
+        const cache = type === 'TRACON' ? state.boundaryCache?.tracon : state.boundaryCache?.artcc;
+
+        if (cache && cache.features) {
+            const match = cache.features.find(f => {
+                const props = f.properties || {};
+                const matchCode = (props.ICAOCODE || props.artcc_code || props.tracon_code || props.id || '').toUpperCase();
+                return matchCode === code.toUpperCase();
+            });
+
+            if (match) {
+                src.setData({ type: 'FeatureCollection', features: [match] });
+                return;
+            }
+        }
+
+        // No cached boundary found
+        src.setData({ type: 'FeatureCollection', features: [] });
+    }
+
+    // =========================================
     // Public API
     // =========================================
 
@@ -6691,6 +7702,25 @@
         // TMI action handlers
         viewTMIOnMap,
         openGDT,
+        // Facility Flows
+        onFacilityChange,
+        onConfigChange,
+        createFlowConfig,
+        saveFlowConfig,
+        deleteFlowConfig,
+        showAddFlowElement,
+        submitAddFlowElement,
+        addFlowElement: submitAddFlowElement,
+        updateFlowElement,
+        deleteFlowElement,
+        toggleFlowVisibility,
+        toggleFlowFEA,
+        showAddGate,
+        submitAddGate,
+        updateGate,
+        deleteGate,
+        bulkCreateFEA,
+        bulkClearFEA,
     };
 
     // Auto-initialize when DOM is ready

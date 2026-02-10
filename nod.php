@@ -424,6 +424,146 @@ include("load/config.php");
         .nod-tmi-trend.decreasing { color: #28a745; }
         .nod-tmi-trend.steady { color: #ffc107; }
 
+        /* Facility Flows Tab */
+        .nod-flow-selector {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .nod-flow-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .nod-flow-actions .btn {
+            flex: 1;
+            font-size: 11px;
+            padding: 2px 6px;
+        }
+        .nod-flow-element {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 12px;
+            transition: background 0.15s;
+        }
+        .nod-flow-element:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .nod-flow-element-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #e0e0e0;
+        }
+        .nod-flow-element-name .badge {
+            font-size: 10px;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .nod-flow-element-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        .nod-flow-element-controls input[type="color"] {
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 3px;
+            background: transparent;
+            cursor: pointer;
+        }
+        .nod-flow-element-controls .btn-icon {
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 12px;
+            transition: color 0.15s;
+        }
+        .nod-flow-element-controls .btn-icon:hover {
+            color: #17a2b8;
+        }
+        .nod-flow-element-controls .btn-icon.active {
+            color: #28a745;
+        }
+        .nod-flow-element-controls .btn-icon.fea-active {
+            color: #ffc107;
+        }
+        .nod-flow-gate-header {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            background: rgba(23,162,184,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #17a2b8;
+        }
+        .nod-flow-gate-header .badge {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        .nod-flow-gate-members {
+            padding-left: 16px;
+        }
+        .nod-flow-add-form {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            gap: 4px;
+        }
+        .nod-flow-add-form input {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 3px;
+            color: #e0e0e0;
+            font-size: 11px;
+            padding: 3px 6px;
+        }
+        .nod-flow-add-form input::placeholder {
+            color: #6c757d;
+        }
+        .nod-flow-add-form .btn {
+            font-size: 11px;
+            padding: 2px 8px;
+        }
+        .nod-flow-autocomplete {
+            position: absolute;
+            z-index: 1050;
+            background: #1a1d23;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 200px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .nod-flow-autocomplete-item {
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #e0e0e0;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .nod-flow-autocomplete-item:hover {
+            background: rgba(23,162,184,0.2);
+        }
+        .nod-flow-autocomplete-item small {
+            color: #6c757d;
+            margin-left: 4px;
+        }
+        .nod-flow-bulk {
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
         /* Advisory Cards */
         .nod-advisory-card {
             background: #252540;
@@ -1271,6 +1411,13 @@ include("load/config.php");
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
                            title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div><!-- /nod-layer-item radar -->
+                <div class="nod-layer-toggle">
+                    <input type="checkbox" id="layer-facility-flows" checked onchange="NOD.toggleLayer('facility-flows', this.checked)">
+                    <span class="nod-control-icon"><i class="fas fa-project-diagram"></i></span>
+                    <label for="layer-facility-flows">Facility Flows</label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-facility-flows" min="0" max="100" value="80"
+                           title="Opacity" onchange="NOD.setLayerOpacity('facility-flows', this.value/100)">
+                </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tmi-status" checked onchange="NOD.toggleLayer('tmi-status', this.checked)">
                     <span class="nod-layer-color" style="background: #dc3545;"></span>
@@ -1628,6 +1775,10 @@ include("load/config.php");
                 <i class="fas fa-broadcast-tower"></i>
                 JATOC
             </div>
+            <div class="nod-panel-tab" data-tab="flows" onclick="NOD.switchTab('flows')">
+                <i class="fas fa-project-diagram"></i>
+                Flows
+            </div>
         </div>
         
         <!-- Panel Content -->
@@ -1763,10 +1914,134 @@ include("load/config.php");
                     </div>
                 </div>
             </div>
-            
+
+            <!-- Flows Tab -->
+            <div class="nod-tab-pane" id="tab-flows">
+                <!-- Facility / Config Selectors -->
+                <div class="nod-flow-selector">
+                    <div class="form-group mb-2">
+                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">FACILITY</label>
+                        <select id="flow-facility" class="form-control form-control-sm bg-dark text-light border-secondary"
+                                onchange="NOD.onFacilityChange(this.value)">
+                            <option value="">Select facility...</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">CONFIGURATION</label>
+                        <div class="d-flex align-items-center">
+                            <select id="flow-config" class="form-control form-control-sm bg-dark text-light border-secondary flex-grow-1 mr-1"
+                                    onchange="NOD.onConfigChange(this.value)" disabled>
+                                <option value="">Select config...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="nod-flow-actions mb-2">
+                        <button class="btn btn-sm btn-outline-info" onclick="NOD.createFlowConfig()" id="flow-btn-new" disabled>
+                            <i class="fas fa-plus"></i> New
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="NOD.saveFlowConfig()" id="flow-btn-save" disabled>
+                            <i class="fas fa-save"></i> Save
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="NOD.deleteFlowConfig()" id="flow-btn-delete" disabled>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Arrival Fixes Section -->
+                <div class="nod-section" id="section-flow-arr-fixes">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('flow-arr-fixes')">
+                        <span class="nod-section-title"><i class="fas fa-plane-arrival mr-2"></i>Arrival Fixes</span>
+                        <span class="nod-section-badge" id="flow-arr-fixes-count">0</span>
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'ARRIVAL')" title="Add fix">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="flow-arr-fixes-list">
+                            <div class="nod-empty"><p>No arrival fixes configured</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Departure Fixes Section -->
+                <div class="nod-section" id="section-flow-dep-fixes">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('flow-dep-fixes')">
+                        <span class="nod-section-title"><i class="fas fa-plane-departure mr-2"></i>Departure Fixes</span>
+                        <span class="nod-section-badge" id="flow-dep-fixes-count">0</span>
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'DEPARTURE')" title="Add fix">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="flow-dep-fixes-list">
+                            <div class="nod-empty"><p>No departure fixes configured</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gates Section -->
+                <div class="nod-section" id="section-flow-gates">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('flow-gates')">
+                        <span class="nod-section-title"><i class="fas fa-door-open mr-2"></i>Gates</span>
+                        <span class="nod-section-badge" id="flow-gates-count">0</span>
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddGate()" title="Add gate">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="flow-gates-list">
+                            <div class="nod-empty"><p>No gates configured</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Procedures Section -->
+                <div class="nod-section" id="section-flow-procedures">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('flow-procedures')">
+                        <span class="nod-section-title"><i class="fas fa-route mr-2"></i>Procedures</span>
+                        <span class="nod-section-badge" id="flow-procedures-count">0</span>
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('PROCEDURE', 'ARRIVAL')" title="Add procedure">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="flow-procedures-list">
+                            <div class="nod-empty"><p>No procedures configured</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Routes Section -->
+                <div class="nod-section" id="section-flow-routes">
+                    <div class="nod-section-header" onclick="NOD.toggleSection('flow-routes')">
+                        <span class="nod-section-title"><i class="fas fa-map-signs mr-2"></i>Routes</span>
+                        <span class="nod-section-badge" id="flow-routes-count">0</span>
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('ROUTE', 'ARRIVAL')" title="Add route">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="nod-section-body">
+                        <div class="nod-section-body-inner" id="flow-routes-list">
+                            <div class="nod-empty"><p>No routes configured</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk FEA Actions -->
+                <div class="nod-flow-bulk px-2 py-2">
+                    <button class="btn btn-sm btn-outline-info btn-block mb-1" onclick="NOD.bulkCreateFEA()" id="flow-btn-monitor-all" disabled>
+                        <i class="fas fa-chart-bar mr-1"></i> Monitor All as FEA
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary btn-block" onclick="NOD.bulkClearFEA()" id="flow-btn-clear-fea" disabled>
+                        <i class="fas fa-times mr-1"></i> Clear FEAs
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
-    
+
     <!-- Panel Toggle Button -->
     <button class="nod-panel-toggle" id="panelToggle" onclick="NOD.togglePanel()">
         <i class="fas fa-chevron-right" id="panelToggleIcon"></i>
