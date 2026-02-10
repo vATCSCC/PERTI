@@ -2061,6 +2061,15 @@ class TMIComplianceAnalyzer:
                 m = re.match(r'^([A-Za-z]{2,4})', callsign.upper() if callsign else '')
                 carrier = m.group(1).upper() if m else (callsign or 'UNK')
 
+            # first_seen → gate wait calculation
+            first_seen_dt = normalize_datetime(first_seen) if first_seen else None
+            gate_wait_min = None
+            if first_seen_dt and out_utc:
+                out_dt_raw = normalize_datetime(out_utc)
+                wait_sec = (out_dt_raw - first_seen_dt).total_seconds()
+                if wait_sec > 0:
+                    gate_wait_min = round(wait_sec / 60, 1)
+
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
@@ -2069,6 +2078,8 @@ class TMIComplianceAnalyzer:
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
                 'out_time': normalize_datetime(out_utc).strftime('%H:%M:%SZ') if out_utc else None,
                 'off_time': normalize_datetime(off_utc).strftime('%H:%M:%SZ') if off_utc else None,
+                'first_seen_time': first_seen_dt.strftime('%H:%M:%SZ') if first_seen_dt else None,
+                'gate_wait_min': gate_wait_min,
                 'time_source': time_source
             }
 

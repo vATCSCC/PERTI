@@ -1890,8 +1890,10 @@
     },
     "flightDetail": {
       "title": "Flight Timeline",
+      "firstSeen": "First Seen",
       "gatePush": "Gate Push",
       "wheelsOff": "Wheels-Off",
+      "gateWait": "Gate Wait",
       "actualTaxi": "Actual Taxi",
       "unimpededTaxi": "Unimpeded Taxi",
       "gsDelay": "GS Delay",
