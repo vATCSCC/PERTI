@@ -40,6 +40,9 @@ const TMICompliance = {
     // View mode for exempt flights: 'scale' (to-scale with dashed) or 'collapsed' (discontinuity)
     exemptViewMode: 'scale',
 
+    // Spacing diagram scale mode: 'equal' (equal-width segments) or 'proportional' (to-scale)
+    spacingDiagramScale: 'equal',
+
     // Filters for TMI results
     filters: {
         requestor: '',      // Filter by requestor facility
@@ -7522,7 +7525,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
-     * Simplified spacing diagram (v2)
+     * Toggle spacing diagram scale mode and re-render
+     */
+    toggleSpacingDiagramScale: function() {
+        this.spacingDiagramScale = this.spacingDiagramScale === 'equal' ? 'proportional' : 'equal';
+        // Re-render the spacing diagram section content
+        const tmi = this.findTmiById(this.selectedTmiId);
+        if (tmi) {
+            const data = tmi.data;
+            const section = $(`.tmi-section[data-section-id="spacing-diagram"]`);
+            section.find('.tmi-section-content').html(
+                this.renderSpacingDiagramV2(data.all_pairs || [], data.required || 0, data.unit)
+            );
+        }
+    },
+
+    /**
+     * Simplified spacing diagram (v2) with optional proportional scale
      */
     renderSpacingDiagramV2: function(allPairs, required, unit) {
         if (!allPairs || allPairs.length === 0) {
@@ -7530,6 +7549,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         const unitLabel = unit === 'min' ? 'min' : 'nm';
+        const isProportional = this.spacingDiagramScale === 'proportional';
+
+        // Toggle button
+        const t = typeof PERTII18n !== 'undefined' ? (k, p) => PERTII18n.t(k, p) : null;
+        const descText = isProportional
+            ? (t ? t('spacingDiagram.proportionalDesc') : 'Proportional spacing (segment widths reflect actual values)')
+            : (t ? t('spacingDiagram.equalDesc') : 'Equal-width segments');
+        const btnText = isProportional
+            ? (t ? t('spacingDiagram.switchToEqual') : 'Switch to Equal Width')
+            : (t ? t('spacingDiagram.switchToProportional') : 'Switch to To-Scale');
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.8em; color:var(--light-text-muted, #6b7280);">
+                ${descText}
+            </span>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75em; padding:2px 10px;"
+                onclick="TMICompliance.toggleSpacingDiagramScale()">
+                ${btnText}
+            </button>
+        </div>`;
 
         // Build flight sequence
         const flights = [];
@@ -7548,7 +7586,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
-        let html = '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
+        // For proportional mode, compute scale factor
+        let pixelsPerUnit = 0;
+        if (isProportional && allPairs.length > 0) {
+            const maxSpacing = Math.max(...allPairs.map(p => p.spacing || 0));
+            // Target: largest segment ~200px, minimum segment 30px
+            if (maxSpacing > 0) {
+                pixelsPerUnit = 200 / maxSpacing;
+                // Ensure minimum visibility for small values
+                const positiveSpacings = allPairs.filter(p => p.spacing > 0).map(p => p.spacing);
+                const minSpacing = positiveSpacings.length > 0 ? Math.min(...positiveSpacings) : maxSpacing;
+                if (minSpacing > 0 && minSpacing * pixelsPerUnit < 30) {
+                    pixelsPerUnit = 30 / minSpacing;
+                }
+            }
+        }
+
+        html += '<div class="tmi-spacing-diagram"><div class="tmi-spacing-timeline">';
 
         let lastTime = null;
         let lastTimeMs = null;
@@ -7575,9 +7629,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 } else if (flight.spacing !== undefined) {
                     // Render segment line between consecutive flights
                     const isNonCompliant = flight.category === 'UNDER';
+                    const segStyle = isProportional && pixelsPerUnit > 0
+                        ? `width:${Math.max(30, Math.round(flight.spacing * pixelsPerUnit))}px; min-width:30px;`
+                        : '';
+                    const lineStyle = isProportional && pixelsPerUnit > 0
+                        ? `min-width:${Math.max(20, Math.round(flight.spacing * pixelsPerUnit) - 10)}px;`
+                        : '';
                     html += `
-                        <div class="tmi-spacing-segment">
-                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}"></div>
+                        <div class="tmi-spacing-segment" style="${segStyle}">
+                            <div class="tmi-spacing-line ${isNonCompliant ? 'non-compliant' : ''}" style="${lineStyle}"></div>
                             <div class="tmi-spacing-value">${flight.spacing?.toFixed(1) || '?'}${unitLabel}</div>
                         </div>
                     `;
@@ -7600,13 +7660,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         html += '</div>';
 
-        // Scale bar
-        html += `
-            <div class="tmi-spacing-scale">
-                <div class="tmi-spacing-scale-bar"></div>
-                <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
-            </div>
-        `;
+        // Scale bar - in proportional mode, show reference bar at required value width
+        if (isProportional && pixelsPerUnit > 0) {
+            const scaleBarWidth = Math.round(required * pixelsPerUnit);
+            html += `
+                <div class="tmi-spacing-scale" style="margin-top:16px;">
+                    <div style="width:${scaleBarWidth}px; height:4px; background:var(--tmi-scale-bar, #adb5bd); border-radius:2px; position:relative;">
+                        <div style="position:absolute; left:0; top:-2px; bottom:-2px; width:2px; background:var(--light-text-secondary, #4a4a6a); border-radius:1px;"></div>
+                        <div style="position:absolute; right:0; top:-2px; bottom:-2px; width:2px; background:var(--light-text-secondary, #4a4a6a); border-radius:1px;"></div>
+                    </div>
+                    <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="tmi-spacing-scale">
+                    <div class="tmi-spacing-scale-bar"></div>
+                    <span class="tmi-spacing-scale-label">${required}${unitLabel} required</span>
+                </div>
+            `;
+        }
 
         html += '</div>';
         return html;
