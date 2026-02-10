@@ -1821,5 +1821,91 @@
       "publishedMsg": "{airport} configuration published to NTML",
       "publishFailed": "Publish Failed"
     }
+  },
+  "gsAnalysis": {
+    "duration": {
+      "hours": "{h}h {m}m",
+      "minutes": "{m}m {s}s",
+      "minutesOnly": "{m}m",
+      "seconds": "{s}s",
+      "na": "-"
+    },
+    "stats": {
+      "totalFlights": "Total Flights",
+      "exempt": "Exempt",
+      "compliant": "Compliant",
+      "violations": "Violations",
+      "notInScope": "Not In Scope",
+      "avgHold": "Avg Hold",
+      "avgGsDelay": "Avg GS Delay",
+      "stopWindow": "Stop Window",
+      "flightsTracked": "Flights Tracked",
+      "nonCompliant": "Non-compliant"
+    },
+    "tooltips": {
+      "holdTime": "Min: {min} | Median: {median} | Max: {max}",
+      "gsDelay": "Median: {median} | Max: {max} | Total: {total} | Based on {count} flights with OOOI data"
+    },
+    "timeSources": {
+      "label": "Time sources:",
+      "wheelsOff": "{count} wheels-off",
+      "gateTaxi": "{count} gate+taxi",
+      "firstSeen": "{count} first-seen"
+    },
+    "perOrigin": {
+      "title": "Per-Origin Breakdown",
+      "origin": "Origin",
+      "total": "Total",
+      "compliant": "Compliant",
+      "nonComp": "Non-Comp",
+      "exempt": "Exempt",
+      "rate": "Rate",
+      "avgHold": "Avg Hold",
+      "avgGsDelay": "Avg Delay"
+    },
+    "perCarrier": {
+      "title": "Per-Carrier Breakdown",
+      "carrier": "Carrier",
+      "airline": "Airline"
+    },
+    "flightCatalog": {
+      "title": "Flight Catalog",
+      "status": "Status",
+      "callsign": "Callsign",
+      "carrier": "Carrier",
+      "origin": "Origin",
+      "gatePush": "Gate Push",
+      "wheelsOff": "Wheels-Off",
+      "taxi": "Taxi",
+      "hold": "Hold",
+      "gsDelay": "GS Delay",
+      "phase": "Phase",
+      "source": "Source",
+      "deptTime": "Dept Time",
+      "reason": "Reason",
+      "intoGs": "Into GS",
+      "statusExempt": "EXEMPT",
+      "statusCompliant": "COMPLIANT",
+      "statusViolation": "VIOLATION"
+    },
+    "flightDetail": {
+      "title": "Flight Timeline",
+      "gatePush": "Gate Push",
+      "wheelsOff": "Wheels-Off",
+      "actualTaxi": "Actual Taxi",
+      "unimpededTaxi": "Unimpeded Taxi",
+      "gsDelay": "GS Delay",
+      "holdTime": "Hold Time",
+      "gsWindow": "GS Window",
+      "reason": "Reason",
+      "phase": "Phase",
+      "noOooi": "No OOOI data available"
+    },
+    "sections": {
+      "violations": "Violations",
+      "exemptFlights": "Exempt Flights",
+      "compliantFlights": "Compliant Flights",
+      "advisoryHistory": "Advisory History"
+    }
   }
 }

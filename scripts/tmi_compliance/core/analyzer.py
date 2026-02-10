@@ -6,6 +6,7 @@ Core analysis logic for MIT, MINIT, and Ground Stop compliance.
 """
 
 import math
+import re
 import logging
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -330,14 +331,17 @@ class TMIComplianceAnalyzer:
 
         # Get ALL flights departing from OR arriving at featured facilities
         # LEFT JOIN adl_flight_times for OOOI departure times (atd_utc, off_utc)
+        # LEFT JOIN adl_flight_aircraft for carrier/airline data
         # Also pull dept_artcc/dept_tracon from flight_plan for facility filtering
         query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
                    c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix,
-                   t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon
+                   t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon,
+                   a.airline_icao, a.airline_name
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
+            LEFT JOIN dbo.adl_flight_aircraft a ON c.flight_uid = a.flight_uid
             WHERE c.first_seen_utc <= %s
               AND c.last_seen_utc >= %s
               AND (p.fp_dept_icao IN ({facility_in}) OR p.fp_dest_icao IN ({facility_in}))
@@ -363,6 +367,8 @@ class TMIComplianceAnalyzer:
                 'out_utc': normalize_datetime(row[11]) if row[11] else None,
                 'dept_artcc': row[12] if row[12] else None,
                 'dept_tracon': row[13] if row[13] else None,
+                'airline_icao': row[14] if len(row) > 14 and row[14] else None,
+                'airline_name': row[15] if len(row) > 15 and row[15] else None,
             }
 
         cursor.close()
@@ -2014,7 +2020,8 @@ class TMIComplianceAnalyzer:
         compliant = []
         non_compliant = []
         not_in_scope = []
-        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': []})
+        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': [], 'gs_delays': []})
+        per_carrier = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': [], 'gs_delays': [], 'airline_name': ''})
         hold_times = []
         gs_delays = []
         time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
@@ -2044,10 +2051,24 @@ class TMIComplianceAnalyzer:
 
             time_source_counts[time_source] += 1
 
+            # Extract carrier from airline_icao or callsign prefix
+            airline_icao = flight.get('airline_icao')
+            airline_name = flight.get('airline_name', '')
+            if airline_icao:
+                carrier = airline_icao
+            else:
+                # Fallback: extract letter prefix from callsign (e.g., "AAL" from "AAL123")
+                m = re.match(r'^([A-Z]{2,4})', callsign)
+                carrier = m.group(1) if m else callsign
+
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
+                'carrier': carrier,
+                'airline_name': airline_name or '',
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                'out_time': normalize_datetime(out_utc).strftime('%H:%M:%SZ') if out_utc else None,
+                'off_time': normalize_datetime(off_utc).strftime('%H:%M:%SZ') if off_utc else None,
                 'time_source': time_source
             }
 
@@ -2103,23 +2124,27 @@ class TMIComplianceAnalyzer:
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
                 per_origin[dept]['exempt'] += 1
+                per_carrier[carrier]['exempt'] += 1
             elif gs_end and dep_time > gs_end:
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
                 per_origin[dept]['compliant'] += 1
+                per_carrier[carrier]['compliant'] += 1
                 # Calculate hold time (how long they waited)
                 if gs_start:
                     hold_min = (dep_time - gs_start).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
                         per_origin[dept]['hold_times'].append(hold_min)
+                        per_carrier[carrier]['hold_times'].append(hold_min)
                         flight_info['hold_time_min'] = round(hold_min, 1)
             elif gs_start and dep_time < gs_start:
                 flight_info['status'] = 'EXEMPT'
                 flight_info['reason'] = 'Departed before GS started'
                 exempt.append(flight_info)
                 per_origin[dept]['exempt'] += 1
+                per_carrier[carrier]['exempt'] += 1
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
@@ -2129,8 +2154,17 @@ class TMIComplianceAnalyzer:
                     flight_info['pct_into_gs'] = round(100 * into_gs / gs_duration, 1) if gs_duration > 0 else 0
                 non_compliant.append(flight_info)
                 per_origin[dept]['non_compliant'] += 1
+                per_carrier[carrier]['non_compliant'] += 1
 
             per_origin[dept]['total'] += 1
+            per_carrier[carrier]['total'] += 1
+            if not per_carrier[carrier]['airline_name'] and airline_name:
+                per_carrier[carrier]['airline_name'] = airline_name
+
+            # Track GS delay per origin and carrier
+            if flight_info.get('gs_delay_min') is not None and flight_info['gs_delay_min'] > 0:
+                per_origin[dept]['gs_delays'].append(flight_info['gs_delay_min'])
+                per_carrier[carrier]['gs_delays'].append(flight_info['gs_delay_min'])
 
         total_applicable = len(compliant) + len(non_compliant)
         compliance_pct = round(100 * len(compliant) / total_applicable, 1) if total_applicable > 0 else 100
@@ -2141,6 +2175,7 @@ class TMIComplianceAnalyzer:
         for origin, counts in sorted(per_origin.items()):
             origin_applicable = counts['compliant'] + counts['non_compliant']
             origin_hold = counts['hold_times']
+            origin_delays = counts['gs_delays']
             per_origin_list.append({
                 'origin': origin,
                 'total': counts['total'],
@@ -2149,6 +2184,25 @@ class TMIComplianceAnalyzer:
                 'exempt': counts['exempt'],
                 'compliance_pct': round(100 * counts['compliant'] / origin_applicable, 1) if origin_applicable > 0 else 100,
                 'avg_hold_time_min': round(sum(origin_hold) / len(origin_hold), 1) if origin_hold else 0,
+                'avg_gs_delay_min': round(sum(origin_delays) / len(origin_delays), 1) if origin_delays else 0,
+            })
+
+        # Format per_carrier for output
+        per_carrier_list = []
+        for carrier_code, counts in sorted(per_carrier.items()):
+            carrier_applicable = counts['compliant'] + counts['non_compliant']
+            carrier_hold = counts['hold_times']
+            carrier_delays = counts['gs_delays']
+            per_carrier_list.append({
+                'carrier': carrier_code,
+                'airline_name': counts['airline_name'],
+                'total': counts['total'],
+                'compliant': counts['compliant'],
+                'non_compliant': counts['non_compliant'],
+                'exempt': counts['exempt'],
+                'compliance_pct': round(100 * counts['compliant'] / carrier_applicable, 1) if carrier_applicable > 0 else 100,
+                'avg_hold_time_min': round(sum(carrier_hold) / len(carrier_hold), 1) if carrier_hold else 0,
+                'avg_gs_delay_min': round(sum(carrier_delays) / len(carrier_delays), 1) if carrier_delays else 0,
             })
 
         return {
@@ -2172,6 +2226,7 @@ class TMIComplianceAnalyzer:
             # Enhanced program data
             'program_timeline': program_timeline,
             'per_origin_breakdown': per_origin_list,
+            'per_carrier_breakdown': per_carrier_list,
             'avg_hold_time_min': avg_hold_time,
             'hold_time_stats': {
                 'min': round(min(hold_times), 1) if hold_times else 0,
