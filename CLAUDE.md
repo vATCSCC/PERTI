@@ -35,6 +35,27 @@
 | **ASPM82** | FAA Aviation System Performance Metrics 82-airport set |
 | **OPSNET45** | FAA Operations Network 45-airport performance metric set |
 
+## Quick Start / Commands
+
+```bash
+# Install PHP dependencies
+composer install
+
+# Local development (PHP built-in server)
+php -S localhost:8000
+
+# Run database migrations
+php scripts/run_migration.php <migration_file.sql>
+
+# Run cron jobs manually
+php cron/run_indexer.php
+php cron/process_tmi_proposals.php
+```
+
+**Required PHP extensions**: `pdo`, `mysqli`, `sqlsrv`, `pdo_pgsql`, `openssl`, `curl`, `mbstring`, `json`
+
+**No automated test suite** — testing is manual via the live site and API endpoints.
+
 ## Database & Infrastructure Access
 
 **IMPORTANT**: You have full access to all project databases and Azure resources.
@@ -444,19 +465,27 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 ```
 /                          Root (PHP pages served directly)
 /api/                      PHP REST API endpoints
+/api-docs/                 OpenAPI spec (openapi.yaml) and docs index
 /adl/                      ADL subsystem (daemons, migrations, analysis)
+/apache/                   Apache websocket config
 /assets/                   Frontend assets (JS, CSS, images)
+/cron/                     Cron PHP scripts (TMI proposals, indexer)
+/data/                     Data files (indexes, tmi_compliance output)
 /database/                 Database migrations and schema tools
 /discord-bot/              Node.js Discord Gateway bot
 /docs/                     API documentation (swim/, stats/)
+/files/                    File storage (logs, user uploads)
 /integrations/             External system integrations
 /lib/                      Core PHP utility classes
 /load/                     Configuration, includes, shared PHP
 /login/                    VATSIM OAuth login flow
 /scripts/                  Daemons, utilities, maintenance scripts
-/services/                 Service layer classes
+/sdk/                      Multi-language client SDKs (C++, C#, Java, JS, PHP, Python)
+/services/                 Wind data fetching (NOAA GFS via Python)
 /sessions/                 Session handler
 /simulator/                ATC simulator module
+/sql/                      SQL migration scripts
+/wiki/                     GitHub wiki (45+ pages: architecture, algorithms, APIs, troubleshooting)
 ```
 
 ### Top-Level PHP Pages
@@ -468,7 +497,6 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 | `schedule.php` | Event schedule viewer |
 | `demand.php` | ADL demand charts (fix/segment demand visualization) |
 | `splits.php` | Sector split configuration tool |
-| `reroutes.php` | Reroute management interface (legacy, use route.php + tmi-publish.php) |
 | `route.php` | Route visualization with MapLibre |
 | `review.php` | Post-event review/scoring |
 | `sheet.php` | Planning sheet view |
@@ -477,13 +505,16 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 | `status.php` | System status page |
 | `swim.php` | SWIM API info page |
 | `swim-doc.php` | SWIM API documentation viewer |
+| `swim-docs.php` | VATSWIM API technical documentation hub |
+| `swim-keys.php` | SWIM API key self-service management portal |
 | `jatoc.php` | Joint Air Traffic Operations Center (incident management) |
 | `tmi-publish.php` | TMI publishing to Discord (NTML/advisories) |
-| `advisory-builder.php` | Advisory message builder |
 | `airspace-elements.php` | Airspace element viewer |
 | `sua.php` | Special Use Airspace display |
 | `event-aar.php` | Event-specific AAR configuration |
 | `airport_config.php` | Airport configuration editor |
+| `fmds-comparison.php` | FMDS vs PERTI comparison document viewer |
+| `logout.php` | Session destroy and cookie cleanup |
 | `data.php` | Data API router |
 | `simulator.php` | ATC simulator interface |
 | `transparency.php` | Transparency/about page |
@@ -540,12 +571,25 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 - `crossings/forecast.php` - Boundary crossing forecasts
 
 **TMI (Traffic Management)** - `/api/tmi/`:
-- `gdp_preview.php` - Preview GDP impact before applying
-- `gdp_apply.php` - Apply GDP (create slots, assign EDCTs)
-- `gdp_simulate.php` - Simulate GDP
-- `gdp_purge.php`, `gdp_purge_local.php` - Purge GDP data
-- `gs_preview.php` - Preview Ground Stop
-- `gs_simulate.php` - Simulate Ground Stop
+- `index.php` - TMI overview/status
+- `active.php` - Active TMI programs
+- `programs.php` - Program CRUD
+- `advisories.php` - Advisory management
+- `AdvisoryNumber.php` - Advisory number generation
+- `entries.php` - TMI log entries (MIT, AFP, restrictions)
+- `helpers.php` - Shared TMI utilities
+- `public-routes.php` - Public route management
+- `reroutes.php` - Reroute management
+- `simtraffic_flight.php` - SimTraffic integration
+- GDP: `gdp_preview.php`, `gdp_apply.php`, `gdp_simulate.php`, `gdp_purge.php`, `gdp_purge_local.php`
+- GS preview: `gs_preview.php`, `gs_simulate.php`, `gs_apply.php`, `gs_apply_ctd.php`, `gs_purge_all.php`, `gs_purge_local.php`
+- `gs/` subdirectory (full Ground Stop lifecycle): `create.php`, `activate.php`, `extend.php`, `purge.php`, `get.php`, `list.php`, `flights.php`, `demand.php`, `model.php`, `common.php`
+
+**Management API** - `/api/mgt/`:
+- `perti/` - PERTI plan CRUD (configs, staffing, constraints, initiatives, schedule, goals, forecast, historical, group flights)
+- `tmi/` - TMI management: `active.php`, `cancel.php`, `coordinate.php`, `edit.php`, `promote.php`, `publish.php`, `queue.php`, `staged.php`, `advisory-number.php`, `airport_configs.php`, `configs.php`, `reroute-drafts.php`
+- `tmi/reroutes/` - Reroute management including `bulk.php`
+- `tmi/ground_stops/` - Ground stop management
 
 **Splits** - `/api/splits/`:
 - `index.php` - List split configs
@@ -563,10 +607,14 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 - `status.php` - Stats system status
 - `StatsHelper.php` - Shared stats utilities
 
-**SWIM API** - `/api/swim/v1/ws/`:
-- `WebSocketServer.php` - WebSocket server for real-time events
-- `ClientConnection.php` - WS client management
-- `SubscriptionManager.php` - Topic subscription management
+**SWIM API** - `/api/swim/v1/`:
+- REST: `auth.php`, `flight.php`, `flights.php`, `health.php`, `metering.php`, `positions.php`
+- `ingest/` - Data ingestion: `acars.php`, `adl.php`, `metering.php`, `simtraffic.php`, `track.php`, `vnas/`
+- `keys/` - API key management: `provision.php`, `revoke.php`
+- `reference/` - Reference data: `taxi-times.php`
+- `tmi/` - TMI data: `advisories.php`, `controlled.php`, `entries.php`, `measures.php`, `programs.php`, `reroutes.php`, `routes.php`
+- `tmi/flow/` - External flow control: `events.php`, `measures.php`, `providers.php`
+- `ws/` - WebSocket: `WebSocketServer.php`, `ClientConnection.php`, `SubscriptionManager.php`
 
 **Other**:
 - `api/jatoc/` - JATOC auth, config, datetime, validators, vatusa_events, faa_ops_plan
@@ -799,6 +847,83 @@ Several daemons use tiered intervals based on flight priority:
 - Frontend uses jQuery AJAX for API calls, SweetAlert2 for notifications
 - All times are UTC/Zulu
 - Feature flags defined in `config.php` (e.g., `DISCORD_MULTI_ORG_ENABLED`, `TMI_STAGING_REQUIRED`)
+- **Internationalization (i18n)**: Use `assets/js/lib/i18n.js` for all user-facing strings in JavaScript. PHP-side strings should use the i18n patterns documented below.
+
+## Gotchas
+
+- **`?>` in `//` comments terminates PHP mode.** `// some text ?> rest` causes `rest` to be emitted as HTML. Never use `?>` inside comments.
+- **`connect.php` has a closing `?>` tag** (end of file) that outputs a trailing newline. You must start sessions BEFORE including `connect.php`, or the newline sends headers and prevents `session_start()`.
+- **GDT API auth pattern**: `common.php` includes `sessions/handler.php` at module level (before config/connect) so session is available for `gdt_require_auth()`. Follow this pattern for similar auth-gated endpoints.
+- **Azure SQL uses `sqlsrv`**, not PDO — don't mix up `sqlsrv_query()` / `sqlsrv_fetch_array()` with PDO methods.
+- **Legacy vs normalized flight tables**: `adl_flights` (monolithic) still used by some pages. New code should use the 8-table normalized architecture (`adl_flight_core`, `adl_flight_plan`, etc.).
+
+## Internationalization (i18n)
+
+### Architecture
+
+**JavaScript**: Full i18n system with translation module, locale loader, and dialog wrapper.
+**PHP**: No i18n layer yet — all API error messages are hardcoded English.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `assets/js/lib/i18n.js` | Core translation module (`PERTII18n`) — `t()`, `tp()`, `formatNumber()`, `formatDate()` |
+| `assets/locales/index.js` | Locale loader — auto-detects locale, initializes translations on page load |
+| `assets/locales/en-US.json` | English translation dictionary (450+ keys) |
+| `assets/js/lib/dialog.js` | SweetAlert2 wrapper (`PERTIDialog`) with i18n key resolution |
+
+### How to Use (JavaScript)
+
+**All new user-facing strings MUST use `PERTII18n.t()`** — never hardcode English strings in JS.
+
+```javascript
+// Simple translation
+PERTII18n.t('common.save')                           // "Save"
+PERTII18n.t('error.loadFailed', { resource: 'flights' }) // "Failed to load flights"
+
+// Pluralization
+PERTII18n.tp('flight', count)  // "1 flight" or "5 flights"
+
+// Dialogs (automatically resolves i18n keys)
+PERTIDialog.success('dialog.success.saved');
+PERTIDialog.error('common.error', 'error.loadFailed', { resource: 'flights' });
+PERTIDialog.confirm('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
+PERTIDialog.confirmDanger('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
+PERTIDialog.loading('common.loading');
+PERTIDialog.toast('common.copied', 'success');
+```
+
+### Adding New Translation Keys
+
+Add keys to `assets/locales/en-US.json` using nested structure:
+
+```json
+{
+  "myFeature": {
+    "title": "Feature Title",
+    "error": {
+      "loadFailed": "Failed to load {resource}"
+    }
+  }
+}
+```
+
+Keys are auto-flattened to dot notation: `myFeature.title`, `myFeature.error.loadFailed`.
+
+### Current Coverage
+
+- **JS modules using i18n**: `tmi-publish.js` (50+ keys), `dialog.js`, `phase-colors.js`, `filter-colors.js`
+- **JS modules NOT yet using i18n**: `demand.js`, `route-maplibre.js`, `gdt.js`, `nod.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sheet.js`, `sua.js`, `weather_impact.js`
+- **PHP API**: No i18n — all error strings hardcoded English
+- **Supported locales**: `en-US` only (infrastructure supports expansion)
+
+### Locale Detection Priority
+
+1. URL parameter (`?locale=en-US`)
+2. localStorage (`PERTI_LOCALE`)
+3. Browser language (`navigator.language`)
+4. Fallback: `en-US`
 
 ## Git Worktrees
 

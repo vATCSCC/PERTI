@@ -591,7 +591,7 @@
                     } else if (type === 'fac') {
                         selectedNames.push(opt.dataset.tierLabel || val);
                     } else if (type === 'manual') {
-                        selectedNames.push('Manual');
+                        selectedNames.push(PERTII18n.t('gdt.scope.manual'));
                     }
                 }
             });
@@ -711,13 +711,13 @@
     function copyAdvisoryToClipboard() {
         const pre = document.getElementById('gs_advisory_preview');
         if (!pre) {
-            alert('Advisory preview not found.');
+            alert(PERTII18n.t('gdt.advisoryPreview.notFound'));
             return;
         }
 
         const text = pre.textContent || pre.innerText || '';
         if (!text.trim()) {
-            alert('Advisory preview is empty.');
+            alert(PERTII18n.t('gdt.advisoryPreview.empty'));
             return;
         }
 
@@ -726,7 +726,7 @@
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(discordText).then(function() {
-                showCopySuccess('Advisory copied to clipboard!');
+                showCopySuccess(PERTII18n.t('gdt.copy.advisoryCopied'));
             }).catch(function(err) {
                 console.error('Clipboard copy failed', err);
                 fallbackCopyAdvisory(discordText);
@@ -745,9 +745,9 @@
         textarea.select();
         try {
             document.execCommand('copy');
-            showCopySuccess('Advisory copied to clipboard!');
+            showCopySuccess(PERTII18n.t('gdt.copy.advisoryCopied'));
         } catch (err) {
-            alert('Failed to copy advisory. Please select and copy manually.');
+            alert(PERTII18n.t('gdt.copy.failed'));
         }
         document.body.removeChild(textarea);
     }
@@ -1309,8 +1309,8 @@
                 if (!exemptHeader) {
                     const th = document.createElement('th');
                     th.className = 'gs-exempt-header';
-                    th.textContent = 'EXEMPT';
-                    th.title = 'Exemption reason: DEP=Departed, ENR=Enroute, DESC=Descending, ARR=Arrived, DISC=Disconnected';
+                    th.textContent = PERTII18n.t('gdt.table.exempt');
+                    th.title = PERTII18n.t('gdt.table.exemptTooltip');
                     headerRow.appendChild(th);
                 }
             } else {
@@ -1328,15 +1328,15 @@
         const countLabel = document.getElementById('gs_flight_count_label');
         if (countLabel) {
             if (GS_SHOW_ALL_FLIGHTS) {
-                countLabel.innerHTML = '<span class="text-success">' + eligibleCount + ' eligible</span> + <span class="text-muted">' + exemptCount + ' exempt</span>';
+                countLabel.innerHTML = '<span class="text-success">' + PERTII18n.t('gdt.table.eligibleCount', { count: eligibleCount }) + '</span> + <span class="text-muted">' + PERTII18n.t('gdt.table.exemptCount', { count: exemptCount }) + '</span>';
             } else {
-                countLabel.textContent = eligibleCount + ' eligible flights';
+                countLabel.textContent = PERTII18n.t('gdt.table.eligibleFlights', { count: eligibleCount });
             }
         }
 
         if (!rows.length) {
             const colSpan = GS_SHOW_ALL_FLIGHTS ? 9 : 8;
-            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-muted text-center py-3">No flights matching current filters.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-muted text-center py-3">' + PERTII18n.t('gdt.table.noFlightsMatching') + '</td></tr>';
         } else {
             GS_FLIGHT_ROW_INDEX = {};
             let html = '';
@@ -1413,14 +1413,14 @@
                     if (r.gsFlag !== 1) {
                         rowClass = ' class="table-secondary text-muted"';
                         const reasonTitle = {
-                            'DEP': 'Already departed',
-                            'ENR': 'Enroute/airborne',
-                            'DESC': 'Descending to destination',
-                            'ARR': 'Already arrived',
-                            'DISC': 'Pilot disconnected',
-                            'AIR': 'Airborne/ineligible',
+                            'DEP': PERTII18n.t('gdt.exempt.departed'),
+                            'ENR': PERTII18n.t('gdt.exempt.enroute'),
+                            'DESC': PERTII18n.t('gdt.exempt.descending'),
+                            'ARR': PERTII18n.t('gdt.exempt.arrived'),
+                            'DISC': PERTII18n.t('gdt.exempt.disconnected'),
+                            'AIR': PERTII18n.t('gdt.exempt.airborne'),
                         };
-                        exemptCell = '<td><span class="badge badge-secondary" title="' + (reasonTitle[r.exemptReason] || 'Exempt') + '">' + (r.exemptReason || 'EX') + '</span></td>';
+                        exemptCell = '<td><span class="badge badge-secondary" title="' + (reasonTitle[r.exemptReason] || PERTII18n.t('tmi.exempt')) + '">' + (r.exemptReason || 'EX') + '</span></td>';
                     } else {
                         exemptCell = '<td></td>'; // Empty cell for eligible flights
                     }
@@ -1456,7 +1456,7 @@
             if (!labelTime) {
                 labelTime = new Date();
             }
-            updatedLbl.textContent = 'Updated ' + labelTime.toUTCString();
+            updatedLbl.textContent = PERTII18n.t('gdt.status.updated', { time: labelTime.toUTCString() });
         }
     }
 
@@ -1490,7 +1490,7 @@
         updateAirportsLegendAndInput(arrivalsExpanded, airportColors);
 
         if (!arrivalsExpanded.length) {
-            tbody.innerHTML = '<tr><td colspan="8">Enter arrival airports and try again.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">' + PERTII18n.t('gdt.validation.enterArrivalAirports') + '</td></tr>';
             if (updatedLbl) {updatedLbl.textContent = '';}
             renderSummaryTable('gs_counts_origin_center', {});
             renderSummaryTable('gs_counts_dest_center', {});
@@ -1500,7 +1500,7 @@
             return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="8">Loading flights from VATSIM...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8">' + PERTII18n.t('gdt.status.loadingFlights') + '</td></tr>';
         if (updatedLbl) {updatedLbl.textContent = '';}
 
         const cfg = {
@@ -1521,9 +1521,9 @@
             renderFlightsFromAdl(cfg, airportColors, updatedLbl, tbody);
         }).catch(function(err) {
             console.error('Error loading VATSIM data', err);
-            tbody.innerHTML = '<tr><td colspan="8" class="text-danger">Error loading VATSIM data. ' +
+            tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + PERTII18n.t('gdt.status.errorLoadingFlights') + ' ' +
             (err && err.message ? err.message : '') + '</td></tr>';
-            if (updatedLbl) {updatedLbl.textContent = 'Error';}
+            if (updatedLbl) {updatedLbl.textContent = PERTII18n.t('common.error');}
             summarizeFlights([]);
         });
     }
@@ -1535,7 +1535,7 @@
         GS_CURRENT_PROGRAM_STATUS = null;
         GS_SIMULATION_READY = false;
         setGsTableMode('LIVE');
-        setSendActualEnabled(false, 'Create a new program');
+        setSendActualEnabled(false, PERTII18n.t('gdt.status.createNewProgram'));
 
         const ids = [
             'gs_name', 'gs_ctl_element', 'gs_airports', 'gs_origin_centers',
@@ -1607,7 +1607,7 @@
 
         // Special presets (if present)
         const optgroupPresets = document.createElement('optgroup');
-        optgroupPresets.label = 'Presets';
+        optgroupPresets.label = PERTII18n.t('gdt.scope.presets');
         ['ALL', 'ALL+Canada', 'Manual'].forEach(function(code) {
             const entry = TMI_TIER_INFO_BY_CODE[code];
             const opt = document.createElement('option');
@@ -1649,7 +1649,7 @@
         // Individual facilities
         if (TMI_UNIQUE_FACILITIES.length) {
             const groupInd = document.createElement('optgroup');
-            groupInd.label = 'Individual ARTCCs / FIRs';
+            groupInd.label = PERTII18n.t('gdt.scope.individualFacilities');
             TMI_UNIQUE_FACILITIES.forEach(function(f) {
                 const opt = document.createElement('option');
                 opt.value = f;
@@ -1729,7 +1729,7 @@
 
         const keys = Object.keys(counts || {});
         if (!keys.length) {
-            tbody.innerHTML = '<tr><td colspan="2" class="text-muted">None</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" class="text-muted">' + PERTII18n.t('common.none') + '</td></tr>';
             return;
         }
 
@@ -1757,7 +1757,7 @@
 
         const keys = Object.keys(stats || {});
         if (!keys.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-muted">None</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted">' + PERTII18n.t('common.none') + '</td></tr>';
             return;
         }
 
@@ -1901,11 +1901,11 @@
 
         renderSummaryTable('gs_counts_origin_center', originCenterCounts, {
             maxRows: 10,
-            labelFor: function(k) { return k === 'UNK' ? 'Unknown' : k; },
+            labelFor: function(k) { return k === 'UNK' ? PERTII18n.t('common.unknown') : k; },
         });
         renderSummaryTable('gs_counts_dest_center', destCenterCounts, {
             maxRows: 10,
-            labelFor: function(k) { return k === 'UNK' ? 'Unknown' : k; },
+            labelFor: function(k) { return k === 'UNK' ? PERTII18n.t('common.unknown') : k; },
         });
         renderSummaryTable('gs_counts_origin_ap', originApCounts, { maxRows: 10 });
         renderSummaryTable('gs_counts_dest_ap', destApCounts, { maxRows: 10 });
@@ -1945,11 +1945,11 @@
         let route = tr.getAttribute('data-route') || '';
         const cs = tr.getAttribute('data-callsign') || '';
         if (!route) {
-            route = '(No route in flight plan)';
+            route = PERTII18n.t('gdt.flight.noRoute');
         }
         if (window.Swal) {
             window.Swal.fire({
-                title: cs ? (cs + ' Route') : 'Flight Plan Route',
+                title: cs ? PERTII18n.t('gdt.flight.routeTitle', { callsign: cs }) : PERTII18n.t('gdt.flight.flightPlanRoute'),
                 html: "<pre style='text-align:left;white-space:pre-wrap;font-family:Inconsolata,monospace;font-size:0.8rem;'>" +
               escapeHtml(route) + '</pre>',
                 width: '60%',
@@ -1998,45 +1998,45 @@
 
         const html = ''
       + '<div class="tfms-flight-info-popup">'
-      +   '<div class="mb-2"><strong>ADL Date/Time:</strong> ' + escapeHtml(adlTime || '-')
-      +   '&nbsp;&nbsp;&nbsp;<strong>Status:</strong> ' + escapeHtml(status || '-') + '</div>'
+      +   '<div class="mb-2"><strong>' + PERTII18n.t('gdt.flight.adlDateTime') + ':</strong> ' + escapeHtml(adlTime || '-')
+      +   '&nbsp;&nbsp;&nbsp;<strong>' + PERTII18n.t('gdt.flight.status') + ':</strong> ' + escapeHtml(status || '-') + '</div>'
       +   '<table class="table table-sm table-borderless mb-2"><tbody>'
       +     '<tr>'
-      +       '<td><strong>Flight ID:</strong></td><td>' + escapeHtml(callsign || '-') + '</td>'
-      +       '<td><strong>Aircraft Type:</strong></td><td>' + escapeHtml(acft || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.flightId') + ':</strong></td><td>' + escapeHtml(callsign || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.aircraftType') + ':</strong></td><td>' + escapeHtml(acft || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>Orig:</strong></td><td>' + escapeHtml(dep || '-') + '</td>'
-      +       '<td><strong>Dest:</strong></td><td>' + escapeHtml(arr || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.orig') + ':</strong></td><td>' + escapeHtml(dep || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.dest') + ':</strong></td><td>' + escapeHtml(arr || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>ETD:</strong></td><td>' + escapeHtml(etdText || '-') + '</td>'
-      +       '<td><strong>ETA:</strong></td><td>' + escapeHtml(etaText || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.etd') + ':</strong></td><td>' + escapeHtml(etdText || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.eta') + ':</strong></td><td>' + escapeHtml(etaText || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>EDCT:</strong></td><td>' + escapeHtml(edctText || '-') + '</td>'
-      +       '<td><strong>ETE:</strong></td><td>' + escapeHtml(eteStr || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.edctLabel') + ':</strong></td><td>' + escapeHtml(edctText || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.ete') + ':</strong></td><td>' + escapeHtml(eteStr || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>Ctl Element:</strong></td><td>' + escapeHtml(ctlElement || '-') + '</td>'
-      +       '<td><strong>TMA-RT:</strong></td><td>' + escapeHtml(tmaRt || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.ctlElement') + ':</strong></td><td>' + escapeHtml(ctlElement || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.tmaRt') + ':</strong></td><td>' + escapeHtml(tmaRt || '-') + '</td>'
       +     '</tr>'
       +   '</tbody></table>'
-      +   '<div><small>Source: ' + escapeHtml(src || '') + '</small></div>'
+      +   '<div><small>' + PERTII18n.t('gdt.flight.source') + ': ' + escapeHtml(src || '') + '</small></div>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: callsign ? ('Flight Info: ' + callsign) : 'Flight Info',
+                title: callsign ? PERTII18n.t('gdt.flight.infoTitle', { callsign: callsign }) : PERTII18n.t('gdt.flight.infoTitleGeneric'),
                 html: html,
                 width: '60%',
                 showConfirmButton: true,
             });
         } else {
-            const txt = 'Flight: ' + (callsign || '') + '\n'
-              + 'Orig: ' + (dep || '') + '  Dest: ' + (arr || '') + '\n'
-              + 'ETD: ' + (etdText || '') + '  EDCT: ' + (edctText || '') + '  ETA: ' + (etaText || '') + '\n'
-              + 'ETE: ' + (eteStr || '');
+            const txt = PERTII18n.t('gdt.flight.flightLabel') + ': ' + (callsign || '') + '\n'
+              + PERTII18n.t('gdt.flight.orig') + ': ' + (dep || '') + '  ' + PERTII18n.t('gdt.flight.dest') + ': ' + (arr || '') + '\n'
+              + PERTII18n.t('gdt.flight.etd') + ': ' + (etdText || '') + '  ' + PERTII18n.t('gdt.flight.edctLabel') + ': ' + (edctText || '') + '  ' + PERTII18n.t('gdt.flight.eta') + ': ' + (etaText || '') + '\n'
+              + PERTII18n.t('gdt.flight.ete') + ': ' + (eteStr || '');
             alert(txt);
         }
     }
@@ -2092,47 +2092,47 @@
 
         const html = ''
       + '<div class="tfms-flight-detail-popup">'
-      +   '<div class="mb-2"><strong>Flight:</strong> ' + escapeHtml(callsign || '-')
-      +   '&nbsp;&nbsp;&nbsp;<strong>Type:</strong> ' + escapeHtml(acft || '-')
-      +   '&nbsp;&nbsp;&nbsp;<strong>Status:</strong> ' + escapeHtml(status || '-') + '</div>'
-      +   '<div class="mb-2"><strong>Orig:</strong> ' + escapeHtml(dep || '-')
-      +   '&nbsp;&nbsp;&nbsp;<strong>Dest:</strong> ' + escapeHtml(arr || '-') + '</div>'
-      +   '<div class="mb-2"><strong>ADL Date/Time:</strong> ' + escapeHtml(adlTime || '-') + '</div>'
+      +   '<div class="mb-2"><strong>' + PERTII18n.t('gdt.flight.flightLabel') + ':</strong> ' + escapeHtml(callsign || '-')
+      +   '&nbsp;&nbsp;&nbsp;<strong>' + PERTII18n.t('gdt.flight.type') + ':</strong> ' + escapeHtml(acft || '-')
+      +   '&nbsp;&nbsp;&nbsp;<strong>' + PERTII18n.t('gdt.flight.status') + ':</strong> ' + escapeHtml(status || '-') + '</div>'
+      +   '<div class="mb-2"><strong>' + PERTII18n.t('gdt.flight.orig') + ':</strong> ' + escapeHtml(dep || '-')
+      +   '&nbsp;&nbsp;&nbsp;<strong>' + PERTII18n.t('gdt.flight.dest') + ':</strong> ' + escapeHtml(arr || '-') + '</div>'
+      +   '<div class="mb-2"><strong>' + PERTII18n.t('gdt.flight.adlDateTime') + ':</strong> ' + escapeHtml(adlTime || '-') + '</div>'
       +   '<table class="table table-sm table-bordered mb-2"><tbody>'
-      +     '<tr><th colspan="2">Departure Timeline (UTC)</th></tr>'
-      +     '<tr><td>Filed Departure (P/F)</td><td>' + escapeHtml(filedText || '-') + '</td></tr>'
-      +     '<tr><td>ETD</td><td>' + escapeHtml(etdText || '-') + '</td></tr>'
-      +     '<tr><td>EDCT / CTD</td><td>' + escapeHtml(edctText || '-') + '</td></tr>'
-      +     '<tr><td>Actual Takeoff</td><td>' + escapeHtml(tkofText || '-') + '</td></tr>'
+      +     '<tr><th colspan="2">' + PERTII18n.t('gdt.flight.departureTimeline') + '</th></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.filedDeparture') + '</td><td>' + escapeHtml(filedText || '-') + '</td></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.etd') + '</td><td>' + escapeHtml(etdText || '-') + '</td></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.edctCtd') + '</td><td>' + escapeHtml(edctText || '-') + '</td></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.actualTakeoff') + '</td><td>' + escapeHtml(tkofText || '-') + '</td></tr>'
       +   '</tbody></table>'
       +   '<table class="table table-sm table-bordered mb-2"><tbody>'
-      +     '<tr><th colspan="2">Arrival Timeline (UTC)</th></tr>'
-      +     '<tr><td>ETA</td><td>' + escapeHtml(etaText || '-') + '</td></tr>'
-      +     '<tr><td>MFT</td><td>' + escapeHtml(mftText || '-') + '</td></tr>'
-      +     '<tr><td>Vertex Time</td><td>' + escapeHtml(vtText || '-') + '</td></tr>'
+      +     '<tr><th colspan="2">' + PERTII18n.t('gdt.flight.arrivalTimeline') + '</th></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.eta') + '</td><td>' + escapeHtml(etaText || '-') + '</td></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.mft') + '</td><td>' + escapeHtml(mftText || '-') + '</td></tr>'
+      +     '<tr><td>' + PERTII18n.t('gdt.flight.vertexTime') + '</td><td>' + escapeHtml(vtText || '-') + '</td></tr>'
       +   '</tbody></table>'
       +   '<table class="table table-sm table-borderless mb-2"><tbody>'
-      +     '<tr><td><strong>ETE (min):</strong></td><td>' + escapeHtml(eteStr || '-') + '</td>'
-      +         '<td><strong>Delay (min):</strong></td><td>' + escapeHtml(delayStr || '-') + '</td></tr>'
+      +     '<tr><td><strong>' + PERTII18n.t('gdt.flight.eteMin') + ':</strong></td><td>' + escapeHtml(eteStr || '-') + '</td>'
+      +         '<td><strong>' + PERTII18n.t('gdt.flight.delayMin') + ':</strong></td><td>' + escapeHtml(delayStr || '-') + '</td></tr>'
       +   '</tbody></table>'
-      +   '<div><strong>Route:</strong></div>'
+      +   '<div><strong>' + PERTII18n.t('gdt.flight.route') + ':</strong></div>'
       +   '<pre style="max-height:10rem;overflow:auto;white-space:pre-wrap;font-family:Inconsolata,monospace;font-size:0.8rem;">'
-      +     escapeHtml(route || '(No route in flight plan)')
+      +     escapeHtml(route || PERTII18n.t('gdt.flight.noRoute'))
       +   '</pre>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: callsign ? ('Flight Detail: ' + callsign) : 'Flight Detail',
+                title: callsign ? PERTII18n.t('gdt.flight.detailTitle', { callsign: callsign }) : PERTII18n.t('gdt.flight.detail'),
                 html: html,
                 width: '70%',
                 showConfirmButton: true,
             });
         } else {
-            const txt = 'Flight detail for ' + (callsign || '') + '\n'
-              + 'Orig: ' + (dep || '') + '  Dest: ' + (arr || '') + '\n'
-              + 'Filed: ' + (filedText || '') + '  ETD: ' + (etdText || '') + '  EDCT: ' + (edctText || '') + '\n'
-              + 'ETA: ' + (etaText || '') + '  ETE(min): ' + (eteStr || '') + '  Delay(min): ' + (delayStr || '');
+            const txt = PERTII18n.t('gdt.flight.detailFor', { callsign: callsign || '' }) + '\n'
+              + PERTII18n.t('gdt.flight.orig') + ': ' + (dep || '') + '  ' + PERTII18n.t('gdt.flight.dest') + ': ' + (arr || '') + '\n'
+              + PERTII18n.t('gdt.flight.filed') + ': ' + (filedText || '') + '  ' + PERTII18n.t('gdt.flight.etd') + ': ' + (etdText || '') + '  ' + PERTII18n.t('gdt.flight.edctLabel') + ': ' + (edctText || '') + '\n'
+              + PERTII18n.t('gdt.flight.eta') + ': ' + (etaText || '') + '  ' + PERTII18n.t('gdt.flight.eteMin') + ': ' + (eteStr || '') + '  ' + PERTII18n.t('gdt.flight.delayMin') + ': ' + (delayStr || '');
             alert(txt);
         }
     }
@@ -2152,15 +2152,15 @@
             menu.style.display = 'none';
             // TFMS/FSM compliant context menu options (Ch 6 & 13)
             menu.innerHTML = ''
-        + '<button type="button" class="dropdown-item" data-action="info"><i class="fas fa-info-circle mr-2"></i>Flight Info</button>'
-        + '<button type="button" class="dropdown-item" data-action="detail"><i class="fas fa-clipboard-list mr-2"></i>Flight Detail</button>'
+        + '<button type="button" class="dropdown-item" data-action="info"><i class="fas fa-info-circle mr-2"></i>' + PERTII18n.t('gdt.contextMenu.flightInfo') + '</button>'
+        + '<button type="button" class="dropdown-item" data-action="detail"><i class="fas fa-clipboard-list mr-2"></i>' + PERTII18n.t('gdt.contextMenu.flightDetail') + '</button>'
         + '<div class="dropdown-divider"></div>'
-        + '<button type="button" class="dropdown-item" data-action="edct_check"><i class="fas fa-search mr-2"></i>EDCT Check</button>'
-        + '<button type="button" class="dropdown-item" data-action="edct_update"><i class="fas fa-edit mr-2"></i>EDCT Update</button>'
+        + '<button type="button" class="dropdown-item" data-action="edct_check"><i class="fas fa-search mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctCheck') + '</button>'
+        + '<button type="button" class="dropdown-item" data-action="edct_update"><i class="fas fa-edit mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctUpdate') + '</button>'
         + '<div class="dropdown-divider"></div>'
-        + '<button type="button" class="dropdown-item" data-action="ecr"><i class="fas fa-clock mr-2"></i>ECR</button>'
+        + '<button type="button" class="dropdown-item" data-action="ecr"><i class="fas fa-clock mr-2"></i>' + PERTII18n.t('gdt.contextMenu.ecr') + '</button>'
         + '<div class="dropdown-divider"></div>'
-        + '<button type="button" class="dropdown-item" data-action="route"><i class="fas fa-route mr-2"></i>Flight Plan Route</button>';
+        + '<button type="button" class="dropdown-item" data-action="route"><i class="fas fa-route mr-2"></i>' + PERTII18n.t('gdt.contextMenu.flightPlanRoute') + '</button>';
             document.body.appendChild(menu);
         }
 
@@ -2255,32 +2255,32 @@
 
         const html = ''
       + '<div class="text-left">'
-      +   '<p class="mb-3">Query EDCT status for flight <strong>' + escapeHtml(callsign) + '</strong></p>'
+      +   '<p class="mb-3">' + PERTII18n.t('gdt.edct.queryStatus', { callsign: '<strong>' + escapeHtml(callsign) + '</strong>' }) + '</p>'
       +   '<table class="table table-sm table-bordered"><tbody>'
-      +     '<tr><th width="30%">ACID</th><td>' + escapeHtml(callsign) + '</td></tr>'
-      +     '<tr><th>Origin</th><td>' + escapeHtml(orig) + '</td></tr>'
-      +     '<tr><th>Destination</th><td>' + escapeHtml(dest) + '</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.acid') + '</th><td>' + escapeHtml(callsign) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.orig') + '</th><td>' + escapeHtml(orig) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.dest') + '</th><td>' + escapeHtml(dest) + '</td></tr>'
       +   '</tbody></table>'
       +   '<hr>'
-      +   '<h6>Current EDCT Status:</h6>'
+      +   '<h6>' + PERTII18n.t('gdt.edct.currentStatus') + ':</h6>'
       +   '<table class="table table-sm table-bordered"><tbody>'
-      +     '<tr><th width="30%">CTD (EDCT)</th><td class="font-weight-bold">' + escapeHtml(edctText) + '</td></tr>'
-      +     '<tr><th>ETA</th><td>' + escapeHtml(etaText) + '</td></tr>'
-      +     '<tr><th>Delay</th><td class="' + (delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '')) + '">' + delay + ' min</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.ctdEdct') + '</th><td class="font-weight-bold">' + escapeHtml(edctText) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.eta') + '</th><td>' + escapeHtml(etaText) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.edct.delay') + '</th><td class="' + (delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '')) + '">' + delay + ' ' + PERTII18n.t('units.min') + '</td></tr>'
       +   '</tbody></table>'
-      +   '<div class="alert alert-info mt-3 mb-0"><small><i class="fas fa-info-circle mr-1"></i>This displays the current EDCT from the ADL snapshot. In a live TFMS environment, this would query the Hub for real-time EDCT data.</small></div>'
+      +   '<div class="alert alert-info mt-3 mb-0"><small><i class="fas fa-info-circle mr-1"></i>' + PERTII18n.t('gdt.edct.checkNote') + '</small></div>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-search text-info mr-2"></i>EDCT Check',
+                title: '<i class="fas fa-search text-info mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctCheck'),
                 html: html,
                 width: '50%',
                 showConfirmButton: true,
-                confirmButtonText: 'Close',
+                confirmButtonText: PERTII18n.t('common.close'),
             });
         } else {
-            alert('EDCT Check for ' + callsign + '\nCTD: ' + edctText + '\nETA: ' + etaText);
+            alert(PERTII18n.t('gdt.edct.check', { callsign: callsign }) + '\n' + PERTII18n.t('gdt.edct.ctd') + ': ' + edctText + '\n' + PERTII18n.t('gdt.flight.eta') + ': ' + etaText);
         }
     }
 
@@ -2305,35 +2305,35 @@
 
         const html = ''
       + '<div class="text-left">'
-      +   '<p class="mb-3">Update EDCT for flight <strong>' + escapeHtml(callsign) + '</strong></p>'
+      +   '<p class="mb-3">' + PERTII18n.t('gdt.edct.updateFor', { callsign: '<strong>' + escapeHtml(callsign) + '</strong>' }) + '</p>'
       +   '<table class="table table-sm table-bordered mb-3"><tbody>'
-      +     '<tr><th width="30%">ACID</th><td>' + escapeHtml(callsign) + '</td></tr>'
-      +     '<tr><th>Origin</th><td>' + escapeHtml(orig) + '</td></tr>'
-      +     '<tr><th>Destination</th><td>' + escapeHtml(dest) + '</td></tr>'
-      +     '<tr><th>Current CTD</th><td class="font-weight-bold">' + escapeHtml(edctText) + '</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.acid') + '</th><td>' + escapeHtml(callsign) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.orig') + '</th><td>' + escapeHtml(orig) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.dest') + '</th><td>' + escapeHtml(dest) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.edct.currentCtd') + '</th><td class="font-weight-bold">' + escapeHtml(edctText) + '</td></tr>'
       +   '</tbody></table>'
       +   '<div class="form-group">'
-      +     '<label for="matching_edct_update_time"><strong>New EDCT (UTC):</strong></label>'
+      +     '<label for="matching_edct_update_time"><strong>' + PERTII18n.t('gdt.edct.newEdctUtc') + ':</strong></label>'
       +     '<input type="datetime-local" class="form-control" id="matching_edct_update_time" value="' + defaultNewEdct + '">'
-      +     '<small class="form-text text-muted">Enter the new Estimated Departure Clearance Time</small>'
+      +     '<small class="form-text text-muted">' + PERTII18n.t('gdt.edct.enterNewEdct') + '</small>'
       +   '</div>'
-      +   '<div class="alert alert-warning mt-3 mb-0"><small><i class="fas fa-exclamation-triangle mr-1"></i>In a live TFMS environment, this would submit an EDCT update request to the Hub. This is a simulation environment.</small></div>'
+      +   '<div class="alert alert-warning mt-3 mb-0"><small><i class="fas fa-exclamation-triangle mr-1"></i>' + PERTII18n.t('gdt.edct.updateNote') + '</small></div>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-edit text-warning mr-2"></i>EDCT Update',
+                title: '<i class="fas fa-edit text-warning mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctUpdate'),
                 html: html,
                 width: '50%',
                 showConfirmButton: true,
-                confirmButtonText: 'Send Update',
+                confirmButtonText: PERTII18n.t('gdt.edct.sendUpdate'),
                 showCancelButton: true,
-                cancelButtonText: 'Cancel',
+                cancelButtonText: PERTII18n.t('common.cancel'),
                 preConfirm: function() {
                     const newEdctEl = document.getElementById('matching_edct_update_time');
                     const newEdct = newEdctEl ? newEdctEl.value : '';
                     if (!newEdct) {
-                        window.Swal.showValidationMessage('Please enter a new EDCT time');
+                        window.Swal.showValidationMessage(PERTII18n.t('gdt.edct.enterNewEdctValidation'));
                         return false;
                     }
                     return { callsign: callsign, orig: orig, dest: dest, newEdct: newEdct };
@@ -2343,16 +2343,16 @@
                     const newEdctFormatted = formatZuluFromEpoch(new Date(result.value.newEdct).getTime());
                     window.Swal.fire({
                         icon: 'info',
-                        title: 'EDCT Update Simulated',
-                        html: '<p>In a live environment, the following update would be sent:</p>' +
-                  '<p><strong>Flight:</strong> ' + escapeHtml(result.value.callsign) + '<br>' +
-                  '<strong>New EDCT:</strong> ' + newEdctFormatted + '</p>' +
-                  "<p class='text-muted small'>This is a simulation - no actual update was sent to TFMS.</p>",
+                        title: PERTII18n.t('gdt.edct.updateSimulated'),
+                        html: '<p>' + PERTII18n.t('gdt.edct.simulatedMessage') + '</p>' +
+                  '<p><strong>' + PERTII18n.t('gdt.flight.flightLabel') + ':</strong> ' + escapeHtml(result.value.callsign) + '<br>' +
+                  '<strong>' + PERTII18n.t('gdt.edct.newEdctLabel') + ':</strong> ' + newEdctFormatted + '</p>' +
+                  '<p class="text-muted small">' + PERTII18n.t('gdt.edct.simulationDisclaimer') + '</p>',
                     });
                 }
             });
         } else {
-            alert('EDCT Update for ' + callsign + '\nCurrent CTD: ' + edctText);
+            alert(PERTII18n.t('gdt.edct.update', { callsign: callsign }) + '\n' + PERTII18n.t('gdt.edct.currentCtd') + ': ' + edctText);
         }
     }
 
@@ -2390,13 +2390,13 @@
             menu.style.zIndex = '9999';
             menu.style.display = 'none';
             menu.innerHTML = ''
-        + '<button type="button" class="dropdown-item" data-action="flight_info"><i class="fas fa-info-circle mr-2"></i>Flight Info</button>'
-        + '<button type="button" class="dropdown-item" data-action="flight_detail"><i class="fas fa-clipboard-list mr-2"></i>Flight Detail</button>'
+        + '<button type="button" class="dropdown-item" data-action="flight_info"><i class="fas fa-info-circle mr-2"></i>' + PERTII18n.t('gdt.contextMenu.flightInfo') + '</button>'
+        + '<button type="button" class="dropdown-item" data-action="flight_detail"><i class="fas fa-clipboard-list mr-2"></i>' + PERTII18n.t('gdt.contextMenu.flightDetail') + '</button>'
         + '<div class="dropdown-divider"></div>'
-        + '<button type="button" class="dropdown-item" data-action="edct_check"><i class="fas fa-search mr-2"></i>EDCT Check</button>'
-        + '<button type="button" class="dropdown-item" data-action="edct_update"><i class="fas fa-edit mr-2"></i>EDCT Update</button>'
+        + '<button type="button" class="dropdown-item" data-action="edct_check"><i class="fas fa-search mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctCheck') + '</button>'
+        + '<button type="button" class="dropdown-item" data-action="edct_update"><i class="fas fa-edit mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctUpdate') + '</button>'
         + '<div class="dropdown-divider"></div>'
-        + '<button type="button" class="dropdown-item" data-action="ecr"><i class="fas fa-clock mr-2"></i>ECR</button>';
+        + '<button type="button" class="dropdown-item" data-action="ecr"><i class="fas fa-clock mr-2"></i>' + PERTII18n.t('gdt.contextMenu.ecr') + '</button>';
             document.body.appendChild(menu);
             GS_FLT_LIST_CONTEXT_MENU = menu;
         }
@@ -2498,42 +2498,42 @@
 
         const html = ''
       + '<div class="tfms-flight-info-popup text-left">'
-      +   '<div class="mb-2"><strong>ADL Date/Time:</strong> ' + escapeHtml(adlTime || '-')
-      +   '&nbsp;&nbsp;&nbsp;<strong>Status:</strong> <span class="badge badge-warning">' + escapeHtml(status || 'GS') + '</span></div>'
+      +   '<div class="mb-2"><strong>' + PERTII18n.t('gdt.flight.adlDateTime') + ':</strong> ' + escapeHtml(adlTime || '-')
+      +   '&nbsp;&nbsp;&nbsp;<strong>' + PERTII18n.t('gdt.flight.status') + ':</strong> <span class="badge badge-warning">' + escapeHtml(status || 'GS') + '</span></div>'
       +   '<table class="table table-sm table-borderless mb-2"><tbody>'
       +     '<tr>'
-      +       '<td><strong>Flight ID:</strong></td><td>' + escapeHtml(acid || '-') + '</td>'
-      +       '<td><strong>Ctl Element:</strong></td><td>' + escapeHtml(ctlElement || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.flightId') + ':</strong></td><td>' + escapeHtml(acid || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.ctlElement') + ':</strong></td><td>' + escapeHtml(ctlElement || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>Orig:</strong></td><td>' + escapeHtml(orig || '-') + ' / ' + escapeHtml(dcenter || '-') + '</td>'
-      +       '<td><strong>Dest:</strong></td><td>' + escapeHtml(dest || '-') + ' / ' + escapeHtml(acenter || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.orig') + ':</strong></td><td>' + escapeHtml(orig || '-') + ' / ' + escapeHtml(dcenter || '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.dest') + ':</strong></td><td>' + escapeHtml(dest || '-') + ' / ' + escapeHtml(acenter || '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>OETD:</strong></td><td>' + (oetd ? formatZuluFromIso(oetd) : '-') + '</td>'
-      +       '<td><strong>OETA:</strong></td><td>' + (oeta ? formatZuluFromIso(oeta) : '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.oetd') + ':</strong></td><td>' + (oetd ? formatZuluFromIso(oetd) : '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.oeta') + ':</strong></td><td>' + (oeta ? formatZuluFromIso(oeta) : '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>CTD:</strong></td><td class="font-weight-bold">' + (ctd ? formatZuluFromIso(ctd) : '-') + '</td>'
-      +       '<td><strong>CTA:</strong></td><td class="font-weight-bold">' + (cta ? formatZuluFromIso(cta) : '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.edct.ctd') + ':</strong></td><td class="font-weight-bold">' + (ctd ? formatZuluFromIso(ctd) : '-') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.edct.cta') + ':</strong></td><td class="font-weight-bold">' + (cta ? formatZuluFromIso(cta) : '-') + '</td>'
       +     '</tr>'
       +     '<tr>'
-      +       '<td><strong>Delay:</strong></td><td class="' + (parseInt(delay) > 60 ? 'text-danger font-weight-bold' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' min</td>'
-      +       '<td><strong>Ctl Program:</strong></td><td>GS</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.edct.delay') + ':</strong></td><td class="' + (parseInt(delay) > 60 ? 'text-danger font-weight-bold' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' ' + PERTII18n.t('units.min') + '</td>'
+      +       '<td><strong>' + PERTII18n.t('gdt.flight.ctlProgram') + ':</strong></td><td>GS</td>'
       +     '</tr>'
       +   '</tbody></table>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-info-circle text-info mr-2"></i>Flight Info: ' + escapeHtml(acid),
+                title: '<i class="fas fa-info-circle text-info mr-2"></i>' + PERTII18n.t('gdt.flight.infoTitle', { callsign: escapeHtml(acid) }),
                 html: html,
                 width: '60%',
                 showConfirmButton: true,
-                confirmButtonText: 'Close',
+                confirmButtonText: PERTII18n.t('common.close'),
             });
         } else {
-            alert('Flight: ' + acid + '\nOrig: ' + orig + ' Dest: ' + dest + '\nCTD: ' + ctd + ' CTA: ' + cta + '\nDelay: ' + delay + ' min');
+            alert(PERTII18n.t('gdt.flight.flightLabel') + ': ' + acid + '\n' + PERTII18n.t('gdt.flight.orig') + ': ' + orig + ' ' + PERTII18n.t('gdt.flight.dest') + ': ' + dest + '\n' + PERTII18n.t('gdt.edct.ctd') + ': ' + ctd + ' ' + PERTII18n.t('gdt.edct.cta') + ': ' + cta + '\n' + PERTII18n.t('gdt.edct.delay') + ': ' + delay + ' ' + PERTII18n.t('units.min'));
         }
     }
 
@@ -2569,7 +2569,7 @@
                 const etaDate = new Date(oeta);
                 if (!isNaN(etdDate.getTime()) && !isNaN(etaDate.getTime())) {
                     const eteMin = Math.round((etaDate - etdDate) / 60000);
-                    if (eteMin > 0) {eteStr = eteMin + ' min';}
+                    if (eteMin > 0) {eteStr = eteMin + ' ' + PERTII18n.t('units.min');}
                 }
             } catch (e) {}
         }
@@ -2578,35 +2578,35 @@
       + '<div class="tfms-flight-detail-popup text-left">'
       +   '<div class="row mb-3">'
       +     '<div class="col-md-6">'
-      +       '<p class="mb-1"><strong>Flight ID:</strong> ' + escapeHtml(acid) + '</p>'
-      +       '<p class="mb-1"><strong>Carrier:</strong> ' + escapeHtml(carrier || '-') + '</p>'
-      +       '<p class="mb-1"><strong>Status:</strong> <span class="badge badge-warning">' + escapeHtml(status || 'GS') + '</span></p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.flightId') + ':</strong> ' + escapeHtml(acid) + '</p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.carrier') + ':</strong> ' + escapeHtml(carrier || '-') + '</p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.status') + ':</strong> <span class="badge badge-warning">' + escapeHtml(status || 'GS') + '</span></p>'
       +     '</div>'
       +     '<div class="col-md-6">'
-      +       '<p class="mb-1"><strong>ADL Time:</strong> ' + escapeHtml(adlTime || '-') + '</p>'
-      +       '<p class="mb-1"><strong>Ctl Element:</strong> ' + escapeHtml(ctlElement) + '</p>'
-      +       '<p class="mb-1"><strong>GS Period:</strong> ' + gsStart + ' - ' + gsEnd + '</p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.adlTime') + ':</strong> ' + escapeHtml(adlTime || '-') + '</p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.ctlElement') + ':</strong> ' + escapeHtml(ctlElement) + '</p>'
+      +       '<p class="mb-1"><strong>' + PERTII18n.t('gdt.flight.gsPeriod') + ':</strong> ' + gsStart + ' - ' + gsEnd + '</p>'
       +     '</div>'
       +   '</div>'
       +   '<div class="row">'
       +     '<div class="col-md-6">'
-      +       '<h6 class="border-bottom pb-1"><i class="fas fa-plane-departure mr-1"></i>Departure</h6>'
+      +       '<h6 class="border-bottom pb-1"><i class="fas fa-plane-departure mr-1"></i>' + PERTII18n.t('gdt.flight.departure') + '</h6>'
       +       '<table class="table table-sm table-borderless mb-0"><tbody>'
-      +         '<tr><td width="40%">Airport:</td><td><strong>' + escapeHtml(orig || '-') + '</strong></td></tr>'
-      +         '<tr><td>Center:</td><td>' + escapeHtml(dcenter || '-') + '</td></tr>'
-      +         '<tr><td>OETD:</td><td class="text-muted">' + (oetd ? formatZuluFromIso(oetd) : '-') + '</td></tr>'
-      +         '<tr><td>ETD:</td><td>' + (etd ? formatZuluFromIso(etd) : '-') + '</td></tr>'
-      +         '<tr><td>CTD:</td><td class="font-weight-bold text-primary">' + (ctd ? formatZuluFromIso(ctd) : '-') + '</td></tr>'
+      +         '<tr><td width="40%">' + PERTII18n.t('gdt.flight.airport') + ':</td><td><strong>' + escapeHtml(orig || '-') + '</strong></td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.center') + ':</td><td>' + escapeHtml(dcenter || '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.oetd') + ':</td><td class="text-muted">' + (oetd ? formatZuluFromIso(oetd) : '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.etd') + ':</td><td>' + (etd ? formatZuluFromIso(etd) : '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.edct.ctd') + ':</td><td class="font-weight-bold text-primary">' + (ctd ? formatZuluFromIso(ctd) : '-') + '</td></tr>'
       +       '</tbody></table>'
       +     '</div>'
       +     '<div class="col-md-6">'
-      +       '<h6 class="border-bottom pb-1"><i class="fas fa-plane-arrival mr-1"></i>Arrival</h6>'
+      +       '<h6 class="border-bottom pb-1"><i class="fas fa-plane-arrival mr-1"></i>' + PERTII18n.t('gdt.flight.arrival') + '</h6>'
       +       '<table class="table table-sm table-borderless mb-0"><tbody>'
-      +         '<tr><td width="40%">Airport:</td><td><strong>' + escapeHtml(dest || '-') + '</strong></td></tr>'
-      +         '<tr><td>Center:</td><td>' + escapeHtml(acenter || '-') + '</td></tr>'
-      +         '<tr><td>OETA:</td><td class="text-muted">' + (oeta ? formatZuluFromIso(oeta) : '-') + '</td></tr>'
-      +         '<tr><td>ETA:</td><td>' + (eta ? formatZuluFromIso(eta) : '-') + '</td></tr>'
-      +         '<tr><td>CTA:</td><td class="font-weight-bold text-primary">' + (cta ? formatZuluFromIso(cta) : '-') + '</td></tr>'
+      +         '<tr><td width="40%">' + PERTII18n.t('gdt.flight.airport') + ':</td><td><strong>' + escapeHtml(dest || '-') + '</strong></td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.center') + ':</td><td>' + escapeHtml(acenter || '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.oeta') + ':</td><td class="text-muted">' + (oeta ? formatZuluFromIso(oeta) : '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.flight.eta') + ':</td><td>' + (eta ? formatZuluFromIso(eta) : '-') + '</td></tr>'
+      +         '<tr><td>' + PERTII18n.t('gdt.edct.cta') + ':</td><td class="font-weight-bold text-primary">' + (cta ? formatZuluFromIso(cta) : '-') + '</td></tr>'
       +       '</tbody></table>'
       +     '</div>'
       +   '</div>'
@@ -2614,11 +2614,11 @@
       +     '<div class="col-12">'
       +       '<table class="table table-sm table-bordered"><tbody>'
       +         '<tr class="bg-light">'
-      +           '<th>ETE</th><th>Program Delay</th><th>Control Type</th><th>Delay Status</th>'
+      +           '<th>' + PERTII18n.t('gdt.flight.ete') + '</th><th>' + PERTII18n.t('gdt.flight.programDelay') + '</th><th>' + PERTII18n.t('gdt.flight.controlType') + '</th><th>' + PERTII18n.t('gdt.flight.delayStatus') + '</th>'
       +         '</tr>'
       +         '<tr>'
       +           '<td>' + eteStr + '</td>'
-      +           '<td class="' + (parseInt(delay) > 60 ? 'text-danger font-weight-bold' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' min</td>'
+      +           '<td class="' + (parseInt(delay) > 60 ? 'text-danger font-weight-bold' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' ' + PERTII18n.t('units.min') + '</td>'
       +           '<td>GS</td>'
       +           '<td>' + escapeHtml(status || '-') + '</td>'
       +         '</tr>'
@@ -2629,14 +2629,14 @@
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-clipboard-list text-primary mr-2"></i>Flight Detail: ' + escapeHtml(acid),
+                title: '<i class="fas fa-clipboard-list text-primary mr-2"></i>' + PERTII18n.t('gdt.flight.detailTitle', { callsign: escapeHtml(acid) }),
                 html: html,
                 width: '70%',
                 showConfirmButton: true,
-                confirmButtonText: 'Close',
+                confirmButtonText: PERTII18n.t('common.close'),
             });
         } else {
-            alert('Flight Detail: ' + acid + '\nOrig: ' + orig + '/' + dcenter + ' Dest: ' + dest + '/' + acenter);
+            alert(PERTII18n.t('gdt.flight.detail') + ': ' + acid + '\n' + PERTII18n.t('gdt.flight.orig') + ': ' + orig + '/' + dcenter + ' ' + PERTII18n.t('gdt.flight.dest') + ': ' + dest + '/' + acenter);
         }
     }
 
@@ -2656,33 +2656,33 @@
 
         const html = ''
       + '<div class="text-left">'
-      +   '<p class="mb-3">Query EDCT status for flight <strong>' + escapeHtml(acid) + '</strong></p>'
+      +   '<p class="mb-3">' + PERTII18n.t('gdt.edct.queryStatus', { callsign: '<strong>' + escapeHtml(acid) + '</strong>' }) + '</p>'
       +   '<table class="table table-sm table-bordered"><tbody>'
-      +     '<tr><th width="30%">ACID</th><td>' + escapeHtml(acid) + '</td></tr>'
-      +     '<tr><th>Origin</th><td>' + escapeHtml(orig) + '</td></tr>'
-      +     '<tr><th>Destination</th><td>' + escapeHtml(dest) + '</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.acid') + '</th><td>' + escapeHtml(acid) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.orig') + '</th><td>' + escapeHtml(orig) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.dest') + '</th><td>' + escapeHtml(dest) + '</td></tr>'
       +   '</tbody></table>'
       +   '<hr>'
-      +   '<h6>Current EDCT Status:</h6>'
+      +   '<h6>' + PERTII18n.t('gdt.edct.currentStatus') + ':</h6>'
       +   '<table class="table table-sm table-bordered"><tbody>'
-      +     '<tr><th width="30%">CTD (EDCT)</th><td class="font-weight-bold">' + ctdFormatted + '</td></tr>'
-      +     '<tr><th>CTA</th><td>' + ctaFormatted + '</td></tr>'
-      +     '<tr><th>Delay</th><td class="' + (parseInt(delay) > 60 ? 'text-danger' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' min</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.ctdEdct') + '</th><td class="font-weight-bold">' + ctdFormatted + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.edct.cta') + '</th><td>' + ctaFormatted + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.edct.delay') + '</th><td class="' + (parseInt(delay) > 60 ? 'text-danger' : (parseInt(delay) > 30 ? 'text-warning' : '')) + '">' + delay + ' ' + PERTII18n.t('units.min') + '</td></tr>'
       +   '</tbody></table>'
-      +   '<div class="alert alert-info mt-3 mb-0"><small><i class="fas fa-info-circle mr-1"></i>This displays the current EDCT from the ADL snapshot. In a live TFMS environment, this would query the Hub for real-time EDCT data.</small></div>'
+      +   '<div class="alert alert-info mt-3 mb-0"><small><i class="fas fa-info-circle mr-1"></i>' + PERTII18n.t('gdt.edct.checkNote') + '</small></div>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-search text-info mr-2"></i>EDCT Check',
+                title: '<i class="fas fa-search text-info mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctCheck'),
                 html: html,
                 width: '50%',
                 showConfirmButton: true,
-                confirmButtonText: 'Close',
+                confirmButtonText: PERTII18n.t('common.close'),
                 showCancelButton: false,
             });
         } else {
-            alert('EDCT Check for ' + acid + '\nCTD: ' + ctdFormatted + '\nCTA: ' + ctaFormatted + '\nDelay: ' + delay + ' min');
+            alert(PERTII18n.t('gdt.edct.check', { callsign: acid }) + '\n' + PERTII18n.t('gdt.edct.ctd') + ': ' + ctdFormatted + '\n' + PERTII18n.t('gdt.edct.cta') + ': ' + ctaFormatted + '\n' + PERTII18n.t('gdt.edct.delay') + ': ' + delay + ' ' + PERTII18n.t('units.min'));
         }
     }
 
@@ -2711,35 +2711,35 @@
 
         const html = ''
       + '<div class="text-left">'
-      +   '<p class="mb-3">Update EDCT for flight <strong>' + escapeHtml(acid) + '</strong></p>'
+      +   '<p class="mb-3">' + PERTII18n.t('gdt.edct.updateFor', { callsign: '<strong>' + escapeHtml(acid) + '</strong>' }) + '</p>'
       +   '<table class="table table-sm table-bordered mb-3"><tbody>'
-      +     '<tr><th width="30%">ACID</th><td>' + escapeHtml(acid) + '</td></tr>'
-      +     '<tr><th>Origin</th><td>' + escapeHtml(orig) + '</td></tr>'
-      +     '<tr><th>Destination</th><td>' + escapeHtml(dest) + '</td></tr>'
-      +     '<tr><th>Current CTD</th><td class="font-weight-bold">' + ctdFormatted + '</td></tr>'
+      +     '<tr><th width="30%">' + PERTII18n.t('gdt.edct.acid') + '</th><td>' + escapeHtml(acid) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.orig') + '</th><td>' + escapeHtml(orig) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.flight.dest') + '</th><td>' + escapeHtml(dest) + '</td></tr>'
+      +     '<tr><th>' + PERTII18n.t('gdt.edct.currentCtd') + '</th><td class="font-weight-bold">' + ctdFormatted + '</td></tr>'
       +   '</tbody></table>'
       +   '<div class="form-group">'
-      +     '<label for="edct_update_new_time"><strong>New EDCT (UTC):</strong></label>'
+      +     '<label for="edct_update_new_time"><strong>' + PERTII18n.t('gdt.edct.newEdctUtc') + ':</strong></label>'
       +     '<input type="datetime-local" class="form-control" id="edct_update_new_time" value="' + defaultNewEdct + '">'
-      +     '<small class="form-text text-muted">Enter the new Estimated Departure Clearance Time</small>'
+      +     '<small class="form-text text-muted">' + PERTII18n.t('gdt.edct.enterNewEdct') + '</small>'
       +   '</div>'
-      +   '<div class="alert alert-warning mt-3 mb-0"><small><i class="fas fa-exclamation-triangle mr-1"></i>In a live TFMS environment, this would submit an EDCT update request to the Hub. This is a simulation environment.</small></div>'
+      +   '<div class="alert alert-warning mt-3 mb-0"><small><i class="fas fa-exclamation-triangle mr-1"></i>' + PERTII18n.t('gdt.edct.updateNote') + '</small></div>'
       + '</div>';
 
         if (window.Swal) {
             window.Swal.fire({
-                title: '<i class="fas fa-edit text-warning mr-2"></i>EDCT Update',
+                title: '<i class="fas fa-edit text-warning mr-2"></i>' + PERTII18n.t('gdt.contextMenu.edctUpdate'),
                 html: html,
                 width: '50%',
                 showConfirmButton: true,
-                confirmButtonText: 'Send Update',
+                confirmButtonText: PERTII18n.t('gdt.edct.sendUpdate'),
                 showCancelButton: true,
-                cancelButtonText: 'Cancel',
+                cancelButtonText: PERTII18n.t('common.cancel'),
                 preConfirm: function() {
                     const newEdctEl = document.getElementById('edct_update_new_time');
                     const newEdct = newEdctEl ? newEdctEl.value : '';
                     if (!newEdct) {
-                        window.Swal.showValidationMessage('Please enter a new EDCT time');
+                        window.Swal.showValidationMessage(PERTII18n.t('gdt.edct.enterNewEdctValidation'));
                         return false;
                     }
                     return { acid: acid, orig: orig, dest: dest, newEdct: newEdct };
@@ -2749,16 +2749,16 @@
                     const newEdctFormatted = formatZuluFromIso(result.value.newEdct);
                     window.Swal.fire({
                         icon: 'info',
-                        title: 'EDCT Update Simulated',
-                        html: '<p>In a live environment, the following update would be sent:</p>' +
-                  '<p><strong>Flight:</strong> ' + escapeHtml(result.value.acid) + '<br>' +
-                  '<strong>New EDCT:</strong> ' + newEdctFormatted + '</p>' +
-                  "<p class='text-muted small'>This is a simulation - no actual update was sent to TFMS.</p>",
+                        title: PERTII18n.t('gdt.edct.updateSimulated'),
+                        html: '<p>' + PERTII18n.t('gdt.edct.simulatedMessage') + '</p>' +
+                  '<p><strong>' + PERTII18n.t('gdt.flight.flightLabel') + ':</strong> ' + escapeHtml(result.value.acid) + '<br>' +
+                  '<strong>' + PERTII18n.t('gdt.edct.newEdctLabel') + ':</strong> ' + newEdctFormatted + '</p>' +
+                  '<p class="text-muted small">' + PERTII18n.t('gdt.edct.simulationDisclaimer') + '</p>',
                     });
                 }
             });
         } else {
-            alert('EDCT Update for ' + acid + '\nCurrent CTD: ' + ctdFormatted + '\n\nThis is a simulation environment.');
+            alert(PERTII18n.t('gdt.edct.update', { callsign: acid }) + '\n' + PERTII18n.t('gdt.edct.currentCtd') + ': ' + ctdFormatted + '\n\n' + PERTII18n.t('gdt.edct.simulationDisclaimer'));
         }
     }
 
@@ -2890,7 +2890,7 @@
             const etdCell = tr.querySelector('.gs_etd_cell');
             if (etdCell) {
                 const baseEtd = formatZuluFromEpoch(gsEndEpoch);
-                etdCell.textContent = 'E ' + baseEtd;
+                etdCell.textContent = PERTII18n.t('gdt.time.estimatedPrefix') + ' ' + baseEtd;
             }
 
             const edctCell = tr.querySelector('.gs_edct_cell');
@@ -2909,7 +2909,7 @@
                 const etaCell = tr.querySelector('.gs_eta_cell');
                 if (etaCell) {
                     const baseEta = formatZuluFromEpoch(newEtaEpoch);
-                    etaCell.textContent = 'C ' + baseEta;
+                    etaCell.textContent = PERTII18n.t('gdt.time.controlledPrefix') + ' ' + baseEta;
                 }
             }
         });
@@ -3095,11 +3095,11 @@
         const badge = document.getElementById('gs_adl_mode_badge');
         if (badge) {
             if (mode === 'GS') {
-                badge.textContent = 'ADL: GS';
+                badge.textContent = PERTII18n.t('gdt.badge.adlGs');
                 badge.classList.remove('badge-secondary', 'badge-success');
                 badge.classList.add('badge-warning');
             } else {
-                badge.textContent = 'ADL: LIVE';
+                badge.textContent = PERTII18n.t('gdt.badge.adlLive');
                 badge.classList.remove('badge-secondary', 'badge-warning');
                 badge.classList.add('badge-success');
             }
@@ -3118,12 +3118,12 @@
             btn.disabled = false;
             btn.classList.remove('btn-outline-secondary');
             btn.classList.add('btn-outline-success');
-            btn.title = 'Submit GS to TMI Publishing for coordination';
+            btn.title = PERTII18n.t('gdt.gs.submitToTmiTooltip');
         } else {
             btn.disabled = true;
             btn.classList.remove('btn-outline-success');
             btn.classList.add('btn-outline-secondary');
-            btn.title = reason || "Run 'Simulate' first to enable";
+            btn.title = reason || PERTII18n.t('gdt.gs.simulateFirstTooltip');
         }
     }
 
@@ -3374,25 +3374,25 @@
         let count = 0;
         const summary = [];
 
-        if (rules.orig_airports.length > 0) { count++; summary.push('Orig Apts: ' + rules.orig_airports.join(', ')); }
-        if (rules.orig_tracons.length > 0) { count++; summary.push('Orig TRACONs: ' + rules.orig_tracons.join(', ')); }
-        if (rules.orig_artccs.length > 0) { count++; summary.push('Orig ARTCCs: ' + rules.orig_artccs.join(', ')); }
-        if (rules.dest_airports.length > 0) { count++; summary.push('Dest Apts: ' + rules.dest_airports.join(', ')); }
-        if (rules.dest_tracons.length > 0) { count++; summary.push('Dest TRACONs: ' + rules.dest_tracons.join(', ')); }
-        if (rules.dest_artccs.length > 0) { count++; summary.push('Dest ARTCCs: ' + rules.dest_artccs.join(', ')); }
-        if (rules.exempt_jet) { count++; summary.push('Aircraft: Jet'); }
-        if (rules.exempt_turboprop) { count++; summary.push('Aircraft: Turboprop'); }
-        if (rules.exempt_prop) { count++; summary.push('Aircraft: Prop'); }
-        if (rules.exempt_has_edct) { count++; summary.push('Has existing EDCT'); }
-        if (rules.exempt_active_only) { count++; summary.push('Active flights only'); }
-        if (rules.exempt_depart_within > 0) { count++; summary.push('Departing within ' + rules.exempt_depart_within + ' min'); }
-        if (rules.exempt_alt_below > 0) { count++; summary.push('Below FL' + rules.exempt_alt_below); }
-        if (rules.exempt_alt_above > 0) { count++; summary.push('Above FL' + rules.exempt_alt_above); }
-        if (rules.exempt_flights.length > 0) { count++; summary.push('Flights: ' + rules.exempt_flights.join(', ')); }
+        if (rules.orig_airports.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.origApts') + ': ' + rules.orig_airports.join(', ')); }
+        if (rules.orig_tracons.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.origTracons') + ': ' + rules.orig_tracons.join(', ')); }
+        if (rules.orig_artccs.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.origArtccs') + ': ' + rules.orig_artccs.join(', ')); }
+        if (rules.dest_airports.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.destApts') + ': ' + rules.dest_airports.join(', ')); }
+        if (rules.dest_tracons.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.destTracons') + ': ' + rules.dest_tracons.join(', ')); }
+        if (rules.dest_artccs.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.destArtccs') + ': ' + rules.dest_artccs.join(', ')); }
+        if (rules.exempt_jet) { count++; summary.push(PERTII18n.t('gdt.exemption.aircraftJet')); }
+        if (rules.exempt_turboprop) { count++; summary.push(PERTII18n.t('gdt.exemption.aircraftTurboprop')); }
+        if (rules.exempt_prop) { count++; summary.push(PERTII18n.t('gdt.exemption.aircraftProp')); }
+        if (rules.exempt_has_edct) { count++; summary.push(PERTII18n.t('gdt.exemption.hasEdct')); }
+        if (rules.exempt_active_only) { count++; summary.push(PERTII18n.t('gdt.exemption.activeOnly')); }
+        if (rules.exempt_depart_within > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.departWithin', { minutes: rules.exempt_depart_within })); }
+        if (rules.exempt_alt_below > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.belowFl', { fl: rules.exempt_alt_below })); }
+        if (rules.exempt_alt_above > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.aboveFl', { fl: rules.exempt_alt_above })); }
+        if (rules.exempt_flights.length > 0) { count++; summary.push(PERTII18n.t('gdt.exemption.flights') + ': ' + rules.exempt_flights.join(', ')); }
 
         const badge = document.getElementById('gs_exemption_count_badge');
         if (badge) {
-            badge.textContent = count + ' rule' + (count !== 1 ? 's' : '');
+            badge.textContent = PERTII18n.t('gdt.exemption.ruleCount', { count: count });
         }
 
         const summaryEl = document.getElementById('gs_exemption_summary');
@@ -3400,7 +3400,7 @@
             if (summary.length > 0) {
                 summaryEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle mr-1"></i>' + summary.join(' | ') + '</span>';
             } else {
-                summaryEl.innerHTML = '<span class="text-muted">No exemption rules configured.</span>';
+                summaryEl.innerHTML = '<span class="text-muted">' + PERTII18n.t('gdt.exemption.noRules') + '</span>';
             }
         }
     }
@@ -3423,7 +3423,7 @@
     function clearGsFlightTable(message) {
         const tbody = document.getElementById('gs_flight_table_body');
         if (!tbody) {return;}
-        const msg = message || 'No flights loaded.';
+        const msg = message || PERTII18n.t('gdt.table.noFlightsLoaded');
         tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">' + escapeHtml(msg) + '</td></tr>';
         summarizeFlights([]);
         updateDelayStats([]);
@@ -3509,8 +3509,8 @@
                 if (!exemptHeader) {
                     const th = document.createElement('th');
                     th.className = 'gs-exempt-header';
-                    th.textContent = 'EXEMPT';
-                    th.title = 'Exemption reason: DEP=Departed, ENR=Enroute, DESC=Descending, ARR=Arrived, DISC=Disconnected';
+                    th.textContent = PERTII18n.t('gdt.table.exempt');
+                    th.title = PERTII18n.t('gdt.table.exemptTooltip');
                     headerRow.appendChild(th);
                 }
             } else {
@@ -3528,9 +3528,9 @@
         const countLabel = document.getElementById('gs_flight_count_label');
         if (countLabel) {
             if (GS_SHOW_ALL_FLIGHTS) {
-                countLabel.innerHTML = '<span class="text-success">' + eligibleCount + ' eligible</span> + <span class="text-muted">' + exemptCount + ' exempt</span>';
+                countLabel.innerHTML = '<span class="text-success">' + PERTII18n.t('gdt.table.eligibleCount', { count: eligibleCount }) + '</span> + <span class="text-muted">' + PERTII18n.t('gdt.table.exemptCount', { count: exemptCount }) + '</span>';
             } else {
-                countLabel.textContent = eligibleCount + ' eligible flights';
+                countLabel.textContent = PERTII18n.t('gdt.table.eligibleFlights', { count: eligibleCount });
             }
         }
 
@@ -3588,7 +3588,7 @@
         GS_FLIGHT_ROW_INDEX = {};
         if (!rows.length) {
             const colSpan = GS_SHOW_ALL_FLIGHTS ? 9 : 8;
-            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-muted text-center py-3">No flights match the current filters.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-muted text-center py-3">' + PERTII18n.t('gdt.table.noFlightsMatching') + '</td></tr>';
             applyTimeFilterToTable();
             return;
         }
@@ -3620,14 +3620,14 @@
                 if (r.gsFlag !== 1) {
                     rowClass += ' table-secondary text-muted';
                     const reasonTitle = {
-                        'DEP': 'Already departed',
-                        'ENR': 'Enroute/airborne',
-                        'DESC': 'Descending to destination',
-                        'ARR': 'Already arrived',
-                        'DISC': 'Pilot disconnected',
-                        'AIR': 'Airborne/ineligible',
+                        'DEP': PERTII18n.t('gdt.exempt.departed'),
+                        'ENR': PERTII18n.t('gdt.exempt.enroute'),
+                        'DESC': PERTII18n.t('gdt.exempt.descending'),
+                        'ARR': PERTII18n.t('gdt.exempt.arrived'),
+                        'DISC': PERTII18n.t('gdt.exempt.disconnected'),
+                        'AIR': PERTII18n.t('gdt.exempt.airborne'),
                     };
-                    exemptCell = '<td><span class="badge badge-secondary" title="' + (reasonTitle[r.exemptReason] || 'Exempt') + '">' + (r.exemptReason || 'EX') + '</span></td>';
+                    exemptCell = '<td><span class="badge badge-secondary" title="' + (reasonTitle[r.exemptReason] || PERTII18n.t('tmi.exempt')) + '">' + (r.exemptReason || 'EX') + '</span></td>';
                 } else {
                     exemptCell = '<td><span class="badge badge-success">OK</span></td>';
                 }
@@ -3656,7 +3656,7 @@
                 '<td>' + escapeHtml(center) + '</td>' +
                 '<td>' + escapeHtml(dep) + '</td>' +
                 '<td style="color:' + escapeHtml(destColor) + ';">' + escapeHtml(arr) + '</td>' +
-                '<td>' + escapeHtml(statusText) + ' <a href="#" class="ecr-link text-info ml-1" title="EDCT Change Request" style="font-size:0.85em;"><i class="fas fa-clock"></i></a></td>' +
+                '<td>' + escapeHtml(statusText) + ' <a href="#" class="ecr-link text-info ml-1" title="' + PERTII18n.t('gdt.ecr.title') + '" style="font-size:0.85em;"><i class="fas fa-clock"></i></a></td>' +
                 exemptCell +
                 '</tr>';
         });
@@ -3676,7 +3676,7 @@
                 text: text || '',
                 icon: icon || 'warning',
                 showCancelButton: true,
-                confirmButtonText: confirmText || 'Confirm',
+                confirmButtonText: confirmText || PERTII18n.t('common.confirm'),
             }).then(function(result) {
                 return !!(result && result.isConfirmed);
             });
@@ -3744,11 +3744,11 @@
             });
             flightTableHtml += '</tbody></table>';
             if (flights.length > 15) {
-                flightTableHtml += '<div class="text-muted small text-center py-1">... and ' + (flights.length - 15) + ' more flights</div>';
+                flightTableHtml += '<div class="text-muted small text-center py-1">' + PERTII18n.t('gdt.gs.andMoreFlights', { count: flights.length - 15 }) + '</div>';
             }
             flightTableHtml += '</div>';
         } else {
-            flightTableHtml = '<div class="alert alert-warning mb-2"><i class="fas fa-exclamation-triangle"></i> No flights in simulation data.</div>';
+            flightTableHtml = '<div class="alert alert-warning mb-2"><i class="fas fa-exclamation-triangle"></i> ' + PERTII18n.t('gdt.gs.noFlightsInSimulation') + '</div>';
         }
 
         // Build the confirmation modal HTML
@@ -3758,43 +3758,43 @@
         html += '<div class="row mb-3">';
         html += '<div class="col-4 text-center">';
         html += '<div class="card bg-primary text-white"><div class="card-body py-2">';
-        html += '<div class="h4 mb-0">' + affectedFlights + '</div><small>Controlled</small></div></div>';
+        html += '<div class="h4 mb-0">' + affectedFlights + '</div><small>' + PERTII18n.t('gdt.gs.controlled') + '</small></div></div>';
         html += '</div>';
         html += '<div class="col-4 text-center">';
         html += '<div class="card bg-danger text-white"><div class="card-body py-2">';
-        html += '<div class="h4 mb-0">' + maxDelay + '</div><small>Max Delay (min)</small></div></div>';
+        html += '<div class="h4 mb-0">' + maxDelay + '</div><small>' + PERTII18n.t('gdt.gs.maxDelayMin') + '</small></div></div>';
         html += '</div>';
         html += '<div class="col-4 text-center">';
         html += '<div class="card bg-info text-white"><div class="card-body py-2">';
-        html += '<div class="h4 mb-0">' + avgDelay + '</div><small>Avg Delay (min)</small></div></div>';
+        html += '<div class="h4 mb-0">' + avgDelay + '</div><small>' + PERTII18n.t('gdt.gs.avgDelayMin') + '</small></div></div>';
         html += '</div>';
         html += '</div>';
 
         // Flight list section
         html += '<div class="card mb-3">';
-        html += '<div class="card-header py-2"><strong><i class="fas fa-plane"></i> Affected Flights (' + totalFlights + ' total)</strong></div>';
+        html += '<div class="card-header py-2"><strong><i class="fas fa-plane"></i> ' + PERTII18n.t('gdt.gs.affectedFlights', { count: totalFlights }) + '</strong></div>';
         html += '<div class="card-body p-2">' + flightTableHtml + '</div>';
         html += '</div>';
 
         // Advisory preview section
         html += '<div class="card mb-2">';
-        html += '<div class="card-header py-2"><strong><i class="fas fa-bullhorn"></i> Advisory to be Published</strong></div>';
+        html += '<div class="card-header py-2"><strong><i class="fas fa-bullhorn"></i> ' + PERTII18n.t('gdt.gs.advisoryToPublish') + '</strong></div>';
         html += '<div class="card-body p-2">';
         html += '<pre class="mb-0 small" style="max-height: 150px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 0.8em;">' + escapeHtml(advisoryText) + '</pre>';
         html += '</div></div>';
 
-        html += '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-circle"></i> <strong>Confirm:</strong> This will activate the GS, apply EDCTs to all controlled flights, and publish the advisory to the live network.</div>';
+        html += '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-circle"></i> <strong>' + PERTII18n.t('common.confirm') + ':</strong> ' + PERTII18n.t('gdt.gs.activateConfirmation') + '</div>';
 
         html += '</div>';
 
         return window.Swal.fire({
-            title: '<i class="fas fa-plane-departure text-warning"></i> Activate Ground Stop?',
+            title: '<i class="fas fa-plane-departure text-warning"></i> ' + PERTII18n.t('gdt.gs.activateTitle'),
             html: html,
             icon: null,
             width: 700,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-check"></i> Activate & Publish',
-            cancelButtonText: 'Cancel',
+            confirmButtonText: '<i class="fas fa-check"></i> ' + PERTII18n.t('gdt.gs.activateAndPublish'),
+            cancelButtonText: PERTII18n.t('common.cancel'),
             confirmButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
             customClass: {
@@ -3807,22 +3807,22 @@
 
     function handleGsPreview() {
         const statusEl = document.getElementById('gs_adl_status');
-        if (statusEl) {statusEl.textContent = 'Creating GS program and modeling flights...';}
+        if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.creatingProgram');}
 
         setGsTableMode('LIVE');
         const workflowPayload = collectGsWorkflowPayload();
 
         // Validate required fields
         if (!workflowPayload.gs_airports) {
-            if (statusEl) {statusEl.textContent = 'Enter affected airports first.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.enterAirportsFirst');}
             return Promise.resolve();
         }
         if (!workflowPayload.gs_start || !workflowPayload.gs_end) {
-            if (statusEl) {statusEl.textContent = 'Enter GS start and end times.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.enterStartEndTimes');}
             return Promise.resolve();
         }
         if (!workflowPayload.gs_dep_facilities) {
-            if (statusEl) {statusEl.textContent = 'GS scope is required. Select a scope tier or specify departure facilities.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.scopeRequired');}
             return Promise.resolve();
         }
 
@@ -3851,13 +3851,13 @@
                 GS_CURRENT_PROGRAM_ID = programId;
                 GS_CURRENT_PROGRAM_STATUS = 'PROPOSED';
 
-                if (statusEl) {statusEl.textContent = 'Program ' + programId + ' created. Modeling flights...';}
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.programCreated', { id: programId });}
 
                 // Step 2: Model the program to get affected flights
                 // model.php requires dep_facilities in addition to program_id
                 const depFacilities = workflowPayload.gs_dep_facilities || '';
                 if (!depFacilities) {
-                    throw new Error('GS scope is required. Select a scope tier or specify departure facilities.');
+                    throw new Error(PERTII18n.t('gdt.validation.scopeRequired'));
                 }
 
                 return apiPostJson(GS_API.model, {
@@ -3883,10 +3883,12 @@
 
                 if (statusEl) {
                     const summary = modelResp.data.summary || {};
-                    statusEl.textContent = 'Preview: ' + flights.length + ' flights | ' +
-                        'Controlled: ' + (summary.controlled_flights || 0) + ' | ' +
-                        'Exempt: ' + (summary.exempt_flights || 0) + ' | ' +
-                        'Program ID: ' + GS_CURRENT_PROGRAM_ID;
+                    statusEl.textContent = PERTII18n.t('gdt.gs.previewStatus', {
+                        flights: flights.length,
+                        controlled: summary.controlled_flights || 0,
+                        exempt: summary.exempt_flights || 0,
+                        programId: GS_CURRENT_PROGRAM_ID
+                    });
                 }
                 buildAdvisory();
 
@@ -3896,12 +3898,12 @@
                 if (demandApt) { loadGsDemandData(demandApt); }
 
                 // Enable simulate since we have a PROPOSED program
-                setSendActualEnabled(false, "Run 'Simulate' to finalize before sending");
+                setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulateToFinalize'));
             })
             .catch(function(err) {
                 console.error('GS preview failed', err);
-                if (statusEl) {statusEl.textContent = 'Preview failed: ' + (err && err.message ? err.message : err);}
-                clearGsFlightTable('Preview failed.');
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.previewFailed') + ': ' + (err && err.message ? err.message : err);}
+                clearGsFlightTable(PERTII18n.t('gdt.gs.previewFailedShort'));
                 GS_CURRENT_PROGRAM_ID = null;
                 GS_CURRENT_PROGRAM_STATUS = null;
             });
@@ -3912,7 +3914,7 @@
 
         // If no program exists yet, run Preview first to create one
         if (!GS_CURRENT_PROGRAM_ID) {
-            if (statusEl) {statusEl.textContent = 'No program exists. Creating via Preview first...';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.noProgramCreatingPreview');}
             return handleGsPreview().then(function() {
                 if (GS_CURRENT_PROGRAM_ID) {
                     // Now run simulate with the new program
@@ -3921,14 +3923,14 @@
             });
         }
 
-        if (statusEl) {statusEl.textContent = 'Modeling GS program ' + GS_CURRENT_PROGRAM_ID + '...';}
+        if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.modelingProgram', { id: GS_CURRENT_PROGRAM_ID });}
 
         // Get dep_facilities from workflow payload
         const workflowPayload = collectGsWorkflowPayload();
         const depFacilities = workflowPayload.gs_dep_facilities || '';
         if (!depFacilities) {
-            if (statusEl) {statusEl.textContent = 'GS scope is required. Select a scope tier or specify departure facilities.';}
-            return Promise.reject(new Error('GS scope is required.'));
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.scopeRequired');}
+            return Promise.reject(new Error(PERTII18n.t('gdt.validation.scopeRequired')));
         }
 
         // Model the existing program (simulation = re-running model)
@@ -3955,12 +3957,11 @@
 
                 if (statusEl) {
                     const summary = modelResp.data.summary || {};
-                    let msg = 'Simulated ' + flights.length + ' flights.';
-                    if (summary.max_delay_min) {
-                        msg += ' (Max delay: ' + summary.max_delay_min + ' min)';
-                    }
-                    msg += ' | Program ID: ' + GS_CURRENT_PROGRAM_ID;
-                    statusEl.textContent = msg;
+                    statusEl.textContent = PERTII18n.t('gdt.gs.simulatedStatus', {
+                        flights: flights.length,
+                        maxDelay: summary.max_delay_min || 0,
+                        programId: GS_CURRENT_PROGRAM_ID
+                    });
                 }
                 buildAdvisory();
 
@@ -3975,10 +3976,10 @@
             })
             .catch(function(err) {
                 console.error('GS simulate failed', err);
-                if (statusEl) {statusEl.textContent = 'Simulate failed: ' + (err && err.message ? err.message : err);}
-                clearGsFlightTable('Simulate failed.');
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.simulateFailed') + ': ' + (err && err.message ? err.message : err);}
+                clearGsFlightTable(PERTII18n.t('gdt.gs.simulateFailedShort'));
                 // Keep Send Actual disabled on simulation failure
-                setSendActualEnabled(false, 'Simulation failed - fix errors and try again');
+                setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulationFailedRetry'));
             });
     }
 
@@ -3990,20 +3991,20 @@
             if (window.Swal) {
                 window.Swal.fire({
                     icon: 'warning',
-                    title: 'Simulation Required',
-                    text: "You must run 'Simulate' before sending an actual GS. This ensures EDCTs are calculated correctly.",
-                    confirmButtonText: 'OK',
+                    title: PERTII18n.t('gdt.gs.simulationRequired'),
+                    text: PERTII18n.t('gdt.gs.simulationRequiredText'),
+                    confirmButtonText: PERTII18n.t('common.ok'),
                 });
             } else {
-                alert("You must run 'Simulate' before sending an actual GS.");
+                alert(PERTII18n.t('gdt.gs.simulationRequiredText'));
             }
-            if (statusEl) {statusEl.textContent = "Run 'Simulate' first before 'Send Actual'.";}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.runSimulateFirst');}
             return Promise.resolve();
         }
 
         // Require a program to activate
         if (!GS_CURRENT_PROGRAM_ID) {
-            if (statusEl) {statusEl.textContent = 'No GS program to activate. Run Preview/Simulate first.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.noProgramToActivate');}
             return Promise.resolve();
         }
 
@@ -4013,7 +4014,7 @@
         return showGsActivationConfirmation(workflowPayload).then(function(confirmed) {
             if (!confirmed) {return;}
 
-            if (statusEl) {statusEl.textContent = 'Activating GS program ' + GS_CURRENT_PROGRAM_ID + '...';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.activatingProgram', { id: GS_CURRENT_PROGRAM_ID });}
 
             return apiPostJson(GS_API.activate, {
                 program_id: GS_CURRENT_PROGRAM_ID,
@@ -4036,13 +4037,15 @@
                     const flightCount = flightsData.controlled || program.controlled_flights || 0;
 
                     // Build comprehensive status message
-                    let statusMsg = 'GS ACTIVE | Program ' + GS_CURRENT_PROGRAM_ID +
-                        ' | ' + flightCount + ' controlled';
+                    let statusMsg = PERTII18n.t('gdt.gs.activeStatus', {
+                        programId: GS_CURRENT_PROGRAM_ID,
+                        controlled: flightCount
+                    });
                     if (powerRun.max_delay) {
-                        statusMsg += ' | Max delay: ' + powerRun.max_delay + ' min';
+                        statusMsg += ' | ' + PERTII18n.t('gdt.gs.maxDelayLabel', { delay: powerRun.max_delay });
                     }
                     if (activateResp.data.swim_published) {
-                        statusMsg += ' | Published to VATSWIM';
+                        statusMsg += ' | ' + PERTII18n.t('gdt.gs.publishedToSwim');
                     }
                     if (statusEl) {
                         statusEl.textContent = statusMsg;
@@ -4052,7 +4055,7 @@
 
                     // Disable Send Actual - program is now active
                     GS_SIMULATION_READY = false;
-                    setSendActualEnabled(false, 'GS is ACTIVE - create new program or extend/purge current');
+                    setSendActualEnabled(false, PERTII18n.t('gdt.gs.gsActiveDisabled'));
 
                     // Update the advisory preview with the finalized advisory text
                     if (advisory.text) {
@@ -4078,11 +4081,11 @@
                 })
                 .catch(function(err) {
                     console.error('GS activate failed', err);
-                    if (statusEl) {statusEl.textContent = 'Activate failed: ' + (err && err.message ? err.message : err);}
+                    if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.activateFailed') + ': ' + (err && err.message ? err.message : err);}
                     if (window.Swal) {
-                        window.Swal.fire({ icon: 'error', title: 'Activate failed', text: (err && err.message) ? err.message : String(err) });
+                        window.Swal.fire({ icon: 'error', title: PERTII18n.t('gdt.gs.activateFailed'), text: (err && err.message) ? err.message : String(err) });
                     } else {
-                        alert('Activate failed: ' + (err && err.message ? err.message : err));
+                        alert(PERTII18n.t('gdt.gs.activateFailed') + ': ' + (err && err.message ? err.message : err));
                     }
                 });
         });
@@ -4100,20 +4103,20 @@
             if (window.Swal) {
                 window.Swal.fire({
                     icon: 'warning',
-                    title: 'Simulation Required',
-                    text: "You must run 'Simulate' before submitting to TMI Publishing. This ensures EDCTs are calculated correctly.",
-                    confirmButtonText: 'OK',
+                    title: PERTII18n.t('gdt.gs.simulationRequired'),
+                    text: PERTII18n.t('gdt.gs.simulationRequiredTmiText'),
+                    confirmButtonText: PERTII18n.t('common.ok'),
                 });
             } else {
-                alert("You must run 'Simulate' before submitting to TMI Publishing.");
+                alert(PERTII18n.t('gdt.gs.simulationRequiredTmiText'));
             }
-            if (statusEl) {statusEl.textContent = "Run 'Simulate' first before submitting to TMI.";}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.runSimulateFirstTmi');}
             return;
         }
 
         // Require a program to submit
         if (!GS_CURRENT_PROGRAM_ID) {
-            if (statusEl) {statusEl.textContent = 'No GS program to submit. Run Preview/Simulate first.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.noProgramToSubmit');}
             return;
         }
 
@@ -4159,22 +4162,22 @@
         try {
             sessionStorage.setItem('tmi_gs_handoff', JSON.stringify(tmiHandoff));
 
-            if (statusEl) {statusEl.textContent = 'Redirecting to TMI Publishing...';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.redirectingToTmi');}
 
             // Navigate to TMI Publishing page with GS/GDP tab active
             window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=gs&program_id=' + GS_CURRENT_PROGRAM_ID;
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);
-            if (statusEl) {statusEl.textContent = 'Failed to prepare handoff: ' + err.message;}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.handoffFailed') + ': ' + err.message;}
             if (window.Swal) {
                 window.Swal.fire({
                     icon: 'error',
-                    title: 'Handoff Failed',
-                    text: 'Failed to prepare data for TMI Publishing: ' + err.message,
+                    title: PERTII18n.t('gdt.gs.handoffFailedTitle'),
+                    text: PERTII18n.t('gdt.gs.handoffFailedText', { message: err.message }),
                 });
             } else {
-                alert('Failed to prepare handoff data: ' + err.message);
+                alert(PERTII18n.t('gdt.gs.handoffFailed') + ': ' + err.message);
             }
         }
     }
@@ -4190,26 +4193,26 @@
 
         // Build HTML for the success modal
         let html = '<div class="text-left">';
-        html += '<h5 class="text-success"><i class="fas fa-check-circle"></i> Ground Stop Activated</h5>';
+        html += '<h5 class="text-success"><i class="fas fa-check-circle"></i> ' + PERTII18n.t('gdt.gs.gsActivated') + '</h5>';
 
         // Program Info
         html += '<div class="mb-3">';
-        html += '<strong>Program:</strong> ' + escapeHtml(program.program_name || 'GS-' + program.ctl_element) + '<br>';
-        html += '<strong>Airport:</strong> ' + escapeHtml(program.ctl_element) + '<br>';
-        html += '<strong>Period:</strong> ' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc);
+        html += '<strong>' + PERTII18n.t('gdt.gs.program') + ':</strong> ' + escapeHtml(program.program_name || 'GS-' + program.ctl_element) + '<br>';
+        html += '<strong>' + PERTII18n.t('gdt.gs.airport') + ':</strong> ' + escapeHtml(program.ctl_element) + '<br>';
+        html += '<strong>' + PERTII18n.t('gdt.gs.period') + ':</strong> ' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc);
         html += '</div>';
 
         // Power Run Results
         html += '<div class="card bg-light mb-3">';
-        html += '<div class="card-header py-1"><strong><i class="fas fa-chart-bar"></i> Power Run Results</strong></div>';
+        html += '<div class="card-header py-1"><strong><i class="fas fa-chart-bar"></i> ' + PERTII18n.t('gdt.gs.powerRunResults') + '</strong></div>';
         html += '<div class="card-body py-2">';
         html += '<table class="table table-sm mb-0">';
-        html += '<tr><td>Controlled Flights</td><td class="text-right font-weight-bold">' + (flightsData.controlled || 0) + '</td></tr>';
-        html += '<tr><td>Exempt Flights</td><td class="text-right">' + (flightsData.exempt || 0) + '</td></tr>';
-        html += '<tr><td>Airborne Flights</td><td class="text-right">' + (flightsData.airborne || 0) + '</td></tr>';
-        html += '<tr><td>Total Delay</td><td class="text-right">' + (powerRun.total_delay || 0) + ' min</td></tr>';
-        html += '<tr><td>Max Delay</td><td class="text-right text-danger font-weight-bold">' + (powerRun.max_delay || 0) + ' min</td></tr>';
-        html += '<tr><td>Avg Delay</td><td class="text-right">' + (powerRun.avg_delay || 0) + ' min</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.controlledFlights') + '</td><td class="text-right font-weight-bold">' + (flightsData.controlled || 0) + '</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.exemptFlights') + '</td><td class="text-right">' + (flightsData.exempt || 0) + '</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.airborneFlights') + '</td><td class="text-right">' + (flightsData.airborne || 0) + '</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.totalDelay') + '</td><td class="text-right">' + (powerRun.total_delay || 0) + ' ' + PERTII18n.t('units.min') + '</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.maxDelay') + '</td><td class="text-right text-danger font-weight-bold">' + (powerRun.max_delay || 0) + ' ' + PERTII18n.t('units.min') + '</td></tr>';
+        html += '<tr><td>' + PERTII18n.t('gdt.gs.avgDelay') + '</td><td class="text-right">' + (powerRun.avg_delay || 0) + ' ' + PERTII18n.t('units.min') + '</td></tr>';
         html += '</table>';
         html += '</div></div>';
 
@@ -4226,7 +4229,7 @@
         // Advisory Preview (collapsible)
         if (advisory.text) {
             html += '<details>';
-            html += '<summary class="mb-2" style="cursor:pointer;"><strong>Advisory Text</strong> (click to expand)</summary>';
+            html += '<summary class="mb-2" style="cursor:pointer;"><strong>' + PERTII18n.t('gdt.gs.advisoryText') + '</strong></summary>';
             html += '<pre class="bg-dark text-light p-2 rounded" style="font-size:0.75rem; white-space:pre-wrap;">' + escapeHtml(advisory.text) + '</pre>';
             html += '</details>';
         }
@@ -4236,12 +4239,12 @@
         if (window.Swal) {
             window.Swal.fire({
                 icon: 'success',
-                title: 'Ground Stop Issued',
+                title: PERTII18n.t('gdt.gs.gsIssued'),
                 html: html,
                 width: 600,
-                confirmButtonText: 'View Flight List',
+                confirmButtonText: PERTII18n.t('gdt.gs.viewFlightList'),
                 showCancelButton: true,
-                cancelButtonText: 'Close',
+                cancelButtonText: PERTII18n.t('common.close'),
             });
         }
     }
@@ -4250,32 +4253,32 @@
         const statusEl = document.getElementById('gs_adl_status');
 
         return showConfirmDialog(
-            'Purge ALL active GS programs?',
-            'This will purge all ACTIVE and PROPOSED GS programs and clear EDCTs from affected flights.',
-            'Purge All',
+            PERTII18n.t('gdt.purge.purgeAllTitle'),
+            PERTII18n.t('gdt.purge.purgeAllText'),
+            PERTII18n.t('gdt.purge.purgeAllBtn'),
             'warning',
         ).then(function(confirmed) {
             if (!confirmed) {return;}
 
-            if (statusEl) {statusEl.textContent = 'Fetching active GS programs...';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.fetchingPrograms');}
 
             // Step 1: Get list of ACTIVE and PROPOSED programs
             return fetch(GS_API.list + '?status=ACTIVE,PROPOSED')
                 .then(function(res) { return res.json(); })
                 .then(function(listResp) {
                     if (listResp.status !== 'ok') {
-                        throw new Error(listResp.message || 'Failed to fetch program list');
+                        throw new Error(listResp.message || PERTII18n.t('gdt.purge.fetchProgramListFailed'));
                     }
 
                     const programs = (listResp.data && listResp.data.programs) || [];
                     if (!programs.length) {
-                        if (statusEl) {statusEl.textContent = 'No active/proposed GS programs to purge.';}
+                        if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.noProgramsToPurge');}
                         GS_CURRENT_PROGRAM_ID = null;
                         GS_CURRENT_PROGRAM_STATUS = null;
                         return;
                     }
 
-                    if (statusEl) {statusEl.textContent = 'Purging ' + programs.length + ' GS programs...';}
+                    if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.purgingPrograms', { count: programs.length });}
 
                     // Step 2: Purge each program sequentially
                     const purgePromises = programs.map(function(prog) {
@@ -4293,7 +4296,7 @@
                     const purged = results.filter(function(r) { return r && r.status === 'ok'; }).length;
 
                     if (statusEl) {
-                        statusEl.textContent = 'Purged ' + purged + ' GS program(s).';
+                        statusEl.textContent = PERTII18n.t('gdt.purge.purgedCount', { count: purged });
                     }
 
                     // Clear current program state
@@ -4302,12 +4305,12 @@
                     GS_SIMULATION_READY = false;
 
                     setGsTableMode('LIVE');
-                    setSendActualEnabled(false, 'All programs purged - create new program');
-                    clearGsFlightTable('All GS programs purged.');
+                    setSendActualEnabled(false, PERTII18n.t('gdt.purge.allPurgedCreateNew'));
+                    clearGsFlightTable(PERTII18n.t('gdt.purge.allPurged'));
                 })
                 .catch(function(err) {
                     console.error('GS purge all failed', err);
-                    if (statusEl) {statusEl.textContent = 'Purge all failed: ' + (err && err.message ? err.message : err);}
+                    if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.purgeAllFailed') + ': ' + (err && err.message ? err.message : err);}
                 });
         });
     }
@@ -4317,21 +4320,21 @@
 
         // Require a program to purge
         if (!GS_CURRENT_PROGRAM_ID) {
-            if (statusEl) {statusEl.textContent = 'No current GS program to purge.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.noCurrentProgram');}
             return Promise.resolve();
         }
 
         const programId = GS_CURRENT_PROGRAM_ID;
 
         return showConfirmDialog(
-            'Purge GS Program ' + programId + '?',
-            'This will cancel/purge the current GS program. If it was ACTIVE, EDCTs will be cleared from affected flights.',
-            'Purge Program',
+            PERTII18n.t('gdt.purge.purgeLocalTitle', { id: programId }),
+            PERTII18n.t('gdt.purge.purgeLocalText'),
+            PERTII18n.t('gdt.purge.purgeLocalBtn'),
             'warning',
         ).then(function(confirmed) {
             if (!confirmed) {return;}
 
-            if (statusEl) {statusEl.textContent = 'Purging GS program ' + programId + '...';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.purgingProgram', { id: programId });}
 
             return apiPostJson(GS_API.purge, {
                 program_id: programId,
@@ -4339,13 +4342,13 @@
             })
                 .then(function(purgeResp) {
                     if (purgeResp.status !== 'ok') {
-                        throw new Error(purgeResp.message || 'Failed to purge GS program');
+                        throw new Error(purgeResp.message || PERTII18n.t('gdt.purge.purgeGsProgramFailed'));
                     }
 
                     const purgedProgram = purgeResp.data && purgeResp.data.program;
 
                     if (statusEl) {
-                        statusEl.textContent = 'Program ' + programId + ' purged.' +
+                        statusEl.textContent = PERTII18n.t('gdt.purge.programPurgedStatus', { id: programId }) +
                             (purgedProgram ? ' (' + purgedProgram.adv_number + ')' : '');
                     }
 
@@ -4355,12 +4358,12 @@
                     GS_SIMULATION_READY = false;
 
                     setGsTableMode('LIVE');
-                    setSendActualEnabled(false, 'Program purged - create new program');
-                    clearGsFlightTable('GS program purged. Enter parameters and click Preview to start a new program.');
+                    setSendActualEnabled(false, PERTII18n.t('gdt.purge.programPurgedCreateNew'));
+                    clearGsFlightTable(PERTII18n.t('gdt.purge.programPurged'));
                 })
                 .catch(function(err) {
                     console.error('GS purge failed', err);
-                    if (statusEl) {statusEl.textContent = 'Purge failed: ' + (err && err.message ? err.message : err);}
+                    if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.purge.purgeFailed') + ': ' + (err && err.message ? err.message : err);}
                 });
         });
     }
@@ -4375,12 +4378,12 @@
 
         const payload = collectGsCtdPayload();
         if (!payload.updates || !payload.updates.length) {
-            if (statusEl) {statusEl.textContent = 'No flights with EDCT/CTD to apply.';}
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.adl.noFlightsToApply');}
             return;
         }
 
         if (statusEl) {
-            statusEl.textContent = 'Applying GS to ADL (CTD/CTA/CETE)...';
+            statusEl.textContent = PERTII18n.t('gdt.adl.applyingGsToAdl');
         }
 
         fetch('api/tmi/gs_apply_ctd.php', {
@@ -4399,10 +4402,10 @@
             .then(function(data) {
                 const updated = data && typeof data.updated === 'number' ? data.updated : 0;
                 if (statusEl) {
-                    statusEl.textContent = 'GS applied to ADL for ' + updated + ' flight(s).';
+                    statusEl.textContent = PERTII18n.t('gdt.adl.gsApplied', { count: updated });
                 }
                 if (updatedLbl) {
-                    updatedLbl.textContent = 'CTD/CTA/CETE updated for ' + updated + ' flight(s).';
+                    updatedLbl.textContent = PERTII18n.t('gdt.adl.ctdUpdated', { count: updated });
                 }
 
                 return refreshAdl().then(function() {
@@ -4414,7 +4417,7 @@
             .catch(function(err) {
                 console.error('Error applying GS to ADL', err);
                 if (statusEl) {
-                    statusEl.textContent = 'Error applying GS to ADL';
+                    statusEl.textContent = PERTII18n.t('gdt.adl.errorApplyingGs');
                 }
             });
     }
@@ -4486,14 +4489,14 @@
         if (!el) {return;}
 
         const flightListLabel = (GS_TABLE_MODE === 'GS')
-            ? 'GS Program Mode'
-            : 'Live ADL';
+            ? PERTII18n.t('gdt.dataSource.gsProgramMode')
+            : PERTII18n.t('gdt.dataSource.liveAdl');
 
-        let adlCache = 'Not loaded';
+        let adlCache = PERTII18n.t('gdt.dataSource.notLoaded');
         if (GS_ADL && (GS_ADL.snapshotUtc || (GS_ADL.raw && (GS_ADL.raw.snapshot_utc || GS_ADL.raw.snapshotUtc)))) {
             adlCache = GS_ADL.snapshotUtc || (GS_ADL.raw.snapshot_utc || GS_ADL.raw.snapshotUtc);
         } else if (GS_ADL_LOADING) {
-            adlCache = 'Loading...';
+            adlCache = PERTII18n.t('common.loading');
         }
 
         let programInfo = '';
@@ -4501,13 +4504,13 @@
             programInfo = ' | Program ID: ' + GS_CURRENT_PROGRAM_ID + ' (' + (GS_CURRENT_PROGRAM_STATUS || '?') + ')';
         }
 
-        el.textContent = 'Data: ' + flightListLabel + programInfo + ' | ADL cache: ' + adlCache;
+        el.textContent = PERTII18n.t('gdt.dataSource.label', { mode: flightListLabel, programInfo: programInfo, cache: adlCache });
     }
 
     function refreshAdl() {
         const statusEl = document.getElementById('gs_adl_status');
         if (statusEl) {
-            statusEl.textContent = 'Loading ADL (vATCSCC)...';
+            statusEl.textContent = PERTII18n.t('gdt.adl.loading');
             statusEl.classList.add('adl-refreshing');
         }
 
@@ -4560,7 +4563,7 @@
                 }
 
                 if (statusEl) {
-                    statusEl.textContent = 'ADL updated ' + (GS_ADL ? GS_ADL.snapshotUtc.toUTCString() : 'N/A');
+                    statusEl.textContent = PERTII18n.t('gdt.adl.updated', { time: GS_ADL ? GS_ADL.snapshotUtc.toUTCString() : 'N/A' });
                     statusEl.classList.remove('adl-refreshing');
                 }
                 return GS_ADL;
@@ -4568,7 +4571,7 @@
             .catch(function(err) {
                 console.error('Error loading vATCSCC ADL', err);
                 if (statusEl) {
-                    statusEl.textContent = 'ADL refresh error (using cached data)';
+                    statusEl.textContent = PERTII18n.t('gdt.adl.refreshError');
                     statusEl.classList.remove('adl-refreshing');
                 }
                 // BUFFERED: Don't set GS_ADL = null - keep previous data
@@ -5612,9 +5615,9 @@
 
         if (!acid) {
             if (window.Swal) {
-                window.Swal.fire({ icon: 'warning', title: 'ACID Required', text: 'Please enter a flight callsign (ACID).' });
+                window.Swal.fire({ icon: 'warning', title: PERTII18n.t('gdt.ecr.acidRequired'), text: PERTII18n.t('gdt.ecr.enterAcid') });
             } else {
-                alert('Please enter a flight callsign (ACID).');
+                alert(PERTII18n.t('gdt.ecr.enterAcid'));
             }
             return;
         }
@@ -5636,9 +5639,9 @@
 
         if (!flight) {
             if (window.Swal) {
-                window.Swal.fire({ icon: 'error', title: 'Flight Not Found', text: 'Could not find flight ' + acid + ' in the current ADL data.' });
+                window.Swal.fire({ icon: 'error', title: PERTII18n.t('gdt.ecr.flightNotFound'), text: PERTII18n.t('gdt.ecr.couldNotFindFlight', { acid: acid }) });
             } else {
-                alert('Could not find flight ' + acid + ' in the current ADL data.');
+                alert(PERTII18n.t('gdt.ecr.couldNotFindFlight', { acid: acid }));
             }
             return;
         }
@@ -5690,13 +5693,13 @@
         setText('ecr_ctd', formatTime(ctd));
         setText('ecr_etd', formatTime(etd));
         setText('ecr_ertd', formatTime(ertd));
-        setText('ecr_ete', ete !== '-' ? ete + ' min' : '-');
+        setText('ecr_ete', ete !== '-' ? ete + ' ' + PERTII18n.t('units.min') : '-');
 
         setText('ecr_igta', formatTime(igta));
         setText('ecr_cta', formatTime(cta));
         setText('ecr_eta', formatTime(eta));
         setText('ecr_erta', formatTime(erta));
-        setText('ecr_delay', delay > 0 ? delay + ' min' : '0 min');
+        setText('ecr_delay', delay > 0 ? delay + ' ' + PERTII18n.t('units.min') : '0 ' + PERTII18n.t('units.min'));
 
         setText('ecr_ctl_type', ctlType);
         setText('ecr_delay_status', delayStatus);
@@ -5727,7 +5730,7 @@
     function ecrApplyModel() {
         if (!ECR_CURRENT_FLIGHT) {
             if (window.Swal) {
-                window.Swal.fire({ icon: 'warning', title: 'No Flight', text: 'Please get flight data first.' });
+                window.Swal.fire({ icon: 'warning', title: PERTII18n.t('gdt.ecr.noFlight'), text: PERTII18n.t('gdt.ecr.getFlightFirst') });
             }
             return;
         }
@@ -5735,7 +5738,7 @@
         const earliestEdct = getValue('ecr_earliest_edct');
         if (!earliestEdct) {
             if (window.Swal) {
-                window.Swal.fire({ icon: 'warning', title: 'Earliest EDCT Required', text: 'Please enter the earliest EDCT the flight can comply with.' });
+                window.Swal.fire({ icon: 'warning', title: PERTII18n.t('gdt.ecr.earliestEdctRequired'), text: PERTII18n.t('gdt.ecr.enterEarliestEdct') });
             }
             return;
         }
@@ -5815,7 +5818,7 @@
     function ecrSendRequest() {
         if (!ECR_CURRENT_FLIGHT) {
             if (window.Swal) {
-                window.Swal.fire({ icon: 'warning', title: 'No Flight', text: 'Please get flight data and apply model first.' });
+                window.Swal.fire({ icon: 'warning', title: PERTII18n.t('gdt.ecr.noFlight'), text: PERTII18n.t('gdt.ecr.getFlightAndApplyFirst') });
             }
             return;
         }
@@ -5853,20 +5856,20 @@
             const ctlTypeCode = method === 'SCS' ? 'SCS' : (method === 'MANUAL' || method === 'LIMITED' || method === 'UNLIMITED' ? 'UPD' : 'ECR');
 
             responseText.textContent =
-                'ECR Request Processed\n' +
+                PERTII18n.t('gdt.ecr.requestProcessed') + '\n' +
                 '=====================\n' +
-                'Flight: ' + payload.acid + '\n' +
-                'Method: ' + method + '\n' +
-                'New EDCT: ' + payload.new_edct + '\n' +
-                'Control Type: ' + ctlTypeCode + '\n' +
-                'Status: ACCEPTED';
+                PERTII18n.t('gdt.flight.flightLabel') + ': ' + payload.acid + '\n' +
+                PERTII18n.t('gdt.ecr.method') + ': ' + method + '\n' +
+                PERTII18n.t('gdt.edct.newEdctLabel') + ': ' + payload.new_edct + '\n' +
+                PERTII18n.t('gdt.flight.controlType') + ': ' + ctlTypeCode + '\n' +
+                PERTII18n.t('gdt.flight.status') + ': ' + PERTII18n.t('gdt.ecr.accepted');
         }
 
         if (window.Swal) {
             window.Swal.fire({
                 icon: 'success',
-                title: 'ECR Request Sent',
-                text: 'EDCT update request has been processed for ' + payload.acid + '.',
+                title: PERTII18n.t('gdt.ecr.requestSent'),
+                text: PERTII18n.t('gdt.ecr.requestProcessedFor', { acid: payload.acid }),
                 timer: 3000,
             });
         }
@@ -6006,7 +6009,7 @@
         if (!programId) {return Promise.resolve(false);}
 
         const statusEl = document.getElementById('gs_status_message');
-        if (statusEl) {statusEl.textContent = 'Loading program ' + programId + ' for editing...';}
+        if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.edit.loadingProgram', { id: programId });}
 
         return fetch('api/tmi/programs.php?id=' + encodeURIComponent(programId), {
             cache: 'no-cache',
@@ -6014,7 +6017,7 @@
             .then(function(res) { return res.json(); })
             .then(function(resp) {
                 if (resp.status !== 'ok' || !resp.data) {
-                    throw new Error(resp.message || 'Program not found');
+                    throw new Error(resp.message || PERTII18n.t('gdt.edit.programNotFound'));
                 }
                 const prog = resp.data;
 
@@ -6140,7 +6143,7 @@
                 // Update status
                 const statusStr = prog.status || 'PROPOSED';
                 if (statusEl) {
-                    statusEl.textContent = 'Editing ' + progType + ' Program #' + programId + ' (' + statusStr + ')';
+                    statusEl.textContent = PERTII18n.t('gdt.edit.editingProgram', { type: progType, id: programId, status: statusStr });
                 }
 
                 // Rebuild the advisory preview
@@ -6151,7 +6154,7 @@
             })
             .catch(function(err) {
                 console.error('Failed to load program for edit:', err);
-                if (statusEl) {statusEl.textContent = 'Failed to load program: ' + (err.message || err);}
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.edit.loadFailed') + ': ' + (err.message || err);}
                 return false;
             });
     }
@@ -6254,7 +6257,7 @@
 
         GS_FLIGHT_ROW_INDEX = {};
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">No flights match the current filters.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">' + PERTII18n.t('gdt.table.noFlightsMatching') + '</td></tr>';
             return;
         }
 
@@ -6769,7 +6772,7 @@
         el = document.getElementById('gs_model_gs_end'); if (el) {el.textContent = gsPayload.gs_end ? formatZuluFromIso(gsPayload.gs_end) : '-';}
 
         if (!filteredFlights.length) {
-            canvas.parentElement.innerHTML = '<canvas id="gs_model_data_graph_canvas"></canvas><div class="text-center text-muted py-5">No flight data matches current filters.</div>';
+            canvas.parentElement.innerHTML = '<canvas id="gs_model_data_graph_canvas"></canvas><div class="text-center text-muted py-5">' + PERTII18n.t('gdt.chart.noFlightData') + '</div>';
             return;
         }
 
@@ -6780,17 +6783,17 @@
         // Update chart title
         const chartTitleEl = document.getElementById('gs_model_chart_title');
         const chartTitles = {
-            'hourly': 'Data Graph - Delay Statistics by Hour',
-            'orig_artcc': 'Data Graph - By Origin ARTCC',
-            'dest_artcc': 'Data Graph - By Destination ARTCC',
-            'orig_ap': 'Data Graph - By Origin Airport',
-            'dest_ap': 'Data Graph - By Destination Airport',
-            'orig_tracon': 'Data Graph - By Origin TRACON',
-            'dest_tracon': 'Data Graph - By Destination TRACON',
-            'carrier': 'Data Graph - By Carrier',
-            'tier': 'Data Graph - By ARTCC Tier',
+            'hourly': PERTII18n.t('gdt.chart.titleHourly'),
+            'orig_artcc': PERTII18n.t('gdt.chart.titleOrigArtcc'),
+            'dest_artcc': PERTII18n.t('gdt.chart.titleDestArtcc'),
+            'orig_ap': PERTII18n.t('gdt.chart.titleOrigAp'),
+            'dest_ap': PERTII18n.t('gdt.chart.titleDestAp'),
+            'orig_tracon': PERTII18n.t('gdt.chart.titleOrigTracon'),
+            'dest_tracon': PERTII18n.t('gdt.chart.titleDestTracon'),
+            'carrier': PERTII18n.t('gdt.chart.titleCarrier'),
+            'tier': PERTII18n.t('gdt.chart.titleTier'),
         };
-        if (chartTitleEl) {chartTitleEl.textContent = chartTitles[chartView] || 'Data Graph';}
+        if (chartTitleEl) {chartTitleEl.textContent = chartTitles[chartView] || PERTII18n.t('gdt.chart.dataGraph');}
 
         // Group data based on chart view
         const groupedData = groupFlightsForChart(filteredFlights, chartView);
@@ -6804,7 +6807,7 @@
         }
 
         if (!labels.length) {
-            canvas.parentElement.innerHTML = '<canvas id="gs_model_data_graph_canvas"></canvas><div class="text-center text-muted py-5">No data available for selected view.</div>';
+            canvas.parentElement.innerHTML = '<canvas id="gs_model_data_graph_canvas"></canvas><div class="text-center text-muted py-5">' + PERTII18n.t('gdt.chart.noData') + '</div>';
             return;
         }
 
@@ -6824,10 +6827,10 @@
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Total Flts', data: totalFltsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: '#dc3545', borderWidth: 1, yAxisID: 'y' },
-                    { label: 'Affected Flts', data: affectedFltsData, backgroundColor: 'rgba(23, 162, 184, 0.7)', borderColor: '#17a2b8', borderWidth: 1, yAxisID: 'y' },
-                    { label: 'Max Delay', type: 'line', data: maxDelayData, borderColor: '#343a40', backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 2, pointRadius: 3, fill: false, yAxisID: 'y1' },
-                    { label: 'Avg Delay', type: 'line', data: avgDelayData, borderColor: '#6f42c1', borderWidth: 2, pointRadius: 3, fill: false, yAxisID: 'y1' },
+                    { label: PERTII18n.t('gdt.chart.totalFlts'), data: totalFltsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: '#dc3545', borderWidth: 1, yAxisID: 'y' },
+                    { label: PERTII18n.t('gdt.chart.affectedFlts'), data: affectedFltsData, backgroundColor: 'rgba(23, 162, 184, 0.7)', borderColor: '#17a2b8', borderWidth: 1, yAxisID: 'y' },
+                    { label: PERTII18n.t('gdt.chart.maxDelay'), type: 'line', data: maxDelayData, borderColor: '#343a40', backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 2, pointRadius: 3, fill: false, yAxisID: 'y1' },
+                    { label: PERTII18n.t('gdt.chart.avgDelay'), type: 'line', data: avgDelayData, borderColor: '#6f42c1', borderWidth: 2, pointRadius: 3, fill: false, yAxisID: 'y1' },
                 ],
             },
             options: {
@@ -6839,9 +6842,9 @@
                     title: { display: false },
                 },
                 scales: {
-                    x: { title: { display: true, text: chartView === 'hourly' ? 'Hour (UTC)' : chartTitles[chartView].replace('Data Graph - ', ''), font: { size: 10 } } },
-                    y: { type: 'linear', position: 'left', title: { display: true, text: '# Flights', font: { size: 10 } }, beginAtZero: true },
-                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'Delay (min)', font: { size: 10 } }, beginAtZero: true, grid: { drawOnChartArea: false } },
+                    x: { title: { display: true, text: chartView === 'hourly' ? PERTII18n.t('gdt.chart.axisHourUtc') : chartTitles[chartView].replace(PERTII18n.t('gdt.chart.prefixDataGraph') + ' ', ''), font: { size: 10 } } },
+                    y: { type: 'linear', position: 'left', title: { display: true, text: PERTII18n.t('gdt.chart.axisFlights'), font: { size: 10 } }, beginAtZero: true },
+                    y1: { type: 'linear', position: 'right', title: { display: true, text: PERTII18n.t('gdt.chart.axisDelayMin'), font: { size: 10 } }, beginAtZero: true, grid: { drawOnChartArea: false } },
                 },
             },
         });
@@ -6895,7 +6898,7 @@
                     break;
                 case 'tier': {
                     const tierOrig = (f.orig || f.fp_dept_icao || '').toUpperCase();
-                    key = getTierForAirport(tierOrig) || 'Other';
+                    key = getTierForAirport(tierOrig) || PERTII18n.t('gdt.chart.other');
                     break;
                 }
             }
@@ -7062,8 +7065,8 @@
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Original (ETD)', data: origData, backgroundColor: 'rgba(40, 167, 69, 0.6)', borderColor: '#28a745', borderWidth: 1 },
-                    { label: 'Controlled (CTD)', data: ctrlData, backgroundColor: 'rgba(255, 193, 7, 0.6)', borderColor: '#ffc107', borderWidth: 1 },
+                    { label: PERTII18n.t('gdt.chart.originalEtd'), data: origData, backgroundColor: 'rgba(40, 167, 69, 0.6)', borderColor: '#28a745', borderWidth: 1 },
+                    { label: PERTII18n.t('gdt.chart.controlledCtd'), data: ctrlData, backgroundColor: 'rgba(255, 193, 7, 0.6)', borderColor: '#ffc107', borderWidth: 1 },
                 ],
             },
             options: {
@@ -7071,11 +7074,11 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                    title: { display: true, text: 'Flight Distribution: Original ETD vs Controlled CTD by Hour', font: { size: 11 } },
+                    title: { display: true, text: PERTII18n.t('gdt.chart.comparisonTitle'), font: { size: 11 } },
                 },
                 scales: {
-                    x: { title: { display: true, text: 'Hour (UTC)', font: { size: 10 } } },
-                    y: { title: { display: true, text: '# Flights', font: { size: 10 } }, beginAtZero: true },
+                    x: { title: { display: true, text: PERTII18n.t('gdt.chart.axisHourUtc'), font: { size: 10 } } },
+                    y: { title: { display: true, text: PERTII18n.t('gdt.chart.axisFlights'), font: { size: 10 } }, beginAtZero: true },
                 },
             },
         });
@@ -7095,7 +7098,13 @@
         const destTierData = {};
         const carrierData = {};
         const hourData = {};
-        const delayRanges = { '0 min': 0, '1-15 min': 0, '16-30 min': 0, '31-60 min': 0, '61-90 min': 0, '90+ min': 0 };
+        const delayRanges = {};
+        delayRanges[PERTII18n.t('gdt.delayRange.zero')] = 0;
+        delayRanges[PERTII18n.t('gdt.delayRange.1to15')] = 0;
+        delayRanges[PERTII18n.t('gdt.delayRange.16to30')] = 0;
+        delayRanges[PERTII18n.t('gdt.delayRange.31to60')] = 0;
+        delayRanges[PERTII18n.t('gdt.delayRange.61to90')] = 0;
+        delayRanges[PERTII18n.t('gdt.delayRange.over90')] = 0;
 
         flights.forEach(function(f) {
             const delay = f.program_delay_min || 0;
@@ -7142,12 +7151,12 @@
             addTo(hourData, hourKey);
 
             // Delay range
-            if (delay === 0) {delayRanges['0 min']++;}
-            else if (delay <= 15) {delayRanges['1-15 min']++;}
-            else if (delay <= 30) {delayRanges['16-30 min']++;}
-            else if (delay <= 60) {delayRanges['31-60 min']++;}
-            else if (delay <= 90) {delayRanges['61-90 min']++;}
-            else {delayRanges['90+ min']++;}
+            if (delay === 0) {delayRanges[PERTII18n.t('gdt.delayRange.zero')]++;}
+            else if (delay <= 15) {delayRanges[PERTII18n.t('gdt.delayRange.1to15')]++;}
+            else if (delay <= 30) {delayRanges[PERTII18n.t('gdt.delayRange.16to30')]++;}
+            else if (delay <= 60) {delayRanges[PERTII18n.t('gdt.delayRange.31to60')]++;}
+            else if (delay <= 90) {delayRanges[PERTII18n.t('gdt.delayRange.61to90')]++;}
+            else {delayRanges[PERTII18n.t('gdt.delayRange.over90')]++;}
         });
 
         // Render all tables
@@ -7364,7 +7373,7 @@
         if (maxDelayEl) {maxDelayEl.textContent = String(maxDelay);}
         if (avgDelayEl) {avgDelayEl.textContent = String(avgDelay);}
         if (totalDelayEl) {totalDelayEl.textContent = String(totalDelay);}
-        if (countBadge) {countBadge.textContent = totalFlights + ' flights';}
+        if (countBadge) {countBadge.textContent = PERTII18n.t('gdt.flightList.countBadge', { count: totalFlights });}
 
         // Generated time in UTC format: dd/hhmmZ
         if (timestampEl) {
@@ -7402,7 +7411,7 @@
         const groupValue = groupBy ? groupBy.value : 'none';
 
         if (!flights.length) {
-            tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted">No GS-controlled flights found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted">' + PERTII18n.t('gdt.flightList.noGsFlights') + '</td></tr>';
             clearSummaryTables();
             return;
         }
@@ -7536,26 +7545,26 @@
     function getGroupKey(flight, groupBy) {
         switch (groupBy) {
             case 'carrier':
-                return extractCarrier(flight.acid || flight.callsign || '') || 'Unknown';
+                return extractCarrier(flight.acid || flight.callsign || '') || PERTII18n.t('common.unknown');
             case 'orig_airport':
-                return flight.orig || flight.fp_dept_icao || flight.dep || flight.dep_airport || 'Unknown';
+                return flight.orig || flight.fp_dept_icao || flight.dep || flight.dep_airport || PERTII18n.t('common.unknown');
             case 'orig_center':
-                return flight.dcenter || flight.dep_center || flight.dep_artcc || 'Unknown';
+                return flight.dcenter || flight.dep_center || flight.dep_artcc || PERTII18n.t('common.unknown');
             case 'dest_airport':
-                return flight.dest || flight.fp_dest_icao || flight.arr || flight.arr_airport || 'Unknown';
+                return flight.dest || flight.fp_dest_icao || flight.arr || flight.arr_airport || PERTII18n.t('common.unknown');
             case 'dest_center':
-                return flight.acenter || flight.arr_center || flight.arr_artcc || 'Unknown';
+                return flight.acenter || flight.arr_center || flight.arr_artcc || PERTII18n.t('common.unknown');
             case 'delay_bucket': {
                 const delay = flight.program_delay_min || 0;
-                if (delay === 0) {return '0 min (No Delay)';}
-                if (delay <= 15) {return '1-15 min';}
-                if (delay <= 30) {return '16-30 min';}
-                if (delay <= 60) {return '31-60 min';}
-                if (delay <= 90) {return '61-90 min';}
-                return '90+ min';
+                if (delay === 0) {return PERTII18n.t('gdt.delayRange.noDelay');}
+                if (delay <= 15) {return PERTII18n.t('gdt.delayRange.1to15');}
+                if (delay <= 30) {return PERTII18n.t('gdt.delayRange.16to30');}
+                if (delay <= 60) {return PERTII18n.t('gdt.delayRange.31to60');}
+                if (delay <= 90) {return PERTII18n.t('gdt.delayRange.61to90');}
+                return PERTII18n.t('gdt.delayRange.over90');
             }
             default:
-                return 'All';
+                return PERTII18n.t('gdt.flightList.all');
         }
     }
 
@@ -7654,7 +7663,7 @@
         });
         if (entries.length > 10) {
             const othersCount = entries.slice(10).reduce(function(sum, e) { return sum + e.count; }, 0);
-            html += '<tr class="text-muted"><td>Others</td><td class="text-right">' + othersCount + '</td></tr>';
+            html += '<tr class="text-muted"><td>' + PERTII18n.t('gdt.flightList.others') + '</td><td class="text-right">' + othersCount + '</td></tr>';
         }
         tbody.innerHTML = html;
     }
@@ -7711,7 +7720,7 @@
 
     function copyGsFlightListToClipboard() {
         if (!GS_FLIGHT_LIST_DATA || !GS_FLIGHT_LIST_DATA.flights) {
-            alert('No flight list data available.');
+            alert(PERTII18n.t('gdt.flightList.noDataAvailable'));
             return;
         }
 
@@ -7733,12 +7742,12 @@
         if (GS_ADL && GS_ADL.snapshotUtc instanceof Date && !isNaN(GS_ADL.snapshotUtc.getTime())) {
             adlTimeFormatted = formatZuluFromIso(GS_ADL.snapshotUtc.toISOString());
         }
-        lines.push('ADL Time: ' + (adlTimeFormatted || '-'));
+        lines.push(PERTII18n.t('gdt.flightList.adlTime') + ' ' + (adlTimeFormatted || '-'));
 
-        lines.push('Total Flights: ' + flights.length);
-        lines.push('Total Delay: ' + (GS_FLIGHT_LIST_DATA.total_delay || 0) + ' min');
-        lines.push('Max Delay: ' + (GS_FLIGHT_LIST_DATA.max_delay || 0) + ' min');
-        lines.push('Avg Delay: ' + Math.round(GS_FLIGHT_LIST_DATA.avg_delay || 0) + ' min');
+        lines.push(PERTII18n.t('gdt.flightList.totalFlightsLabel') + ' ' + flights.length);
+        lines.push(PERTII18n.t('gdt.flightList.totalDelayLabel') + ' ' + (GS_FLIGHT_LIST_DATA.total_delay || 0) + ' ' + PERTII18n.t('units.min'));
+        lines.push(PERTII18n.t('gdt.flightList.maxDelayLabel') + ' ' + (GS_FLIGHT_LIST_DATA.max_delay || 0) + ' ' + PERTII18n.t('units.min'));
+        lines.push(PERTII18n.t('gdt.flightList.avgDelayLabel') + ' ' + Math.round(GS_FLIGHT_LIST_DATA.avg_delay || 0) + ' ' + PERTII18n.t('units.min'));
         lines.push('');
 
         // Fixed-width column header (consolidated ORIG/DEST columns, removed CARRIER)
@@ -7779,13 +7788,13 @@
 
         // Add snapshot time at the end
         lines.push('');
-        lines.push('Snapshot Time: ' + formatSnapshotTime(new Date()));
+        lines.push(PERTII18n.t('gdt.flightList.snapshotTime') + ' ' + formatSnapshotTime(new Date()));
 
         const text = lines.join('\n');
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
-                showCopySuccess('Flight list copied to clipboard!');
+                showCopySuccess(PERTII18n.t('gdt.flightList.copiedToClipboard'));
             }).catch(function(err) {
                 console.error('Clipboard copy failed', err);
                 fallbackCopyToClipboard(text);
@@ -7810,9 +7819,9 @@
         ta.select();
         try {
             document.execCommand('copy');
-            showCopySuccess('Flight list copied to clipboard!');
+            showCopySuccess(PERTII18n.t('gdt.flightList.copiedToClipboard'));
         } catch (e) {
-            alert('Unable to copy. Please copy manually.');
+            alert(PERTII18n.t('gdt.flightList.unableToCopy'));
         }
         document.body.removeChild(ta);
     }
@@ -7821,7 +7830,7 @@
         if (window.Swal) {
             window.Swal.fire({
                 icon: 'success',
-                title: 'Copied!',
+                title: PERTII18n.t('gdt.flightList.copied'),
                 text: msg,
                 timer: 2000,
                 showConfirmButton: false,
@@ -7833,7 +7842,7 @@
 
     function exportGsFlightListCsv() {
         if (!GS_FLIGHT_LIST_DATA || !GS_FLIGHT_LIST_DATA.flights) {
-            alert('No flight list data available.');
+            alert(PERTII18n.t('gdt.flightList.noDataAvailable'));
             return;
         }
 
@@ -7879,7 +7888,7 @@
     function printGsFlightList() {
         const table = document.getElementById('gs_flight_list_table');
         if (!table) {
-            alert('Flight list table not found.');
+            alert(PERTII18n.t('gdt.flightList.tableNotFound'));
             return;
         }
 
@@ -7889,7 +7898,7 @@
         const avgDelay = document.getElementById('gs_flt_list_avg_delay');
 
         const printWindow = window.open('', '_blank', 'width=1100,height=700');
-        printWindow.document.write('<html><head><title>GS Flight List</title>');
+        printWindow.document.write('<html><head><title>' + PERTII18n.t('gdt.print.title') + '</title>');
         printWindow.document.write('<style>');
         printWindow.document.write('body { font-family: Arial, sans-serif; font-size: 9pt; margin: 15px; }');
         printWindow.document.write('h1 { font-size: 14pt; margin-bottom: 5px; }');
@@ -7902,16 +7911,16 @@
         printWindow.document.write('tr:nth-child(even) { background: #f5f5f5; }');
         printWindow.document.write('.footer { margin-top: 10px; font-size: 7pt; color: #666; }');
         printWindow.document.write('</style></head><body>');
-        printWindow.document.write('<h1>GS FLIGHT LIST</h1>');
-        printWindow.document.write('<h2>Ground Stop - Affected Flights for ATC Coordination</h2>');
+        printWindow.document.write('<h1>' + PERTII18n.t('gdt.print.heading') + '</h1>');
+        printWindow.document.write('<h2>' + PERTII18n.t('gdt.print.subheading') + '</h2>');
         printWindow.document.write('<div class="info">');
-        printWindow.document.write('<span><strong>CTL Element:</strong> ' + (ctlElement ? ctlElement.textContent : '-') + '</span>');
-        printWindow.document.write('<span><strong>Total:</strong> ' + (total ? total.textContent : '0') + '</span>');
-        printWindow.document.write('<span><strong>Max Delay:</strong> ' + (maxDelay ? maxDelay.textContent : '0') + ' min</span>');
-        printWindow.document.write('<span><strong>Avg Delay:</strong> ' + (avgDelay ? avgDelay.textContent : '0') + ' min</span>');
+        printWindow.document.write('<span><strong>' + PERTII18n.t('gdt.print.ctlElement') + '</strong> ' + (ctlElement ? ctlElement.textContent : '-') + '</span>');
+        printWindow.document.write('<span><strong>' + PERTII18n.t('gdt.print.total') + '</strong> ' + (total ? total.textContent : '0') + '</span>');
+        printWindow.document.write('<span><strong>' + PERTII18n.t('gdt.print.maxDelay') + '</strong> ' + (maxDelay ? maxDelay.textContent : '0') + ' ' + PERTII18n.t('units.min') + '</span>');
+        printWindow.document.write('<span><strong>' + PERTII18n.t('gdt.print.avgDelay') + '</strong> ' + (avgDelay ? avgDelay.textContent : '0') + ' ' + PERTII18n.t('units.min') + '</span>');
         printWindow.document.write('</div>');
         printWindow.document.write(table.outerHTML);
-        printWindow.document.write('<div class="footer">Generated: ' + formatZuluFromIso(new Date().toISOString()) + ' | TFMS/FSM Flight List Reference (Ch 6 & 19)</div>');
+        printWindow.document.write('<div class="footer">' + PERTII18n.t('gdt.print.generated') + ' ' + formatZuluFromIso(new Date().toISOString()) + ' | ' + PERTII18n.t('gdt.print.reference') + '</div>');
         printWindow.document.write('</body></html>');
         printWindow.document.close();
         printWindow.focus();
@@ -8015,18 +8024,18 @@
             if (window.Swal) {
                 window.Swal.fire({
                     icon: 'info',
-                    title: 'No Flight List',
-                    text: "Run 'Simulate' first to generate a GS flight list, or 'Send Actual' to view applied GS flights.",
+                    title: PERTII18n.t('gdt.flightList.noFlightListTitle'),
+                    text: PERTII18n.t('gdt.flightList.noFlightListText'),
                 });
             } else {
-                alert("Run 'Simulate' first to generate a GS flight list, or 'Send Actual' to view applied GS flights.");
+                alert(PERTII18n.t('gdt.flightList.noFlightListText'));
             }
         }
     }
 
     function fetchCurrentGsFlightList() {
         const statusEl = document.getElementById('gs_adl_status');
-        if (statusEl) {statusEl.textContent = 'Fetching GS flight list...';}
+        if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.flightList.fetching');}
 
         // Fetch current GS flights from the preview endpoint
         const payload = collectGsWorkflowPayload();
@@ -8042,12 +8051,12 @@
                 });
 
                 if (!gsFlights.length) {
-                    if (statusEl) {statusEl.textContent = 'No GS-controlled flights found.';}
+                    if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.flightList.noGsFlights');}
                     if (window.Swal) {
                         window.Swal.fire({
                             icon: 'info',
-                            title: 'No GS Flights',
-                            text: "No flights are currently under GS control. Run 'Simulate' to preview GS impacts.",
+                            title: PERTII18n.t('gdt.flightList.noGsFlightsTitle'),
+                            text: PERTII18n.t('gdt.flightList.noGsFlightsText'),
                         });
                     }
                     return;
@@ -8056,13 +8065,13 @@
                 // Format data for the flight list modal
                 const flightListData = formatFlightsForModal(gsFlights);
                 showGsFlightListModal(flightListData, payload);
-                if (statusEl) {statusEl.textContent = 'Flight list loaded: ' + gsFlights.length + ' GS flights.';}
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.flightList.loaded', { count: gsFlights.length });}
             })
             .catch(function(err) {
                 console.error('Failed to fetch GS flight list', err);
-                if (statusEl) {statusEl.textContent = 'Failed to fetch flight list.';}
+                if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.flightList.fetchFailed');}
                 if (window.Swal) {
-                    window.Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch GS flight list.' });
+                    window.Swal.fire({ icon: 'error', title: PERTII18n.t('common.error'), text: PERTII18n.t('gdt.flightList.fetchFailedDetail') });
                 }
             });
     }

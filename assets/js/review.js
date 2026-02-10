@@ -87,8 +87,8 @@ $('#addscore').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added the event scores.',
+                title:      PERTII18n.t('review.scores.addSuccess.title'),
+                text:       PERTII18n.t('review.scores.addSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -100,8 +100,8 @@ $('#addscore').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding these event scores.',
+                title:  PERTII18n.t('review.scores.addError.title'),
+                text:   PERTII18n.t('review.scores.addError.text'),
             });
         },
     });
@@ -138,8 +138,8 @@ $('#editscore').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited the event scores.',
+                title:      PERTII18n.t('review.scores.editSuccess.title'),
+                text:       PERTII18n.t('review.scores.editSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -151,8 +151,8 @@ $('#editscore').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing event scores.',
+                title:  PERTII18n.t('review.scores.editError.title'),
+                text:   PERTII18n.t('review.scores.editError.text'),
             });
         },
     });
@@ -169,8 +169,8 @@ function deleteScore(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted the selected the event scores.',
+                title:      PERTII18n.t('review.scores.deleteSuccess.title'),
+                text:       PERTII18n.t('review.scores.deleteSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -180,8 +180,8 @@ function deleteScore(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting these event scores.',
+                title:  PERTII18n.t('review.scores.deleteError.title'),
+                text:   PERTII18n.t('review.scores.deleteError.text'),
             });
         },
     });
@@ -203,8 +203,8 @@ $('#addcomment').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added score comments.',
+                title:      PERTII18n.t('review.comments.addSuccess.title'),
+                text:       PERTII18n.t('review.comments.addSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -216,8 +216,8 @@ $('#addcomment').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding these score comments.',
+                title:  PERTII18n.t('review.comments.addError.title'),
+                text:   PERTII18n.t('review.comments.addError.text'),
             });
         },
     });
@@ -254,8 +254,8 @@ $('#editcomment').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited the score comments.',
+                title:      PERTII18n.t('review.comments.editSuccess.title'),
+                text:       PERTII18n.t('review.comments.editSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -267,8 +267,8 @@ $('#editcomment').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing these score comments.',
+                title:  PERTII18n.t('review.comments.editError.title'),
+                text:   PERTII18n.t('review.comments.editError.text'),
             });
         },
     });
@@ -285,8 +285,8 @@ function deleteComment(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted the selected the score comments.',
+                title:      PERTII18n.t('review.comments.deleteSuccess.title'),
+                text:       PERTII18n.t('review.comments.deleteSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -296,8 +296,8 @@ function deleteComment(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting these score comments.',
+                title:  PERTII18n.t('review.comments.deleteError.title'),
+                text:   PERTII18n.t('review.comments.deleteError.text'),
             });
         },
     });
@@ -318,8 +318,8 @@ $('#adddata').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Added',
-                text:       'You have successfully added event data.',
+                title:      PERTII18n.t('review.data.addSuccess.title'),
+                text:       PERTII18n.t('review.data.addSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -331,8 +331,8 @@ $('#adddata').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Added',
-                text:   'There was an error in adding this event data.',
+                title:  PERTII18n.t('review.data.addError.title'),
+                text:   PERTII18n.t('review.data.addError.text'),
             });
         },
     });
@@ -365,8 +365,8 @@ $('#editdata').submit(function(e) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Edited',
-                text:       'You have successfully edited this event data.',
+                title:      PERTII18n.t('review.data.editSuccess.title'),
+                text:       PERTII18n.t('review.data.editSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -378,8 +378,8 @@ $('#editdata').submit(function(e) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Edited',
-                text:   'There was an error in editing this event data.',
+                title:  PERTII18n.t('review.data.editError.title'),
+                text:   PERTII18n.t('review.data.editError.text'),
             });
         },
     });
@@ -396,8 +396,8 @@ function deleteData(id) {
                 toast:      true,
                 position:   'bottom-right',
                 icon:       'success',
-                title:      'Successfully Deleted',
-                text:       'You have successfully deleted the selected the event data.',
+                title:      PERTII18n.t('review.data.deleteSuccess.title'),
+                text:       PERTII18n.t('review.data.deleteSuccess.text'),
                 timer:      3000,
                 showConfirmButton: false,
             });
@@ -407,8 +407,8 @@ function deleteData(id) {
         error:function(data) {
             Swal.fire({
                 icon:   'error',
-                title:  'Not Deleted',
-                text:   'There was an error in deleting this event data.',
+                title:  PERTII18n.t('review.data.deleteError.title'),
+                text:   PERTII18n.t('review.data.deleteError.text'),
             });
         },
     });

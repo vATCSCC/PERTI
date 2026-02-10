@@ -269,7 +269,7 @@ function loadActivations() {
         $('#activations_table').html(data);
         tooltips();
     }).fail(function() {
-        $('#activations_table').html('<tr><td colspan="8" class="text-center text-danger">Failed to load activations</td></tr>');
+        $('#activations_table').html('<tr><td colspan="8" class="text-center text-danger">' + PERTII18n.t('sua.failedToLoadActivations') + '</td></tr>');
     });
 }
 
@@ -296,7 +296,7 @@ function loadSuaBrowser() {
             $('#sua_count').text(response.count);
 
             if (data.length === 0) {
-                html = '<tr><td colspan="7" class="text-center text-muted">No SUAs found</td></tr>';
+                html = '<tr><td colspan="7" class="text-center text-muted">' + PERTII18n.t('sua.noSuasFound') + '</td></tr>';
             } else {
                 data.forEach(function(sua) {
                     // Support both new and legacy schema
@@ -322,7 +322,7 @@ function loadSuaBrowser() {
                             escapeHtml(sua.artcc || '') + '\', \'' +
                             escapeHtml(floorAlt) + '\', \'' +
                             escapeHtml(ceilingAlt) + '\')">';
-                    html += '<i class="fas fa-plus"></i> Activate</button>';
+                    html += '<i class="fas fa-plus"></i> ' + PERTII18n.t('sua.activate') + '</button>';
                     html += '</td>';
                     html += '</tr>';
                 });
@@ -330,10 +330,10 @@ function loadSuaBrowser() {
 
             $('#sua_browser_table').html(html);
         } else {
-            $('#sua_browser_table').html('<tr><td colspan="7" class="text-center text-danger">Error loading SUAs</td></tr>');
+            $('#sua_browser_table').html('<tr><td colspan="7" class="text-center text-danger">' + PERTII18n.t('sua.errorLoadingSuas') + '</td></tr>');
         }
     }).fail(function() {
-        $('#sua_browser_table').html('<tr><td colspan="7" class="text-center text-danger">Failed to load SUAs</td></tr>');
+        $('#sua_browser_table').html('<tr><td colspan="7" class="text-center text-danger">' + PERTII18n.t('sua.loadFailed') + '</td></tr>');
     });
 
     // Also update the map if it's initialized and loaded
@@ -382,13 +382,13 @@ function formatDateTimeLocal(date) {
 // Cancel activation
 function cancelActivation(id, name) {
     Swal.fire({
-        title: 'Cancel Activation?',
-        text: 'Are you sure you want to cancel "' + name + '"?',
+        title: PERTII18n.t('sua.cancelActivation.title'),
+        text: PERTII18n.t('sua.cancelActivation.text', { name: name }),
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc3545',
         cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, cancel it',
+        confirmButtonText: PERTII18n.t('sua.cancelActivation.confirm'),
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -400,7 +400,7 @@ function cancelActivation(id, name) {
                         toast: true,
                         position: 'bottom-right',
                         icon: 'success',
-                        title: 'Activation cancelled',
+                        title: PERTII18n.t('sua.activationCancelled'),
                         timer: 3000,
                         showConfirmButton: false,
                     });
@@ -409,8 +409,8 @@ function cancelActivation(id, name) {
                 error: function() {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to cancel activation',
+                        title: PERTII18n.t('common.error'),
+                        text: PERTII18n.t('sua.failedToCancelActivation'),
                     });
                 },
             });
@@ -949,7 +949,7 @@ function showFeaturePopup(feature, lngLat) {
     const altDisplay = floorAlt + ' - ' + ceilingAlt;
 
     const color = props._color || props.color || '#999';
-    const featureType = props._isRoute ? 'Route' : 'Area';
+    const featureType = props._isRoute ? PERTII18n.t('sua.route') : PERTII18n.t('sua.area');
 
     // Name display
     const displayName = props.name || props.designator || 'Unknown';
@@ -966,10 +966,10 @@ function showFeaturePopup(feature, lngLat) {
         '<span class="badge" style="background-color: ' + color + '; color: #fff;">' + typeName + '</span> ' +
         '<span class="badge badge-info">' + groupName + '</span> ' +
         '<span class="badge badge-secondary">' + featureType + '</span><br>' +
-        '<small><strong>ID:</strong> ' + (props.sua_id || props.designator || '-') + '</small><br>' +
-        '<small><strong>ARTCC:</strong> ' + (props.artcc || '-') + '</small><br>' +
-        '<small><strong>Altitude:</strong> ' + altDisplay + '</small><br>' +
-        '<small><strong>Schedule:</strong> ' + (props.scheduleDesc || props.schedule || '-') + '</small><br>' +
+        '<small><strong>' + PERTII18n.t('sua.popupId') + ':</strong> ' + (props.sua_id || props.designator || '-') + '</small><br>' +
+        '<small><strong>' + PERTII18n.t('sua.popupArtcc') + ':</strong> ' + (props.artcc || '-') + '</small><br>' +
+        '<small><strong>' + PERTII18n.t('sua.popupAltitude') + ':</strong> ' + altDisplay + '</small><br>' +
+        '<small><strong>' + PERTII18n.t('sua.popupSchedule') + ':</strong> ' + (props.scheduleDesc || props.schedule || '-') + '</small><br>' +
         '<button class="btn btn-sm btn-success mt-2" onclick="openScheduleModal(\'' +
             escapeHtml(props.sua_id || props.designator || '') + '\', \'' +
             escapeHtml(suaType) + '\', \'' +
@@ -977,7 +977,7 @@ function showFeaturePopup(feature, lngLat) {
             escapeHtml(props.artcc || '') + '\', \'' +
             escapeHtml(floorAlt) + '\', \'' +
             escapeHtml(ceilingAlt) + '\')">' +
-            '<i class="fas fa-plus"></i> Activate</button>' +
+            '<i class="fas fa-plus"></i> ' + PERTII18n.t('sua.activate') + '</button>' +
         '</div>';
 
     popup.setLngLat(lngLat)
@@ -1016,7 +1016,7 @@ function updateDrawnGeometry() {
     if (data.features.length === 0) {
         drawnGeometry = null;
         $('#altrv_geometry').val('');
-        $('#altrv_point_count').text('No geometry drawn');
+        $('#altrv_point_count').text(PERTII18n.t('sua.noGeometryDrawn'));
         return;
     }
 
@@ -1032,10 +1032,10 @@ function updateDrawnGeometry() {
     const geomType = drawnGeometry.type;
     if (geomType === 'LineString') {
         pointCount = drawnGeometry.coordinates.length;
-        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> Line drawn with <strong>' + pointCount + ' points</strong>');
+        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> ' + PERTII18n.t('sua.lineDrawnWithPoints', { count: pointCount }));
     } else if (geomType === 'Polygon') {
         pointCount = drawnGeometry.coordinates[0].length - 1; // Subtract closing point
-        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> Polygon drawn with <strong>' + pointCount + ' points</strong>');
+        $('#altrv_point_count').html('<i class="fas fa-check text-success"></i> ' + PERTII18n.t('sua.polygonDrawnWithPoints', { count: pointCount }));
     }
 }
 
@@ -1044,8 +1044,8 @@ function startAltrvDrawing() {
     if (!suaMap || !mapLoaded || !draw) {
         Swal.fire({
             icon: 'warning',
-            title: 'Map Not Ready',
-            text: 'Please wait for the map to load before drawing.',
+            title: PERTII18n.t('sua.mapNotReady'),
+            text: PERTII18n.t('sua.mapNotReadyText'),
         });
         return;
     }
@@ -1056,7 +1056,7 @@ function startAltrvDrawing() {
     draw.deleteAll();
     drawnGeometry = null;
     $('#altrv_geometry').val('');
-    $('#altrv_point_count').text('Click on the map to draw points. Double-click to finish.');
+    $('#altrv_point_count').text(PERTII18n.t('sua.drawInstructions'));
 
     // Enter draw line mode (ALTRVs are typically routes/lines)
     draw.changeMode('draw_line_string');
@@ -1075,7 +1075,7 @@ function startAltrvDrawing() {
         toast: true,
         position: 'top',
         icon: 'info',
-        title: 'Click points on the map to draw the ALTRV route. Double-click to finish.',
+        title: PERTII18n.t('sua.altrvDrawToast'),
         timer: 5000,
         showConfirmButton: false,
     });
@@ -1087,7 +1087,7 @@ function clearAltrvDrawing() {
         draw.deleteAll();
         drawnGeometry = null;
         $('#altrv_geometry').val('');
-        $('#altrv_point_count').text('No geometry drawn. Click on the map to start drawing.');
+        $('#altrv_point_count').text(PERTII18n.t('sua.noGeometryClickToDraw'));
 
         // Re-enter draw mode
         draw.changeMode('draw_line_string');
@@ -1146,7 +1146,7 @@ $(document).ready(function() {
                     toast: true,
                     position: 'bottom-right',
                     icon: 'success',
-                    title: 'Activation scheduled',
+                    title: PERTII18n.t('sua.activationScheduled'),
                     timer: 3000,
                     showConfirmButton: false,
                 });
@@ -1156,14 +1156,14 @@ $(document).ready(function() {
                 $('#scheduleForm')[0].reset();
             },
             error: function(xhr) {
-                let msg = 'Failed to schedule activation';
+                let msg = PERTII18n.t('sua.failedToScheduleActivation');
                 try {
                     const resp = JSON.parse(xhr.responseText);
                     if (resp.message) {msg = resp.message;}
                 } catch (e) {}
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
+                    title: PERTII18n.t('common.error'),
                     text: msg,
                 });
             },
@@ -1193,7 +1193,7 @@ $(document).ready(function() {
                     toast: true,
                     position: 'bottom-right',
                     icon: 'success',
-                    title: 'TFR created',
+                    title: PERTII18n.t('sua.tfrCreated'),
                     timer: 3000,
                     showConfirmButton: false,
                 });
@@ -1203,14 +1203,14 @@ $(document).ready(function() {
                 $('#tfrForm')[0].reset();
             },
             error: function(xhr) {
-                let msg = 'Failed to create TFR';
+                let msg = PERTII18n.t('sua.failedToCreateTfr');
                 try {
                     const resp = JSON.parse(xhr.responseText);
                     if (resp.message) {msg = resp.message;}
                 } catch (e) {}
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
+                    title: PERTII18n.t('common.error'),
                     text: msg,
                 });
             },
@@ -1225,8 +1225,8 @@ $(document).ready(function() {
         if (!drawnGeometry) {
             Swal.fire({
                 icon: 'warning',
-                title: 'No Geometry',
-                text: 'Please draw the ALTRV route on the map before submitting.',
+                title: PERTII18n.t('sua.noGeometry'),
+                text: PERTII18n.t('sua.noGeometryText'),
             });
             return;
         }
@@ -1240,7 +1240,7 @@ $(document).ready(function() {
                     toast: true,
                     position: 'bottom-right',
                     icon: 'success',
-                    title: 'ALTRV created',
+                    title: PERTII18n.t('sua.altrvCreated'),
                     timer: 3000,
                     showConfirmButton: false,
                 });
@@ -1251,14 +1251,14 @@ $(document).ready(function() {
                 $('.modal-backdrop').remove();
             },
             error: function(xhr) {
-                let msg = 'Failed to create ALTRV';
+                let msg = PERTII18n.t('sua.failedToCreateAltrv');
                 try {
                     const resp = JSON.parse(xhr.responseText);
                     if (resp.message) {msg = resp.message;}
                 } catch (e) {}
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
+                    title: PERTII18n.t('common.error'),
                     text: msg,
                 });
             },
@@ -1295,7 +1295,7 @@ $(document).ready(function() {
                     toast: true,
                     position: 'bottom-right',
                     icon: 'success',
-                    title: 'Activation updated',
+                    title: PERTII18n.t('sua.activationUpdated'),
                     timer: 3000,
                     showConfirmButton: false,
                 });
@@ -1304,14 +1304,14 @@ $(document).ready(function() {
                 $('.modal-backdrop').remove();
             },
             error: function(xhr) {
-                let msg = 'Failed to update activation';
+                let msg = PERTII18n.t('sua.failedToUpdateActivation');
                 try {
                     const resp = JSON.parse(xhr.responseText);
                     if (resp.message) {msg = resp.message;}
                 } catch (e) {}
                 Swal.fire({
                     icon: 'error',
-                    title: 'Error',
+                    title: PERTII18n.t('common.error'),
                     text: msg,
                 });
             },

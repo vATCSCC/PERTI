@@ -140,19 +140,24 @@
     };
 
     const LAYER_CONFIG = {
-        'artcc': { layerIds: ['artcc-line'], label: 'ARTCC Boundaries', defaultOn: true },
-        'tracon': { layerIds: ['tracon-line'], label: 'TRACON Boundaries', defaultOn: false },
-        'incidents': { layerIds: ['incident-fill', 'incident-outline', 'incident-points'], label: 'Active Incidents', defaultOn: true },
-        'weather': { layerIds: ['weather-radar-layer'], label: 'Weather Radar', defaultOn: false },
+        'artcc': { layerIds: ['artcc-line'], labelKey: 'jatoc.layers.artccBoundaries', defaultOn: true },
+        'tracon': { layerIds: ['tracon-line'], labelKey: 'jatoc.layers.traconBoundaries', defaultOn: false },
+        'incidents': { layerIds: ['incident-fill', 'incident-outline', 'incident-points'], labelKey: 'jatoc.layers.activeIncidents', defaultOn: true },
+        'weather': { layerIds: ['weather-radar-layer'], labelKey: 'jatoc.layers.weatherRadar', defaultOn: false },
     };
 
-    const TRIGGERS = {
-        'A': 'AFV (Audio for VATSIM)', 'B': 'Other Audio Issue', 'C': 'Multiple Audio Issues',
-        'D': 'Datafeed (VATSIM)', 'E': 'Datafeed (Other)', 'F': 'Frequency Issue',
-        'H': 'Radar Client Issue', 'J': 'Staffing (Below Min)', 'K': 'Staffing (At Min)',
-        'M': 'No Staffing', 'Q': 'Other', 'R': 'Pilot Issue', 'S': 'Security (RW)',
-        'T': 'Security (VATSIM)', 'U': 'Unknown', 'V': 'Volume', 'W': 'Weather',
+    const TRIGGER_KEYS = {
+        'A': 'jatoc.triggers.A', 'B': 'jatoc.triggers.B', 'C': 'jatoc.triggers.C',
+        'D': 'jatoc.triggers.D', 'E': 'jatoc.triggers.E', 'F': 'jatoc.triggers.F',
+        'H': 'jatoc.triggers.H', 'J': 'jatoc.triggers.J', 'K': 'jatoc.triggers.K',
+        'M': 'jatoc.triggers.M', 'Q': 'jatoc.triggers.Q', 'R': 'jatoc.triggers.R',
+        'S': 'jatoc.triggers.S', 'T': 'jatoc.triggers.T', 'U': 'jatoc.triggers.U',
+        'V': 'jatoc.triggers.V', 'W': 'jatoc.triggers.W',
     };
+
+    function getTriggerLabel(code) {
+        return TRIGGER_KEYS[code] ? PERTII18n.t(TRIGGER_KEYS[code]) : '';
+    }
 
     const STATUS_COLORS = {
         'ATC_ZERO': '#dc2626', 'ATC_ALERT': '#f59e0b', 'ATC_LIMITED': '#3b82f6',
@@ -293,13 +298,13 @@
             btn.textContent = `${state.userProfile.ois}`;
             btn.classList.remove('user-not-set');
         } else {
-            btn.textContent = 'Set Profile';
+            btn.textContent = PERTII18n.t('jatoc.profile.setProfile');
             btn.classList.add('user-not-set');
         }
     }
 
     function getUserAuthorString() {
-        if (!state.userProfile?.name || !state.userProfile?.ois) {return 'Unknown';}
+        if (!state.userProfile?.name || !state.userProfile?.ois) {return PERTII18n.t('common.unknown');}
         const p = state.userProfile;
         // Only use customCode for custom facility types (check both facilityType and facType)
         const facType = p.facilityType || p.facType;
@@ -325,7 +330,7 @@
 
     function requireProfile(action) {
         if (!hasProfile()) {
-            alert(`You must set your User Profile before ${action}.\nClick the profile button in the top right.`);
+            alert(PERTII18n.t('jatoc.profile.requiredAlert', { action }));
             return false;
         }
         return true;
@@ -333,12 +338,12 @@
 
     function requireDCC(action) {
         if (!isLoggedIn()) {
-            alert(`You must be logged in to ${action}.\nPlease log in with your VATSIM account.`);
+            alert(PERTII18n.t('jatoc.auth.loginRequired', { action }));
             return false;
         }
         if (!requireProfile(action)) {return false;}
         if (!isDCC()) {
-            alert(`Only DCC users may ${action}.`);
+            alert(PERTII18n.t('jatoc.auth.dccOnly', { action }));
             return false;
         }
         return true;
@@ -374,8 +379,8 @@
         const customRow = document.getElementById('customFacilityRow');
         const facSelectRow = document.getElementById('facilitySelectRow');
 
-        facSelect.innerHTML = '<option value="">Select...</option>';
-        roleSelect.innerHTML = '<option value="">Select...</option>';
+        facSelect.innerHTML = `<option value="">${PERTII18n.t('jatoc.profile.selectPlaceholder')}</option>`;
+        roleSelect.innerHTML = `<option value="">${PERTII18n.t('jatoc.profile.selectPlaceholder')}</option>`;
         customRow.classList.remove('show');
         facSelectRow.style.display = 'block';
 
@@ -445,11 +450,11 @@
         const customName = isCustomType ? document.getElementById('customFacilityName').value.trim() : '';
         const customCode = isCustomType ? document.getElementById('customFacilityCode').value.toUpperCase().trim() : '';
 
-        if (!name) { alert('Name is required'); return; }
-        if (!ois || !/^[A-Z0-9]{2}$/.test(ois)) { alert('OIs must be 2 characters (A-Z, 0-9)'); return; }
-        if (!facilityType) { alert('Facility type is required'); return; }
-        if (!roleCode) { alert('Role is required'); return; }
-        if (isCustomType && !customCode) { alert('Custom facility code is required'); return; }
+        if (!name) { alert(PERTII18n.t('jatoc.profile.validation.nameRequired')); return; }
+        if (!ois || !/^[A-Z0-9]{2}$/.test(ois)) { alert(PERTII18n.t('jatoc.profile.validation.oisFormat')); return; }
+        if (!facilityType) { alert(PERTII18n.t('jatoc.profile.validation.facilityTypeRequired')); return; }
+        if (!roleCode) { alert(PERTII18n.t('jatoc.profile.validation.roleRequired')); return; }
+        if (isCustomType && !customCode) { alert(PERTII18n.t('jatoc.profile.validation.customCodeRequired')); return; }
 
         state.userProfile = { name, ois, cid, facilityType, facility, roleCode, customName, customCode };
         localStorage.setItem('jatoc_user_profile', JSON.stringify(state.userProfile));
@@ -458,7 +463,7 @@
     }
 
     function clearProfile() {
-        if (!confirm('Clear your profile?')) {return;}
+        if (!confirm(PERTII18n.t('jatoc.profile.clearConfirm'))) {return;}
         state.userProfile = null;
         localStorage.removeItem('jatoc_user_profile');
         updateUserDisplay();
@@ -501,14 +506,14 @@
             await api('oplevel.php', 'PUT', { ops_level: level, set_by: getUserAuthorString() });
             state.opsLevel = level;
             updateOpsLevel();
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function changeOpsLevel() {
         if (!requireDCC('change Ops Level')) {return;}
         const level = parseInt(document.getElementById('modalOpsLevel').value);
         const reason = document.getElementById('modalOpsReason').value;
-        if (!confirm(`Change Ops Level to ${level}? This will log to all active incidents.`)) {return;}
+        if (!confirm(PERTII18n.t('jatoc.opsLevel.changeConfirm', { level }))) {return;}
         try {
             await api('oplevel.php', 'PUT', { ops_level: level, reason, set_by: getUserAuthorString() });
             state.opsLevel = level;
@@ -516,8 +521,8 @@
             document.getElementById('modalOpsReason').value = '';
             if (state.currentIncident) {loadUpdates(state.currentIncident.id);}
             loadIncidents();
-            alert('Ops Level changed and logged to all active incidents.');
-        } catch (e) { alert('Error: ' + e.message); }
+            alert(PERTII18n.t('jatoc.opsLevel.changeSuccess'));
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     function updateOpsLevel() {
@@ -613,9 +618,9 @@
     function setupLayerControl() {
         const html = `
             <div class="jatoc-layer-control" id="jatoc-layer-control">
-                <button id="jatoc-layer-toggle"><i class="fas fa-layer-group"></i> Layers</button>
+                <button id="jatoc-layer-toggle"><i class="fas fa-layer-group"></i> ${PERTII18n.t('jatoc.map.layers')}</button>
                 <div id="jatoc-layer-panel">
-                    ${Object.entries(LAYER_CONFIG).map(([key, cfg]) => `<label class="layer-option"><input type="checkbox" data-layer="${key}" ${cfg.defaultOn ? 'checked' : ''}><span>${cfg.label}</span></label>`).join('')}
+                    ${Object.entries(LAYER_CONFIG).map(([key, cfg]) => `<label class="layer-option"><input type="checkbox" data-layer="${key}" ${cfg.defaultOn ? 'checked' : ''}><span>${PERTII18n.t(cfg.labelKey)}</span></label>`).join('')}
                 </div>
             </div>
         `;
@@ -743,7 +748,7 @@
         if (method === 'GET' && data) {url += '?' + new URLSearchParams(data).toString();}
         const res = await fetch(url, opts);
         const result = await res.json();
-        if (!res.ok) {throw new Error(result.error || 'API error');}
+        if (!res.ok) {throw new Error(result.error || PERTII18n.t('jatoc.error.apiError'));}
         return result;
     }
 
@@ -768,11 +773,11 @@
                 return d >= yesterdayStart && d <= threeDaysOut;
             }).sort((a, b) => new Date(b.date) - new Date(a.date));
             el.innerHTML = renderPotusEvents(events);
-        } catch (e) { el.innerHTML = '<div class="text-muted small p-2">Unable to load</div>'; }
+        } catch (e) { el.innerHTML = `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.unableToLoad')}</div>`; }
     }
 
     function renderPotusEvents(events) {
-        if (!events?.length) {return '<div class="text-muted small p-2">No scheduled events</div>';}
+        if (!events?.length) {return `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.noScheduledEvents')}</div>`;}
         const now = new Date();
         return events.map(e => {
             const eventDate = new Date(e.date);
@@ -787,7 +792,7 @@
                 if (eventTime < now) {status = 'past';}
                 else if (eventTime < new Date(now.getTime() + 3600000)) {status = 'active';}
             }
-            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${timeStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || 'Event')}</span></div>`;
+            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${timeStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || PERTII18n.t('jatoc.events.event'))}</span></div>`;
         }).join('');
     }
 
@@ -813,11 +818,11 @@
                     </div>`;
                 }).join('');
             } else {
-                el.innerHTML = '<div class="text-muted small p-2">No scheduled space operations</div>';
+                el.innerHTML = `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.noScheduledSpaceOps')}</div>`;
             }
         } catch (e) {
             console.log('[JATOC] Space ops error:', e);
-            el.innerHTML = '<div class="text-muted small p-2">Unable to load space ops</div>';
+            el.innerHTML = `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.unableToLoadSpaceOps')}</div>`;
         }
     }
 
@@ -825,7 +830,7 @@
         const el = document.getElementById('vatusaEvents');
         try {
             const r = await api('vatusa_events.php');
-            if (!r.success || !r.data?.length) { el.innerHTML = '<div class="text-muted small">No events</div>'; return; }
+            if (!r.success || !r.data?.length) { el.innerHTML = `<div class="text-muted small">${PERTII18n.t('jatoc.events.noEvents')}</div>`; return; }
             const now = new Date();
             const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
             const todayEnd = new Date(todayStart.getTime() + 24 * 3600000);
@@ -839,13 +844,13 @@
                 else if (d >= todayStart && d < t7d) {next7.push(e);}
                 else if (d >= todayStart && d < t30d) {next30.push(e);}
             });
-            el.innerHTML = renderEventSection('Today', today, 'vat-today', true) + renderEventSection('T+7D', next7, 'vat-7d') + renderEventSection('T+30D', next30, 'vat-30d');
-        } catch (e) { el.innerHTML = '<div class="text-muted small">Unable to load</div>'; }
+            el.innerHTML = renderEventSection(PERTII18n.t('jatoc.events.today'), today, 'vat-today', true) + renderEventSection(PERTII18n.t('jatoc.events.next7d'), next7, 'vat-7d') + renderEventSection(PERTII18n.t('jatoc.events.next30d'), next30, 'vat-30d');
+        } catch (e) { el.innerHTML = `<div class="text-muted small">${PERTII18n.t('jatoc.calendar.unableToLoad')}</div>`; }
     }
 
     function renderEventSection(title, events, id, show = false) {
         return `<div class="collapsible-header" onclick="JATOC.toggle('${id}')">${title}<span class="vatusa-count-badge">${events.length}</span></div>
-        <div class="collapsible-content ${show ? 'show' : ''}" id="${id}">${events.length ? events.map(e => `<div class="vatusa-event"><div class="vatusa-event-name">${esc(e.name || e.title || 'Event')}</div><small class="text-muted">${formatEventTime(e.start || e.start_date || e.date)}${e.facility ? ' • ' + e.facility : ''}</small></div>`).join('') : '<div class="text-muted small py-1">None</div>'}</div>`;
+        <div class="collapsible-content ${show ? 'show' : ''}" id="${id}">${events.length ? events.map(e => `<div class="vatusa-event"><div class="vatusa-event-name">${esc(e.name || e.title || PERTII18n.t('jatoc.events.event'))}</div><small class="text-muted">${formatEventTime(e.start || e.start_date || e.date)}${e.facility ? ' • ' + e.facility : ''}</small></div>`).join('') : `<div class="text-muted small py-1">${PERTII18n.t('common.none')}</div>`}</div>`;
     }
 
     function formatEventTime(d) { try { const dt = new Date(d); if (isNaN(dt.getTime())) {return '';} return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + 'Z'; } catch { return ''; } }
@@ -883,7 +888,7 @@
             console.error('[JATOC] Error loading incidents:', e);
             // BUFFERED: Don't clear state on error - keep showing old data
             if (previousIncidents.length === 0) {
-                document.getElementById('eventsTableBody').innerHTML = '<tr><td colspan="7" class="text-danger text-center">Error loading</td></tr>';
+                document.getElementById('eventsTableBody').innerHTML = `<tr><td colspan="7" class="text-danger text-center">${PERTII18n.t('jatoc.incidents.errorLoading')}</td></tr>`;
             } else {
                 console.log('[JATOC] Keeping previous data due to error (' + previousIncidents.length + ' incidents)');
             }
@@ -892,27 +897,27 @@
 
     function renderIncidents() {
         const tbody = document.getElementById('eventsTableBody');
-        if (!state.incidents.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">No incidents found</td></tr>'; return; }
+        if (!state.incidents.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center py-4">${PERTII18n.t('jatoc.incidents.noIncidents')}</td></tr>`; return; }
         tbody.innerHTML = state.incidents.map(i => {
             const incidentType = i.incident_type || i.status;
             const lifecycleStatus = i.lifecycle_status || i.incident_status;
             const sc = 'status-' + incidentType.toLowerCase().replace('_', '-');
-            const triggerText = TRIGGERS[i.trigger_code] || i.trigger_desc || i.trigger_code || '-';
+            const triggerText = getTriggerLabel(i.trigger_code) || i.trigger_desc || i.trigger_code || '-';
             const isHidden = state.hiddenIncidents.has(i.id);
             return `<tr>
                 <td class="incident-number">${i.incident_number || '-'}</td>
                 <td><strong>${i.facility}</strong>${i.facility_type ? `<br><small class="text-muted">${i.facility_type}</small>` : ''}</td>
                 <td><span class="status-badge ${sc}">${formatStatus(incidentType)}</span></td>
                 <td class="trigger-col">${esc(triggerText)}</td>
-                <td class="${i.paged ? 'paged-yes' : 'paged-no'}">${i.paged ? 'YES' : 'No'}</td>
+                <td class="${i.paged ? 'paged-yes' : 'paged-no'}">${i.paged ? PERTII18n.t('jatoc.incidents.pagedYes') : PERTII18n.t('jatoc.incidents.pagedNo')}</td>
                 <td>${formatTime(i.start_utc)}</td>
                 <td class="quick-actions-cell"><div class="quick-actions">
-                    <button class="btn btn-xs btn-outline-info" onclick="JATOC.showDetails(${i.id})" title="View"><i class="fas fa-eye"></i></button>
-                    <button class="btn btn-xs btn-outline-secondary" onclick="JATOC.editIncident(${i.id})" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-xs btn-outline-${isHidden ? 'success' : 'warning'}" onclick="JATOC.toggleMapVisibility(${i.id})" title="${isHidden ? 'Show' : 'Hide'}"><i class="fas fa-${isHidden ? 'eye' : 'eye-slash'}"></i></button>
-                    ${!i.paged ? `<button class="btn btn-xs btn-outline-warning" onclick="JATOC.quickPage(${i.id})" title="Page"><i class="fas fa-bell"></i></button>` : ''}
-                    ${lifecycleStatus === 'ACTIVE' ? `<button class="btn btn-xs btn-outline-success" onclick="JATOC.quickClose(${i.id})" title="Close"><i class="fas fa-check"></i></button>` : ''}
-                    ${i.report_number ? `<button class="btn btn-xs btn-outline-primary" onclick="JATOC.viewReportById(${i.id})" title="View Report"><i class="fas fa-file-invoice"></i></button>` : ''}
+                    <button class="btn btn-xs btn-outline-info" onclick="JATOC.showDetails(${i.id})" title="${PERTII18n.t('common.view')}"><i class="fas fa-eye"></i></button>
+                    <button class="btn btn-xs btn-outline-secondary" onclick="JATOC.editIncident(${i.id})" title="${PERTII18n.t('common.edit')}"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-xs btn-outline-${isHidden ? 'success' : 'warning'}" onclick="JATOC.toggleMapVisibility(${i.id})" title="${isHidden ? PERTII18n.t('jatoc.incidents.show') : PERTII18n.t('jatoc.incidents.hide')}"><i class="fas fa-${isHidden ? 'eye' : 'eye-slash'}"></i></button>
+                    ${!i.paged ? `<button class="btn btn-xs btn-outline-warning" onclick="JATOC.quickPage(${i.id})" title="${PERTII18n.t('jatoc.incidents.page')}"><i class="fas fa-bell"></i></button>` : ''}
+                    ${lifecycleStatus === 'ACTIVE' ? `<button class="btn btn-xs btn-outline-success" onclick="JATOC.quickClose(${i.id})" title="${PERTII18n.t('common.close')}"><i class="fas fa-check"></i></button>` : ''}
+                    ${i.report_number ? `<button class="btn btn-xs btn-outline-primary" onclick="JATOC.viewReportById(${i.id})" title="${PERTII18n.t('jatoc.incidents.viewReport')}"><i class="fas fa-file-invoice"></i></button>` : ''}
                 </div></td>
             </tr>`;
         }).join('');
@@ -928,26 +933,26 @@
 
     async function quickPage(id) {
         if (!requireDCC('mark incidents as paged')) {return;}
-        if (!confirm('Mark paged?')) {return;}
-        try { await api('incident.php?id=' + id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: id, update_type: 'PAGED', remarks: 'Personnel paged', created_by: getUserAuthorString() }); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        if (!confirm(PERTII18n.t('jatoc.incidents.markPagedConfirm'))) {return;}
+        try { await api('incident.php?id=' + id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: id, update_type: 'PAGED', remarks: PERTII18n.t('jatoc.incidents.personnelPaged'), created_by: getUserAuthorString() }); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function quickClose(id) {
         if (!requireDCC('close out incidents')) {return;}
-        if (!confirm('Close out?')) {return;}
+        if (!confirm(PERTII18n.t('jatoc.incidents.closeOutConfirm'))) {return;}
         try {
             const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
             await api('incident.php?id=' + id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() });
-            await api('updates.php', 'POST', { incident_id: id, update_type: 'CLOSEOUT', remarks: 'Incident closed out', created_by: getUserAuthorString() });
+            await api('updates.php', 'POST', { incident_id: id, update_type: 'CLOSEOUT', remarks: PERTII18n.t('jatoc.incidents.incidentClosedOut'), created_by: getUserAuthorString() });
             loadIncidents();
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     function toggleMapVisibility(id) { if (state.hiddenIncidents.has(id)) {state.hiddenIncidents.delete(id);} else {state.hiddenIncidents.add(id);} renderIncidents(); updateMapIncidents(state.incidents); }
 
     function showCreateModal() {
         if (!requireDCC('create incidents')) {return;}
-        document.getElementById('incidentModalTitle').textContent = 'New Incident';
+        document.getElementById('incidentModalTitle').textContent = PERTII18n.t('jatoc.incidents.newIncident');
         document.getElementById('incidentForm').reset();
         document.getElementById('incidentId').value = '';
         document.getElementById('incidentStartUtc').value = new Date().toISOString().slice(0, 16);
@@ -961,7 +966,7 @@
             const i = r.data;
             const incidentType = i.incident_type || i.status;
             const lifecycleStatus = i.lifecycle_status || i.incident_status;
-            document.getElementById('incidentModalTitle').textContent = 'Edit ' + i.facility;
+            document.getElementById('incidentModalTitle').textContent = PERTII18n.t('jatoc.incidents.editFacility', { facility: i.facility });
             document.getElementById('incidentId').value = i.id;
             document.getElementById('incidentFacility').value = i.facility || '';
             document.getElementById('incidentFacilityType').value = i.facility_type || '';
@@ -972,14 +977,14 @@
             document.getElementById('incidentStartUtc').value = i.start_utc ? i.start_utc.replace(' ', 'T').slice(0, 16) : '';
             document.getElementById('incidentRemarks').value = i.remarks || '';
             $('#incidentModal').modal('show');
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function saveIncident() {
         const id = document.getElementById('incidentId').value;
         const data = { facility: document.getElementById('incidentFacility').value, facility_type: document.getElementById('incidentFacilityType').value || null, status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, created_by: getUserAuthorString() };
-        if (!data.facility || !data.status || !data.start_utc) { alert('Fill required fields'); return; }
-        try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        if (!data.facility || !data.status || !data.start_utc) { alert(PERTII18n.t('jatoc.incidents.fillRequired')); return; }
+        try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function showIncidentDetails(id) {
@@ -992,13 +997,13 @@
             document.getElementById('detailsIncNum').textContent = i.incident_number || '-';
             document.getElementById('detailsFacility').textContent = `${i.facility} (${i.facility_type || '?'})`;
             document.getElementById('detailsStatus').innerHTML = `<span class="status-badge status-${incidentType.toLowerCase().replace('_','-')}">${formatStatus(incidentType)}</span>`;
-            document.getElementById('detailsTrigger').textContent = i.trigger_code ? `${i.trigger_code} - ${TRIGGERS[i.trigger_code] || ''}` : '-';
-            document.getElementById('detailsPaged').innerHTML = i.paged ? '<span class="text-success">Yes</span>' : '<span class="text-muted">No</span>';
+            document.getElementById('detailsTrigger').textContent = i.trigger_code ? `${i.trigger_code} - ${getTriggerLabel(i.trigger_code)}` : '-';
+            document.getElementById('detailsPaged').innerHTML = i.paged ? `<span class="text-success">${PERTII18n.t('common.yes')}</span>` : `<span class="text-muted">${PERTII18n.t('common.no')}</span>`;
             document.getElementById('detailsStartTime').textContent = formatTimeISO(i.start_utc);
             document.getElementById('detailsDuration').textContent = calcDuration(i.start_utc, i.closeout_utc);
             document.getElementById('detailsCreatedBy').textContent = i.created_by || '-';
             document.getElementById('detailsReportNum').innerHTML = i.report_number ? `<span class="report-number">${i.report_number}</span>` : '-';
-            document.getElementById('detailsRemarks').textContent = i.remarks || 'No remarks';
+            document.getElementById('detailsRemarks').textContent = i.remarks || PERTII18n.t('jatoc.incidents.noRemarks');
             document.getElementById('updateIncidentId').value = i.id;
             document.getElementById('modalOpsLevel').value = state.opsLevel;
 
@@ -1023,7 +1028,7 @@
 
             loadUpdates(i.id);
             $('#incidentDetailsModal').modal('show');
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function loadUpdates(id) {
@@ -1042,7 +1047,7 @@
                         <div class="update-content">${formatPriority(esc(u.remarks || ''))}</div>
                     </div>`;
                 }).join('');
-            } else {el.innerHTML = '<div class="text-muted text-center py-3">No updates</div>';}
+            } else {el.innerHTML = `<div class="text-muted text-center py-3">${PERTII18n.t('jatoc.updates.noUpdates')}</div>`;}
         } catch (e) { console.log('[JATOC] Updates error:', e); }
     }
 
@@ -1052,14 +1057,14 @@
         if (!requireProfile('add updates')) {return;}
         const id = document.getElementById('updateIncidentId').value;
         const remarks = document.getElementById('updateRemarks').value;
-        if (!remarks.trim()) { alert('Enter notes'); return; }
-        try { await api('updates.php', 'POST', { incident_id: id, update_type: document.getElementById('updateType').value, remarks, created_by: getUserAuthorString() }); document.getElementById('updateRemarks').value = ''; loadUpdates(id); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        if (!remarks.trim()) { alert(PERTII18n.t('jatoc.updates.enterNotes')); return; }
+        try { await api('updates.php', 'POST', { incident_id: id, update_type: document.getElementById('updateType').value, remarks, created_by: getUserAuthorString() }); document.getElementById('updateRemarks').value = ''; loadUpdates(id); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function markPaged() {
         if (!state.currentIncident) {return;}
         if (!requireDCC('mark incidents as paged')) {return;}
-        try { await api('incident.php?id=' + state.currentIncident.id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'PAGED', remarks: 'Personnel paged', created_by: getUserAuthorString() }); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        try { await api('incident.php?id=' + state.currentIncident.id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'PAGED', remarks: PERTII18n.t('jatoc.incidents.personnelPaged'), created_by: getUserAuthorString() }); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     function editFromDetails() { if (state.currentIncident) { $('#incidentDetailsModal').modal('hide'); editIncident(state.currentIncident.id); } }
@@ -1067,45 +1072,45 @@
     async function generateReport() {
         if (!state.currentIncident) {return;}
         if (!requireDCC('generate report numbers')) {return;}
-        if (state.currentIncident.report_number) { alert('Already has: ' + state.currentIncident.report_number); return; }
-        if (!confirm('Generate report number?')) {return;}
-        try { const r = await api('report.php', 'POST', { incident_id: state.currentIncident.id, created_by: getUserAuthorString() }); alert('Report: ' + (r.report_number || '?')); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        if (state.currentIncident.report_number) { alert(PERTII18n.t('jatoc.report.alreadyHas', { number: state.currentIncident.report_number })); return; }
+        if (!confirm(PERTII18n.t('jatoc.report.generateConfirm'))) {return;}
+        try { const r = await api('report.php', 'POST', { incident_id: state.currentIncident.id, created_by: getUserAuthorString() }); alert(PERTII18n.t('jatoc.report.generated', { number: r.report_number || '?' })); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function closeoutIncident() {
         if (!state.currentIncident) {return;}
         if (!requireDCC('close out incidents')) {return;}
-        if (!confirm('Close out this incident?')) {return;}
+        if (!confirm(PERTII18n.t('jatoc.incidents.closeOutThisConfirm'))) {return;}
         try {
             const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
             await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'CLOSED', closeout_utc: now, updated_by: getUserAuthorString() });
             // Log the closeout
-            await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'CLOSEOUT', remarks: 'Incident closed out', created_by: getUserAuthorString() });
+            await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'CLOSEOUT', remarks: PERTII18n.t('jatoc.incidents.incidentClosedOut'), created_by: getUserAuthorString() });
             $('#incidentDetailsModal').modal('hide');
             loadIncidents();
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function reopenIncident() {
         if (!state.currentIncident) {return;}
         if (!requireDCC('reopen incidents')) {return;}
-        if (!confirm('Reopen this incident?')) {return;}
+        if (!confirm(PERTII18n.t('jatoc.incidents.reopenConfirm'))) {return;}
         try {
             await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'ACTIVE', closeout_utc: null, updated_by: getUserAuthorString() });
             // Log the reopen
-            await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'REOPEN', remarks: 'Incident reopened', created_by: getUserAuthorString() });
+            await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'REOPEN', remarks: PERTII18n.t('jatoc.incidents.incidentReopened'), created_by: getUserAuthorString() });
             showIncidentDetails(state.currentIncident.id);
             loadIncidents();
-        } catch (e) { alert('Error: ' + e.message); }
+        } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function deleteIncident() {
-        if (!state.currentIncident || !confirm('Delete?')) {return;}
-        try { await api('incident.php?id=' + state.currentIncident.id, 'DELETE'); $('#incidentDetailsModal').modal('hide'); loadIncidents(); } catch (e) { alert('Error: ' + e.message); }
+        if (!state.currentIncident || !confirm(PERTII18n.t('jatoc.incidents.deleteConfirm'))) {return;}
+        try { await api('incident.php?id=' + state.currentIncident.id, 'DELETE'); $('#incidentDetailsModal').modal('hide'); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     function viewReport() {
-        if (!state.currentIncident?.report_number) { alert('No report generated yet'); return; }
+        if (!state.currentIncident?.report_number) { alert(PERTII18n.t('jatoc.report.notGenerated')); return; }
         window.open(`api/jatoc/report.php?id=${state.currentIncident.id}&format=text`, '_blank');
     }
 
@@ -1118,16 +1123,16 @@
     async function saveDailyOps() {
         if (!requireDCC('edit daily ops')) {return;}
         const type = document.getElementById('dailyOpsType').value;
-        try { await api('daily_ops.php', 'PUT', { item_type: type, content: document.getElementById('dailyOpsContent').value, updated_by: getUserAuthorString() }); $('#dailyOpsModal').modal('hide'); if (type === 'POTUS') {loadPotusCalendar();} else {loadSpaceCalendar();} } catch (e) { alert('Error: ' + e.message); }
+        try { await api('daily_ops.php', 'PUT', { item_type: type, content: document.getElementById('dailyOpsContent').value, updated_by: getUserAuthorString() }); $('#dailyOpsModal').modal('hide'); if (type === 'POTUS') {loadPotusCalendar();} else {loadSpaceCalendar();} } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
     function editPersonnel(elem, init, name) { document.getElementById('personnelElement').textContent = elem; document.getElementById('personnelElementInput').value = elem; document.getElementById('personnelInitials').value = init; document.getElementById('personnelName').value = name; $('#personnelModal').modal('show'); }
     async function savePersonnel() {
         if (!requireDCC('edit personnel')) {return;}
-        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: document.getElementById('personnelInitials').value, name: document.getElementById('personnelName').value, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); }
+        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: document.getElementById('personnelInitials').value, name: document.getElementById('personnelName').value, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
     async function clearPersonnel() {
         if (!requireDCC('edit personnel')) {return;}
-        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: null, name: null, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert('Error: ' + e.message); }
+        try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: null, name: null, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     // ========== UTILITIES ==========
@@ -1153,7 +1158,7 @@
         document.getElementById('retrieveIncType').value = '';
         document.getElementById('retrieveFromDate').value = '';
         document.getElementById('retrieveToDate').value = '';
-        document.getElementById('retrieveResults').innerHTML = '<div class="text-muted text-center py-3">Enter search criteria above</div>';
+        document.getElementById('retrieveResults').innerHTML = `<div class="text-muted text-center py-3">${PERTII18n.t('jatoc.retrieve.enterCriteria')}</div>`;
     }
 
     async function searchIncidents() {
@@ -1166,7 +1171,7 @@
         const toDate = document.getElementById('retrieveToDate').value;
 
         const resultsEl = document.getElementById('retrieveResults');
-        resultsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+        resultsEl.innerHTML = `<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin"></i> ${PERTII18n.t('jatoc.retrieve.searching')}</div>`;
 
         try {
             // Build query params
@@ -1183,13 +1188,13 @@
             const incidents = r.data || [];
 
             if (!incidents.length) {
-                resultsEl.innerHTML = '<div class="text-muted text-center py-3">No incidents found</div>';
+                resultsEl.innerHTML = `<div class="text-muted text-center py-3">${PERTII18n.t('jatoc.incidents.noIncidents')}</div>`;
                 return;
             }
 
             resultsEl.innerHTML = `
                 <table class="table table-sm table-dark mb-0" style="font-size:0.75rem">
-                    <thead><tr><th>INC#</th><th>Facility</th><th>Incident Type</th><th>Lifecycle</th><th>Start</th><th>Action</th></tr></thead>
+                    <thead><tr><th>${PERTII18n.t('jatoc.retrieve.colIncNum')}</th><th>${PERTII18n.t('jatoc.retrieve.colFacility')}</th><th>${PERTII18n.t('jatoc.retrieve.colIncidentType')}</th><th>${PERTII18n.t('jatoc.retrieve.colLifecycle')}</th><th>${PERTII18n.t('jatoc.retrieve.colStart')}</th><th>${PERTII18n.t('jatoc.retrieve.colAction')}</th></tr></thead>
                     <tbody>
                         ${incidents.map(i => {
         const incidentType = i.incident_type || i.status;
@@ -1202,7 +1207,7 @@
                                 <td>${lifecycleStatus}</td>
                                 <td>${formatTime(i.start_utc)}</td>
                                 <td>
-                                    <button class="btn btn-xs btn-outline-info" onclick="JATOC.openRetrievedIncident(${i.id})" title="Open"><i class="fas fa-folder-open"></i></button>
+                                    <button class="btn btn-xs btn-outline-info" onclick="JATOC.openRetrievedIncident(${i.id})" title="${PERTII18n.t('jatoc.retrieve.open')}"><i class="fas fa-folder-open"></i></button>
                                 </td>
                             </tr>
                         `;}).join('')}
@@ -1210,7 +1215,7 @@
                 </table>
             `;
         } catch (e) {
-            resultsEl.innerHTML = `<div class="text-danger text-center py-3">Error: ${e.message}</div>`;
+            resultsEl.innerHTML = `<div class="text-danger text-center py-3">${PERTII18n.t('jatoc.error.generic', { message: e.message })}</div>`;
         }
     }
 
