@@ -1985,7 +1985,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                             <td>${f.dept || 'N/A'}</td>
                                             <td>${f.dept_time || 'N/A'}</td>
                                             <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
-                                            ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                                            ${hasPhase ? `<td><small>${f.phase ? ('Adv ' + f.phase + (f.phase_type ? ' (' + f.phase_type.charAt(0) + f.phase_type.slice(1).toLowerCase() + ')' : '')) : ''}</small></td>` : ''}
                                             ${hasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                                             <td><small class="text-muted">${f.time_source || ''}</small></td>
                                         </tr>
@@ -7246,7 +7246,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <td>${f.dept || 'N/A'}</td>
                         <td>${f.dept_time || 'N/A'}</td>
                         <td>${f.pct_into_gs ? f.pct_into_gs + '%' : ''}</td>
-                        ${hasPhase ? `<td><small>${f.phase || ''}</small></td>` : ''}
+                        ${hasPhase ? `<td><small>${f.phase ? ('Adv ' + f.phase + (f.phase_type ? ' (' + f.phase_type.charAt(0) + f.phase_type.slice(1).toLowerCase() + ')' : '')) : ''}</small></td>` : ''}
                         ${v2HasGsDelay ? `<td>${f.gs_delay_min !== undefined ? f.gs_delay_min + 'm' : ''}</td>` : ''}
                         <td><small class="text-muted">${f.time_source || ''}</small></td>
                     </tr>`;
