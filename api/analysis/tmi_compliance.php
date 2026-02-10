@@ -505,8 +505,9 @@ function format_results($results) {
                 'cnx_comments' => $r['cnx_comments'] ?? null,
                 // Program timeline (advisory chain)
                 'program_timeline' => $r['program_timeline'] ?? [],
-                // Per-origin breakdown
+                // Per-origin and per-carrier breakdowns
                 'per_origin_breakdown' => $r['per_origin_breakdown'] ?? [],
+                'per_carrier_breakdown' => $r['per_carrier_breakdown'] ?? [],
                 // Hold time & delay statistics
                 'avg_hold_time_min' => $r['avg_hold_time_min'] ?? 0,
                 'hold_time_stats' => $r['hold_time_stats'] ?? [],
