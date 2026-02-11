@@ -730,6 +730,9 @@ function insertEntry(PDO $conn, string $type, array $data): array {
         case 'CONFIG':
             $entryId = insertNtmlEntry($conn, 'CONFIG', $data);
             $ids['entry_id'] = $entryId;
+            // Also insert into tmi_airport_configs
+            $configId = insertAirportConfig($conn, $data);
+            $ids['config_id'] = $configId;
             break;
 
         case 'DD':
@@ -737,6 +740,9 @@ function insertEntry(PDO $conn, string $type, array $data): array {
         case 'AD':
             $entryId = insertNtmlEntry($conn, 'DELAY', $data);
             $ids['entry_id'] = $entryId;
+            // Also insert into tmi_delay_entries
+            $delayId = insertDelayEntry($conn, $type, $data);
+            $ids['delay_id'] = $delayId;
             break;
 
         case 'CFR':
@@ -796,9 +802,15 @@ function insertProgram(PDO $conn, string $type, array $data): int {
 
     $programType = mapProgramType($type);
     $scopeJson = null;
-    if (!empty($data['scope_centers'])) {
-        $scopeJson = json_encode(['centers' => $data['scope_centers']]);
-    }
+    $scope = [];
+    if (!empty($data['scope_centers'])) $scope['centers'] = $data['scope_centers'];
+    if (!empty($data['dep_airports'])) $scope['dep_airports'] = $data['dep_airports'];
+    if (!empty($data['canadian'])) $scope['canadian'] = $data['canadian'];
+    if (!empty($data['popup_factor'])) $scope['popup_factor'] = $data['popup_factor'];
+    if (!empty($data['avg_delay_min'])) $scope['avg_delay_min'] = $data['avg_delay_min'];
+    if (!empty($data['scope_tiers'])) $scope['scope_tiers'] = $data['scope_tiers'];
+    if (!empty($data['flt_incl'])) $scope['flt_incl'] = $data['flt_incl'];
+    if ($scope) $scopeJson = json_encode($scope, JSON_UNESCAPED_SLASHES);
     $ratesJson = null;
     if (!empty($data['rates_hourly'])) {
         $ratesJson = json_encode($data['rates_hourly']);
@@ -946,11 +958,15 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
 
     $determinantCode = strtoupper($entryType);
 
+    // Build the original entry type for condition_text (MIT, DD, CONFIG, etc.)
+    $origType = $data['_type'] ?? $entryType;
+
     $sql = "INSERT INTO dbo.tmi_entries (
                 determinant_code, protocol_type, entry_type,
                 ctl_element, element_type,
                 requesting_facility, providing_facility,
                 restriction_value, restriction_unit, condition_text,
+                qualifiers, exclusions,
                 reason_code,
                 valid_from, valid_until,
                 status, source_type,
@@ -962,6 +978,7 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
                 :ctl_element, :element_type,
                 :requesting_facility, :providing_facility,
                 :restriction_value, :restriction_unit, :condition_text,
+                :qualifiers, :exclusions,
                 :reason_code,
                 :valid_from, :valid_until,
                 'EXPIRED', 'IMPORT',
@@ -977,6 +994,12 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
     $validFrom = $data['start_utc'] ?? $data['_entry_timestamp'] ?? null;
     $createdAt = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
 
+    // Build qualifiers string from array
+    $qualifiersStr = null;
+    if (!empty($data['qualifiers']) && is_array($data['qualifiers'])) {
+        $qualifiersStr = substr(implode(' ', $data['qualifiers']), 0, 200);
+    }
+
     $stmt->execute([
         ':determinant_code' => $determinantCode,
         ':entry_type' => $determinantCode,
@@ -986,16 +1009,143 @@ function insertNtmlEntry(PDO $conn, string $entryType, array $data): int {
         ':providing_facility' => $data['providing_facility'] ?? null,
         ':restriction_value' => $data['restriction_value'],
         ':restriction_unit' => $data['restriction_unit'],
-        ':condition_text' => $data['mit_fix'],
+        ':condition_text' => buildConditionText($origType, $data),
+        ':qualifiers' => $qualifiersStr,
+        ':exclusions' => $data['exclusions'] ? substr($data['exclusions'], 0, 200) : null,
         ':reason_code' => $data['impacting_condition'],
         ':valid_from' => $validFrom,
         ':valid_until' => $data['end_utc'],
         ':raw_input' => $data['_raw'] ?? '',
-        ':parsed_data' => json_encode($data, JSON_UNESCAPED_SLASHES),
+        ':parsed_data' => buildParsedData($origType, $data),
         ':created_by' => $CREATED_BY,
         ':created_by_name' => $CREATED_BY_NAME,
         ':created_at' => $createdAt,
         ':updated_at' => $createdAt,
+    ]);
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['id'] ?? 0);
+}
+
+/**
+ * Insert a delay entry into tmi_delay_entries for DD/ED/AD types.
+ * @return int Inserted delay_id
+ */
+function insertDelayEntry(PDO $conn, string $type, array $data): int {
+    global $CREATED_BY;
+
+    $delayTypeMap = ['DD' => 'D/D', 'ED' => 'E/D', 'AD' => 'A/D'];
+    $delayType = $delayTypeMap[$type] ?? 'D/D';
+
+    $delay = $data['_delay'] ?? [];
+    $delayMinutes = 0;
+    $delayTrend = null;
+    $holdingStatus = null;
+    $holdingFix = null;
+    $acftHolding = null;
+
+    if (is_numeric($delay['value'] ?? null)) {
+        $delayMinutes = (int)$delay['value'];
+    } elseif (($delay['value'] ?? '') === 'Holding') {
+        $holdingStatus = '+Holding';
+    }
+
+    if (($delay['direction'] ?? null) === '+') $delayTrend = 'increasing';
+    elseif (($delay['direction'] ?? null) === '-') $delayTrend = 'decreasing';
+
+    if ($delay['navaid'] ?? null) $holdingFix = substr($delay['navaid'], 0, 8);
+    if ($delay['acft_count'] ?? null) $acftHolding = (int)$delay['acft_count'];
+
+    $timestamp = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
+
+    $sql = "INSERT INTO dbo.tmi_delay_entries (
+                delay_type, airport, facility,
+                timestamp_utc, delay_minutes, delay_trend,
+                holding_status, holding_fix, aircraft_holding,
+                reason, raw_line,
+                source_type, created_by, created_at
+            ) VALUES (
+                :delay_type, :airport, :facility,
+                :timestamp_utc, :delay_minutes, :delay_trend,
+                :holding_status, :holding_fix, :aircraft_holding,
+                :reason, :raw_line,
+                'IMPORT', :created_by, :created_at
+            );
+            SELECT SCOPE_IDENTITY() AS id";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':delay_type' => $delayType,
+        ':airport' => substr($data['ctl_element'] ?? 'UNKN', 0, 4),
+        ':facility' => $data['requesting_facility'] ? substr($data['requesting_facility'], 0, 8) : null,
+        ':timestamp_utc' => $timestamp,
+        ':delay_minutes' => $delayMinutes,
+        ':delay_trend' => $delayTrend,
+        ':holding_status' => $holdingStatus,
+        ':holding_fix' => $holdingFix,
+        ':aircraft_holding' => $acftHolding,
+        ':reason' => $data['impacting_condition'] ? substr($data['impacting_condition'], 0, 64) : null,
+        ':raw_line' => substr($data['_raw'] ?? '', 0, 500),
+        ':created_by' => $CREATED_BY,
+        ':created_at' => $timestamp,
+    ]);
+    $stmt->nextRowset();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['id'] ?? 0);
+}
+
+/**
+ * Insert an airport config entry into tmi_airport_configs for CONFIG types.
+ * @return int Inserted config_id
+ */
+function insertAirportConfig(PDO $conn, array $data): int {
+    global $CREATED_BY;
+
+    $cfg = $data['_config'] ?? [];
+    $timestamp = $data['start_utc'] ?? $data['_entry_timestamp'] ?? gmdate('Y-m-d H:i:s');
+
+    // Build JSON arrays for runways
+    $arrRunways = null;
+    if (!empty($cfg['arr_rwys'])) {
+        $arrRunways = json_encode(explode('/', $cfg['arr_rwys']));
+    }
+    $depRunways = null;
+    if (!empty($cfg['dep_rwys'])) {
+        $depRunways = json_encode(explode('/', $cfg['dep_rwys']));
+    }
+
+    // Map LVMC/LIMC to VMC/IMC for CHECK constraint compatibility
+    $conditions = $cfg['weather'] ?? null;
+    if ($conditions === 'LVMC') $conditions = 'VMC';
+    if ($conditions === 'LIMC') $conditions = 'IMC';
+
+    $sql = "INSERT INTO dbo.tmi_airport_configs (
+                airport, timestamp_utc, conditions,
+                arrival_runways, departure_runways,
+                aar, adr,
+                raw_line,
+                source_type, created_by, created_at
+            ) VALUES (
+                :airport, :timestamp_utc, :conditions,
+                :arrival_runways, :departure_runways,
+                :aar, :adr,
+                :raw_line,
+                'IMPORT', :created_by, :created_at
+            );
+            SELECT SCOPE_IDENTITY() AS id";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':airport' => substr($data['ctl_element'] ?? 'UNKN', 0, 4),
+        ':timestamp_utc' => $timestamp,
+        ':conditions' => $conditions,
+        ':arrival_runways' => $arrRunways ? substr($arrRunways, 0, 100) : null,
+        ':departure_runways' => $depRunways ? substr($depRunways, 0, 100) : null,
+        ':aar' => $cfg['aar'] ?? null,
+        ':adr' => $cfg['adr'] ?? null,
+        ':raw_line' => substr($data['_raw'] ?? '', 0, 500),
+        ':created_by' => $CREATED_BY,
+        ':created_at' => $timestamp,
     ]);
     $stmt->nextRowset();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1104,4 +1254,177 @@ function buildSubject(string $type, array $data): string {
         'CNX' => "Cancellation - " . ($data['cancel_ref_type'] ?? '') . " " . ($data['cancel_ref_number'] ?? ''),
         default => $data['subject'] ?? "Imported Entry",
     };
+}
+
+/**
+ * Build a compact human-readable condition_text describing the flow/TMI.
+ */
+function buildConditionText(string $type, array $data): string {
+    $parts = [];
+    $airports = $data['_airports_text'] ?? $data['ctl_element'] ?? '';
+
+    switch ($type) {
+        case 'MIT':
+        case 'MINIT':
+            if ($airports) $parts[] = $airports;
+            if (!empty($data['_direction'])) $parts[] = $data['_direction'];
+            if ($data['mit_fix']) $parts[] = 'via ' . $data['mit_fix'];
+            if ($data['restriction_value']) {
+                $unit = ($type === 'MINIT') ? 'MIN' : 'NM';
+                $parts[] = $data['restriction_value'] . $unit;
+            }
+            if (!empty($data['qualifiers']) && is_array($data['qualifiers'])) {
+                $parts = array_merge($parts, $data['qualifiers']);
+            }
+            break;
+
+        case 'STOP':
+            if ($airports) $parts[] = $airports;
+            if (!empty($data['_direction'])) $parts[] = $data['_direction'];
+            if ($data['mit_fix']) $parts[] = 'via ' . $data['mit_fix'];
+            $parts[] = 'STOP';
+            break;
+
+        case 'CFR':
+            if ($airports) $parts[] = $airports;
+            if (!empty($data['_direction'])) $parts[] = $data['_direction'];
+            if (!empty($data['_destinations'])) $parts[] = 'to ' . implode(',', $data['_destinations']);
+            $parts[] = 'CFR';
+            break;
+
+        case 'DD':
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $parts[] = 'D/D';
+            if ($data['restriction_value']) $parts[] = '+' . $data['restriction_value'] . 'min';
+            break;
+
+        case 'ED':
+            if ($data['requesting_facility']) $parts[] = $data['requesting_facility'];
+            $parts[] = 'E/D';
+            if ($data['ctl_element']) $parts[] = 'for ' . $data['ctl_element'];
+            if ($data['restriction_value']) $parts[] = '+' . $data['restriction_value'] . 'min';
+            $delay = $data['_delay'] ?? [];
+            if (!empty($delay['acft_count'])) $parts[] = $delay['acft_count'] . ' ACFT';
+            break;
+
+        case 'AD':
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $parts[] = 'A/D';
+            if ($data['restriction_value']) $parts[] = '+' . $data['restriction_value'] . 'min';
+            break;
+
+        case 'TBM':
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $parts[] = 'TBM';
+            if (!empty($data['_tbm_name'])) $parts[] = $data['_tbm_name'];
+            break;
+
+        case 'CONFIG':
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $cfg = $data['_config'] ?? [];
+            if (!empty($cfg['weather'])) $parts[] = $cfg['weather'];
+            if (!empty($cfg['arr_rwys'])) $parts[] = 'ARR:' . $cfg['arr_rwys'];
+            if (!empty($cfg['dep_rwys'])) $parts[] = 'DEP:' . $cfg['dep_rwys'];
+            if (!empty($cfg['aar'])) $parts[] = 'AAR:' . $cfg['aar'];
+            if (!empty($cfg['adr'])) $parts[] = 'ADR:' . $cfg['adr'];
+            break;
+
+        case 'APREQ':
+            if ($airports) $parts[] = $airports;
+            $parts[] = 'APREQ';
+            if ($data['mit_fix']) $parts[] = 'via ' . $data['mit_fix'];
+            if (!empty($data['_destinations'])) $parts[] = 'to ' . implode(',', $data['_destinations']);
+            break;
+
+        case 'CANCEL':
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $parts[] = 'CANCEL';
+            if (!empty($data['_cancel_target'])) $parts[] = $data['_cancel_target'];
+            if ($data['mit_fix']) $parts[] = 'via ' . $data['mit_fix'];
+            break;
+
+        default:
+            if ($data['ctl_element']) $parts[] = $data['ctl_element'];
+            $parts[] = $type;
+            break;
+    }
+
+    return substr(implode(' ', $parts), 0, 500);
+}
+
+/**
+ * Build structured parsed_data JSON for tmi_entries.
+ * Only includes sections relevant to the entry type.
+ */
+function buildParsedData(string $type, array $data): string {
+    $pd = [];
+
+    // Flow section
+    $flow = [];
+    if ($data['mit_fix']) $flow['fix'] = $data['mit_fix'];
+    if (!empty($data['_airports'])) $flow['airports'] = $data['_airports'];
+    if (!empty($data['_airports_text'])) $flow['airports_text'] = $data['_airports_text'];
+    if (!empty($data['_destinations'])) $flow['destinations'] = $data['_destinations'];
+    if (!empty($data['_direction'])) $flow['direction'] = $data['_direction'];
+    $quals = $data['qualifiers'] ?? [];
+    if (is_array($quals)) {
+        foreach (['PER STREAM', 'PER AIRPORT', 'PER ROUTE', 'AS ONE', 'SINGLE STREAM'] as $mod) {
+            if (in_array($mod, $quals)) { $flow['modifier'] = $mod; break; }
+        }
+    }
+    if ($flow) $pd['flow'] = $flow;
+
+    // Qualifiers and exclusions
+    if ($quals) $pd['qualifiers'] = $quals;
+    if ($data['exclusions']) $pd['exclusions'] = [$data['exclusions']];
+
+    // Facility pair
+    if ($data['requesting_facility'] || $data['providing_facility']) {
+        $pd['facilities'] = array_filter([
+            'requestor' => $data['requesting_facility'],
+            'provider' => $data['providing_facility'],
+        ]);
+    }
+
+    // Delay section (DD/ED/AD)
+    if (in_array($type, ['DD', 'ED', 'AD']) && !empty($data['_delay'])) {
+        $d = $data['_delay'];
+        $delay = [];
+        if (is_numeric($d['value'] ?? null)) $delay['value'] = (int)$d['value'];
+        if ($d['direction'] ?? null) $delay['direction'] = $d['direction'];
+        if ($d['measured_at'] ?? null) $delay['measured_at'] = $d['measured_at'];
+        if ($d['acft_count'] ?? null) $delay['acft_count'] = $d['acft_count'];
+        if (($d['value'] ?? '') === 'Holding') $delay['holding'] = true;
+        if ($d['navaid'] ?? null) $delay['navaid'] = $d['navaid'];
+        if ($delay) $pd['delay'] = $delay;
+    }
+
+    // Config section
+    if ($type === 'CONFIG' && !empty($data['_config'])) {
+        $cfg = $data['_config'];
+        $config = [];
+        if ($cfg['weather'] ?? null) $config['weather'] = $cfg['weather'];
+        if ($cfg['arr_rwys'] ?? null) $config['arr_rwys'] = explode('/', $cfg['arr_rwys']);
+        if ($cfg['dep_rwys'] ?? null) $config['dep_rwys'] = explode('/', $cfg['dep_rwys']);
+        if ($cfg['aar'] ?? null) $config['aar'] = $cfg['aar'];
+        if ($cfg['aar_type'] ?? null) $config['aar_type'] = $cfg['aar_type'];
+        if ($cfg['adr'] ?? null) $config['adr'] = $cfg['adr'];
+        if ($config) $pd['config'] = $config;
+    }
+
+    // TBM section
+    if ($type === 'TBM' && !empty($data['_tbm_name'])) {
+        $pd['tbm'] = ['name' => $data['_tbm_name']];
+        if ($data['restriction_value']) $pd['tbm']['value'] = $data['restriction_value'];
+    }
+
+    // Cancel section
+    if ($type === 'CANCEL' && !empty($data['_cancel_target'])) {
+        $pd['cancel'] = ['target_type' => $data['_cancel_target']];
+    }
+
+    // Import metadata
+    $pd['import'] = ['source_type' => 'NTML', 'parser_version' => '2.0'];
+
+    return json_encode($pd, JSON_UNESCAPED_SLASHES);
 }
