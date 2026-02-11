@@ -2207,12 +2207,13 @@ class TMIComplianceAnalyzer:
                 per_carrier[carrier]['compliant'] += 1
                 # Calculate hold time: delay incurred as a result of the GS
                 # = overlap between when the flight was ready and the GS window
-                # Ready time: out_utc (gate push) or first_seen (VATSIM connect)
+                # Ready time: first_seen (pilot connected) preferred over out_utc
+                # because for GS-held flights, out_utc is AFTER the GS ended
                 ready_time = None
-                if out_utc:
-                    ready_time = normalize_datetime(out_utc)
-                elif first_seen:
+                if first_seen:
                     ready_time = first_seen_dt
+                elif out_utc:
+                    ready_time = normalize_datetime(out_utc)
 
                 if ready_time and gs_start and gs_end and ready_time < gs_end:
                     hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
