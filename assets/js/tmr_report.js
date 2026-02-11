@@ -164,8 +164,8 @@
 
         // Card click toggles checkbox + visual state
         grid.on('click', '.trigger-card', function(e) {
-            // Don't double-toggle if clicking directly on the hidden checkbox
-            if (e.target.tagName === 'INPUT') return;
+            // Prevent native <label> toggle (would double-toggle with our manual flip)
+            e.preventDefault();
 
             var cb = $(this).find('input[type="checkbox"]');
             cb.prop('checked', !cb.prop('checked')).trigger('change');
