@@ -8841,12 +8841,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
 
             // GS delay: Total / Maximum / Average (matches advisory format)
+            // Only flights with wheels-off OOOI data have delay computed
             const gsDelay = gs.gs_delay_stats || {};
             if (gsDelay.avg_delay_min && gsDelay.avg_delay_min > 0) {
                 const total = gsDelay.total_delay_min ? Math.round(gsDelay.total_delay_min) : '?';
                 const max = gsDelay.max_delay_min ? Math.round(gsDelay.max_delay_min) : '?';
                 const avg = Math.round(gsDelay.avg_delay_min);
-                lines.push(`> **Total, Maximum, Average Delays:** ${total} / ${max} / ${avg}`);
+                const sample = gsDelay.flights_with_delay_data || '?';
+                lines.push(`> **Total, Maximum, Average Delays:** ${total} / ${max} / ${avg} (based on ${sample} flights with OOOI data)`);
             }
 
             // Time source breakdown
