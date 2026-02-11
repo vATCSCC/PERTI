@@ -497,11 +497,46 @@ function resolveRouteGeojsonADL($conn, $tokens) {
 }
 
 /**
+ * Search nav_procedures for a matching procedure.
+ */
+function findProcedure($conn, $procNameClean, $airportIcao = null, $transition = null) {
+    $sql = "SELECT TOP 1 procedure_id, procedure_type, procedure_name, computer_code, full_route
+            FROM dbo.nav_procedures
+            WHERE (procedure_name LIKE ? OR computer_code LIKE ?)";
+    $params = [$procNameClean . '%', $procNameClean . '%'];
+
+    if ($airportIcao) {
+        $sql .= " AND airport_icao = ?";
+        $params[] = $airportIcao;
+    }
+
+    if ($transition) {
+        $transClean = preg_replace('/[0-9#]+$/', '', $transition);
+        $sql .= " AND (transition_name = ? OR transition_name LIKE ?)";
+        $params[] = $transClean;
+        $params[] = $transClean . '%';
+    }
+
+    $sql .= " ORDER BY CASE WHEN procedure_name = ? THEN 0 WHEN computer_code = ? THEN 0 ELSE 1 END";
+    $params[] = $procNameClean;
+    $params[] = $procNameClean;
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) return null;
+
+    $proc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    return $proc ?: null;
+}
+
+/**
  * Resolve a PROCEDURE element into a GeoJSON LineString.
  * Accepts formats like:
  *   "SIE.CAMRN3" (transition.STAR)
  *   "CAMRN3" (just STAR name, no transition)
  *   "KAYLN3.SMUUV" (DP.transition)
+ *   "ENO.PROUD# KLGA" (transition.STAR airport — airport extracted by caller)
  *
  * Looks up nav_procedures + nav_procedure_legs to build the route.
  */
@@ -516,42 +551,33 @@ function resolveProcedureGeojson($conn, $procInput, $airportIcao = null) {
     if (strpos($procInput, '.') !== false) {
         $parts = explode('.', $procInput, 2);
         // Could be TRANSITION.STAR or DP.TRANSITION
-        // We'll search for both parts
         $transition = $parts[0];
         $procName = $parts[1];
     }
 
-    // Strip trailing # from procedure names (CAMRN# -> CAMRN)
-    $procNameClean = rtrim($procName, '#');
+    // Strip trailing # and digits from procedure names (CAMRN# -> CAMRN, PROUD5 -> PROUD)
+    $procNameClean = preg_replace('/[0-9#]+$/', '', $procName);
+    if (empty($procNameClean)) $procNameClean = $procName;
 
-    // Search for matching procedure
-    $sql = "SELECT TOP 1 procedure_id, procedure_type, procedure_name, computer_code, full_route
-            FROM dbo.nav_procedures
-            WHERE (procedure_name LIKE ? OR computer_code LIKE ?)";
-    $params = [$procNameClean . '%', $procNameClean . '%'];
+    // Also try with transition as the procedure name (dot notation may be reversed)
+    $transitionClean = $transition ? preg_replace('/[0-9#]+$/', '', $transition) : null;
 
-    if ($airportIcao) {
-        $sql .= " AND airport_icao = ?";
-        $params[] = $airportIcao;
+    $proc = findProcedure($conn, $procNameClean, $airportIcao, $transition);
+
+    // Retry: try with transition as the procedure name (reversed notation)
+    if (!$proc && $transitionClean && $transitionClean !== $procNameClean) {
+        $proc = findProcedure($conn, $transitionClean, $airportIcao, $procNameClean);
     }
 
-    if ($transition) {
-        $sql .= " AND (transition_name = ? OR transition_name LIKE ?)";
-        $params[] = $transition;
-        $params[] = $transition . '%';
+    // Retry: search without transition filter
+    if (!$proc && $transition) {
+        $proc = findProcedure($conn, $procNameClean, $airportIcao, null);
     }
 
-    $sql .= " ORDER BY CASE WHEN procedure_name = ? THEN 0 WHEN computer_code = ? THEN 0 ELSE 1 END";
-    $params[] = $procNameClean;
-    $params[] = $procNameClean;
-
-    $stmt = sqlsrv_query($conn, $sql, $params);
-    if ($stmt === false) return null;
-
-    $proc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    sqlsrv_free_stmt($stmt);
-
-    if (!$proc) return null;
+    if (!$proc) {
+        error_log("[NOD Flows] Procedure not found: {$procInput}" . ($airportIcao ? " at {$airportIcao}" : ''));
+        return null;
+    }
 
     // If the procedure has a full_route, resolve it like a route string
     if (!empty($proc['full_route'])) {
@@ -720,13 +746,34 @@ function handlePost($conn) {
             : $input['route_geojson'];
     } elseif (strtoupper($input['element_type']) === 'ROUTE' && !empty($input['route_string'])) {
         $routeGeojson = resolveRouteGeojson($conn, $input['route_string']);
+        // Fallback: if route contains SID/STAR notation (. or #), try procedure resolution
+        if (!$routeGeojson && preg_match('/[.#]/', $input['route_string'])) {
+            $parts = preg_split('/\s+/', trim(strtoupper($input['route_string'])));
+            $airport = null;
+            $procPart = null;
+            foreach ($parts as $p) {
+                // Pick the token with SID/STAR notation (contains . or #)
+                if (preg_match('/[.#]/', $p)) {
+                    $procPart = $p;
+                } elseif (preg_match('/^K[A-Z]{3}$/', $p) || (preg_match('/^[A-Z]{4}$/', $p) && !$airport)) {
+                    $airport = $p;
+                }
+            }
+            if ($procPart) {
+                $routeGeojson = resolveProcedureGeojson($conn, $procPart, $airport);
+            }
+        }
     } elseif (strtoupper($input['element_type']) === 'PROCEDURE') {
         // Resolve procedure into route geometry
         $airportIcao = $input['airport_icao'] ?? null;
         $routeGeojson = resolveProcedureGeojson($conn, $input['element_name'], $airportIcao);
-        if (!$routeGeojson && !empty($input['route_string'])) {
-            // Fallback: try resolving as a route string
-            $routeGeojson = resolveRouteGeojson($conn, $input['route_string']);
+        if (!$routeGeojson) {
+            // Fallback: try resolving as a route string (construct from element name + airport)
+            $routeStr = $input['route_string'] ?? null;
+            if (!$routeStr) {
+                $routeStr = $input['element_name'] . ($airportIcao ? ' ' . $airportIcao : '');
+            }
+            $routeGeojson = resolveRouteGeojson($conn, $routeStr);
         }
     }
 
@@ -783,6 +830,8 @@ function handlePost($conn) {
     // Include resolved route_geojson for ROUTE/PROCEDURE elements
     if ($routeGeojson) {
         $response['route_geojson'] = json_decode($routeGeojson, true);
+    } elseif (in_array(strtoupper($input['element_type']), ['ROUTE', 'PROCEDURE'])) {
+        $response['resolution_warning'] = 'Could not resolve geometry for this element';
     }
 
     echo json_encode($response);
