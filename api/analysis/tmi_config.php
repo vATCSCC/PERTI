@@ -116,10 +116,11 @@ function parseFacilities($line) {
         $cleanLine = preg_replace('/\(MULTIPLE\)\s*$/i', '', $line);
     }
 
-    // Parse facility pair at end of line
+    // Parse facility pair from line
     // Pattern matches: FACILITY(,FACILITY)*:FACILITY(,FACILITY)*
     // Handles: ZNY:ZDC, N90:ZNY, ZNY,N90:ZDC,ZBW, KJFK:ZNY
-    if (preg_match('/\b([A-Z0-9]+(?:,[A-Z0-9]+)*):([A-Z0-9]+(?:,[A-Z0-9]+)*)\s*$/i', $cleanLine, $matches)) {
+    // Facility codes start with a letter (2-4 chars) to avoid matching time patterns
+    if (preg_match('/\b([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*):([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*)\b/i', $cleanLine, $matches)) {
         $result['requestor'] = strtoupper($matches[1]);
         $result['provider'] = strtoupper($matches[2]);
     }
@@ -421,6 +422,60 @@ function parse_ntml_line($line) {
         $tmi['requestor'] = $facilities['requestor'];
         $tmi['provider'] = $facilities['provider'];
         $tmi['is_multiple'] = $facilities['is_multiple'];
+    }
+    // GS compact pattern: "DCA GS (PCT) 0030Z-0115Z" or "GS DCA 0030Z-0115Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+GS|GS\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'GS';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        // Extract facility in parentheses: "(PCT)"
+        if (preg_match('/\(([A-Z0-9]{2,4})\)/i', $line, $facMatch)) {
+            $tmi['ctl_element'] = strtoupper($facMatch[1]);
+        }
+
+        // Extract impacting condition if present
+        if (preg_match('/(?:reason|due to|condition)[:\s]+(.+?)(?:\d{4}Z|\s*$)/i', $line, $condMatch)) {
+            $tmi['impacting_condition'] = trim($condMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
+    }
+    // GDP compact pattern: "JFK GDP AAR:30 2200Z-0200Z" or "GDP JFK AAR:30 2200Z-0200Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+GDP|GDP\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'GDP';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        // Extract rate: "AAR:30" or "Rate:30" or "rate 30"
+        if (preg_match('/(?:AAR|Rate)[:\s]+(\d+)/i', $line, $rateMatch)) {
+            $tmi['program_rate'] = intval($rateMatch[1]);
+        }
+
+        // Extract delay limit if present
+        if (preg_match('/(?:delay|max)[:\s]+(\d+)\s*(?:min)?/i', $line, $delayMatch)) {
+            $tmi['delay_limit'] = intval($delayMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
+    }
+    // AFP compact pattern: "AFP JFK 2200Z-0200Z" or "JFK AFP Rate:30 2200Z-0200Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+AFP|AFP\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'AFP';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        if (preg_match('/(?:AAR|Rate)[:\s]+(\d+)/i', $line, $rateMatch)) {
+            $tmi['program_rate'] = intval($rateMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
     }
 
     return $tmi['type'] ? $tmi : null;
