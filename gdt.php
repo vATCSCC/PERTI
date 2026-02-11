@@ -198,6 +198,188 @@ include("load/config.php");
             color: #333;
         }
 
+        /* ========== Active Programs Dashboard ========== */
+        .gdt-program-card {
+            min-width: 260px;
+            max-width: 340px;
+            flex: 1 1 260px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            padding: 10px 14px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+
+        .gdt-program-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.15);
+        }
+
+        .gdt-program-card.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .gdt-program-card .gdt-card-type {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #fff;
+        }
+
+        .gdt-card-type-gs { background: #dc3545; }
+        .gdt-card-type-gdp { background: #e67e22; }
+        .gdt-card-type-afp { background: #007bff; }
+
+        .gdt-program-card .gdt-card-status {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .gdt-card-status-active { background: #d4edda; color: #155724; }
+        .gdt-card-status-modeling { background: #fff3cd; color: #856404; }
+        .gdt-card-status-proposed { background: #cce5ff; color: #004085; }
+        .gdt-card-status-transitioned { background: #e2e3e5; color: #383d41; }
+        .gdt-card-status-cancelled { background: #f8d7da; color: #721c24; }
+        .gdt-card-status-completed { background: #e2e3e5; color: #383d41; }
+
+        .gdt-program-card .gdt-card-element {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .gdt-program-card .gdt-card-artcc {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
+        .gdt-program-card .gdt-card-time {
+            font-size: 0.75rem;
+            font-family: 'Inconsolata', monospace;
+            color: #555;
+        }
+
+        .gdt-program-card .gdt-card-progress {
+            height: 4px;
+            border-radius: 2px;
+            background: #e9ecef;
+            margin-top: 6px;
+        }
+
+        .gdt-program-card .gdt-card-progress-bar {
+            height: 100%;
+            border-radius: 2px;
+            background: #28a745;
+            transition: width 0.3s ease;
+        }
+
+        .gdt-program-card .gdt-card-metrics {
+            display: flex;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
+        .gdt-program-card .gdt-card-metric-value {
+            font-weight: 700;
+            color: #333;
+        }
+
+        .gdt-program-card .gdt-card-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .gdt-program-card .gdt-card-actions .btn {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+        }
+
+        /* ========== Workflow Stepper ========== */
+        .gdt-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 80px;
+        }
+
+        .gdt-step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e9ecef;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 2px solid #dee2e6;
+            transition: all 0.2s ease;
+        }
+
+        .gdt-step.active .gdt-step-circle {
+            background: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+
+        .gdt-step.completed .gdt-step-circle {
+            background: #28a745;
+            color: #fff;
+            border-color: #28a745;
+        }
+
+        .gdt-step.completed .gdt-step-circle::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+        }
+
+        .gdt-step-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #adb5bd;
+            margin-top: 4px;
+            letter-spacing: 0.03em;
+        }
+
+        .gdt-step.active .gdt-step-label {
+            color: #007bff;
+        }
+
+        .gdt-step.completed .gdt-step-label {
+            color: #28a745;
+        }
+
+        .gdt-step-line {
+            flex: 1;
+            height: 2px;
+            background: #dee2e6;
+            margin: 14px 8px 0;
+            min-width: 40px;
+            max-width: 120px;
+            transition: background 0.2s ease;
+        }
+
+        .gdt-step-line.completed {
+            background: #28a745;
+        }
+
         /* Icon-only button sizing fix */
         /* Ensures icon buttons in btn-group-sm have minimum width for visibility */
         .btn-group-sm > .btn:has(> i.fas):not(:has(span)):not(:has(.sr-only)) {
@@ -379,6 +561,85 @@ include("load/config.php");
             </div>
         </div>
     </div>
+
+    <!-- Active Programs Dashboard -->
+    <div id="gdt_dashboard" class="mb-3" style="display: none;">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center"
+                 style="cursor: pointer;" onclick="toggleDashboard();">
+                <span class="tmi-section-title">
+                    <i class="fas fa-tachometer-alt mr-1"></i> Active Programs
+                    <span id="gdt_dashboard_count" class="badge badge-light ml-1" style="display: none;">0</span>
+                </span>
+                <div>
+                    <button class="btn btn-sm btn-outline-light mr-1" id="gdt_new_program_btn"
+                            onclick="event.stopPropagation(); resetAndNewProgram();"
+                            data-toggle="tooltip" title="Create a new program">
+                        <i class="fas fa-plus mr-1"></i> New Program
+                    </button>
+                    <i class="fas fa-chevron-down" id="gdt_dashboard_chevron"></i>
+                </div>
+            </div>
+            <div class="card-body py-2 px-3" id="gdt_dashboard_body">
+                <!-- No programs message -->
+                <div id="gdt_dashboard_empty" class="text-center text-muted py-2" style="display: none;">
+                    <i class="fas fa-check-circle mr-1"></i> No active programs
+                </div>
+                <!-- Program cards container -->
+                <div id="gdt_dashboard_cards" class="d-flex flex-wrap" style="gap: 10px;">
+                </div>
+                <!-- Summary row -->
+                <div id="gdt_dashboard_summary" class="mt-2 pt-2 border-top small text-muted" style="display: none;">
+                    <i class="fas fa-plane mr-1"></i>
+                    <span id="gdt_dashboard_total_controlled">0</span> controlled across all programs
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-clock mr-1"></i> Last refreshed: <span id="gdt_dashboard_refresh_time">-</span>
+                    <span class="mx-2">|</span>
+                    <a href="#" onclick="event.preventDefault(); toggleTimeline();" class="text-info">
+                        <i class="fas fa-chart-bar mr-1"></i><span id="gdt_timeline_toggle_text">Show Timeline</span>
+                    </a>
+                </div>
+                <!-- Multi-Program Timeline -->
+                <div id="gdt_timeline_container" class="mt-2" style="display: none;">
+                    <div style="position: relative; height: 120px; max-height: 200px;">
+                        <canvas id="gdt_timeline_canvas"></canvas>
+                    </div>
+                    <div id="gdt_timeline_conflicts" class="mt-1 small"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Stepper -->
+    <div id="gdt_stepper" class="mb-3">
+        <div class="d-flex align-items-center justify-content-center py-2">
+            <div class="gdt-step active" id="gdt_step_1" data-step="configure">
+                <div class="gdt-step-circle">1</div>
+                <div class="gdt-step-label">Configure</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_1"></div>
+            <div class="gdt-step" id="gdt_step_2" data-step="preview">
+                <div class="gdt-step-circle">2</div>
+                <div class="gdt-step-label">Preview</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_2"></div>
+            <div class="gdt-step" id="gdt_step_3" data-step="model">
+                <div class="gdt-step-circle">3</div>
+                <div class="gdt-step-label">Model</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_3"></div>
+            <div class="gdt-step" id="gdt_step_4" data-step="active">
+                <div class="gdt-step-circle">4</div>
+                <div class="gdt-step-label">Active</div>
+            </div>
+            <!-- What-If badge and discard button (hidden by default) -->
+            <span class="badge badge-warning ml-3 d-none" id="gdt_whatif_badge" style="font-size:0.75rem; vertical-align: middle;">WHAT-IF MODE</span>
+            <button class="btn btn-sm btn-outline-secondary ml-2 d-none" id="gdt_whatif_discard_btn" onclick="exitWhatIfMode();" style="vertical-align: middle;">
+                <i class="fas fa-undo mr-1"></i> Discard What-If
+            </button>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Left: Ground Stop editor -->
         <div class="col-lg-6 mb-4">
@@ -1714,6 +1975,235 @@ include("load/config.php");
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Extend Program Modal -->
+<div class="modal fade" id="gdt_extend_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_extend_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title" id="gdt_extend_modal_label">
+                    <i class="fas fa-clock mr-1"></i> Extend Program
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="font-weight-bold">Program</label>
+                    <div id="gdt_extend_program_info" class="text-muted">-</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Current End Time</label>
+                        <input type="text" class="form-control form-control-sm" id="gdt_extend_current_end" readonly>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="gdt_extend_new_end" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Probability of Extension</label>
+                    <select class="form-control form-control-sm" id="gdt_extend_prob_ext">
+                        <option value="">-- Select --</option>
+                        <option value="LOW">LOW</option>
+                        <option value="MODERATE">MODERATE</option>
+                        <option value="HIGH">HIGH</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Comments</label>
+                    <textarea class="form-control form-control-sm" id="gdt_extend_comments" rows="2" placeholder="Extension reason..."></textarea>
+                </div>
+                <!-- Advisory Preview -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_extend_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_extend_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="gdt_extend_submit_btn" onclick="submitExtend();">
+                    <i class="fas fa-clock mr-1"></i> Extend Program
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revise Program Modal -->
+<div class="modal fade" id="gdt_revise_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_revise_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark py-2">
+                <h5 class="modal-title" id="gdt_revise_modal_label">
+                    <i class="fas fa-edit mr-1"></i> Revise Program
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="font-weight-bold">Program</label>
+                    <div id="gdt_revise_program_info" class="text-muted">-</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">Program Rate (arrivals/hr)</label>
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_rate" min="1" max="120" placeholder="e.g. 36">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">Delay Cap (minutes)</label>
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_delay_cap" min="0" max="600" placeholder="e.g. 300">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="gdt_revise_end_utc">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Impacting Condition</label>
+                        <select class="form-control form-control-sm" id="gdt_revise_impacting">
+                            <option value="WEATHER">WEATHER</option>
+                            <option value="VOLUME">VOLUME</option>
+                            <option value="EQUIPMENT">EQUIPMENT</option>
+                            <option value="RUNWAY">RUNWAY</option>
+                            <option value="OTHER">OTHER</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Probability of Extension</label>
+                        <select class="form-control form-control-sm" id="gdt_revise_prob_ext">
+                            <option value="">-- Select --</option>
+                            <option value="LOW">LOW</option>
+                            <option value="MODERATE">MODERATE</option>
+                            <option value="HIGH">HIGH</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Revision Comments</label>
+                    <textarea class="form-control form-control-sm" id="gdt_revise_comments" rows="2" placeholder="What changed and why..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_revise_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_revise_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning btn-sm" id="gdt_revise_submit_btn" onclick="submitRevise();">
+                    <i class="fas fa-edit mr-1"></i> Revise Program
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GS-to-GDP Transition Modal -->
+<div class="modal fade" id="gdt_transition_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_transition_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white py-2">
+                <h5 class="modal-title" id="gdt_transition_modal_label">
+                    <i class="fas fa-exchange-alt mr-1"></i> GS &rarr; GDP Transition
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Phase indicator -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-secondary mr-2" id="gdt_transition_phase_badge">PHASE 1: PROPOSE</span>
+                        <small class="text-muted" id="gdt_transition_phase_help">Create a proposed GDP while the GS remains active.</small>
+                    </div>
+                </div>
+
+                <!-- Parent GS info -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Parent Ground Stop</label>
+                    <div id="gdt_transition_gs_info" class="text-muted border rounded p-2 bg-light">-</div>
+                </div>
+
+                <!-- Proposed GDP already exists banner (hidden until phase 2) -->
+                <div class="alert alert-info small py-2 d-none" id="gdt_transition_proposed_banner">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    A proposed GDP (<strong id="gdt_transition_proposed_id">-</strong>) is ready.
+                    Activating will cancel the GS and make the GDP live.
+                </div>
+
+                <!-- GDP Parameters (Phase 1 only) -->
+                <div id="gdt_transition_params">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">GDP Type</label>
+                            <select class="form-control form-control-sm" id="gdt_transition_gdp_type">
+                                <option value="GDP-DAS">GDP-DAS (Default)</option>
+                                <option value="GDP-GAAP">GDP-GAAP</option>
+                                <option value="GDP-UDP">GDP-UDP</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Program Rate (arr/hr)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_rate" min="1" max="120" placeholder="e.g. 36">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Reserve Rate</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_reserve" min="0" max="30" placeholder="GAAP/UDP only">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">GDP End Time (UTC)</label>
+                            <input type="datetime-local" class="form-control form-control-sm" id="gdt_transition_end_utc" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Delay Cap (minutes)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_delay_cap" min="0" max="600" value="180" placeholder="e.g. 300">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Impacting Condition</label>
+                            <select class="form-control form-control-sm" id="gdt_transition_impacting">
+                                <option value="WEATHER">WEATHER</option>
+                                <option value="VOLUME">VOLUME</option>
+                                <option value="EQUIPMENT">EQUIPMENT</option>
+                                <option value="RUNWAY">RUNWAY</option>
+                                <option value="OTHER">OTHER</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Comments</label>
+                        <textarea class="form-control form-control-sm" id="gdt_transition_comments" rows="2" placeholder="e.g. ARR 4R, DEP 4R."></textarea>
+                    </div>
+                </div>
+
+                <!-- Cumulative Period (shown after propose) -->
+                <div class="form-group d-none" id="gdt_transition_cumulative_row">
+                    <label class="font-weight-bold">Cumulative Program Period</label>
+                    <div id="gdt_transition_cumulative" class="text-muted">-</div>
+                </div>
+
+                <!-- Advisory Preview -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_transition_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_transition_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-info btn-sm" id="gdt_transition_propose_btn" onclick="submitTransitionPropose();">
+                    <i class="fas fa-file-alt mr-1"></i> Propose GDP
+                </button>
+                <button type="button" class="btn btn-success btn-sm d-none" id="gdt_transition_activate_btn" onclick="submitTransitionActivate();">
+                    <i class="fas fa-check-circle mr-1"></i> Activate GDP &amp; Cancel GS
+                </button>
             </div>
         </div>
     </div>

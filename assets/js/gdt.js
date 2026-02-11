@@ -37,10 +37,15 @@
     // GDT API endpoints (unified GDT structure in VATSIM_TMI)
     const GS_API = {
         list: 'api/gdt/programs/list.php',
+        active: 'api/gdt/programs/active.php',
         create: 'api/gdt/programs/create.php',
         model: 'api/gdt/programs/model.php',
+        simulate: 'api/gdt/programs/simulate.php',
         activate: 'api/gdt/programs/activate.php',
         extend: 'api/gdt/programs/extend.php',
+        revise: 'api/gdt/programs/revise.php',
+        cancel: 'api/gdt/programs/cancel.php',
+        transition: 'api/gdt/programs/transition.php',
         purge: 'api/gdt/programs/purge.php',
         get: 'api/gdt/programs/get.php',
         flights: 'api/gdt/flights/list.php',
@@ -67,6 +72,23 @@
 
     // Track whether a simulation has been run (required before Submit to TMI)
     let GS_SIMULATION_READY = false;
+
+    // ========================================================================
+    // Workflow State Machine
+    // ========================================================================
+
+    // Valid states: 'configure', 'preview', 'model', 'active'
+    let GS_WORKFLOW_STATE = 'configure';
+
+    // Dashboard state
+    let GDT_DASHBOARD_PROGRAMS = [];
+    let GDT_DASHBOARD_COLLAPSED = false;
+    let GDT_DASHBOARD_REFRESH_TIMER = null;
+    const GDT_DASHBOARD_REFRESH_INTERVAL = 60000; // 60 seconds
+
+    // What-If re-model state
+    let GS_WHAT_IF_MODE = false;
+    let GS_WHAT_IF_CACHED_PROGRAM = null; // Snapshot of active program before what-if
 
     const GS_SIMTRAFFIC_CACHE = {};
     let GS_SIMTRAFFIC_QUEUE = [];
@@ -99,6 +121,1404 @@
             'FDX': 'FX', 'FX': 'FX',
             'UPS': '5X', '5X': '5X',
         };
+
+    // ========================================================================
+    // Active Programs Dashboard
+    // ========================================================================
+
+    function loadActiveProgramsDashboard() {
+        $.ajax({
+            url: GS_API.active + '?include_recent=1',
+            method: 'GET',
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.status === 'ok' && resp.data && resp.data.programs) {
+                    GDT_DASHBOARD_PROGRAMS = resp.data.programs;
+                    renderDashboard(resp.data.programs, resp.data.server_utc);
+                    if (GDT_TIMELINE_VISIBLE) renderTimeline();
+                }
+            },
+            error: function() {
+                // Silently fail on dashboard load - not critical
+                console.warn('GDT Dashboard: Failed to load active programs');
+            }
+        });
+    }
+
+    function renderDashboard(programs, serverUtc) {
+        var container = document.getElementById('gdt_dashboard');
+        var cardsEl = document.getElementById('gdt_dashboard_cards');
+        var emptyEl = document.getElementById('gdt_dashboard_empty');
+        var summaryEl = document.getElementById('gdt_dashboard_summary');
+        var countBadge = document.getElementById('gdt_dashboard_count');
+        var refreshTimeEl = document.getElementById('gdt_dashboard_refresh_time');
+
+        if (!container || !cardsEl) return;
+
+        // Show dashboard
+        container.style.display = '';
+
+        // Count active programs (not completed/cancelled/transitioned)
+        var activePrograms = programs.filter(function(p) {
+            return ['ACTIVE', 'PROPOSED', 'MODELING', 'PENDING_COORD'].indexOf(p.status) !== -1;
+        });
+
+        if (programs.length === 0) {
+            emptyEl.style.display = '';
+            cardsEl.innerHTML = '';
+            summaryEl.style.display = 'none';
+            countBadge.style.display = 'none';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        countBadge.style.display = '';
+        countBadge.textContent = activePrograms.length;
+
+        // Build cards
+        var html = '';
+        var totalControlled = 0;
+
+        for (var i = 0; i < programs.length; i++) {
+            var p = programs[i];
+            totalControlled += (p.controlled_flights || 0);
+            html += buildProgramCard(p);
+        }
+
+        cardsEl.innerHTML = html;
+
+        // Summary
+        if (activePrograms.length > 0) {
+            summaryEl.style.display = '';
+            document.getElementById('gdt_dashboard_total_controlled').textContent = totalControlled;
+        } else {
+            summaryEl.style.display = 'none';
+        }
+
+        // Refresh time
+        if (refreshTimeEl) {
+            var now = new Date();
+            var hh = String(now.getUTCHours()).padStart(2, '0');
+            var mm = String(now.getUTCMinutes()).padStart(2, '0');
+            refreshTimeEl.textContent = hh + ':' + mm + 'Z';
+        }
+
+        // Highlight selected program
+        if (GS_CURRENT_PROGRAM_ID) {
+            var sel = document.querySelector('.gdt-program-card[data-program-id="' + GS_CURRENT_PROGRAM_ID + '"]');
+            if (sel) sel.classList.add('selected');
+        }
+    }
+
+    function buildProgramCard(p) {
+        var typeClass = 'gdt-card-type-gs';
+        var typeLabel = p.program_type || 'GS';
+        if (typeLabel.indexOf('GDP') !== -1) typeClass = 'gdt-card-type-gdp';
+        else if (typeLabel === 'AFP') typeClass = 'gdt-card-type-afp';
+
+        var statusClass = 'gdt-card-status-' + (p.status || 'proposed').toLowerCase();
+
+        // Format time window
+        var startStr = formatZuluShort(p.start_utc);
+        var endStr = formatZuluShort(p.end_utc);
+
+        // Elapsed percentage
+        var elapsed = parseFloat(p.elapsed_pct) || 0;
+        var minsLeft = parseInt(p.minutes_remaining) || 0;
+
+        // Progress bar color
+        var progressColor = '#28a745';
+        if (elapsed > 80) progressColor = '#dc3545';
+        else if (elapsed > 60) progressColor = '#e67e22';
+
+        // Metrics
+        var controlled = p.controlled_flights || 0;
+        var exempt = p.exempt_flights || 0;
+        var avgDelay = p.avg_delay_min ? parseFloat(p.avg_delay_min).toFixed(0) : '-';
+
+        // Scope info (extract ARTCC from scope_json if available)
+        var artcc = '';
+        if (p.scope_json) {
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                if (scope.arr_center) artcc = scope.arr_center;
+                else if (scope.artcc) artcc = scope.artcc;
+            } catch(e) {}
+        }
+
+        // Determine which quick actions to show
+        var actions = '';
+        if (p.status === 'ACTIVE') {
+            actions += '<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); dashboardExtend(' + p.program_id + ');" title="Extend end time">Extend</button>';
+            actions += '<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); dashboardRevise(' + p.program_id + ');" title="Revise parameters">Revise</button>';
+            if (typeLabel === 'GS') {
+                actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardTransition(' + p.program_id + ');" title="Transition to GDP">GS&rarr;GDP</button>';
+            }
+            actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="What-If re-model">Re-model</button>';
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
+        }
+
+        var chainIndicator = '';
+        if (p.parent_program_id) {
+            chainIndicator = '<span class="badge badge-info ml-1" style="font-size:0.55rem;" title="Transitioned from program #' + p.parent_program_id + '">CHAIN</span>';
+        }
+
+        return '<div class="gdt-program-card" data-program-id="' + p.program_id + '" onclick="loadProgramFromDashboard(' + p.program_id + ');">' +
+            '<div class="d-flex justify-content-between align-items-start">' +
+                '<div>' +
+                    '<span class="gdt-card-type ' + typeClass + '">' + escapeHtml(typeLabel) + '</span>' +
+                    ' <span class="gdt-card-status ' + statusClass + '">' + escapeHtml(p.status || '') + '</span>' +
+                    chainIndicator +
+                '</div>' +
+                (p.adv_number ? '<span class="text-muted" style="font-size:0.65rem;">' + escapeHtml(p.adv_number) + '</span>' : '') +
+            '</div>' +
+            '<div class="mt-1">' +
+                '<span class="gdt-card-element">' + escapeHtml(p.ctl_element || '') + '</span>' +
+                (artcc ? ' <span class="gdt-card-artcc">/ ' + escapeHtml(artcc) + '</span>' : '') +
+            '</div>' +
+            '<div class="gdt-card-time">' + startStr + ' - ' + endStr +
+                (minsLeft > 0 ? ' <span class="text-muted">(' + minsLeft + 'm left)</span>' : '') +
+            '</div>' +
+            '<div class="gdt-card-progress">' +
+                '<div class="gdt-card-progress-bar" style="width: ' + Math.min(100, elapsed) + '%; background: ' + progressColor + ';"></div>' +
+            '</div>' +
+            '<div class="gdt-card-metrics">' +
+                '<div><span class="gdt-card-metric-value">' + controlled + '</span> controlled</div>' +
+                '<div><span class="gdt-card-metric-value">' + exempt + '</span> exempt</div>' +
+                '<div><span class="gdt-card-metric-value">' + avgDelay + '</span> avg delay</div>' +
+            '</div>' +
+            (actions ? '<div class="gdt-card-actions">' + actions + '</div>' : '') +
+        '</div>';
+    }
+
+    function formatZuluShort(isoStr) {
+        if (!isoStr) return '--:--Z';
+        try {
+            var d = new Date(isoStr);
+            if (isNaN(d.getTime())) return '--:--Z';
+            var dd = String(d.getUTCDate()).padStart(2, '0');
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mm = String(d.getUTCMinutes()).padStart(2, '0');
+            return dd + '/' + hh + mm + 'Z';
+        } catch(e) { return '--:--Z'; }
+    }
+
+    function toggleDashboard() {
+        var body = document.getElementById('gdt_dashboard_body');
+        var chevron = document.getElementById('gdt_dashboard_chevron');
+        if (!body) return;
+
+        GDT_DASHBOARD_COLLAPSED = !GDT_DASHBOARD_COLLAPSED;
+        body.style.display = GDT_DASHBOARD_COLLAPSED ? 'none' : '';
+        if (chevron) {
+            chevron.className = GDT_DASHBOARD_COLLAPSED ? 'fas fa-chevron-right' : 'fas fa-chevron-down';
+        }
+    }
+
+    function loadProgramFromDashboard(programId) {
+        // Remove selected from all cards
+        document.querySelectorAll('.gdt-program-card.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        // Highlight this card
+        var card = document.querySelector('.gdt-program-card[data-program-id="' + programId + '"]');
+        if (card) card.classList.add('selected');
+
+        // Load program into the form
+        GS_CURRENT_PROGRAM_ID = programId;
+
+        // Find program in cached data
+        var program = null;
+        for (var i = 0; i < GDT_DASHBOARD_PROGRAMS.length; i++) {
+            if (GDT_DASHBOARD_PROGRAMS[i].program_id === programId) {
+                program = GDT_DASHBOARD_PROGRAMS[i];
+                break;
+            }
+        }
+
+        if (program) {
+            populateFormFromProgram(program);
+
+            // Set stepper based on program status
+            if (program.status === 'ACTIVE' || program.status === 'TRANSITIONED') {
+                setWorkflowState('active');
+            } else if (program.status === 'MODELING') {
+                setWorkflowState('model');
+            } else if (program.status === 'PROPOSED' || program.status === 'PENDING_COORD') {
+                setWorkflowState('preview');
+            } else {
+                setWorkflowState('configure');
+            }
+        }
+
+        // Scroll to the form
+        var section = document.getElementById('gs_section');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function populateFormFromProgram(p) {
+        // Populate basic fields
+        var el = document.getElementById('gs_ctl_element');
+        if (el) el.value = p.ctl_element || '';
+
+        el = document.getElementById('gs_element_type');
+        if (el) el.value = p.element_type || 'APT';
+
+        el = document.getElementById('gs_adv_number');
+        if (el) el.value = p.adv_number || '';
+
+        // Populate time fields (convert ISO to datetime-local format)
+        if (p.start_utc) {
+            el = document.getElementById('gs_start_utc');
+            if (el) el.value = isoToDatetimeLocal(p.start_utc);
+        }
+        if (p.end_utc) {
+            el = document.getElementById('gs_end_utc');
+            if (el) el.value = isoToDatetimeLocal(p.end_utc);
+        }
+
+        // Impacting condition
+        el = document.getElementById('gs_impacting_condition');
+        if (el) el.value = p.impacting_condition || '';
+
+        // Probability
+        el = document.getElementById('gs_prob_ext');
+        if (el) el.value = p.gs_probability || '';
+
+        // Comments
+        el = document.getElementById('gs_comments');
+        if (el) el.value = p.comments || '';
+
+        // Scope
+        if (p.scope_json) {
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                // Populate origin centers
+                if (scope.origin_centers) {
+                    el = document.getElementById('gs_origin_centers');
+                    if (el) el.value = scope.origin_centers;
+                }
+                // Populate origin airports
+                if (scope.origin_airports) {
+                    el = document.getElementById('gs_origin_airports');
+                    if (el) el.value = scope.origin_airports;
+                }
+                // Populate arrival airports
+                if (scope.arrival_airports) {
+                    el = document.getElementById('gs_airports');
+                    if (el) el.value = scope.arrival_airports;
+                }
+            } catch(e) {}
+        }
+
+        // Update status badge
+        var badge = document.getElementById('gs_status_badge');
+        if (badge) {
+            badge.textContent = p.status || 'UNKNOWN';
+            badge.className = 'badge tmi-badge-status badge-' + getStatusBadgeClass(p.status);
+        }
+
+        GS_CURRENT_PROGRAM_STATUS = p.status;
+    }
+
+    function isoToDatetimeLocal(iso) {
+        if (!iso) return '';
+        try {
+            // Handle "2026-02-11T14:00:00Z" format
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            var yyyy = d.getUTCFullYear();
+            var mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            var dd = String(d.getUTCDate()).padStart(2, '0');
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mi = String(d.getUTCMinutes()).padStart(2, '0');
+            return yyyy + '-' + mm + '-' + dd + 'T' + hh + ':' + mi;
+        } catch(e) { return ''; }
+    }
+
+    function getStatusBadgeClass(status) {
+        switch ((status || '').toUpperCase()) {
+            case 'ACTIVE': return 'success';
+            case 'MODELING': return 'warning';
+            case 'PROPOSED': return 'info';
+            case 'PENDING_COORD': return 'info';
+            case 'TRANSITIONED': return 'secondary';
+            case 'CANCELLED': return 'danger';
+            case 'COMPLETED': return 'secondary';
+            case 'PURGED': return 'dark';
+            default: return 'secondary';
+        }
+    }
+
+    function resetAndNewProgram() {
+        GS_CURRENT_PROGRAM_ID = null;
+        GS_CURRENT_PROGRAM_STATUS = null;
+        GS_SIMULATION_READY = false;
+
+        // Clear selected card
+        document.querySelectorAll('.gdt-program-card.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+
+        // Reset form (calls existing resetGsForm if available)
+        if (typeof resetGsForm === 'function') {
+            resetGsForm();
+        }
+
+        setWorkflowState('configure');
+
+        // Update status badge
+        var badge = document.getElementById('gs_status_badge');
+        if (badge) {
+            badge.textContent = 'Draft (local)';
+            badge.className = 'badge tmi-badge-status badge-secondary';
+        }
+    }
+
+    // ========================================================================
+    // Dashboard Quick Actions
+    // ========================================================================
+
+    function dashboardExtend(programId) {
+        // Find program in cached data
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        // Populate extend modal
+        var info = (program.program_type || 'GS') + ' #' + programId +
+            ' - ' + escapeHtml(program.ctl_element || '') +
+            ' (' + (program.status || '') + ')';
+        document.getElementById('gdt_extend_program_info').innerHTML = info;
+
+        var currentEnd = formatZuluShort(program.end_utc);
+        document.getElementById('gdt_extend_current_end').value = currentEnd;
+
+        // Pre-fill new end time 1 hour after current end
+        if (program.end_utc) {
+            var endDt = new Date(program.end_utc);
+            endDt.setUTCHours(endDt.getUTCHours() + 1);
+            document.getElementById('gdt_extend_new_end').value = isoToDatetimeLocal(endDt.toISOString());
+        }
+
+        // Pre-fill probability from current program
+        var probEl = document.getElementById('gdt_extend_prob_ext');
+        if (probEl) probEl.value = program.gs_probability || '';
+
+        // Clear previous state
+        document.getElementById('gdt_extend_comments').value = '';
+        document.getElementById('gdt_extend_advisory_preview').textContent = '';
+        var errEl = document.getElementById('gdt_extend_error');
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+
+        // Store program ID for submit
+        document.getElementById('gdt_extend_modal').dataset.programId = programId;
+
+        // Build extend advisory preview
+        buildExtendAdvisoryPreview(program);
+
+        // Show modal
+        $('#gdt_extend_modal').modal('show');
+    }
+
+    function buildExtendAdvisoryPreview(program) {
+        var now = new Date();
+        var advNum = program.adv_number || 'XXX';
+        var ctlElement = program.ctl_element || 'XXX';
+        var newEndEl = document.getElementById('gdt_extend_new_end');
+        var newEnd = newEndEl ? newEndEl.value : '';
+        var probExt = document.getElementById('gdt_extend_prob_ext').value || '';
+        var comments = document.getElementById('gdt_extend_comments').value || '';
+
+        var startStr = formatZuluFromIso(program.start_utc);
+        var endStr = newEnd ? formatZuluFromLocal(newEnd) : formatZuluFromIso(program.end_utc);
+        var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
+            String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
+
+        var typeLabel = (program.program_type || 'GS') === 'GS' ? 'GROUND STOP' : 'GROUND DELAY PROGRAM';
+
+        var lines = [];
+        lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM ' + typeLabel + ' EXTENSION');
+        lines.push('CTL ELEMENT: ' + ctlElement);
+        lines.push(typeLabel + ' PERIOD: ' + startStr + ' - ' + endStr);
+        if (probExt) lines.push('PROBABILITY OF EXTENSION: ' + probExt);
+        if (comments) lines.push('COMMENTS: ' + comments);
+
+        var pre = document.getElementById('gdt_extend_advisory_preview');
+        if (pre) pre.textContent = lines.join('\n');
+    }
+
+    function submitExtend() {
+        var modal = document.getElementById('gdt_extend_modal');
+        var programId = parseInt(modal.dataset.programId);
+        var newEndVal = document.getElementById('gdt_extend_new_end').value;
+        var errEl = document.getElementById('gdt_extend_error');
+        var btn = document.getElementById('gdt_extend_submit_btn');
+
+        if (!newEndVal) {
+            errEl.textContent = 'New end time is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        // Convert local datetime to ISO UTC
+        var newEndDt = new Date(newEndVal);
+        var newEndUtc = newEndDt.toISOString();
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Extending...';
+
+        $.ajax({
+            url: GS_API.extend,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                program_id: programId,
+                new_end_utc: newEndUtc
+            }),
+            success: function(resp) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Extend Program';
+
+                if (resp.status === 'ok') {
+                    $('#gdt_extend_modal').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Program Extended',
+                        text: 'Program #' + programId + ' extended.' +
+                            (resp.data && resp.data.new_slots_count ? ' ' + resp.data.new_slots_count + ' new slots created.' : ''),
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+                    loadActiveProgramsDashboard();
+
+                    // If this is the currently loaded program, refresh form
+                    if (GS_CURRENT_PROGRAM_ID === programId && resp.data && resp.data.program) {
+                        populateFormFromProgram(resp.data.program);
+                    }
+                } else {
+                    errEl.textContent = resp.message || 'Extend failed.';
+                    errEl.classList.remove('d-none');
+                }
+            },
+            error: function(xhr) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Extend Program';
+                var msg = 'Failed to extend program.';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                errEl.textContent = msg;
+                errEl.classList.remove('d-none');
+            }
+        });
+    }
+
+    function dashboardRevise(programId) {
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        // Populate revise modal
+        var info = (program.program_type || 'GS') + ' #' + programId +
+            ' - ' + escapeHtml(program.ctl_element || '') +
+            ' (Rev ' + ((program.revision_number || 0) + 1) + ')';
+        document.getElementById('gdt_revise_program_info').innerHTML = info;
+
+        // Pre-fill current values
+        document.getElementById('gdt_revise_rate').value = program.program_rate || '';
+        document.getElementById('gdt_revise_delay_cap').value = program.delay_limit_min || '';
+        if (program.end_utc) {
+            document.getElementById('gdt_revise_end_utc').value = isoToDatetimeLocal(program.end_utc);
+        }
+        document.getElementById('gdt_revise_impacting').value = program.impacting_condition || 'WEATHER';
+        document.getElementById('gdt_revise_prob_ext').value = program.gs_probability || '';
+        document.getElementById('gdt_revise_comments').value = '';
+
+        // Clear previous state
+        document.getElementById('gdt_revise_advisory_preview').textContent = '';
+        var errEl = document.getElementById('gdt_revise_error');
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+
+        // Store program data for submit
+        document.getElementById('gdt_revise_modal').dataset.programId = programId;
+        document.getElementById('gdt_revise_modal').dataset.originalRate = program.program_rate || '';
+        document.getElementById('gdt_revise_modal').dataset.originalDelayCap = program.delay_limit_min || '';
+
+        // Build revision advisory preview
+        buildReviseAdvisoryPreview(program);
+
+        $('#gdt_revise_modal').modal('show');
+    }
+
+    function buildReviseAdvisoryPreview(program) {
+        var now = new Date();
+        var advNum = program.adv_number || 'XXX';
+        var ctlElement = program.ctl_element || 'XXX';
+        var newRate = document.getElementById('gdt_revise_rate').value || program.program_rate || '';
+        var comments = document.getElementById('gdt_revise_comments').value || '';
+        var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
+            String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
+
+        var typeLabel = (program.program_type || 'GS') === 'GS' ? 'GROUND STOP' : 'GROUND DELAY PROGRAM';
+
+        var lines = [];
+        lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM ' + typeLabel + ' REVISION');
+        lines.push('CTL ELEMENT: ' + ctlElement);
+        if (newRate) lines.push('PROGRAM RATE: ' + newRate);
+
+        // Show what changed
+        var origRate = document.getElementById('gdt_revise_modal').dataset.originalRate;
+        if (origRate && newRate && origRate !== newRate) {
+            lines.push('RATE REVISED FROM ' + origRate + ' TO ' + newRate);
+        }
+
+        if (comments) lines.push('COMMENTS: ' + comments);
+
+        var pre = document.getElementById('gdt_revise_advisory_preview');
+        if (pre) pre.textContent = lines.join('\n');
+    }
+
+    function submitRevise() {
+        var modal = document.getElementById('gdt_revise_modal');
+        var programId = parseInt(modal.dataset.programId);
+        var errEl = document.getElementById('gdt_revise_error');
+        var btn = document.getElementById('gdt_revise_submit_btn');
+
+        // Collect changed values
+        var body = { program_id: programId };
+
+        var rate = document.getElementById('gdt_revise_rate').value;
+        if (rate) body.program_rate = parseInt(rate);
+
+        var delayCap = document.getElementById('gdt_revise_delay_cap').value;
+        if (delayCap) body.delay_limit_min = parseInt(delayCap);
+
+        var endUtc = document.getElementById('gdt_revise_end_utc').value;
+        if (endUtc) body.end_utc = new Date(endUtc).toISOString();
+
+        var impacting = document.getElementById('gdt_revise_impacting').value;
+        if (impacting) body.impacting_condition = impacting;
+
+        var probExt = document.getElementById('gdt_revise_prob_ext').value;
+        if (probExt) body.gs_probability = probExt;
+
+        var comments = document.getElementById('gdt_revise_comments').value;
+        if (comments) body.comments = comments;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Revising...';
+
+        $.ajax({
+            url: GS_API.revise,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(body),
+            success: function(resp) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> Revise Program';
+
+                if (resp.status === 'ok') {
+                    $('#gdt_revise_modal').modal('hide');
+
+                    var changesText = (resp.data && resp.data.changes)
+                        ? resp.data.changes.join(', ')
+                        : 'Parameters updated';
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Program Revised',
+                        html: 'Program #' + programId + ' revision #' +
+                            (resp.data ? resp.data.revision_number : '?') +
+                            '<br><small class="text-muted">' + escapeHtml(changesText) + '</small>',
+                        timer: 4000,
+                        showConfirmButton: false
+                    });
+                    loadActiveProgramsDashboard();
+
+                    // If currently loaded program, refresh form
+                    if (GS_CURRENT_PROGRAM_ID === programId && resp.data && resp.data.program) {
+                        populateFormFromProgram(resp.data.program);
+                    }
+                } else {
+                    errEl.textContent = resp.message || 'Revise failed.';
+                    errEl.classList.remove('d-none');
+                }
+            },
+            error: function(xhr) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> Revise Program';
+                var msg = 'Failed to revise program.';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                errEl.textContent = msg;
+                errEl.classList.remove('d-none');
+            }
+        });
+    }
+
+    function dashboardTransition(programId) {
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        if ((program.program_type || '') !== 'GS') {
+            Swal.fire('Error', 'Only Ground Stop programs can be transitioned to GDP.', 'error');
+            return;
+        }
+
+        // Populate GS info
+        var gsInfo = 'GS #' + programId + ' - ' + escapeHtml(program.ctl_element || '') +
+            ' (' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc) + ')' +
+            ' | ' + (program.impacting_condition || 'WEATHER');
+        document.getElementById('gdt_transition_gs_info').innerHTML = gsInfo;
+
+        // Reset to phase 1 (propose)
+        setTransitionPhase('propose');
+
+        // Pre-fill GDP end time: 3 hours after GS end
+        if (program.end_utc) {
+            var endDt = new Date(program.end_utc);
+            endDt.setUTCHours(endDt.getUTCHours() + 3);
+            document.getElementById('gdt_transition_end_utc').value = isoToDatetimeLocal(endDt.toISOString());
+        }
+
+        // Pre-fill impacting condition from GS
+        document.getElementById('gdt_transition_impacting').value = program.impacting_condition || 'WEATHER';
+        document.getElementById('gdt_transition_gdp_type').value = 'GDP-DAS';
+        document.getElementById('gdt_transition_rate').value = '';
+        document.getElementById('gdt_transition_reserve').value = '';
+        document.getElementById('gdt_transition_delay_cap').value = '180';
+        document.getElementById('gdt_transition_comments').value = '';
+
+        // Clear state
+        var errEl = document.getElementById('gdt_transition_error');
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+
+        // Store GS program ID and chain info
+        var modal = document.getElementById('gdt_transition_modal');
+        modal.dataset.gsProgramId = programId;
+        modal.dataset.gdpProgramId = '';
+
+        // Build advisory preview
+        buildTransitionAdvisoryPreview(program, 'propose');
+
+        $('#gdt_transition_modal').modal('show');
+    }
+
+    function setTransitionPhase(phase) {
+        var phaseBadge = document.getElementById('gdt_transition_phase_badge');
+        var phaseHelp = document.getElementById('gdt_transition_phase_help');
+        var paramsDiv = document.getElementById('gdt_transition_params');
+        var proposedBanner = document.getElementById('gdt_transition_proposed_banner');
+        var cumulativeRow = document.getElementById('gdt_transition_cumulative_row');
+        var proposeBtn = document.getElementById('gdt_transition_propose_btn');
+        var activateBtn = document.getElementById('gdt_transition_activate_btn');
+
+        if (phase === 'propose') {
+            phaseBadge.className = 'badge badge-secondary mr-2';
+            phaseBadge.textContent = 'PHASE 1: PROPOSE';
+            phaseHelp.textContent = 'Create a proposed GDP while the GS remains active.';
+            paramsDiv.classList.remove('d-none');
+            proposedBanner.classList.add('d-none');
+            cumulativeRow.classList.add('d-none');
+            proposeBtn.classList.remove('d-none');
+            activateBtn.classList.add('d-none');
+        } else if (phase === 'activate') {
+            phaseBadge.className = 'badge badge-success mr-2';
+            phaseBadge.textContent = 'PHASE 2: ACTIVATE';
+            phaseHelp.textContent = 'Activate the GDP and cancel the Ground Stop.';
+            paramsDiv.classList.add('d-none');
+            proposedBanner.classList.remove('d-none');
+            cumulativeRow.classList.remove('d-none');
+            proposeBtn.classList.add('d-none');
+            activateBtn.classList.remove('d-none');
+        }
+    }
+
+    function buildTransitionAdvisoryPreview(gsProgram, phase) {
+        var now = new Date();
+        var ctlElement = gsProgram.ctl_element || 'XXX';
+        var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
+            String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
+        var lines = [];
+
+        if (phase === 'propose') {
+            var gdpType = document.getElementById('gdt_transition_gdp_type').value || 'GDP-DAS';
+            var rate = document.getElementById('gdt_transition_rate').value || '';
+            var delayCap = document.getElementById('gdt_transition_delay_cap').value || '';
+            var endUtcVal = document.getElementById('gdt_transition_end_utc').value || '';
+            var comments = document.getElementById('gdt_transition_comments').value || '';
+            var impacting = document.getElementById('gdt_transition_impacting').value || 'WEATHER';
+
+            var gsStart = formatZuluFromIso(gsProgram.start_utc);
+            var gdpEnd = endUtcVal ? formatZuluFromLocal(endUtcVal) : '--:--Z';
+
+            lines.push(AdvisoryConfig.getPrefix() + ' ADVZY XXX ' + ctlElement + ' ' + headerDate + ' CDM PROPOSED GROUND DELAY PROGRAM');
+            lines.push('CTL ELEMENT: ' + ctlElement);
+            lines.push('IMPACTING CONDITION: ' + impacting);
+            lines.push('GDP TYPE: ' + gdpType);
+            if (rate) lines.push('PROGRAM RATE: ' + rate);
+            if (delayCap) lines.push('DELAY ASSIGNMENT LIMIT: ' + delayCap + ' MINUTES');
+            lines.push('GROUND STOP CURRENTLY IN EFFECT: ' + gsStart + ' - ' + formatZuluFromIso(gsProgram.end_utc));
+            lines.push('PROPOSED GDP PERIOD: ' + formatZuluFromIso(gsProgram.end_utc) + ' - ' + gdpEnd);
+            lines.push('CUMULATIVE PROGRAM PERIOD: ' + gsStart + ' - ' + gdpEnd);
+            if (comments) lines.push('COMMENTS: ' + comments);
+        } else {
+            // Activate phase advisory
+            var modal = document.getElementById('gdt_transition_modal');
+            var gdpId = modal.dataset.gdpProgramId || '?';
+            var cumText = document.getElementById('gdt_transition_cumulative').textContent || '';
+
+            lines.push(AdvisoryConfig.getPrefix() + ' ADVZY XXX ' + ctlElement + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM');
+            lines.push('CTL ELEMENT: ' + ctlElement);
+            lines.push('GROUND STOP CANCELLED.');
+            lines.push('GROUND DELAY PROGRAM #' + gdpId + ' IS NOW IN EFFECT.');
+            if (cumText) lines.push('CUMULATIVE PROGRAM PERIOD: ' + cumText);
+        }
+
+        var pre = document.getElementById('gdt_transition_advisory_preview');
+        if (pre) pre.textContent = lines.join('\n');
+    }
+
+    function submitTransitionPropose() {
+        var modal = document.getElementById('gdt_transition_modal');
+        var gsProgramId = parseInt(modal.dataset.gsProgramId);
+        var errEl = document.getElementById('gdt_transition_error');
+        var btn = document.getElementById('gdt_transition_propose_btn');
+
+        // Validate required fields
+        var rate = document.getElementById('gdt_transition_rate').value;
+        var endUtcVal = document.getElementById('gdt_transition_end_utc').value;
+
+        if (!rate || parseInt(rate) <= 0) {
+            errEl.textContent = 'Program rate is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        if (!endUtcVal) {
+            errEl.textContent = 'GDP end time is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        var gdpEndUtc = new Date(endUtcVal).toISOString();
+        var gdpType = document.getElementById('gdt_transition_gdp_type').value || 'GDP-DAS';
+        var reserve = document.getElementById('gdt_transition_reserve').value;
+        var delayCap = document.getElementById('gdt_transition_delay_cap').value;
+        var impacting = document.getElementById('gdt_transition_impacting').value;
+        var comments = document.getElementById('gdt_transition_comments').value;
+
+        var body = {
+            gs_program_id: gsProgramId,
+            phase: 'propose',
+            gdp_type: gdpType,
+            gdp_end_utc: gdpEndUtc,
+            program_rate: parseInt(rate)
+        };
+        if (reserve) body.reserve_rate = parseInt(reserve);
+        if (delayCap) body.delay_limit_min = parseInt(delayCap);
+        if (impacting) body.impacting_condition = impacting;
+        if (comments) body.comments = comments;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Proposing...';
+        errEl.classList.add('d-none');
+
+        $.ajax({
+            url: GS_API.transition,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(body),
+            success: function(resp) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
+
+                if (resp.status === 'ok' && resp.data) {
+                    var gdpId = resp.data.gdp_program_id;
+                    modal.dataset.gdpProgramId = gdpId;
+
+                    // Show cumulative period
+                    var cumStart = formatZuluFromIso(resp.data.cumulative_start);
+                    var cumEnd = formatZuluFromIso(resp.data.cumulative_end);
+                    document.getElementById('gdt_transition_cumulative').textContent = cumStart + ' - ' + cumEnd;
+                    document.getElementById('gdt_transition_proposed_id').textContent = 'GDP #' + gdpId;
+
+                    // Advance to phase 2
+                    setTransitionPhase('activate');
+
+                    var gsProgram = findDashboardProgram(gsProgramId);
+                    if (gsProgram) buildTransitionAdvisoryPreview(gsProgram, 'activate');
+
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'GDP Proposed',
+                        html: 'GDP #' + gdpId + ' created as PROPOSED.<br>GS remains active. Click <strong>Activate</strong> when ready.',
+                        timer: 5000,
+                        showConfirmButton: true
+                    });
+
+                    loadActiveProgramsDashboard();
+                } else {
+                    errEl.textContent = resp.message || 'Propose failed.';
+                    errEl.classList.remove('d-none');
+                }
+            },
+            error: function(xhr) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
+                var msg = 'Failed to propose GDP.';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                errEl.textContent = msg;
+                errEl.classList.remove('d-none');
+            }
+        });
+    }
+
+    function submitTransitionActivate() {
+        var modal = document.getElementById('gdt_transition_modal');
+        var gsProgramId = parseInt(modal.dataset.gsProgramId);
+        var gdpProgramId = parseInt(modal.dataset.gdpProgramId);
+        var errEl = document.getElementById('gdt_transition_error');
+        var btn = document.getElementById('gdt_transition_activate_btn');
+
+        if (!gdpProgramId || gdpProgramId <= 0) {
+            errEl.textContent = 'No proposed GDP found. Run Phase 1 first.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Activate GDP #' + gdpProgramId + '?',
+            html: 'This will:<br>- Set GS #' + gsProgramId + ' to <strong>TRANSITIONED</strong><br>- Activate GDP #' + gdpProgramId,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Yes, activate'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Activating...';
+            errEl.classList.add('d-none');
+
+            $.ajax({
+                url: GS_API.transition,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    gs_program_id: gsProgramId,
+                    phase: 'activate',
+                    gdp_program_id: gdpProgramId
+                }),
+                success: function(resp) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
+
+                    if (resp.status === 'ok') {
+                        $('#gdt_transition_modal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Transition Complete',
+                            html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE',
+                            timer: 4000,
+                            showConfirmButton: false
+                        });
+                        loadActiveProgramsDashboard();
+
+                        // If the GS was loaded in the form, reset
+                        if (GS_CURRENT_PROGRAM_ID === gsProgramId) {
+                            resetAndNewProgram();
+                        }
+                    } else {
+                        errEl.textContent = resp.message || 'Activation failed.';
+                        errEl.classList.remove('d-none');
+                    }
+                },
+                error: function(xhr) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
+                    var msg = 'Failed to activate GDP.';
+                    try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                    errEl.textContent = msg;
+                    errEl.classList.remove('d-none');
+                }
+            });
+        });
+    }
+
+    function dashboardRemodel(programId) {
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        if (program.status !== 'ACTIVE') {
+            Swal.fire('Error', 'Only active programs can be re-modeled.', 'error');
+            return;
+        }
+
+        // Cache the active program state so we can restore it later
+        GS_WHAT_IF_CACHED_PROGRAM = JSON.parse(JSON.stringify(program));
+        GS_WHAT_IF_MODE = true;
+
+        // Load the program into the form
+        loadProgramFromDashboard(programId);
+
+        // Set stepper to model state with what-if badge
+        setWorkflowState('model');
+
+        // Show what-if badge
+        var whatIfBadge = document.getElementById('gdt_whatif_badge');
+        if (whatIfBadge) whatIfBadge.classList.remove('d-none');
+
+        // Show discard button
+        var discardBtn = document.getElementById('gdt_whatif_discard_btn');
+        if (discardBtn) discardBtn.classList.remove('d-none');
+
+        Swal.fire({
+            icon: 'info',
+            title: 'What-If Mode',
+            html: 'Adjust parameters and click <strong>Simulate</strong> to see projected results.<br>' +
+                'Changes are <strong>not saved</strong> until you choose to Revise.',
+            timer: 5000,
+            showConfirmButton: true
+        });
+    }
+
+    function exitWhatIfMode() {
+        GS_WHAT_IF_MODE = false;
+
+        // Hide what-if badge
+        var whatIfBadge = document.getElementById('gdt_whatif_badge');
+        if (whatIfBadge) whatIfBadge.classList.add('d-none');
+
+        // Hide discard button
+        var discardBtn = document.getElementById('gdt_whatif_discard_btn');
+        if (discardBtn) discardBtn.classList.add('d-none');
+
+        // Restore from cached program
+        if (GS_WHAT_IF_CACHED_PROGRAM) {
+            populateFormFromProgram(GS_WHAT_IF_CACHED_PROGRAM);
+            setWorkflowState('active');
+            GS_WHAT_IF_CACHED_PROGRAM = null;
+        } else {
+            resetAndNewProgram();
+        }
+
+        Swal.fire({
+            icon: 'info',
+            title: 'What-If Discarded',
+            text: 'Returned to active program state.',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+
+    function dashboardCancel(programId) {
+        Swal.fire({
+            title: 'Cancel Program #' + programId + '?',
+            text: 'This will cancel the program and purge the flight list.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Yes, cancel it'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: GS_API.cancel,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        program_id: programId,
+                        cancel_reason: 'USER_CANCELLED'
+                    }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            Swal.fire('Cancelled', 'Program has been cancelled.', 'success');
+                            loadActiveProgramsDashboard();
+                            if (GS_CURRENT_PROGRAM_ID === programId) {
+                                resetAndNewProgram();
+                            }
+                        } else {
+                            Swal.fire('Error', resp.message || 'Cancel failed', 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'Failed to cancel program.', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    function findDashboardProgram(programId) {
+        for (var i = 0; i < GDT_DASHBOARD_PROGRAMS.length; i++) {
+            if (GDT_DASHBOARD_PROGRAMS[i].program_id === programId ||
+                GDT_DASHBOARD_PROGRAMS[i].program_id === String(programId)) {
+                return GDT_DASHBOARD_PROGRAMS[i];
+            }
+        }
+        return null;
+    }
+
+    function formatZuluFromIso(isoStr) {
+        if (!isoStr) return '--:--Z';
+        try {
+            var d = new Date(isoStr);
+            if (isNaN(d.getTime())) return '--:--Z';
+            var dd = String(d.getUTCDate()).padStart(2, '0');
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mm = String(d.getUTCMinutes()).padStart(2, '0');
+            return dd + '/' + hh + mm + 'Z';
+        } catch(e) { return '--:--Z'; }
+    }
+
+    // ========================================================================
+    // Multi-Program Timeline (Phase 6)
+    // ========================================================================
+
+    var GDT_TIMELINE_CHART = null;
+    var GDT_TIMELINE_VISIBLE = false;
+
+    function toggleTimeline() {
+        var container = document.getElementById('gdt_timeline_container');
+        var toggleText = document.getElementById('gdt_timeline_toggle_text');
+        if (!container) return;
+
+        GDT_TIMELINE_VISIBLE = !GDT_TIMELINE_VISIBLE;
+        container.style.display = GDT_TIMELINE_VISIBLE ? 'block' : 'none';
+        if (toggleText) toggleText.textContent = GDT_TIMELINE_VISIBLE ? 'Hide Timeline' : 'Show Timeline';
+
+        if (GDT_TIMELINE_VISIBLE) {
+            renderTimeline();
+        }
+    }
+
+    function renderTimeline() {
+        var canvas = document.getElementById('gdt_timeline_canvas');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        var programs = GDT_DASHBOARD_PROGRAMS.filter(function(p) {
+            return p.start_utc && p.end_utc;
+        });
+
+        if (programs.length === 0) {
+            if (GDT_TIMELINE_CHART) { GDT_TIMELINE_CHART.destroy(); GDT_TIMELINE_CHART = null; }
+            return;
+        }
+
+        // Compute time range: earliest start - 1h to latest end + 1h
+        var now = new Date();
+        var minTime = new Date(now.getTime() - 3600000);
+        var maxTime = new Date(now.getTime() + 3600000);
+        programs.forEach(function(p) {
+            var s = new Date(p.start_utc);
+            var e = new Date(p.end_utc);
+            if (s < minTime) minTime = new Date(s.getTime() - 3600000);
+            if (e > maxTime) maxTime = new Date(e.getTime() + 3600000);
+        });
+
+        // Build datasets - one bar per program
+        var labels = [];
+        var data = [];
+        var bgColors = [];
+        var borderColors = [];
+        var programIds = [];
+
+        var typeColors = {
+            'GS': { bg: 'rgba(220, 53, 69, 0.7)', border: '#dc3545' },
+            'GDP': { bg: 'rgba(255, 193, 7, 0.7)', border: '#ffc107' },
+            'GDP-DAS': { bg: 'rgba(255, 193, 7, 0.7)', border: '#ffc107' },
+            'GDP-GAAP': { bg: 'rgba(255, 152, 0, 0.7)', border: '#ff9800' },
+            'GDP-UDP': { bg: 'rgba(255, 87, 34, 0.7)', border: '#ff5722' },
+            'AFP': { bg: 'rgba(23, 162, 184, 0.7)', border: '#17a2b8' }
+        };
+        var defaultColor = { bg: 'rgba(108, 117, 125, 0.7)', border: '#6c757d' };
+
+        // Sort: chains grouped together, then by start time
+        programs.sort(function(a, b) {
+            var chainA = a.advisory_chain_id || a.program_id;
+            var chainB = b.advisory_chain_id || b.program_id;
+            if (chainA !== chainB) return chainA - chainB;
+            return new Date(a.start_utc) - new Date(b.start_utc);
+        });
+
+        programs.forEach(function(p) {
+            var pType = (p.program_type || 'GS').replace(/-.*/, '');
+            var fullType = p.program_type || 'GS';
+            var colors = typeColors[fullType] || typeColors[pType] || defaultColor;
+
+            // Dim completed/cancelled/transitioned
+            if (['COMPLETED', 'CANCELLED', 'TRANSITIONED'].indexOf(p.status) !== -1) {
+                colors = { bg: 'rgba(108, 117, 125, 0.3)', border: '#adb5bd' };
+            }
+
+            var label = (p.program_type || 'GS') + ' #' + p.program_id + ' ' + (p.ctl_element || '');
+            labels.push(label);
+            programIds.push(p.program_id);
+
+            data.push([new Date(p.start_utc).getTime(), new Date(p.end_utc).getTime()]);
+            bgColors.push(colors.bg);
+            borderColors.push(colors.border);
+        });
+
+        if (GDT_TIMELINE_CHART) { GDT_TIMELINE_CHART.destroy(); }
+
+        GDT_TIMELINE_CHART = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var p = programs[ctx.dataIndex];
+                                if (!p) return '';
+                                var s = formatZuluFromIso(p.start_utc);
+                                var e = formatZuluFromIso(p.end_utc);
+                                var delay = p.avg_delay_min ? parseFloat(p.avg_delay_min).toFixed(0) + ' min avg' : '';
+                                return s + ' - ' + e + (delay ? ' | ' + delay : '') + ' | ' + (p.status || '');
+                            }
+                        }
+                    },
+                    // Now-line annotation (if annotation plugin loaded)
+                    annotation: typeof Chart !== 'undefined' && Chart.registry && Chart.registry.plugins.get('annotation') ? {
+                        annotations: {
+                            nowLine: {
+                                type: 'line',
+                                xMin: now.getTime(),
+                                xMax: now.getTime(),
+                                borderColor: '#dc3545',
+                                borderWidth: 2,
+                                borderDash: [4, 4],
+                                label: { display: true, content: 'NOW', position: 'start', font: { size: 9 } }
+                            }
+                        }
+                    } : undefined
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: minTime.getTime(),
+                        max: maxTime.getTime(),
+                        ticks: {
+                            callback: function(val) {
+                                var d = new Date(val);
+                                return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
+                            },
+                            maxTicksLimit: 12,
+                            font: { size: 10 }
+                        },
+                        title: { display: true, text: 'UTC Time', font: { size: 10 } }
+                    },
+                    y: {
+                        ticks: { font: { size: 10 } }
+                    }
+                },
+                onClick: function(evt, elements) {
+                    if (elements && elements.length > 0) {
+                        var idx = elements[0].index;
+                        var pid = programIds[idx];
+                        if (pid) loadProgramFromDashboard(pid);
+                    }
+                }
+            }
+        });
+
+        // Detect scope conflicts
+        detectScopeConflicts(programs);
+    }
+
+    function detectScopeConflicts(programs) {
+        var conflictsEl = document.getElementById('gdt_timeline_conflicts');
+        if (!conflictsEl) return;
+        conflictsEl.innerHTML = '';
+
+        var activePrograms = programs.filter(function(p) {
+            return p.status === 'ACTIVE' && p.scope_json;
+        });
+
+        if (activePrograms.length < 2) return;
+
+        // Extract scope facilities for each program
+        var scopeMap = {};
+        activePrograms.forEach(function(p) {
+            var facilities = [];
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                if (scope.origin_centers) {
+                    var centers = Array.isArray(scope.origin_centers) ? scope.origin_centers : String(scope.origin_centers).split(/[,\s]+/);
+                    facilities = facilities.concat(centers);
+                }
+                if (scope.arr_center) facilities.push(scope.arr_center);
+            } catch(e) {}
+            scopeMap[p.program_id] = facilities.map(function(f) { return f.toUpperCase(); });
+        });
+
+        // Compare pairs for overlapping facilities
+        var conflicts = [];
+        for (var i = 0; i < activePrograms.length; i++) {
+            for (var j = i + 1; j < activePrograms.length; j++) {
+                var pA = activePrograms[i];
+                var pB = activePrograms[j];
+                var facA = scopeMap[pA.program_id] || [];
+                var facB = scopeMap[pB.program_id] || [];
+                var shared = facA.filter(function(f) { return facB.indexOf(f) !== -1; });
+                if (shared.length > 0) {
+                    conflicts.push({
+                        a: pA.program_type + ' #' + pA.program_id + ' ' + (pA.ctl_element || ''),
+                        b: pB.program_type + ' #' + pB.program_id + ' ' + (pB.ctl_element || ''),
+                        facilities: shared
+                    });
+                }
+            }
+        }
+
+        if (conflicts.length > 0) {
+            var html = '<span class="text-warning"><i class="fas fa-exclamation-triangle mr-1"></i> Shared scope:</span> ';
+            conflicts.forEach(function(c) {
+                html += '<span class="badge badge-warning mr-1">' + escapeHtml(c.a) + ' &harr; ' + escapeHtml(c.b) +
+                    ' (' + c.facilities.join(', ') + ')</span>';
+            });
+            conflictsEl.innerHTML = html;
+        }
+    }
+
+    // Expose dashboard functions to global scope (needed by onclick handlers in HTML)
+    window.toggleDashboard = toggleDashboard;
+    window.toggleTimeline = toggleTimeline;
+    window.loadProgramFromDashboard = loadProgramFromDashboard;
+    window.resetAndNewProgram = resetAndNewProgram;
+    window.dashboardExtend = dashboardExtend;
+    window.dashboardRevise = dashboardRevise;
+    window.dashboardTransition = dashboardTransition;
+    window.dashboardCancel = dashboardCancel;
+    window.submitExtend = submitExtend;
+    window.submitRevise = submitRevise;
+    window.submitTransitionPropose = submitTransitionPropose;
+    window.submitTransitionActivate = submitTransitionActivate;
+    window.dashboardRemodel = dashboardRemodel;
+    window.exitWhatIfMode = exitWhatIfMode;
+
+    // ========================================================================
+    // Workflow Stepper
+    // ========================================================================
+
+    function setWorkflowState(newState) {
+        var validStates = ['configure', 'preview', 'model', 'active'];
+        if (validStates.indexOf(newState) === -1) return;
+
+        GS_WORKFLOW_STATE = newState;
+        updateStepperUI();
+        updateWorkflowButtons();
+    }
+
+    function updateStepperUI() {
+        var steps = ['configure', 'preview', 'model', 'active'];
+        var currentIndex = steps.indexOf(GS_WORKFLOW_STATE);
+
+        for (var i = 0; i < steps.length; i++) {
+            var stepEl = document.getElementById('gdt_step_' + (i + 1));
+            var lineEl = document.getElementById('gdt_step_line_' + (i + 1));
+
+            if (!stepEl) continue;
+
+            stepEl.classList.remove('active', 'completed');
+
+            if (i < currentIndex) {
+                stepEl.classList.add('completed');
+            } else if (i === currentIndex) {
+                stepEl.classList.add('active');
+            }
+
+            if (lineEl) {
+                lineEl.classList.remove('completed');
+                if (i < currentIndex) {
+                    lineEl.classList.add('completed');
+                }
+            }
+        }
+    }
+
+    function updateWorkflowButtons() {
+        // Button IDs that exist in the current UI
+        var previewBtn = document.getElementById('gs_preview_btn');
+        var simulateBtn = document.getElementById('gs_simulate_btn');
+        var submitBtn = document.getElementById('gs_submit_tmi_btn');
+        var sendActualBtn = document.getElementById('gs_send_actual_btn');
+        var purgeLocalBtn = document.getElementById('gs_purge_local_btn');
+        var purgeAllBtn = document.getElementById('gs_purge_all_btn');
+        var flightListBtn = document.getElementById('gs_view_flight_list_btn');
+        var modelBtn = document.getElementById('gs_open_model_btn');
+
+        // Default: hide everything
+        var allBtns = [previewBtn, simulateBtn, submitBtn, sendActualBtn, purgeLocalBtn, purgeAllBtn, flightListBtn, modelBtn];
+
+        switch (GS_WORKFLOW_STATE) {
+            case 'configure':
+                show(previewBtn);
+                hide(simulateBtn); hide(submitBtn); hide(sendActualBtn);
+                hide(purgeLocalBtn); hide(purgeAllBtn);
+                hide(flightListBtn); hide(modelBtn);
+                break;
+
+            case 'preview':
+                show(previewBtn); // Allow re-preview
+                show(simulateBtn);
+                show(sendActualBtn);
+                hide(submitBtn);
+                hide(purgeLocalBtn); hide(purgeAllBtn);
+                show(flightListBtn); show(modelBtn);
+                break;
+
+            case 'model':
+                hide(previewBtn);
+                show(simulateBtn); // Re-model
+                show(submitBtn);
+                show(sendActualBtn);
+                show(purgeLocalBtn);
+                show(flightListBtn); show(modelBtn);
+                hide(purgeAllBtn);
+                break;
+
+            case 'active':
+                hide(previewBtn); hide(simulateBtn);
+                hide(submitBtn); hide(sendActualBtn);
+                show(purgeLocalBtn); show(purgeAllBtn);
+                show(flightListBtn); show(modelBtn);
+                break;
+        }
+    }
+
+    function show(el) { if (el) el.style.display = ''; }
+    function hide(el) { if (el) el.style.display = 'none'; }
+
+    // Expose stepper to global scope
+    window.setWorkflowState = setWorkflowState;
 
     function deriveBtsCarrierFromCallsign(callsign) {
         if (!callsign) {return null;}
@@ -3902,6 +5322,10 @@
 
                 // Enable simulate since we have a PROPOSED program
                 setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulateToFinalize'));
+
+                // Update workflow stepper
+                setWorkflowState('preview');
+                loadActiveProgramsDashboard();
             })
             .catch(function(err) {
                 console.error('GS preview failed', err);
@@ -3913,6 +5337,11 @@
     }
 
     function handleGsSimulate() {
+        // If in what-if mode, run a dry_run simulation instead
+        if (GS_WHAT_IF_MODE && GS_CURRENT_PROGRAM_ID) {
+            return handleWhatIfSimulate();
+        }
+
         const statusEl = document.getElementById('gs_adl_status');
 
         // If no program exists yet, run Preview first to create one
@@ -3976,6 +5405,10 @@
                 // Enable "Send Actual" button now that simulation is ready
                 GS_SIMULATION_READY = true;
                 setSendActualEnabled(true);
+
+                // Update workflow stepper
+                setWorkflowState('model');
+                loadActiveProgramsDashboard();
             })
             .catch(function(err) {
                 console.error('GS simulate failed', err);
@@ -3983,6 +5416,73 @@
                 clearGsFlightTable(PERTII18n.t('gdt.gs.simulateFailedShort'));
                 // Keep Send Actual disabled on simulation failure
                 setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulationFailedRetry'));
+            });
+    }
+
+    function handleWhatIfSimulate() {
+        var statusEl = document.getElementById('gs_adl_status');
+        if (statusEl) statusEl.textContent = 'Running what-if simulation (dry run)...';
+
+        // Collect what-if overrides from the form
+        var body = {
+            program_id: GS_CURRENT_PROGRAM_ID,
+            dry_run: true
+        };
+
+        // Check if user changed end time vs. cached original
+        var formEnd = getValue('gs_end') || '';
+
+        if (formEnd) {
+            body.what_if_end_utc = new Date(formEnd).toISOString();
+        }
+
+        // GDP-specific fields (rate, delay cap) — only present for GDP forms
+        if (GS_WHAT_IF_CACHED_PROGRAM) {
+            var rateEl = document.getElementById('gs_program_rate');
+            var dcEl = document.getElementById('gs_delay_limit');
+
+            if (rateEl && rateEl.value) {
+                var origRate = parseInt(GS_WHAT_IF_CACHED_PROGRAM.program_rate) || 0;
+                if (parseInt(rateEl.value) !== origRate) {
+                    body.what_if_rate = parseInt(rateEl.value);
+                }
+            }
+            if (dcEl && dcEl.value) {
+                var origDc = parseInt(GS_WHAT_IF_CACHED_PROGRAM.delay_limit_min) || 0;
+                if (parseInt(dcEl.value) !== origDc) {
+                    body.what_if_delay_cap = parseInt(dcEl.value);
+                }
+            }
+        }
+
+        return apiPostJson(GS_API.simulate, body)
+            .then(function(resp) {
+                if (resp.status !== 'ok') {
+                    throw new Error(resp.message || 'What-if simulation failed');
+                }
+
+                var flights = (resp.data && resp.data.flights) || [];
+                flights = normalizeSqlsrvRows(flights);
+
+                storeSimulationData(resp.data);
+                var progType = resp.data.program_type || 'GS';
+                setGsTableMode(progType);
+                renderFlightsFromAdlRowsForWorkflow(flights, progType + '-SIM');
+                if (progType === 'GS') applyGroundStopEdctToTable();
+
+                if (statusEl) {
+                    var summary = resp.data.summary || {};
+                    var overrides = resp.data.what_if_overrides;
+                    var overrideText = overrides ? ' | Overrides: ' + JSON.stringify(overrides) : '';
+                    statusEl.textContent = 'What-If: ' + flights.length + ' flights, max delay ' +
+                        (summary.max_delay_min || 0) + ' min' + overrideText + ' (DRY RUN)';
+                }
+
+                buildAdvisory();
+            })
+            .catch(function(err) {
+                console.error('What-if simulate failed', err);
+                if (statusEl) statusEl.textContent = 'What-if failed: ' + (err && err.message ? err.message : err);
             });
     }
 
@@ -4070,6 +5570,10 @@
 
                     // Show success notification with full results
                     showGsActivationSuccess(activateResp.data, workflowPayload);
+
+                    // Update workflow stepper
+                    setWorkflowState('active');
+                    loadActiveProgramsDashboard();
 
                     // Show the GS Flight List modal with affected flights
                     const flightListData = {
@@ -5313,6 +6817,66 @@
             console.error('Error initializing TMI page', err);
         });
 
+        // Initialize Active Programs Dashboard
+        loadActiveProgramsDashboard();
+        GDT_DASHBOARD_REFRESH_TIMER = setInterval(loadActiveProgramsDashboard, GDT_DASHBOARD_REFRESH_INTERVAL);
+
+        // Initialize workflow stepper to configure state
+        setWorkflowState('configure');
+
+        // Wire up extend modal advisory preview auto-update
+        ['gdt_extend_new_end', 'gdt_extend_prob_ext', 'gdt_extend_comments'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function() {
+                    var pid = parseInt(document.getElementById('gdt_extend_modal').dataset.programId);
+                    var prog = findDashboardProgram(pid);
+                    if (prog) buildExtendAdvisoryPreview(prog);
+                });
+                el.addEventListener('keyup', function() {
+                    var pid = parseInt(document.getElementById('gdt_extend_modal').dataset.programId);
+                    var prog = findDashboardProgram(pid);
+                    if (prog) buildExtendAdvisoryPreview(prog);
+                });
+            }
+        });
+
+        // Wire up revise modal advisory preview auto-update
+        ['gdt_revise_rate', 'gdt_revise_delay_cap', 'gdt_revise_comments'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function() {
+                    var pid = parseInt(document.getElementById('gdt_revise_modal').dataset.programId);
+                    var prog = findDashboardProgram(pid);
+                    if (prog) buildReviseAdvisoryPreview(prog);
+                });
+                el.addEventListener('keyup', function() {
+                    var pid = parseInt(document.getElementById('gdt_revise_modal').dataset.programId);
+                    var prog = findDashboardProgram(pid);
+                    if (prog) buildReviseAdvisoryPreview(prog);
+                });
+            }
+        });
+
+        // Wire up transition modal advisory preview auto-update
+        ['gdt_transition_gdp_type', 'gdt_transition_rate', 'gdt_transition_reserve',
+         'gdt_transition_end_utc', 'gdt_transition_delay_cap', 'gdt_transition_impacting',
+         'gdt_transition_comments'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function() {
+                    var gsId = parseInt(document.getElementById('gdt_transition_modal').dataset.gsProgramId);
+                    var prog = findDashboardProgram(gsId);
+                    if (prog) buildTransitionAdvisoryPreview(prog, 'propose');
+                });
+                el.addEventListener('keyup', function() {
+                    var gsId = parseInt(document.getElementById('gdt_transition_modal').dataset.gsProgramId);
+                    var prog = findDashboardProgram(gsId);
+                    if (prog) buildTransitionAdvisoryPreview(prog, 'propose');
+                });
+            }
+        });
+
         // Wire up advisory auto-update
         const ids = [
             'gs_ctl_element', 'gs_element_type', 'gs_adv_number',
@@ -6154,8 +7718,27 @@
 
                 // Update status
                 const statusStr = prog.status || 'PROPOSED';
+                GS_CURRENT_PROGRAM_STATUS = statusStr;
                 if (statusEl) {
                     statusEl.textContent = PERTII18n.t('gdt.edit.editingProgram', { type: progType, id: programId, status: statusStr });
+                }
+
+                // Update status badge
+                const badge = document.getElementById('gs_status_badge');
+                if (badge) {
+                    badge.textContent = statusStr;
+                    badge.className = 'badge tmi-badge-status badge-' + getStatusBadgeClass(statusStr);
+                }
+
+                // Set workflow stepper based on program status
+                if (statusStr === 'ACTIVE' || statusStr === 'TRANSITIONED') {
+                    setWorkflowState('active');
+                } else if (statusStr === 'MODELING') {
+                    setWorkflowState('model');
+                } else if (statusStr === 'PROPOSED' || statusStr === 'PENDING_COORD') {
+                    setWorkflowState('preview');
+                } else {
+                    setWorkflowState('configure');
                 }
 
                 // Rebuild the advisory preview
