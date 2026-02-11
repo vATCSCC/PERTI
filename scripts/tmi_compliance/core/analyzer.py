@@ -408,6 +408,38 @@ class TMIComplianceAnalyzer:
         """Get unimpeded taxi-out time in seconds for an airport. Default: 600s (10 min)."""
         return self._taxi_references.get(airport_icao, 600)
 
+    def _load_airport_connect_references(self):
+        """
+        Load unimpeded connect-to-push times from airport_connect_reference table.
+
+        These are per-airport p5-p15 averages computed from first_seen-to-out_utc
+        times over a 90-day rolling window. Used to estimate when a pilot was
+        actually ready to depart after connecting to the network:
+            ready_time = first_seen + unimpeded_connect_sec
+
+        Default is 900 seconds (15 minutes) for airports with insufficient data.
+        """
+        self._connect_references = {}
+        cursor = self.adl_conn.cursor()
+
+        query = self.adl.format_query(
+            "SELECT airport_icao, unimpeded_connect_sec, confidence FROM dbo.airport_connect_reference"
+        )
+        try:
+            cursor.execute(query)
+            for row in cursor.fetchall():
+                self._connect_references[row[0]] = row[1]
+            logger.info(f"Loaded {len(self._connect_references)} airport connect references")
+        except Exception as e:
+            logger.warning(f"Could not load airport connect references: {e}")
+            logger.warning("GS analysis will use 900s default connect time for all airports")
+        finally:
+            cursor.close()
+
+    def _get_connect_reference(self, airport_icao: str) -> int:
+        """Get unimpeded connect-to-push time in seconds for an airport. Default: 900s (15 min)."""
+        return self._connect_references.get(airport_icao, 900)
+
     def _load_airport_facility_map(self):
         """
         Load airport → ARTCC mapping from the apts reference table.
@@ -556,6 +588,9 @@ class TMIComplianceAnalyzer:
 
                 # Load airport taxi references for GS delay calculation
                 self._load_airport_taxi_references()
+
+                # Load airport connect-to-push references for GS hold time adjustment
+                self._load_airport_connect_references()
 
                 # Load airport→ARTCC mapping for GS facility scope filtering
                 self._load_airport_facility_map()
@@ -1898,7 +1933,7 @@ class TMIComplianceAnalyzer:
         compliant = []
         non_compliant = []
         gs_delays = []
-        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
+        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen+connect': 0}
 
         for fuid, flight in flights.items():
             callsign = flight.get('callsign', str(fuid))
@@ -1924,8 +1959,9 @@ class TMIComplianceAnalyzer:
                 dep_time = out_dt + timedelta(seconds=taxi_sec)
                 time_source = 'out_utc+taxi'
             elif first_seen:
-                dep_time = normalize_datetime(first_seen)
-                time_source = 'first_seen'
+                connect_sec = self._get_connect_reference(dept)
+                dep_time = normalize_datetime(first_seen) + timedelta(seconds=connect_sec)
+                time_source = 'first_seen+connect'
             else:
                 continue
 
@@ -2075,7 +2111,7 @@ class TMIComplianceAnalyzer:
         per_carrier = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': [], 'gs_delays': [], 'airline_name': ''})
         hold_times = []
         gs_delays = []
-        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
+        time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen+connect': 0}
 
         for fuid, flight in flights.items():
             callsign = flight.get('callsign', str(fuid))
@@ -2096,8 +2132,9 @@ class TMIComplianceAnalyzer:
                 dep_time = out_dt + timedelta(seconds=taxi_sec)
                 time_source = 'out_utc+taxi'
             elif first_seen:
-                dep_time = normalize_datetime(first_seen)
-                time_source = 'first_seen'
+                connect_sec = self._get_connect_reference(dept)
+                dep_time = normalize_datetime(first_seen) + timedelta(seconds=connect_sec)
+                time_source = 'first_seen+connect'
             else:
                 continue
 
@@ -2130,7 +2167,8 @@ class TMIComplianceAnalyzer:
                 'off_time': normalize_datetime(off_utc).strftime('%H:%M:%SZ') if off_utc else None,
                 'first_seen_time': first_seen_dt.strftime('%H:%M:%SZ') if first_seen_dt else None,
                 'gate_wait_min': gate_wait_min,
-                'time_source': time_source
+                'time_source': time_source,
+                'connect_ref_sec': self._get_connect_reference(dept) if first_seen else None
             }
 
             # Calculate GS delay: excess ground time beyond unimpeded taxi
@@ -2207,11 +2245,13 @@ class TMIComplianceAnalyzer:
                 per_carrier[carrier]['compliant'] += 1
                 # Calculate hold time: delay incurred as a result of the GS
                 # = overlap between when the flight was ready and the GS window
-                # Ready time: first_seen (pilot connected) preferred over out_utc
-                # because for GS-held flights, out_utc is AFTER the GS ended
+                # Ready time: first_seen + connect_ref (estimated setup completion)
+                # This adjusts raw connect time to approximate when pilot was ready
+                # For GS-held flights, out_utc is AFTER the GS ended so we prefer first_seen
                 ready_time = None
                 if first_seen:
-                    ready_time = first_seen_dt
+                    connect_sec = self._get_connect_reference(dept)
+                    ready_time = first_seen_dt + timedelta(seconds=connect_sec)
                 elif out_utc:
                     ready_time = normalize_datetime(out_utc)
 
