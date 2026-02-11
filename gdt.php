@@ -2089,6 +2089,110 @@ include("load/config.php");
     </div>
 </div>
 
+<!-- GS-to-GDP Transition Modal -->
+<div class="modal fade" id="gdt_transition_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_transition_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white py-2">
+                <h5 class="modal-title" id="gdt_transition_modal_label">
+                    <i class="fas fa-exchange-alt mr-1"></i> GS &rarr; GDP Transition
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Phase indicator -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-secondary mr-2" id="gdt_transition_phase_badge">PHASE 1: PROPOSE</span>
+                        <small class="text-muted" id="gdt_transition_phase_help">Create a proposed GDP while the GS remains active.</small>
+                    </div>
+                </div>
+
+                <!-- Parent GS info -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Parent Ground Stop</label>
+                    <div id="gdt_transition_gs_info" class="text-muted border rounded p-2 bg-light">-</div>
+                </div>
+
+                <!-- Proposed GDP already exists banner (hidden until phase 2) -->
+                <div class="alert alert-info small py-2 d-none" id="gdt_transition_proposed_banner">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    A proposed GDP (<strong id="gdt_transition_proposed_id">-</strong>) is ready.
+                    Activating will cancel the GS and make the GDP live.
+                </div>
+
+                <!-- GDP Parameters (Phase 1 only) -->
+                <div id="gdt_transition_params">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">GDP Type</label>
+                            <select class="form-control form-control-sm" id="gdt_transition_gdp_type">
+                                <option value="GDP-DAS">GDP-DAS (Default)</option>
+                                <option value="GDP-GAAP">GDP-GAAP</option>
+                                <option value="GDP-UDP">GDP-UDP</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Program Rate (arr/hr)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_rate" min="1" max="120" placeholder="e.g. 36">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Reserve Rate</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_reserve" min="0" max="30" placeholder="GAAP/UDP only">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">GDP End Time (UTC)</label>
+                            <input type="datetime-local" class="form-control form-control-sm" id="gdt_transition_end_utc" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Delay Cap (minutes)</label>
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_delay_cap" min="0" max="600" value="180" placeholder="e.g. 300">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="font-weight-bold">Impacting Condition</label>
+                            <select class="form-control form-control-sm" id="gdt_transition_impacting">
+                                <option value="WEATHER">WEATHER</option>
+                                <option value="VOLUME">VOLUME</option>
+                                <option value="EQUIPMENT">EQUIPMENT</option>
+                                <option value="RUNWAY">RUNWAY</option>
+                                <option value="OTHER">OTHER</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Comments</label>
+                        <textarea class="form-control form-control-sm" id="gdt_transition_comments" rows="2" placeholder="e.g. ARR 4R, DEP 4R."></textarea>
+                    </div>
+                </div>
+
+                <!-- Cumulative Period (shown after propose) -->
+                <div class="form-group d-none" id="gdt_transition_cumulative_row">
+                    <label class="font-weight-bold">Cumulative Program Period</label>
+                    <div id="gdt_transition_cumulative" class="text-muted">-</div>
+                </div>
+
+                <!-- Advisory Preview -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_transition_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_transition_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-info btn-sm" id="gdt_transition_propose_btn" onclick="submitTransitionPropose();">
+                    <i class="fas fa-file-alt mr-1"></i> Propose GDP
+                </button>
+                <button type="button" class="btn btn-success btn-sm d-none" id="gdt_transition_activate_btn" onclick="submitTransitionActivate();">
+                    <i class="fas fa-check-circle mr-1"></i> Activate GDP &amp; Cancel GS
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="assets/js/advisory-config.js"></script>
 <!-- FIR (International) Scope Support -->
 <script src="assets/js/fir-scope.js"></script>
