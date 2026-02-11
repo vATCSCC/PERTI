@@ -1047,7 +1047,8 @@ function insertDelayEntry(PDO $conn, string $type, array $data): int {
     if (is_numeric($delay['value'] ?? null)) {
         $delayMinutes = (int)$delay['value'];
     } elseif (($delay['value'] ?? '') === 'Holding') {
-        $holdingStatus = '+Holding';
+        $dir = $delay['direction'] ?? '+';
+        $holdingStatus = $dir . 'Holding';
     }
 
     if (($delay['direction'] ?? null) === '+') $delayTrend = 'increasing';
