@@ -60,6 +60,8 @@ const PERTIDeepLink = (function() {
             );
             tabs.forEach(function(tab) {
                 if (tab.querySelector('.perti-deeplink-btn')) return;
+                // Skip tabs nested inside a .tab-pane (sub-tabs like GDP params/scope/modeling)
+                if (tab.closest && tab.closest('.tab-pane')) return;
                 var btn = document.createElement('span');
                 btn.className = 'perti-deeplink-btn';
                 btn.title = typeof PERTII18n !== 'undefined' ? PERTII18n.t('deeplink.copyLink') : 'Copy link';
@@ -180,9 +182,11 @@ const PERTIDeepLink = (function() {
         if (_initialized) return;
         _initialized = true;
 
-        // Listen for Bootstrap tab switches
+        // Listen for Bootstrap tab switches (top-level only, skip nested tabs)
         if (typeof $ !== 'undefined') {
             $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
+                // Ignore tabs nested inside another .tab-pane (e.g. GDP sub-tabs on gdt.php)
+                if ($(e.target).closest('.tab-pane').length) return;
                 var paneId = $(e.target).attr('href');
                 if (paneId && paneId.charAt(0) === '#') {
                     update(paneId.substring(1));

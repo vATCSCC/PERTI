@@ -6769,7 +6769,7 @@ $(document).ready(function() {
             }
 
             // Open TMI Publisher in new tab with reroute mode
-            window.open('/tmi-publish.php?mode=reroute', '_blank');
+            window.open('/tmi-publish.php?mode=reroute#reroutePanel', '_blank');
 
         } catch (err) {
             console.error('[DRAFT-TMI] Error preparing draft:', err);
