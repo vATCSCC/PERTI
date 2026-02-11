@@ -2033,5 +2033,10 @@
     "equalDesc": "Equal-width segments",
     "switchToProportional": "Switch to To-Scale",
     "switchToEqual": "Switch to Equal Width"
+  },
+  "deeplink": {
+    "copyLink": "Copy link",
+    "copied": "Copied!",
+    "linkCopied": "Link copied"
   }
 }

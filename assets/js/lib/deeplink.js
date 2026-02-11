@@ -62,7 +62,7 @@ const PERTIDeepLink = (function() {
                 if (tab.querySelector('.perti-deeplink-btn')) return;
                 var btn = document.createElement('span');
                 btn.className = 'perti-deeplink-btn';
-                btn.title = 'Copy link';
+                btn.title = typeof PERTII18n !== 'undefined' ? PERTII18n.t('deeplink.copyLink') : 'Copy link';
                 btn.innerHTML = '<i class="fas fa-link"></i>';
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -112,10 +112,10 @@ const PERTIDeepLink = (function() {
 
     function _showCopiedFeedback(btnEl) {
         if (btnEl) {
-            btnEl.title = 'Copied!';
+            btnEl.title = typeof PERTII18n !== 'undefined' ? PERTII18n.t('deeplink.copied') : 'Copied!';
             btnEl.classList.add('copied');
             setTimeout(function() {
-                btnEl.title = 'Copy link';
+                btnEl.title = typeof PERTII18n !== 'undefined' ? PERTII18n.t('deeplink.copyLink') : 'Copy link';
                 btnEl.classList.remove('copied');
             }, 1500);
         }
@@ -125,7 +125,7 @@ const PERTIDeepLink = (function() {
                 toast: true,
                 position: 'bottom-end',
                 icon: 'success',
-                title: 'Link copied',
+                title: typeof PERTII18n !== 'undefined' ? PERTII18n.t('deeplink.linkCopied') : 'Link copied',
                 showConfirmButton: false,
                 timer: 1500,
                 timerProgressBar: true
