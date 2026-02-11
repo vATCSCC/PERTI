@@ -135,6 +135,7 @@
                 if (resp.status === 'ok' && resp.data && resp.data.programs) {
                     GDT_DASHBOARD_PROGRAMS = resp.data.programs;
                     renderDashboard(resp.data.programs, resp.data.server_utc);
+                    if (GDT_TIMELINE_VISIBLE) renderTimeline();
                 }
             },
             error: function() {
@@ -1182,8 +1183,234 @@
         } catch(e) { return '--:--Z'; }
     }
 
+    // ========================================================================
+    // Multi-Program Timeline (Phase 6)
+    // ========================================================================
+
+    var GDT_TIMELINE_CHART = null;
+    var GDT_TIMELINE_VISIBLE = false;
+
+    function toggleTimeline() {
+        var container = document.getElementById('gdt_timeline_container');
+        var toggleText = document.getElementById('gdt_timeline_toggle_text');
+        if (!container) return;
+
+        GDT_TIMELINE_VISIBLE = !GDT_TIMELINE_VISIBLE;
+        container.style.display = GDT_TIMELINE_VISIBLE ? 'block' : 'none';
+        if (toggleText) toggleText.textContent = GDT_TIMELINE_VISIBLE ? 'Hide Timeline' : 'Show Timeline';
+
+        if (GDT_TIMELINE_VISIBLE) {
+            renderTimeline();
+        }
+    }
+
+    function renderTimeline() {
+        var canvas = document.getElementById('gdt_timeline_canvas');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        var programs = GDT_DASHBOARD_PROGRAMS.filter(function(p) {
+            return p.start_utc && p.end_utc;
+        });
+
+        if (programs.length === 0) {
+            if (GDT_TIMELINE_CHART) { GDT_TIMELINE_CHART.destroy(); GDT_TIMELINE_CHART = null; }
+            return;
+        }
+
+        // Compute time range: earliest start - 1h to latest end + 1h
+        var now = new Date();
+        var minTime = new Date(now.getTime() - 3600000);
+        var maxTime = new Date(now.getTime() + 3600000);
+        programs.forEach(function(p) {
+            var s = new Date(p.start_utc);
+            var e = new Date(p.end_utc);
+            if (s < minTime) minTime = new Date(s.getTime() - 3600000);
+            if (e > maxTime) maxTime = new Date(e.getTime() + 3600000);
+        });
+
+        // Build datasets - one bar per program
+        var labels = [];
+        var data = [];
+        var bgColors = [];
+        var borderColors = [];
+        var programIds = [];
+
+        var typeColors = {
+            'GS': { bg: 'rgba(220, 53, 69, 0.7)', border: '#dc3545' },
+            'GDP': { bg: 'rgba(255, 193, 7, 0.7)', border: '#ffc107' },
+            'GDP-DAS': { bg: 'rgba(255, 193, 7, 0.7)', border: '#ffc107' },
+            'GDP-GAAP': { bg: 'rgba(255, 152, 0, 0.7)', border: '#ff9800' },
+            'GDP-UDP': { bg: 'rgba(255, 87, 34, 0.7)', border: '#ff5722' },
+            'AFP': { bg: 'rgba(23, 162, 184, 0.7)', border: '#17a2b8' }
+        };
+        var defaultColor = { bg: 'rgba(108, 117, 125, 0.7)', border: '#6c757d' };
+
+        // Sort: chains grouped together, then by start time
+        programs.sort(function(a, b) {
+            var chainA = a.advisory_chain_id || a.program_id;
+            var chainB = b.advisory_chain_id || b.program_id;
+            if (chainA !== chainB) return chainA - chainB;
+            return new Date(a.start_utc) - new Date(b.start_utc);
+        });
+
+        programs.forEach(function(p) {
+            var pType = (p.program_type || 'GS').replace(/-.*/, '');
+            var fullType = p.program_type || 'GS';
+            var colors = typeColors[fullType] || typeColors[pType] || defaultColor;
+
+            // Dim completed/cancelled/transitioned
+            if (['COMPLETED', 'CANCELLED', 'TRANSITIONED'].indexOf(p.status) !== -1) {
+                colors = { bg: 'rgba(108, 117, 125, 0.3)', border: '#adb5bd' };
+            }
+
+            var label = (p.program_type || 'GS') + ' #' + p.program_id + ' ' + (p.ctl_element || '');
+            labels.push(label);
+            programIds.push(p.program_id);
+
+            data.push([new Date(p.start_utc).getTime(), new Date(p.end_utc).getTime()]);
+            bgColors.push(colors.bg);
+            borderColors.push(colors.border);
+        });
+
+        if (GDT_TIMELINE_CHART) { GDT_TIMELINE_CHART.destroy(); }
+
+        GDT_TIMELINE_CHART = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var p = programs[ctx.dataIndex];
+                                if (!p) return '';
+                                var s = formatZuluFromIso(p.start_utc);
+                                var e = formatZuluFromIso(p.end_utc);
+                                var delay = p.avg_delay_min ? parseFloat(p.avg_delay_min).toFixed(0) + ' min avg' : '';
+                                return s + ' - ' + e + (delay ? ' | ' + delay : '') + ' | ' + (p.status || '');
+                            }
+                        }
+                    },
+                    // Now-line annotation (if annotation plugin loaded)
+                    annotation: typeof Chart !== 'undefined' && Chart.registry && Chart.registry.plugins.get('annotation') ? {
+                        annotations: {
+                            nowLine: {
+                                type: 'line',
+                                xMin: now.getTime(),
+                                xMax: now.getTime(),
+                                borderColor: '#dc3545',
+                                borderWidth: 2,
+                                borderDash: [4, 4],
+                                label: { display: true, content: 'NOW', position: 'start', font: { size: 9 } }
+                            }
+                        }
+                    } : undefined
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: minTime.getTime(),
+                        max: maxTime.getTime(),
+                        ticks: {
+                            callback: function(val) {
+                                var d = new Date(val);
+                                return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
+                            },
+                            maxTicksLimit: 12,
+                            font: { size: 10 }
+                        },
+                        title: { display: true, text: 'UTC Time', font: { size: 10 } }
+                    },
+                    y: {
+                        ticks: { font: { size: 10 } }
+                    }
+                },
+                onClick: function(evt, elements) {
+                    if (elements && elements.length > 0) {
+                        var idx = elements[0].index;
+                        var pid = programIds[idx];
+                        if (pid) loadProgramFromDashboard(pid);
+                    }
+                }
+            }
+        });
+
+        // Detect scope conflicts
+        detectScopeConflicts(programs);
+    }
+
+    function detectScopeConflicts(programs) {
+        var conflictsEl = document.getElementById('gdt_timeline_conflicts');
+        if (!conflictsEl) return;
+        conflictsEl.innerHTML = '';
+
+        var activePrograms = programs.filter(function(p) {
+            return p.status === 'ACTIVE' && p.scope_json;
+        });
+
+        if (activePrograms.length < 2) return;
+
+        // Extract scope facilities for each program
+        var scopeMap = {};
+        activePrograms.forEach(function(p) {
+            var facilities = [];
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                if (scope.origin_centers) {
+                    var centers = Array.isArray(scope.origin_centers) ? scope.origin_centers : String(scope.origin_centers).split(/[,\s]+/);
+                    facilities = facilities.concat(centers);
+                }
+                if (scope.arr_center) facilities.push(scope.arr_center);
+            } catch(e) {}
+            scopeMap[p.program_id] = facilities.map(function(f) { return f.toUpperCase(); });
+        });
+
+        // Compare pairs for overlapping facilities
+        var conflicts = [];
+        for (var i = 0; i < activePrograms.length; i++) {
+            for (var j = i + 1; j < activePrograms.length; j++) {
+                var pA = activePrograms[i];
+                var pB = activePrograms[j];
+                var facA = scopeMap[pA.program_id] || [];
+                var facB = scopeMap[pB.program_id] || [];
+                var shared = facA.filter(function(f) { return facB.indexOf(f) !== -1; });
+                if (shared.length > 0) {
+                    conflicts.push({
+                        a: pA.program_type + ' #' + pA.program_id + ' ' + (pA.ctl_element || ''),
+                        b: pB.program_type + ' #' + pB.program_id + ' ' + (pB.ctl_element || ''),
+                        facilities: shared
+                    });
+                }
+            }
+        }
+
+        if (conflicts.length > 0) {
+            var html = '<span class="text-warning"><i class="fas fa-exclamation-triangle mr-1"></i> Shared scope:</span> ';
+            conflicts.forEach(function(c) {
+                html += '<span class="badge badge-warning mr-1">' + escapeHtml(c.a) + ' &harr; ' + escapeHtml(c.b) +
+                    ' (' + c.facilities.join(', ') + ')</span>';
+            });
+            conflictsEl.innerHTML = html;
+        }
+    }
+
     // Expose dashboard functions to global scope (needed by onclick handlers in HTML)
     window.toggleDashboard = toggleDashboard;
+    window.toggleTimeline = toggleTimeline;
     window.loadProgramFromDashboard = loadProgramFromDashboard;
     window.resetAndNewProgram = resetAndNewProgram;
     window.dashboardExtend = dashboardExtend;
