@@ -95,8 +95,8 @@ function fetchNtmlEntries($conn, $dateStart, $dateEnd, $limit) {
                 reason_code, valid_from, valid_until, status,
                 source_type
             FROM dbo.tmi_entries
-            WHERE (valid_from <= ? OR valid_from IS NULL)
-              AND (valid_until >= ? OR valid_until IS NULL)
+            WHERE valid_from IS NOT NULL AND valid_until IS NOT NULL
+              AND valid_from <= ? AND valid_until >= ?
             ORDER BY valid_from DESC";
 
     $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart]);
@@ -127,12 +127,12 @@ function fetchPrograms($conn, $dateStart, $dateEnd, $limit) {
                 program_rate, cause_text, impacting_condition,
                 scope_json, created_at, created_by
             FROM dbo.tmi_programs
-            WHERE (start_utc <= ? OR start_utc IS NULL)
-              AND (end_utc >= ? OR end_utc IS NULL)
-              AND created_at <= ?
+            WHERE COALESCE(start_utc, created_at) <= ?
+              AND COALESCE(end_utc, '2100-01-01') >= ?
+              AND created_at BETWEEN ? AND ?
             ORDER BY start_utc DESC";
 
-    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateStart, $dateEnd]);
     if ($stmt === false) return [];
 
     $results = [];
@@ -163,12 +163,12 @@ function fetchAdvisories($conn, $dateStart, $dateEnd, $limit) {
                 effective_from, effective_until, status,
                 created_at, created_by
             FROM dbo.tmi_advisories
-            WHERE (effective_from <= ? OR effective_from IS NULL)
-              AND (effective_until >= ? OR effective_until IS NULL)
-              AND created_at <= ?
+            WHERE COALESCE(effective_from, created_at) <= ?
+              AND COALESCE(effective_until, '2100-01-01') >= ?
+              AND created_at BETWEEN ? AND ?
             ORDER BY effective_from DESC";
 
-    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateStart, $dateEnd]);
     if ($stmt === false) return [];
 
     $results = [];
@@ -199,12 +199,12 @@ function fetchReroutes($conn, $dateStart, $dateEnd, $limit) {
                 comments, start_utc, end_utc,
                 created_at
             FROM dbo.tmi_reroutes
-            WHERE (start_utc <= ? OR start_utc IS NULL)
-              AND (end_utc >= ? OR end_utc IS NULL)
-              AND created_at <= ?
+            WHERE COALESCE(start_utc, created_at) <= ?
+              AND COALESCE(end_utc, '2100-01-01') >= ?
+              AND created_at BETWEEN ? AND ?
             ORDER BY start_utc DESC";
 
-    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateEnd]);
+    $stmt = sqlsrv_query($conn, $sql, [$dateEnd, $dateStart, $dateStart, $dateEnd]);
     if ($stmt === false) return [];
 
     $results = [];

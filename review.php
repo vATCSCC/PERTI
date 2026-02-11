@@ -706,10 +706,11 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                             <th style="width: 30px;" title="Effective">E</th>
                                             <th style="width: 30px;" title="Timely">T</th>
                                             <th>Source</th>
+                                            <th style="width: 25px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="tmr_tmi_tbody">
-                                        <tr><td colspan="10" class="text-center text-muted py-3" data-i18n="tmr.tmi.emptyHint">Click "Load TMIs from Database" or add entries manually.</td></tr>
+                                        <tr><td colspan="11" class="text-center text-muted py-3" data-i18n="tmr.tmi.emptyHint">Click "Load TMIs from Database" or add entries manually.</td></tr>
                                     </tbody>
                                 </table>
                             </div>

@@ -397,6 +397,15 @@
         // Batch assess
         $('#tmr_batch_assess_btn').on('click', showBatchAssessModal);
 
+        // Remove TMI button
+        $(document).on('click', '.tmi-remove-btn', function() {
+            var key = $(this).data('key');
+            tmiList = tmiList.filter(function(t) { return t._key !== key; });
+            delete tmiSelected[key];
+            renderTMITable();
+            immediateFieldSave();
+        });
+
         // Per-TMI C/E/T pill click
         $(document).on('click', '.cet-pill', function() {
             var key = $(this).data('key');
@@ -623,7 +632,7 @@
 
         if (visibleTmis.length === 0) {
             var msg = tmiList.length > 0 ? 'No TMIs match the current filter.' : PERTII18n.t('tmr.tmi.emptyHint');
-            tbody.html('<tr><td colspan="10" class="text-center text-muted py-3">' + escapeHtml(msg) + '</td></tr>');
+            tbody.html('<tr><td colspan="11" class="text-center text-muted py-3">' + escapeHtml(msg) + '</td></tr>');
             return;
         }
 
@@ -648,6 +657,7 @@
                 '<td>' + cetE + '</td>' +
                 '<td>' + cetT + '</td>' +
                 '<td><span class="badge badge-' + (t._source === 'db' ? 'info' : 'secondary') + '">' + sourceLabel + '</span></td>' +
+                '<td><button class="btn btn-sm btn-link text-danger p-0 tmi-remove-btn" data-key="' + t._key + '" title="Remove"><i class="fas fa-times"></i></button></td>' +
                 '</tr>';
 
             tbody.append(row);
@@ -708,8 +718,12 @@
     function formatTmiTime(dt) {
         if (!dt) return '--';
         if (dt.length <= 6) return escapeHtml(dt);
-        var match = dt.match(/(\d{2}):(\d{2})/);
-        if (match) return match[1] + match[2] + 'z';
+        // Parse "YYYY-MM-DD HH:MM" → "MM/DD HHMMz"
+        var m = dt.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+        if (m) return m[2] + '/' + m[3] + ' ' + m[4] + m[5] + 'z';
+        // Fallback: extract time only
+        var tm = dt.match(/(\d{2}):(\d{2})/);
+        if (tm) return tm[1] + tm[2] + 'z';
         return escapeHtml(dt);
     }
 
