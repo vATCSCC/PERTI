@@ -454,3 +454,29 @@ a {
   color: inherit !important;
   opacity: 0.7;
 }
+
+/* Deep link copy-link buttons */
+.perti-deeplink-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  font-size: 0.65em;
+  opacity: 0;
+  cursor: pointer;
+  color: inherit;
+  transition: opacity 0.2s ease;
+  vertical-align: middle;
+}
+a[data-toggle="tab"]:hover .perti-deeplink-btn,
+.nod-panel-tab:hover .perti-deeplink-btn,
+.mode-tab:hover .perti-deeplink-btn {
+  opacity: 0.4;
+}
+.perti-deeplink-btn:hover {
+  opacity: 1 !important;
+}
+.perti-deeplink-btn.copied {
+  opacity: 1 !important;
+  color: #28a745;
+}

@@ -4168,7 +4168,7 @@
             if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.redirectingToTmi');}
 
             // Navigate to TMI Publishing page with GS/GDP tab active
-            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=gs&program_id=' + GS_CURRENT_PROGRAM_ID;
+            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=gs&program_id=' + GS_CURRENT_PROGRAM_ID + '#gsgdpPanel';
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);

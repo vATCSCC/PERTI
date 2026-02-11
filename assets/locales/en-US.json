@@ -2034,6 +2034,11 @@
     "switchToProportional": "Switch to To-Scale",
     "switchToEqual": "Switch to Equal Width"
   },
+  "deeplink": {
+    "copyLink": "Copy link",
+    "copied": "Copied!",
+    "linkCopied": "Link copied"
+  },
   "tmiCompliance": {
     "copyForDiscord": "Copy for Discord",
     "copiedToClipboard": "Copied to clipboard",
