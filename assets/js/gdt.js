@@ -37,6 +37,7 @@
     // GDT API endpoints (unified GDT structure in VATSIM_TMI)
     const GS_API = {
         list: 'api/gdt/programs/list.php',
+        active: 'api/gdt/programs/active.php',
         create: 'api/gdt/programs/create.php',
         model: 'api/gdt/programs/model.php',
         activate: 'api/gdt/programs/activate.php',
@@ -67,6 +68,19 @@
 
     // Track whether a simulation has been run (required before Submit to TMI)
     let GS_SIMULATION_READY = false;
+
+    // ========================================================================
+    // Workflow State Machine
+    // ========================================================================
+
+    // Valid states: 'configure', 'preview', 'model', 'active'
+    let GS_WORKFLOW_STATE = 'configure';
+
+    // Dashboard state
+    let GDT_DASHBOARD_PROGRAMS = [];
+    let GDT_DASHBOARD_COLLAPSED = false;
+    let GDT_DASHBOARD_REFRESH_TIMER = null;
+    const GDT_DASHBOARD_REFRESH_INTERVAL = 60000; // 60 seconds
 
     const GS_SIMTRAFFIC_CACHE = {};
     let GS_SIMTRAFFIC_QUEUE = [];
@@ -99,6 +113,511 @@
             'FDX': 'FX', 'FX': 'FX',
             'UPS': '5X', '5X': '5X',
         };
+
+    // ========================================================================
+    // Active Programs Dashboard
+    // ========================================================================
+
+    function loadActiveProgramsDashboard() {
+        $.ajax({
+            url: GS_API.active + '?include_recent=1',
+            method: 'GET',
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.status === 'ok' && resp.data && resp.data.programs) {
+                    GDT_DASHBOARD_PROGRAMS = resp.data.programs;
+                    renderDashboard(resp.data.programs, resp.data.server_utc);
+                }
+            },
+            error: function() {
+                // Silently fail on dashboard load - not critical
+                console.warn('GDT Dashboard: Failed to load active programs');
+            }
+        });
+    }
+
+    function renderDashboard(programs, serverUtc) {
+        var container = document.getElementById('gdt_dashboard');
+        var cardsEl = document.getElementById('gdt_dashboard_cards');
+        var emptyEl = document.getElementById('gdt_dashboard_empty');
+        var summaryEl = document.getElementById('gdt_dashboard_summary');
+        var countBadge = document.getElementById('gdt_dashboard_count');
+        var refreshTimeEl = document.getElementById('gdt_dashboard_refresh_time');
+
+        if (!container || !cardsEl) return;
+
+        // Show dashboard
+        container.style.display = '';
+
+        // Count active programs (not completed/cancelled/transitioned)
+        var activePrograms = programs.filter(function(p) {
+            return ['ACTIVE', 'PROPOSED', 'MODELING', 'PENDING_COORD'].indexOf(p.status) !== -1;
+        });
+
+        if (programs.length === 0) {
+            emptyEl.style.display = '';
+            cardsEl.innerHTML = '';
+            summaryEl.style.display = 'none';
+            countBadge.style.display = 'none';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        countBadge.style.display = '';
+        countBadge.textContent = activePrograms.length;
+
+        // Build cards
+        var html = '';
+        var totalControlled = 0;
+
+        for (var i = 0; i < programs.length; i++) {
+            var p = programs[i];
+            totalControlled += (p.controlled_flights || 0);
+            html += buildProgramCard(p);
+        }
+
+        cardsEl.innerHTML = html;
+
+        // Summary
+        if (activePrograms.length > 0) {
+            summaryEl.style.display = '';
+            document.getElementById('gdt_dashboard_total_controlled').textContent = totalControlled;
+        } else {
+            summaryEl.style.display = 'none';
+        }
+
+        // Refresh time
+        if (refreshTimeEl) {
+            var now = new Date();
+            var hh = String(now.getUTCHours()).padStart(2, '0');
+            var mm = String(now.getUTCMinutes()).padStart(2, '0');
+            refreshTimeEl.textContent = hh + ':' + mm + 'Z';
+        }
+
+        // Highlight selected program
+        if (GS_CURRENT_PROGRAM_ID) {
+            var sel = document.querySelector('.gdt-program-card[data-program-id="' + GS_CURRENT_PROGRAM_ID + '"]');
+            if (sel) sel.classList.add('selected');
+        }
+    }
+
+    function buildProgramCard(p) {
+        var typeClass = 'gdt-card-type-gs';
+        var typeLabel = p.program_type || 'GS';
+        if (typeLabel.indexOf('GDP') !== -1) typeClass = 'gdt-card-type-gdp';
+        else if (typeLabel === 'AFP') typeClass = 'gdt-card-type-afp';
+
+        var statusClass = 'gdt-card-status-' + (p.status || 'proposed').toLowerCase();
+
+        // Format time window
+        var startStr = formatZuluShort(p.start_utc);
+        var endStr = formatZuluShort(p.end_utc);
+
+        // Elapsed percentage
+        var elapsed = parseFloat(p.elapsed_pct) || 0;
+        var minsLeft = parseInt(p.minutes_remaining) || 0;
+
+        // Progress bar color
+        var progressColor = '#28a745';
+        if (elapsed > 80) progressColor = '#dc3545';
+        else if (elapsed > 60) progressColor = '#e67e22';
+
+        // Metrics
+        var controlled = p.controlled_flights || 0;
+        var exempt = p.exempt_flights || 0;
+        var avgDelay = p.avg_delay_min ? parseFloat(p.avg_delay_min).toFixed(0) : '-';
+
+        // Scope info (extract ARTCC from scope_json if available)
+        var artcc = '';
+        if (p.scope_json) {
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                if (scope.arr_center) artcc = scope.arr_center;
+                else if (scope.artcc) artcc = scope.artcc;
+            } catch(e) {}
+        }
+
+        // Determine which quick actions to show
+        var actions = '';
+        if (p.status === 'ACTIVE') {
+            actions += '<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); dashboardExtend(' + p.program_id + ');" title="Extend">Extend</button>';
+            if (typeLabel === 'GS') {
+                actions += '<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); dashboardTransition(' + p.program_id + ');" title="Transition to GDP">GS→GDP</button>';
+            }
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
+        }
+
+        var chainIndicator = '';
+        if (p.parent_program_id) {
+            chainIndicator = '<span class="badge badge-info ml-1" style="font-size:0.55rem;" title="Transitioned from program #' + p.parent_program_id + '">CHAIN</span>';
+        }
+
+        return '<div class="gdt-program-card" data-program-id="' + p.program_id + '" onclick="loadProgramFromDashboard(' + p.program_id + ');">' +
+            '<div class="d-flex justify-content-between align-items-start">' +
+                '<div>' +
+                    '<span class="gdt-card-type ' + typeClass + '">' + escapeHtml(typeLabel) + '</span>' +
+                    ' <span class="gdt-card-status ' + statusClass + '">' + escapeHtml(p.status || '') + '</span>' +
+                    chainIndicator +
+                '</div>' +
+                (p.adv_number ? '<span class="text-muted" style="font-size:0.65rem;">' + escapeHtml(p.adv_number) + '</span>' : '') +
+            '</div>' +
+            '<div class="mt-1">' +
+                '<span class="gdt-card-element">' + escapeHtml(p.ctl_element || '') + '</span>' +
+                (artcc ? ' <span class="gdt-card-artcc">/ ' + escapeHtml(artcc) + '</span>' : '') +
+            '</div>' +
+            '<div class="gdt-card-time">' + startStr + ' - ' + endStr +
+                (minsLeft > 0 ? ' <span class="text-muted">(' + minsLeft + 'm left)</span>' : '') +
+            '</div>' +
+            '<div class="gdt-card-progress">' +
+                '<div class="gdt-card-progress-bar" style="width: ' + Math.min(100, elapsed) + '%; background: ' + progressColor + ';"></div>' +
+            '</div>' +
+            '<div class="gdt-card-metrics">' +
+                '<div><span class="gdt-card-metric-value">' + controlled + '</span> controlled</div>' +
+                '<div><span class="gdt-card-metric-value">' + exempt + '</span> exempt</div>' +
+                '<div><span class="gdt-card-metric-value">' + avgDelay + '</span> avg delay</div>' +
+            '</div>' +
+            (actions ? '<div class="gdt-card-actions">' + actions + '</div>' : '') +
+        '</div>';
+    }
+
+    function formatZuluShort(isoStr) {
+        if (!isoStr) return '--:--Z';
+        try {
+            var d = new Date(isoStr);
+            if (isNaN(d.getTime())) return '--:--Z';
+            var dd = String(d.getUTCDate()).padStart(2, '0');
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mm = String(d.getUTCMinutes()).padStart(2, '0');
+            return dd + '/' + hh + mm + 'Z';
+        } catch(e) { return '--:--Z'; }
+    }
+
+    function toggleDashboard() {
+        var body = document.getElementById('gdt_dashboard_body');
+        var chevron = document.getElementById('gdt_dashboard_chevron');
+        if (!body) return;
+
+        GDT_DASHBOARD_COLLAPSED = !GDT_DASHBOARD_COLLAPSED;
+        body.style.display = GDT_DASHBOARD_COLLAPSED ? 'none' : '';
+        if (chevron) {
+            chevron.className = GDT_DASHBOARD_COLLAPSED ? 'fas fa-chevron-right' : 'fas fa-chevron-down';
+        }
+    }
+
+    function loadProgramFromDashboard(programId) {
+        // Remove selected from all cards
+        document.querySelectorAll('.gdt-program-card.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        // Highlight this card
+        var card = document.querySelector('.gdt-program-card[data-program-id="' + programId + '"]');
+        if (card) card.classList.add('selected');
+
+        // Load program into the form
+        GS_CURRENT_PROGRAM_ID = programId;
+
+        // Find program in cached data
+        var program = null;
+        for (var i = 0; i < GDT_DASHBOARD_PROGRAMS.length; i++) {
+            if (GDT_DASHBOARD_PROGRAMS[i].program_id === programId) {
+                program = GDT_DASHBOARD_PROGRAMS[i];
+                break;
+            }
+        }
+
+        if (program) {
+            populateFormFromProgram(program);
+
+            // Set stepper based on program status
+            if (program.status === 'ACTIVE' || program.status === 'TRANSITIONED') {
+                setWorkflowState('active');
+            } else if (program.status === 'MODELING') {
+                setWorkflowState('model');
+            } else if (program.status === 'PROPOSED' || program.status === 'PENDING_COORD') {
+                setWorkflowState('preview');
+            } else {
+                setWorkflowState('configure');
+            }
+        }
+
+        // Scroll to the form
+        var section = document.getElementById('gs_section');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function populateFormFromProgram(p) {
+        // Populate basic fields
+        var el = document.getElementById('gs_ctl_element');
+        if (el) el.value = p.ctl_element || '';
+
+        el = document.getElementById('gs_element_type');
+        if (el) el.value = p.element_type || 'APT';
+
+        el = document.getElementById('gs_adv_number');
+        if (el) el.value = p.adv_number || '';
+
+        // Populate time fields (convert ISO to datetime-local format)
+        if (p.start_utc) {
+            el = document.getElementById('gs_start_utc');
+            if (el) el.value = isoToDatetimeLocal(p.start_utc);
+        }
+        if (p.end_utc) {
+            el = document.getElementById('gs_end_utc');
+            if (el) el.value = isoToDatetimeLocal(p.end_utc);
+        }
+
+        // Impacting condition
+        el = document.getElementById('gs_impacting_condition');
+        if (el) el.value = p.impacting_condition || '';
+
+        // Probability
+        el = document.getElementById('gs_prob_ext');
+        if (el) el.value = p.gs_probability || '';
+
+        // Comments
+        el = document.getElementById('gs_comments');
+        if (el) el.value = p.comments || '';
+
+        // Scope
+        if (p.scope_json) {
+            try {
+                var scope = typeof p.scope_json === 'string' ? JSON.parse(p.scope_json) : p.scope_json;
+                // Populate origin centers
+                if (scope.origin_centers) {
+                    el = document.getElementById('gs_origin_centers');
+                    if (el) el.value = scope.origin_centers;
+                }
+                // Populate origin airports
+                if (scope.origin_airports) {
+                    el = document.getElementById('gs_origin_airports');
+                    if (el) el.value = scope.origin_airports;
+                }
+                // Populate arrival airports
+                if (scope.arrival_airports) {
+                    el = document.getElementById('gs_airports');
+                    if (el) el.value = scope.arrival_airports;
+                }
+            } catch(e) {}
+        }
+
+        // Update status badge
+        var badge = document.getElementById('gs_status_badge');
+        if (badge) {
+            badge.textContent = p.status || 'UNKNOWN';
+            badge.className = 'badge tmi-badge-status badge-' + getStatusBadgeClass(p.status);
+        }
+
+        GS_CURRENT_PROGRAM_STATUS = p.status;
+    }
+
+    function isoToDatetimeLocal(iso) {
+        if (!iso) return '';
+        try {
+            // Handle "2026-02-11T14:00:00Z" format
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            var yyyy = d.getUTCFullYear();
+            var mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            var dd = String(d.getUTCDate()).padStart(2, '0');
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mi = String(d.getUTCMinutes()).padStart(2, '0');
+            return yyyy + '-' + mm + '-' + dd + 'T' + hh + ':' + mi;
+        } catch(e) { return ''; }
+    }
+
+    function getStatusBadgeClass(status) {
+        switch ((status || '').toUpperCase()) {
+            case 'ACTIVE': return 'success';
+            case 'MODELING': return 'warning';
+            case 'PROPOSED': return 'info';
+            case 'PENDING_COORD': return 'info';
+            case 'TRANSITIONED': return 'secondary';
+            case 'CANCELLED': return 'danger';
+            case 'COMPLETED': return 'secondary';
+            case 'PURGED': return 'dark';
+            default: return 'secondary';
+        }
+    }
+
+    function resetAndNewProgram() {
+        GS_CURRENT_PROGRAM_ID = null;
+        GS_CURRENT_PROGRAM_STATUS = null;
+        GS_SIMULATION_READY = false;
+
+        // Clear selected card
+        document.querySelectorAll('.gdt-program-card.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+
+        // Reset form (calls existing resetGsForm if available)
+        if (typeof resetGsForm === 'function') {
+            resetGsForm();
+        }
+
+        setWorkflowState('configure');
+
+        // Update status badge
+        var badge = document.getElementById('gs_status_badge');
+        if (badge) {
+            badge.textContent = 'Draft (local)';
+            badge.className = 'badge tmi-badge-status badge-secondary';
+        }
+    }
+
+    // Dashboard quick actions (stubs for Phase 3/4 - show alerts for now)
+    function dashboardExtend(programId) {
+        Swal.fire('Extend Program', 'Extend functionality coming in Phase 3.', 'info');
+    }
+
+    function dashboardTransition(programId) {
+        Swal.fire('GS → GDP Transition', 'Transition functionality coming in Phase 4.', 'info');
+    }
+
+    function dashboardCancel(programId) {
+        Swal.fire({
+            title: 'Cancel Program #' + programId + '?',
+            text: 'This will cancel the program and purge the flight list.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Yes, cancel it'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                // Use existing cancel API
+                $.ajax({
+                    url: 'api/gdt/programs/cancel.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        program_id: programId,
+                        cancel_reason: 'USER_CANCELLED',
+                        user_cid: (typeof $_SESSION !== 'undefined' ? $_SESSION.VATSIM_CID : null) || 'unknown',
+                        user_name: 'GDT User'
+                    }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            Swal.fire('Cancelled', 'Program has been cancelled.', 'success');
+                            loadActiveProgramsDashboard();
+                            if (GS_CURRENT_PROGRAM_ID === programId) {
+                                resetAndNewProgram();
+                            }
+                        } else {
+                            Swal.fire('Error', resp.message || 'Cancel failed', 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'Failed to cancel program.', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    // Expose dashboard functions to global scope (needed by onclick handlers in HTML)
+    window.toggleDashboard = toggleDashboard;
+    window.loadProgramFromDashboard = loadProgramFromDashboard;
+    window.resetAndNewProgram = resetAndNewProgram;
+    window.dashboardExtend = dashboardExtend;
+    window.dashboardTransition = dashboardTransition;
+    window.dashboardCancel = dashboardCancel;
+
+    // ========================================================================
+    // Workflow Stepper
+    // ========================================================================
+
+    function setWorkflowState(newState) {
+        var validStates = ['configure', 'preview', 'model', 'active'];
+        if (validStates.indexOf(newState) === -1) return;
+
+        GS_WORKFLOW_STATE = newState;
+        updateStepperUI();
+        updateWorkflowButtons();
+    }
+
+    function updateStepperUI() {
+        var steps = ['configure', 'preview', 'model', 'active'];
+        var currentIndex = steps.indexOf(GS_WORKFLOW_STATE);
+
+        for (var i = 0; i < steps.length; i++) {
+            var stepEl = document.getElementById('gdt_step_' + (i + 1));
+            var lineEl = document.getElementById('gdt_step_line_' + (i + 1));
+
+            if (!stepEl) continue;
+
+            stepEl.classList.remove('active', 'completed');
+
+            if (i < currentIndex) {
+                stepEl.classList.add('completed');
+            } else if (i === currentIndex) {
+                stepEl.classList.add('active');
+            }
+
+            if (lineEl) {
+                lineEl.classList.remove('completed');
+                if (i < currentIndex) {
+                    lineEl.classList.add('completed');
+                }
+            }
+        }
+    }
+
+    function updateWorkflowButtons() {
+        // Button IDs that exist in the current UI
+        var previewBtn = document.getElementById('gs_preview_btn');
+        var simulateBtn = document.getElementById('gs_simulate_btn');
+        var submitBtn = document.getElementById('gs_submit_tmi_btn');
+        var sendActualBtn = document.getElementById('gs_send_actual_btn');
+        var purgeLocalBtn = document.getElementById('gs_purge_local_btn');
+        var purgeAllBtn = document.getElementById('gs_purge_all_btn');
+        var flightListBtn = document.getElementById('gs_view_flight_list_btn');
+        var modelBtn = document.getElementById('gs_open_model_btn');
+
+        // Default: hide everything
+        var allBtns = [previewBtn, simulateBtn, submitBtn, sendActualBtn, purgeLocalBtn, purgeAllBtn, flightListBtn, modelBtn];
+
+        switch (GS_WORKFLOW_STATE) {
+            case 'configure':
+                show(previewBtn);
+                hide(simulateBtn); hide(submitBtn); hide(sendActualBtn);
+                hide(purgeLocalBtn); hide(purgeAllBtn);
+                hide(flightListBtn); hide(modelBtn);
+                break;
+
+            case 'preview':
+                show(previewBtn); // Allow re-preview
+                show(simulateBtn);
+                show(sendActualBtn);
+                hide(submitBtn);
+                hide(purgeLocalBtn); hide(purgeAllBtn);
+                show(flightListBtn); show(modelBtn);
+                break;
+
+            case 'model':
+                hide(previewBtn);
+                show(simulateBtn); // Re-model
+                show(submitBtn);
+                show(sendActualBtn);
+                show(purgeLocalBtn);
+                show(flightListBtn); show(modelBtn);
+                hide(purgeAllBtn);
+                break;
+
+            case 'active':
+                hide(previewBtn); hide(simulateBtn);
+                hide(submitBtn); hide(sendActualBtn);
+                show(purgeLocalBtn); show(purgeAllBtn);
+                show(flightListBtn); show(modelBtn);
+                break;
+        }
+    }
+
+    function show(el) { if (el) el.style.display = ''; }
+    function hide(el) { if (el) el.style.display = 'none'; }
+
+    // Expose stepper to global scope
+    window.setWorkflowState = setWorkflowState;
 
     function deriveBtsCarrierFromCallsign(callsign) {
         if (!callsign) {return null;}
@@ -3902,6 +4421,10 @@
 
                 // Enable simulate since we have a PROPOSED program
                 setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulateToFinalize'));
+
+                // Update workflow stepper
+                setWorkflowState('preview');
+                loadActiveProgramsDashboard();
             })
             .catch(function(err) {
                 console.error('GS preview failed', err);
@@ -3976,6 +4499,10 @@
                 // Enable "Send Actual" button now that simulation is ready
                 GS_SIMULATION_READY = true;
                 setSendActualEnabled(true);
+
+                // Update workflow stepper
+                setWorkflowState('model');
+                loadActiveProgramsDashboard();
             })
             .catch(function(err) {
                 console.error('GS simulate failed', err);
@@ -4070,6 +4597,10 @@
 
                     // Show success notification with full results
                     showGsActivationSuccess(activateResp.data, workflowPayload);
+
+                    // Update workflow stepper
+                    setWorkflowState('active');
+                    loadActiveProgramsDashboard();
 
                     // Show the GS Flight List modal with affected flights
                     const flightListData = {
@@ -5313,6 +5844,13 @@
             console.error('Error initializing TMI page', err);
         });
 
+        // Initialize Active Programs Dashboard
+        loadActiveProgramsDashboard();
+        GDT_DASHBOARD_REFRESH_TIMER = setInterval(loadActiveProgramsDashboard, GDT_DASHBOARD_REFRESH_INTERVAL);
+
+        // Initialize workflow stepper to configure state
+        setWorkflowState('configure');
+
         // Wire up advisory auto-update
         const ids = [
             'gs_ctl_element', 'gs_element_type', 'gs_adv_number',
@@ -6154,8 +6692,27 @@
 
                 // Update status
                 const statusStr = prog.status || 'PROPOSED';
+                GS_CURRENT_PROGRAM_STATUS = statusStr;
                 if (statusEl) {
                     statusEl.textContent = PERTII18n.t('gdt.edit.editingProgram', { type: progType, id: programId, status: statusStr });
+                }
+
+                // Update status badge
+                const badge = document.getElementById('gs_status_badge');
+                if (badge) {
+                    badge.textContent = statusStr;
+                    badge.className = 'badge tmi-badge-status badge-' + getStatusBadgeClass(statusStr);
+                }
+
+                // Set workflow stepper based on program status
+                if (statusStr === 'ACTIVE' || statusStr === 'TRANSITIONED') {
+                    setWorkflowState('active');
+                } else if (statusStr === 'MODELING') {
+                    setWorkflowState('model');
+                } else if (statusStr === 'PROPOSED' || statusStr === 'PENDING_COORD') {
+                    setWorkflowState('preview');
+                } else {
+                    setWorkflowState('configure');
                 }
 
                 // Rebuild the advisory preview
