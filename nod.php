@@ -1607,6 +1607,14 @@ include("load/config.php");
                 </div>
 
                 <!-- Active Monitors List -->
+                <div class="d-flex justify-content-between align-items-center px-2 mb-1">
+                    <small class="text-muted" id="demand-monitors-count"></small>
+                    <button class="btn btn-sm btn-link text-danger p-0" style="font-size: 10px; display: none;"
+                            id="demand-clear-all-btn"
+                            onclick="if(confirm('Remove all demand monitors?')) NODDemandLayer.removeAllMonitors()">
+                        Clear All
+                    </button>
+                </div>
                 <div id="demand-monitors-list" class="px-2 mb-2" style="max-height: 100px; overflow-y: auto;">
                     <div class="text-muted small text-center py-2">No monitors active</div>
                 </div>

@@ -610,6 +610,22 @@ const NODDemandLayer = (function() {
     }
 
     /**
+     * Remove all monitors, including deactivating global ones in the API
+     */
+    function removeAllMonitors() {
+        // Delete global monitors from API (async, fire-and-forget)
+        const globalMonitors = state.monitors.filter(m => m._global);
+        globalMonitors.forEach(m => {
+            const id = getMonitorId(m);
+            deleteMonitorFromAPI(id);
+        });
+
+        // Clear local state, localStorage, and map
+        clearMonitors();
+        console.log('[DemandLayer] Removed all monitors (' + globalMonitors.length + ' global)');
+    }
+
+    /**
      * Generate monitor ID
      */
     function getMonitorId(monitor) {
@@ -1770,6 +1786,12 @@ const NODDemandLayer = (function() {
         const container = document.getElementById('demand-monitors-list');
         if (!container) {return;}
 
+        // Update count label and Clear All button visibility
+        const countEl = document.getElementById('demand-monitors-count');
+        const clearBtn = document.getElementById('demand-clear-all-btn');
+        if (countEl) countEl.textContent = state.monitors.length > 0 ? state.monitors.length + ' monitors' : '';
+        if (clearBtn) clearBtn.style.display = state.monitors.length > 1 ? '' : 'none';
+
         if (state.monitors.length === 0) {
             container.innerHTML = '<div class="text-muted small text-center py-2">No monitors active</div>';
             return;
@@ -2475,6 +2497,7 @@ const NODDemandLayer = (function() {
         disable,
         addMonitor,
         removeMonitor,
+        removeAllMonitors,
         clearMonitors,
         refresh,
         setThresholdMode,
