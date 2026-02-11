@@ -6,7 +6,7 @@
 -- =====================================================
 --
 -- Changes:
---   1. Rename ASPM82 → ASPM82 in ref_major_airports
+--   1. Rename ASPM77 → ASPM82 in ref_major_airports
 --   2. Remove 3 deprecated airports (ALB, CHS, RIC)
 --   3. Add 14 new ASPM82 airports
 --   4. Add opsnet45 column to apts table
@@ -30,9 +30,9 @@ PRINT '1. Updating ref_major_airports region names...';
 
 UPDATE dbo.ref_major_airports
 SET region = 'ASPM82'
-WHERE region = 'ASPM82';
+WHERE region = 'ASPM77';
 
-PRINT '   - Renamed ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows from ASPM82 to ASPM82';
+PRINT '   - Renamed ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows from ASPM77 to ASPM82';
 
 DELETE FROM dbo.ref_major_airports
 WHERE airport_icao IN ('KALB', 'KCHS', 'KRIC')
@@ -75,14 +75,19 @@ GO
 
 PRINT '2. Updating apts table columns...';
 
-IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.apts') AND name = 'aspm82')
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.apts') AND name = 'ASPM77')
 BEGIN
-    EXEC sp_rename 'dbo.apts.aspm82', 'aspm82', 'COLUMN';
-    PRINT '   - Renamed apts.aspm82 -> apts.aspm82';
+    EXEC sp_rename 'dbo.apts.ASPM77', 'ASPM82', 'COLUMN';
+    PRINT '   - Renamed apts.ASPM77 -> apts.ASPM82';
+END
+ELSE IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.apts') AND name = 'ASPM82')
+BEGIN
+    PRINT '   - Column apts.ASPM82 already exists, skipping rename';
 END
 ELSE
 BEGIN
-    PRINT '   - Column apts.aspm82 does not exist, skipping rename';
+    ALTER TABLE dbo.apts ADD ASPM82 BIT NULL;
+    PRINT '   - Column ASPM77 not found, created apts.ASPM82';
 END;
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.apts') AND name = 'opsnet45')
@@ -147,7 +152,7 @@ GO
 
 /*
 -- PostgreSQL: Rename column
-ALTER TABLE airports RENAME COLUMN aspm82 TO aspm82;
+ALTER TABLE airports RENAME COLUMN aspm77 TO aspm82;
 
 -- PostgreSQL: Add new column
 ALTER TABLE airports ADD COLUMN opsnet45 BOOLEAN;
