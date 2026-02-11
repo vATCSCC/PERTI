@@ -40,6 +40,7 @@
         active: 'api/gdt/programs/active.php',
         create: 'api/gdt/programs/create.php',
         model: 'api/gdt/programs/model.php',
+        simulate: 'api/gdt/programs/simulate.php',
         activate: 'api/gdt/programs/activate.php',
         extend: 'api/gdt/programs/extend.php',
         revise: 'api/gdt/programs/revise.php',
@@ -84,6 +85,10 @@
     let GDT_DASHBOARD_COLLAPSED = false;
     let GDT_DASHBOARD_REFRESH_TIMER = null;
     const GDT_DASHBOARD_REFRESH_INTERVAL = 60000; // 60 seconds
+
+    // What-If re-model state
+    let GS_WHAT_IF_MODE = false;
+    let GS_WHAT_IF_CACHED_PROGRAM = null; // Snapshot of active program before what-if
 
     const GS_SIMTRAFFIC_CACHE = {};
     let GS_SIMTRAFFIC_QUEUE = [];
@@ -248,6 +253,7 @@
             if (typeLabel === 'GS') {
                 actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardTransition(' + p.program_id + ');" title="Transition to GDP">GS&rarr;GDP</button>';
             }
+            actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="What-If re-model">Re-model</button>';
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
         }
 
@@ -1048,6 +1054,75 @@
         });
     }
 
+    function dashboardRemodel(programId) {
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        if (program.status !== 'ACTIVE') {
+            Swal.fire('Error', 'Only active programs can be re-modeled.', 'error');
+            return;
+        }
+
+        // Cache the active program state so we can restore it later
+        GS_WHAT_IF_CACHED_PROGRAM = JSON.parse(JSON.stringify(program));
+        GS_WHAT_IF_MODE = true;
+
+        // Load the program into the form
+        loadProgramFromDashboard(programId);
+
+        // Set stepper to model state with what-if badge
+        setWorkflowState('model');
+
+        // Show what-if badge
+        var whatIfBadge = document.getElementById('gdt_whatif_badge');
+        if (whatIfBadge) whatIfBadge.classList.remove('d-none');
+
+        // Show discard button
+        var discardBtn = document.getElementById('gdt_whatif_discard_btn');
+        if (discardBtn) discardBtn.classList.remove('d-none');
+
+        Swal.fire({
+            icon: 'info',
+            title: 'What-If Mode',
+            html: 'Adjust parameters and click <strong>Simulate</strong> to see projected results.<br>' +
+                'Changes are <strong>not saved</strong> until you choose to Revise.',
+            timer: 5000,
+            showConfirmButton: true
+        });
+    }
+
+    function exitWhatIfMode() {
+        GS_WHAT_IF_MODE = false;
+
+        // Hide what-if badge
+        var whatIfBadge = document.getElementById('gdt_whatif_badge');
+        if (whatIfBadge) whatIfBadge.classList.add('d-none');
+
+        // Hide discard button
+        var discardBtn = document.getElementById('gdt_whatif_discard_btn');
+        if (discardBtn) discardBtn.classList.add('d-none');
+
+        // Restore from cached program
+        if (GS_WHAT_IF_CACHED_PROGRAM) {
+            populateFormFromProgram(GS_WHAT_IF_CACHED_PROGRAM);
+            setWorkflowState('active');
+            GS_WHAT_IF_CACHED_PROGRAM = null;
+        } else {
+            resetAndNewProgram();
+        }
+
+        Swal.fire({
+            icon: 'info',
+            title: 'What-If Discarded',
+            text: 'Returned to active program state.',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+
     function dashboardCancel(programId) {
         Swal.fire({
             title: 'Cancel Program #' + programId + '?',
@@ -1119,6 +1194,8 @@
     window.submitRevise = submitRevise;
     window.submitTransitionPropose = submitTransitionPropose;
     window.submitTransitionActivate = submitTransitionActivate;
+    window.dashboardRemodel = dashboardRemodel;
+    window.exitWhatIfMode = exitWhatIfMode;
 
     // ========================================================================
     // Workflow Stepper
@@ -5033,6 +5110,11 @@
     }
 
     function handleGsSimulate() {
+        // If in what-if mode, run a dry_run simulation instead
+        if (GS_WHAT_IF_MODE && GS_CURRENT_PROGRAM_ID) {
+            return handleWhatIfSimulate();
+        }
+
         const statusEl = document.getElementById('gs_adl_status');
 
         // If no program exists yet, run Preview first to create one
@@ -5107,6 +5189,73 @@
                 clearGsFlightTable(PERTII18n.t('gdt.gs.simulateFailedShort'));
                 // Keep Send Actual disabled on simulation failure
                 setSendActualEnabled(false, PERTII18n.t('gdt.gs.simulationFailedRetry'));
+            });
+    }
+
+    function handleWhatIfSimulate() {
+        var statusEl = document.getElementById('gs_adl_status');
+        if (statusEl) statusEl.textContent = 'Running what-if simulation (dry run)...';
+
+        // Collect what-if overrides from the form
+        var body = {
+            program_id: GS_CURRENT_PROGRAM_ID,
+            dry_run: true
+        };
+
+        // Check if user changed end time vs. cached original
+        var formEnd = getValue('gs_end') || '';
+
+        if (formEnd) {
+            body.what_if_end_utc = new Date(formEnd).toISOString();
+        }
+
+        // GDP-specific fields (rate, delay cap) — only present for GDP forms
+        if (GS_WHAT_IF_CACHED_PROGRAM) {
+            var rateEl = document.getElementById('gs_program_rate');
+            var dcEl = document.getElementById('gs_delay_limit');
+
+            if (rateEl && rateEl.value) {
+                var origRate = parseInt(GS_WHAT_IF_CACHED_PROGRAM.program_rate) || 0;
+                if (parseInt(rateEl.value) !== origRate) {
+                    body.what_if_rate = parseInt(rateEl.value);
+                }
+            }
+            if (dcEl && dcEl.value) {
+                var origDc = parseInt(GS_WHAT_IF_CACHED_PROGRAM.delay_limit_min) || 0;
+                if (parseInt(dcEl.value) !== origDc) {
+                    body.what_if_delay_cap = parseInt(dcEl.value);
+                }
+            }
+        }
+
+        return apiPostJson(GS_API.simulate, body)
+            .then(function(resp) {
+                if (resp.status !== 'ok') {
+                    throw new Error(resp.message || 'What-if simulation failed');
+                }
+
+                var flights = (resp.data && resp.data.flights) || [];
+                flights = normalizeSqlsrvRows(flights);
+
+                storeSimulationData(resp.data);
+                var progType = resp.data.program_type || 'GS';
+                setGsTableMode(progType);
+                renderFlightsFromAdlRowsForWorkflow(flights, progType + '-SIM');
+                if (progType === 'GS') applyGroundStopEdctToTable();
+
+                if (statusEl) {
+                    var summary = resp.data.summary || {};
+                    var overrides = resp.data.what_if_overrides;
+                    var overrideText = overrides ? ' | Overrides: ' + JSON.stringify(overrides) : '';
+                    statusEl.textContent = 'What-If: ' + flights.length + ' flights, max delay ' +
+                        (summary.max_delay_min || 0) + ' min' + overrideText + ' (DRY RUN)';
+                }
+
+                buildAdvisory();
+            })
+            .catch(function(err) {
+                console.error('What-if simulate failed', err);
+                if (statusEl) statusEl.textContent = 'What-if failed: ' + (err && err.message ? err.message : err);
             });
     }
 

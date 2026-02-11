@@ -15,6 +15,10 @@
  * Request body (JSON):
  * {
  *   "program_id": 1,                    // Required: program to simulate
+ *   "dry_run": false,                   // Optional: if true, runs simulation without persisting
+ *   "what_if_rate": null,               // Optional: override program rate for what-if (dry_run only)
+ *   "what_if_end_utc": null,            // Optional: override end time for what-if (dry_run only)
+ *   "what_if_delay_cap": null,          // Optional: override delay cap for what-if (dry_run only)
  *   "scope": {                          // Optional: override scope filters
  *     "origin_centers": ["ZNY", "ZDC"], // Filter by departure ARTCC
  *     "origin_airports": ["KJFK"],      // Filter by departure airport
@@ -73,10 +77,11 @@ $conn_tmi = gdt_get_conn_tmi();
 $conn_adl = gdt_get_conn_adl();
 
 // ============================================================================
-// Validate Program ID
+// Validate Program ID & Dry-Run Flag
 // ============================================================================
 
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
+$dry_run = isset($payload['dry_run']) && $payload['dry_run'];
 
 if ($program_id <= 0) {
     respond_json(400, [
@@ -94,13 +99,35 @@ if ($program === null) {
     ]);
 }
 
-// Can only simulate PROPOSED or MODELING programs
+// Normal mode: only PROPOSED/MODELING. Dry-run: also allow ACTIVE programs.
 $status = $program['status'] ?? '';
-if (!in_array($status, PERTI_MODELING_STATUSES)) {
+$allowed_statuses = $dry_run
+    ? array_merge(PERTI_MODELING_STATUSES, ['ACTIVE'])
+    : PERTI_MODELING_STATUSES;
+
+if (!in_array($status, $allowed_statuses)) {
+    $msg = $dry_run
+        ? "Cannot simulate program in status: {$status}. Must be " . implode(', ', $allowed_statuses) . "."
+        : "Cannot simulate program in status: {$status}. Must be " . implode(' or ', PERTI_MODELING_STATUSES) . ".";
     respond_json(400, [
         'status' => 'error',
-        'message' => "Cannot simulate program in status: {$status}. Must be " . implode(' or ', PERTI_MODELING_STATUSES) . "."
+        'message' => $msg
     ]);
+}
+
+// Apply what-if overrides (dry_run only) — these affect the simulation
+// but are never persisted to the database
+$what_if_overrides = [];
+if ($dry_run) {
+    if (isset($payload['what_if_rate']) && (int)$payload['what_if_rate'] > 0) {
+        $what_if_overrides['program_rate'] = (int)$payload['what_if_rate'];
+    }
+    if (isset($payload['what_if_end_utc']) && trim($payload['what_if_end_utc']) !== '') {
+        $what_if_overrides['end_utc'] = parse_utc_datetime($payload['what_if_end_utc']);
+    }
+    if (isset($payload['what_if_delay_cap']) && (int)$payload['what_if_delay_cap'] > 0) {
+        $what_if_overrides['delay_limit_min'] = (int)$payload['what_if_delay_cap'];
+    }
 }
 
 $program_type = $program['program_type'] ?? 'GS';
@@ -139,6 +166,36 @@ $exempt_airborne = isset($exemptions['airborne']) ? (bool)$exemptions['airborne'
 $exempt_departing_within_min = isset($exemptions['departing_within_min']) ? (int)$exemptions['departing_within_min'] : 0;
 $exempt_origins = isset($exemptions['origins']) ? split_codes($exemptions['origins']) : [];
 $exempt_callsigns = isset($exemptions['callsigns']) ? split_codes($exemptions['callsigns']) : [];
+
+// ============================================================================
+// Dry-Run Transaction: begin transaction so all DB changes can be rolled back
+// ============================================================================
+
+if ($dry_run) {
+    // Apply what-if overrides to program record temporarily via UPDATE inside transaction
+    sqlsrv_begin_transaction($conn_tmi);
+
+    if (!empty($what_if_overrides)) {
+        $override_sets = [];
+        $override_params = [];
+        foreach ($what_if_overrides as $col => $val) {
+            $override_sets[] = "{$col} = ?";
+            $override_params[] = $val;
+        }
+        $override_params[] = $program_id;
+        $override_sql = "UPDATE dbo.tmi_programs SET " . implode(', ', $override_sets) . " WHERE program_id = ?";
+        $override_stmt = sqlsrv_query($conn_tmi, $override_sql, $override_params);
+        if ($override_stmt !== false) {
+            sqlsrv_free_stmt($override_stmt);
+        }
+    }
+
+    // Re-read program with overrides applied
+    $program = get_program($conn_tmi, $program_id);
+}
+
+// Use potentially-overridden end_utc for flight query
+$end_utc = $program['end_utc'] ?? null;
 
 // ============================================================================
 // Step 1: Generate Slots (GDP/AFP only)
@@ -509,16 +566,26 @@ $summary = [
 ];
 
 // ============================================================================
+// Dry-Run Rollback: undo all DB changes made during simulation
+// ============================================================================
+
+if ($dry_run) {
+    sqlsrv_rollback($conn_tmi);
+}
+
+// ============================================================================
 // Response
 // ============================================================================
 
 respond_json(200, [
     'status' => 'ok',
-    'message' => 'Simulation complete',
+    'message' => $dry_run ? 'What-if simulation complete (no changes persisted)' : 'Simulation complete',
     'data' => [
         'program_id' => $program_id,
         'program_type' => $program_type,
         'program_status' => $program['status'] ?? 'MODELING',
+        'dry_run' => $dry_run,
+        'what_if_overrides' => !empty($what_if_overrides) ? $what_if_overrides : null,
         'slot_count' => $slot_count,
         'assigned_count' => $assigned_count,
         'exempt_count' => $exempt_count,
