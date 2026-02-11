@@ -1974,13 +1974,19 @@ class TMIComplianceAnalyzer:
                 'time_source': time_source
             }
 
-            # Calculate GS delay when both OUT and OFF available
-            if out_utc and off_utc:
-                out_dt = normalize_datetime(out_utc)
-                off_dt = normalize_datetime(off_utc)
-                actual_taxi_sec = (off_dt - out_dt).total_seconds()
+            # Calculate GS delay: total additional ground time caused by the GS
+            # = (dep_time - ready_time) - unimpeded_taxi
+            ready_time_for_delay = None
+            if first_seen:
+                connect_sec_d = self._get_connect_reference(dept)
+                ready_time_for_delay = normalize_datetime(first_seen) + timedelta(seconds=connect_sec_d)
+            elif out_utc:
+                ready_time_for_delay = normalize_datetime(out_utc)
+
+            if ready_time_for_delay:
                 unimpeded_sec = self._get_taxi_reference(dept)
-                gs_delay_sec = max(0, actual_taxi_sec - unimpeded_sec)
+                total_ground_sec = (dep_time - ready_time_for_delay).total_seconds()
+                gs_delay_sec = max(0, total_ground_sec - unimpeded_sec)
                 flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
                 if gs_delay_sec > 0:
                     gs_delays.append(gs_delay_sec / 60)
@@ -2171,17 +2177,31 @@ class TMIComplianceAnalyzer:
                 'connect_ref_sec': self._get_connect_reference(dept) if first_seen else None
             }
 
-            # Calculate GS delay: excess ground time beyond unimpeded taxi
-            # Requires both out_utc and off_utc (or estimated off from dep_time)
+            # Calculate GS delay: total additional ground time caused by the GS
+            # = (dep_time - ready_time) - unimpeded_taxi
+            # This captures both gate hold AND excess taxi delay
+            # ready_time: when pilot was ready (first_seen+connect or out_utc)
+            # dep_time: actual departure (off_utc, out_utc+taxi, or first_seen+connect)
+            ready_time_for_delay = None
+            if first_seen:
+                connect_sec = self._get_connect_reference(dept)
+                ready_time_for_delay = (normalize_datetime(first_seen) + timedelta(seconds=connect_sec))
+            elif out_utc:
+                ready_time_for_delay = normalize_datetime(out_utc)
+
+            if ready_time_for_delay:
+                unimpeded_sec = self._get_taxi_reference(dept)
+                total_ground_sec = (dep_time - ready_time_for_delay).total_seconds()
+                gs_delay_sec = max(0, total_ground_sec - unimpeded_sec)
+                flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
+                flight_info['unimpeded_taxi_min'] = round(unimpeded_sec / 60, 1)
+
+            # Also track actual taxi time if OOOI data available
             if out_utc and off_utc:
                 out_dt = normalize_datetime(out_utc)
                 off_dt = normalize_datetime(off_utc)
                 actual_taxi_sec = (off_dt - out_dt).total_seconds()
-                unimpeded_sec = self._get_taxi_reference(dept)
-                gs_delay_sec = max(0, actual_taxi_sec - unimpeded_sec)
-                flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
                 flight_info['actual_taxi_min'] = round(actual_taxi_sec / 60, 1)
-                flight_info['unimpeded_taxi_min'] = round(unimpeded_sec / 60, 1)
 
             # Check if flight is from a listed DEP FACILITY
             # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
