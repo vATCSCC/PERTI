@@ -9,87 +9,90 @@
  *   POST                  - Save TMI config for a plan
  */
 
-header('Content-Type: application/json');
+// Only run endpoint handler when accessed directly (not when included as library)
+if (realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) {
+    header('Content-Type: application/json');
 
-include("../../load/config.php");
+    include("../../load/config.php");
 
-$response = [
-    'success' => true,
-    'data' => null,
-    'message' => ''
-];
+    $response = [
+        'success' => true,
+        'data' => null,
+        'message' => ''
+    ];
 
-try {
-    $data_path = realpath(__DIR__ . '/../../data/tmi_compliance');
-    if (!$data_path) {
-        // Create directory if it doesn't exist
-        $data_path = __DIR__ . '/../../data/tmi_compliance';
-        if (!is_dir($data_path)) {
-            mkdir($data_path, 0755, true);
+    try {
+        $data_path = realpath(__DIR__ . '/../../data/tmi_compliance');
+        if (!$data_path) {
+            // Create directory if it doesn't exist
+            $data_path = __DIR__ . '/../../data/tmi_compliance';
+            if (!is_dir($data_path)) {
+                mkdir($data_path, 0755, true);
+            }
+            $data_path = realpath($data_path);
         }
-        $data_path = realpath($data_path);
+
+        // Handle GET - Load config
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $plan_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
+
+            if ($plan_id <= 0) {
+                throw new Exception("Invalid or missing plan ID");
+            }
+
+            $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
+
+            if (file_exists($config_path)) {
+                $config = json_decode(file_get_contents($config_path), true);
+                $response['data'] = $config;
+                $response['message'] = 'Configuration loaded';
+            } else {
+                $response['data'] = null;
+                $response['message'] = 'No saved configuration found';
+            }
+        }
+
+        // Handle POST - Save config
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            $plan_id = isset($input['p_id']) ? intval($input['p_id']) : 0;
+
+            if ($plan_id <= 0) {
+                throw new Exception("Invalid or missing plan ID");
+            }
+
+            $config = [
+                'plan_id' => $plan_id,
+                'destinations' => $input['destinations'] ?? '',
+                'event_start' => $input['event_start'] ?? '',
+                'event_end' => $input['event_end'] ?? '',
+                'ntml_text' => $input['ntml_text'] ?? '',
+                'saved_utc' => gmdate('Y-m-d H:i:s')
+            ];
+
+            // Parse all entries - unified parser detects NTML vs ADVZY format
+            $config['parsed_tmis'] = parse_tmi_text($config['ntml_text'], $config['event_start']);
+
+            $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
+
+            if (file_put_contents($config_path, json_encode($config, JSON_PRETTY_PRINT))) {
+                $response['data'] = $config;
+                $response['message'] = 'Configuration saved';
+            } else {
+                throw new Exception("Failed to save configuration");
+            }
+        }
+
+        echo json_encode($response, JSON_PRETTY_PRINT);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
     }
-
-    // Handle GET - Load config
-    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $plan_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
-
-        if ($plan_id <= 0) {
-            throw new Exception("Invalid or missing plan ID");
-        }
-
-        $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
-
-        if (file_exists($config_path)) {
-            $config = json_decode(file_get_contents($config_path), true);
-            $response['data'] = $config;
-            $response['message'] = 'Configuration loaded';
-        } else {
-            $response['data'] = null;
-            $response['message'] = 'No saved configuration found';
-        }
-    }
-
-    // Handle POST - Save config
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-
-        $plan_id = isset($input['p_id']) ? intval($input['p_id']) : 0;
-
-        if ($plan_id <= 0) {
-            throw new Exception("Invalid or missing plan ID");
-        }
-
-        $config = [
-            'plan_id' => $plan_id,
-            'destinations' => $input['destinations'] ?? '',
-            'event_start' => $input['event_start'] ?? '',
-            'event_end' => $input['event_end'] ?? '',
-            'ntml_text' => $input['ntml_text'] ?? '',
-            'saved_utc' => gmdate('Y-m-d H:i:s')
-        ];
-
-        // Parse all entries - unified parser detects NTML vs ADVZY format
-        $config['parsed_tmis'] = parse_tmi_text($config['ntml_text'], $config['event_start']);
-
-        $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
-
-        if (file_put_contents($config_path, json_encode($config, JSON_PRETTY_PRINT))) {
-            $response['data'] = $config;
-            $response['message'] = 'Configuration saved';
-        } else {
-            throw new Exception("Failed to save configuration");
-        }
-    }
-
-    echo json_encode($response, JSON_PRETTY_PRINT);
-
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
 }
 
 /**
