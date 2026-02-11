@@ -646,14 +646,27 @@ const NODDemandLayer = (function() {
         }
 
         try {
-            const monitorsJson = JSON.stringify(state.monitors);
-            console.log('[DemandLayer] Sending monitors to API:', monitorsJson.substring(0, 200));
+            // Filter to only monitors with a valid type that the batch API can process
+            const validTypes = ['fix', 'segment', 'airway', 'airway_segment', 'via_fix'];
+            const batchMonitors = state.monitors.filter(m => m.type && validTypes.includes(m.type));
+
+            if (batchMonitors.length === 0) {
+                console.log('[DemandLayer] No valid monitors for batch API');
+                updateMapData([]);
+                return;
+            }
+
+            if (batchMonitors.length < state.monitors.length) {
+                console.log('[DemandLayer] Skipped', state.monitors.length - batchMonitors.length, 'monitors without valid batch type');
+            }
+
+            console.log('[DemandLayer] Sending', batchMonitors.length, 'monitors to API');
 
             const response = await fetch(CONFIG.apiEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    monitors: state.monitors,
+                    monitors: batchMonitors,
                     bucket_minutes: state.settings.bucketMinutes,
                     horizon_hours: state.settings.horizonHours,
                 }),
@@ -1337,8 +1350,9 @@ const NODDemandLayer = (function() {
 
             // Convert API format to internal monitor format
             const apiMonitors = data.monitors.map(m => ({
-                id: m.key,
                 ...m.definition,
+                id: m.key,
+                type: m.type,
                 _apiId: m.id,
                 _global: true,
             }));
