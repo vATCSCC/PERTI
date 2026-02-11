@@ -963,7 +963,7 @@
                     Swal.fire({
                         icon: 'info',
                         title: 'GDP Proposed',
-                        html: 'GDP #' + gdpId + ' created as PROPOSED.<br>GS remains active. Click <strong>Activate</strong> when ready.',
+                        html: 'GDP #' + gdpId + ' created.<br>GS remains active. Click <strong>Activate</strong> when ready.',
                         timer: 5000,
                         showConfirmButton: true
                     });
@@ -5311,7 +5311,7 @@
             created_by: 'TMU',
         };
 
-        // Step 1: Create PROPOSED program
+        // Step 1: Create MODELING program (advisory assigned on activation)
         return apiPostJson(GS_API.create, createPayload)
             .then(function(createResp) {
                 if (createResp.status !== 'ok' || !createResp.data || !createResp.data.program_id) {
@@ -5320,7 +5320,7 @@
 
                 const programId = createResp.data.program_id;
                 GS_CURRENT_PROGRAM_ID = programId;
-                GS_CURRENT_PROGRAM_STATUS = 'PROPOSED';
+                GS_CURRENT_PROGRAM_STATUS = 'MODELING';
 
                 if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.programCreated', { id: programId });}
 
