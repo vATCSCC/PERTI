@@ -6377,7 +6377,8 @@
 
                 // Restore traffic color mode
                 if (data.trafficColorMode) {
-                    document.getElementById('traffic-color-mode').value = data.trafficColorMode;
+                    const colorModeEl = document.getElementById('traffic-color-mode');
+                    if (colorModeEl) { colorModeEl.value = data.trafficColorMode; }
                     state.traffic.colorMode = data.trafficColorMode;
                 }
 

@@ -81,7 +81,15 @@ if (session_status() == PHP_SESSION_NONE) {
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 header('Cache-Control: public, max-age=60');
+
+// Handle CORS preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 // Define PERTI_LOADED for swim_config.php access control
 if (!defined('PERTI_LOADED')) {
@@ -233,11 +241,18 @@ function couldBeProcedureBaseName($value) {
     return preg_match('/^[A-Z]+$/', $upper) === 1;
 }
 
-// Parse parameters
-$monitorsJson = isset($_GET['monitors']) ? trim($_GET['monitors']) : '';
-$bucketMinutes = isset($_GET['bucket_minutes']) ? (int)$_GET['bucket_minutes'] : 15;
+// Parse parameters — accept POST (JSON body) or GET (query string)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $body = json_decode(file_get_contents('php://input'), true);
+    $monitorsJson = isset($body['monitors']) ? (is_array($body['monitors']) ? json_encode($body['monitors']) : trim($body['monitors'])) : '';
+    $bucketMinutes = isset($body['bucket_minutes']) ? (int)$body['bucket_minutes'] : 15;
+    $horizonHours = isset($body['horizon_hours']) ? (int)$body['horizon_hours'] : 4;
+} else {
+    $monitorsJson = isset($_GET['monitors']) ? trim($_GET['monitors']) : '';
+    $bucketMinutes = isset($_GET['bucket_minutes']) ? (int)$_GET['bucket_minutes'] : 15;
+    $horizonHours = isset($_GET['horizon_hours']) ? (int)$_GET['horizon_hours'] : 4;
+}
 $bucketMinutes = max(5, min(60, $bucketMinutes)); // Clamp to 5-60 minutes
-$horizonHours = isset($_GET['horizon_hours']) ? (int)$_GET['horizon_hours'] : 4;
 $horizonHours = max(1, min(12, $horizonHours)); // Clamp to 1-12 hours
 
 // Validate required parameters

@@ -16,6 +16,8 @@ $connect_path = realpath(__DIR__ . '/../../../load/connect.php');
 if ($config_path) include($config_path);
 if ($connect_path) include($connect_path);
 
+require_once(__DIR__ . '/../../../load/services/GISService.php');
+
 $conn = get_conn_adl();
 if (!$conn) {
     http_response_code(500);
@@ -372,17 +374,15 @@ function preprocessRouteTokens($tokens) {
 
 /**
  * Resolve a route string into a GeoJSON LineString.
- * Handles CDRs, playbook routes, airways, SID/STAR notation, and
- * duplicate fix disambiguation.
+ * Handles CDRs, playbook routes, airways, SIDs/STARs, international
+ * airways/procedures, and proper global fix disambiguation.
  *
- * Pipeline (mirrors route-maplibre.js):
- *   1. Tokenize (strip mandatory markers)
- *   2. CDR expansion (coded departure routes)
- *   3. Playbook expansion (single-token play names)
- *   4. Preprocess (strip SID/STAR notation, airport codes)
- *   5. Expand airways into intermediate fixes
- *   6. Batch-resolve fix coordinates with CONUS preference
- *   7. Distance validation (reject fixes too far from route path)
+ * Uses PostGIS GISService for full route expansion (handles international
+ * routes, proper fix disambiguation, etc.), with ADL-only fallback if
+ * the GIS connection is unavailable.
+ *
+ * CDR and playbook expansion still use Azure SQL (ADL) since the PostGIS
+ * functions don't handle those.
  */
 function resolveRouteGeojson($conn, $routeString) {
     if (!$routeString) return null;
@@ -397,13 +397,44 @@ function resolveRouteGeojson($conn, $routeString) {
     if (empty($tokens)) return null;
 
     // CDR expansion: replace coded departure route codes with full routes
+    // (GISService doesn't handle CDR codes)
     $tokens = expandCDRTokens($conn, $tokens);
 
     // Playbook expansion: replace single-token play names with full routes
+    // (GISService doesn't handle playbook names)
     $tokens = expandPlaybookTokens($conn, $tokens);
 
     if (count($tokens) < 2) return null;
 
+    // Rejoin into a route string for GIS processing
+    $expandedRouteString = implode(' ', $tokens);
+
+    // Primary: Use PostGIS GISService for full route expansion
+    // Handles international airways, procedures, global fix disambiguation
+    $gis = GISService::getInstance();
+    if ($gis) {
+        $result = $gis->expandRoute($expandedRouteString);
+        if ($result && !empty($result['geojson'])) {
+            $geojson = $result['geojson'];
+            // expandRoute returns a parsed GeoJSON geometry object
+            if (is_array($geojson) && !empty($geojson['coordinates'])) {
+                return json_encode($geojson);
+            }
+        }
+    } else {
+        error_log('[NOD Flows] GIS service unavailable, falling back to ADL-only route resolution');
+    }
+
+    // Fallback: ADL-only processing (if GIS unavailable or failed)
+    return resolveRouteGeojsonADL($conn, $tokens);
+}
+
+/**
+ * Fallback route resolution using only Azure SQL (ADL).
+ * Used when PostGIS is unavailable. Handles CONUS routes well
+ * but has limited international support.
+ */
+function resolveRouteGeojsonADL($conn, $tokens) {
     // Preprocess: strip SID/STAR notation, airport codes
     $tokens = preprocessRouteTokens($tokens);
     if (count($tokens) < 2) return null;
@@ -415,8 +446,7 @@ function resolveRouteGeojson($conn, $routeString) {
     $unique = array_values(array_unique($expanded));
     if (empty($unique)) return null;
 
-    // Batch-resolve ALL candidate coordinates (not just one per fix_name)
-    // Use ROW_NUMBER to get the best candidate per fix, preferring CONUS
+    // Batch-resolve fix coordinates, preferring CONUS
     $placeholders = implode(',', array_fill(0, count($unique), '?'));
     $sql = ";WITH ranked AS (
                 SELECT fix_name, lat, lon,
@@ -442,20 +472,16 @@ function resolveRouteGeojson($conn, $routeString) {
     // Build coordinates in route order, with distance validation
     $coords = [];
     $prevCoord = null;
-    foreach ($expanded as $idx => $token) {
+    foreach ($expanded as $token) {
         if (!isset($fixMap[$token])) continue;
 
         $coord = $fixMap[$token];
 
         // Distance validation: reject fixes too far from the route path
-        // (mirrors confirmReasonableDistance in route-maplibre.js)
         if ($prevCoord !== null) {
             $dlat = abs($coord[1] - $prevCoord[1]);
             $dlon = abs($coord[0] - $prevCoord[0]);
-            $dist = $dlat + $dlon; // Manhattan distance in degrees (~60nm per degree)
-
-            // Max 40 degrees (~2400nm) between consecutive fixes
-            if ($dist > 40) continue;
+            if ($dlat + $dlon > 40) continue;
         }
 
         $coords[] = $coord;
