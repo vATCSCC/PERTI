@@ -119,6 +119,20 @@ const SplitsController = {
         this.loadPresets();
         this.loadTracons();
         this.initActiveSplitsToggle();
+
+        // Register deep link handler for splits custom tabs
+        if (window.PERTIDeepLink) {
+            PERTIDeepLink.register('splits', {
+                activate: function(mode) {
+                    var tab = document.querySelector('.mode-tab[data-mode="' + mode + '"]');
+                    if (tab) tab.click();
+                },
+                getCurrent: function() {
+                    var active = document.querySelector('.mode-tab.active');
+                    return active ? active.dataset.mode : null;
+                }
+            });
+        }
     },
 
     /**
@@ -1123,6 +1137,8 @@ const SplitsController = {
                 document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById(`mode-${tab.dataset.mode}`).classList.add('active');
+
+                if (window.PERTIDeepLink) PERTIDeepLink.update(tab.dataset.mode);
             });
         });
 
