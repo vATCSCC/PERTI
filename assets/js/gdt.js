@@ -256,6 +256,8 @@
             }
             actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="What-If re-model">Re-model</button>';
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
+        } else if (p.status === 'PROPOSED' || p.status === 'MODELING' || p.status === 'PENDING_COORD') {
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="Delete proposal"><i class="fas fa-trash-alt mr-1"></i>Delete</button>';
         }
 
         var chainIndicator = '';
@@ -1161,6 +1163,51 @@
         });
     }
 
+    function dashboardDelete(programId) {
+        var prog = findDashboardProgram(programId);
+        var label = prog ? escapeHtml(prog.program_type + ' ' + (prog.ctl_element || '')) : 'Program #' + programId;
+
+        Swal.fire({
+            title: 'Delete ' + label + '?',
+            text: 'This will permanently remove this proposal and any associated flight list.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Yes, delete it'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: GS_API.purge,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        program_id: programId,
+                        purge_reason: 'PROPOSAL_DELETED'
+                    }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            Swal.fire('Deleted', 'Proposal has been removed.', 'success');
+                            loadActiveProgramsDashboard();
+                            if (GS_CURRENT_PROGRAM_ID === programId) {
+                                resetAndNewProgram();
+                            }
+                        } else {
+                            Swal.fire('Error', resp.message || 'Delete failed', 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        var msg = 'Failed to delete proposal.';
+                        try {
+                            var r = JSON.parse(xhr.responseText);
+                            if (r.message) msg = r.message;
+                        } catch(e) {}
+                        Swal.fire('Error', msg, 'error');
+                    }
+                });
+            }
+        });
+    }
+
     function findDashboardProgram(programId) {
         for (var i = 0; i < GDT_DASHBOARD_PROGRAMS.length; i++) {
             if (GDT_DASHBOARD_PROGRAMS[i].program_id === programId ||
@@ -1417,6 +1464,7 @@
     window.dashboardRevise = dashboardRevise;
     window.dashboardTransition = dashboardTransition;
     window.dashboardCancel = dashboardCancel;
+    window.dashboardDelete = dashboardDelete;
     window.submitExtend = submitExtend;
     window.submitRevise = submitRevise;
     window.submitTransitionPropose = submitTransitionPropose;
