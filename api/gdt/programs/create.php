@@ -4,7 +4,8 @@
  * 
  * POST /api/gdt/programs/create.php
  * 
- * Creates a new GS/GDP/AFP program in PROPOSED status.
+ * Creates a new GS/GDP/AFP program in MODELING status.
+ * Advisory number is assigned later when the program is activated.
  * Uses direct SQL INSERT into VATSIM_TMI.dbo.tmi_programs.
  * 
  * Request body (JSON):
@@ -181,9 +182,8 @@ $program_guid = strtoupper(sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
     mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
 ));
 
-// Auto-assign advisory number
-$advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
-$adv_number = $advNumHelper->reserve();
+// No advisory number yet — assigned only when promoted to PROPOSED/published
+$adv_number = null;
 
 // Generate program name: KJFK-GS-MMDDhhmm
 $start_for_name = new DateTime($start_utc);
@@ -207,7 +207,7 @@ $sql = "
     ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
-        'PROPOSED', 1, 0, ?, ?,
+        'MODELING', 0, 0, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
