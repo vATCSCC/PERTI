@@ -213,6 +213,10 @@ function parseNtmlEntryLine(string $line, ?array $header): ?array {
     if ($data['ctl_element'] && !$data['element_type']) {
         $data['element_type'] = perti_detect_element_type($data['ctl_element']);
     }
+    // Store comma-separated airport list for multi-airport entries
+    if (!empty($data['_airports']) && count($data['_airports']) > 1) {
+        $data['_airports_text'] = implode(',', $data['_airports']);
+    }
     return $data;
 }
 
@@ -246,6 +250,10 @@ function ntmlParseMit(string $body, array &$data, string $mitType): void {
     if (preg_match('/^(.*?)(\d+)\s*' . $pat . '/i', $body, $bm)) {
         $before = trim($bm[1]);
     }
+    // Capture flow direction before stripping
+    if (preg_match('/\b(departures?|arrivals?|overflight)\b/i', $before, $dm)) {
+        $data['_direction'] = strtolower($dm[1]);
+    }
     // Clean out qualifiers and flow-direction words
     $before = preg_replace('/\b(TYPE:\S+|JETS|PROPS?|SPD:\S+|ALT:\S+|AOB\s*(?:FL)?\d+)\b/i', '', $before);
     $before = preg_replace('/\s*(arrivals?|departures?)\b/i', '', $before);
@@ -266,6 +274,10 @@ function ntmlParseStop(string $body, array &$data): void {
     // Normal: "[airport] STOP" or "[airport] via [fix] STOP"
     if (preg_match('/^(.+?)\s+STOP\b/i', $body, $m)) {
         $before = trim($m[1]);
+        // Capture flow direction before stripping
+        if (preg_match('/\b(departures?|arrivals?)\b/i', $before, $dm)) {
+            $data['_direction'] = strtolower($dm[1]);
+        }
         $before = preg_replace('/\s*(departures?|arrivals?)\b/i', '', $before);
         $before = trim($before);
         if (preg_match('/^(.+?)\s+via\s+(.+)$/i', $before, $v)) {
@@ -353,9 +365,19 @@ function ntmlParseDelay(string $body, array &$data, string $type): void {
     }
     if (preg_match('/NAVAID:(\S+)/i', $body, $nm)) $extra['navaid'] = strtoupper($nm[1]);
     $data['_delay'] = $extra;
+
+    // Promote numeric delay value to restriction_value
+    if ($extra['value'] !== null && is_numeric($extra['value'])) {
+        $data['restriction_value'] = (int)$extra['value'];
+        $data['restriction_unit'] = 'MIN';
+    }
 }
 
 function ntmlParseCfr(string $body, array &$data): void {
+    // Capture flow direction
+    if (preg_match('/\b(departures?|arrivals?)\b/i', $body, $dm)) {
+        $data['_direction'] = strtolower($dm[1]);
+    }
     // "CFR BOS departures..." or "BOS,BDL,LGA CFR..." or "DAL via ALL CFR..."
     // Also: "IND,FSM,LAN,GRB,ORD LTFC CFR..." or "All IND, DSM... ORD LTFC CFR..."
     // Also: "SFO departures CFR" or "MEM via HOBRK STAR CFR"
@@ -404,6 +426,11 @@ function ntmlParseTbm(string $body, array &$data): void {
         $name = trim($m[2]);
         if ($name && !preg_match('/^(VOLUME|WEATHER|OTHER)/i', $name)) {
             $data['_tbm_name'] = $name;
+            // Extract numeric value from TBM name (e.g. "3_WEST" -> 3)
+            if (preg_match('/^(\d+)/', $name, $vm)) {
+                $data['restriction_value'] = (int)$vm[1];
+                $data['restriction_unit'] = 'MIN';
+            }
         }
     }
 }
