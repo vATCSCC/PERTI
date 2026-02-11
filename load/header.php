@@ -83,3 +83,8 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <script src="<?= $filepath; ?>assets/js/lib/perti.js"></script>
 <script src="<?= $filepath; ?>assets/js/lib/colors.js"></script>
 <script src="<?= $filepath; ?>assets/js/facility-hierarchy.js"></script>
+
+<!-- Internationalization (i18n) -->
+<script src="<?= $filepath; ?>assets/js/lib/i18n.js"></script>
+<script src="<?= $filepath; ?>assets/locales/index.js"></script>
+<script src="<?= $filepath; ?>assets/js/lib/dialog.js"></script>
