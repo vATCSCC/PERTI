@@ -1250,8 +1250,6 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <?php } ?>
 
 <!-- Scripts -->
-<script src="assets/js/lib/i18n.js"></script>
-<script src="assets/locales/index.js"></script>
 <script src="assets/js/config/phase-colors.js"></script>
 <script src="assets/js/config/filter-colors.js"></script>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
