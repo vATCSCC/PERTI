@@ -159,20 +159,30 @@ function handleCreateFromElement($conn, $input) {
             return;
     }
 
-    // Insert into demand_monitors
-    $insertSql = "INSERT INTO dbo.demand_monitors (monitor_key, monitor_type, definition, display_label, is_active)
-                  VALUES (?, ?, ?, ?, 1)";
+    // Upsert into demand_monitors (reactivate if soft-deleted, else insert)
     $displayLabel = $element['element_name'];
     $definitionJson = json_encode($definition);
-    $insertStmt = sqlsrv_query($conn, $insertSql, [$monitorKey, $monitorType, $definitionJson, $displayLabel]);
-    if ($insertStmt === false) {
-        throw new Exception('Failed to create monitor: ' . print_r(sqlsrv_errors(), true));
-    }
 
-    // Get the new monitor ID
-    $idStmt = sqlsrv_query($conn, "SELECT SCOPE_IDENTITY() AS monitor_id");
-    $idRow = sqlsrv_fetch_array($idStmt, SQLSRV_FETCH_ASSOC);
-    $monitorId = intval($idRow['monitor_id']);
+    $existStmt = sqlsrv_query($conn, "SELECT monitor_id FROM dbo.demand_monitors WHERE monitor_key = ?", [$monitorKey]);
+    $existRow = $existStmt ? sqlsrv_fetch_array($existStmt, SQLSRV_FETCH_ASSOC) : null;
+
+    if ($existRow) {
+        // Reactivate existing monitor
+        $monitorId = intval($existRow['monitor_id']);
+        sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 1, definition = ?, display_label = ? WHERE monitor_id = ?",
+            [$definitionJson, $displayLabel, $monitorId]);
+    } else {
+        // Insert new monitor
+        $insertSql = "INSERT INTO dbo.demand_monitors (monitor_key, monitor_type, definition, display_label, is_active)
+                      VALUES (?, ?, ?, ?, 1)";
+        $insertStmt = sqlsrv_query($conn, $insertSql, [$monitorKey, $monitorType, $definitionJson, $displayLabel]);
+        if ($insertStmt === false) {
+            throw new Exception('Failed to create monitor: ' . print_r(sqlsrv_errors(), true));
+        }
+        $idStmt = sqlsrv_query($conn, "SELECT SCOPE_IDENTITY() AS monitor_id");
+        $idRow = sqlsrv_fetch_array($idStmt, SQLSRV_FETCH_ASSOC);
+        $monitorId = intval($idRow['monitor_id']);
+    }
 
     // Link element to monitor
     $updateSql = "UPDATE dbo.facility_flow_elements SET demand_monitor_id = ?, updated_at = GETUTCDATE() WHERE element_id = ?";
@@ -231,18 +241,28 @@ function handleCreateFromTMI($conn, $input) {
         ],
     ];
 
-    // Insert into demand_monitors (ADL database)
-    $insertSql = "INSERT INTO dbo.demand_monitors (monitor_key, monitor_type, definition, display_label, is_active)
-                  VALUES (?, ?, ?, ?, 1)";
-    $label = ($entry['restriction_value'] ?: '') . ' ' . $entry['entry_type'] . ' ' . $fixName;
-    $insertStmt = sqlsrv_query($conn, $insertSql, [$monitorKey, $monitorType, json_encode($definition), trim($label)]);
-    if ($insertStmt === false) {
-        throw new Exception('Failed to create monitor: ' . print_r(sqlsrv_errors(), true));
-    }
+    // Upsert into demand_monitors (ADL database)
+    $label = trim(($entry['restriction_value'] ?: '') . ' ' . $entry['entry_type'] . ' ' . $fixName);
+    $defJson = json_encode($definition);
 
-    $idStmt = sqlsrv_query($conn, "SELECT SCOPE_IDENTITY() AS monitor_id");
-    $idRow = sqlsrv_fetch_array($idStmt, SQLSRV_FETCH_ASSOC);
-    $monitorId = intval($idRow['monitor_id']);
+    $existStmt = sqlsrv_query($conn, "SELECT monitor_id FROM dbo.demand_monitors WHERE monitor_key = ?", [$monitorKey]);
+    $existRow = $existStmt ? sqlsrv_fetch_array($existStmt, SQLSRV_FETCH_ASSOC) : null;
+
+    if ($existRow) {
+        $monitorId = intval($existRow['monitor_id']);
+        sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 1, definition = ?, display_label = ? WHERE monitor_id = ?",
+            [$defJson, $label, $monitorId]);
+    } else {
+        $insertSql = "INSERT INTO dbo.demand_monitors (monitor_key, monitor_type, definition, display_label, is_active)
+                      VALUES (?, ?, ?, ?, 1)";
+        $insertStmt = sqlsrv_query($conn, $insertSql, [$monitorKey, $monitorType, $defJson, $label]);
+        if ($insertStmt === false) {
+            throw new Exception('Failed to create monitor: ' . print_r(sqlsrv_errors(), true));
+        }
+        $idStmt = sqlsrv_query($conn, "SELECT SCOPE_IDENTITY() AS monitor_id");
+        $idRow = sqlsrv_fetch_array($idStmt, SQLSRV_FETCH_ASSOC);
+        $monitorId = intval($idRow['monitor_id']);
+    }
 
     echo json_encode([
         'monitor_id' => $monitorId,
@@ -303,13 +323,18 @@ function handleBulkCreate($conn, $input) {
 
         if (!$monitorType) continue;
 
-        // Check if monitor_key already exists
-        $checkStmt = sqlsrv_query($conn, "SELECT monitor_id FROM dbo.demand_monitors WHERE monitor_key = ? AND is_active = 1", [$monitorKey]);
-        $existing = sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC);
+        // Check if monitor_key already exists (active or inactive)
+        $checkStmt = sqlsrv_query($conn, "SELECT monitor_id, is_active FROM dbo.demand_monitors WHERE monitor_key = ?", [$monitorKey]);
+        $existing = $checkStmt ? sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC) : null;
 
         $monitorId = null;
         if ($existing) {
-            $monitorId = $existing['monitor_id'];
+            $monitorId = intval($existing['monitor_id']);
+            if (!$existing['is_active']) {
+                // Reactivate soft-deleted monitor
+                sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 1, definition = ?, display_label = ? WHERE monitor_id = ?",
+                    [json_encode($definition), $label, $monitorId]);
+            }
         } else {
             $insertSql = "INSERT INTO dbo.demand_monitors (monitor_key, monitor_type, definition, display_label, is_active) VALUES (?, ?, ?, ?, 1)";
             sqlsrv_query($conn, $insertSql, [$monitorKey, $monitorType, json_encode($definition), $label]);
@@ -364,13 +389,18 @@ function handleDelete($conn) {
 
         $monitorId = $row['demand_monitor_id'];
 
+        // Get monitor key before deactivating
+        $keyStmt = sqlsrv_query($conn, "SELECT monitor_key FROM dbo.demand_monitors WHERE monitor_id = ?", [$monitorId]);
+        $keyRow = sqlsrv_fetch_array($keyStmt, SQLSRV_FETCH_ASSOC);
+        $monitorKey = $keyRow ? $keyRow['monitor_key'] : null;
+
         // Deactivate the monitor
         sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 0 WHERE monitor_id = ?", [$monitorId]);
 
         // Unlink from element
         sqlsrv_query($conn, "UPDATE dbo.facility_flow_elements SET demand_monitor_id = NULL, updated_at = GETUTCDATE() WHERE element_id = ?", [$elementId]);
 
-        echo json_encode(['success' => true, 'removed_monitor_id' => $monitorId]);
+        echo json_encode(['success' => true, 'removed_monitor_id' => $monitorId, 'removed_monitor_key' => $monitorKey]);
 
     } elseif ($sourceType === 'config') {
         $configId = intval($_GET['config_id'] ?? 0);
@@ -380,14 +410,19 @@ function handleDelete($conn) {
             return;
         }
 
-        // Get all linked monitors
+        // Get all linked monitors with their keys
         $stmt = sqlsrv_query($conn,
-            "SELECT element_id, demand_monitor_id FROM dbo.facility_flow_elements WHERE config_id = ? AND demand_monitor_id IS NOT NULL",
+            "SELECT e.element_id, e.demand_monitor_id, m.monitor_key
+             FROM dbo.facility_flow_elements e
+             LEFT JOIN dbo.demand_monitors m ON e.demand_monitor_id = m.monitor_id
+             WHERE e.config_id = ? AND e.demand_monitor_id IS NOT NULL",
             [$configId]);
 
         $removed = 0;
+        $removedKeys = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 0 WHERE monitor_id = ?", [$row['demand_monitor_id']]);
+            if ($row['monitor_key']) $removedKeys[] = $row['monitor_key'];
             $removed++;
         }
 
@@ -396,7 +431,7 @@ function handleDelete($conn) {
             "UPDATE dbo.facility_flow_elements SET demand_monitor_id = NULL, updated_at = GETUTCDATE() WHERE config_id = ? AND demand_monitor_id IS NOT NULL",
             [$configId]);
 
-        echo json_encode(['success' => true, 'removed' => $removed]);
+        echo json_encode(['success' => true, 'removed' => $removed, 'removed_keys' => $removedKeys]);
 
     } else {
         http_response_code(400);

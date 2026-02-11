@@ -635,7 +635,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
             `;
 
-            html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT)</h6>';
+            html += '<h6 class="text-primary mb-3"><i class="fas fa-ruler-horizontal"></i> Miles-In-Trail (MIT/MINIT) <button class="btn btn-sm btn-outline-secondary ml-2" onclick="TMICompliance.copyNtmlSummary()" title="Copy NTML summary for Discord"><i class="fas fa-copy"></i> Copy for Discord</button></h6>';
 
             // Group TMIs by pair count for collapsible sections
             const groups = {
@@ -716,7 +716,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const gsResultsForCards = this.results.gs_results || {};
         const gsResultsArray = Array.isArray(gsResultsForCards) ? gsResultsForCards : Object.values(gsResultsForCards);
         if (gsResultsArray.length > 0) {
-            html += '<h6 class="text-danger mb-3 mt-4"><i class="fas fa-ban"></i> Ground Stops</h6>';
+            html += '<h6 class="text-danger mb-3 mt-4"><i class="fas fa-ban"></i> Ground Stops <button class="btn btn-sm btn-outline-secondary ml-2" onclick="TMICompliance.copyGsSummary()" title="Copy GS summary for Discord"><i class="fas fa-copy"></i> Copy for Discord</button></h6>';
 
             for (const r of gsResultsArray) {
                 html += this.renderGsCard(r);
@@ -6751,6 +6751,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     ` : ''}
                 </div>
 
+                <div class="tmi-discord-copy mt-2">
+                    ${mitCount > 0 ? '<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="Copy NTML summary for Discord"><i class="fas fa-copy"></i> Copy NTML for Discord</button>' : ''}
+                    ${gsCount > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="Copy GS summary for Discord"><i class="fas fa-copy"></i> Copy GS for Discord</button>' : ''}
+                </div>
+
                 <div class="tmi-data-quality">
                     Data: ${trajCoverage}% trajectory coverage${gapInfo}
                 </div>
@@ -8672,6 +8677,283 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         const features = this.buildBranchFeatures(mapId);
         source.setData({ type: 'FeatureCollection', features });
+    },
+
+    // =========================================================================
+    // Discord Summary Copy
+    // =========================================================================
+
+    /**
+     * Build NTML entries summary formatted for Discord markdown.
+     * Returns a string under 2000 characters.
+     */
+    buildNtmlDiscordSummary: function() {
+        const r = this.results;
+        if (!r) return '';
+
+        const mitResults = r.mit_results || {};
+        const mitArray = Array.isArray(mitResults) ? mitResults : Object.values(mitResults);
+        if (mitArray.length === 0) return '';
+
+        const planId = r.plan_id || this.planId || '?';
+        const eventWindow = `${r.event_start || '?'} to ${r.event_end || '?'}`;
+        const trajCoverage = this.calculateTrajectoryCoverageV2();
+
+        // Sort by pair count descending (most significant first)
+        const sorted = [...mitArray].sort((a, b) => (b.pairs || 0) - (a.pairs || 0));
+
+        // Aggregate stats for header
+        const totalPairs = sorted.reduce((s, m) => s + (m.pairs || 0), 0);
+        const totalViolations = sorted.reduce((s, m) => s + (m.violations ? m.violations.length : 0), 0);
+        const totalCrossings = sorted.reduce((s, m) => s + (m.crossings || m.total_crossings || 0), 0);
+
+        // Build header
+        let lines = [];
+        lines.push(`**TMI Compliance Analysis** \u2014 Plan ${planId}`);
+        lines.push(eventWindow);
+        lines.push('');
+        lines.push(`**NTML ENTRIES** (${sorted.length} analyzed, ${totalCrossings} total crossings, ${totalPairs} pairs, ${totalViolations} violations)`);
+
+        // Build each entry block
+        const entryBlocks = [];
+        for (const m of sorted) {
+            const notation = this.formatStandardizedTMI(m);
+            const crossings = m.crossings || m.total_crossings || 0;
+            const pairs = m.pairs || 0;
+            const compPct = m.compliance_pct !== null && m.compliance_pct !== undefined
+                ? m.compliance_pct.toFixed(1) + '%' : 'N/A';
+            const unitLabel = m.unit === 'min' ? 'min' : 'nm';
+            const stats = m.spacing_stats || {};
+            const avgSpacing = (stats.avg || m.avg_spacing || 0).toFixed(1);
+            const minSpacing = (stats.min || m.min_spacing || 0).toFixed(1);
+            const medianSpacing = stats.median ? stats.median.toFixed(1) : null;
+            const violations = m.violations || [];
+
+            let block = '';
+            block += `\n> **${notation}**`;
+            if (m.cancelled) block += ' *(CANCELLED)*';
+            block += `\n> ${crossings} crossings, ${pairs} pairs | Compliance: **${compPct}**`;
+
+            // Spacing line: avg / min / median
+            let spacingDetail = `Avg: ${avgSpacing}${unitLabel}, Min: ${minSpacing}${unitLabel}`;
+            if (medianSpacing) spacingDetail += `, Median: ${medianSpacing}${unitLabel}`;
+            block += `\n> ${spacingDetail}`;
+
+            // Violations detail
+            if (violations.length > 0) {
+                const worstShortfall = Math.max(...violations.map(v => Math.abs(v.shortfall_pct || 0)));
+                block += `\n> ${violations.length} violation${violations.length !== 1 ? 's' : ''}, worst shortfall: -${worstShortfall.toFixed(0)}%`;
+            }
+            entryBlocks.push(block);
+        }
+
+        // Footer
+        const footer = `\n*${trajCoverage}% trajectory coverage*`;
+
+        // Assemble with truncation check
+        const header = lines.join('\n');
+        const MAX_LEN = 1950;
+        let body = '';
+        let included = 0;
+        for (const block of entryBlocks) {
+            const candidate = body + block;
+            if ((header + candidate + footer).length > MAX_LEN && included > 0) {
+                const remaining = entryBlocks.length - included;
+                body += `\n\n*... and ${remaining} more entr${remaining === 1 ? 'y' : 'ies'} (see full report)*`;
+                break;
+            }
+            body += block;
+            included++;
+        }
+
+        return header + body + '\n' + footer;
+    },
+
+    /**
+     * Build Ground Stop summary formatted for Discord markdown.
+     * Returns a string under 2000 characters.
+     */
+    buildGsDiscordSummary: function() {
+        const r = this.results;
+        if (!r) return '';
+
+        const gsResults = r.gs_results || {};
+        const gsArray = Array.isArray(gsResults) ? gsResults : Object.values(gsResults);
+        if (gsArray.length === 0) return '';
+
+        const planId = r.plan_id || this.planId || '?';
+        const eventWindow = `${r.event_start || '?'} to ${r.event_end || '?'}`;
+        const trajCoverage = this.calculateTrajectoryCoverageV2();
+
+        let lines = [];
+        lines.push(`**TMI Compliance Analysis** \u2014 Plan ${planId}`);
+        lines.push(eventWindow);
+
+        for (const gs of gsArray) {
+            const dests = (gs.destinations || []).join(', ') || '?';
+            const gsStart = gs.gs_start || '?';
+            const gsEnd = gs.gs_end || '?';
+
+            // Ended-by status
+            let endedBy = '';
+            if (gs.ended_by === 'CNX' || gs.cancelled) endedBy = ' (CNX)';
+            else if (gs.ended_by === 'EXPIRATION') endedBy = ' (EXPIRED)';
+
+            lines.push('');
+            lines.push(`**GROUND STOP:** ${dests}`);
+            lines.push(`${gsStart} - ${gsEnd}${endedBy}`);
+
+            if (gs.impacting_condition) {
+                lines.push(gs.impacting_condition);
+            }
+
+            // Advisory chain (if program_timeline exists)
+            const timeline = gs.program_timeline || [];
+            if (timeline.length > 0) {
+                const chain = timeline.map(adv => {
+                    let tag = adv.type || '?';
+                    if (adv.advzy) tag = `Adv ${adv.advzy} (${tag})`;
+                    return tag;
+                }).join(' \u2192 ');
+                lines.push(`Advisories: ${chain}`);
+            }
+
+            // Stats
+            const total = gs.total_flights || 0;
+            const compliant = gs.compliant_count || 0;
+            const nonComp = gs.non_compliant_count || 0;
+            const exempt = gs.exempt_count || 0;
+            const compPct = gs.compliance_pct !== null && gs.compliance_pct !== undefined
+                ? gs.compliance_pct.toFixed(1) + '%' : 'N/A';
+
+            lines.push('');
+            lines.push(`> **Flights:** ${total} total, ${compliant} compliant, ${nonComp} non-compliant, ${exempt} exempt`);
+            lines.push(`> **Compliance:** ${compPct}`);
+
+            // Hold time stats with range
+            const holdStats = gs.hold_time_stats || {};
+            if (gs.avg_hold_time_min && gs.avg_hold_time_min > 0) {
+                let holdLine = `**Avg Hold:** ${this.formatDuration(gs.avg_hold_time_min)}`;
+                if (holdStats.min !== undefined && holdStats.max !== undefined) {
+                    holdLine += ` (min ${this.formatDuration(holdStats.min)}, median ${this.formatDuration(holdStats.median)}, max ${this.formatDuration(holdStats.max)})`;
+                }
+                lines.push(`> ${holdLine}`);
+            }
+
+            // GS delay: Total / Maximum / Average (matches advisory format)
+            // Only flights with wheels-off OOOI data have delay computed
+            const gsDelay = gs.gs_delay_stats || {};
+            if (gsDelay.avg_delay_min && gsDelay.avg_delay_min > 0) {
+                const total = gsDelay.total_delay_min ? Math.round(gsDelay.total_delay_min) : '?';
+                const max = gsDelay.max_delay_min ? Math.round(gsDelay.max_delay_min) : '?';
+                const avg = Math.round(gsDelay.avg_delay_min);
+                const sample = gsDelay.flights_with_delay_data || '?';
+                lines.push(`> **Total, Maximum, Average Delays:** ${total} / ${max} / ${avg} (based on ${sample} flights with OOOI data)`);
+            }
+
+            // Time source breakdown
+            const tsb = gs.time_source_breakdown || {};
+            const tsTotal = (tsb['off_utc'] || 0) + (tsb['out_utc+taxi'] || 0) + (tsb['first_seen'] || 0) + (tsb['first_seen+connect'] || 0);
+            if (tsTotal > 0) {
+                const parts = [];
+                if (tsb['off_utc']) parts.push(`${tsb['off_utc']} wheels-off`);
+                if (tsb['out_utc+taxi']) parts.push(`${tsb['out_utc+taxi']} gate+taxi`);
+                if (tsb['first_seen'] || tsb['first_seen+connect']) parts.push(`${(tsb['first_seen'] || 0) + (tsb['first_seen+connect'] || 0)} first-seen`);
+                lines.push(`> Time sources: ${parts.join(', ')}`);
+            }
+
+            // Per-origin breakdown
+            const perOrigin = gs.per_origin_breakdown || [];
+            if (perOrigin.length > 0) {
+                const sortedOrigins = [...perOrigin].sort((a, b) => (b.total || 0) - (a.total || 0));
+
+                lines.push('');
+                lines.push('**Per-Origin Breakdown:**');
+
+                const maxOrigins = 10;
+                const shown = sortedOrigins.slice(0, maxOrigins);
+                for (const o of shown) {
+                    const oPct = (o.compliance_pct || 0).toFixed(0);
+                    const holdStr = o.avg_hold_time_min ? `, hold ${this.formatDuration(o.avg_hold_time_min)}` : '';
+                    const delayStr = o.avg_gs_delay_min ? `, delay ${this.formatDuration(o.avg_gs_delay_min)}` : '';
+                    lines.push(`> \`${o.origin}\` \u2014 ${o.total || 0} flt, ${oPct}% comp${holdStr}${delayStr}`);
+                }
+                if (sortedOrigins.length > maxOrigins) {
+                    lines.push(`> *... and ${sortedOrigins.length - maxOrigins} more origin${sortedOrigins.length - maxOrigins === 1 ? '' : 's'}*`);
+                }
+            }
+        }
+
+        // Footer
+        lines.push('');
+        lines.push(`*${trajCoverage}% trajectory coverage*`);
+
+        let text = lines.join('\n');
+
+        // Truncation safety
+        if (text.length > 1950) {
+            while (text.length > 1950 && lines.length > 5) {
+                lines.splice(lines.length - 2, 1);
+                text = lines.join('\n');
+            }
+        }
+
+        return text;
+    },
+
+    /**
+     * Copy NTML summary to clipboard for Discord posting.
+     */
+    copyNtmlSummary: function() {
+        const text = this.buildNtmlDiscordSummary();
+        if (!text) {
+            Swal.fire({ icon: 'warning', title: 'No NTML data to copy', toast: true,
+                        position: 'top-end', showConfirmButton: false, timer: 2000 });
+            return;
+        }
+        this._copyToClipboard(text);
+    },
+
+    /**
+     * Copy Ground Stop summary to clipboard for Discord posting.
+     */
+    copyGsSummary: function() {
+        const text = this.buildGsDiscordSummary();
+        if (!text) {
+            Swal.fire({ icon: 'warning', title: 'No Ground Stop data to copy', toast: true,
+                        position: 'top-end', showConfirmButton: false, timer: 2000 });
+            return;
+        }
+        this._copyToClipboard(text);
+    },
+
+    /**
+     * Copy text to clipboard with fallback for older browsers.
+     */
+    _copyToClipboard: function(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                Swal.fire({ icon: 'success', title: 'Copied to clipboard', toast: true,
+                            position: 'top-end', showConfirmButton: false, timer: 2000 });
+            }).catch(function() {
+                TMICompliance._fallbackCopy(text);
+            });
+        } else {
+            this._fallbackCopy(text);
+        }
+    },
+
+    _fallbackCopy: function(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        Swal.fire({ icon: 'success', title: 'Copied to clipboard', toast: true,
+                    position: 'top-end', showConfirmButton: false, timer: 2000 });
     },
 };
 
