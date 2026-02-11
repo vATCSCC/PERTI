@@ -353,8 +353,10 @@ class TMIComplianceAnalyzer:
 
         for row in cursor.fetchall():
             callsign = row[0]
-            flights[callsign] = {
-                'flight_uid': row[1],
+            flight_uid = row[1]
+            flights[flight_uid] = {
+                'callsign': callsign,
+                'flight_uid': flight_uid,
                 'dept': row[2],
                 'dest': row[3],
                 'first_seen': normalize_datetime(row[4]),
@@ -550,7 +552,7 @@ class TMIComplianceAnalyzer:
                 self.flight_data = self._get_all_featured_flights()
 
                 if self.flight_data:
-                    self._preload_trajectories(list(self.flight_data.keys()))
+                    self._preload_trajectories([f['callsign'] for f in self.flight_data.values()])
 
                 # Load airport taxi references for GS delay calculation
                 self._load_airport_taxi_references()
@@ -890,7 +892,7 @@ class TMIComplianceAnalyzer:
         normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
 
         filtered = {}
-        for callsign, flight in self.flight_data.items():
+        for fuid, flight in self.flight_data.items():
             dest = flight.get('dest', '')
             dept = flight.get('dept', '')
 
@@ -902,7 +904,7 @@ class TMIComplianceAnalyzer:
             if normalized_origs and dept not in normalized_origs:
                 continue
 
-            filtered[callsign] = flight
+            filtered[fuid] = flight
 
         logger.debug(f"  Filtered to {len(filtered)} flights (dest={tmi.destinations}, orig={tmi.origins})")
         return filtered
@@ -969,8 +971,10 @@ class TMIComplianceAnalyzer:
         ))
 
         for row in cursor.fetchall():
-            flights[row[0]] = {
-                'flight_uid': row[1],
+            flight_uid = row[1]
+            flights[flight_uid] = {
+                'callsign': row[0],
+                'flight_uid': flight_uid,
                 'dept': row[2],
                 'dest': row[3],
                 'first_seen': normalize_datetime(row[4]),
@@ -1517,12 +1521,15 @@ class TMIComplianceAnalyzer:
         boundary_crossings_map = {} # callsign -> CrossingResult
         measurement_stats = {'fix': 0, 'boundary': 0}
 
+        # Extract callsigns for trajectory queries (keyed by flight_uid now)
+        callsign_list = [f.get('callsign', '') for f in flights.values() if f.get('callsign')]
+
         # 1. Detect fix crossings (if fix is specified and known)
         if fix and fix in self.fix_coords:
             coords = self.fix_coords[fix]
             fix_results = self._detect_crossings(
                 fix, coords['lat'], coords['lon'],
-                list(flights.keys()), tmi
+                callsign_list, tmi
             )
             for crossing in fix_results:
                 fix_crossings_map[crossing.callsign] = crossing
@@ -1533,7 +1540,7 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Attempting boundary detection: {tmi.provider} -> {tmi.requestor}")
             boundary_results = self._detect_boundary_crossings(
                 tmi.provider, tmi.requestor,
-                list(flights.keys()), tmi
+                callsign_list, tmi
             )
             for bc in boundary_results:
                 # Convert to CrossingResult for uniform handling
@@ -1893,7 +1900,8 @@ class TMIComplianceAnalyzer:
         gs_delays = []
         time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
-        for callsign, flight in flights.items():
+        for fuid, flight in flights.items():
+            callsign = flight.get('callsign', str(fuid))
             dept = flight.get('dept', 'UNK')
 
             # Skip if no origin filter or origin doesn't match
@@ -2069,7 +2077,8 @@ class TMIComplianceAnalyzer:
         gs_delays = []
         time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
-        for callsign, flight in flights.items():
+        for fuid, flight in flights.items():
+            callsign = flight.get('callsign', str(fuid))
             dept = flight.get('dept', 'UNK')
 
             # Determine best wheels-off estimate
@@ -2357,7 +2366,8 @@ class TMIComplianceAnalyzer:
 
         # Filter to flights within the reroute time window
         flights = []
-        for callsign, flight in flights_dict.items():
+        for fuid, flight in flights_dict.items():
+            callsign = flight.get('callsign', str(fuid))
             first_seen = flight.get('first_seen')
             if not first_seen:
                 continue
@@ -2655,7 +2665,8 @@ class TMIComplianceAnalyzer:
 
         # Filter flights to those within the program window and matching OD
         flights = []
-        for callsign, flight in flights_dict.items():
+        for fuid, flight in flights_dict.items():
+            callsign = flight.get('callsign', str(fuid))
             dep_time = (flight.get('atd_utc') or flight.get('off_utc') or flight.get('first_seen'))
             if not dep_time:
                 continue
@@ -2965,7 +2976,8 @@ class TMIComplianceAnalyzer:
         affected_flights = []     # Need coordination during window
         post_tmi_flights = []     # Departed after TMI ended
 
-        for callsign, flight_data in flights.items():
+        for fuid, flight_data in flights.items():
+            callsign = flight_data.get('callsign', str(fuid))
             first_seen = flight_data.get('first_seen')
             if not first_seen:
                 continue
