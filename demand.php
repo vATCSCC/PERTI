@@ -16,9 +16,6 @@ include("load/config.php");
     <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
-    <!-- i18n -->
-    <script src="assets/js/lib/i18n.js"></script>
-    <script src="assets/locales/index.js"></script>
     <!-- Shared Phase Color Configuration -->
     <script src="assets/js/config/phase-colors.js"></script>
     <!-- Rate Line Color Configuration -->
