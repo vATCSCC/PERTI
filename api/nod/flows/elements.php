@@ -167,6 +167,155 @@ function expandRouteAirways($conn, $tokens) {
 }
 
 /**
+ * Expand CDR (Coded Departure Route) codes in route tokens.
+ * If a token matches a cdr_code in coded_departure_routes, replace it
+ * with the tokenized full_route.
+ *
+ * ["JFKMIA1"] -> ["KJFK", "MERIT", "J584", ..., "KMIA"]
+ * ["ABECLTGV"] -> ["KABE", "LRP", "EMI", "GVE", "AIROW", "CHSLY6", "KCLT"]
+ * ["ENO", "V213", "DAVYS"] -> unchanged (no CDR matches)
+ */
+function expandCDRTokens($conn, $tokens) {
+    if (empty($tokens)) return $tokens;
+
+    // Strip mandatory markers (<>) for lookup
+    $cleanTokens = array_map(function($t) {
+        return preg_replace('/[<>]/', '', $t);
+    }, $tokens);
+
+    // Collect unique tokens for batch lookup
+    $unique = array_values(array_unique($cleanTokens));
+    if (empty($unique)) return $tokens;
+
+    $placeholders = implode(',', array_fill(0, count($unique), '?'));
+    $sql = "SELECT cdr_code, full_route FROM dbo.coded_departure_routes
+            WHERE cdr_code IN ($placeholders) AND is_active = 1";
+    $stmt = sqlsrv_query($conn, $sql, $unique);
+    if ($stmt === false) return $tokens;
+
+    $cdrMap = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $cdrMap[$row['cdr_code']] = trim($row['full_route']);
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($cdrMap)) return $tokens;
+
+    // Replace matching tokens with expanded route tokens
+    $expanded = [];
+    foreach ($cleanTokens as $token) {
+        if (isset($cdrMap[$token])) {
+            $routeTokens = preg_split('/\s+/', strtoupper($cdrMap[$token]));
+            $routeTokens = array_values(array_filter($routeTokens, function($t) {
+                return $t !== '';
+            }));
+            array_push($expanded, ...$routeTokens);
+        } else {
+            $expanded[] = $token;
+        }
+    }
+
+    return $expanded;
+}
+
+/**
+ * Expand playbook route play names.
+ * Only applies when the route is a single token matching a play_name.
+ * Supports dot notation: PLAY_NAME.ORIGIN.DEST
+ *
+ * ["BURNN1_NORTH"] -> ["KJFK", "MERIT", ...]
+ * ["ABI_old_2601.KBWI.KBUR"] -> ["KBWI", "TERPZ8.MAULS", "Q40", ...]
+ */
+function expandPlaybookTokens($conn, $tokens) {
+    // Only expand single-token routes (a bare playbook name)
+    if (empty($tokens) || count($tokens) > 1) return $tokens;
+
+    $token = $tokens[0];
+
+    // Parse dot notation: PLAY_NAME or PLAY_NAME.ORIGIN or PLAY_NAME.ORIGIN.DEST
+    // But don't treat SID/STAR notation (short.short) as playbook
+    $parts = explode('.', $token);
+    $playPart = $parts[0];
+
+    // If the first part is short (<=5 chars), it's likely a SID/STAR transition, not a playbook
+    if (strlen($playPart) <= 5 && count($parts) > 1) return $tokens;
+
+    $originFilter = count($parts) > 1 ? strtoupper($parts[1]) : null;
+    $destFilter = count($parts) > 2 ? strtoupper($parts[2]) : null;
+
+    // Try exact match first
+    $sql = "SELECT TOP 5 play_name, full_route, origin_airports, dest_airports
+            FROM dbo.playbook_routes
+            WHERE play_name = ? AND is_active = 1
+            ORDER BY playbook_id";
+    $stmt = sqlsrv_query($conn, $sql, [$playPart]);
+    if ($stmt === false) return $tokens;
+
+    $candidates = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $candidates[] = $row;
+    }
+    sqlsrv_free_stmt($stmt);
+
+    // If no exact match, try normalized match (strip non-alphanumeric)
+    if (empty($candidates)) {
+        $playNorm = preg_replace('/[^A-Z0-9]/', '', strtoupper($playPart));
+        $sql = "SELECT TOP 5 play_name, full_route, origin_airports, dest_airports
+                FROM dbo.playbook_routes
+                WHERE UPPER(REPLACE(REPLACE(REPLACE(play_name, '_', ''), '-', ''), ' ', '')) = ?
+                AND is_active = 1
+                ORDER BY playbook_id";
+        $stmt = sqlsrv_query($conn, $sql, [$playNorm]);
+        if ($stmt === false) return $tokens;
+
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $candidates[] = $row;
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    if (empty($candidates)) return $tokens;
+
+    // Filter by origin/dest if provided
+    $match = null;
+    if ($originFilter || $destFilter) {
+        foreach ($candidates as $cand) {
+            if ($originFilter) {
+                $origins = preg_split('/[\s,]+/', strtoupper($cand['origin_airports'] ?? ''));
+                $origins = array_filter($origins);
+                // Normalize 3-letter code to K-prefix ICAO
+                $originNorm = (strlen($originFilter) === 3 && $originFilter[0] !== 'Z')
+                    ? 'K' . $originFilter : $originFilter;
+                if (!in_array($originFilter, $origins) && !in_array($originNorm, $origins)) {
+                    continue;
+                }
+            }
+            if ($destFilter) {
+                $dests = preg_split('/[\s,]+/', strtoupper($cand['dest_airports'] ?? ''));
+                $dests = array_filter($dests);
+                $destNorm = (strlen($destFilter) === 3 && $destFilter[0] !== 'Z')
+                    ? 'K' . $destFilter : $destFilter;
+                if (!in_array($destFilter, $dests) && !in_array($destNorm, $dests)) {
+                    continue;
+                }
+            }
+            $match = $cand;
+            break;
+        }
+    }
+
+    // Use first candidate if no filtered match
+    if (!$match) $match = $candidates[0];
+
+    $routeTokens = preg_split('/\s+/', strtoupper(trim($match['full_route'])));
+    $routeTokens = array_values(array_filter($routeTokens, function($t) {
+        return $t !== '';
+    }));
+
+    return !empty($routeTokens) ? $routeTokens : $tokens;
+}
+
+/**
  * Pre-process route tokens: strip SID/STAR procedure notation,
  * remove airport codes (4-letter ICAO at start/end), and normalize.
  *
@@ -185,22 +334,26 @@ function preprocessRouteTokens($tokens) {
 
         // Handle SID/STAR dot notation (transition.procedure or procedure.transition)
         if (strpos($token, '.') !== false) {
-            // Could be TRANSITION.STAR (e.g., SIE.CAMRN3) or DP.TRANSITION (e.g., KAYLN3.SMUUV)
             $parts = explode('.', $token, 2);
-            // Remove trailing # or digits-only suffixes from procedure names
             $clean0 = preg_replace('/[0-9#]+$/', '', $parts[0]);
             $clean1 = preg_replace('/[0-9#]+$/', '', $parts[1]);
+            $hasNum0 = preg_match('/[0-9#]+$/', $parts[0]);
+            $hasNum1 = preg_match('/[0-9#]+$/', $parts[1]);
 
-            // For a STAR: TRANSITION.STAR -> keep transition fix
-            // For a DP: DP.TRANSITION -> keep transition fix
-            // Heuristic: if part[0] looks like a fix (all alpha, <= 5 chars), use it as the fix
-            // If part[1] looks like a fix, use it instead
-            if (strlen($clean1) <= 5 && preg_match('/^[A-Z]+$/', $clean1)) {
-                $result[] = $clean1; // DP.TRANSITION -> keep transition
+            // The part WITH trailing digits is the procedure name.
+            // The part WITHOUT is the transition fix we want to keep.
+            // SIE.CAMRN3 -> CAMRN3 has digits -> keep SIE (transition)
+            // KAYLN3.SMUUV -> KAYLN3 has digits -> keep SMUUV (transition)
+            // TERPZ8.MAULS -> TERPZ8 has digits -> keep MAULS (transition)
+            if ($hasNum1 && !$hasNum0 && strlen($clean0) <= 5 && preg_match('/^[A-Z]+$/', $clean0)) {
+                $result[] = $clean0; // TRANSITION.STAR# -> keep transition
+            } elseif ($hasNum0 && !$hasNum1 && strlen($clean1) <= 5 && preg_match('/^[A-Z]+$/', $clean1)) {
+                $result[] = $clean1; // DP#.TRANSITION -> keep transition
             } elseif (strlen($clean0) <= 5 && preg_match('/^[A-Z]+$/', $clean0)) {
-                $result[] = $clean0; // TRANSITION.STAR -> keep transition
+                $result[] = $clean0; // Ambiguous: prefer part[0]
+            } elseif (strlen($clean1) <= 5 && preg_match('/^[A-Z]+$/', $clean1)) {
+                $result[] = $clean1;
             }
-            // else skip entirely (unrecognized notation)
             continue;
         }
 
@@ -219,23 +372,35 @@ function preprocessRouteTokens($tokens) {
 
 /**
  * Resolve a route string into a GeoJSON LineString.
- * Handles airways, SID/STAR notation, and duplicate fix disambiguation.
+ * Handles CDRs, playbook routes, airways, SID/STAR notation, and
+ * duplicate fix disambiguation.
  *
  * Pipeline (mirrors route-maplibre.js):
- *   1. Tokenize and preprocess (strip procedures, airports)
- *   2. Expand airways into intermediate fixes
- *   3. Batch-resolve fix coordinates with CONUS preference
- *   4. Context-based disambiguation for duplicate fix names
- *   5. Distance validation (reject fixes too far from route path)
+ *   1. Tokenize (strip mandatory markers)
+ *   2. CDR expansion (coded departure routes)
+ *   3. Playbook expansion (single-token play names)
+ *   4. Preprocess (strip SID/STAR notation, airport codes)
+ *   5. Expand airways into intermediate fixes
+ *   6. Batch-resolve fix coordinates with CONUS preference
+ *   7. Distance validation (reject fixes too far from route path)
  */
 function resolveRouteGeojson($conn, $routeString) {
     if (!$routeString) return null;
 
-    // Tokenize: split on spaces, filter empty/long tokens
+    // Tokenize: split on spaces, strip mandatory markers, filter empty/long tokens
+    $routeString = str_replace(['<', '>'], '', $routeString);
     $tokens = preg_split('/\s+/', trim(strtoupper($routeString)));
     $tokens = array_values(array_filter($tokens, function($t) {
-        return trim($t) !== '' && strlen(trim($t)) <= 16;
+        return trim($t) !== '' && strlen(trim($t)) <= 64;
     }));
+
+    if (empty($tokens)) return null;
+
+    // CDR expansion: replace coded departure route codes with full routes
+    $tokens = expandCDRTokens($conn, $tokens);
+
+    // Playbook expansion: replace single-token play names with full routes
+    $tokens = expandPlaybookTokens($conn, $tokens);
 
     if (count($tokens) < 2) return null;
 
