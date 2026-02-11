@@ -613,17 +613,25 @@ const NODDemandLayer = (function() {
      * Generate monitor ID
      */
     function getMonitorId(monitor) {
+        // Use pre-set id if available (e.g. from loadFromAPI)
+        if (monitor.id) return monitor.id;
         switch (monitor.type) {
             case 'fix':
-                return 'fix_' + monitor.fix.toUpperCase();
+                return monitor.fix ? 'fix_' + monitor.fix.toUpperCase() : 'fix_unknown';
             case 'segment':
-                return 'segment_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase();
+                return (monitor.from && monitor.to)
+                    ? 'segment_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase()
+                    : 'segment_' + (monitor.id || Date.now());
             case 'airway':
-                return 'airway_' + monitor.airway.toUpperCase();
+                return monitor.airway ? 'airway_' + monitor.airway.toUpperCase() : 'airway_unknown';
             case 'airway_segment':
-                return 'airway_' + monitor.airway.toUpperCase() + '_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase();
+                return (monitor.airway && monitor.from && monitor.to)
+                    ? 'airway_' + monitor.airway.toUpperCase() + '_' + monitor.from.toUpperCase() + '_' + monitor.to.toUpperCase()
+                    : 'airway_seg_' + (monitor.id || Date.now());
             case 'via_fix':
-                return 'via_' + monitor.filter.type + '_' + monitor.filter.code + '_' + monitor.filter.direction + '_' + monitor.via.toUpperCase();
+                return (monitor.filter && monitor.via)
+                    ? 'via_' + monitor.filter.type + '_' + monitor.filter.code + '_' + monitor.filter.direction + '_' + monitor.via.toUpperCase()
+                    : 'via_' + (monitor.id || Date.now());
             default:
                 return 'unknown_' + Date.now();
         }
@@ -646,9 +654,18 @@ const NODDemandLayer = (function() {
         }
 
         try {
-            // Filter to only monitors with a valid type that the batch API can process
-            const validTypes = ['fix', 'segment', 'airway', 'airway_segment', 'via_fix'];
-            const batchMonitors = state.monitors.filter(m => m.type && validTypes.includes(m.type));
+            // Filter to only monitors with valid type AND required fields for the batch API
+            const batchMonitors = state.monitors.filter(m => {
+                if (!m.type) return false;
+                switch (m.type) {
+                    case 'fix': return !!m.fix;
+                    case 'segment': return !!(m.from && m.to);
+                    case 'airway': return !!m.airway;
+                    case 'airway_segment': return !!(m.airway && m.from && m.to);
+                    case 'via_fix': return !!(m.via && m.filter);
+                    default: return false;
+                }
+            });
 
             if (batchMonitors.length === 0) {
                 console.log('[DemandLayer] No valid monitors for batch API');
@@ -1724,20 +1741,25 @@ const NODDemandLayer = (function() {
     function getMonitorLabel(monitor) {
         switch (monitor.type) {
             case 'fix':
-                return monitor.fix;
+                return monitor.fix || monitor.id || 'Fix';
             case 'segment':
-                return `${monitor.from} → ${monitor.to}`;
+                return (monitor.from && monitor.to)
+                    ? `${monitor.from} → ${monitor.to}`
+                    : (monitor.route_string || monitor.id || 'Route');
             case 'airway':
-                return monitor.airway;
+                return monitor.airway || monitor.id || 'Airway';
             case 'airway_segment':
-                return `${monitor.from} ${monitor.airway} ${monitor.to}`;
+                return (monitor.from && monitor.airway && monitor.to)
+                    ? `${monitor.from} ${monitor.airway} ${monitor.to}`
+                    : (monitor.id || 'Airway Segment');
             case 'via_fix': {
+                if (!monitor.filter || !monitor.via) return monitor.id || 'Via Fix';
                 const dir = monitor.filter.direction === 'arr' ? '↓' :
                     monitor.filter.direction === 'dep' ? '↑' : '↕';
                 return `${monitor.filter.code}${dir} via ${monitor.via}`;
             }
             default:
-                return JSON.stringify(monitor);
+                return monitor.id || JSON.stringify(monitor).substring(0, 40);
         }
     }
 
@@ -1993,6 +2015,7 @@ const NODDemandLayer = (function() {
                 params.set('fix', monitor.fix);
                 break;
             case 'segment':
+                if (!monitor.from || !monitor.to) return null;
                 params.set('from', monitor.from);
                 params.set('to', monitor.to);
                 break;
