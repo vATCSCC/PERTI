@@ -1166,13 +1166,11 @@
     // ========================================================================
 
     var demandChartsInitialized = false;
+    var demandChartParams = null; // Shared time range params for chart creation
+    var demandSyncTimer = null;
 
     function initDemandCharts() {
         if (typeof window.DemandChartCore === 'undefined') return;
-        if (demandChartsInitialized) return;
-
-        var configs = (window.planData && window.planData.configs) || [];
-        if (configs.length === 0) return;
 
         var eventDate = window.planData.event_date;
         var eventStart = window.planData.event_start || '00:00';
@@ -1192,69 +1190,159 @@
         var now = new Date();
 
         var padMs = 60 * 60 * 1000;
-        var startHoursFromNow = (startUtc.getTime() - padMs - now.getTime()) / (60 * 60 * 1000);
-        var endHoursFromNow = (endUtc.getTime() + padMs - now.getTime()) / (60 * 60 * 1000);
+        var sdMonth = (startUtc.getUTCMonth() + 1).toString().padStart(2, '0');
+        var sdDay = startUtc.getUTCDate().toString().padStart(2, '0');
+        var sdYear = startUtc.getUTCFullYear();
+        var sdTime = startUtc.getUTCHours().toString().padStart(2, '0') + startUtc.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        var edTime = endUtc.getUTCHours().toString().padStart(2, '0') + endUtc.getUTCMinutes().toString().padStart(2, '0') + 'Z';
 
-        // Build archived data title: "KJFK | Archived | 01/15/2026 1800Z - 0200Z"
-        var sd = new Date(startStr);
-        var ed = new Date(endStr);
-        var sdMonth = (sd.getUTCMonth() + 1).toString().padStart(2, '0');
-        var sdDay = sd.getUTCDate().toString().padStart(2, '0');
-        var sdYear = sd.getUTCFullYear();
-        var sdTime = sd.getUTCHours().toString().padStart(2, '0') + sd.getUTCMinutes().toString().padStart(2, '0') + 'Z';
-        var edTime = ed.getUTCHours().toString().padStart(2, '0') + ed.getUTCMinutes().toString().padStart(2, '0') + 'Z';
-        var dateLabel = sdMonth + '/' + sdDay + '/' + sdYear + ' ' + sdTime + ' - ' + edTime;
+        demandChartParams = {
+            startHoursFromNow: (startUtc.getTime() - padMs - now.getTime()) / (60 * 60 * 1000),
+            endHoursFromNow: (endUtc.getTime() + padMs - now.getTime()) / (60 * 60 * 1000),
+            dateLabel: sdMonth + '/' + sdDay + '/' + sdYear + ' ' + sdTime + ' - ' + edTime,
+        };
 
-        // Defer loading until Airport Conditions tab is visible (ECharts needs visible container)
+        var configs = (window.planData && window.planData.configs) || [];
         var tabLink = $('a[data-toggle="tab"][href="#tmr_airport"]');
 
-        function loadCharts() {
+        function loadInitialCharts() {
             if (demandChartsInitialized) return;
             demandChartsInitialized = true;
 
-            // Deduplicate airports
+            // Load charts for pre-existing plan configs
             var seen = {};
             configs.forEach(function(cfg) {
                 if (seen[cfg.airport]) return;
                 seen[cfg.airport] = true;
-
-                var containerId = 'demand_chart_' + cfg.airport;
-                var el = document.getElementById(containerId);
-                if (!el) return;
-
-                var icao = cfg.airport;
-                if (icao && icao.length === 3) icao = 'K' + icao;
-
-                var chart = window.DemandChartCore.createChart(containerId, {
-                    direction: 'both',
-                    granularity: 'hourly',
-                    showRateLines: true,
-                    timeRangeStart: startHoursFromNow,
-                    timeRangeEnd: endHoursFromNow,
-                });
-
-                if (chart) {
-                    demandCharts[cfg.airport] = chart;
-                    chart.load(icao).then(function() {
-                        // Override title to show archived event date range
-                        chart.setTitle(icao + '          Archived          ' + dateLabel);
-                    });
-                }
+                addDemandChart(cfg.airport, cfg.aar, cfg.adr);
             });
+
+            // Also sync any airports already in the textarea
+            syncDemandChartsFromTextarea();
         }
 
-        // If tab is already visible, load immediately; otherwise defer
+        // Defer loading until Airport Conditions tab is visible (ECharts needs visible container)
         if ($('#tmr_airport').hasClass('active')) {
-            loadCharts();
+            loadInitialCharts();
         } else {
-            tabLink.one('shown.bs.tab', loadCharts);
+            tabLink.one('shown.bs.tab', loadInitialCharts);
         }
 
-        // Resize charts when tab becomes visible (handles subsequent tab switches)
+        // Resize charts when tab becomes visible
         tabLink.on('shown.bs.tab', function() {
             Object.keys(demandCharts).forEach(function(apt) {
                 demandCharts[apt].resize();
             });
+        });
+
+        // Sync charts when textarea content changes (debounced)
+        $('#tmr_airport_conditions').on('input', function() {
+            if (demandSyncTimer) clearTimeout(demandSyncTimer);
+            demandSyncTimer = setTimeout(function() {
+                if (demandChartsInitialized) syncDemandChartsFromTextarea();
+            }, 1500);
+        });
+    }
+
+    /**
+     * Add a demand chart for an airport if one doesn't already exist.
+     * Creates DOM container dynamically and loads the chart.
+     */
+    function addDemandChart(airport, aar, adr) {
+        if (!demandChartParams) return;
+        if (demandCharts[airport]) return; // Already loaded
+
+        var icao = airport;
+        if (icao && icao.length === 3) icao = 'K' + icao;
+
+        var containerId = 'demand_chart_' + airport;
+        var el = document.getElementById(containerId);
+
+        // Create container if it doesn't exist
+        if (!el) {
+            var wrapper = document.getElementById('tmr_demand_charts');
+            if (!wrapper) return;
+
+            // Remove the "no configs" empty state if present
+            var emptyMsg = wrapper.querySelector('.text-muted.text-center');
+            if (emptyMsg) emptyMsg.remove();
+
+            var block = document.createElement('div');
+            block.className = 'mb-3';
+            block.id = 'demand_block_' + airport;
+            var rateStr = (aar || '?') + ' / ' + (adr || '?');
+            block.innerHTML = '<h6 class="text-warning">' + escapeHtml(airport) +
+                ' <span class="text-muted small">AAR: ' + escapeHtml(String(aar || '?')) +
+                ' | ADR: ' + escapeHtml(String(adr || '?')) + '</span></h6>' +
+                '<div class="demand-chart-container" id="' + containerId + '"></div>';
+            wrapper.appendChild(block);
+            el = document.getElementById(containerId);
+        }
+
+        if (!el) return;
+
+        var chart = window.DemandChartCore.createChart(containerId, {
+            direction: 'both',
+            granularity: 'hourly',
+            showRateLines: true,
+            timeRangeStart: demandChartParams.startHoursFromNow,
+            timeRangeEnd: demandChartParams.endHoursFromNow,
+        });
+
+        if (chart) {
+            demandCharts[airport] = chart;
+            chart.load(icao).then(function() {
+                chart.setTitle(icao + '          Archived          ' + demandChartParams.dateLabel);
+            });
+        }
+    }
+
+    /**
+     * Parse airport codes from the conditions textarea and add charts for new airports.
+     * Supports:
+     *   - Pipe-delimited: "SFO | 28L/28R | 01L/01R | 35/40"
+     *   - PERTI format:   "07/2023  SFO  VMC  ARR:28L/28R DEP:01L/01R  AAR(Strat):35 ADR:40"
+     */
+    function syncDemandChartsFromTextarea() {
+        var text = $('#tmr_airport_conditions').val();
+        if (!text) return;
+
+        var exclude = /^(VMC|IMC|ARR|DEP|AAR|ADR|VFR|IFR|RWY|CAT|OVC|BKN|FEW|SCT|CLR|SKC)$/;
+
+        text.split(/\n/).forEach(function(line) {
+            line = line.trim();
+            if (!line) return;
+
+            var airport = null;
+            var aar = null;
+            var adr = null;
+
+            // Format: PERTI "07/2023  SFO  VMC  ARR:...  AAR(Strat):35 ADR:40 [$ ...]"
+            var perti = line.match(/^\d{2}\/\d{4}\s+([A-Z]{3,4})\b/);
+            if (perti) {
+                airport = perti[1];
+                var aarM = line.match(/AAR[^:]*:\s*(\d+)/);
+                var adrM = line.match(/ADR[^:]*:\s*(\d+)/);
+                if (aarM) aar = aarM[1];
+                if (adrM) adr = adrM[1];
+            }
+
+            // Format: Pipe-delimited "KJFK | 22L,22R | 31L | 40/44"
+            if (!airport && line.indexOf('|') !== -1) {
+                var parts = line.split('|');
+                var code = parts[0].trim().toUpperCase();
+                if (/^K?[A-Z]{3,4}$/.test(code)) {
+                    airport = code;
+                }
+                if (parts.length >= 4) {
+                    var rates = parts[3].trim().match(/(\d+)\s*\/\s*(\d+)/);
+                    if (rates) { aar = rates[1]; adr = rates[2]; }
+                }
+            }
+
+            if (airport && !exclude.test(airport)) {
+                addDemandChart(airport, aar, adr);
+            }
         });
     }
 
