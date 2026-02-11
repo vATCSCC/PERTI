@@ -490,9 +490,9 @@
         }
 
         // Populate extend modal
-        var info = (program.program_type || 'GS') + ' #' + programId +
+        var info = escapeHtml(program.program_type || 'GS') + ' #' + programId +
             ' - ' + escapeHtml(program.ctl_element || '') +
-            ' (' + (program.status || '') + ')';
+            ' (' + escapeHtml(program.status || '') + ')';
         document.getElementById('gdt_extend_program_info').innerHTML = info;
 
         var currentEnd = formatZuluShort(program.end_utc);
@@ -625,7 +625,7 @@
         }
 
         // Populate revise modal
-        var info = (program.program_type || 'GS') + ' #' + programId +
+        var info = escapeHtml(program.program_type || 'GS') + ' #' + programId +
             ' - ' + escapeHtml(program.ctl_element || '') +
             ' (Rev ' + ((program.revision_number || 0) + 1) + ')';
         document.getElementById('gdt_revise_program_info').innerHTML = info;
@@ -777,7 +777,7 @@
         // Populate GS info
         var gsInfo = 'GS #' + programId + ' - ' + escapeHtml(program.ctl_element || '') +
             ' (' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc) + ')' +
-            ' | ' + (program.impacting_condition || 'WEATHER');
+            ' | ' + escapeHtml(program.impacting_condition || 'WEATHER');
         document.getElementById('gdt_transition_gs_info').innerHTML = gsInfo;
 
         // Reset to phase 1 (propose)
