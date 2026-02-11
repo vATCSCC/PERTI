@@ -7270,6 +7270,9 @@
 
             if (data.element_id) {
                 if (form) form.remove();
+                if (data.resolution_warning) {
+                    console.warn('[NOD] Element added but geometry not resolved:', data.resolution_warning);
+                }
                 await onConfigChange(config.config_id);
             } else {
                 console.warn('[NOD] Failed to add element:', data.error);
