@@ -8702,12 +8702,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Sort by pair count descending (most significant first)
         const sorted = [...mitArray].sort((a, b) => (b.pairs || 0) - (a.pairs || 0));
 
+        // Aggregate stats for header
+        const totalPairs = sorted.reduce((s, m) => s + (m.pairs || 0), 0);
+        const totalViolations = sorted.reduce((s, m) => s + (m.violations ? m.violations.length : 0), 0);
+        const totalCrossings = sorted.reduce((s, m) => s + (m.crossings || m.total_crossings || 0), 0);
+
         // Build header
         let lines = [];
         lines.push(`**TMI Compliance Analysis** \u2014 Plan ${planId}`);
         lines.push(eventWindow);
         lines.push('');
-        lines.push(`**NTML ENTRIES** (${sorted.length} analyzed)`);
+        lines.push(`**NTML ENTRIES** (${sorted.length} analyzed, ${totalCrossings} total crossings, ${totalPairs} pairs, ${totalViolations} violations)`);
 
         // Build each entry block
         const entryBlocks = [];
@@ -8718,18 +8723,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const compPct = m.compliance_pct !== null && m.compliance_pct !== undefined
                 ? m.compliance_pct.toFixed(1) + '%' : 'N/A';
             const unitLabel = m.unit === 'min' ? 'min' : 'nm';
-            const avgSpacing = (m.spacing_stats?.avg || m.avg_spacing || 0).toFixed(1);
-            const violations = m.violations ? m.violations.length : 0;
+            const stats = m.spacing_stats || {};
+            const avgSpacing = (stats.avg || m.avg_spacing || 0).toFixed(1);
+            const minSpacing = (stats.min || m.min_spacing || 0).toFixed(1);
+            const medianSpacing = stats.median ? stats.median.toFixed(1) : null;
+            const violations = m.violations || [];
 
             let block = '';
             block += `\n> **${notation}**`;
+            if (m.cancelled) block += ' *(CANCELLED)*';
             block += `\n> ${crossings} crossings, ${pairs} pairs | Compliance: **${compPct}**`;
-            block += `\n> Avg spacing: ${avgSpacing}${unitLabel}`;
-            if (violations > 0) {
-                block += ` | ${violations} violation${violations !== 1 ? 's' : ''}`;
-            }
-            if (m.cancelled) {
-                block += ' *(CANCELLED)*';
+
+            // Spacing line: avg / min / median
+            let spacingDetail = `Avg: ${avgSpacing}${unitLabel}, Min: ${minSpacing}${unitLabel}`;
+            if (medianSpacing) spacingDetail += `, Median: ${medianSpacing}${unitLabel}`;
+            block += `\n> ${spacingDetail}`;
+
+            // Violations detail
+            if (violations.length > 0) {
+                const worstShortfall = Math.max(...violations.map(v => Math.abs(v.shortfall_pct || 0)));
+                block += `\n> ${violations.length} violation${violations.length !== 1 ? 's' : ''}, worst shortfall: -${worstShortfall.toFixed(0)}%`;
             }
             entryBlocks.push(block);
         }
@@ -8794,6 +8807,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 lines.push(gs.impacting_condition);
             }
 
+            // Advisory chain (if program_timeline exists)
+            const timeline = gs.program_timeline || [];
+            if (timeline.length > 0) {
+                const chain = timeline.map(adv => {
+                    let tag = adv.type || '?';
+                    if (adv.advzy) tag = `Adv ${adv.advzy} (${tag})`;
+                    return tag;
+                }).join(' \u2192 ');
+                lines.push(`Advisories: ${chain}`);
+            }
+
             // Stats
             const total = gs.total_flights || 0;
             const compliant = gs.compliant_count || 0;
@@ -8806,24 +8830,43 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             lines.push(`> **Flights:** ${total} total, ${compliant} compliant, ${nonComp} non-compliant, ${exempt} exempt`);
             lines.push(`> **Compliance:** ${compPct}`);
 
-            // Hold time and delay stats
-            let holdLine = '';
+            // Hold time stats with range
+            const holdStats = gs.hold_time_stats || {};
             if (gs.avg_hold_time_min && gs.avg_hold_time_min > 0) {
-                holdLine += `**Avg Hold:** ${this.formatDuration(gs.avg_hold_time_min)}`;
+                let holdLine = `**Avg Hold:** ${this.formatDuration(gs.avg_hold_time_min)}`;
+                if (holdStats.min !== undefined && holdStats.max !== undefined) {
+                    holdLine += ` (min ${this.formatDuration(holdStats.min)}, median ${this.formatDuration(holdStats.median)}, max ${this.formatDuration(holdStats.max)})`;
+                }
+                lines.push(`> ${holdLine}`);
             }
+
+            // GS delay stats with range
             const gsDelay = gs.gs_delay_stats || {};
             if (gsDelay.avg_delay_min && gsDelay.avg_delay_min > 0) {
-                if (holdLine) holdLine += ' | ';
-                holdLine += `**Avg GS Delay:** ${this.formatDuration(gsDelay.avg_delay_min)}`;
+                let delayLine = `**Avg GS Delay:** ${this.formatDuration(gsDelay.avg_delay_min)}`;
+                if (gsDelay.median_delay_min !== undefined) {
+                    delayLine += ` (median ${this.formatDuration(gsDelay.median_delay_min)}, max ${this.formatDuration(gsDelay.max_delay_min)})`;
+                }
+                if (gsDelay.total_delay_min) {
+                    delayLine += ` | Total: ${this.formatDuration(gsDelay.total_delay_min)}`;
+                }
+                lines.push(`> ${delayLine}`);
             }
-            if (holdLine) {
-                lines.push(`> ${holdLine}`);
+
+            // Time source breakdown
+            const tsb = gs.time_source_breakdown || {};
+            const tsTotal = (tsb['off_utc'] || 0) + (tsb['out_utc+taxi'] || 0) + (tsb['first_seen'] || 0) + (tsb['first_seen+connect'] || 0);
+            if (tsTotal > 0) {
+                const parts = [];
+                if (tsb['off_utc']) parts.push(`${tsb['off_utc']} wheels-off`);
+                if (tsb['out_utc+taxi']) parts.push(`${tsb['out_utc+taxi']} gate+taxi`);
+                if (tsb['first_seen'] || tsb['first_seen+connect']) parts.push(`${(tsb['first_seen'] || 0) + (tsb['first_seen+connect'] || 0)} first-seen`);
+                lines.push(`> Time sources: ${parts.join(', ')}`);
             }
 
             // Per-origin breakdown
             const perOrigin = gs.per_origin_breakdown || [];
             if (perOrigin.length > 0) {
-                // Sort by total flights descending
                 const sortedOrigins = [...perOrigin].sort((a, b) => (b.total || 0) - (a.total || 0));
 
                 lines.push('');
@@ -8834,7 +8877,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 for (const o of shown) {
                     const oPct = (o.compliance_pct || 0).toFixed(0);
                     const holdStr = o.avg_hold_time_min ? `, hold ${this.formatDuration(o.avg_hold_time_min)}` : '';
-                    lines.push(`> \`${o.origin}\` \u2014 ${o.total || 0} flights, ${oPct}% compliant${holdStr}`);
+                    const delayStr = o.avg_gs_delay_min ? `, delay ${this.formatDuration(o.avg_gs_delay_min)}` : '';
+                    lines.push(`> \`${o.origin}\` \u2014 ${o.total || 0} flt, ${oPct}% comp${holdStr}${delayStr}`);
                 }
                 if (sortedOrigins.length > maxOrigins) {
                     lines.push(`> *... and ${sortedOrigins.length - maxOrigins} more origin${sortedOrigins.length - maxOrigins === 1 ? '' : 's'}*`);
@@ -8850,10 +8894,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Truncation safety
         if (text.length > 1950) {
-            // Rebuild with fewer origins
-            // Simple approach: trim from end until under limit
             while (text.length > 1950 && lines.length > 5) {
-                lines.splice(lines.length - 2, 1); // Remove second-to-last line (keep footer)
+                lines.splice(lines.length - 2, 1);
                 text = lines.join('\n');
             }
         }
