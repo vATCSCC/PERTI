@@ -48,10 +48,13 @@ include("sessions/handler.php");
     $dest_row = $dest_result ? $dest_result->fetch_assoc() : null;
     $plan_destinations = $dest_row && $dest_row['destinations'] ? $dest_row['destinations'] : '';
 
-    // Get airport configs for demand charts
+    // Get airport configs for demand charts (deduplicated by airport)
     $config_result = $conn_sqli->query("SELECT airport, weather, aar, adr, arrive, depart FROM p_configs WHERE p_id=$id");
     $plan_configs = [];
+    $seen_airports = [];
     while ($row = $config_result->fetch_assoc()) {
+        if (in_array($row['airport'], $seen_airports)) continue;
+        $seen_airports[] = $row['airport'];
         $plan_configs[] = $row;
     }
 ?>
