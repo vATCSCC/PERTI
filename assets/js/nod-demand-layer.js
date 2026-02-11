@@ -434,6 +434,11 @@ const NODDemandLayer = (function() {
             return false;
         }
 
+        // Validate monitor has a type
+        if (!monitor || !monitor.type) {
+            console.error('[DemandLayer] Monitor missing type');
+            return false;
+        }
         // Validate monitor based on type
         if (monitor.type === 'fix' && !monitor.fix) {
             console.error('[DemandLayer] Fix monitor missing fix name');
@@ -642,18 +647,17 @@ const NODDemandLayer = (function() {
 
         try {
             const monitorsJson = JSON.stringify(state.monitors);
-            console.log('[DemandLayer] Sending monitors to API:', monitorsJson);
+            console.log('[DemandLayer] Sending monitors to API:', monitorsJson.substring(0, 200));
 
-            const params = new URLSearchParams({
-                monitors: monitorsJson,
-                bucket_minutes: state.settings.bucketMinutes,
-                horizon_hours: state.settings.horizonHours,
+            const response = await fetch(CONFIG.apiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    monitors: state.monitors,
+                    bucket_minutes: state.settings.bucketMinutes,
+                    horizon_hours: state.settings.horizonHours,
+                }),
             });
-
-            const url = `${CONFIG.apiEndpoint}?${params}`;
-            console.log('[DemandLayer] API URL:', url.substring(0, 200) + '...');
-
-            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -1429,7 +1433,7 @@ const NODDemandLayer = (function() {
             if (data.version !== 1) {return;}
 
             if (Array.isArray(data.monitors)) {
-                state.monitors = data.monitors;
+                state.monitors = data.monitors.filter(m => m && m.type);
             }
             if (data.settings) {
                 Object.assign(state.settings, data.settings);
@@ -1739,9 +1743,10 @@ const NODDemandLayer = (function() {
         state.monitors.forEach((monitor, idx) => {
             const id = getMonitorId(monitor);
             const label = getMonitorLabel(monitor);
-            const typeIcon = monitor.type === 'fix' ? 'fa-map-marker-alt' :
-                monitor.type === 'airway' ? 'fa-route' :
-                    monitor.type.includes('segment') ? 'fa-arrows-alt-h' :
+            const mtype = monitor.type || '';
+            const typeIcon = mtype === 'fix' ? 'fa-map-marker-alt' :
+                mtype === 'airway' ? 'fa-route' :
+                    mtype.includes('segment') ? 'fa-arrows-alt-h' :
                         'fa-filter';
 
             // Get count from current demand data
