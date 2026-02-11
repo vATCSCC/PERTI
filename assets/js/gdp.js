@@ -20,9 +20,9 @@ const GDP = (function() {
     const API = {
         preview: 'api/tmi/gdp_preview.php',
         simulate: 'api/tmi/gdp_simulate.php',
-        apply: 'api/tmi/gdp_apply.php',
+        apply: 'api/gdt/programs/activate.php',
         purgeLocal: 'api/tmi/gdp_purge_local.php',
-        purge: 'api/tmi/gdp_purge.php',
+        purge: 'api/gdt/programs/purge.php',
     };
 
     // State tracking
@@ -725,7 +725,10 @@ const GDP = (function() {
             return;
         }
 
-        const payload = collectGdpPayload();
+        if (!state.programId) {
+            alert('No GDP program to activate. Run Model first.');
+            return;
+        }
 
         const btn = document.getElementById('gdp_run_actual_btn');
         if (btn) {
@@ -734,7 +737,9 @@ const GDP = (function() {
         }
 
         try {
-            const result = await apiPostJson(API.apply, payload);
+            const result = await apiPostJson(API.apply, {
+                program_id: state.programId,
+            });
 
             if (result.status !== 'ok') {
                 alert('Apply failed: ' + (result.message || 'Unknown error'));
@@ -743,9 +748,16 @@ const GDP = (function() {
 
             updateStatusBadge('ACTIVE');
             updateWorkflowButtons();
-            updateMetrics(result.metrics);
 
-            alert('GDP applied successfully. ' + result.applied_count + ' flights assigned EDCTs.');
+            const data = result.data || {};
+            const flightsInfo = data.flights || {};
+            const powerRun = data.power_run || {};
+            if (powerRun && typeof updateMetrics === 'function') {
+                updateMetrics(powerRun);
+            }
+
+            const controlled = flightsInfo.controlled || 0;
+            alert('GDP activated. ' + controlled + ' flights assigned EDCTs.');
 
         } catch (err) {
             console.error('Apply error:', err);
@@ -864,24 +876,28 @@ const GDP = (function() {
             return;
         }
 
-        try {
-            const payload = {
-                program_id: state.programId,
-                gdp_airport: document.getElementById('gdp_ctl_element')?.value || '',
-            };
+        if (!state.programId) {
+            alert('No GDP program to purge.');
+            return;
+        }
 
-            const result = await apiPostJson(API.purge, payload);
+        try {
+            const result = await apiPostJson(API.purge, {
+                program_id: state.programId,
+                purged_by: 'TMU',
+            });
 
             if (result.status !== 'ok') {
                 alert('Purge failed: ' + (result.message || 'Unknown error'));
                 return;
             }
 
+            state.programId = null;
             updateStatusBadge('PURGED');
             updateWorkflowButtons();
             clearDisplay();
 
-            alert('GDP purged. ' + result.flights_cleared + ' flights cleared.');
+            alert('GDP purged successfully.');
 
         } catch (err) {
             console.error('Purge error:', err);
@@ -1421,6 +1437,9 @@ const GDP = (function() {
         document.getElementById('gdp_reload_btn')?.addEventListener('click', handleReload);
         document.getElementById('gdp_model_btn')?.addEventListener('click', handleModel);  // Model = Preview + Simulate
         document.getElementById('gdp_submit_tmi_btn')?.addEventListener('click', handleSubmitToTmi);  // Submit to TMI Publishing
+        document.getElementById('gdp_run_actual_btn')?.addEventListener('click', handleApply);
+        document.getElementById('gdp_purge_btn')?.addEventListener('click', handlePurge);
+        document.getElementById('gdp_purge_local_btn')?.addEventListener('click', handlePurgeLocal);
 
         // Scope method radio buttons
         document.getElementById('gdp_scope_tier')?.addEventListener('change', function() {
