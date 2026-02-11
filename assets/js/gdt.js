@@ -44,6 +44,7 @@
         extend: 'api/gdt/programs/extend.php',
         revise: 'api/gdt/programs/revise.php',
         cancel: 'api/gdt/programs/cancel.php',
+        transition: 'api/gdt/programs/transition.php',
         purge: 'api/gdt/programs/purge.php',
         get: 'api/gdt/programs/get.php',
         flights: 'api/gdt/flights/list.php',
@@ -755,7 +756,296 @@
     }
 
     function dashboardTransition(programId) {
-        Swal.fire('GS to GDP Transition', 'Transition functionality coming in Phase 4.', 'info');
+        var program = findDashboardProgram(programId);
+        if (!program) {
+            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            return;
+        }
+
+        if ((program.program_type || '') !== 'GS') {
+            Swal.fire('Error', 'Only Ground Stop programs can be transitioned to GDP.', 'error');
+            return;
+        }
+
+        // Populate GS info
+        var gsInfo = 'GS #' + programId + ' - ' + escapeHtml(program.ctl_element || '') +
+            ' (' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc) + ')' +
+            ' | ' + (program.impacting_condition || 'WEATHER');
+        document.getElementById('gdt_transition_gs_info').innerHTML = gsInfo;
+
+        // Reset to phase 1 (propose)
+        setTransitionPhase('propose');
+
+        // Pre-fill GDP end time: 3 hours after GS end
+        if (program.end_utc) {
+            var endDt = new Date(program.end_utc);
+            endDt.setUTCHours(endDt.getUTCHours() + 3);
+            document.getElementById('gdt_transition_end_utc').value = isoToDatetimeLocal(endDt.toISOString());
+        }
+
+        // Pre-fill impacting condition from GS
+        document.getElementById('gdt_transition_impacting').value = program.impacting_condition || 'WEATHER';
+        document.getElementById('gdt_transition_gdp_type').value = 'GDP-DAS';
+        document.getElementById('gdt_transition_rate').value = '';
+        document.getElementById('gdt_transition_reserve').value = '';
+        document.getElementById('gdt_transition_delay_cap').value = '180';
+        document.getElementById('gdt_transition_comments').value = '';
+
+        // Clear state
+        var errEl = document.getElementById('gdt_transition_error');
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+
+        // Store GS program ID and chain info
+        var modal = document.getElementById('gdt_transition_modal');
+        modal.dataset.gsProgramId = programId;
+        modal.dataset.gdpProgramId = '';
+
+        // Build advisory preview
+        buildTransitionAdvisoryPreview(program, 'propose');
+
+        $('#gdt_transition_modal').modal('show');
+    }
+
+    function setTransitionPhase(phase) {
+        var phaseBadge = document.getElementById('gdt_transition_phase_badge');
+        var phaseHelp = document.getElementById('gdt_transition_phase_help');
+        var paramsDiv = document.getElementById('gdt_transition_params');
+        var proposedBanner = document.getElementById('gdt_transition_proposed_banner');
+        var cumulativeRow = document.getElementById('gdt_transition_cumulative_row');
+        var proposeBtn = document.getElementById('gdt_transition_propose_btn');
+        var activateBtn = document.getElementById('gdt_transition_activate_btn');
+
+        if (phase === 'propose') {
+            phaseBadge.className = 'badge badge-secondary mr-2';
+            phaseBadge.textContent = 'PHASE 1: PROPOSE';
+            phaseHelp.textContent = 'Create a proposed GDP while the GS remains active.';
+            paramsDiv.classList.remove('d-none');
+            proposedBanner.classList.add('d-none');
+            cumulativeRow.classList.add('d-none');
+            proposeBtn.classList.remove('d-none');
+            activateBtn.classList.add('d-none');
+        } else if (phase === 'activate') {
+            phaseBadge.className = 'badge badge-success mr-2';
+            phaseBadge.textContent = 'PHASE 2: ACTIVATE';
+            phaseHelp.textContent = 'Activate the GDP and cancel the Ground Stop.';
+            paramsDiv.classList.add('d-none');
+            proposedBanner.classList.remove('d-none');
+            cumulativeRow.classList.remove('d-none');
+            proposeBtn.classList.add('d-none');
+            activateBtn.classList.remove('d-none');
+        }
+    }
+
+    function buildTransitionAdvisoryPreview(gsProgram, phase) {
+        var now = new Date();
+        var ctlElement = gsProgram.ctl_element || 'XXX';
+        var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
+            String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
+        var lines = [];
+
+        if (phase === 'propose') {
+            var gdpType = document.getElementById('gdt_transition_gdp_type').value || 'GDP-DAS';
+            var rate = document.getElementById('gdt_transition_rate').value || '';
+            var delayCap = document.getElementById('gdt_transition_delay_cap').value || '';
+            var endUtcVal = document.getElementById('gdt_transition_end_utc').value || '';
+            var comments = document.getElementById('gdt_transition_comments').value || '';
+            var impacting = document.getElementById('gdt_transition_impacting').value || 'WEATHER';
+
+            var gsStart = formatZuluFromIso(gsProgram.start_utc);
+            var gdpEnd = endUtcVal ? formatZuluFromLocal(endUtcVal) : '--:--Z';
+
+            lines.push(AdvisoryConfig.getPrefix() + ' ADVZY XXX ' + ctlElement + ' ' + headerDate + ' CDM PROPOSED GROUND DELAY PROGRAM');
+            lines.push('CTL ELEMENT: ' + ctlElement);
+            lines.push('IMPACTING CONDITION: ' + impacting);
+            lines.push('GDP TYPE: ' + gdpType);
+            if (rate) lines.push('PROGRAM RATE: ' + rate);
+            if (delayCap) lines.push('DELAY ASSIGNMENT LIMIT: ' + delayCap + ' MINUTES');
+            lines.push('GROUND STOP CURRENTLY IN EFFECT: ' + gsStart + ' - ' + formatZuluFromIso(gsProgram.end_utc));
+            lines.push('PROPOSED GDP PERIOD: ' + formatZuluFromIso(gsProgram.end_utc) + ' - ' + gdpEnd);
+            lines.push('CUMULATIVE PROGRAM PERIOD: ' + gsStart + ' - ' + gdpEnd);
+            if (comments) lines.push('COMMENTS: ' + comments);
+        } else {
+            // Activate phase advisory
+            var modal = document.getElementById('gdt_transition_modal');
+            var gdpId = modal.dataset.gdpProgramId || '?';
+            var cumText = document.getElementById('gdt_transition_cumulative').textContent || '';
+
+            lines.push(AdvisoryConfig.getPrefix() + ' ADVZY XXX ' + ctlElement + ' ' + headerDate + ' CDM GROUND DELAY PROGRAM');
+            lines.push('CTL ELEMENT: ' + ctlElement);
+            lines.push('GROUND STOP CANCELLED.');
+            lines.push('GROUND DELAY PROGRAM #' + gdpId + ' IS NOW IN EFFECT.');
+            if (cumText) lines.push('CUMULATIVE PROGRAM PERIOD: ' + cumText);
+        }
+
+        var pre = document.getElementById('gdt_transition_advisory_preview');
+        if (pre) pre.textContent = lines.join('\n');
+    }
+
+    function submitTransitionPropose() {
+        var modal = document.getElementById('gdt_transition_modal');
+        var gsProgramId = parseInt(modal.dataset.gsProgramId);
+        var errEl = document.getElementById('gdt_transition_error');
+        var btn = document.getElementById('gdt_transition_propose_btn');
+
+        // Validate required fields
+        var rate = document.getElementById('gdt_transition_rate').value;
+        var endUtcVal = document.getElementById('gdt_transition_end_utc').value;
+
+        if (!rate || parseInt(rate) <= 0) {
+            errEl.textContent = 'Program rate is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        if (!endUtcVal) {
+            errEl.textContent = 'GDP end time is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        var gdpEndUtc = new Date(endUtcVal).toISOString();
+        var gdpType = document.getElementById('gdt_transition_gdp_type').value || 'GDP-DAS';
+        var reserve = document.getElementById('gdt_transition_reserve').value;
+        var delayCap = document.getElementById('gdt_transition_delay_cap').value;
+        var impacting = document.getElementById('gdt_transition_impacting').value;
+        var comments = document.getElementById('gdt_transition_comments').value;
+
+        var body = {
+            gs_program_id: gsProgramId,
+            phase: 'propose',
+            gdp_type: gdpType,
+            gdp_end_utc: gdpEndUtc,
+            program_rate: parseInt(rate)
+        };
+        if (reserve) body.reserve_rate = parseInt(reserve);
+        if (delayCap) body.delay_limit_min = parseInt(delayCap);
+        if (impacting) body.impacting_condition = impacting;
+        if (comments) body.comments = comments;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Proposing...';
+        errEl.classList.add('d-none');
+
+        $.ajax({
+            url: GS_API.transition,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(body),
+            success: function(resp) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
+
+                if (resp.status === 'ok' && resp.data) {
+                    var gdpId = resp.data.gdp_program_id;
+                    modal.dataset.gdpProgramId = gdpId;
+
+                    // Show cumulative period
+                    var cumStart = formatZuluFromIso(resp.data.cumulative_start);
+                    var cumEnd = formatZuluFromIso(resp.data.cumulative_end);
+                    document.getElementById('gdt_transition_cumulative').textContent = cumStart + ' - ' + cumEnd;
+                    document.getElementById('gdt_transition_proposed_id').textContent = 'GDP #' + gdpId;
+
+                    // Advance to phase 2
+                    setTransitionPhase('activate');
+
+                    var gsProgram = findDashboardProgram(gsProgramId);
+                    if (gsProgram) buildTransitionAdvisoryPreview(gsProgram, 'activate');
+
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'GDP Proposed',
+                        html: 'GDP #' + gdpId + ' created as PROPOSED.<br>GS remains active. Click <strong>Activate</strong> when ready.',
+                        timer: 5000,
+                        showConfirmButton: true
+                    });
+
+                    loadActiveProgramsDashboard();
+                } else {
+                    errEl.textContent = resp.message || 'Propose failed.';
+                    errEl.classList.remove('d-none');
+                }
+            },
+            error: function(xhr) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
+                var msg = 'Failed to propose GDP.';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                errEl.textContent = msg;
+                errEl.classList.remove('d-none');
+            }
+        });
+    }
+
+    function submitTransitionActivate() {
+        var modal = document.getElementById('gdt_transition_modal');
+        var gsProgramId = parseInt(modal.dataset.gsProgramId);
+        var gdpProgramId = parseInt(modal.dataset.gdpProgramId);
+        var errEl = document.getElementById('gdt_transition_error');
+        var btn = document.getElementById('gdt_transition_activate_btn');
+
+        if (!gdpProgramId || gdpProgramId <= 0) {
+            errEl.textContent = 'No proposed GDP found. Run Phase 1 first.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Activate GDP #' + gdpProgramId + '?',
+            html: 'This will:<br>- Set GS #' + gsProgramId + ' to <strong>TRANSITIONED</strong><br>- Activate GDP #' + gdpProgramId,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Yes, activate'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Activating...';
+            errEl.classList.add('d-none');
+
+            $.ajax({
+                url: GS_API.transition,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    gs_program_id: gsProgramId,
+                    phase: 'activate',
+                    gdp_program_id: gdpProgramId
+                }),
+                success: function(resp) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
+
+                    if (resp.status === 'ok') {
+                        $('#gdt_transition_modal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Transition Complete',
+                            html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE',
+                            timer: 4000,
+                            showConfirmButton: false
+                        });
+                        loadActiveProgramsDashboard();
+
+                        // If the GS was loaded in the form, reset
+                        if (GS_CURRENT_PROGRAM_ID === gsProgramId) {
+                            resetAndNewProgram();
+                        }
+                    } else {
+                        errEl.textContent = resp.message || 'Activation failed.';
+                        errEl.classList.remove('d-none');
+                    }
+                },
+                error: function(xhr) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
+                    var msg = 'Failed to activate GDP.';
+                    try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+                    errEl.textContent = msg;
+                    errEl.classList.remove('d-none');
+                }
+            });
+        });
     }
 
     function dashboardCancel(programId) {
@@ -827,6 +1117,8 @@
     window.dashboardCancel = dashboardCancel;
     window.submitExtend = submitExtend;
     window.submitRevise = submitRevise;
+    window.submitTransitionPropose = submitTransitionPropose;
+    window.submitTransitionActivate = submitTransitionActivate;
 
     // ========================================================================
     // Workflow Stepper
@@ -6186,6 +6478,25 @@
                     var pid = parseInt(document.getElementById('gdt_revise_modal').dataset.programId);
                     var prog = findDashboardProgram(pid);
                     if (prog) buildReviseAdvisoryPreview(prog);
+                });
+            }
+        });
+
+        // Wire up transition modal advisory preview auto-update
+        ['gdt_transition_gdp_type', 'gdt_transition_rate', 'gdt_transition_reserve',
+         'gdt_transition_end_utc', 'gdt_transition_delay_cap', 'gdt_transition_impacting',
+         'gdt_transition_comments'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function() {
+                    var gsId = parseInt(document.getElementById('gdt_transition_modal').dataset.gsProgramId);
+                    var prog = findDashboardProgram(gsId);
+                    if (prog) buildTransitionAdvisoryPreview(prog, 'propose');
+                });
+                el.addEventListener('keyup', function() {
+                    var gsId = parseInt(document.getElementById('gdt_transition_modal').dataset.gsProgramId);
+                    var prog = findDashboardProgram(gsId);
+                    if (prog) buildTransitionAdvisoryPreview(prog, 'propose');
                 });
             }
         });
