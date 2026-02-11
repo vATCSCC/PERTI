@@ -2201,10 +2201,6 @@ document.addEventListener('DOMContentLoaded', updateNavbarHeight);
 window.addEventListener('resize', updateNavbarHeight);
 </script>
 
-<!-- Internationalization -->
-<script src="assets/js/lib/i18n.js"></script>
-<script src="assets/locales/index.js"></script>
-
 <!-- Phase Colors Configuration -->
 <script src="assets/js/config/phase-colors.js"></script>
 <!-- Filter Colors Configuration -->
