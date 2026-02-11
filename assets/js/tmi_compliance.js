@@ -8840,17 +8840,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 lines.push(`> ${holdLine}`);
             }
 
-            // GS delay stats with range
+            // GS delay: Total / Maximum / Average (matches advisory format)
             const gsDelay = gs.gs_delay_stats || {};
             if (gsDelay.avg_delay_min && gsDelay.avg_delay_min > 0) {
-                let delayLine = `**Avg GS Delay:** ${this.formatDuration(gsDelay.avg_delay_min)}`;
-                if (gsDelay.median_delay_min !== undefined) {
-                    delayLine += ` (median ${this.formatDuration(gsDelay.median_delay_min)}, max ${this.formatDuration(gsDelay.max_delay_min)})`;
-                }
-                if (gsDelay.total_delay_min) {
-                    delayLine += ` | Total: ${this.formatDuration(gsDelay.total_delay_min)}`;
-                }
-                lines.push(`> ${delayLine}`);
+                const total = gsDelay.total_delay_min ? Math.round(gsDelay.total_delay_min) : '?';
+                const max = gsDelay.max_delay_min ? Math.round(gsDelay.max_delay_min) : '?';
+                const avg = Math.round(gsDelay.avg_delay_min);
+                lines.push(`> **Total, Maximum, Average Delays:** ${total} / ${max} / ${avg}`);
             }
 
             // Time source breakdown
