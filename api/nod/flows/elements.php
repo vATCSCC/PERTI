@@ -421,6 +421,8 @@ function resolveRouteGeojson($conn, $routeString) {
                 return json_encode($geojson);
             }
         }
+    } else {
+        error_log('[NOD Flows] GIS service unavailable, falling back to ADL-only route resolution');
     }
 
     // Fallback: ADL-only processing (if GIS unavailable or failed)
