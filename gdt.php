@@ -621,6 +621,11 @@ include("load/config.php");
                 <div class="gdt-step-circle">4</div>
                 <div class="gdt-step-label">Active</div>
             </div>
+            <!-- What-If badge and discard button (hidden by default) -->
+            <span class="badge badge-warning ml-3 d-none" id="gdt_whatif_badge" style="font-size:0.75rem; vertical-align: middle;">WHAT-IF MODE</span>
+            <button class="btn btn-sm btn-outline-secondary ml-2 d-none" id="gdt_whatif_discard_btn" onclick="exitWhatIfMode();" style="vertical-align: middle;">
+                <i class="fas fa-undo mr-1"></i> Discard What-If
+            </button>
         </div>
     </div>
 
