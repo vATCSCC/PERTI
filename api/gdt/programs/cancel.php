@@ -48,7 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
-$auth_cid = gdt_require_auth();
+$auth_cid = gdt_optional_auth();
 require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {

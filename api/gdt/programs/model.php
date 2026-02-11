@@ -107,20 +107,23 @@ $placeholders = implode(',', array_fill(0, count($facilities), '?'));
 // Query flights destined for this airport, departing from scope facilities
 // during the GS time window
 $sql = "
-    SELECT 
+    SELECT
         flight_uid,
         callsign,
         fp_dept_icao AS dep,
         fp_dest_icao AS arr,
         fp_dept_artcc AS dep_artcc,
         fp_dest_artcc AS arr_artcc,
+        aircraft_icao,
         etd_runway_utc,
         eta_runway_utc,
+        DATEDIFF(SECOND, '1970-01-01', etd_runway_utc) AS etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', eta_runway_utc) AS eta_epoch,
         phase,
         gs_flag,
-        CASE 
-            WHEN phase IN ('departed', 'enroute', 'descending') THEN 1 
-            ELSE 0 
+        CASE
+            WHEN phase IN ('departed', 'enroute', 'descending') THEN 1
+            ELSE 0
         END AS is_airborne
     FROM dbo.vw_adl_flights
     WHERE fp_dest_icao = ?
