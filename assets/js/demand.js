@@ -763,6 +763,11 @@ window.DemandChartCore = (function() {
                 if (state.chart) { state.chart.dispose(); state.chart = null; }
             },
             resize: function() { if (state.chart) {state.chart.resize();} },
+            setTitle: function(text, subtext) {
+                if (state.chart) {
+                    state.chart.setOption({ title: { text: text, subtext: subtext || '' } });
+                }
+            },
         };
     }
 

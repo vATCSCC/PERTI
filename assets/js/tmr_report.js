@@ -82,6 +82,7 @@
 
                 populateForm(reportData);
                 initDemandCharts();
+                autoImportCompliance();
 
                 if (isNew) {
                     updateStatus('new', PERTII18n.t('tmr.status.newReport'));
@@ -1103,12 +1104,70 @@
             });
     }
 
+    /**
+     * Auto-import compliance data after report loads.
+     * Silently matches compliance results to TMIs without user interaction.
+     * Only runs if TMIs exist and none have compliance_pct already set.
+     */
+    function autoImportCompliance() {
+        if (tmiList.length === 0) return;
+
+        // Skip if any TMI already has compliance_pct (already imported)
+        var alreadyImported = tmiList.some(function(t) { return t.compliance_pct !== undefined && t.compliance_pct !== null; });
+        if (alreadyImported) return;
+
+        $.getJSON('api/analysis/tmi_compliance.php', { action: 'results', p_id: planId })
+            .done(function(resp) {
+                if (!resp || !resp.results) return;
+
+                var matched = 0;
+                var results = resp.results;
+
+                tmiList.forEach(function(tmi) {
+                    if (!tmi.element) return;
+                    var el = tmi.element.toUpperCase();
+
+                    if (results.mit_results) {
+                        results.mit_results.forEach(function(r) {
+                            var mp = (r.measurement_point || r.fix || '').toUpperCase();
+                            if (mp === el || mp.indexOf(el) !== -1) {
+                                var pct = r.compliance_pct || r.compliance_rate || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                matched++;
+                            }
+                        });
+                    }
+
+                    if (results.gs_results) {
+                        results.gs_results.forEach(function(r) {
+                            var airport = (r.airport || '').toUpperCase();
+                            if (airport === el || 'K' + airport === el || airport === 'K' + el) {
+                                var pct = r.compliance_pct || r.compliance_rate || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                matched++;
+                            }
+                        });
+                    }
+                });
+
+                if (matched > 0) {
+                    renderTMITable();
+                    immediateFieldSave();
+                }
+            });
+    }
+
     // ========================================================================
     // Demand Charts
     // ========================================================================
 
+    var demandChartsInitialized = false;
+
     function initDemandCharts() {
         if (typeof window.DemandChartCore === 'undefined') return;
+        if (demandChartsInitialized) return;
 
         var configs = (window.planData && window.planData.configs) || [];
         if (configs.length === 0) return;
@@ -1134,26 +1193,66 @@
         var startHoursFromNow = (startUtc.getTime() - padMs - now.getTime()) / (60 * 60 * 1000);
         var endHoursFromNow = (endUtc.getTime() + padMs - now.getTime()) / (60 * 60 * 1000);
 
-        configs.forEach(function(cfg) {
-            var containerId = 'demand_chart_' + cfg.airport;
-            var el = document.getElementById(containerId);
-            if (!el) return;
+        // Build archived data title: "KJFK | Archived | 01/15/2026 1800Z - 0200Z"
+        var sd = new Date(startStr);
+        var ed = new Date(endStr);
+        var sdMonth = (sd.getUTCMonth() + 1).toString().padStart(2, '0');
+        var sdDay = sd.getUTCDate().toString().padStart(2, '0');
+        var sdYear = sd.getUTCFullYear();
+        var sdTime = sd.getUTCHours().toString().padStart(2, '0') + sd.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        var edTime = ed.getUTCHours().toString().padStart(2, '0') + ed.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        var dateLabel = sdMonth + '/' + sdDay + '/' + sdYear + ' ' + sdTime + ' - ' + edTime;
 
-            var icao = cfg.airport;
-            if (icao && icao.length === 3) icao = 'K' + icao;
+        // Defer loading until Airport Conditions tab is visible (ECharts needs visible container)
+        var tabLink = $('a[data-toggle="tab"][href="#tmr_airport"]');
 
-            var chart = window.DemandChartCore.createChart(containerId, {
-                direction: 'both',
-                granularity: 'hourly',
-                showRateLines: true,
-                timeRangeStart: startHoursFromNow,
-                timeRangeEnd: endHoursFromNow,
+        function loadCharts() {
+            if (demandChartsInitialized) return;
+            demandChartsInitialized = true;
+
+            // Deduplicate airports
+            var seen = {};
+            configs.forEach(function(cfg) {
+                if (seen[cfg.airport]) return;
+                seen[cfg.airport] = true;
+
+                var containerId = 'demand_chart_' + cfg.airport;
+                var el = document.getElementById(containerId);
+                if (!el) return;
+
+                var icao = cfg.airport;
+                if (icao && icao.length === 3) icao = 'K' + icao;
+
+                var chart = window.DemandChartCore.createChart(containerId, {
+                    direction: 'both',
+                    granularity: 'hourly',
+                    showRateLines: true,
+                    timeRangeStart: startHoursFromNow,
+                    timeRangeEnd: endHoursFromNow,
+                });
+
+                if (chart) {
+                    demandCharts[cfg.airport] = chart;
+                    chart.load(icao).then(function() {
+                        // Override title to show archived event date range
+                        chart.setTitle(icao + '          Archived          ' + dateLabel);
+                    });
+                }
             });
+        }
 
-            if (chart) {
-                demandCharts[cfg.airport] = chart;
-                chart.load(icao);
-            }
+        // If tab is already visible, load immediately; otherwise defer
+        if ($('#tmr_airport').hasClass('active')) {
+            loadCharts();
+        } else {
+            tabLink.one('shown.bs.tab', loadCharts);
+        }
+
+        // Resize charts when tab becomes visible (handles subsequent tab switches)
+        tabLink.on('shown.bs.tab', function() {
+            Object.keys(demandCharts).forEach(function(apt) {
+                demandCharts[apt].resize();
+            });
         });
     }
 
