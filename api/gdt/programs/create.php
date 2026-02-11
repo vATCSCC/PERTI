@@ -57,6 +57,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
 $auth_cid = gdt_optional_auth();
 
 // Only allow POST
@@ -180,6 +181,10 @@ $program_guid = strtoupper(sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
     mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
 ));
 
+// Auto-assign advisory number
+$advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+$adv_number = $advNumHelper->reserve();
+
 // Generate program name: KJFK-GS-MMDDhhmm
 $start_for_name = new DateTime($start_utc);
 $program_name = $ctl_element . '-' . str_replace('-', '', $program_type) . '-' . $start_for_name->format('mdHi');
@@ -201,7 +206,7 @@ $sql = "
         created_by, created_at, updated_at
     ) VALUES (
         ?, ?, ?, ?, ?,
-        'ADVZY 001', ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
         'PROPOSED', 1, 0, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
@@ -219,6 +224,7 @@ $params = [
     $element_type,
     $program_type,
     $program_name,
+    $adv_number,
     $start_utc,
     $end_utc,
     $start_utc,  // cumulative_start
