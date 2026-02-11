@@ -81,9 +81,19 @@ function handleGet($conn) {
 function handleFixSearch($conn, $q) {
     $pattern = $q . '%';
 
-    $sql = "SELECT TOP 10 fix_name, fix_type, lat, lon
-            FROM dbo.nav_fixes
-            WHERE fix_name LIKE ?
+    // Deduplicate fix names — pick one per fix_name, preferring CONUS + points.csv
+    $sql = ";WITH ranked AS (
+                SELECT fix_name, fix_type, lat, lon,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY fix_name
+                        ORDER BY
+                            CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                            CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END
+                    ) AS rn
+                FROM dbo.nav_fixes
+                WHERE fix_name LIKE ?
+            )
+            SELECT TOP 10 fix_name, fix_type, lat, lon FROM ranked WHERE rn = 1
             ORDER BY fix_name ASC";
 
     $stmt = sqlsrv_query($conn, $sql, [$pattern]);

@@ -7221,6 +7221,19 @@
             payload.fix_name = value;
         } else if (elementType === 'ROUTE') {
             payload.route_string = value;
+        } else if (elementType === 'PROCEDURE') {
+            // Pass airport context for procedure resolution
+            // Try to derive airport ICAO from the facility config
+            const facilityCode = state.flows.facility;
+            if (facilityCode) {
+                // If the value contains an airport code (e.g., "SIE.CAMRN# KJFK"), extract it
+                const parts = value.split(/\s+/);
+                const icaoPart = parts.find(p => /^K[A-Z]{3}$/.test(p));
+                if (icaoPart) {
+                    payload.airport_icao = icaoPart;
+                    payload.element_name = parts.filter(p => p !== icaoPart).join(' ');
+                }
+            }
         }
 
         try {
@@ -7518,9 +7531,14 @@
             debounceTimer = setTimeout(async () => {
                 try {
                     let url = `api/nod/flows/suggestions.php?type=${type}&q=${encodeURIComponent(q)}`;
-                    if (type === 'procedure' && state.flows.facility) {
-                        // For procedures, we need an airport - use facility code as hint
-                        url += `&facility=${encodeURIComponent(state.flows.facility)}`;
+                    if (type === 'procedure') {
+                        // For procedures, try to extract airport ICAO from current input
+                        // (user may type "SIE.CAMRN# KJFK" — extract KJFK)
+                        const inputParts = inputEl.value.trim().split(/\s+/);
+                        const icao = inputParts.find(p => /^K[A-Z]{3}$/i.test(p.toUpperCase()));
+                        if (icao) {
+                            url += `&airport=${encodeURIComponent(icao.toUpperCase())}`;
+                        }
                     }
                     const resp = await fetch(url);
                     const data = await resp.json();
