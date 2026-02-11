@@ -83,6 +83,17 @@ $sql = "
         p.created_at,
         p.activated_at,
         p.updated_at,
+        -- Computed: status sort order (needed for UNION ORDER BY)
+        CASE p.status
+            WHEN 'ACTIVE' THEN 1
+            WHEN 'MODELING' THEN 2
+            WHEN 'PROPOSED' THEN 3
+            WHEN 'PENDING_COORD' THEN 4
+            WHEN 'TRANSITIONED' THEN 5
+            WHEN 'COMPLETED' THEN 6
+            WHEN 'CANCELLED' THEN 7
+            ELSE 8
+        END AS status_sort_order,
         -- Computed: elapsed percentage
         CASE
             WHEN p.start_utc IS NOT NULL AND p.end_utc IS NOT NULL
@@ -120,6 +131,16 @@ if ($include_recent) {
         p.parent_program_id, p.advisory_chain_id, p.transition_type,
         p.revision_number, p.superseded_by_id, p.scope_json, p.rates_hourly_json,
         p.created_by, p.created_at, p.activated_at, p.updated_at,
+        CASE p.status
+            WHEN 'ACTIVE' THEN 1
+            WHEN 'MODELING' THEN 2
+            WHEN 'PROPOSED' THEN 3
+            WHEN 'PENDING_COORD' THEN 4
+            WHEN 'TRANSITIONED' THEN 5
+            WHEN 'COMPLETED' THEN 6
+            WHEN 'CANCELLED' THEN 7
+            ELSE 8
+        END AS status_sort_order,
         CAST(100.0 AS DECIMAL(5,1)) AS elapsed_pct,
         0 AS minutes_remaining
     FROM dbo.tmi_programs p
@@ -128,18 +149,7 @@ if ($include_recent) {
     ";
 }
 
-$sql .= " ORDER BY
-    CASE status
-        WHEN 'ACTIVE' THEN 1
-        WHEN 'MODELING' THEN 2
-        WHEN 'PROPOSED' THEN 3
-        WHEN 'PENDING_COORD' THEN 4
-        WHEN 'TRANSITIONED' THEN 5
-        WHEN 'COMPLETED' THEN 6
-        WHEN 'CANCELLED' THEN 7
-        ELSE 8
-    END,
-    start_utc ASC";
+$sql .= " ORDER BY status_sort_order, start_utc ASC";
 
 $result = fetch_all($conn_tmi, $sql);
 
