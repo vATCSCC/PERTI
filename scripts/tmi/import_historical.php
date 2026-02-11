@@ -81,9 +81,9 @@ if (!empty($payload['ntml_raw'])) {
     $preParsedEntries = parseNtmlFile($payload['ntml_raw']);
 } elseif (!empty($payload['ntml_file'])) {
     $INPUT_MODE = 'ntml';
-    $filePath = realpath($payload['ntml_file']);
     $allowedDir = realpath(__DIR__ . '/../../DCC');
-    if ($filePath === false || ($allowedDir !== false && strpos($filePath, $allowedDir) !== 0)) {
+    $filePath = realpath($payload['ntml_file']);
+    if ($allowedDir === false || $filePath === false || strpos($filePath, $allowedDir) !== 0) {
         echo json_encode(['error' => 'ntml_file must be within the DCC/ directory']);
         exit(1);
     }
@@ -98,9 +98,9 @@ if (!empty($payload['ntml_raw'])) {
     $preParsedEntries = parseAdvzyFile($payload['advzy_raw']);
 } elseif (!empty($payload['advzy_file'])) {
     $INPUT_MODE = 'advzy';
-    $filePath = realpath($payload['advzy_file']);
     $allowedDir = realpath(__DIR__ . '/../../DCC');
-    if ($filePath === false || ($allowedDir !== false && strpos($filePath, $allowedDir) !== 0)) {
+    $filePath = realpath($payload['advzy_file']);
+    if ($allowedDir === false || $filePath === false || strpos($filePath, $allowedDir) !== 0) {
         echo json_encode(['error' => 'advzy_file must be within the DCC/ directory']);
         exit(1);
     }
