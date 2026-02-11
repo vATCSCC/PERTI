@@ -527,11 +527,23 @@ include("sessions/handler.php");
                                        placeholder="" style="max-width: 400px;">
                             </div>
 
-                            <div class="form-group mt-3">
-                                <label class="small text-muted">Host ARTCC</label>
-                                <input type="text" class="form-control form-control-sm tmr-field"
-                                       id="tmr_host_artcc" data-field="host_artcc"
-                                       placeholder="e.g., ZNY" style="max-width: 200px;">
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label class="small text-muted">Host ARTCC</label>
+                                        <input type="text" class="form-control form-control-sm tmr-field"
+                                               id="tmr_host_artcc" data-field="host_artcc"
+                                               placeholder="e.g., ZNY">
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="form-group">
+                                        <label class="small text-muted">Featured Facilities (comma-separated)</label>
+                                        <input type="text" class="form-control form-control-sm tmr-field"
+                                               id="tmr_featured_facilities" data-field="featured_facilities"
+                                               placeholder="ZNY, N90, KJFK, KLGA, KEWR">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

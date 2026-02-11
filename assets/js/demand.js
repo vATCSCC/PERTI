@@ -747,6 +747,7 @@ window.DemandChartCore = (function() {
             },
 
             getRateData: function() { return state.rateData; },
+            getLastData: function() { return state.lastData; },
             getState: function() {
                 return {
                     airport: state.airport,
@@ -757,6 +758,31 @@ window.DemandChartCore = (function() {
                     timeRangeStart: state.timeRangeStart,
                     timeRangeEnd: state.timeRangeEnd,
                 };
+            },
+            getSnapshot: function() {
+                if (!state.lastData || !state.airport) return null;
+                return {
+                    airport: state.airport,
+                    direction: state.direction,
+                    granularity: state.granularity,
+                    timeBasis: state.timeBasis,
+                    timeRangeStart: state.timeRangeStart,
+                    timeRangeEnd: state.timeRangeEnd,
+                    demandData: state.lastData,
+                    rateData: state.rateData,
+                };
+            },
+            loadFromSnapshot: function(snapshot) {
+                if (!snapshot || !snapshot.demandData) return;
+                state.airport = snapshot.airport;
+                state.direction = snapshot.direction || state.direction;
+                state.granularity = snapshot.granularity || state.granularity;
+                state.timeBasis = snapshot.timeBasis || state.timeBasis;
+                if (snapshot.timeRangeStart !== undefined) state.timeRangeStart = snapshot.timeRangeStart;
+                if (snapshot.timeRangeEnd !== undefined) state.timeRangeEnd = snapshot.timeRangeEnd;
+                state.lastData = snapshot.demandData;
+                state.rateData = snapshot.rateData || null;
+                this.render();
             },
             dispose: function() {
                 window.removeEventListener('resize', resizeHandler);

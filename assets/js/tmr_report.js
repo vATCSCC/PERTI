@@ -29,6 +29,7 @@
     var dirty = false;
     var staffingData = null;
     var goalsData = null;
+    var demandSnapshots = null;  // Saved demand chart data { airport: snapshot }
 
     // Trigger definitions with icons
     var TRIGGERS = [
@@ -245,6 +246,11 @@
         if (data.goals_assessment) {
             goalsData = data.goals_assessment;
         }
+
+        // Demand snapshots (restore saved chart data for historical recall)
+        if (data.demand_snapshots) {
+            demandSnapshots = data.demand_snapshots;
+        }
     }
 
     function gatherFormData() {
@@ -301,6 +307,9 @@
         if (goalsData) {
             data.goals_assessment = gatherGoalsAssessment();
         }
+
+        // Demand snapshots — capture current chart data for historical recall
+        data.demand_snapshots = gatherDemandSnapshots();
 
         return data;
     }
@@ -526,14 +535,12 @@
             if (resp.success && resp.tmis && resp.tmis.length > 0) {
                 var added = 0;
                 resp.tmis.forEach(function(parsed) {
-                    var key = 'manual_' + Date.now() + '_' + added;
-                    var tmi = {
-                        _source: 'manual', _key: key, category: 'manual',
-                        type: parsed.type, element: parsed.element, detail: parsed.detail,
-                        start_utc: parsed.start_utc, end_utc: parsed.end_utc,
-                        facility: parsed.facility,
+                    var key = 'parsed_' + Date.now() + '_' + added;
+                    var tmi = Object.assign({}, parsed, {
+                        _source: 'parsed', _key: key,
+                        category: parsed.category || 'ntml',
                         status: PERTII18n.t('tmr.tmi.source.manual'),
-                    };
+                    });
                     tmiList.push(tmi);
                     tmiSelected[key] = true;
                     added++;
@@ -639,9 +646,13 @@
 
         visibleTmis.forEach(function(t) {
             var checked = tmiSelected[t._key] ? 'checked' : '';
-            var badgeClass = 'tmi-badge-' + (t.category || 'ntml');
-            var sourceKey = t._source === 'db' ? 'db' : (t._source === 'manual' ? 'manual' : 'saved');
+            var cat = t.category || 'ntml';
+            var badgeClass = cat === 'program' ? 'badge-danger' : (cat === 'reroute' ? 'badge-info' : 'tmi-badge-' + cat);
+            var sourceKey = t._source === 'db' ? 'db' : (t._source === 'manual' || t._source === 'parsed' ? 'manual' : 'saved');
             var sourceLabel = PERTII18n.t('tmr.tmi.source.' + sourceKey);
+
+            var formattedDetail = formatTMIDetail(t);
+            var rawTooltip = t.raw || t.detail || formattedDetail;
 
             var cetC = buildCetPill(t._key, 'complied', t.complied);
             var cetE = buildCetPill(t._key, 'effective', t.effective);
@@ -651,7 +662,7 @@
                 '<td><input type="checkbox" class="tmi-select-row" data-key="' + t._key + '" ' + checked + '></td>' +
                 '<td><span class="badge ' + badgeClass + '">' + escapeHtml(t.type || t.category || '--') + '</span></td>' +
                 '<td>' + escapeHtml(t.element || '--') + '</td>' +
-                '<td class="text-truncate" style="max-width: 200px;" title="' + escapeHtml(t.detail || '') + '">' + escapeHtml(t.detail || '--') + '</td>' +
+                '<td class="text-truncate" style="max-width: 200px;" title="' + escapeHtml(rawTooltip) + '">' + escapeHtml(formattedDetail) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.start_utc) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.end_utc) + '</td>' +
                 '<td>' + cetC + '</td>' +
@@ -726,6 +737,101 @@
         var tm = dt.match(/(\d{2}):(\d{2})/);
         if (tm) return tm[1] + tm[2] + 'z';
         return escapeHtml(dt);
+    }
+
+    /**
+     * Format a TMI entry for display using its rich parsed fields.
+     * Mirrors tmi_compliance.js:formatStandardizedTMI() logic.
+     */
+    function formatTMIDetail(tmi) {
+        var type = (tmi.type || '').toUpperCase();
+        var timeRange = '';
+        if (tmi.start_utc || tmi.end_utc) {
+            timeRange = (tmi.start_utc || '?') + '-' + (tmi.end_utc || '?');
+        }
+
+        if (type === 'MIT' || type === 'MINIT') {
+            var dest = tmi.dest || tmi.element || '';
+            var fix = tmi.fix || '';
+            var val = tmi.value || '';
+            var unit = type;
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            var parts = [];
+            if (dest) parts.push(dest);
+            if (fix && fix !== 'ALL') parts.push('via ' + fix);
+            if (val) parts.push(val + unit);
+            if (fac) parts.push(fac);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || tmi.detail || '--';
+        }
+
+        if (type === 'APREQ' || type === 'CFR') {
+            var parts = [type];
+            if (tmi.dest) parts.push(tmi.dest);
+            if (tmi.fix && tmi.fix !== 'ALL') parts.push('via ' + tmi.fix);
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            if (fac) parts.push(fac);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'CANCEL') {
+            var parts = ['CANCEL'];
+            if (tmi.dest) parts.push(tmi.dest);
+            if (tmi.fix) parts.push('via ' + tmi.fix);
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            if (fac) parts.push(fac);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'GS') {
+            var parts = ['GS', tmi.element || tmi.airport || ''];
+            if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
+            if (tmi.advisories && tmi.advisories.length > 0) {
+                parts.push('(Advzy ' + tmi.advisories.join(',') + ')');
+            }
+            if (tmi.dep_facilities) parts.push('DEP: ' + tmi.dep_facilities);
+            if (tmi.ended_by) parts.push('[ended ' + tmi.ended_by + ']');
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'GS_CNX') {
+            return 'GS CNX ' + (tmi.element || tmi.airport || '') + (timeRange ? ' ' + timeRange : '');
+        }
+
+        if (type === 'GDP') {
+            var parts = ['GDP', tmi.element || tmi.airport || ''];
+            if (tmi.program_rate) parts.push('Rate:' + tmi.program_rate);
+            if (tmi.delay_limit) parts.push('MaxDelay:' + tmi.delay_limit);
+            if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'REROUTE' || type === 'REROUTE_CNX') {
+            var parts = [];
+            if (tmi.name) parts.push(tmi.name);
+            if (tmi.route_type || tmi.action) {
+                parts.push('(' + (tmi.route_type || '') + ' ' + (tmi.action || '') + ')');
+            }
+            if (tmi.constrained_area) parts.push(tmi.constrained_area);
+            if (tmi.ended_by) parts.push('[ended ' + tmi.ended_by + ']');
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        // Default: use raw text or detail field
+        return tmi.raw || tmi.detail || '--';
     }
 
     // ========================================================================
@@ -1126,13 +1232,14 @@
                 var results = resp.results;
 
                 tmiList.forEach(function(tmi) {
-                    if (!tmi.element) return;
-                    var el = tmi.element.toUpperCase();
+                    // For MIT matching, prefer fix field (measurement point), fall back to element
+                    var mitKey = (tmi.fix || tmi.element || '').toUpperCase();
+                    var elKey = (tmi.element || '').toUpperCase();
 
-                    if (results.mit_results) {
+                    if (results.mit_results && mitKey) {
                         results.mit_results.forEach(function(r) {
                             var mp = (r.measurement_point || r.fix || '').toUpperCase();
-                            if (mp === el || mp.indexOf(el) !== -1) {
+                            if (mp === mitKey || mp.indexOf(mitKey) !== -1) {
                                 var pct = r.compliance_pct || r.compliance_rate || 0;
                                 tmi.complied = pct >= 80 ? 'Y' : 'N';
                                 tmi.compliance_pct = Math.round(pct);
@@ -1141,10 +1248,10 @@
                         });
                     }
 
-                    if (results.gs_results) {
+                    if (results.gs_results && elKey) {
                         results.gs_results.forEach(function(r) {
                             var airport = (r.airport || '').toUpperCase();
-                            if (airport === el || 'K' + airport === el || airport === 'K' + el) {
+                            if (airport === elKey || 'K' + airport === elKey || airport === 'K' + elKey) {
                                 var pct = r.compliance_pct || r.compliance_rate || 0;
                                 tmi.complied = pct >= 80 ? 'Y' : 'N';
                                 tmi.compliance_pct = Math.round(pct);
@@ -1159,6 +1266,31 @@
                     immediateFieldSave();
                 }
             });
+    }
+
+    // ========================================================================
+    // Demand Chart Snapshots
+    // ========================================================================
+
+    /**
+     * Collect current demand chart data for persistence.
+     * Merges live chart data with any previously saved snapshots.
+     */
+    function gatherDemandSnapshots() {
+        var snapshots = demandSnapshots ? Object.assign({}, demandSnapshots) : {};
+
+        // Capture data from any live charts
+        Object.keys(demandCharts).forEach(function(apt) {
+            var chart = demandCharts[apt];
+            if (chart && typeof chart.getSnapshot === 'function') {
+                var snap = chart.getSnapshot();
+                if (snap) {
+                    snapshots[apt] = snap;
+                }
+            }
+        });
+
+        return Object.keys(snapshots).length > 0 ? snapshots : null;
     }
 
     // ========================================================================
@@ -1219,6 +1351,15 @@
 
             // Also sync any airports already in the textarea
             syncDemandChartsFromTextarea();
+
+            // Load charts from saved snapshots (for airports not in plan configs or textarea)
+            if (demandSnapshots) {
+                Object.keys(demandSnapshots).forEach(function(apt) {
+                    if (!seen[apt] && !demandCharts[apt]) {
+                        addDemandChart(apt, null, null);
+                    }
+                });
+            }
         }
 
         // Defer loading until Airport Conditions tab is visible (ECharts needs visible container)
@@ -1291,9 +1432,22 @@
 
         if (chart) {
             demandCharts[airport] = chart;
-            chart.load(icao).then(function() {
-                chart.setTitle(icao + '          Archived          ' + demandChartParams.dateLabel);
-            });
+
+            // Try restoring from saved snapshot first (for historical events)
+            var savedSnap = demandSnapshots && (demandSnapshots[airport] || demandSnapshots[icao]);
+            if (savedSnap && savedSnap.demandData) {
+                chart.loadFromSnapshot(savedSnap);
+                chart.setTitle(icao + '          Saved Snapshot          ' + demandChartParams.dateLabel);
+            } else {
+                // Fetch live data
+                chart.load(icao).then(function(result) {
+                    if (result && result.success) {
+                        chart.setTitle(icao + '          Archived          ' + demandChartParams.dateLabel);
+                        // Auto-save snapshot after successful live load
+                        scheduleSave();
+                    }
+                });
+            }
         }
     }
 

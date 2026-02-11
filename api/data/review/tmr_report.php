@@ -36,7 +36,7 @@ if ($method === 'GET') {
 
     if ($report) {
         // Decode JSON fields
-        foreach (['tmr_triggers', 'tmi_list', 'staffing_assessment', 'goals_assessment'] as $jsonField) {
+        foreach (['tmr_triggers', 'tmi_list', 'staffing_assessment', 'goals_assessment', 'demand_snapshots'] as $jsonField) {
             if (!empty($report[$jsonField])) {
                 $report[$jsonField] = json_decode($report[$jsonField], true);
             }
@@ -85,11 +85,13 @@ if ($method === 'GET') {
     // Encode additional JSON fields
     $staffingAssessment = isset($data['staffing_assessment']) ? json_encode($data['staffing_assessment']) : null;
     $goalsAssessment = isset($data['goals_assessment']) ? json_encode($data['goals_assessment']) : null;
+    $demandSnapshots = isset($data['demand_snapshots']) ? json_encode($data['demand_snapshots']) : null;
 
     // Build upsert (INSERT ... ON DUPLICATE KEY UPDATE for MySQL)
     $sql = "INSERT INTO r_tmr_reports (
-                p_id, host_artcc, tmr_triggers, tmr_trigger_other_text, overview,
-                airport_conditions, airport_config_correct,
+                p_id, host_artcc, featured_facilities,
+                tmr_triggers, tmr_trigger_other_text, overview,
+                airport_conditions, airport_config_correct, demand_snapshots,
                 weather_category, weather_summary, special_events,
                 tmi_list, tmi_source, tmi_complied, tmi_complied_details,
                 tmi_effective, tmi_effective_details, tmi_timely, tmi_timely_details,
@@ -97,8 +99,9 @@ if ($method === 'GET') {
                 operational_plan_link, goals_assessment, findings, recommendations,
                 status, created_by, updated_by
             ) VALUES (
-                ?, ?, ?, ?, ?,
-                ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
@@ -107,11 +110,13 @@ if ($method === 'GET') {
                 ?, ?, ?
             ) ON DUPLICATE KEY UPDATE
                 host_artcc = VALUES(host_artcc),
+                featured_facilities = VALUES(featured_facilities),
                 tmr_triggers = VALUES(tmr_triggers),
                 tmr_trigger_other_text = VALUES(tmr_trigger_other_text),
                 overview = VALUES(overview),
                 airport_conditions = VALUES(airport_conditions),
                 airport_config_correct = VALUES(airport_config_correct),
+                demand_snapshots = VALUES(demand_snapshots),
                 weather_category = VALUES(weather_category),
                 weather_summary = VALUES(weather_summary),
                 special_events = VALUES(special_events),
@@ -139,11 +144,13 @@ if ($method === 'GET') {
         $stmt->execute([
             $p_id,
             $data['host_artcc'] ?? null,
+            $data['featured_facilities'] ?? null,
             $tmrTriggers,
             $data['tmr_trigger_other_text'] ?? null,
             $data['overview'] ?? null,
             $data['airport_conditions'] ?? null,
             nullableBool($data['airport_config_correct'] ?? null),
+            $demandSnapshots,
             $data['weather_category'] ?? null,
             $data['weather_summary'] ?? null,
             $data['special_events'] ?? null,
@@ -196,11 +203,13 @@ function getDefaults($pdo, $p_id) {
     $defaults = [
         'p_id' => $p_id,
         'host_artcc' => null,
+        'featured_facilities' => null,
         'tmr_triggers' => [],
         'tmr_trigger_other_text' => null,
         'overview' => null,
         'airport_conditions' => null,
         'airport_config_correct' => null,
+        'demand_snapshots' => null,
         'weather_category' => null,
         'weather_summary' => null,
         'special_events' => null,
