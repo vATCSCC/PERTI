@@ -322,34 +322,53 @@ function ntmlParseConfig(string $body, array &$data): void {
 
 function ntmlParseDelay(string $body, array &$data, string $type): void {
     $patterns = ['DD' => 'D/D', 'ED' => 'E/D', 'AD' => 'A/D'];
-    $preps = ['DD' => 'from', 'ED' => 'for', 'AD' => 'to'];
-    $tag = $patterns[$type]; $prep = $preps[$type];
+    $tag = $patterns[$type];
 
     // Facility before E/D or A/D
     if ($type !== 'DD' && preg_match('/^(\S+)\s+[EA]\/D/i', $body, $fm)) {
         $data['requesting_facility'] = $data['requesting_facility'] ?? strtoupper($fm[1]);
     }
-    // Airport — extract from "D/D from JFK," or "E/D for BOS," or "A/D to MIA,"
-    if (preg_match('/' . preg_quote($tag, '/') . '\s+' . $prep . '\s+(\w+)/i', $body, $am)) {
-        $data['ctl_element'] = strtoupper($am[1]);
-    }
-    // D/D variant: "ZLC D/D FOR SLC DEPS" or "D/D BOS, 30/0100..." or "ATL D/D +15/0059"
-    if (!$data['ctl_element'] && $type === 'DD') {
-        if (preg_match('/D\/D\s+FOR\s+([A-Z]{2,4})\b/i', $body, $am)) {
+
+    // D/D formats:
+    //   "LAX D/D to SFO, +30"  — origin→destination, destination is ctl_element
+    //   "D/D from JFK, +45"    — departure delay FROM airport, airport is ctl_element
+    //   "ATL D/D +15/0059"     — origin is the element (delay AT that airport)
+    //   "D/D BOS, 30/0100..."  — airport after D/D, no preposition
+    //   "ZLC D/D FOR SLC DEPS" — facility + FOR + airport
+    if ($type === 'DD') {
+        // "LAX D/D to SFO" — capture origin + destination
+        if (preg_match('/^([A-Z]{2,5})\s+D\/D\s+to\s+([A-Z]{2,5})/i', $body, $am)) {
+            $data['ctl_element'] = strtoupper($am[2]); // destination gets the delay
+            $data['_dd_origin'] = strtoupper($am[1]);
+        }
+        // "D/D from JFK" — departure delay FROM this airport
+        elseif (preg_match('/D\/D\s+from\s+([A-Z]{2,5})\b/i', $body, $am)) {
             $data['ctl_element'] = strtoupper($am[1]);
-        } elseif (preg_match('/D\/D\s+([A-Z]{2,4})\b/i', $body, $am)) {
+        }
+        // "ZLC D/D FOR SLC DEPS" — facility + FOR + airport
+        elseif (preg_match('/D\/D\s+FOR\s+([A-Z]{2,4})\b/i', $body, $am)) {
             $data['ctl_element'] = strtoupper($am[1]);
-        } elseif (preg_match('/^([A-Z]{2,4})\s+D\/D/i', $body, $am)) {
+        }
+        // "ATL D/D +15/0059" — origin is the element (delay AT that airport)
+        elseif (preg_match('/^([A-Z]{2,4})\s+D\/D/i', $body, $am)) {
+            $data['ctl_element'] = strtoupper($am[1]);
+        }
+        // "D/D BOS, 30/0100..." — airport after D/D with no preposition
+        elseif (preg_match('/D\/D\s+([A-Z]{2,4})(?:\s*,|\s+\d)/i', $body, $am)) {
             $data['ctl_element'] = strtoupper($am[1]);
         }
     }
-    // A/D variant: "A/D for JFK" (using "for" instead of "to")
-    if (!$data['ctl_element'] && $type === 'AD' && preg_match('/A\/D\s+for\s+(\w+)/i', $body, $am)) {
-        $data['ctl_element'] = strtoupper($am[1]);
+    // E/D format: "ZDC E/D for BOS" or "E/D to SFO"
+    elseif ($type === 'ED') {
+        if (preg_match('/E\/D\s+(?:for|to)\s+([A-Z]{2,5})\b/i', $body, $am)) {
+            $data['ctl_element'] = strtoupper($am[1]);
+        }
     }
-    // E/D variant: "E/D to SFO" (using "to" instead of "for")
-    if (!$data['ctl_element'] && $type === 'ED' && preg_match('/E\/D\s+to\s+([A-Z]{2,4})\b/i', $body, $am)) {
-        $data['ctl_element'] = strtoupper($am[1]);
+    // A/D format: "A/D to MIA" or "A/D for JFK"
+    elseif ($type === 'AD') {
+        if (preg_match('/A\/D\s+(?:to|for)\s+([A-Z]{2,5})\b/i', $body, $am)) {
+            $data['ctl_element'] = strtoupper($am[1]);
+        }
     }
     // A/D or E/D without preposition — try FIX: field as context
     if (!$data['ctl_element'] && preg_match('/FIX:(\S+)/i', $body, $fm)) {
