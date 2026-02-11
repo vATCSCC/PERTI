@@ -113,6 +113,7 @@ $sql = "
         fp_dest_icao AS arr,
         fp_dept_artcc AS dep_artcc,
         fp_dest_artcc AS arr_artcc,
+        aircraft_icao,
         etd_runway_utc,
         eta_runway_utc,
         phase,

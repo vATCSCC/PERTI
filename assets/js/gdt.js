@@ -38,7 +38,7 @@
     const GS_API = {
         list: 'api/gdt/programs/list.php',
         create: 'api/gdt/programs/create.php',
-        model: 'api/gdt/programs/simulate.php',
+        model: 'api/gdt/programs/model.php',
         activate: 'api/gdt/programs/activate.php',
         extend: 'api/gdt/programs/extend.php',
         purge: 'api/gdt/programs/purge.php',
@@ -1084,6 +1084,8 @@
             etdPrefix: etdPrefix || null,
             flightStatus: flightStatus,
             gsFlag: gsFlag,
+            dep_artcc: (f.dep_artcc || f.fp_dept_artcc || f.dep_center || '').toUpperCase(),
+            arr_artcc: (f.arr_artcc || f.fp_dest_artcc || f.arr_center || '').toUpperCase(),
         };
     }
     function augmentRowsWithAdl(rows) {
@@ -1391,11 +1393,8 @@
                 const edctText = edctEpoch !== '' ? formatZuluFromEpoch(edctEpoch) : '';
 
                 // Departing center (ARTCC of origin airport)
-                let depCenter = '';
                 const depUpper = (r.dep || '').toUpperCase();
-                if (depUpper) {
-                    depCenter = AIRPORT_CENTER_MAP[depUpper] || '';
-                }
+                let depCenter = r.dep_artcc || (depUpper ? (AIRPORT_CENTER_MAP[depUpper] || '') : '');
 
                 // Build status text from control type, delay status, or flight status
                 let statusText = '';
@@ -3127,9 +3126,13 @@
         }
     }
 
-    // Alias for backwards compatibility with existing code
     function setSendActualEnabled(enabled, reason) {
         setSubmitTmiEnabled(enabled, reason);
+        const sendBtn = document.getElementById('gs_send_actual_btn');
+        if (sendBtn) {
+            sendBtn.disabled = !enabled;
+            sendBtn.title = enabled ? 'Activate GS program immediately' : (reason || '');
+        }
     }
 
     function getMultiSelectValues(selectEl) {
@@ -3557,8 +3560,8 @@
                     valB = b.roughEtaEpoch || 0;
                     break;
                 case 'dcenter':
-                    valA = (AIRPORT_CENTER_MAP[a.dep] || '').toLowerCase();
-                    valB = (AIRPORT_CENTER_MAP[b.dep] || '').toLowerCase();
+                    valA = (a.dep_artcc || AIRPORT_CENTER_MAP[a.dep] || '').toLowerCase();
+                    valB = (b.dep_artcc || AIRPORT_CENTER_MAP[b.dep] || '').toLowerCase();
                     break;
                 case 'orig':
                     valA = (a.dep || '').toLowerCase();
@@ -3601,7 +3604,7 @@
 
             const dep = (r.dep || '').toUpperCase();
             const arr = (r.arr || '').toUpperCase();
-            const center = AIRPORT_CENTER_MAP[dep] || '';
+            const center = r.dep_artcc || AIRPORT_CENTER_MAP[dep] || '';
             const destColor = airportColors[arr] || '';
 
             // Build status column from control type and delay status
@@ -5403,6 +5406,15 @@
             setSubmitTmiEnabled(false, "Run 'Simulate' first to enable");
         }
 
+        const sendActualBtn = document.getElementById('gs_send_actual_btn');
+        if (sendActualBtn) {
+            sendActualBtn.addEventListener('click', function(ev) {
+                ev.preventDefault();
+                handleGsSendActual();
+            });
+            sendActualBtn.disabled = true;
+        }
+
         const purgeLocalBtn = document.getElementById('gs_purge_local_btn');
         if (purgeLocalBtn) {
             purgeLocalBtn.addEventListener('click', function(ev) {
@@ -6198,8 +6210,8 @@
                     valB = b.roughEtaEpoch || 0;
                     break;
                 case 'dcenter':
-                    valA = (AIRPORT_CENTER_MAP[(a.dep || '').toUpperCase()] || '').toLowerCase();
-                    valB = (AIRPORT_CENTER_MAP[(b.dep || '').toUpperCase()] || '').toLowerCase();
+                    valA = (a.dep_artcc || AIRPORT_CENTER_MAP[(a.dep || '').toUpperCase()] || '').toLowerCase();
+                    valB = (b.dep_artcc || AIRPORT_CENTER_MAP[(b.dep || '').toUpperCase()] || '').toLowerCase();
                     break;
                 case 'orig':
                     valA = (a.dep || '').toLowerCase();
@@ -6269,7 +6281,7 @@
 
             const dep = (r.dep || '').toUpperCase();
             const arr = (r.arr || '').toUpperCase();
-            const center = AIRPORT_CENTER_MAP[dep] || '';
+            const center = r.dep_artcc || AIRPORT_CENTER_MAP[dep] || '';
             const destColor = airportColors[arr] || '';
 
             // Build status column from control type and delay status
@@ -7473,16 +7485,16 @@
         const dcenter = f.dcenter || f.dep_center || f.fp_dept_artcc || f.dep_artcc || '';
         const acenter = f.acenter || f.arr_center || f.fp_dest_artcc || f.arr_artcc || '';
 
-        // Original times (OETD/OETA) - check both suffixed and non-suffixed field names
-        const oetdVal = f.oetd_utc || f.oetd || f.etd_utc || f.etd || '';
-        const oetaVal = f.oeta_utc || f.oeta || f.eta_utc || f.eta || '';
+        // Original times (OETD/OETA) - check tmi_flight_control and vw_adl_flights field names
+        const oetdVal = f.oetd_utc || f.orig_etd_utc || f.octd_utc || f.oetd || f.etd_utc || f.etd || '';
+        const oetaVal = f.oeta_utc || f.orig_eta_utc || f.octa_utc || f.oeta || f.eta_utc || f.eta || '';
         const oetdText = oetdVal ? formatZuluFromIso(oetdVal) : '';
         const oetaText = oetaVal ? formatZuluFromIso(oetaVal) : '';
 
-        // Current times - check both suffixed and non-suffixed field names
-        const etdVal = f.etd_utc || f.etd || f.etd_runway_utc || '';
+        // Current times - check tmi_flight_control and vw_adl_flights field names
+        const etdVal = f.etd_utc || f.orig_etd_utc || f.etd || f.etd_runway_utc || '';
         const ctdVal = f.ctd_utc || f.edct_utc || f.gs_release_utc || '';
-        const etaVal = f.eta_utc || f.eta || f.eta_runway_utc || '';
+        const etaVal = f.eta_utc || f.orig_eta_utc || f.eta || f.eta_runway_utc || '';
         const ctaVal = f.cta_utc || f.cta || '';
         const etdText = etdVal ? formatZuluFromIso(etdVal) : '';
         const ctdText = ctdVal ? formatZuluFromIso(ctdVal) : '';
@@ -7586,40 +7598,40 @@
                     valB = extractCarrier(b.acid || b.callsign || '');
                     break;
                 case 'orig':
-                    valA = (a.orig || a.fp_dept_icao || '').toLowerCase();
-                    valB = (b.orig || b.fp_dept_icao || '').toLowerCase();
+                    valA = (a.orig || a.fp_dept_icao || a.dep || a.dep_airport || '').toLowerCase();
+                    valB = (b.orig || b.fp_dept_icao || b.dep || b.dep_airport || '').toLowerCase();
                     break;
                 case 'dest':
-                    valA = (a.dest || a.fp_dest_icao || '').toLowerCase();
-                    valB = (b.dest || b.fp_dest_icao || '').toLowerCase();
+                    valA = (a.dest || a.fp_dest_icao || a.arr || a.arr_airport || '').toLowerCase();
+                    valB = (b.dest || b.fp_dest_icao || b.arr || b.arr_airport || '').toLowerCase();
                     break;
                 case 'dcenter':
-                    valA = (a.dcenter || a.dep_center || '').toLowerCase();
-                    valB = (b.dcenter || b.dep_center || '').toLowerCase();
+                    valA = (a.dcenter || a.dep_center || a.dep_artcc || '').toLowerCase();
+                    valB = (b.dcenter || b.dep_center || b.dep_artcc || '').toLowerCase();
                     break;
                 case 'acenter':
-                    valA = (a.acenter || a.arr_center || '').toLowerCase();
-                    valB = (b.acenter || b.arr_center || '').toLowerCase();
+                    valA = (a.acenter || a.arr_center || a.arr_artcc || '').toLowerCase();
+                    valB = (b.acenter || b.arr_center || b.arr_artcc || '').toLowerCase();
                     break;
                 case 'delay':
                     valA = a.program_delay_min || 0;
                     valB = b.program_delay_min || 0;
                     break;
                 case 'etd':
-                    valA = a.etd_utc || '';
-                    valB = b.etd_utc || '';
+                    valA = a.etd_utc || a.orig_etd_utc || '';
+                    valB = b.etd_utc || b.orig_etd_utc || '';
                     break;
                 case 'oetd':
-                    valA = a.oetd_utc || a.etd_utc || '';
-                    valB = b.oetd_utc || b.etd_utc || '';
+                    valA = a.oetd_utc || a.orig_etd_utc || a.octd_utc || a.etd_utc || '';
+                    valB = b.oetd_utc || b.orig_etd_utc || b.octd_utc || b.etd_utc || '';
                     break;
                 case 'eta':
-                    valA = a.eta_utc || '';
-                    valB = b.eta_utc || '';
+                    valA = a.eta_utc || a.orig_eta_utc || '';
+                    valB = b.eta_utc || b.orig_eta_utc || '';
                     break;
                 case 'oeta':
-                    valA = a.oeta_utc || a.eta_utc || '';
-                    valB = b.oeta_utc || b.eta_utc || '';
+                    valA = a.oeta_utc || a.orig_eta_utc || a.octa_utc || a.eta_utc || '';
+                    valB = b.oeta_utc || b.orig_eta_utc || b.octa_utc || b.eta_utc || '';
                     break;
                 default:
                     valA = (a.acid || '').toLowerCase();

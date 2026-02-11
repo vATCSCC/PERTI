@@ -36,7 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
-$auth_cid = gdt_require_auth();
+$auth_cid = gdt_optional_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -54,7 +54,7 @@ $conn_tmi = gdt_get_conn_tmi();
 
 $program_id = isset($payload['program_id']) ? (int)$payload['program_id'] : 0;
 $purge_reason = isset($payload['purge_reason']) ? trim($payload['purge_reason']) : null;
-$purged_by = $auth_cid;
+$purged_by = $auth_cid ?: (isset($payload['purged_by']) ? trim($payload['purged_by']) : 'anonymous');
 
 if ($program_id <= 0) {
     respond_json(400, [
