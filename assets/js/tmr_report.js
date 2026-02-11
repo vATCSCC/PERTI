@@ -609,9 +609,9 @@
             result.type = 'GDP';
         } else if (/\bAFP\b/.test(upper)) {
             result.type = 'AFP';
-        } else if (/\d+\s*MIT\b/.test(upper) || /\bMINIT\b/.test(upper)) {
+        } else if (/\d+\s*MIT\b/.test(upper) || /\d+\s*MINIT\b/.test(upper)) {
             result.type = /MINIT/i.test(upper) ? 'MINIT' : 'MIT';
-        } else if (/\bRE?ROUTE/i.test(upper) || /\bvia\b/i.test(line)) {
+        } else if (/\bRE?ROUTE/i.test(upper) || (/\bvia\b/i.test(line) && !/\d+\s*MI(NI)?T\b/i.test(upper))) {
             result.type = 'Reroute';
         } else if (/\bAPREQ\b/.test(upper)) {
             result.type = 'APREQ';
@@ -751,6 +751,8 @@
         }
 
         if (type === 'MIT' || type === 'MINIT') {
+            // If no rich parsed fields, use saved detail as-is
+            if (!tmi.fix && !tmi.value && tmi.detail) return tmi.detail;
             var dest = tmi.dest || tmi.element || '';
             var fix = tmi.fix || '';
             var val = tmi.value || '';
@@ -794,6 +796,7 @@
         }
 
         if (type === 'GS') {
+            if (!tmi.impacting_condition && !tmi.advisories && !tmi.dep_facilities && tmi.detail) return tmi.detail;
             var parts = ['GS', tmi.element || tmi.airport || ''];
             if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
             if (tmi.advisories && tmi.advisories.length > 0) {
@@ -810,6 +813,7 @@
         }
 
         if (type === 'GDP') {
+            if (!tmi.program_rate && !tmi.impacting_condition && tmi.detail) return tmi.detail;
             var parts = ['GDP', tmi.element || tmi.airport || ''];
             if (tmi.program_rate) parts.push('Rate:' + tmi.program_rate);
             if (tmi.delay_limit) parts.push('MaxDelay:' + tmi.delay_limit);
