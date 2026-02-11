@@ -498,8 +498,12 @@ function resolveRouteGeojsonADL($conn, $tokens) {
 
 /**
  * Search nav_procedures for a matching procedure.
+ * Options:
+ *   transition       - filter by transition_name
+ *   routeStartsWith  - filter by full_route starting with this fix
+ *   preferShortest   - order by shortest full_route (most specific)
  */
-function findProcedure($conn, $procNameClean, $airportIcao = null, $transition = null) {
+function findProcedure($conn, $procNameClean, $airportIcao = null, $transition = null, $options = []) {
     $sql = "SELECT TOP 1 procedure_id, procedure_type, procedure_name, computer_code, full_route
             FROM dbo.nav_procedures
             WHERE (procedure_name LIKE ? OR computer_code LIKE ?)";
@@ -517,7 +521,15 @@ function findProcedure($conn, $procNameClean, $airportIcao = null, $transition =
         $params[] = $transClean . '%';
     }
 
-    $sql .= " ORDER BY CASE WHEN procedure_name = ? THEN 0 WHEN computer_code = ? THEN 0 ELSE 1 END";
+    // Filter by full_route starting with a specific fix
+    if (!empty($options['routeStartsWith'])) {
+        $sql .= " AND full_route LIKE ?";
+        $params[] = $options['routeStartsWith'] . ' %';
+    }
+
+    // Order: prefer exact name match, then shortest route (most specific)
+    $sql .= " ORDER BY CASE WHEN procedure_name = ? THEN 0 WHEN computer_code = ? THEN 0 ELSE 1 END,
+              LEN(ISNULL(full_route, '')) ASC";
     $params[] = $procNameClean;
     $params[] = $procNameClean;
 
@@ -569,7 +581,12 @@ function resolveProcedureGeojson($conn, $procInput, $airportIcao = null) {
         $proc = findProcedure($conn, $transitionClean, $airportIcao, $procNameClean);
     }
 
-    // Retry: search without transition filter
+    // Retry: search by full_route starting with the transition fix (e.g., ENO.PROUD# → route starts with ENO)
+    if (!$proc && $transitionClean) {
+        $proc = findProcedure($conn, $procNameClean, $airportIcao, null, ['routeStartsWith' => $transitionClean]);
+    }
+
+    // Retry: search without any transition filter, prefer shortest route
     if (!$proc && $transition) {
         $proc = findProcedure($conn, $procNameClean, $airportIcao, null);
     }
