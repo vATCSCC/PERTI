@@ -364,13 +364,18 @@ function handleDelete($conn) {
 
         $monitorId = $row['demand_monitor_id'];
 
+        // Get monitor key before deactivating
+        $keyStmt = sqlsrv_query($conn, "SELECT monitor_key FROM dbo.demand_monitors WHERE monitor_id = ?", [$monitorId]);
+        $keyRow = sqlsrv_fetch_array($keyStmt, SQLSRV_FETCH_ASSOC);
+        $monitorKey = $keyRow ? $keyRow['monitor_key'] : null;
+
         // Deactivate the monitor
         sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 0 WHERE monitor_id = ?", [$monitorId]);
 
         // Unlink from element
         sqlsrv_query($conn, "UPDATE dbo.facility_flow_elements SET demand_monitor_id = NULL, updated_at = GETUTCDATE() WHERE element_id = ?", [$elementId]);
 
-        echo json_encode(['success' => true, 'removed_monitor_id' => $monitorId]);
+        echo json_encode(['success' => true, 'removed_monitor_id' => $monitorId, 'removed_monitor_key' => $monitorKey]);
 
     } elseif ($sourceType === 'config') {
         $configId = intval($_GET['config_id'] ?? 0);
@@ -380,14 +385,19 @@ function handleDelete($conn) {
             return;
         }
 
-        // Get all linked monitors
+        // Get all linked monitors with their keys
         $stmt = sqlsrv_query($conn,
-            "SELECT element_id, demand_monitor_id FROM dbo.facility_flow_elements WHERE config_id = ? AND demand_monitor_id IS NOT NULL",
+            "SELECT e.element_id, e.demand_monitor_id, m.monitor_key
+             FROM dbo.facility_flow_elements e
+             LEFT JOIN dbo.demand_monitors m ON e.demand_monitor_id = m.monitor_id
+             WHERE e.config_id = ? AND e.demand_monitor_id IS NOT NULL",
             [$configId]);
 
         $removed = 0;
+        $removedKeys = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             sqlsrv_query($conn, "UPDATE dbo.demand_monitors SET is_active = 0 WHERE monitor_id = ?", [$row['demand_monitor_id']]);
+            if ($row['monitor_key']) $removedKeys[] = $row['monitor_key'];
             $removed++;
         }
 
@@ -396,7 +406,7 @@ function handleDelete($conn) {
             "UPDATE dbo.facility_flow_elements SET demand_monitor_id = NULL, updated_at = GETUTCDATE() WHERE config_id = ? AND demand_monitor_id IS NOT NULL",
             [$configId]);
 
-        echo json_encode(['success' => true, 'removed' => $removed]);
+        echo json_encode(['success' => true, 'removed' => $removed, 'removed_keys' => $removedKeys]);
 
     } else {
         http_response_code(400);
