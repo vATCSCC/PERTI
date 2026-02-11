@@ -7610,9 +7610,9 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    // Remove from demand layer
-                    if (typeof NODDemandLayer !== 'undefined' && data.removed_monitor_id) {
-                        NODDemandLayer.removeMonitor('monitor_' + data.removed_monitor_id);
+                    // Remove from demand layer using monitor_key (not numeric id)
+                    if (typeof NODDemandLayer !== 'undefined' && data.removed_monitor_key) {
+                        NODDemandLayer.removeMonitor(data.removed_monitor_key);
                     }
                     el.demand_monitor_id = null;
                     renderFlowConfig();
@@ -7719,6 +7719,11 @@
             const data = await resp.json();
 
             if (data.success) {
+                // Remove monitors from demand layer
+                if (typeof NODDemandLayer !== 'undefined' && data.removed_keys) {
+                    data.removed_keys.forEach(key => NODDemandLayer.removeMonitor(key));
+                }
+
                 // Clear all monitor IDs from local state
                 (config.elements || []).forEach(el => {
                     el.demand_monitor_id = null;
