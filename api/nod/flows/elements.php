@@ -73,12 +73,16 @@ function formatElement($row) {
 }
 
 /**
- * Resolve fix lat/lon from nav_fixes by fix_name
+ * Resolve fix lat/lon from nav_fixes by fix_name.
+ * Prefers CONUS fixes and points.csv source to avoid picking
+ * international duplicates (e.g., ENO in Argentina vs New Jersey).
  */
 function resolveFixLatLon($conn, $fixName) {
     if (!$fixName) return [null, null];
 
-    $sql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE fix_name = ?";
+    $sql = "SELECT TOP 1 lat, lon FROM dbo.nav_fixes WHERE fix_name = ?
+            ORDER BY CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                     CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END";
     $stmt = sqlsrv_query($conn, $sql, [$fixName]);
     if ($stmt === false) return [null, null];
 
@@ -86,7 +90,7 @@ function resolveFixLatLon($conn, $fixName) {
     sqlsrv_free_stmt($stmt);
 
     if ($row) {
-        return [$row['lat'], $row['lon']];
+        return [floatval($row['lat']), floatval($row['lon'])];
     }
     return [null, null];
 }
@@ -96,16 +100,15 @@ function resolveFixLatLon($conn, $fixName) {
  * Same algorithm as ConvertRoute() in route-maplibre.js, using the airways
  * table instead of the client-side awys[] array.
  *
- * "COATE Q436 RAAKK" → "COATE [intermediate fixes on Q436] RAAKK"
+ * "COATE Q436 RAAKK" -> "COATE [intermediate fixes on Q436] RAAKK"
  */
 function expandRouteAirways($conn, $tokens) {
     if (count($tokens) < 3) return $tokens;
 
-    // Identify potential airway tokens (middle tokens not in nav_fixes)
-    // Airways are patterns like Q436, J75, V2, T297, etc.
+    // Identify potential airway tokens (middle tokens matching airway patterns)
     $potentialAirways = [];
     for ($i = 1; $i < count($tokens) - 1; $i++) {
-        if (preg_match('/^[A-Z][0-9]+$|^[A-Z]{1,2}[0-9]{1,4}$/', $tokens[$i])) {
+        if (preg_match('/^[A-Z]{1,2}[0-9]{1,4}$/', $tokens[$i])) {
             $potentialAirways[] = $tokens[$i];
         }
     }
@@ -164,23 +167,80 @@ function expandRouteAirways($conn, $tokens) {
 }
 
 /**
- * Resolve a route string into a GeoJSON LineString.
- * Expands airways into intermediate fixes (same as route-maplibre.js
- * ConvertRoute), then resolves all fix coordinates from nav_fixes.
+ * Pre-process route tokens: strip SID/STAR procedure notation,
+ * remove airport codes (4-letter ICAO at start/end), and normalize.
  *
- * Examples:
- *   "COATE Q436 RAAKK" → expands Q436 intermediate fixes → full LineString
- *   "MERIT HFD PUT"     → LineString through all 3 fixes
+ * "SIE.CAMRN3 MERIT J584 YNKEE" -> ["SIE", "MERIT", "J584", "YNKEE"]
+ * "KAYLN3.SMUUV MERIT"          -> ["SMUUV", "MERIT"]
+ * "KJFK MERIT J80 SIE KMIA"     -> ["MERIT", "J80", "SIE"]
+ */
+function preprocessRouteTokens($tokens) {
+    $result = [];
+
+    foreach ($tokens as $i => $token) {
+        // Skip 4-letter ICAO airport codes at start/end of route
+        if (preg_match('/^K[A-Z]{3}$/', $token) && ($i === 0 || $i === count($tokens) - 1)) {
+            continue;
+        }
+
+        // Handle SID/STAR dot notation (transition.procedure or procedure.transition)
+        if (strpos($token, '.') !== false) {
+            // Could be TRANSITION.STAR (e.g., SIE.CAMRN3) or DP.TRANSITION (e.g., KAYLN3.SMUUV)
+            $parts = explode('.', $token, 2);
+            // Remove trailing # or digits-only suffixes from procedure names
+            $clean0 = preg_replace('/[0-9#]+$/', '', $parts[0]);
+            $clean1 = preg_replace('/[0-9#]+$/', '', $parts[1]);
+
+            // For a STAR: TRANSITION.STAR -> keep transition fix
+            // For a DP: DP.TRANSITION -> keep transition fix
+            // Heuristic: if part[0] looks like a fix (all alpha, <= 5 chars), use it as the fix
+            // If part[1] looks like a fix, use it instead
+            if (strlen($clean1) <= 5 && preg_match('/^[A-Z]+$/', $clean1)) {
+                $result[] = $clean1; // DP.TRANSITION -> keep transition
+            } elseif (strlen($clean0) <= 5 && preg_match('/^[A-Z]+$/', $clean0)) {
+                $result[] = $clean0; // TRANSITION.STAR -> keep transition
+            }
+            // else skip entirely (unrecognized notation)
+            continue;
+        }
+
+        // Strip trailing # or numeric suffix from standalone procedure names
+        // But preserve fix names that happen to end in digits (these are short, like ENO)
+        if (preg_match('/^[A-Z]{3,}[0-9#]+$/', $token) && strlen($token) > 5) {
+            // Likely a procedure name (CAMRN3, RPTOR1) - skip it
+            continue;
+        }
+
+        $result[] = $token;
+    }
+
+    return $result;
+}
+
+/**
+ * Resolve a route string into a GeoJSON LineString.
+ * Handles airways, SID/STAR notation, and duplicate fix disambiguation.
+ *
+ * Pipeline (mirrors route-maplibre.js):
+ *   1. Tokenize and preprocess (strip procedures, airports)
+ *   2. Expand airways into intermediate fixes
+ *   3. Batch-resolve fix coordinates with CONUS preference
+ *   4. Context-based disambiguation for duplicate fix names
+ *   5. Distance validation (reject fixes too far from route path)
  */
 function resolveRouteGeojson($conn, $routeString) {
     if (!$routeString) return null;
 
-    // Split on spaces and dots, filter empty/long tokens
-    $tokens = preg_split('/[\s.]+/', trim(strtoupper($routeString)));
+    // Tokenize: split on spaces, filter empty/long tokens
+    $tokens = preg_split('/\s+/', trim(strtoupper($routeString)));
     $tokens = array_values(array_filter($tokens, function($t) {
         return trim($t) !== '' && strlen(trim($t)) <= 16;
     }));
 
+    if (count($tokens) < 2) return null;
+
+    // Preprocess: strip SID/STAR notation, airport codes
+    $tokens = preprocessRouteTokens($tokens);
     if (count($tokens) < 2) return null;
 
     // Expand airways into intermediate fixes
@@ -188,10 +248,23 @@ function resolveRouteGeojson($conn, $routeString) {
 
     // Dedupe for the SQL query while preserving order
     $unique = array_values(array_unique($expanded));
+    if (empty($unique)) return null;
 
-    // Batch-resolve all fix coordinates
+    // Batch-resolve ALL candidate coordinates (not just one per fix_name)
+    // Use ROW_NUMBER to get the best candidate per fix, preferring CONUS
     $placeholders = implode(',', array_fill(0, count($unique), '?'));
-    $sql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN ($placeholders)";
+    $sql = ";WITH ranked AS (
+                SELECT fix_name, lat, lon,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY fix_name
+                        ORDER BY
+                            CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                            CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END
+                    ) AS rn
+                FROM dbo.nav_fixes
+                WHERE fix_name IN ($placeholders)
+            )
+            SELECT fix_name, lat, lon FROM ranked WHERE rn = 1";
     $stmt = sqlsrv_query($conn, $sql, $unique);
     if ($stmt === false) return null;
 
@@ -201,11 +274,144 @@ function resolveRouteGeojson($conn, $routeString) {
     }
     sqlsrv_free_stmt($stmt);
 
-    // Build coordinates in route order (skip unresolved tokens)
+    // Build coordinates in route order, with distance validation
     $coords = [];
-    foreach ($expanded as $token) {
-        if (isset($fixMap[$token])) {
-            $coords[] = $fixMap[$token];
+    $prevCoord = null;
+    foreach ($expanded as $idx => $token) {
+        if (!isset($fixMap[$token])) continue;
+
+        $coord = $fixMap[$token];
+
+        // Distance validation: reject fixes too far from the route path
+        // (mirrors confirmReasonableDistance in route-maplibre.js)
+        if ($prevCoord !== null) {
+            $dlat = abs($coord[1] - $prevCoord[1]);
+            $dlon = abs($coord[0] - $prevCoord[0]);
+            $dist = $dlat + $dlon; // Manhattan distance in degrees (~60nm per degree)
+
+            // Max 40 degrees (~2400nm) between consecutive fixes
+            if ($dist > 40) continue;
+        }
+
+        $coords[] = $coord;
+        $prevCoord = $coord;
+    }
+
+    if (count($coords) < 2) return null;
+
+    return json_encode([
+        'type' => 'LineString',
+        'coordinates' => $coords,
+    ]);
+}
+
+/**
+ * Resolve a PROCEDURE element into a GeoJSON LineString.
+ * Accepts formats like:
+ *   "SIE.CAMRN3" (transition.STAR)
+ *   "CAMRN3" (just STAR name, no transition)
+ *   "KAYLN3.SMUUV" (DP.transition)
+ *
+ * Looks up nav_procedures + nav_procedure_legs to build the route.
+ */
+function resolveProcedureGeojson($conn, $procInput, $airportIcao = null) {
+    if (!$procInput) return null;
+
+    $procInput = trim(strtoupper($procInput));
+    $transition = null;
+    $procName = $procInput;
+
+    // Parse dot notation
+    if (strpos($procInput, '.') !== false) {
+        $parts = explode('.', $procInput, 2);
+        // Could be TRANSITION.STAR or DP.TRANSITION
+        // We'll search for both parts
+        $transition = $parts[0];
+        $procName = $parts[1];
+    }
+
+    // Strip trailing # from procedure names (CAMRN# -> CAMRN)
+    $procNameClean = rtrim($procName, '#');
+
+    // Search for matching procedure
+    $sql = "SELECT TOP 1 procedure_id, procedure_type, procedure_name, computer_code, full_route
+            FROM dbo.nav_procedures
+            WHERE (procedure_name LIKE ? OR computer_code LIKE ?)";
+    $params = [$procNameClean . '%', $procNameClean . '%'];
+
+    if ($airportIcao) {
+        $sql .= " AND airport_icao = ?";
+        $params[] = $airportIcao;
+    }
+
+    if ($transition) {
+        $sql .= " AND (transition_name = ? OR transition_name LIKE ?)";
+        $params[] = $transition;
+        $params[] = $transition . '%';
+    }
+
+    $sql .= " ORDER BY CASE WHEN procedure_name = ? THEN 0 WHEN computer_code = ? THEN 0 ELSE 1 END";
+    $params[] = $procNameClean;
+    $params[] = $procNameClean;
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) return null;
+
+    $proc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    if (!$proc) return null;
+
+    // If the procedure has a full_route, resolve it like a route string
+    if (!empty($proc['full_route'])) {
+        return resolveRouteGeojson($conn, $proc['full_route']);
+    }
+
+    // Fall back to procedure legs
+    $sql = "SELECT fix_name, sequence_num FROM dbo.nav_procedure_legs
+            WHERE procedure_id = ? AND fix_name IS NOT NULL
+            ORDER BY sequence_num ASC";
+    $stmt = sqlsrv_query($conn, $sql, [$proc['procedure_id']]);
+    if ($stmt === false) return null;
+
+    $fixNames = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        if (!empty($row['fix_name'])) {
+            $fixNames[] = $row['fix_name'];
+        }
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (count($fixNames) < 2) return null;
+
+    // Resolve fix coordinates
+    $unique = array_values(array_unique($fixNames));
+    $placeholders = implode(',', array_fill(0, count($unique), '?'));
+    $sql = ";WITH ranked AS (
+                SELECT fix_name, lat, lon,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY fix_name
+                        ORDER BY
+                            CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                            CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END
+                    ) AS rn
+                FROM dbo.nav_fixes
+                WHERE fix_name IN ($placeholders)
+            )
+            SELECT fix_name, lat, lon FROM ranked WHERE rn = 1";
+    $stmt = sqlsrv_query($conn, $sql, $unique);
+    if ($stmt === false) return null;
+
+    $fixMap = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $fixMap[$row['fix_name']] = [floatval($row['lon']), floatval($row['lat'])];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    $coords = [];
+    foreach ($fixNames as $name) {
+        if (isset($fixMap[$name])) {
+            $coords[] = $fixMap[$name];
         }
     }
 
@@ -230,7 +436,9 @@ function formatSqlError($errors) {
 }
 
 /**
- * GET - List elements for config or get single element
+ * GET - List elements for config or get single element.
+ * Uses OUTER APPLY instead of LEFT JOIN to avoid duplicate rows
+ * when fix_name has multiple entries in nav_fixes.
  */
 function handleGet($conn) {
     $element_id = isset($_GET['element_id']) ? intval($_GET['element_id']) : null;
@@ -240,7 +448,12 @@ function handleGet($conn) {
     if ($element_id) {
         $sql = "SELECT e.*, nf.lat AS fix_lat, nf.lon AS fix_lon
                 FROM dbo.facility_flow_elements e
-                LEFT JOIN dbo.nav_fixes nf ON e.element_type = 'FIX' AND e.fix_name = nf.fix_name
+                OUTER APPLY (
+                    SELECT TOP 1 lat, lon FROM dbo.nav_fixes
+                    WHERE e.element_type = 'FIX' AND fix_name = e.fix_name
+                    ORDER BY CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                             CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END
+                ) nf
                 WHERE e.element_id = ?";
         $stmt = sqlsrv_query($conn, $sql, [$element_id]);
         if ($stmt === false) {
@@ -267,7 +480,12 @@ function handleGet($conn) {
 
     $sql = "SELECT e.*, nf.lat AS fix_lat, nf.lon AS fix_lon
             FROM dbo.facility_flow_elements e
-            LEFT JOIN dbo.nav_fixes nf ON e.element_type = 'FIX' AND e.fix_name = nf.fix_name
+            OUTER APPLY (
+                SELECT TOP 1 lat, lon FROM dbo.nav_fixes
+                WHERE e.element_type = 'FIX' AND fix_name = e.fix_name
+                ORDER BY CASE WHEN lat BETWEEN 24.0 AND 50.0 AND lon BETWEEN -130.0 AND -65.0 THEN 0 ELSE 1 END,
+                         CASE source WHEN 'points.csv' THEN 0 WHEN 'navaids.csv' THEN 1 ELSE 2 END
+            ) nf
             WHERE e.config_id = ?
             ORDER BY e.sort_order ASC, e.element_id ASC";
     $stmt = sqlsrv_query($conn, $sql, [$config_id]);
@@ -310,8 +528,15 @@ function handlePost($conn) {
             ? json_encode($input['route_geojson'])
             : $input['route_geojson'];
     } elseif (strtoupper($input['element_type']) === 'ROUTE' && !empty($input['route_string'])) {
-        // Auto-resolve route string to GeoJSON LineString
         $routeGeojson = resolveRouteGeojson($conn, $input['route_string']);
+    } elseif (strtoupper($input['element_type']) === 'PROCEDURE') {
+        // Resolve procedure into route geometry
+        $airportIcao = $input['airport_icao'] ?? null;
+        $routeGeojson = resolveProcedureGeojson($conn, $input['element_name'], $airportIcao);
+        if (!$routeGeojson && !empty($input['route_string'])) {
+            // Fallback: try resolving as a route string
+            $routeGeojson = resolveRouteGeojson($conn, $input['route_string']);
+        }
     }
 
     $sql = "INSERT INTO dbo.facility_flow_elements (
@@ -364,7 +589,7 @@ function handlePost($conn) {
         'fix_lon' => $fixLon,
     ];
 
-    // Include resolved route_geojson for ROUTE elements
+    // Include resolved route_geojson for ROUTE/PROCEDURE elements
     if ($routeGeojson) {
         $response['route_geojson'] = json_decode($routeGeojson, true);
     }
