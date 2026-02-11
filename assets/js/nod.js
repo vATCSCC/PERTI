@@ -267,6 +267,23 @@
             }
         });
 
+        // Register deep link handler for NOD custom tabs
+        if (window.PERTIDeepLink) {
+            PERTIDeepLink.register('nod', {
+                activate: function(id) {
+                    var parts = id.split('/');
+                    switchTab(parts[0]);
+                    if (parts[1]) {
+                        var section = document.getElementById('section-' + parts[1]);
+                        if (section && !section.classList.contains('expanded')) {
+                            section.classList.add('expanded');
+                        }
+                    }
+                },
+                getCurrent: function() { return state.ui.activeTab; }
+            });
+        }
+
         state.initialized = true;
         console.log('[NOD] Initialization complete');
     }
@@ -4153,12 +4170,18 @@
 
         state.ui.activeTab = tabId;
         saveUIState();
+
+        if (window.PERTIDeepLink) PERTIDeepLink.update(tabId);
     }
 
     function toggleSection(sectionId) {
         const section = document.getElementById('section-' + sectionId);
         if (section) {
             section.classList.toggle('expanded');
+        }
+
+        if (window.PERTIDeepLink && state.ui.activeTab) {
+            PERTIDeepLink.update(state.ui.activeTab + '/' + sectionId);
         }
     }
 

@@ -88,3 +88,6 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <script src="<?= $filepath; ?>assets/js/lib/i18n.js"></script>
 <script src="<?= $filepath; ?>assets/locales/index.js"></script>
 <script src="<?= $filepath; ?>assets/js/lib/dialog.js"></script>
+
+<!-- Deep Link Utility -->
+<script src="<?= $filepath; ?>assets/js/lib/deeplink.js"></script>
