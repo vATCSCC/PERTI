@@ -2033,5 +2033,11 @@
     "equalDesc": "Equal-width segments",
     "switchToProportional": "Switch to To-Scale",
     "switchToEqual": "Switch to Equal Width"
+  },
+  "tmiCompliance": {
+    "copyForDiscord": "Copy for Discord",
+    "copiedToClipboard": "Copied to clipboard",
+    "noNtmlData": "No NTML data to copy",
+    "noGsData": "No Ground Stop data to copy"
   }
 }
