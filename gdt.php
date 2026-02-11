@@ -594,6 +594,17 @@ include("load/config.php");
                     <span id="gdt_dashboard_total_controlled">0</span> controlled across all programs
                     <span class="mx-2">|</span>
                     <i class="fas fa-clock mr-1"></i> Last refreshed: <span id="gdt_dashboard_refresh_time">-</span>
+                    <span class="mx-2">|</span>
+                    <a href="#" onclick="event.preventDefault(); toggleTimeline();" class="text-info">
+                        <i class="fas fa-chart-bar mr-1"></i><span id="gdt_timeline_toggle_text">Show Timeline</span>
+                    </a>
+                </div>
+                <!-- Multi-Program Timeline -->
+                <div id="gdt_timeline_container" class="mt-2" style="display: none;">
+                    <div style="position: relative; height: 120px; max-height: 200px;">
+                        <canvas id="gdt_timeline_canvas"></canvas>
+                    </div>
+                    <div id="gdt_timeline_conflicts" class="mt-1 small"></div>
                 </div>
             </div>
         </div>
