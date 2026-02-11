@@ -74,6 +74,9 @@ include("sessions/handler.php");
         }
     </script>
 
+    <!-- MapLibre GL for TMI compliance maps -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin=""/>
+
     <!-- ECharts for demand charts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <!-- Chart.js for statsim rates -->
@@ -125,24 +128,49 @@ include("sessions/handler.php");
             border-bottom: 2px solid #ffc107;
         }
 
-        /* TMR Trigger checkboxes */
+        /* TMR Trigger cards */
         .trigger-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px;
         }
-        .trigger-item {
+        .trigger-card {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
+            gap: 12px;
+            padding: 10px 14px;
             background: rgba(255,255,255,0.03);
-            border-radius: 4px;
+            border: 2px solid transparent;
+            border-radius: 6px;
             cursor: pointer;
+            transition: all 0.15s ease;
         }
-        .trigger-item:hover {
-            background: rgba(255,255,255,0.08);
+        .trigger-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
         }
+        .trigger-card.selected {
+            background: rgba(255,193,7,0.1);
+            border-color: #ffc107;
+        }
+        .trigger-card .trigger-icon {
+            font-size: 1.2rem;
+            width: 32px;
+            text-align: center;
+            color: #888;
+        }
+        .trigger-card.selected .trigger-icon {
+            color: #ffc107;
+        }
+        .trigger-card .trigger-text .trigger-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .trigger-card .trigger-text .trigger-desc {
+            font-size: 0.7rem;
+            color: #888;
+        }
+        .trigger-card input[type="checkbox"] { display: none; }
 
         /* Y/N/NA toggle buttons */
         .yn-toggle .btn {
@@ -152,6 +180,22 @@ include("sessions/handler.php");
         .yn-toggle .btn.active {
             font-weight: bold;
         }
+
+        /* TMI toolbar */
+        .tmi-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 4px;
+        }
+        .tmi-toolbar .btn-group .btn { font-size: 0.75rem; padding: 2px 8px; }
+        .tmi-category-filter .btn.active { opacity: 1; }
+        .tmi-category-filter .btn:not(.active) { opacity: 0.4; }
+        .tmi-search { max-width: 200px; font-size: 0.8rem; }
 
         /* TMI table */
         .tmi-table {
@@ -167,6 +211,46 @@ include("sessions/handler.php");
         .tmi-badge-program { background: #dc3545; }
         .tmi-badge-advisory { background: #ffc107; color: #000; }
         .tmi-badge-reroute { background: #28a745; }
+        .tmi-badge-manual { background: #6c757d; }
+
+        /* Per-TMI C/E/T pills */
+        .cet-pill {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid transparent;
+            min-width: 24px;
+            text-align: center;
+        }
+        .cet-pill.cet-y { background: #28a745; color: #fff; }
+        .cet-pill.cet-n { background: #dc3545; color: #fff; }
+        .cet-pill.cet-na { background: #6c757d; color: #fff; }
+
+        /* METAR timeline */
+        .metar-timeline {
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+        }
+        .metar-entry { padding: 2px 6px; border-left: 3px solid transparent; }
+        .metar-vfr { border-left-color: #28a745; }
+        .metar-mvfr { border-left-color: #ffc107; }
+        .metar-ifr { border-left-color: #dc3545; }
+        .metar-lifr { border-left-color: #d63384; }
+
+        /* Staffing comparison table */
+        .staffing-comparison th { font-size: 0.75rem; }
+        .staffing-comparison td { font-size: 0.85rem; vertical-align: middle; }
+        .staffing-comparison select { font-size: 0.8rem; padding: 2px 6px; }
+
+        /* Goals assessment */
+        .goal-row { padding: 8px 12px; border-bottom: 1px solid #333; }
+        .goal-text { font-size: 0.9rem; }
+        .goal-assessment .btn { font-size: 0.75rem; padding: 2px 10px; }
 
         /* Demand chart containers */
         .demand-chart-container {
@@ -429,35 +513,15 @@ include("sessions/handler.php");
                             <h5 class="tmr-section-header"><i class="fas fa-bolt"></i> TMR Triggers</h5>
                             <p class="text-muted small mb-3">Select all triggers that apply to this event.</p>
 
-                            <div class="trigger-grid">
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="holding_15">
-                                    Airborne holding in excess of 15 minutes
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="delays_30">
-                                    Departure delays in excess of 30 minutes
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="no_notice_holding">
-                                    No notice airborne holding
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="reroutes">
-                                    Reroutes
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="ground_stop">
-                                    Ground stop
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="gdp">
-                                    Ground Delay Program
-                                </label>
-                                <label class="trigger-item">
-                                    <input type="checkbox" class="tmr-trigger" value="equipment">
-                                    Equipment
-                                </label>
+                            <div class="trigger-grid" id="tmr_trigger_grid">
+                                <!-- Populated by JS from tmr.trigger.* locale keys -->
+                            </div>
+
+                            <!-- "Other" trigger text (shown when "other" is checked) -->
+                            <div class="form-group mt-2" id="tmr_trigger_other_wrap" style="display: none;">
+                                <input type="text" class="form-control form-control-sm tmr-field"
+                                       id="tmr_trigger_other_text" data-field="tmr_trigger_other_text"
+                                       placeholder="" style="max-width: 400px;">
                             </div>
 
                             <div class="form-group mt-3">
@@ -526,6 +590,18 @@ include("sessions/handler.php");
                     <div class="tab-pane fade" id="tmr_weather">
                         <div class="tmr-section">
                             <h5 class="tmr-section-header"><i class="fas fa-cloud-sun"></i> Prevailing Weather Conditions</h5>
+
+                            <!-- METAR Auto-Import -->
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-primary" id="tmr_fetch_metars">
+                                    <i class="fas fa-cloud-download-alt"></i> <span data-i18n="tmr.weather.fetchMetars">Fetch METARs</span>
+                                </button>
+                                <span class="text-muted small ml-2" id="tmr_metar_status"></span>
+                            </div>
+
+                            <!-- METAR results -->
+                            <div id="tmr_metar_results" style="display: none;" class="mb-3"></div>
+
                             <div class="form-group">
                                 <label class="small">Weather Category</label>
                                 <select class="form-control form-control-sm tmr-field" id="tmr_weather_category" data-field="weather_category" style="max-width: 200px;">
@@ -562,7 +638,7 @@ include("sessions/handler.php");
                             <!-- DB TMI Lookup -->
                             <div class="mb-3">
                                 <button class="btn btn-sm btn-primary" id="tmr_load_db_tmis">
-                                    <i class="fas fa-database"></i> Load TMIs from Database
+                                    <i class="fas fa-database"></i> <span data-i18n="tmr.tmi.loadFromDb">Load TMIs from Database</span>
                                 </button>
                                 <button class="btn btn-sm btn-outline-info" id="tmr_bulk_paste_toggle">
                                     <i class="fas fa-clipboard-list"></i> Bulk Paste
@@ -570,7 +646,29 @@ include("sessions/handler.php");
                                 <button class="btn btn-sm btn-outline-success" id="tmr_add_manual_tmi">
                                     <i class="fas fa-plus"></i> Add Manual Entry
                                 </button>
+                                <button class="btn btn-sm btn-outline-warning" id="tmr_import_compliance" style="display: none;">
+                                    <i class="fas fa-file-import"></i> <span data-i18n="tmr.tmi.importCompliance">Import from Compliance</span>
+                                </button>
                                 <span class="text-muted small ml-2" id="tmr_tmi_status"></span>
+                            </div>
+
+                            <!-- TMI Toolbar (bulk controls) -->
+                            <div class="tmi-toolbar" id="tmr_tmi_toolbar" style="display: none;">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-light" id="tmr_tmi_select_all_btn"><span data-i18n="tmr.tmi.selectAll">Select All</span></button>
+                                    <button class="btn btn-outline-light" id="tmr_tmi_deselect_all_btn"><span data-i18n="tmr.tmi.deselectAll">Deselect All</span></button>
+                                </div>
+                                <div class="btn-group btn-group-sm tmi-category-filter">
+                                    <button class="btn btn-info active tmi-cat-btn" data-cat="ntml">NTML</button>
+                                    <button class="btn btn-danger active tmi-cat-btn" data-cat="program">Program</button>
+                                    <button class="btn btn-warning active tmi-cat-btn" data-cat="advisory">Advisory</button>
+                                    <button class="btn btn-success active tmi-cat-btn" data-cat="reroute">Reroute</button>
+                                    <button class="btn btn-secondary active tmi-cat-btn" data-cat="manual">Manual</button>
+                                </div>
+                                <input type="text" class="form-control form-control-sm tmi-search" id="tmr_tmi_search" placeholder="Search TMIs...">
+                                <button class="btn btn-sm btn-outline-warning" id="tmr_batch_assess_btn">
+                                    <i class="fas fa-check-double"></i> <span data-i18n="tmr.tmi.batchAssess">Batch Assess</span>
+                                </button>
                             </div>
 
                             <!-- Bulk paste input (hidden by default) -->
@@ -604,12 +702,14 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                             <th>Detail</th>
                                             <th>Start</th>
                                             <th>End</th>
-                                            <th>Status</th>
+                                            <th style="width: 30px;" title="Complied">C</th>
+                                            <th style="width: 30px;" title="Effective">E</th>
+                                            <th style="width: 30px;" title="Timely">T</th>
                                             <th>Source</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tmr_tmi_tbody">
-                                        <tr><td colspan="8" class="text-center text-muted py-3">Click "Load TMIs from Database" or add entries manually.</td></tr>
+                                        <tr><td colspan="10" class="text-center text-muted py-3" data-i18n="tmr.tmi.emptyHint">Click "Load TMIs from Database" or add entries manually.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -705,6 +805,18 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <div class="tab-pane fade" id="tmr_personnel">
                         <div class="tmr-section">
                             <h5 class="tmr-section-header"><i class="fas fa-users"></i> Personnel / Staffing</h5>
+
+                            <!-- Staffing Auto-Import -->
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-primary" id="tmr_load_staffing">
+                                    <i class="fas fa-user-check"></i> <span data-i18n="tmr.staffing.loadPlanned">Load Planned Staffing</span>
+                                </button>
+                                <span class="text-muted small ml-2" id="tmr_staffing_status"></span>
+                            </div>
+
+                            <!-- Staffing comparison table (populated by JS) -->
+                            <div id="tmr_staffing_table_wrap" style="display: none;" class="mb-3"></div>
+
                             <div class="form-group">
                                 <label class="small">Was the operational area properly staffed?</label>
                                 <div class="yn-toggle btn-group btn-group-sm" data-field="personnel_adequate">
@@ -727,6 +839,21 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                 <input type="text" class="form-control tmr-field" id="tmr_operational_plan_link" data-field="operational_plan_link"
                                        placeholder="https://perti.vatcscc.org/plan?...">
                             </div>
+
+                            <!-- Goals Auto-Import -->
+                            <hr>
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-primary" id="tmr_load_goals">
+                                    <i class="fas fa-bullseye"></i> <span data-i18n="tmr.opsPlan.loadGoals">Load Plan Goals</span>
+                                </button>
+                                <span class="text-muted small ml-2" id="tmr_goals_status"></span>
+                            </div>
+
+                            <!-- Goals table (populated by JS) -->
+                            <div id="tmr_goals_wrap" style="display: none;" class="mb-3"></div>
+
+                            <!-- Initiatives accordion (populated by JS) -->
+                            <div id="tmr_initiatives_wrap" style="display: none;" class="mb-3"></div>
                         </div>
                     </div>
 
@@ -1123,12 +1250,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <?php } ?>
 
 <!-- Scripts -->
+<script src="assets/js/lib/i18n.js"></script>
+<script src="assets/locales/index.js"></script>
 <script src="assets/js/config/phase-colors.js"></script>
 <script src="assets/js/config/filter-colors.js"></script>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
 <script src="assets/js/demand.js"></script>
 <script src="assets/js/review.js"></script>
 <script src="assets/js/tmr_report.js?v=4"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js"></script>
 
 </html>
