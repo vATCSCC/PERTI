@@ -6751,6 +6751,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     ` : ''}
                 </div>
 
+                <div class="tmi-discord-copy mt-2">
+                    ${mitCount > 0 ? '<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="Copy NTML summary for Discord"><i class="fas fa-copy"></i> Copy NTML for Discord</button>' : ''}
+                    ${gsCount > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="Copy GS summary for Discord"><i class="fas fa-copy"></i> Copy GS for Discord</button>' : ''}
+                </div>
+
                 <div class="tmi-data-quality">
                     Data: ${trajCoverage}% trajectory coverage${gapInfo}
                 </div>
