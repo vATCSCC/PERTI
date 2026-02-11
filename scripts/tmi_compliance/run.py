@@ -82,12 +82,13 @@ def parse_time_window(time_str: str, base_date) -> datetime:
     return None
 
 
-def build_gs_program_from_api(pt: dict, base_date) -> GSProgram:
+def build_gs_program_from_api(pt: dict, base_date, event_start=None) -> GSProgram:
     """Convert a PHP GS_PROGRAM entry to a Python GSProgram object.
 
     Args:
         pt: Dict from PHP parsed_tmis with type='GS_PROGRAM'
         base_date: Date object for resolving HHMM times
+        event_start: Full event start datetime for overnight shift detection
 
     Returns:
         GSProgram or None if essential data is missing
@@ -101,6 +102,13 @@ def build_gs_program_from_api(pt: dict, base_date) -> GSProgram:
     effective_start = parse_time_window(pt.get('effective_start', ''), base_date)
     effective_end = parse_time_window(pt.get('effective_end', ''), base_date)
 
+    # Handle overnight events: if parsed times fall well before event start,
+    # they belong to the next calendar day (e.g., event at 23:59Z, GS at 02:00Z)
+    if event_start and effective_start and effective_start < event_start - timedelta(hours=2):
+        effective_start = effective_start + timedelta(days=1)
+        if effective_end:
+            effective_end = effective_end + timedelta(days=1)
+
     # Handle overnight wrap: if end < start, add a day
     if effective_start and effective_end and effective_end < effective_start:
         effective_end = effective_end + timedelta(days=1)
@@ -111,6 +119,14 @@ def build_gs_program_from_api(pt: dict, base_date) -> GSProgram:
         gs_start = parse_time_window(adv.get('start_time', ''), base_date)
         gs_end = parse_time_window(adv.get('end_time', ''), base_date)
         issued = parse_time_window(adv.get('issued_time', ''), base_date)
+
+        # Overnight shift for advisory times
+        if event_start and gs_start and gs_start < event_start - timedelta(hours=2):
+            gs_start = gs_start + timedelta(days=1)
+            if gs_end:
+                gs_end = gs_end + timedelta(days=1)
+            if issued:
+                issued = issued + timedelta(days=1)
 
         if gs_start and gs_end and gs_end < gs_start:
             gs_end = gs_end + timedelta(days=1)
@@ -144,12 +160,13 @@ def build_gs_program_from_api(pt: dict, base_date) -> GSProgram:
     )
 
 
-def build_reroute_program_from_api(pt: dict, base_date) -> RerouteProgram:
+def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> RerouteProgram:
     """Convert a PHP REROUTE_PROGRAM entry to a Python RerouteProgram object.
 
     Args:
         pt: Dict from PHP parsed_tmis with type='REROUTE_PROGRAM'
         base_date: Date object for resolving HHMM times
+        event_start: Full event start datetime for overnight shift detection
 
     Returns:
         RerouteProgram or None if essential data is missing
@@ -160,6 +177,13 @@ def build_reroute_program_from_api(pt: dict, base_date) -> RerouteProgram:
     effective_start = parse_time_window(pt.get('effective_start', ''), base_date)
     effective_end = parse_time_window(pt.get('effective_end', ''), base_date)
 
+    # Handle overnight events: if parsed times fall well before event start,
+    # they belong to the next calendar day
+    if event_start and effective_start and effective_start < event_start - timedelta(hours=2):
+        effective_start = effective_start + timedelta(days=1)
+        if effective_end:
+            effective_end = effective_end + timedelta(days=1)
+
     if effective_start and effective_end and effective_end < effective_start:
         effective_end = effective_end + timedelta(days=1)
 
@@ -169,6 +193,14 @@ def build_reroute_program_from_api(pt: dict, base_date) -> RerouteProgram:
         valid_start = parse_time_window(adv.get('start_time', ''), base_date)
         valid_end = parse_time_window(adv.get('end_time', ''), base_date)
         issued = parse_time_window(adv.get('issued_time', ''), base_date)
+
+        # Overnight shift for advisory times
+        if event_start and valid_start and valid_start < event_start - timedelta(hours=2):
+            valid_start = valid_start + timedelta(days=1)
+            if valid_end:
+                valid_end = valid_end + timedelta(days=1)
+            if issued:
+                issued = issued + timedelta(days=1)
 
         if valid_start and valid_end and valid_end < valid_start:
             valid_end = valid_end + timedelta(days=1)
@@ -291,12 +323,12 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
 
             # Handle program-level entries (GS_PROGRAM, REROUTE_PROGRAM) separately
             if tmi_type_str == 'GS_PROGRAM':
-                prog = build_gs_program_from_api(pt, event_start.date())
+                prog = build_gs_program_from_api(pt, event_start.date(), event_start)
                 if prog:
                     gs_programs.append(prog)
                 continue
             elif tmi_type_str == 'REROUTE_PROGRAM':
-                prog = build_reroute_program_from_api(pt, event_start.date())
+                prog = build_reroute_program_from_api(pt, event_start.date(), event_start)
                 if prog:
                     reroute_programs.append(prog)
                 continue
