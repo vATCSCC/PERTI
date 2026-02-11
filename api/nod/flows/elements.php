@@ -497,6 +497,35 @@ function resolveRouteGeojsonADL($conn, $tokens) {
 }
 
 /**
+ * Search nav_procedures by computer_code prefix.
+ * CIFP-imported procedures use computer_code like "SEY.PARCH4" where SEY
+ * is the transition fix and PARCH4 is the procedure. This is the most
+ * direct way to find a specific transition's clean route.
+ */
+function findProcedureByComputerCode($conn, $codePrefix, $airportIcao = null) {
+    $sql = "SELECT TOP 1 procedure_id, procedure_type, procedure_name, computer_code, full_route
+            FROM dbo.nav_procedures
+            WHERE computer_code LIKE ?";
+    $params = [$codePrefix . '%'];
+
+    if ($airportIcao) {
+        $sql .= " AND airport_icao = ?";
+        $params[] = $airportIcao;
+    }
+
+    // Prefer shortest route (most specific, avoids merged all-transition entries)
+    $sql .= " ORDER BY LEN(ISNULL(full_route, '')) ASC";
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt === false) return null;
+
+    $proc = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    return $proc ?: null;
+}
+
+/**
  * Search nav_procedures for a matching procedure.
  * Options:
  *   transition       - filter by transition_name
@@ -574,19 +603,39 @@ function resolveProcedureGeojson($conn, $procInput, $airportIcao = null) {
     // Also try with transition as the procedure name (dot notation may be reversed)
     $transitionClean = $transition ? preg_replace('/[0-9#]+$/', '', $transition) : null;
 
-    $proc = findProcedure($conn, $procNameClean, $airportIcao, $transition);
-
-    // Retry: try with transition as the procedure name (reversed notation)
-    if (!$proc && $transitionClean && $transitionClean !== $procNameClean) {
-        $proc = findProcedure($conn, $transitionClean, $airportIcao, $procNameClean);
+    // Strategy 1: Match by computer_code (most reliable for CIFP data).
+    // CIFP entries use computer_code like "SEY.PARCH4" for the Sandy Point
+    // transition of PARCH4 STAR. The transition_name field contains the
+    // human-readable name ("SANDY POINT TRANSITION"), not the fix name,
+    // so transition_name-based searches miss these clean entries and instead
+    // match merged all-transition entries that produce zigzag geometry.
+    if ($transitionClean && $procNameClean) {
+        $proc = findProcedureByComputerCode($conn, $transitionClean . '.' . $procNameClean, $airportIcao);
+        // Also try reversed: procName.transition (some CIFP entries use this order)
+        if (!$proc) {
+            $proc = findProcedureByComputerCode($conn, $procNameClean . '.' . $transitionClean, $airportIcao);
+        }
     }
 
-    // Retry: search by full_route starting with the transition fix (e.g., ENO.PROUD# → route starts with ENO)
+    // Strategy 2: Match by full_route starting with the transition fix.
+    // More reliable than transition_name matching since it verifies the
+    // route actually begins at the expected fix.
     if (!$proc && $transitionClean) {
         $proc = findProcedure($conn, $procNameClean, $airportIcao, null, ['routeStartsWith' => $transitionClean]);
     }
 
-    // Retry: search without any transition filter, prefer shortest route
+    // Strategy 3: Match by transition_name (original approach).
+    // May match merged all-transition entries — use as fallback only.
+    if (!$proc) {
+        $proc = findProcedure($conn, $procNameClean, $airportIcao, $transition);
+    }
+
+    // Strategy 4: Try with transition as the procedure name (reversed notation)
+    if (!$proc && $transitionClean && $transitionClean !== $procNameClean) {
+        $proc = findProcedure($conn, $transitionClean, $airportIcao, $procNameClean);
+    }
+
+    // Strategy 5: Search without any transition filter, prefer shortest route
     if (!$proc && $transition) {
         $proc = findProcedure($conn, $procNameClean, $airportIcao, null);
     }
@@ -884,6 +933,28 @@ function handlePut($conn) {
         if ($resolved) {
             $input['route_geojson'] = $resolved;
         }
+    }
+
+    // Re-resolve geometry for PROCEDURE elements (e.g., after fixing resolution logic)
+    if (!empty($input['re_resolve'])) {
+        $stmt = sqlsrv_query($conn,
+            "SELECT element_type, element_name FROM dbo.facility_flow_elements WHERE element_id = ?",
+            [$elementId]);
+        $elem = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC) : null;
+        if ($stmt) sqlsrv_free_stmt($stmt);
+
+        if ($elem && $elem['element_type'] === 'PROCEDURE') {
+            $resolved = resolveProcedureGeojson($conn, $elem['element_name'], null);
+            if ($resolved) {
+                $input['route_geojson'] = $resolved;
+            }
+        } elseif ($elem && $elem['element_type'] === 'ROUTE' && !empty($elem['route_string'])) {
+            $resolved = resolveRouteGeojson($conn, $elem['route_string']);
+            if ($resolved) {
+                $input['route_geojson'] = $resolved;
+            }
+        }
+        unset($input['re_resolve']);
     }
 
     foreach ($allowedFields as $field) {
