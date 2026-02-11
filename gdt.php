@@ -1964,6 +1964,131 @@ include("load/config.php");
     </div>
 </div>
 
+<!-- Extend Program Modal -->
+<div class="modal fade" id="gdt_extend_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_extend_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title" id="gdt_extend_modal_label">
+                    <i class="fas fa-clock mr-1"></i> Extend Program
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="font-weight-bold">Program</label>
+                    <div id="gdt_extend_program_info" class="text-muted">-</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Current End Time</label>
+                        <input type="text" class="form-control form-control-sm" id="gdt_extend_current_end" readonly>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="gdt_extend_new_end" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Probability of Extension</label>
+                    <select class="form-control form-control-sm" id="gdt_extend_prob_ext">
+                        <option value="">-- Select --</option>
+                        <option value="LOW">LOW</option>
+                        <option value="MODERATE">MODERATE</option>
+                        <option value="HIGH">HIGH</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Comments</label>
+                    <textarea class="form-control form-control-sm" id="gdt_extend_comments" rows="2" placeholder="Extension reason..."></textarea>
+                </div>
+                <!-- Advisory Preview -->
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_extend_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_extend_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="gdt_extend_submit_btn" onclick="submitExtend();">
+                    <i class="fas fa-clock mr-1"></i> Extend Program
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revise Program Modal -->
+<div class="modal fade" id="gdt_revise_modal" tabindex="-1" role="dialog" aria-labelledby="gdt_revise_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark py-2">
+                <h5 class="modal-title" id="gdt_revise_modal_label">
+                    <i class="fas fa-edit mr-1"></i> Revise Program
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="font-weight-bold">Program</label>
+                    <div id="gdt_revise_program_info" class="text-muted">-</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">Program Rate (arrivals/hr)</label>
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_rate" min="1" max="120" placeholder="e.g. 36">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">Delay Cap (minutes)</label>
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_delay_cap" min="0" max="600" placeholder="e.g. 300">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="gdt_revise_end_utc">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Impacting Condition</label>
+                        <select class="form-control form-control-sm" id="gdt_revise_impacting">
+                            <option value="WEATHER">WEATHER</option>
+                            <option value="VOLUME">VOLUME</option>
+                            <option value="EQUIPMENT">EQUIPMENT</option>
+                            <option value="RUNWAY">RUNWAY</option>
+                            <option value="OTHER">OTHER</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold">Probability of Extension</label>
+                        <select class="form-control form-control-sm" id="gdt_revise_prob_ext">
+                            <option value="">-- Select --</option>
+                            <option value="LOW">LOW</option>
+                            <option value="MODERATE">MODERATE</option>
+                            <option value="HIGH">HIGH</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Revision Comments</label>
+                    <textarea class="form-control form-control-sm" id="gdt_revise_comments" rows="2" placeholder="What changed and why..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Advisory Preview</label>
+                    <pre id="gdt_revise_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
+                </div>
+                <div id="gdt_revise_error" class="alert alert-danger small py-1 px-2 d-none"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning btn-sm" id="gdt_revise_submit_btn" onclick="submitRevise();">
+                    <i class="fas fa-edit mr-1"></i> Revise Program
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="assets/js/advisory-config.js"></script>
 <!-- FIR (International) Scope Support -->
 <script src="assets/js/fir-scope.js"></script>
