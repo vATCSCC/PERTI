@@ -865,7 +865,9 @@
 
             items.forEach(function(item) {
                 var key = type + '_' + item.id;
-                var plannedLabel = item.facility_name || item.position_name || '';
+                var plannedLabel = item.facility_name || '';
+                if (item.position_facility) plannedLabel = item.position_facility + (item.position_name ? ' - ' + item.position_name : '');
+                else if (item.position_name) plannedLabel = item.position_name;
                 var plannedDetail = '';
                 if (item.staffing_quantity) plannedDetail += 'Qty: ' + item.staffing_quantity;
                 if (item.staffing_status) plannedDetail += (plannedDetail ? ' | ' : '') + (statusLabels[item.staffing_status] || '');
