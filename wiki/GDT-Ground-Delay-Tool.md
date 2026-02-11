@@ -223,10 +223,13 @@ Pop-ups are flagged for review and can be:
 
 | Tool | Integration |
 |------|-------------|
-| **NOD** | Active TMIs displayed automatically |
+| **NOD** | Active TMIs displayed as rich cards with demand charts |
 | **Route Plotter** | Affected flights highlighted |
 | **JATOC** | Related incidents linked |
-| **Discord** | Automatic notifications |
+| **Discord** | Multi-organization notifications via `process_discord_queue.php` |
+| **TMI Publish** | NTML advisory generation and Discord posting |
+| **TMI Compliance** | Post-event compliance analysis with flow cones |
+| **TMR** | Post-event Traffic Management Review reports |
 
 ---
 

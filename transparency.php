@@ -161,11 +161,13 @@ include("load/config.php");
 <!-- Main Content -->
 <div class="container mt-5 mb-5">
 
+    <p class="text-muted text-right"><small>Last updated: February 2026</small></p>
+
     <!-- Current Costs Section -->
     <div class="transparency-section">
         <h3><i class="fas fa-dollar-sign mr-2"></i>Current Monthly Costs</h3>
 
-        <p class="lead">PERTI operates on Microsoft Azure infrastructure in the Central US region. Below is a transparent breakdown of our current operational costs.</p>
+        <p class="lead">PERTI operates on Microsoft Azure infrastructure across the Central US and East US regions. Below is a transparent breakdown of our actual operational costs, sourced directly from Azure Cost Management.</p>
 
         <div class="info-card">
             <h4><i class="fas fa-cloud mr-2"></i>Compute Resources</h4>
@@ -175,15 +177,15 @@ include("load/config.php");
                         <th>Resource</th>
                         <th>Tier/SKU</th>
                         <th>Purpose</th>
-                        <th>Est. Cost/Month</th>
+                        <th>Cost/Month</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>vatcscc</strong><br><small>App Service</small></td>
                         <td><span class="tier-badge tier-current">P1v2</span><br><small>3.5 GB RAM, 1 vCPU</small></td>
-                        <td>Main PERTI website, PHP-FPM workers, background daemons</td>
-                        <td>~$81</td>
+                        <td>Main PERTI website, PHP-FPM workers, 14 background daemons</td>
+                        <td>~$80</td>
                     </tr>
                     <tr>
                         <td><strong>vatcscc-atfm-engine</strong><br><small>App Service</small></td>
@@ -197,50 +199,78 @@ include("load/config.php");
 
         <div class="info-card">
             <h4><i class="fas fa-database mr-2"></i>Azure SQL Databases</h4>
-            <p class="text-muted mb-3">All databases hosted on <code>vatsim.database.windows.net</code></p>
+            <p class="text-muted mb-3">Hosted on <code>vatsim.database.windows.net</code> (East US)</p>
             <table class="cost-table">
                 <thead>
                     <tr>
                         <th>Database</th>
                         <th>Tier/SKU</th>
                         <th>Purpose</th>
-                        <th>Est. Cost/Month</th>
+                        <th>Cost/Month</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>VATSIM_ADL</strong></td>
-                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 4-24 vCores, ~73 GB</small></td>
-                        <td>Active flight data, real-time positions, parsed routes, ETAs</td>
-                        <td>~$7 storage + compute*</td>
-                    </tr>
-                    <tr>
-                        <td><strong>VATSIM_Data</strong></td>
-                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Gen5, 4 vCores max</small></td>
-                        <td>Historical flight data, analytics</td>
-                        <td>Storage + compute*</td>
+                        <td><span class="tier-badge" style="background:#9b59b6;color:#fff;">Hyperscale</span><br><small>Serverless Gen5, 16 vCores, min 3</small></td>
+                        <td>Active flight data, real-time positions, parsed routes, trajectory, ETAs, boundary crossings, statistics</td>
+                        <td>~$3,200*</td>
                     </tr>
                     <tr>
                         <td><strong>VATSIM_TMI</strong></td>
-                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
-                        <td>Traffic management initiatives, NTML, advisories, GDT</td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>5 DTU, 2 GB</small></td>
+                        <td>Traffic management initiatives, NTML, advisories, GDT slots, reroutes</td>
                         <td>~$5</td>
                     </tr>
                     <tr>
                         <td><strong>SWIM_API</strong></td>
-                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
-                        <td>SWIM API keys, rate limiting, flight events</td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>5 DTU, 2 GB</small></td>
+                        <td>SWIM API keys, flight snapshots, audit log</td>
                         <td>~$5</td>
                     </tr>
                     <tr>
                         <td><strong>VATSIM_REF</strong></td>
-                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>2 GB</small></td>
+                        <td><span class="tier-badge" style="background:#3498db;color:#fff;">Basic</span><br><small>5 DTU, 2 GB</small></td>
                         <td>Reference data (airports, airways, fixes, procedures)</td>
                         <td>~$5</td>
                     </tr>
+                    <tr>
+                        <td><strong>VATSIM_STATS</strong></td>
+                        <td><span class="tier-badge" style="background:#95a5a6;color:#fff;">GP Serverless</span><br><small>Gen5, 1 vCore (paused)</small></td>
+                        <td>Statistics &amp; analytics (currently paused)</td>
+                        <td>~$0</td>
+                    </tr>
                 </tbody>
             </table>
-            <small class="text-muted">* Hyperscale Serverless: Compute billed at ~$0.51/vCore-hour only when active. Auto-scales based on VATSIM traffic (peak: 1800-0200 UTC).</small>
+            <small class="text-muted">* Hyperscale Serverless: Compute billed at ~$0.51/vCore-hour. VATSIM_ADL runs continuously with auto-pause disabled and 1 HA replica. Scales based on VATSIM traffic (peak: 1800-0200 UTC). Cost includes compute (~$2,900) + storage (~$300).</small>
+        </div>
+
+        <div class="info-card">
+            <h4><i class="fas fa-database mr-2"></i>MySQL &amp; PostgreSQL Databases</h4>
+            <table class="cost-table">
+                <thead>
+                    <tr>
+                        <th>Database</th>
+                        <th>Tier/SKU</th>
+                        <th>Purpose</th>
+                        <th>Cost/Month</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>vatcscc-perti</strong><br><small>MySQL 8.0</small></td>
+                        <td><span class="tier-badge" style="background:#e67e22;color:#fff;">General Purpose</span><br><small>D2ds_v4, 20 GB</small></td>
+                        <td>Main web app (plans, users, configs, staffing, reviews)</td>
+                        <td>~$125</td>
+                    </tr>
+                    <tr>
+                        <td><strong>vatcscc-gis</strong><br><small>PostgreSQL 16 + PostGIS</small></td>
+                        <td><span class="tier-badge" style="background:#2ecc71;color:#fff;">Burstable</span><br><small>B2s, 32 GB</small></td>
+                        <td>Spatial queries (boundary intersection, route geometry, fix lookups)</td>
+                        <td>~$55</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="info-card">
@@ -248,38 +278,46 @@ include("load/config.php");
             <table class="cost-table">
                 <tbody>
                     <tr>
+                        <td>VATSIM_ADL Hyperscale Compute (~16 vCores avg)</td>
+                        <td class="text-right">~$2,900</td>
+                    </tr>
+                    <tr>
+                        <td>VATSIM_ADL Hyperscale Storage + HA Replica</td>
+                        <td class="text-right">~$300</td>
+                    </tr>
+                    <tr>
+                        <td>MySQL (General Purpose D2ds_v4)</td>
+                        <td class="text-right">~$125</td>
+                    </tr>
+                    <tr>
                         <td>App Service (P1v2)</td>
-                        <td class="text-right">~$81</td>
+                        <td class="text-right">~$80</td>
+                    </tr>
+                    <tr>
+                        <td>PostgreSQL GIS (Burstable B2s)</td>
+                        <td class="text-right">~$55</td>
                     </tr>
                     <tr>
                         <td>Basic SQL Databases (3x)</td>
                         <td class="text-right">~$15</td>
                     </tr>
                     <tr>
-                        <td>Hyperscale Storage (~73 GB)</td>
-                        <td class="text-right">~$7</td>
-                    </tr>
-                    <tr>
-                        <td>Hyperscale Compute (4 vCore min)</td>
-                        <td class="text-right">~$1,470+ base</td>
-                    </tr>
-                    <tr>
                         <td>Storage Accounts (4x)</td>
-                        <td class="text-right">~$3-10</td>
+                        <td class="text-right">~$10</td>
                     </tr>
                     <tr>
-                        <td>Application Insights</td>
-                        <td class="text-right">~$0-5</td>
+                        <td>Other (Data Factory, Logic Apps)</td>
+                        <td class="text-right">~$5</td>
                     </tr>
                     <tr class="cost-total">
-                        <td><strong>Estimated Base Total</strong></td>
-                        <td class="text-right"><strong>~$1,580-1,600+ /month</strong></td>
+                        <td><strong>Monthly Total</strong></td>
+                        <td class="text-right"><strong>~$3,500 /month</strong></td>
                     </tr>
                 </tbody>
             </table>
             <div class="note-box mt-3">
                 <i class="fas fa-info-circle mr-2"></i>
-                <strong>Hyperscale Compute:</strong> VATSIM_ADL runs with a 4 vCore minimum to ensure consistent performance. Scales up to 24 vCores during peak events (CTP, FNO). Additional compute above 4 vCores billed at ~$0.51/vCore-hour.
+                <strong>Hyperscale Compute:</strong> VATSIM_ADL is the primary cost driver at ~92% of total spend. It runs Hyperscale Serverless Gen5 with 16 vCores max, 3 vCores min, auto-pause disabled, and 1 HA replica. Compute scales based on query load from 14 background daemons processing flight data every 15 seconds.
             </div>
         </div>
 
@@ -291,27 +329,33 @@ include("load/config.php");
                         <th>Resource</th>
                         <th>Type</th>
                         <th>Purpose</th>
-                        <th>Est. Cost/Month</th>
+                        <th>Cost/Month</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>vatsimadlarchive</strong></td>
-                        <td>Storage (Cool, RA-GRS)</td>
-                        <td>Long-term flight data archival with geo-redundancy</td>
-                        <td>~$1-5</td>
-                    </tr>
-                    <tr>
-                        <td><strong>vatsimswimdata</strong></td>
-                        <td>Storage (Hot, ZRS)</td>
-                        <td>SWIM API file storage, zone-redundant</td>
-                        <td>~$1-3</td>
-                    </tr>
-                    <tr>
                         <td><strong>vatsimdatastorage</strong></td>
-                        <td>Storage (Cool, LRS)</td>
-                        <td>General data storage</td>
+                        <td>Storage (LRS)</td>
+                        <td>General data storage, ADL archives</td>
+                        <td>~$3</td>
+                    </tr>
+                    <tr>
+                        <td><strong>pertiadlarchive</strong></td>
+                        <td>Storage (LRS)</td>
+                        <td>Trajectory archival, compressed flight history</td>
                         <td>~$1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>vatsimadlarchive</strong></td>
+                        <td>Storage (RA-GRS)</td>
+                        <td>Geo-redundant long-term archival</td>
+                        <td>&lt;$1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>vatsim-adl-history</strong></td>
+                        <td>Azure Data Factory</td>
+                        <td>Historical data pipeline orchestration</td>
+                        <td>&lt;$1</td>
                     </tr>
                     <tr>
                         <td><strong>Deployment Slots</strong></td>
@@ -319,14 +363,62 @@ include("load/config.php");
                         <td>Staging &amp; backup slots for zero-downtime deploys</td>
                         <td>Included</td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="info-card">
+            <h4><i class="fas fa-chart-area mr-2"></i>Cost Trend (4-Month History)</h4>
+            <table class="cost-table">
+                <thead>
                     <tr>
-                        <td><strong>Application Insights</strong></td>
-                        <td>Monitoring</td>
-                        <td>Performance monitoring, error tracking</td>
-                        <td>~$0-5</td>
+                        <th>Month</th>
+                        <th>SQL Database</th>
+                        <th>App Service</th>
+                        <th>MySQL</th>
+                        <th>Other</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Oct 2025</td>
+                        <td>$536</td>
+                        <td>$82</td>
+                        <td>$15</td>
+                        <td>$51</td>
+                        <td><strong>$684</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Nov 2025</td>
+                        <td>$524</td>
+                        <td>$80</td>
+                        <td>$15</td>
+                        <td>$52</td>
+                        <td><strong>$670</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Dec 2025</td>
+                        <td>$2,020</td>
+                        <td>$83</td>
+                        <td>$15</td>
+                        <td>$54</td>
+                        <td><strong>$2,172</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Jan 2026</td>
+                        <td>$3,479</td>
+                        <td>$85</td>
+                        <td>$26</td>
+                        <td>$50</td>
+                        <td><strong>$3,640</strong></td>
                     </tr>
                 </tbody>
             </table>
+            <small class="text-muted">
+                <strong>Dec 2025:</strong> VATSIM_ADL migrated from General Purpose to Hyperscale Serverless. Geo-replicas temporarily provisioned for migration.<br>
+                <strong>Jan 2026:</strong> Geo-replicas and VATSIM_Data database decommissioned. PostgreSQL GIS database added. MySQL upgraded to General Purpose tier.
+            </small>
         </div>
     </div>
 
@@ -344,28 +436,42 @@ include("load/config.php");
                 <div class="metric-label">Data Refresh Rate</div>
             </div>
             <div class="metric-box">
-                <div class="metric-value">8</div>
+                <div class="metric-value">14</div>
                 <div class="metric-label">Background Daemons</div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">24/7</div>
                 <div class="metric-label">Availability</div>
             </div>
+            <div class="metric-box">
+                <div class="metric-value">7</div>
+                <div class="metric-label">Databases</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-value">3</div>
+                <div class="metric-label">DB Engines</div>
+            </div>
         </div>
 
         <div class="row">
             <div class="col-md-6">
                 <div class="info-card">
-                    <h4><i class="fas fa-cogs mr-2"></i>Background Services</h4>
+                    <h4><i class="fas fa-cogs mr-2"></i>Background Services (14 Daemons)</h4>
                     <ul class="optimization-list">
                         <li><i class="fas fa-check"></i> VATSIM data ingestion (every 15s)</li>
-                        <li><i class="fas fa-check"></i> Route parsing & validation</li>
-                        <li><i class="fas fa-check"></i> ARTCC/TRACON boundary detection</li>
+                        <li><i class="fas fa-check"></i> Route parsing with PostGIS spatial queries</li>
+                        <li><i class="fas fa-check"></i> ARTCC/TRACON/Sector boundary detection</li>
+                        <li><i class="fas fa-check"></i> Boundary crossing ETA prediction</li>
                         <li><i class="fas fa-check"></i> Waypoint ETA calculations</li>
-                        <li><i class="fas fa-check"></i> SWIM WebSocket server</li>
-                        <li><i class="fas fa-check"></i> Scheduled task automation</li>
-                        <li><i class="fas fa-check"></i> Data archival & cleanup</li>
+                        <li><i class="fas fa-check"></i> SWIM WebSocket server (real-time events)</li>
+                        <li><i class="fas fa-check"></i> SWIM data sync &amp; reverse sync</li>
+                        <li><i class="fas fa-check"></i> SimTraffic data polling</li>
+                        <li><i class="fas fa-check"></i> Scheduled task automation (splits/routes)</li>
+                        <li><i class="fas fa-check"></i> Data archival &amp; trajectory tiering</li>
                         <li><i class="fas fa-check"></i> System health monitoring</li>
+                        <li><i class="fas fa-check"></i> Discord TMI message queue processing</li>
+                        <li><i class="fas fa-check"></i> VATSIM/VATUSA event sync</li>
+                        <li><i class="fas fa-check"></i> ADL blob storage archival</li>
                     </ul>
                 </div>
             </div>
@@ -378,9 +484,11 @@ include("load/config.php");
                         <li><i class="fas fa-check"></i> ETag support for 304 responses</li>
                         <li><i class="fas fa-check"></i> Gzip compression for API responses</li>
                         <li><i class="fas fa-check"></i> CDN-ready Cache-Control headers</li>
-                        <li><i class="fas fa-check"></i> Database connection pooling</li>
+                        <li><i class="fas fa-check"></i> Lazy-loaded database connections</li>
+                        <li><i class="fas fa-check"></i> PERTI_MYSQL_ONLY flag (~98 endpoints skip Azure SQL)</li>
+                        <li><i class="fas fa-check"></i> Parallel API loading on frontend (Promise.all)</li>
                         <li><i class="fas fa-check"></i> Optimized SQL indexes</li>
-                        <li><i class="fas fa-check"></i> Request coalescing</li>
+                        <li><i class="fas fa-check"></i> Tiered daemon processing (15s-5min by flight priority)</li>
                     </ul>
                 </div>
             </div>
@@ -395,11 +503,12 @@ include("load/config.php");
 
         <div class="info-card">
             <h4><i class="fas fa-database mr-2"></i>Database Auto-Scaling (Already Active)</h4>
-            <p>VATSIM_ADL and VATSIM_Data use Hyperscale Serverless with automatic scaling:</p>
+            <p>VATSIM_ADL uses Hyperscale Serverless with automatic scaling:</p>
             <ul>
-                <li><strong>VATSIM_ADL:</strong> 4 - 24 vCores (auto-scales based on query load)</li>
-                <li><strong>VATSIM_Data:</strong> 0.5 - 4 vCores (auto-scales based on query load)</li>
-                <li><strong>Auto-pause:</strong> VATSIM_Data pauses after idle period; VATSIM_ADL maintains 4 vCore minimum for consistent performance</li>
+                <li><strong>VATSIM_ADL:</strong> 3 - 16 vCores (auto-scales based on query load from 14 daemons)</li>
+                <li><strong>Auto-pause:</strong> Disabled - VATSIM_ADL runs continuously to maintain real-time 15-second data freshness</li>
+                <li><strong>HA Replica:</strong> 1 high-availability replica for read offloading and failover</li>
+                <li><strong>VATSIM_STATS:</strong> General Purpose Serverless with auto-pause enabled (pauses when idle)</li>
             </ul>
             <p class="mb-0 text-muted">No action needed - databases automatically handle traffic spikes during CTP, FNO, and other events.</p>
         </div>
@@ -442,7 +551,12 @@ include("load/config.php");
                         <li><i class="fas fa-check"></i> ETag support to reduce bandwidth</li>
                         <li><i class="fas fa-check"></i> CDN-friendly response headers</li>
                         <li><i class="fas fa-check"></i> Tiered cache TTLs by API access level</li>
-                        <li><i class="fas fa-check"></i> Optimized PHP-FPM worker count</li>
+                        <li><i class="fas fa-check"></i> Optimized PHP-FPM worker count (40)</li>
+                        <li><i class="fas fa-check"></i> PERTI_MYSQL_ONLY: ~98 endpoints skip Azure SQL connections (~500-1000ms saved)</li>
+                        <li><i class="fas fa-check"></i> Lazy-loaded database connections (on-demand getters)</li>
+                        <li><i class="fas fa-check"></i> Parallel frontend API loading (Promise.all)</li>
+                        <li><i class="fas fa-check"></i> Tiered daemon processing (15s-5min by flight priority)</li>
+                        <li><i class="fas fa-check"></i> Trajectory archival tiering (live &rarr; archive &rarr; compressed)</li>
                     </ul>
                 </div>
             </div>

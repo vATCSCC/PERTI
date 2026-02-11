@@ -6,6 +6,7 @@ Core analysis logic for MIT, MINIT, and Ground Stop compliance.
 """
 
 import math
+import re
 import logging
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -330,14 +331,17 @@ class TMIComplianceAnalyzer:
 
         # Get ALL flights departing from OR arriving at featured facilities
         # LEFT JOIN adl_flight_times for OOOI departure times (atd_utc, off_utc)
+        # LEFT JOIN adl_flight_aircraft for carrier/airline data
         # Also pull dept_artcc/dept_tracon from flight_plan for facility filtering
         query = self.adl.format_query(f"""
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
                    c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix,
-                   t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon
+                   t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon,
+                   a.airline_icao, a.airline_name
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
+            LEFT JOIN dbo.adl_flight_aircraft a ON c.flight_uid = a.flight_uid
             WHERE c.first_seen_utc <= %s
               AND c.last_seen_utc >= %s
               AND (p.fp_dept_icao IN ({facility_in}) OR p.fp_dest_icao IN ({facility_in}))
@@ -349,8 +353,10 @@ class TMIComplianceAnalyzer:
 
         for row in cursor.fetchall():
             callsign = row[0]
-            flights[callsign] = {
-                'flight_uid': row[1],
+            flight_uid = row[1]
+            flights[flight_uid] = {
+                'callsign': callsign,
+                'flight_uid': flight_uid,
                 'dept': row[2],
                 'dest': row[3],
                 'first_seen': normalize_datetime(row[4]),
@@ -363,6 +369,8 @@ class TMIComplianceAnalyzer:
                 'out_utc': normalize_datetime(row[11]) if row[11] else None,
                 'dept_artcc': row[12] if row[12] else None,
                 'dept_tracon': row[13] if row[13] else None,
+                'airline_icao': row[14] if len(row) > 14 and row[14] else None,
+                'airline_name': row[15] if len(row) > 15 and row[15] else None,
             }
 
         cursor.close()
@@ -399,6 +407,34 @@ class TMIComplianceAnalyzer:
     def _get_taxi_reference(self, airport_icao: str) -> int:
         """Get unimpeded taxi-out time in seconds for an airport. Default: 600s (10 min)."""
         return self._taxi_references.get(airport_icao, 600)
+
+    def _load_airport_facility_map(self):
+        """
+        Load airport → ARTCC mapping from the apts reference table.
+
+        Used as fallback when fp_dept_artcc is NULL in flight data
+        (common for first_seen-only flights without parsed routes).
+        Maps ICAO code → RESP_ARTCC_ID (e.g., KJFK → ZNY).
+        """
+        self._airport_artcc = {}
+        cursor = self.adl_conn.cursor()
+
+        query = self.adl.format_query(
+            "SELECT ICAO_ID, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID IS NOT NULL AND RESP_ARTCC_ID IS NOT NULL"
+        )
+        try:
+            cursor.execute(query)
+            for row in cursor.fetchall():
+                self._airport_artcc[row[0]] = row[1].upper()
+            logger.info(f"Loaded {len(self._airport_artcc)} airport→ARTCC mappings")
+        except Exception as e:
+            logger.warning(f"Could not load airport facility map: {e}")
+        finally:
+            cursor.close()
+
+    def _get_airport_artcc(self, airport_icao: str) -> str:
+        """Get responsible ARTCC for an airport (e.g., KJFK → ZNY). Returns '' if unknown."""
+        return self._airport_artcc.get(airport_icao, '')
 
     def _validate_trajectory_quality(self, callsign: str, trajectory: List[dict]) -> tuple:
         """
@@ -516,10 +552,13 @@ class TMIComplianceAnalyzer:
                 self.flight_data = self._get_all_featured_flights()
 
                 if self.flight_data:
-                    self._preload_trajectories(list(self.flight_data.keys()))
+                    self._preload_trajectories([f['callsign'] for f in self.flight_data.values()])
 
                 # Load airport taxi references for GS delay calculation
                 self._load_airport_taxi_references()
+
+                # Load airport→ARTCC mapping for GS facility scope filtering
+                self._load_airport_facility_map()
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -853,7 +892,7 @@ class TMIComplianceAnalyzer:
         normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
 
         filtered = {}
-        for callsign, flight in self.flight_data.items():
+        for fuid, flight in self.flight_data.items():
             dest = flight.get('dest', '')
             dept = flight.get('dept', '')
 
@@ -865,7 +904,7 @@ class TMIComplianceAnalyzer:
             if normalized_origs and dept not in normalized_origs:
                 continue
 
-            filtered[callsign] = flight
+            filtered[fuid] = flight
 
         logger.debug(f"  Filtered to {len(filtered)} flights (dest={tmi.destinations}, orig={tmi.origins})")
         return filtered
@@ -932,8 +971,10 @@ class TMIComplianceAnalyzer:
         ))
 
         for row in cursor.fetchall():
-            flights[row[0]] = {
-                'flight_uid': row[1],
+            flight_uid = row[1]
+            flights[flight_uid] = {
+                'callsign': row[0],
+                'flight_uid': flight_uid,
                 'dept': row[2],
                 'dest': row[3],
                 'first_seen': normalize_datetime(row[4]),
@@ -1480,12 +1521,15 @@ class TMIComplianceAnalyzer:
         boundary_crossings_map = {} # callsign -> CrossingResult
         measurement_stats = {'fix': 0, 'boundary': 0}
 
+        # Extract callsigns for trajectory queries (keyed by flight_uid now)
+        callsign_list = [f.get('callsign', '') for f in flights.values() if f.get('callsign')]
+
         # 1. Detect fix crossings (if fix is specified and known)
         if fix and fix in self.fix_coords:
             coords = self.fix_coords[fix]
             fix_results = self._detect_crossings(
                 fix, coords['lat'], coords['lon'],
-                list(flights.keys()), tmi
+                callsign_list, tmi
             )
             for crossing in fix_results:
                 fix_crossings_map[crossing.callsign] = crossing
@@ -1496,7 +1540,7 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Attempting boundary detection: {tmi.provider} -> {tmi.requestor}")
             boundary_results = self._detect_boundary_crossings(
                 tmi.provider, tmi.requestor,
-                list(flights.keys()), tmi
+                callsign_list, tmi
             )
             for bc in boundary_results:
                 # Convert to CrossingResult for uniform handling
@@ -1856,7 +1900,8 @@ class TMIComplianceAnalyzer:
         gs_delays = []
         time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
-        for callsign, flight in flights.items():
+        for fuid, flight in flights.items():
+            callsign = flight.get('callsign', str(fuid))
             dept = flight.get('dept', 'UNK')
 
             # Skip if no origin filter or origin doesn't match
@@ -1910,9 +1955,21 @@ class TMIComplianceAnalyzer:
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
             elif dep_time > gs_end:
+                # Only count if departed within reasonable window after GS ended
+                gs_duration_min = (gs_end - gs_start).total_seconds() / 60
+                max_hold_window_min = max(gs_duration_min * 3, 120)
+                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
+                if time_after_gs_min > max_hold_window_min:
+                    continue  # Not GS-related, just normal traffic
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
+                # Calculate hold time: delay from the GS (overlap of ready time with GS window)
+                ready_time = normalize_datetime(out_utc) if out_utc else (normalize_datetime(first_seen) if first_seen else None)
+                if ready_time and ready_time < gs_end:
+                    hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
+                    if hold_min > 0:
+                        flight_info['hold_time_min'] = round(hold_min, 1)
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
@@ -1929,7 +1986,7 @@ class TMIComplianceAnalyzer:
             'gs_end': gs_end.strftime('%H:%MZ'),
             'gs_issued': gs_issued.strftime('%H:%MZ'),
             'cancelled': tmi.cancelled_utc is not None,
-            'total_flights': len(flights),
+            'total_flights': len(exempt) + len(compliant) + len(non_compliant),
             'exempt': exempt,
             'compliant': compliant,
             'non_compliant': non_compliant,
@@ -2014,12 +2071,14 @@ class TMIComplianceAnalyzer:
         compliant = []
         non_compliant = []
         not_in_scope = []
-        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': []})
+        per_origin = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': [], 'gs_delays': []})
+        per_carrier = defaultdict(lambda: {'compliant': 0, 'non_compliant': 0, 'exempt': 0, 'total': 0, 'hold_times': [], 'gs_delays': [], 'airline_name': ''})
         hold_times = []
         gs_delays = []
         time_source_counts = {'off_utc': 0, 'out_utc+taxi': 0, 'first_seen': 0}
 
-        for callsign, flight in flights.items():
+        for fuid, flight in flights.items():
+            callsign = flight.get('callsign', str(fuid))
             dept = flight.get('dept', 'UNK')
 
             # Determine best wheels-off estimate
@@ -2042,12 +2101,35 @@ class TMIComplianceAnalyzer:
             else:
                 continue
 
-            time_source_counts[time_source] += 1
+            # Extract carrier from airline_icao or callsign prefix
+            airline_icao = flight.get('airline_icao')
+            airline_name = flight.get('airline_name', '')
+            if airline_icao:
+                carrier = airline_icao
+            else:
+                # Fallback: extract letter prefix from callsign (e.g., "AAL" from "AAL123")
+                m = re.match(r'^([A-Za-z]{2,4})', callsign.upper() if callsign else '')
+                carrier = m.group(1).upper() if m else (callsign or 'UNK')
+
+            # first_seen → gate wait calculation
+            first_seen_dt = normalize_datetime(first_seen) if first_seen else None
+            gate_wait_min = None
+            if first_seen_dt and out_utc:
+                out_dt_raw = normalize_datetime(out_utc)
+                wait_sec = (out_dt_raw - first_seen_dt).total_seconds()
+                if wait_sec > 0:
+                    gate_wait_min = round(wait_sec / 60, 1)
 
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
+                'carrier': carrier,
+                'airline_name': airline_name or '',
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
+                'out_time': normalize_datetime(out_utc).strftime('%H:%M:%SZ') if out_utc else None,
+                'off_time': normalize_datetime(off_utc).strftime('%H:%M:%SZ') if off_utc else None,
+                'first_seen_time': first_seen_dt.strftime('%H:%M:%SZ') if first_seen_dt else None,
+                'gate_wait_min': gate_wait_min,
                 'time_source': time_source
             }
 
@@ -2062,15 +2144,15 @@ class TMIComplianceAnalyzer:
                 flight_info['gs_delay_min'] = round(gs_delay_sec / 60, 1)
                 flight_info['actual_taxi_min'] = round(actual_taxi_sec / 60, 1)
                 flight_info['unimpeded_taxi_min'] = round(unimpeded_sec / 60, 1)
-                if gs_delay_sec > 0:
-                    gs_delays.append(gs_delay_sec / 60)
 
             # Check if flight is from a listed DEP FACILITY
             # If dep_facilities is specified but dept origin's facility isn't listed -> NOT_IN_SCOPE
             if dep_facilities:
-                # Simple check: is the origin airport's ARTCC in the dep_facilities list?
+                # Check flight plan data first, fall back to apts reference table
                 origin_artcc = (flight.get('dept_artcc') or '').upper()
                 origin_tracon = (flight.get('dept_tracon') or '').upper()
+                if not origin_artcc:
+                    origin_artcc = self._get_airport_artcc(dept)
                 in_scope = (origin_artcc in dep_facilities or
                            origin_tracon in dep_facilities or
                            dept.upper() in dep_facilities or
@@ -2082,17 +2164,25 @@ class TMIComplianceAnalyzer:
                     not_in_scope.append(flight_info)
                     continue
 
+            # Track stats for in-scope flights only
+            time_source_counts[time_source] += 1
+            if flight_info.get('gs_delay_min', 0) > 0:
+                gs_delays.append(flight_info['gs_delay_min'])
+
             # Determine which advisory phase this flight's departure falls in
             phase = None
+            phase_type = None
             for adv in program.advisories:
                 if adv.advisory_type == 'CNX':
                     continue
                 if adv.gs_period_start and adv.gs_period_end:
                     if adv.gs_period_start <= dep_time <= adv.gs_period_end:
                         phase = adv.advzy_number
+                        phase_type = adv.advisory_type
                         break
 
             flight_info['phase'] = phase
+            flight_info['phase_type'] = phase_type
 
             # Determine compliance
             if first_issued and dep_time < first_issued:
@@ -2100,23 +2190,43 @@ class TMIComplianceAnalyzer:
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
                 per_origin[dept]['exempt'] += 1
+                per_carrier[carrier]['exempt'] += 1
             elif gs_end and dep_time > gs_end:
+                # Only count as GS-affected if departed within reasonable window after GS ended
+                # Flights departing hours later are normal traffic, not held by the GS
+                gs_duration_min = (gs_end - gs_start).total_seconds() / 60 if gs_start else 60
+                max_hold_window_min = max(gs_duration_min * 3, 120)  # 3x GS duration or 2 hours, whichever is larger
+                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
+                if time_after_gs_min > max_hold_window_min:
+                    continue  # Skip - departed too long after GS to be related
+
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
                 per_origin[dept]['compliant'] += 1
-                # Calculate hold time (how long they waited)
-                if gs_start:
-                    hold_min = (dep_time - gs_start).total_seconds() / 60
+                per_carrier[carrier]['compliant'] += 1
+                # Calculate hold time: delay incurred as a result of the GS
+                # = overlap between when the flight was ready and the GS window
+                # Ready time: out_utc (gate push) or first_seen (VATSIM connect)
+                ready_time = None
+                if out_utc:
+                    ready_time = normalize_datetime(out_utc)
+                elif first_seen:
+                    ready_time = first_seen_dt
+
+                if ready_time and gs_start and gs_end and ready_time < gs_end:
+                    hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
                         per_origin[dept]['hold_times'].append(hold_min)
+                        per_carrier[carrier]['hold_times'].append(hold_min)
                         flight_info['hold_time_min'] = round(hold_min, 1)
             elif gs_start and dep_time < gs_start:
                 flight_info['status'] = 'EXEMPT'
                 flight_info['reason'] = 'Departed before GS started'
                 exempt.append(flight_info)
                 per_origin[dept]['exempt'] += 1
+                per_carrier[carrier]['exempt'] += 1
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
@@ -2124,10 +2234,20 @@ class TMIComplianceAnalyzer:
                     gs_duration = (gs_end - gs_start).total_seconds()
                     into_gs = (dep_time - gs_start).total_seconds()
                     flight_info['pct_into_gs'] = round(100 * into_gs / gs_duration, 1) if gs_duration > 0 else 0
+                    flight_info['into_gs_min'] = round(into_gs / 60, 1)
                 non_compliant.append(flight_info)
                 per_origin[dept]['non_compliant'] += 1
+                per_carrier[carrier]['non_compliant'] += 1
 
             per_origin[dept]['total'] += 1
+            per_carrier[carrier]['total'] += 1
+            if not per_carrier[carrier]['airline_name'] and airline_name:
+                per_carrier[carrier]['airline_name'] = airline_name
+
+            # Track GS delay per origin and carrier
+            if flight_info.get('gs_delay_min') is not None and flight_info['gs_delay_min'] > 0:
+                per_origin[dept]['gs_delays'].append(flight_info['gs_delay_min'])
+                per_carrier[carrier]['gs_delays'].append(flight_info['gs_delay_min'])
 
         total_applicable = len(compliant) + len(non_compliant)
         compliance_pct = round(100 * len(compliant) / total_applicable, 1) if total_applicable > 0 else 100
@@ -2138,6 +2258,7 @@ class TMIComplianceAnalyzer:
         for origin, counts in sorted(per_origin.items()):
             origin_applicable = counts['compliant'] + counts['non_compliant']
             origin_hold = counts['hold_times']
+            origin_delays = counts['gs_delays']
             per_origin_list.append({
                 'origin': origin,
                 'total': counts['total'],
@@ -2146,6 +2267,25 @@ class TMIComplianceAnalyzer:
                 'exempt': counts['exempt'],
                 'compliance_pct': round(100 * counts['compliant'] / origin_applicable, 1) if origin_applicable > 0 else 100,
                 'avg_hold_time_min': round(sum(origin_hold) / len(origin_hold), 1) if origin_hold else 0,
+                'avg_gs_delay_min': round(sum(origin_delays) / len(origin_delays), 1) if origin_delays else 0,
+            })
+
+        # Format per_carrier for output
+        per_carrier_list = []
+        for carrier_code, counts in sorted(per_carrier.items()):
+            carrier_applicable = counts['compliant'] + counts['non_compliant']
+            carrier_hold = counts['hold_times']
+            carrier_delays = counts['gs_delays']
+            per_carrier_list.append({
+                'carrier': carrier_code,
+                'airline_name': counts['airline_name'],
+                'total': counts['total'],
+                'compliant': counts['compliant'],
+                'non_compliant': counts['non_compliant'],
+                'exempt': counts['exempt'],
+                'compliance_pct': round(100 * counts['compliant'] / carrier_applicable, 1) if carrier_applicable > 0 else 100,
+                'avg_hold_time_min': round(sum(carrier_hold) / len(carrier_hold), 1) if carrier_hold else 0,
+                'avg_gs_delay_min': round(sum(carrier_delays) / len(carrier_delays), 1) if carrier_delays else 0,
             })
 
         return {
@@ -2154,7 +2294,7 @@ class TMIComplianceAnalyzer:
             'gs_issued': first_issued.strftime('%H:%MZ') if first_issued else None,
             'cancelled': program.is_cancelled(),
             'ended_by': program.ended_by,
-            'total_flights': len(flights),
+            'total_flights': len(exempt) + len(compliant) + len(non_compliant) + len(not_in_scope),
             'exempt': exempt,
             'compliant': compliant,
             'non_compliant': non_compliant,
@@ -2169,6 +2309,7 @@ class TMIComplianceAnalyzer:
             # Enhanced program data
             'program_timeline': program_timeline,
             'per_origin_breakdown': per_origin_list,
+            'per_carrier_breakdown': per_carrier_list,
             'avg_hold_time_min': avg_hold_time,
             'hold_time_stats': {
                 'min': round(min(hold_times), 1) if hold_times else 0,
@@ -2225,7 +2366,8 @@ class TMIComplianceAnalyzer:
 
         # Filter to flights within the reroute time window
         flights = []
-        for callsign, flight in flights_dict.items():
+        for fuid, flight in flights_dict.items():
+            callsign = flight.get('callsign', str(fuid))
             first_seen = flight.get('first_seen')
             if not first_seen:
                 continue
@@ -2523,7 +2665,8 @@ class TMIComplianceAnalyzer:
 
         # Filter flights to those within the program window and matching OD
         flights = []
-        for callsign, flight in flights_dict.items():
+        for fuid, flight in flights_dict.items():
+            callsign = flight.get('callsign', str(fuid))
             dep_time = (flight.get('atd_utc') or flight.get('off_utc') or flight.get('first_seen'))
             if not dep_time:
                 continue
@@ -2833,7 +2976,8 @@ class TMIComplianceAnalyzer:
         affected_flights = []     # Need coordination during window
         post_tmi_flights = []     # Departed after TMI ended
 
-        for callsign, flight_data in flights.items():
+        for fuid, flight_data in flights.items():
+            callsign = flight_data.get('callsign', str(fuid))
             first_seen = flight_data.get('first_seen')
             if not first_seen:
                 continue
