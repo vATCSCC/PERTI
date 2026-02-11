@@ -198,6 +198,188 @@ include("load/config.php");
             color: #333;
         }
 
+        /* ========== Active Programs Dashboard ========== */
+        .gdt-program-card {
+            min-width: 260px;
+            max-width: 340px;
+            flex: 1 1 260px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            padding: 10px 14px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+
+        .gdt-program-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.15);
+        }
+
+        .gdt-program-card.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .gdt-program-card .gdt-card-type {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #fff;
+        }
+
+        .gdt-card-type-gs { background: #dc3545; }
+        .gdt-card-type-gdp { background: #e67e22; }
+        .gdt-card-type-afp { background: #007bff; }
+
+        .gdt-program-card .gdt-card-status {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .gdt-card-status-active { background: #d4edda; color: #155724; }
+        .gdt-card-status-modeling { background: #fff3cd; color: #856404; }
+        .gdt-card-status-proposed { background: #cce5ff; color: #004085; }
+        .gdt-card-status-transitioned { background: #e2e3e5; color: #383d41; }
+        .gdt-card-status-cancelled { background: #f8d7da; color: #721c24; }
+        .gdt-card-status-completed { background: #e2e3e5; color: #383d41; }
+
+        .gdt-program-card .gdt-card-element {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .gdt-program-card .gdt-card-artcc {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
+        .gdt-program-card .gdt-card-time {
+            font-size: 0.75rem;
+            font-family: 'Inconsolata', monospace;
+            color: #555;
+        }
+
+        .gdt-program-card .gdt-card-progress {
+            height: 4px;
+            border-radius: 2px;
+            background: #e9ecef;
+            margin-top: 6px;
+        }
+
+        .gdt-program-card .gdt-card-progress-bar {
+            height: 100%;
+            border-radius: 2px;
+            background: #28a745;
+            transition: width 0.3s ease;
+        }
+
+        .gdt-program-card .gdt-card-metrics {
+            display: flex;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
+        .gdt-program-card .gdt-card-metric-value {
+            font-weight: 700;
+            color: #333;
+        }
+
+        .gdt-program-card .gdt-card-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .gdt-program-card .gdt-card-actions .btn {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+        }
+
+        /* ========== Workflow Stepper ========== */
+        .gdt-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 80px;
+        }
+
+        .gdt-step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e9ecef;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 2px solid #dee2e6;
+            transition: all 0.2s ease;
+        }
+
+        .gdt-step.active .gdt-step-circle {
+            background: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+
+        .gdt-step.completed .gdt-step-circle {
+            background: #28a745;
+            color: #fff;
+            border-color: #28a745;
+        }
+
+        .gdt-step.completed .gdt-step-circle::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+        }
+
+        .gdt-step-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #adb5bd;
+            margin-top: 4px;
+            letter-spacing: 0.03em;
+        }
+
+        .gdt-step.active .gdt-step-label {
+            color: #007bff;
+        }
+
+        .gdt-step.completed .gdt-step-label {
+            color: #28a745;
+        }
+
+        .gdt-step-line {
+            flex: 1;
+            height: 2px;
+            background: #dee2e6;
+            margin: 14px 8px 0;
+            min-width: 40px;
+            max-width: 120px;
+            transition: background 0.2s ease;
+        }
+
+        .gdt-step-line.completed {
+            background: #28a745;
+        }
+
         /* Icon-only button sizing fix */
         /* Ensures icon buttons in btn-group-sm have minimum width for visibility */
         .btn-group-sm > .btn:has(> i.fas):not(:has(span)):not(:has(.sr-only)) {
@@ -379,6 +561,69 @@ include("load/config.php");
             </div>
         </div>
     </div>
+
+    <!-- Active Programs Dashboard -->
+    <div id="gdt_dashboard" class="mb-3" style="display: none;">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center"
+                 style="cursor: pointer;" onclick="toggleDashboard();">
+                <span class="tmi-section-title">
+                    <i class="fas fa-tachometer-alt mr-1"></i> Active Programs
+                    <span id="gdt_dashboard_count" class="badge badge-light ml-1" style="display: none;">0</span>
+                </span>
+                <div>
+                    <button class="btn btn-sm btn-outline-light mr-1" id="gdt_new_program_btn"
+                            onclick="event.stopPropagation(); resetAndNewProgram();"
+                            data-toggle="tooltip" title="Create a new program">
+                        <i class="fas fa-plus mr-1"></i> New Program
+                    </button>
+                    <i class="fas fa-chevron-down" id="gdt_dashboard_chevron"></i>
+                </div>
+            </div>
+            <div class="card-body py-2 px-3" id="gdt_dashboard_body">
+                <!-- No programs message -->
+                <div id="gdt_dashboard_empty" class="text-center text-muted py-2" style="display: none;">
+                    <i class="fas fa-check-circle mr-1"></i> No active programs
+                </div>
+                <!-- Program cards container -->
+                <div id="gdt_dashboard_cards" class="d-flex flex-wrap" style="gap: 10px;">
+                </div>
+                <!-- Summary row -->
+                <div id="gdt_dashboard_summary" class="mt-2 pt-2 border-top small text-muted" style="display: none;">
+                    <i class="fas fa-plane mr-1"></i>
+                    <span id="gdt_dashboard_total_controlled">0</span> controlled across all programs
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-clock mr-1"></i> Last refreshed: <span id="gdt_dashboard_refresh_time">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Stepper -->
+    <div id="gdt_stepper" class="mb-3">
+        <div class="d-flex align-items-center justify-content-center py-2">
+            <div class="gdt-step active" id="gdt_step_1" data-step="configure">
+                <div class="gdt-step-circle">1</div>
+                <div class="gdt-step-label">Configure</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_1"></div>
+            <div class="gdt-step" id="gdt_step_2" data-step="preview">
+                <div class="gdt-step-circle">2</div>
+                <div class="gdt-step-label">Preview</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_2"></div>
+            <div class="gdt-step" id="gdt_step_3" data-step="model">
+                <div class="gdt-step-circle">3</div>
+                <div class="gdt-step-label">Model</div>
+            </div>
+            <div class="gdt-step-line" id="gdt_step_line_3"></div>
+            <div class="gdt-step" id="gdt_step_4" data-step="active">
+                <div class="gdt-step-circle">4</div>
+                <div class="gdt-step-label">Active</div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Left: Ground Stop editor -->
         <div class="col-lg-6 mb-4">
