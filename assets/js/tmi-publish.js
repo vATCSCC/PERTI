@@ -7390,7 +7390,8 @@
                 const response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
                 if (response.ok) {
                     const data = await response.json();
-                    $('#rr_adv_number').val(data.advisory_number || '001');
+                    const rawNum = data.advisory_number || '001';
+                    $('#rr_adv_number').val(rawNum.replace(/^ADVZY\s+/i, ''));
                 }
             } catch (e) {
                 console.warn('[REROUTE] Could not fetch advisory number:', e);
