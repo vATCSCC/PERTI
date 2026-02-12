@@ -199,7 +199,7 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
             rr.start_utc, rr.end_utc,
             rr.impacting_condition AS reason,
             rr.advisory_text, rr.color,
-            rr.created_by, rr.created_utc, rr.updated_utc,
+            rr.created_by, rr.created_at, rr.updated_at,
             rr.discord_message_id, rr.discord_channel_id
         FROM dbo.tmi_reroutes rr
         $where_sql
@@ -333,8 +333,8 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
 
         'metadata' => [
             'created_by' => $parentReroute['created_by'],
-            'created_at' => formatDT($parentReroute['created_utc']),
-            'updated_at' => formatDT($parentReroute['updated_utc']),
+            'created_at' => formatDT($parentReroute['created_at']),
+            'updated_at' => formatDT($parentReroute['updated_at']),
             'source' => 'reroute_advisory'
         ],
 
@@ -713,7 +713,7 @@ function handleUpdateReroute($id, $body) {
     $rerouteId = $route['reroute_id'];
 
     // Build update for tmi_reroutes (color and other shared properties)
-    $updates = ['updated_utc = GETUTCDATE()'];
+    $updates = ['updated_at = GETUTCDATE()'];
     $params = [];
 
     // Fields that can be updated on the parent reroute
@@ -733,7 +733,7 @@ function handleUpdateReroute($id, $body) {
         }
     }
 
-    if (count($updates) > 1) {  // More than just updated_utc
+    if (count($updates) > 1) {  // More than just updated_at
         $params[] = $rerouteId;
         $sql = "UPDATE dbo.tmi_reroutes SET " . implode(', ', $updates) . " WHERE reroute_id = ?";
         $stmt = sqlsrv_query($conn_tmi, $sql, $params);

@@ -8652,6 +8652,7 @@
                     airborne_filter: $('#rr_airborne_filter').val() || 'NOT_AIRBORNE',
                     prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                     remarks: $('#rr_remarks').val() || '',
+                    color: $('#rr_color').val() || '#e74c3c',
                     routes: routes,
                     geojson: this.rerouteData?.geojson || null,
                 },
