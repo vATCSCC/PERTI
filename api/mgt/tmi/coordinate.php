@@ -2715,13 +2715,15 @@ function createDraftReroute($conn, $entry, $userCid, $proposalId) {
                     status, name, start_utc, end_utc, time_basis,
                     origin_airports, origin_centers, dest_airports, dest_centers,
                     impacting_condition, comments, airborne_filter,
-                    route_geojson, source_type, created_by, created_at
+                    route_geojson, advisory_text, color,
+                    source_type, created_by, created_at
                 ) OUTPUT INSERTED.reroute_id
                 VALUES (
                     1, :name, :start, :end, :time_basis,
                     :orig_apt, :orig_ctr, :dest_apt, :dest_ctr,
                     :reason, :remarks, :airborne,
-                    :geojson, 'COORDINATION', :user_cid, SYSUTCDATETIME()
+                    :geojson, :advisory_text, :color,
+                    'COORDINATION', :user_cid, SYSUTCDATETIME()
                 )";
 
         $validFrom = null;
@@ -2747,6 +2749,8 @@ function createDraftReroute($conn, $entry, $userCid, $proposalId) {
             ':remarks' => $data['remarks'] ?? '',
             ':airborne' => $data['airborne_filter'] ?? 'NOT_AIRBORNE',
             ':geojson' => isset($data['geojson']) ? json_encode($data['geojson']) : null,
+            ':advisory_text' => $entry['rawText'] ?? null,
+            ':color' => $data['color'] ?? '#e74c3c',
             ':user_cid' => $userCid
         ]);
 
@@ -2755,22 +2759,26 @@ function createDraftReroute($conn, $entry, $userCid, $proposalId) {
 
         // Insert individual routes
         if ($rerouteId && !empty($routes)) {
+            error_log("[COORD_REROUTE] Inserting " . count($routes) . " routes for reroute_id=$rerouteId");
             $routeSql = "INSERT INTO dbo.tmi_reroute_routes
                          (reroute_id, origin, destination, route_string, sort_order, origin_filter, dest_filter)
                          VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             $sortOrder = 0;
             foreach ($routes as $route) {
+                $origin = strtoupper(trim($route['origin'] ?? ''));
+                $dest = strtoupper(trim($route['destination'] ?? ''));
+                $routeStr = trim($route['route'] ?? '');
                 $conn->prepare($routeSql)->execute([
-                    $rerouteId,
-                    strtoupper(trim($route['origin'] ?? '')),
-                    strtoupper(trim($route['destination'] ?? '')),
-                    trim($route['route'] ?? ''),
+                    $rerouteId, $origin, $dest, $routeStr,
                     $sortOrder++,
                     strtoupper(trim($route['originFilter'] ?? '')),
                     strtoupper(trim($route['destFilter'] ?? ''))
                 ]);
             }
+            error_log("[COORD_REROUTE] Inserted $sortOrder routes for reroute_id=$rerouteId");
+        } else {
+            error_log("[COORD_REROUTE] No routes to insert for reroute_id=$rerouteId (routes count: " . count($routes) . ")");
         }
 
         return $rerouteId;
