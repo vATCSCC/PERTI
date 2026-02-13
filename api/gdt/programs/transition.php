@@ -257,6 +257,7 @@ if ($phase === 'activate') {
     // Transition GS and activate GDP atomically
     sqlsrv_begin_transaction($conn_tmi);
 
+
     $result1 = execute_query($conn_tmi,
         "UPDATE dbo.tmi_programs SET status = 'TRANSITIONED', is_active = 0, updated_at = SYSUTCDATETIME() WHERE program_id = ?",
         [$gs_program_id]
