@@ -684,6 +684,9 @@ include("sessions/handler.php");
                                 <button class="btn btn-sm btn-outline-warning" id="tmr_batch_assess_btn">
                                     <i class="fas fa-check-double"></i> <span data-i18n="tmr.tmi.batchAssess">Batch Assess</span>
                                 </button>
+                                <button class="btn btn-sm btn-outline-danger" id="tmr_bulk_remove_btn">
+                                    <i class="fas fa-trash-alt"></i> <span data-i18n="tmr.tmi.removeSelected">Remove Selected</span>
+                                </button>
                             </div>
 
                             <!-- Bulk paste input (hidden by default) -->
@@ -1271,7 +1274,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
 <script src="assets/js/demand.js?v=2"></script>
 <script src="assets/js/review.js"></script>
-<script src="assets/js/tmr_report.js?v=6"></script>
+<script src="assets/js/tmr_report.js?v=7"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js"></script>
 

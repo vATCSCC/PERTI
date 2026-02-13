@@ -407,6 +407,32 @@
         // Batch assess
         $('#tmr_batch_assess_btn').on('click', showBatchAssessModal);
 
+        // Bulk remove selected TMIs
+        $('#tmr_bulk_remove_btn').on('click', function() {
+            var selectedKeys = Object.keys(tmiSelected).filter(function(k) { return tmiSelected[k]; });
+            if (selectedKeys.length === 0) {
+                Swal.fire({ icon: 'info', title: PERTII18n.t('tmr.tmi.noSelection'), text: PERTII18n.t('tmr.tmi.noSelectionText'), timer: 2000, showConfirmButton: false });
+                return;
+            }
+            Swal.fire({
+                title: PERTII18n.t('tmr.tmi.removeSelected'),
+                text: selectedKeys.length + ' TMI(s) will be removed.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: PERTII18n.t('common.delete'),
+                cancelButtonText: PERTII18n.t('common.cancel'),
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    tmiList = tmiList.filter(function(t) { return !tmiSelected[t._key]; });
+                    selectedKeys.forEach(function(k) { delete tmiSelected[k]; });
+                    renderTMITable();
+                    immediateFieldSave();
+                    Swal.fire({ icon: 'success', title: selectedKeys.length + ' TMI(s) removed', timer: 1500, showConfirmButton: false });
+                }
+            });
+        });
+
         // Remove TMI button
         $(document).on('click', '.tmi-remove-btn', function() {
             var key = $(this).data('key');
@@ -800,9 +826,15 @@
             var parts = ['GS', tmi.element || tmi.airport || ''];
             if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
             if (tmi.advisories && tmi.advisories.length > 0) {
-                parts.push('(Advzy ' + tmi.advisories.join(',') + ')');
+                var advLabels = tmi.advisories.map(function(a) {
+                    return typeof a === 'string' ? a : (a.advzy_number || a.advisory_type || a.type || '');
+                }).filter(Boolean);
+                if (advLabels.length > 0) parts.push('(' + advLabels.join(', ') + ')');
             }
-            if (tmi.dep_facilities) parts.push('DEP: ' + tmi.dep_facilities);
+            if (tmi.dep_facilities) {
+                var depStr = Array.isArray(tmi.dep_facilities) ? tmi.dep_facilities.join(',') : tmi.dep_facilities;
+                if (depStr) parts.push('DEP: ' + depStr);
+            }
             if (tmi.ended_by) parts.push('[ended ' + tmi.ended_by + ']');
             if (timeRange) parts.push(timeRange);
             return parts.join(' ') || tmi.raw || '--';
