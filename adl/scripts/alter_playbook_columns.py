@@ -8,6 +8,7 @@ This allows longer play names like "DC METRO NATS ESCAPE VIA GOATR_old_2601" (38
 import pyodbc
 import sys
 from pathlib import Path
+import os
 
 # Add parent directory to path for config access
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -61,7 +62,7 @@ def main():
 
     # Admin credentials for both databases
     admin_user = "jpeterson"
-    admin_pass = "***REMOVED***"
+    admin_pass = os.environ.get("DDL_SQL_PASSWORD", "")
 
     ref_db = "VATSIM_REF"
     adl_db = "VATSIM_ADL"

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Quick check of arrival time tracking status."""
 import pyodbc
+import os
 
 conn_str = (
     'DRIVER={ODBC Driver 18 for SQL Server};'
     'SERVER=tcp:vatsim.database.windows.net,1433;'
     'DATABASE=VATSIM_ADL;'
     'UID=adl_api_user;'
-    'PWD=***REMOVED***;'
+    f'PWD={os.environ["ADL_SQL_PASSWORD"]};'
     'Encrypt=yes;TrustServerCertificate=no;'
 )
 conn = pyodbc.connect(conn_str, timeout=30)

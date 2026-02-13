@@ -42,7 +42,7 @@ $Server = Get-PhpConstant $configContent "ADL_SQL_HOST"
 $Database = Get-PhpConstant $configContent "ADL_SQL_DATABASE"
 # Use admin credentials for import (has CREATE TABLE permissions)
 $Username = "jpeterson"
-$Password = "***REMOVED***"
+$Password = $env:DDL_SQL_PASSWORD
 
 if (-not $Server -or -not $Database -or -not $Username -or -not $Password) {
     Write-Host "ERROR: Could not parse ADL_SQL_* credentials from config.php" -ForegroundColor Red

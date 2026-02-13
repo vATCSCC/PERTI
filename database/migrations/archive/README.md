@@ -8,7 +8,7 @@ Deploy the ADL Archive System to Azure SQL by running the SQL migration file in 
 Server: vatsim.database.windows.net
 Database: VATSIM_ADL
 Username: adl_api_user
-Password: ***REMOVED***
+Password: <PASSWORD>
 ```
 
 ## Steps
@@ -24,7 +24,7 @@ import re
 server = 'vatsim.database.windows.net'
 database = 'VATSIM_ADL'
 username = 'adl_api_user'
-password = '***REMOVED***'
+password = '<PASSWORD>'
 
 with open('ADL_Archive_FULL_DEPLOYMENT.sql', 'r', encoding='utf-8') as f:
     sql = f.read()

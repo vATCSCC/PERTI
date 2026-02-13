@@ -233,7 +233,7 @@ GET /api/weather/impact.php?flight_uid=X # Specific flight
 
 ### Trigger Refresh
 ```
-GET /api/weather/refresh.php?api_key=***REMOVED***
+GET /api/weather/refresh.php?api_key=<API_KEY>
 ```
 
 ---

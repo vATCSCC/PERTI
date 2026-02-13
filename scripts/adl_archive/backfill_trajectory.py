@@ -47,7 +47,7 @@ ADL_CONNECTION_STRING = (
     "Server=vatsim.database.windows.net;"
     "Database=VATSIM_ADL;"
     "Uid=adl_api_user;"
-    "Pwd=***REMOVED***;"
+    f"Pwd={os.environ.get('ADL_SQL_PASSWORD', '')};"
     "TrustServerCertificate=yes;"
 )
 

@@ -2,7 +2,7 @@
 -- These fixes (EGRET, NADPI, NOVAR) are used for CYVR arrival routes
 -- Run against VATSIM_ADL database
 --
--- Usage: sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i add_canadian_fixes.sql
+-- Usage: sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i add_canadian_fixes.sql
 
 SET NOCOUNT ON;
 PRINT 'Adding Canadian fixes for YVR TMI analysis...';

@@ -55,7 +55,7 @@ if (!defined("SQL_USERNAME")) {
     define("GIS_SQL_PORT", "5432");
     define("GIS_SQL_DATABASE", "VATSIM_GIS");
     define("GIS_SQL_USERNAME", "GIS_admin");
-    define("GIS_SQL_PASSWORD", "");  // Default: ***REMOVED***
+    define("GIS_SQL_PASSWORD", "");  // Default: <PASSWORD>
 
     // VATSIM_STATS - Statistics & Analytics Database
     // Uses same server as ADL, different database

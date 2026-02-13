@@ -23,7 +23,7 @@ if (in_array($remoteIp, ['127.0.0.1', '::1', 'localhost'])) {
 
 // Check for API key (optional authentication)
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? $_GET['api_key'] ?? '';
-if ($apiKey === '***REMOVED***') {
+if (defined('WEATHER_REFRESH_KEY') && WEATHER_REFRESH_KEY !== '' && $apiKey === WEATHER_REFRESH_KEY) {
     $allowed = true;
 }
 

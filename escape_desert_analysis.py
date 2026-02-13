@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
 from collections import defaultdict
+import os
 
 # Event parameters
 EVENT_START = '2026-01-17 22:00:00'
@@ -50,7 +51,7 @@ def get_swim_conn():
         "SERVER=vatsim.database.windows.net;"
         "DATABASE=SWIM_API;"
         "UID=adl_api_user;"
-        "PWD=***REMOVED***;"
+        f'PWD={os.environ["ADL_SQL_PASSWORD"]};'
         "Encrypt=yes;TrustServerCertificate=yes;"
     )
 
@@ -60,7 +61,7 @@ def get_adl_conn():
         "SERVER=vatsim.database.windows.net;"
         "DATABASE=VATSIM_ADL;"
         "UID=adl_api_user;"
-        "PWD=***REMOVED***;"
+        f'PWD={os.environ["ADL_SQL_PASSWORD"]};'
         "Encrypt=yes;TrustServerCertificate=yes;"
     )
 

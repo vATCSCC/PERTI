@@ -25,7 +25,7 @@ REM CONFIGURATION - Edit these values
 REM ============================================================================
 
 REM Database password (REQUIRED - set this before running)
-set WIND_DB_PASSWORD=***REMOVED***
+REM set WIND_DB_PASSWORD=YOUR_PASSWORD_HERE
 
 REM Optional: Override defaults if needed
 REM set WIND_DB_SERVER=tcp:vatsim.database.windows.net,1433

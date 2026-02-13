@@ -37,7 +37,7 @@ CREATE ROLE GIS_admin WITH
     NOCREATEROLE
     INHERIT
     NOREPLICATION
-    PASSWORD '***REMOVED***';
+    PASSWORD '<PASSWORD>';
 
 -- =============================================================================
 -- PART B: SETUP EXTENSIONS AND PERMISSIONS (Run on 'VATSIM_GIS' database)

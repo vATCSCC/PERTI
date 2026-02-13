@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin, quote
+import os
 
 try:
     import requests
@@ -484,7 +485,7 @@ class DatabaseImporter:
             "Server=vatsim.database.windows.net;"
             "Database=VATSIM_ADL;"
             "Uid=jpeterson;"
-            "Pwd=***REMOVED***;"
+            f"Pwd={os.environ.get('DDL_SQL_PASSWORD', '')};"
         )
         self.conn = None
 

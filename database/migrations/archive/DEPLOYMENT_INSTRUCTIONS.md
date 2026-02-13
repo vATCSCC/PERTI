@@ -8,7 +8,7 @@ Deploy the ADL Archive System to the VATSIM_ADL Azure SQL database.
 Server: vatsim.database.windows.net
 Database: VATSIM_ADL
 Username: adl_api_user
-Password: ***REMOVED***
+Password: <PASSWORD>
 Port: 1433
 ```
 
@@ -33,7 +33,7 @@ import re
 server = 'vatsim.database.windows.net'
 database = 'VATSIM_ADL'
 username = 'adl_api_user'
-password = '***REMOVED***'
+password = '<PASSWORD>'
 
 # Read the SQL file
 with open('ADL_Archive_FULL_DEPLOYMENT.sql', 'r', encoding='utf-8') as f:

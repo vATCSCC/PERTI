@@ -2,12 +2,13 @@
 """Trajectory data coverage analysis for TMI compliance"""
 import pymssql
 import sys
+import os
 
 def main():
     conn = pymssql.connect(
         server='vatsim.database.windows.net',
         user='adl_api_user',
-        password='***REMOVED***',
+        password=os.environ.get("ADL_SQL_PASSWORD", ""),
         database='VATSIM_ADL'
     )
     cursor = conn.cursor()

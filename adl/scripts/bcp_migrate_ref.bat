@@ -8,7 +8,7 @@ set SERVER=vatsim.database.windows.net
 set ADL_DB=VATSIM_ADL
 set REF_DB=VATSIM_REF
 set USER=jpeterson
-set PASS=***REMOVED***
+set PASS=%DDL_SQL_PASSWORD%
 set DATADIR=%~dp0data
 
 REM Create data directory if it doesn't exist

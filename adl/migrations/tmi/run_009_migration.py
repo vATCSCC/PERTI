@@ -11,12 +11,13 @@ Requires: pip install pymssql
 import pymssql
 import sys
 from pathlib import Path
+import os
 
 # Connection settings - Update these if different
 SERVER = 'vatsim.database.windows.net'
 DATABASE = 'VATSIM_ADL'
 USER = 'jpeterson'
-PASSWORD = '***REMOVED***'
+PASSWORD = os.environ.get("DDL_SQL_PASSWORD", "")
 
 def main():
     print("=" * 60)

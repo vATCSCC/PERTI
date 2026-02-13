@@ -10,12 +10,13 @@ import pyodbc
 import math
 from datetime import datetime, timedelta
 from collections import defaultdict
+import os
 
 # Database connection (from config.php)
 DB_HOST = 'vatsim.database.windows.net'
 DB_NAME = 'VATSIM_ADL'
 DB_USER = 'adl_api_user'
-DB_PASS = '***REMOVED***'
+DB_PASS = os.environ.get("ADL_SQL_PASSWORD", "")
 
 # Event parameters
 EVENT_START = '2026-01-17 22:00:00'

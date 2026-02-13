@@ -374,8 +374,8 @@ $apiKey = getenv('SIMTRAFFIC_API_KEY');
 
 | File | Line | Issue |
 |------|------|-------|
-| `scripts/migrate_division_events.php` | 26 | `'pass' => getenv('DB_PASS') ?: '***REMOVED***'` |
-| `api/stats/config_stats.php` | 41 | `define('STATS_SQL_PASSWORD', env_stats('STATS_SQL_PASSWORD', '***REMOVED***'))` |
+| `scripts/migrate_division_events.php` | 26 | `'pass' => getenv('DB_PASS') ?: '<PASSWORD>'` |
+| `api/stats/config_stats.php` | 41 | `define('STATS_SQL_PASSWORD', env_stats('STATS_SQL_PASSWORD', '<PASSWORD>'))` |
 
 **Recommendation:** Remove hardcoded passwords immediately, require environment variables.
 

@@ -102,7 +102,7 @@ Session::requirePermission('admin');
 
 ```php
 // ❌ FORBIDDEN - Hardcoded credentials
-$pass = getenv('DB_PASS') ?: '***REMOVED***';
+$pass = getenv('DB_PASS') ?: '<PASSWORD>';
 
 // ✅ REQUIRED - Require env vars
 $pass = getenv('DB_PASS');

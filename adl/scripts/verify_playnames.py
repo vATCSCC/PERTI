@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Verify play names are not truncated."""
 import pyodbc
+import os
 
 SERVER = "vatsim.database.windows.net"
 USERNAME = "jpeterson"
-PASSWORD = "***REMOVED***"
+PASSWORD = os.environ.get("DDL_SQL_PASSWORD", "")
 
 conn_str = (
     f"DRIVER={{ODBC Driver 18 for SQL Server}};"

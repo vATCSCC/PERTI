@@ -23,7 +23,7 @@ $config = [
     'host' => getenv('DB_HOST') ?: 'vatsim.database.windows.net',
     'name' => getenv('DB_NAME') ?: 'VATSIM_ADL',
     'user' => getenv('DB_USER') ?: 'adl_api_user',
-    'pass' => getenv('DB_PASS') ?: '***REMOVED***',
+    'pass' => getenv('DB_PASS') ?: '',
 ];
 
 $migration = "

@@ -29,6 +29,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
+import os
 
 # ==============================================================================
 # Configuration
@@ -40,7 +41,7 @@ ADL_DATABASE = "VATSIM_ADL"
 
 # API user for data operations
 API_USER = "adl_api_user"
-API_PASS = "***REMOVED***"
+API_PASS = os.environ.get("ADL_SQL_PASSWORD", "")
 
 # Paths relative to script location
 SCRIPT_DIR = Path(__file__).parent

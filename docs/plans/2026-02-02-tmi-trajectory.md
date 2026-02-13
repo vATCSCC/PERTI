@@ -1144,13 +1144,13 @@ git commit -m "feat(tmi): update analyzer to use unified trajectory view
 Connect to VATSIM_ADL via SSMS or sqlcmd:
 
 ```bash
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/010_create_tmi_trajectory.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/011_artcc_tier_lookup.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/012_tmi_coverage_functions.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/013_compute_tmi_tier.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/014_archive_tmi_aware.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/015_tmi_trajectory_view.sql
-sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '***REMOVED***' -i database/migrations/adl/016_tmi_trajectory_purge.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/010_create_tmi_trajectory.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/011_artcc_tier_lookup.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/012_tmi_coverage_functions.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/013_compute_tmi_tier.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/014_archive_tmi_aware.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/015_tmi_trajectory_view.sql
+sqlcmd -S vatsim.database.windows.net -d VATSIM_ADL -U adl_api_user -P '<PASSWORD>' -i database/migrations/adl/016_tmi_trajectory_purge.sql
 ```
 
 **Step 2: Verify deployment**

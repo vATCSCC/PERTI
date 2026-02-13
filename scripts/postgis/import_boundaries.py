@@ -12,7 +12,7 @@ Usage:
     export GIS_SQL_PORT=5432
     export GIS_SQL_DATABASE=VATSIM_GIS
     export GIS_SQL_USERNAME=GIS_admin
-    export GIS_SQL_PASSWORD=***REMOVED***
+    export GIS_SQL_PASSWORD=<PASSWORD>
     python import_boundaries.py
 
 Requirements:

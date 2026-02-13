@@ -11,10 +11,11 @@ Azure SQL Basic doesn't support cross-database queries, so we:
 import pyodbc
 import sys
 from datetime import datetime
+import os
 
 SERVER = "vatsim.database.windows.net"
 USERNAME = "jpeterson"
-PASSWORD = "***REMOVED***"
+PASSWORD = os.environ.get("DDL_SQL_PASSWORD", "")
 
 
 def get_connection(database: str):

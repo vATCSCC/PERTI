@@ -38,5 +38,5 @@ if (!defined('STATS_SQL_USERNAME')) {
     define('STATS_SQL_USERNAME', env_stats('STATS_SQL_USERNAME', 'adl_api_user'));
 }
 if (!defined('STATS_SQL_PASSWORD')) {
-    define('STATS_SQL_PASSWORD', env_stats('STATS_SQL_PASSWORD', '***REMOVED***'));
+    define('STATS_SQL_PASSWORD', env_stats('STATS_SQL_PASSWORD', ''));
 }

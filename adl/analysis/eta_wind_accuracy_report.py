@@ -16,7 +16,7 @@ DB_CONFIG = {
     'server': os.environ.get('WIND_DB_SERVER', 'tcp:vatsim.database.windows.net,1433'),
     'database': os.environ.get('WIND_DB_NAME', 'VATSIM_ADL'),
     'username': os.environ.get('WIND_DB_USER', 'adl_api_user'),
-    'password': os.environ.get('WIND_DB_PASSWORD', '***REMOVED***'),
+    'password': os.environ.get('WIND_DB_PASSWORD', os.environ.get("ADL_SQL_PASSWORD", "")),
 }
 
 def get_connection():

@@ -5,7 +5,7 @@
 --          to enable full data migration and unified GDT management
 --
 -- Run on: VATSIM_TMI database
--- Credentials: TMI_admin / ***REMOVED***
+-- Credentials: TMI_admin / <PASSWORD>
 -- Server: vatsim.database.windows.net
 -- 
 -- Date: 2026-01-26

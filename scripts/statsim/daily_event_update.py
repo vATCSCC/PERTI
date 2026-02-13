@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fetch_new_events import StatsimScraper, SQLGenerator, DatabaseImporter
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,7 +50,7 @@ def get_latest_event_date() -> datetime:
         "Server=vatsim.database.windows.net;"
         "Database=VATSIM_ADL;"
         "Uid=jpeterson;"
-        "Pwd=***REMOVED***;"
+        f"Pwd={os.environ.get('DDL_SQL_PASSWORD', '')};"
     )
 
     try:

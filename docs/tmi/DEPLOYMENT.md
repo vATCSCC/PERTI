@@ -97,7 +97,7 @@ load/
 define("TMI_SQL_HOST", "vatsim.database.windows.net");
 define("TMI_SQL_DATABASE", "VATSIM_TMI");
 define("TMI_SQL_USERNAME", "TMI_admin");
-define("TMI_SQL_PASSWORD", "***REMOVED***");
+define("TMI_SQL_PASSWORD", "<PASSWORD>");
 ```
 
 ---
@@ -158,7 +158,7 @@ az sql db create \
 ### Step 2: Create User (on `master` database)
 
 ```sql
-CREATE LOGIN TMI_admin WITH PASSWORD = '***REMOVED***';
+CREATE LOGIN TMI_admin WITH PASSWORD = '<PASSWORD>';
 ```
 
 ### Step 3: Grant Permissions (on `VATSIM_TMI` database)
