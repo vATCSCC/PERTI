@@ -705,9 +705,22 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             continue;
         }
 
-        // FLT INCL: (pattern varies)
+        // FLT INCL: (MANUAL) ZLA or (1stTier) ZAB, ZKC, ZMP or ALL
+        // Extract facility codes as fallback when DEP FACILITIES INCLUDED is absent
         if (preg_match('/^FLT\s+INCL:\s*(.+)/i', $line, $m)) {
-            $tmi['flt_incl'] = trim($m[1]);
+            $flt_incl_str = trim($m[1]);
+            $tmi['flt_incl'] = $flt_incl_str;
+            $tmi['flt_incl_facilities'] = [];
+            // "ALL" means no scope restriction — leave facilities empty
+            if (strtoupper($flt_incl_str) !== 'ALL') {
+                // Extract tier notation
+                if (preg_match('/\((1stTier|2ndTier|Manual)\)/i', $flt_incl_str, $tierM)) {
+                    $tmi['flt_incl_tier'] = $tierM[1];
+                }
+                // Extract facility codes (3-letter ARTCC/TRACON codes)
+                preg_match_all('/\b([A-Z]{3})\b/', strtoupper($flt_incl_str), $facMatches);
+                $tmi['flt_incl_facilities'] = array_values(array_diff($facMatches[1] ?? [], ['ALL']));
+            }
             continue;
         }
 
@@ -941,6 +954,10 @@ function build_gs_programs($tmis) {
         foreach ($advisories as $a) {
             if (!empty($a['dep_facilities'])) {
                 $program['dep_facilities'] = array_unique(array_merge($program['dep_facilities'], $a['dep_facilities']));
+            }
+            // Fall back to FLT INCL facility codes when DEP FACILITIES INCLUDED is absent
+            if (empty($program['dep_facilities']) && !empty($a['flt_incl_facilities'])) {
+                $program['dep_facilities'] = array_unique(array_merge($program['dep_facilities'], $a['flt_incl_facilities']));
             }
             if (!empty($a['impacting_condition'])) $program['impacting_condition'] = $a['impacting_condition'];
         }
