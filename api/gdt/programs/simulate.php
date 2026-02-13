@@ -478,22 +478,112 @@ if (count($flights_for_sp) > 0) {
     
     // Call appropriate stored procedure based on program type
     if ($program_type === 'GS') {
-        $exec_sql = "
-            DECLARE @held_count INT, @exempt_count INT;
-            
-            DECLARE @flights dbo.FlightListType;
-            INSERT INTO @flights SELECT * FROM #FlightList;
-            
-            EXEC dbo.sp_TMI_ApplyGroundStop 
-                @program_id = ?, 
-                @flights = @flights,
-                @held_count = @held_count OUTPUT,
-                @exempt_count = @exempt_count OUTPUT;
-            
-            SELECT @held_count AS assigned_count, @exempt_count AS exempt_count;
-            
-            DROP TABLE #FlightList;
+        // Direct SQL for GS — the SP has an ETA BETWEEN filter that drops flights
+        // with NULL eta_utc (common for prefiled flights found via ETD-based query).
+        // We replicate the SP logic here as separate queries to avoid parameter binding issues.
+        $gs_end = datetime_to_iso($end_utc);
+
+        // Step 4a: Clear existing assignments
+        $del_stmt = sqlsrv_query($conn_tmi,
+            "DELETE FROM dbo.tmi_flight_control WHERE program_id = ?",
+            [$program_id]
+        );
+        if ($del_stmt !== false) sqlsrv_free_stmt($del_stmt);
+
+        // Step 4b: Insert ground-stopped flights with CTD/CTA calculations
+        $ins_sql = "
+            INSERT INTO dbo.tmi_flight_control (
+                flight_uid, callsign, program_id,
+                ctl_elem, ctl_type,
+                ctl_exempt, ctl_exempt_reason,
+                gs_held, gs_release_utc,
+                orig_eta_utc, orig_etd_utc,
+                ctd_utc, cta_utc,
+                program_delay_min,
+                dep_airport, arr_airport, dep_center, arr_center,
+                flight_status_at_ctl, control_assigned_utc
+            )
+            SELECT
+                f.flight_uid,
+                f.callsign,
+                ?,
+                ?,
+                'GS',
+                f.is_exempt,
+                f.exempt_reason,
+                CASE WHEN f.is_exempt = 1 THEN 0 ELSE 1 END,
+                ?,
+                f.eta_utc,
+                f.etd_utc,
+                CASE
+                    WHEN f.is_exempt = 1 THEN f.etd_utc
+                    WHEN f.etd_utc >= ? THEN f.etd_utc
+                    ELSE ?
+                END,
+                CASE
+                    WHEN f.is_exempt = 1 THEN f.eta_utc
+                    WHEN f.etd_utc >= ? THEN f.eta_utc
+                    WHEN f.eta_utc IS NOT NULL AND f.etd_utc IS NOT NULL
+                        THEN DATEADD(MINUTE, DATEDIFF(MINUTE, f.etd_utc, f.eta_utc), ?)
+                    ELSE NULL
+                END,
+                CASE
+                    WHEN f.is_exempt = 1 THEN 0
+                    WHEN f.etd_utc >= ? THEN 0
+                    WHEN f.etd_utc IS NOT NULL THEN DATEDIFF(MINUTE, f.etd_utc, ?)
+                    ELSE 0
+                END,
+                f.dep_airport,
+                f.arr_airport,
+                f.dep_center,
+                f.arr_center,
+                f.flight_status,
+                SYSUTCDATETIME()
+            FROM #FlightList f
         ";
+        $ins_params = [
+            $program_id, $ctl_element, $gs_end,    // program_id, ctl_elem, gs_release_utc
+            $gs_end, $gs_end,                      // CTD: etd >= gs_end, ELSE gs_end
+            $gs_end, $gs_end,                      // CTA: etd >= gs_end, DATEADD(...gs_end)
+            $gs_end, $gs_end,                      // delay: etd >= gs_end, DATEDIFF(etd, gs_end)
+        ];
+        $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $ins_params);
+        if ($ins_stmt === false) {
+            respond_json(500, [
+                'status' => 'error',
+                'message' => 'Failed to insert GS flight control records',
+                'errors' => sqlsrv_errors()
+            ]);
+        }
+        sqlsrv_free_stmt($ins_stmt);
+
+        // Step 4c: Count results
+        $cnt_result = fetch_one($conn_tmi,
+            "SELECT ISNULL(SUM(CASE WHEN gs_held = 1 THEN 1 ELSE 0 END), 0) AS assigned_count, ISNULL(SUM(CASE WHEN ctl_exempt = 1 THEN 1 ELSE 0 END), 0) AS exempt_count FROM dbo.tmi_flight_control WHERE program_id = ?",
+            [$program_id]
+        );
+        if ($cnt_result['success'] && $cnt_result['data']) {
+            $assigned_count = (int)($cnt_result['data']['assigned_count'] ?? 0);
+            $exempt_count = (int)($cnt_result['data']['exempt_count'] ?? 0);
+        }
+
+        // Step 4d: Update program metrics
+        execute_query($conn_tmi, "
+            UPDATE dbo.tmi_programs
+            SET total_flights = (SELECT COUNT(*) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                controlled_flights = (SELECT ISNULL(SUM(CASE WHEN gs_held = 1 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                exempt_flights = (SELECT ISNULL(SUM(CASE WHEN ctl_exempt = 1 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                avg_delay_min = (SELECT ISNULL(AVG(CAST(program_delay_min AS DECIMAL(8,2))), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                max_delay_min = (SELECT ISNULL(MAX(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                total_delay_min = (SELECT ISNULL(SUM(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                updated_at = SYSUTCDATETIME()
+            WHERE program_id = ?
+        ", [$program_id, $program_id, $program_id, $program_id, $program_id, $program_id, $program_id]);
+
+        // Drop temp table
+        $drop_stmt = sqlsrv_query($conn_tmi, "DROP TABLE #FlightList");
+        if ($drop_stmt !== false) sqlsrv_free_stmt($drop_stmt);
+
     } else {
         $exec_sql = "
             DECLARE @assigned_count INT, @exempt_count INT;
