@@ -1198,6 +1198,29 @@
                             }
                         });
                     }
+
+                    // Search in reroute results
+                    if (results.reroute_results && (tmi.category === 'reroute' || (tmi.type || '').toUpperCase() === 'REROUTE')) {
+                        var rrResults = Array.isArray(results.reroute_results) ? results.reroute_results : Object.values(results.reroute_results);
+                        var tmiName = (tmi.name || '').toUpperCase();
+                        rrResults.forEach(function(r) {
+                            var rrName = (r.name || '').toUpperCase();
+                            var nameMatch = tmiName && rrName && (rrName === tmiName || rrName.indexOf(tmiName) !== -1 || tmiName.indexOf(rrName) !== -1);
+                            var destMatch = !nameMatch && el && r.destinations && r.destinations.some(function(d) {
+                                var du = d.toUpperCase();
+                                return du === el || 'K' + du === el || du === 'K' + el;
+                            });
+                            if (nameMatch || destMatch) {
+                                var pct = r.filed_compliance_pct || r.compliance_pct || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                tmi.rr_total_flights = r.total_flights;
+                                tmi.rr_filed_compliance = r.filed_compliance_pct;
+                                tmi.rr_flown_compliance = r.flown_compliance_pct;
+                                matched++;
+                            }
+                        });
+                    }
                 });
 
                 renderTMITable();
@@ -1259,6 +1282,29 @@
                                 var pct = r.compliance_pct || r.compliance_rate || 0;
                                 tmi.complied = pct >= 80 ? 'Y' : 'N';
                                 tmi.compliance_pct = Math.round(pct);
+                                matched++;
+                            }
+                        });
+                    }
+
+                    // Search in reroute results
+                    if (results.reroute_results && (tmi.category === 'reroute' || (tmi.type || '').toUpperCase() === 'REROUTE')) {
+                        var rrResults = Array.isArray(results.reroute_results) ? results.reroute_results : Object.values(results.reroute_results);
+                        var tmiName = (tmi.name || '').toUpperCase();
+                        rrResults.forEach(function(r) {
+                            var rrName = (r.name || '').toUpperCase();
+                            var nameMatch = tmiName && rrName && (rrName === tmiName || rrName.indexOf(tmiName) !== -1 || tmiName.indexOf(rrName) !== -1);
+                            var destMatch = !nameMatch && elKey && r.destinations && r.destinations.some(function(d) {
+                                var du = d.toUpperCase();
+                                return du === elKey || 'K' + du === elKey || du === 'K' + elKey;
+                            });
+                            if (nameMatch || destMatch) {
+                                var pct = r.filed_compliance_pct || r.compliance_pct || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                tmi.rr_total_flights = r.total_flights;
+                                tmi.rr_filed_compliance = r.filed_compliance_pct;
+                                tmi.rr_flown_compliance = r.flown_compliance_pct;
                                 matched++;
                             }
                         });
