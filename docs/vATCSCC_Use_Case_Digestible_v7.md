@@ -119,7 +119,7 @@ Result: **15-25 minute delays** (60-70% reduction)
 | **FIX** | A named point in airspace | LENDY, BEUTY, DEPDY — where spacing is measured |
 | **STAR** | Standard Terminal Arrival Route | Published arrival path to an airport |
 | **CFR** | Call For Release | Facility must call before releasing a departure |
-| **ACE Team** | Additional Controller on Event | Extra controllers deployed where needed |
+| **ACE Team** | ACE Team | Extra controllers deployed where needed |
 
 ### 1.3 What the Command Center Does
 
@@ -240,7 +240,7 @@ Five days before the event, Cameron (ZLC ATM) identifies a potential weather pro
 
 This is an analysis of ensemble forecast clusters — multiple weather model runs grouped by outcome — to identify the probability distribution of weather impacts. This is standard practice at real-world NWS Weather Forecast Offices, applied here to virtual ATC planning.
 
-Jeremy (ZNY C1) responds with professional forecast reasoning:
+Jeremy (ZNY C1) responds with forecast reasoning:
 
 > **Jeremy P | ZNY C1** — 11/16/2025
 > 5 days out still? I just say wait and see. I haven't been watching but it looks like that Canadian maritimes low proves influential and idk if it's even made it onshore from the Pacific yet into good observation availability coverage.
@@ -324,7 +324,7 @@ During the event, ZOB hits saturation:
 > **Jonathan B | ZOB EC**
 > Right, I wasn't saying C90 screwed us... was just saying there was a lot of traffic from C90 combined with everything else
 
-This is professional debriefing happening in real-time. No blame — just identification of what happened and why. The MIT was being followed; the problem was raw volume exceeding sector capacity. Different problem, different solution.
+This is debriefing happening in real-time. No blame — just identification of what happened and why. The MIT was being followed; the problem was raw volume exceeding sector capacity. Different problem, different solution.
 
 ### 2.6 After the Event: The Review That Drives Improvement
 
@@ -332,7 +332,7 @@ The PERTI cycle doesn't end when the event closes. Post-event review is where da
 
 **Example: Escape to the Desert (Plan 226) — Compliance Spot-Check**
 
-After the TMI Compliance Analysis tool was run on the Escape to the Desert event, Ken G (ZOA DATM) did something extraordinary — manually spot-checking the tool's results against VATSIM Replay data:
+After the TMI Compliance Analysis tool was run on the Escape to the Desert event, Ken G (ZOA DATM) manually spot-checked the tool's results against VATSIM Replay data:
 
 > **Ken G | ZOA DATM** — 01/31/2026
 > A few things I've observed just from spot checking some of the red pairs:
@@ -402,7 +402,7 @@ Kevin (ZAU EC) introduces an advanced TMI concept:
 > **Michael B | VATUSA5**
 > I'm well aware there are greater TMU gods than me lol don't sweat it
 
-This exchange teaches a nuanced TMI concept to multiple people simultaneously, in a public channel where future NTMOs can reference it. Note the self-deprecating humor — this is a volunteer community where even the Events Manager learns from facility TMUs.
+This exchange teaches a nuanced TMI concept to multiple people simultaneously, in a public channel where future NTMOs can reference it. This is a volunteer community where even the Events Manager learns from facility TMUs.
 
 ### 2.8 What This Section Proves
 
@@ -420,7 +420,7 @@ The Discord planning threads demonstrate that Command Center coordination is not
 
 **For controllers:** The TMIs you implement aren't arbitrary numbers from a faceless authority. They're negotiated between people who understand your sectors. When a TMI doesn't work operationally, the planning thread is where you say so — and it gets fixed.
 
-**For VATSIM leadership:** This is what you authorize, what you staff, and what you're deciding whether to continue supporting. The question isn't whether it has value — it demonstrably does. The question is whether the organizational decisions being made reflect that value.
+**For VATUSA leadership:** This is what you authorize, what you staff, and what you're deciding whether to continue supporting. The question isn't whether it has value — it demonstrably does. The question is whether the organizational decisions being made reflect that value.
 
 ---
 
@@ -810,12 +810,12 @@ TMI Compliance Analysis (post-event measurement vs. restrictions)
 
 | Tool | What NTMOs Could See | What They See Now |
 |------|---------------------|-------------------|
-| **NOD Dashboard** | Real-time North Atlantic traffic, facility flows, demand vs. capacity | Nothing — no real-time overview |
-| **Active TMI Display** | FAA-format table of all active restrictions with auto-refresh | No centralized view of what restrictions are in effect |
-| **Demand Charts** | Arrival/departure demand vs. AAR/ADR by airport, by hour | No demand vs. capacity visualization |
+| **NOD Dashboard** | Real-time NAS traffic, facility flows, demand vs. capacity | Nothing — no real-time overview (revert to VatGlasses, SimTraffic, VatSpy, controller clients) |
+| **Active TMI Display** | FAA-format webpage of all active restrictions with auto-refresh | No centralized view of what restrictions are in effect (revert to Discord #ntml & #advisories) |
+| **Demand Charts** | Arrival/departure demand vs. AAR/ADR by airport, by hour | No demand vs. capacity visualization (revert to SimTraffic) |
 | **GDT (Ground Delay Tools)** | Ground Stop creation, GDP modeling, slot assignments | No structured ground delay management |
 | **TMI Compliance Analysis** | Post-event compliance per fix, per program | No compliance measurement capability |
-| **TMR Reports** | Traffic Management Review with parsed NTML data, compliance, demand | No structured post-event review capability |
+| **TMR Reports** | Traffic Management Review with parsed NTML data, compliance, demand | No structured post-event review capability (revert to manual review) |
 
 **The 14 background daemons continue running.** VATSIM data ingest (every 15 seconds), route parsing, boundary detection, ETA calculations — all still processing ~2,000-6,000 concurrent flights. The SWIM API still serves external consumers. The data exists. No one authorized to use it can see it.
 
@@ -836,9 +836,9 @@ PERTI stands for **Plan, Execute, Review, Train, Improve**. Each phase depends o
 ### 6.5 Quantified Effects
 
 **TMI Creation Speed:**
-- With TMI Publisher: ~30 seconds per NTML entry
-- Without: ~5+ minutes per entry
-- During Plan 228 (Northeast Corridor FNO), 60 entries were created. At 30 sec each = 30 min. At 5+ min each = 5+ hours — longer than some events.
+- With TMI Publisher: ~30 seconds per NTML entry, including batch entry
+- Without: ~10 seconds to 2+ minutes for batch entry, depending on familiarity with NTML format
+- During Plan 228 (Northeast Corridor FNO), 60 entries were created.
 
 **Compliance Measurement:**
 - With tool: Measured 1,963 MIT pairs, 157 GS flights, identified specific problems (DEPDY at 41.9%, FROGZ at 39.0%)
@@ -873,7 +873,7 @@ The mission is clear: centralized coordination, full TMI authority, support for 
 The PERTI platform was designed to fulfill this mission. The evidence from Section 2 shows it working:
 
 - **Pre-event planning**: Facilities receive structured PERTI Data Requests weeks before events. They coordinate TMIs, negotiate fix routing, analyze weather — all through a platform that captures and structures this activity.
-- **Execution**: TMI Publisher enables 30-second NTML entries. GDT provides structured ground delay management. NOD dashboard provides real-time monitoring. The coordination pipeline ensures TMIs are reviewed, approved, and published.
+- **Execution**: TMI Publisher enables quick NTML entry and coordination. GDT provides structured ground delay management. NOD dashboard provides real-time monitoring. The coordination pipeline ensures TMIs are reviewed, approved, and published.
 - **Review**: TMI Compliance Analysis measures actual performance. TMR reports structure post-event review. Demand data validates operational decisions.
 - **Training**: Experienced TMUs teach new coordinators through the planning threads. Compliance data identifies knowledge gaps. Institutional knowledge accumulates in 233 PERTI plans.
 
@@ -903,7 +903,6 @@ When USA9 was eliminated and DCC was consolidated under VATUSA5:
 - **Intended benefit**: Simpler structure, better event-DCC integration, fewer positions to staff
 - **Actual effect**: The person responsible for the Command Center is also responsible for the Events program, virtual airline coordination, FNO/SNO approvals, ACE Team deployment, and the NTMO pool
 
-From VATUSA5 directly:
 > "Onboarding more NTMOs (which is hard enough to do) is increasingly burdensome due to training on systems & understanding of the interactions & processes involved."
 
 This is the consolidation paradox: reducing staff positions reduces overhead, but it concentrates workload to the point where the remaining person cannot give adequate attention to everything. The planning threads show this — VATUSA5 participates in coordination but cannot be in every thread for every event.
@@ -930,7 +929,7 @@ You benefit from the Command Center every time you fly an event. The routes in S
 **For VATSIM Controllers:**
 You are the ones who implement (or don't implement) the TMIs. The compliance data in Section 3 shows that 1 in 3 restrictions are not being followed. Some of that is communication failure — you didn't know the TMI existed. Some of that is system failure — there's no automated way to see active TMIs on your scope. And some of it is the inherent challenge of implementing restrictions in a volunteer system where the pilot on the other end may not understand or agree with the restriction. Better tools and better communication help with all three problems.
 
-**For VATSIM Leadership:**
+**For VATUSA Leadership:**
 The decision you face is not "should the Command Center exist?" The evidence overwhelmingly says yes. The decision is: what organizational structure, staffing model, and resource allocation produces the best outcome for the network? The data shows:
 - 66.5% compliance is not good enough, but it's measurably better than nothing
 - The tools work but need wider adoption and enforcement mechanisms
@@ -1004,7 +1003,7 @@ Understaffed NTMO Pool
     -> Back to: Understaffed NTMO Pool
 ```
 
-**From USA5:** "Onboarding more NTMOs (which is hard enough to do) is increasingly burdensome due to training on systems & understanding of the interactions & processes involved."
+"Onboarding more NTMOs (which is hard enough to do) is increasingly burdensome due to training on systems & understanding of the interactions & processes involved."
 
 The platform complexity is INCREASING (TMI Compliance Analysis, GDT, SWIM API) while the capacity to train people on it is DECREASING. No documented training curriculum exists. Senior NTMO turnover means knowledge lost. Events getting more complex (multi-division coordination).
 
@@ -1012,7 +1011,7 @@ The platform complexity is INCREASING (TMI Compliance Analysis, GDT, SWIM API) w
 
 **FAA ATCSCC:** Dedicated facility, full-time leadership, 24/7 staffing, separate from events planning, clear operational authority.
 
-**VATSIM vATCSCC (current):** No dedicated positions, part-time NTMO pool, combined with events planning, unclear authority delegation.
+**vATCSCC (current):** No dedicated positions, part-time NTMO pool, combined with events planning, unclear authority delegation.
 
 ---
 
@@ -1079,7 +1078,6 @@ Reroutes: Not yet measured (analysis in development)
 
 **Without Command Center Coordination:**
 - Each ARTCC independently plans MIT restrictions
-- ZNY: "30 MIT for all eastbound," ZBW: "25 MIT arrivals," ZOB: "40 MIT"
 - Conflicting restrictions, no single plan
 - Facility coordination: **28 possible bilateral pairs** (8 ARTCCs = 8x7/2)
 - Pilots file random NAT tracks (no coordination). NAT A gets 80% of traffic.
@@ -1087,7 +1085,6 @@ Reroutes: Not yet measured (analysis in development)
 
 **With Command Center:**
 - Single coordinated plan published T-14 days
-- 20 MIT ZNY→EGLL coordinated across all facilities
 - NTMO monitors NOD, adjusts in real-time, issues updates in 30 seconds
 - TMI Compliance Analysis measures performance post-event
 - Result: **15-25 minute average delays (60-70% reduction)**
@@ -1111,8 +1108,7 @@ Section 2 documented what coordinated planning looks like. Consider what those s
 
 **Northeast Corridor (Plan 228) without TMI Publisher:**
 - 60 NTML entries must be composed manually
-- At 5+ minutes each = 5+ hours of entry time during a 4-hour event
-- Result: fewer entries, less coordination, less structure — more chaos
+- Result: workload-heavy entry, manual coordination
 
 ---
 
@@ -1242,13 +1238,13 @@ This competence exists independently of VATUSA organizational decisions. But it 
 
 ### For Every Audience
 
-**If you're a pilot** who has ever flown a VATSIM event: the coordination described in this document directly affected your experience. Better coordination = shorter delays, fewer vectors, smoother arrivals. The question is whether VATSIM will continue supporting the infrastructure that makes that coordination possible.
+**If you're a pilot** who has ever flown a VATUSA event: the coordination described in this document directly affected your experience. Better coordination = shorter delays, fewer vectors, smoother arrivals. The question is whether VATSIM will continue supporting the infrastructure that makes that coordination possible.
 
-**If you're a controller** who has ever worked a VATSIM event: the TMIs you implement come from the process described in this document. When that process works well, your workload is manageable and traffic is sequenced. When it breaks down, you get sector saturation and holding patterns. The question is whether the tools and authority structure support you.
+**If you're a controller** who has ever worked a VATUSA event: the TMIs you implement come from the process described in this document. When that process works well, your workload is manageable and traffic is sequenced. When it breaks down, you get sector saturation and holding patterns. The question is whether the tools and authority structure support you.
 
 **If you're in TMU** or considering it: the planning threads show what this work actually looks like — technically demanding, collaborative, and genuinely impactful. The question is whether the organizational structure will support and develop you, or burn you out.
 
-**If you're in VATSIM leadership:** the data, the evidence, and the operational record all point the same direction. The Command Center function is vital. The organizational structure needs attention. The February 2026 degradation moves in the wrong direction. The evidence is in this document. The decision is yours.
+**If you're in VATUSA leadership:** the data, the evidence, and the operational record all point the same direction. The Command Center function is vital. The organizational structure needs attention. The February 2026 degradation moves in the wrong direction. The evidence is in this document. The decision is yours.
 
 ---
 
@@ -1263,8 +1259,6 @@ This competence exists independently of VATUSA organizational decisions. But it 
 
 **Database-Verified Operational Statistics (queried February 13, 2026):**
 - 232 PERTI plans in database, 16 with active event data in query period
-- 14 Ground Stop programs logged (airports: KJFK, KBOS, CYYZ, EDDF, EHAM, LFBO)
-- 9 formal reroutes (RDU→DCA, Florida→NE Corridor, PHL→BOS, JFK/ZBW→DCA, FEA multi-route)
 - Staffing ranged from 3-18 controllers across 2-9 facilities per event
 - Airport configs: up to 15 airports per plan (Plan 223 Nashville covered ATL, BNA, CLT, CVG, DFW, HOU, IAH, MCI, MDW, MEM, MSY, ORD, SDF, STL, DAL)
 
