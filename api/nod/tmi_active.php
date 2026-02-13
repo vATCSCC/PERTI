@@ -318,6 +318,40 @@ try {
             sqlsrv_free_stmt($rr_stmt);
         }
 
+        // Fetch route strings for each reroute from tmi_reroute_routes
+        if (!empty($result['reroutes'])) {
+            $rerouteIds = array_column($result['reroutes'], 'id');
+            $ids = implode(',', array_map('intval', $rerouteIds));
+            $routesSql = "SELECT reroute_id, origin, destination, route_string, sort_order,
+                                 origin_filter, dest_filter
+                          FROM dbo.tmi_reroute_routes
+                          WHERE reroute_id IN ($ids)
+                          ORDER BY reroute_id, sort_order";
+            $routesStmt = @sqlsrv_query($rr_conn, $routesSql);
+            if ($routesStmt) {
+                // Group routes by reroute_id
+                $routesByReroute = [];
+                while ($rRow = sqlsrv_fetch_array($routesStmt, SQLSRV_FETCH_ASSOC)) {
+                    $rid = $rRow['reroute_id'];
+                    $routesByReroute[$rid][] = [
+                        'origin' => $rRow['origin'],
+                        'destination' => $rRow['destination'],
+                        'route_string' => $rRow['route_string'],
+                        'sort_order' => (int)($rRow['sort_order'] ?? 0),
+                        'origin_filter' => $rRow['origin_filter'],
+                        'dest_filter' => $rRow['dest_filter']
+                    ];
+                }
+                sqlsrv_free_stmt($routesStmt);
+
+                // Attach routes to their parent reroute
+                foreach ($result['reroutes'] as &$reroute) {
+                    $reroute['routes'] = $routesByReroute[$reroute['id']] ?? [];
+                }
+                unset($reroute);
+            }
+        }
+
         // Add debug info for reroutes
         $result['debug']['reroutes_source'] = isset($conn_tmi) && $conn_tmi ? 'VATSIM_TMI' : 'VATSIM_ADL';
 
@@ -387,6 +421,53 @@ try {
             // Log query error for debugging
             $errors = sqlsrv_errors();
             $result['debug']['public_routes_error'] = $errors;
+        }
+
+        // Also merge active reroute routes into public_routes
+        // This ensures reroutes created via the coordination workflow appear in the Public Routes section
+        $rr_routes_sql = "SELECT rr.reroute_id, rr.name, rr.adv_number, rr.color, rr.line_weight, rr.line_style,
+                                 rr.start_utc, rr.end_utc, rr.impacting_condition, rr.advisory_text, rr.route_geojson,
+                                 rt.origin, rt.destination, rt.route_string, rt.sort_order
+                          FROM dbo.tmi_reroutes rr
+                          JOIN dbo.tmi_reroute_routes rt ON rr.reroute_id = rt.reroute_id
+                          WHERE rr.status IN (2, 3)
+                            AND (rr.start_utc IS NULL OR rr.start_utc <= GETUTCDATE())
+                            AND (rr.end_utc IS NULL OR rr.end_utc > GETUTCDATE())
+                          ORDER BY rr.reroute_id, rt.sort_order";
+        $rr_routes_stmt = @sqlsrv_query($rr_conn, $rr_routes_sql);
+        if ($rr_routes_stmt) {
+            while ($row = sqlsrv_fetch_array($rr_routes_stmt, SQLSRV_FETCH_ASSOC)) {
+                $validStart = formatSqlsrvDateTime($row['start_utc'] ?? null);
+                $validEnd = formatSqlsrvDateTime($row['end_utc'] ?? null);
+                $routeName = $row['name'];
+                if (!empty($row['origin']) || !empty($row['destination'])) {
+                    $routeName .= ' (' . trim($row['origin'] ?? '') . '-' . trim($row['destination'] ?? '') . ')';
+                }
+
+                $result['public_routes'][] = [
+                    'id' => 'RR' . $row['reroute_id'],
+                    'name' => $routeName,
+                    'adv_number' => $row['adv_number'],
+                    'route_string' => $row['route_string'],
+                    'advisory_text' => $row['advisory_text'],
+                    'color' => $row['color'] ?? '#3498db',
+                    'line_weight' => $row['line_weight'] ?? 3,
+                    'line_style' => $row['line_style'] ?? 'dashed',
+                    'valid_start_utc' => $validStart,
+                    'valid_end_utc' => $validEnd,
+                    'constrained_area' => null,
+                    'reason' => $row['impacting_condition'],
+                    'origin_filter' => $row['origin'] ?? null,
+                    'dest_filter' => $row['destination'] ?? null,
+                    'facilities' => null,
+                    'route_geojson' => $row['route_geojson'],
+                    'tmi_type' => 'REROUTE_ROUTE',
+                    'status_label' => 'Active Reroute',
+                    'is_reroute' => true,
+                    'reroute_id' => $row['reroute_id']
+                ];
+            }
+            sqlsrv_free_stmt($rr_routes_stmt);
         }
     }
 

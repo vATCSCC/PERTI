@@ -1359,11 +1359,6 @@
                 Object.assign(state.tmi.airports, data.airports);
             }
 
-            // If no public routes from TMI API, try the dedicated public routes API
-            if (state.tmi.publicRoutes.length === 0) {
-                await loadPublicRoutesFromAPI();
-            }
-
             // Update UI
             renderTMILists();
             updateStats();
@@ -1377,31 +1372,6 @@
         } catch (error) {
             console.error('[NOD] Error loading TMI data:', error);
             // Don't clear state on error - keep showing old data
-        }
-    }
-
-    /**
-     * Load public routes directly from api/routes/public.php
-     * This is the same endpoint used by route.php / public-routes.js
-     */
-    async function loadPublicRoutesFromAPI() {
-        try {
-            const response = await fetch('api/routes/public.php?filter=active');
-            if (!response.ok) {
-                console.log('[NOD] Public routes API not available');
-                return;
-            }
-
-            const data = await response.json();
-            console.log('[NOD] Public routes API response:', data);
-
-            // api/routes/public.php returns { routes: [...] }
-            // Always update (no buffering) - empty means all routes have expired
-            const routes = data.routes || [];
-            state.tmi.publicRoutes = routes;
-            console.log('[NOD] Loaded', routes.length, 'public routes from dedicated API');
-        } catch (error) {
-            console.log('[NOD] Error loading public routes:', error.message);
         }
     }
 
