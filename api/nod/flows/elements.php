@@ -635,7 +635,12 @@ function resolveProcedureGeojson($conn, $procInput, $airportIcao = null) {
         $proc = findProcedure($conn, $transitionClean, $airportIcao, $procNameClean);
     }
 
-    // Strategy 5: Search without any transition filter, prefer shortest route
+    // Retry: search by full_route starting with the transition fix (e.g., ENO.PROUD# → route starts with ENO)
+    if (!$proc && $transitionClean) {
+        $proc = findProcedure($conn, $procNameClean, $airportIcao, null, ['routeStartsWith' => $transitionClean]);
+    }
+
+    // Retry: search without any transition filter, prefer shortest route
     if (!$proc && $transition) {
         $proc = findProcedure($conn, $procNameClean, $airportIcao, null);
     }

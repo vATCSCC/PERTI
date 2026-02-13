@@ -7390,7 +7390,8 @@
                 const response = await fetch('/api/mgt/tmi/advisory-number.php?peek=1');
                 if (response.ok) {
                     const data = await response.json();
-                    $('#rr_adv_number').val(data.advisory_number || '001');
+                    const rawNum = data.advisory_number || '001';
+                    $('#rr_adv_number').val(rawNum.replace(/^ADVZY\s+/i, ''));
                 }
             } catch (e) {
                 console.warn('[REROUTE] Could not fetch advisory number:', e);
@@ -7433,14 +7434,17 @@
          * Format reroute advisory text with proper 68-char line wrapping
          */
         formatRerouteAdvisory: function(params) {
+            // Normalize advisory number - strip "ADVZY " prefix if present
+            const advNum = (params.advisory_number || '001').replace(/^ADVZY\s+/i, '');
             const MAX_LINE = 68;
             const now = new Date();
             const headerDate = (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
                               now.getUTCDate().toString().padStart(2, '0') + '/' +
                               now.getUTCFullYear();
 
-            const validFromDt = params.valid_from ? new Date(params.valid_from) : now;
-            const validUntilDt = params.valid_until ? new Date(params.valid_until) :
+            // datetime-local inputs have no timezone; append 'Z' to interpret as UTC
+            const validFromDt = params.valid_from ? new Date(params.valid_from + 'Z') : now;
+            const validUntilDt = params.valid_until ? new Date(params.valid_until + 'Z') :
                 new Date(now.getTime() + 4 * 3600000);
 
             const startStr = validFromDt.getUTCDate().toString().padStart(2, '0') +
@@ -7450,7 +7454,7 @@
                           validUntilDt.getUTCHours().toString().padStart(2, '0') +
                           validUntilDt.getUTCMinutes().toString().padStart(2, '0');
 
-            const tmiId = 'RR' + params.facility + params.advisory_number;
+            const tmiId = 'RR' + params.facility + advNum;
 
             // Helper: add labeled field with proper wrapping at 68 chars
             // Preserves explicit newlines in the value, treating each line separately
@@ -7515,7 +7519,7 @@
             const lines = [];
             const routeType = params.route_type || 'ROUTE';
             const compliance = params.compliance || 'RQD';
-            lines.push(`vATCSCC ADVZY ${params.advisory_number} ${params.facility} ${headerDate} ${routeType} ${compliance}`);
+            lines.push(`vATCSCC ADVZY ${advNum} ${params.facility} ${headerDate} ${routeType} ${compliance}`);
             addLabeledField(lines, 'NAME', params.name);
             addLabeledField(lines, 'CONSTRAINED AREA', params.constrained_area);
             addLabeledField(lines, 'REASON', params.reason);
@@ -8648,6 +8652,7 @@
                     airborne_filter: $('#rr_airborne_filter').val() || 'NOT_AIRBORNE',
                     prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                     remarks: $('#rr_remarks').val() || '',
+                    color: $('#rr_color').val() || '#e74c3c',
                     routes: routes,
                     geojson: this.rerouteData?.geojson || null,
                 },

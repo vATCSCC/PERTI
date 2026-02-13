@@ -240,27 +240,32 @@ if ($program_type === 'GS') {
     // GS filters by arrival airport
     $where[] = "fp_dest_icao = ?";
     $params[] = $ctl_element;
-    
-    // GS affects flights departing during the GS period
+
+    // GS holds flights not yet departed — use best available departure time
+    // etd_runway_utc is often NULL for prefiled flights, fall back to etd_utc or std_utc
     if ($start_utc) {
-        $where[] = "etd_runway_utc >= ?";
+        $where[] = "COALESCE(etd_runway_utc, etd_utc, std_utc) >= ?";
         $params[] = datetime_to_iso($start_utc);
     }
     if ($end_utc) {
-        $where[] = "etd_runway_utc <= ?";
+        $where[] = "COALESCE(etd_runway_utc, etd_utc, std_utc) <= ?";
         $params[] = datetime_to_iso($end_utc);
     }
+
+    // GS only affects flights not yet departed
+    $where[] = "(phase IS NULL OR phase IN ('prefile', 'taxiing', 'scheduled'))";
 } else {
     // GDP filters by arrival airport and ETA window
     $where[] = "fp_dest_icao = ?";
     $params[] = $ctl_element;
-    
+
+    // Use best available arrival time
     if ($start_utc) {
-        $where[] = "eta_runway_utc >= ?";
+        $where[] = "COALESCE(eta_runway_utc, eta_utc) >= ?";
         $params[] = datetime_to_iso($start_utc);
     }
     if ($end_utc) {
-        $where[] = "eta_runway_utc <= ?";
+        $where[] = "COALESCE(eta_runway_utc, eta_utc) <= ?";
         $params[] = datetime_to_iso($end_utc);
     }
 }
@@ -293,8 +298,10 @@ if ($aircraft_type === 'JET') {
     $where[] = "UPPER(ISNULL(ac_cat,'')) = 'PROP'";
 }
 
-// Exclude already arrived flights
-$where[] = "(phase IS NULL OR phase != 'arrived')";
+// For GDP: exclude already arrived flights (GS has its own phase filter above)
+if ($program_type !== 'GS') {
+    $where[] = "(phase IS NULL OR phase != 'arrived')";
+}
 
 $where_sql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
 
@@ -309,11 +316,11 @@ $flights_sql = "
         fp_dest_icao AS arr_airport,
         fp_dept_artcc AS dep_center,
         fp_dest_artcc AS arr_center,
-        etd_runway_utc AS etd_utc,
-        eta_runway_utc AS eta_utc,
+        COALESCE(etd_runway_utc, etd_utc, std_utc) AS etd_utc,
+        COALESCE(eta_runway_utc, eta_utc) AS eta_utc,
         -- Include epoch values for JavaScript compatibility
-        DATEDIFF(SECOND, '1970-01-01', etd_runway_utc) AS etd_epoch,
-        DATEDIFF(SECOND, '1970-01-01', eta_runway_utc) AS eta_epoch,
+        DATEDIFF(SECOND, '1970-01-01', COALESCE(etd_runway_utc, etd_utc, std_utc)) AS etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', COALESCE(eta_runway_utc, eta_utc)) AS eta_epoch,
         ete_minutes,
         ac_cat AS aircraft_type,
         phase,

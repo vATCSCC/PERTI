@@ -648,10 +648,17 @@ $perm = true;
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="tmi-label mb-0">Remarks</label>
-                                <textarea class="form-control" id="rr_remarks" rows="2"
-                                          placeholder="Optional additional remarks"></textarea>
+                            <div class="form-row">
+                                <div class="form-group col-md-9">
+                                    <label class="tmi-label mb-0">Remarks</label>
+                                    <textarea class="form-control" id="rr_remarks" rows="2"
+                                              placeholder="Optional additional remarks"></textarea>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label class="tmi-label mb-0">Route Color</label>
+                                    <input type="color" class="form-control" id="rr_color" value="#e74c3c"
+                                           style="height: 62px; padding: 2px; cursor: pointer;">
+                                </div>
                             </div>
 
                             <div class="form-row">

@@ -429,7 +429,6 @@ include('load/nav.php');
             $('#date').datetimepicker({
                 format: 'Y-m-d',
                 inline: false,
-                minDate: '<?= date('Y-m-d'); ?>',
                 timepicker: false
             });
 
@@ -437,7 +436,6 @@ include('load/nav.php');
             $('#end-date').datetimepicker({
                 format: 'Y-m-d',
                 inline: false,
-                minDate: '<?= date('Y-m-d'); ?>',
                 timepicker: false
             });
 
@@ -505,7 +503,6 @@ include('load/nav.php');
                 $('#e-date').datetimepicker({
                     format: 'Y-m-d',
                     inline: false,
-                    minDate: '<?= date('Y-m-d'); ?>',
                     timepicker: false,
                     value: button.data('event_date')
                 });
@@ -514,7 +511,6 @@ include('load/nav.php');
                 $('#e-end-date').datetimepicker({
                     format: 'Y-m-d',
                     inline: false,
-                    minDate: '<?= date('Y-m-d'); ?>',
                     timepicker: false,
                     value: button.data('event_end_date') || button.data('event_date')
                 });

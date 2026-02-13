@@ -36,7 +36,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
-$auth_cid = gdt_optional_auth();
+require_once(__DIR__ . '/../../tmi/AdvisoryNumber.php');
+$auth_cid = gdt_require_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -70,6 +71,25 @@ if ($program === null) {
         'status' => 'error',
         'message' => "Program not found: {$program_id}"
     ]);
+}
+
+// ============================================================================
+// Auto-assign Advisory Number (MODELING programs have no advisory yet)
+// ============================================================================
+
+$adv_number = $program['adv_number'] ?? null;
+if (empty($adv_number)) {
+    $advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    $adv_number = $advNumHelper->reserve();
+
+    // Update program with advisory number and mark as proposed before activation
+    $adv_stmt = sqlsrv_query($conn_tmi,
+        "UPDATE dbo.tmi_programs SET adv_number = ?, is_proposed = 1, updated_at = SYSUTCDATETIME() WHERE program_id = ?",
+        [$adv_number, $program_id]
+    );
+    if ($adv_stmt !== false) {
+        sqlsrv_free_stmt($adv_stmt);
+    }
 }
 
 // ============================================================================
@@ -182,6 +202,7 @@ respond_json(200, [
     'message' => 'Program activated',
     'data' => [
         'program_id' => $program_id,
+        'adv_number' => $adv_number,
         'program' => $program,
         'flights' => $flights_data,
         'power_run' => $power_run

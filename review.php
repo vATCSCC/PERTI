@@ -48,10 +48,13 @@ include("sessions/handler.php");
     $dest_row = $dest_result ? $dest_result->fetch_assoc() : null;
     $plan_destinations = $dest_row && $dest_row['destinations'] ? $dest_row['destinations'] : '';
 
-    // Get airport configs for demand charts
+    // Get airport configs for demand charts (deduplicated by airport)
     $config_result = $conn_sqli->query("SELECT airport, weather, aar, adr, arrive, depart FROM p_configs WHERE p_id=$id");
     $plan_configs = [];
+    $seen_airports = [];
     while ($row = $config_result->fetch_assoc()) {
+        if (in_array($row['airport'], $seen_airports)) continue;
+        $seen_airports[] = $row['airport'];
         $plan_configs[] = $row;
     }
 ?>
@@ -524,11 +527,23 @@ include("sessions/handler.php");
                                        placeholder="" style="max-width: 400px;">
                             </div>
 
-                            <div class="form-group mt-3">
-                                <label class="small text-muted">Host ARTCC</label>
-                                <input type="text" class="form-control form-control-sm tmr-field"
-                                       id="tmr_host_artcc" data-field="host_artcc"
-                                       placeholder="e.g., ZNY" style="max-width: 200px;">
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label class="small text-muted">Host ARTCC</label>
+                                        <input type="text" class="form-control form-control-sm tmr-field"
+                                               id="tmr_host_artcc" data-field="host_artcc"
+                                               placeholder="e.g., ZNY">
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="form-group">
+                                        <label class="small text-muted">Featured Facilities (comma-separated)</label>
+                                        <input type="text" class="form-control form-control-sm tmr-field"
+                                               id="tmr_featured_facilities" data-field="featured_facilities"
+                                               placeholder="ZNY, N90, KJFK, KLGA, KEWR">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1254,9 +1269,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <script src="assets/js/config/phase-colors.js"></script>
 <script src="assets/js/config/filter-colors.js"></script>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
-<script src="assets/js/demand.js"></script>
+<script src="assets/js/demand.js?v=2"></script>
 <script src="assets/js/review.js"></script>
-<script src="assets/js/tmr_report.js?v=4"></script>
+<script src="assets/js/tmr_report.js?v=5"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js"></script>
 
