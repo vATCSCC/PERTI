@@ -221,13 +221,13 @@ ZAB (Albuquerque Center) posts their MIT package for PHX arrivals. ZAB TMU catch
 > totally gotcha, will write something new up later today
 > thanks for lmk
 
-"AS ONE" means aircraft from both fixes are sequenced together. "PER STREAM" means each fix is sequenced independently. The difference is operational: if ESTWD and GABBL are worked by different sectors, AS ONE requires those sectors to coordinate every handoff. PER STREAM lets each sector manage its own flow independently. Justin knows this because he works that airspace. Without this feedback, the TMI would have created unnecessary coordination overhead during the event.
+"AS ONE" means aircraft from both fixes are sequenced together. "PER STREAM" means each fix is sequenced independently. The difference is operational: if ESTWD and GABBL are worked by different sectors, AS ONE requires those sectors to coordinate every handoff. PER STREAM lets each sector manage its own flow independently. Justin knows this from working that airspace. Without this feedback, the TMI would have created unnecessary coordination overhead during the event.
 
 **For controllers:** This is why TMIs sometimes change between the planning thread and event night. The TMU is adjusting based on real operational feedback from the people who work the sectors.
 
 ### 2.3 Weather: The Variable Nobody Controls
 
-Real-world ATC is fundamentally shaped by weather. The VATSIM Command Center treats weather with the same seriousness, and the planning threads show surprising meteorological sophistication.
+Real-world ATC is fundamentally shaped by weather. The VATUSA Command Center treats weather with the same seriousness, and the planning threads show surprising meteorological sophistication.
 
 **Example: Stuff the Albu-Turkey (Plan 215) — Ensemble Forecast Analysis**
 
@@ -238,7 +238,7 @@ Five days before the event, Cameron (ZLC ATM) identifies a potential weather pro
 >
 > For reference. Clusters 1, 2, & 4 are PHX IMC solutions, cluster 3 is LAX E solution.
 
-He's analyzing ensemble forecast clusters — multiple weather model runs grouped by outcome — to identify the probability distribution of weather impacts. This is standard practice at real-world NWS Weather Forecast Offices, applied here to virtual ATC planning.
+This is an analysis of ensemble forecast clusters — multiple weather model runs grouped by outcome — to identify the probability distribution of weather impacts. This is standard practice at real-world NWS Weather Forecast Offices, applied here to virtual ATC planning.
 
 Jeremy (ZNY C1) responds with professional forecast reasoning:
 
@@ -258,7 +258,7 @@ ZOB is hosting a Cleveland SNO. Arya (ZOB/ZME DATM) reaches out to Toronto Centr
 > **Arya C | ZME DATM** — 11/06/2025
 > @Matt H | I1 ZYZ is not essential but if you're on, it would be much appreciated. I understand there's an OTS going on for you guys at a similar time so I get if you're busy.
 
-Later, he establishes a specific routing for Canadian traffic:
+Later, a specific routing is established for Canadian traffic:
 
 > CLE via TRYBE STOP VOLUME:VOLUME 2359-0400 ZOB:ZYZ
 > CLE via DOZRR 30MIT VOLUME:VOLUME 2359-0400 ZOB:ZYZ
@@ -332,7 +332,7 @@ The PERTI cycle doesn't end when the event closes. Post-event review is where da
 
 **Example: Escape to the Desert (Plan 226) — Compliance Spot-Check**
 
-After the TMI Compliance Analysis tool was run on the Escape to the Desert event, Ken G (ZOA DATM) did something extraordinary — he manually spot-checked the tool's results against VATSIM Replay data:
+After the TMI Compliance Analysis tool was run on the Escape to the Desert event, Ken G (ZOA DATM) did something extraordinary — manually spot-checking the tool's results against VATSIM Replay data:
 
 > **Ken G | ZOA DATM** — 01/31/2026
 > A few things I've observed just from spot checking some of the red pairs:
@@ -355,7 +355,7 @@ Blake R (ZSE C3), who served as dedicated TMU for this event, provided detailed 
 >
 > The timeline is going to be really beneficial. For this event, it would've been nice to see on the timeline where the MIT changed from "as one" to "per stream" and vice-versa and the changing MIT values — this would better help evaluate the effects.
 
-Blake is providing detailed operational feedback that directly informs tool development. He identifies a feature gap (TMI change visualization on the timeline) and provides the use case for why it matters. This is the Improve phase feeding back into Plan.
+Blake is providing detailed operational feedback that directly informs tool development — identifying a feature gap (TMI change visualization on the timeline) and providing the use case for why it matters. This is the Improve phase feeding back into Plan.
 
 **Example: Rock Around the Clock (Plan 213) — AAR Discovery**
 
@@ -381,7 +381,7 @@ Evan (ZDV ATM) is relatively new to TMI creation:
 > ASE via TRUEL,EKR 30 MIT VOLUME:VOLUME 2000-2300 ZDV:ZLC
 > ...
 
-Cameron reviews, questions, and refines. By the end of the thread, Evan has created a professional-grade MIT package with origin-destination routing, tunnel agreements, and STAR coordination. He learned by doing, with peer guidance — not from a manual.
+Cameron reviews, questions, and refines. By the end of the thread, Evan has created a professional-grade MIT package with origin-destination routing, tunnel agreements, and STAR coordination — learned by doing, with peer guidance, not from a manual.
 
 **Example: Home for the Holidays (Plan 220) — "NO COMP" Explained**
 
@@ -768,7 +768,7 @@ The TMI Publisher provided a structured form for creating NTML entries — the o
 | **Hotline Activation** | Activate inter-facility hotline with participants, addresses, PINs | Hotline activations communicated verbally — participants, timing less clear |
 | **SWAP Implementation** | Severe weather avoidance plan coordination | SWAP plans lose structured formatting — multi-facility coordination becomes ad-hoc |
 
-**Consider the evidence from Section 2:** During Plan 221 (Ski Country Sunday), Cameron (ZLC ATM) composed a complete reroute advisory in proper vATCSCC format — origin/destination routing, effective times, TMI IDs. With the TMI Publisher, this was a structured form with auto-formatting and Discord auto-posting. Without it, he'd type the entire advisory manually and post it himself, hoping the format is correct.
+**Consider the evidence from Section 2:** During Plan 221 (Ski Country Sunday), Cameron (ZLC ATM) composed a complete reroute advisory in proper vATCSCC format — origin/destination routing, effective times, TMI IDs. With the TMI Publisher, this was a structured form with auto-formatting and Discord auto-posting. Without it, the entire advisory must be typed manually and posted by hand, hoping the format is correct.
 
 ### 6.2 What Was Lost: The Coordination Pipeline
 
@@ -941,7 +941,7 @@ Reading across all 13 planning threads, several political dynamics become visibl
 
 **Self-Organizing Competence:** Facilities coordinate effectively because the people in those roles care about the outcome, not because an organizational structure compels them. Evan learns TMI creation from Cameron. Justin shares mathematical analysis in Google Docs. Ken validates compliance data against replay footage. Blake provides detailed TMR feedback after retirement. This competence exists independently of VATUSA organizational decisions — but it needs a framework (the platform, the threads, the data) to be effective.
 
-**Fragile Institutional Knowledge:** When Blake retired from ZSE, the event he was organizing almost didn't get posted to the VATSIM calendar. When Kevin explains "NO COMP" to the group, he's passing knowledge that would otherwise be lost when he moves on. The planning threads are an informal knowledge base, but they're not searchable, not structured, and not preserved in any systematic way. The PERTI platform was becoming that systematic preservation layer.
+**Fragile Institutional Knowledge:** When Blake retired from ZSE, the event being organized almost didn't get posted to the VATSIM calendar. When Kevin explains "NO COMP" to the group, that's knowledge transfer that would otherwise be lost when people move on. The planning threads are an informal knowledge base, but they're not searchable, not structured, and not preserved in any systematic way. The PERTI platform was becoming that systematic preservation layer.
 
 **The Gap Between Policy and Practice:** DP003 says "NOM has full authority over TMIs." In practice, the threads show NTMOs posting TMIs, facilities negotiating values, and TMU personnel making real-time adjustments — with or without formal NOM authority. The authority structure matters less than the coordination framework. When the framework is strong (planning thread + PERTI tools + NTML), coordination happens. When the framework weakens, coordination becomes ad-hoc and inconsistent.
 
