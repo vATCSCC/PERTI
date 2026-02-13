@@ -29,6 +29,7 @@
     var dirty = false;
     var staffingData = null;
     var goalsData = null;
+    var demandSnapshots = null;  // Saved demand chart data { airport: snapshot }
 
     // Trigger definitions with icons
     var TRIGGERS = [
@@ -82,6 +83,7 @@
 
                 populateForm(reportData);
                 initDemandCharts();
+                autoImportCompliance();
 
                 if (isNew) {
                     updateStatus('new', PERTII18n.t('tmr.status.newReport'));
@@ -163,8 +165,8 @@
 
         // Card click toggles checkbox + visual state
         grid.on('click', '.trigger-card', function(e) {
-            // Don't double-toggle if clicking directly on the hidden checkbox
-            if (e.target.tagName === 'INPUT') return;
+            // Prevent native <label> toggle (would double-toggle with our manual flip)
+            e.preventDefault();
 
             var cb = $(this).find('input[type="checkbox"]');
             cb.prop('checked', !cb.prop('checked')).trigger('change');
@@ -244,6 +246,11 @@
         if (data.goals_assessment) {
             goalsData = data.goals_assessment;
         }
+
+        // Demand snapshots (restore saved chart data for historical recall)
+        if (data.demand_snapshots) {
+            demandSnapshots = data.demand_snapshots;
+        }
     }
 
     function gatherFormData() {
@@ -300,6 +307,9 @@
         if (goalsData) {
             data.goals_assessment = gatherGoalsAssessment();
         }
+
+        // Demand snapshots — capture current chart data for historical recall
+        data.demand_snapshots = gatherDemandSnapshots();
 
         return data;
     }
@@ -525,14 +535,12 @@
             if (resp.success && resp.tmis && resp.tmis.length > 0) {
                 var added = 0;
                 resp.tmis.forEach(function(parsed) {
-                    var key = 'manual_' + Date.now() + '_' + added;
-                    var tmi = {
-                        _source: 'manual', _key: key, category: 'manual',
-                        type: parsed.type, element: parsed.element, detail: parsed.detail,
-                        start_utc: parsed.start_utc, end_utc: parsed.end_utc,
-                        facility: parsed.facility,
+                    var key = 'parsed_' + Date.now() + '_' + added;
+                    var tmi = Object.assign({}, parsed, {
+                        _source: 'parsed', _key: key,
+                        category: parsed.category || 'ntml',
                         status: PERTII18n.t('tmr.tmi.source.manual'),
-                    };
+                    });
                     tmiList.push(tmi);
                     tmiSelected[key] = true;
                     added++;
@@ -601,9 +609,9 @@
             result.type = 'GDP';
         } else if (/\bAFP\b/.test(upper)) {
             result.type = 'AFP';
-        } else if (/\d+\s*MIT\b/.test(upper) || /\bMINIT\b/.test(upper)) {
+        } else if (/\d+\s*MIT\b/.test(upper) || /\d+\s*MINIT\b/.test(upper)) {
             result.type = /MINIT/i.test(upper) ? 'MINIT' : 'MIT';
-        } else if (/\bRE?ROUTE/i.test(upper) || /\bvia\b/i.test(line)) {
+        } else if (/\bRE?ROUTE/i.test(upper) || (/\bvia\b/i.test(line) && !/\d+\s*MI(NI)?T\b/i.test(upper))) {
             result.type = 'Reroute';
         } else if (/\bAPREQ\b/.test(upper)) {
             result.type = 'APREQ';
@@ -638,9 +646,13 @@
 
         visibleTmis.forEach(function(t) {
             var checked = tmiSelected[t._key] ? 'checked' : '';
-            var badgeClass = 'tmi-badge-' + (t.category || 'ntml');
-            var sourceKey = t._source === 'db' ? 'db' : (t._source === 'manual' ? 'manual' : 'saved');
+            var cat = t.category || 'ntml';
+            var badgeClass = cat === 'program' ? 'badge-danger' : (cat === 'reroute' ? 'badge-info' : 'tmi-badge-' + cat);
+            var sourceKey = t._source === 'db' ? 'db' : (t._source === 'manual' || t._source === 'parsed' ? 'manual' : 'saved');
             var sourceLabel = PERTII18n.t('tmr.tmi.source.' + sourceKey);
+
+            var formattedDetail = formatTMIDetail(t);
+            var rawTooltip = t.raw || t.detail || formattedDetail;
 
             var cetC = buildCetPill(t._key, 'complied', t.complied);
             var cetE = buildCetPill(t._key, 'effective', t.effective);
@@ -650,7 +662,7 @@
                 '<td><input type="checkbox" class="tmi-select-row" data-key="' + t._key + '" ' + checked + '></td>' +
                 '<td><span class="badge ' + badgeClass + '">' + escapeHtml(t.type || t.category || '--') + '</span></td>' +
                 '<td>' + escapeHtml(t.element || '--') + '</td>' +
-                '<td class="text-truncate" style="max-width: 200px;" title="' + escapeHtml(t.detail || '') + '">' + escapeHtml(t.detail || '--') + '</td>' +
+                '<td class="text-truncate" style="max-width: 200px;" title="' + escapeHtml(rawTooltip) + '">' + escapeHtml(formattedDetail) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.start_utc) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.end_utc) + '</td>' +
                 '<td>' + cetC + '</td>' +
@@ -725,6 +737,105 @@
         var tm = dt.match(/(\d{2}):(\d{2})/);
         if (tm) return tm[1] + tm[2] + 'z';
         return escapeHtml(dt);
+    }
+
+    /**
+     * Format a TMI entry for display using its rich parsed fields.
+     * Mirrors tmi_compliance.js:formatStandardizedTMI() logic.
+     */
+    function formatTMIDetail(tmi) {
+        var type = (tmi.type || '').toUpperCase();
+        var timeRange = '';
+        if (tmi.start_utc || tmi.end_utc) {
+            timeRange = (tmi.start_utc || '?') + '-' + (tmi.end_utc || '?');
+        }
+
+        if (type === 'MIT' || type === 'MINIT') {
+            // If no rich parsed fields, use saved detail as-is
+            if (!tmi.fix && !tmi.value && tmi.detail) return tmi.detail;
+            var dest = tmi.dest || tmi.element || '';
+            var fix = tmi.fix || '';
+            var val = tmi.value || '';
+            var unit = type;
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            var parts = [];
+            if (dest) parts.push(dest);
+            if (fix && fix !== 'ALL') parts.push('via ' + fix);
+            if (val) parts.push(val + unit);
+            if (fac) parts.push(fac);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || tmi.detail || '--';
+        }
+
+        if (type === 'APREQ' || type === 'CFR') {
+            var parts = [type];
+            if (tmi.dest) parts.push(tmi.dest);
+            if (tmi.fix && tmi.fix !== 'ALL') parts.push('via ' + tmi.fix);
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            if (fac) parts.push(fac);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'CANCEL') {
+            var parts = ['CANCEL'];
+            if (tmi.dest) parts.push(tmi.dest);
+            if (tmi.fix) parts.push('via ' + tmi.fix);
+            var fac = '';
+            if (tmi.requestor || tmi.provider) {
+                fac = (tmi.requestor || '') + ':' + (tmi.provider || '');
+            }
+            if (fac) parts.push(fac);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'GS') {
+            if (!tmi.impacting_condition && !tmi.advisories && !tmi.dep_facilities && tmi.detail) return tmi.detail;
+            var parts = ['GS', tmi.element || tmi.airport || ''];
+            if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
+            if (tmi.advisories && tmi.advisories.length > 0) {
+                parts.push('(Advzy ' + tmi.advisories.join(',') + ')');
+            }
+            if (tmi.dep_facilities) parts.push('DEP: ' + tmi.dep_facilities);
+            if (tmi.ended_by) parts.push('[ended ' + tmi.ended_by + ']');
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'GS_CNX') {
+            return 'GS CNX ' + (tmi.element || tmi.airport || '') + (timeRange ? ' ' + timeRange : '');
+        }
+
+        if (type === 'GDP') {
+            if (!tmi.program_rate && !tmi.impacting_condition && tmi.detail) return tmi.detail;
+            var parts = ['GDP', tmi.element || tmi.airport || ''];
+            if (tmi.program_rate) parts.push('Rate:' + tmi.program_rate);
+            if (tmi.delay_limit) parts.push('MaxDelay:' + tmi.delay_limit);
+            if (tmi.impacting_condition) parts.push(tmi.impacting_condition);
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        if (type === 'REROUTE' || type === 'REROUTE_CNX') {
+            var parts = [];
+            if (tmi.name) parts.push(tmi.name);
+            if (tmi.route_type || tmi.action) {
+                parts.push('(' + (tmi.route_type || '') + ' ' + (tmi.action || '') + ')');
+            }
+            if (tmi.constrained_area) parts.push(tmi.constrained_area);
+            if (tmi.ended_by) parts.push('[ended ' + tmi.ended_by + ']');
+            if (timeRange) parts.push(timeRange);
+            return parts.join(' ') || tmi.raw || '--';
+        }
+
+        // Default: use raw text or detail field
+        return tmi.raw || tmi.detail || '--';
     }
 
     // ========================================================================
@@ -864,7 +975,9 @@
 
             items.forEach(function(item) {
                 var key = type + '_' + item.id;
-                var plannedLabel = item.facility_name || item.position_name || '';
+                var plannedLabel = item.facility_name || '';
+                if (item.position_facility) plannedLabel = item.position_facility + (item.position_name ? ' - ' + item.position_name : '');
+                else if (item.position_name) plannedLabel = item.position_name;
                 var plannedDetail = '';
                 if (item.staffing_quantity) plannedDetail += 'Qty: ' + item.staffing_quantity;
                 if (item.staffing_status) plannedDetail += (plannedDetail ? ' | ' : '') + (statusLabels[item.staffing_status] || '');
@@ -1103,15 +1216,97 @@
             });
     }
 
+    /**
+     * Auto-import compliance data after report loads.
+     * Silently matches compliance results to TMIs without user interaction.
+     * Only runs if TMIs exist and none have compliance_pct already set.
+     */
+    function autoImportCompliance() {
+        if (tmiList.length === 0) return;
+
+        // Skip if any TMI already has compliance_pct (already imported)
+        var alreadyImported = tmiList.some(function(t) { return t.compliance_pct !== undefined && t.compliance_pct !== null; });
+        if (alreadyImported) return;
+
+        $.getJSON('api/analysis/tmi_compliance.php', { action: 'results', p_id: planId })
+            .done(function(resp) {
+                if (!resp || !resp.results) return;
+
+                var matched = 0;
+                var results = resp.results;
+
+                tmiList.forEach(function(tmi) {
+                    // For MIT matching, prefer fix field (measurement point), fall back to element
+                    var mitKey = (tmi.fix || tmi.element || '').toUpperCase();
+                    var elKey = (tmi.element || '').toUpperCase();
+
+                    if (results.mit_results && mitKey) {
+                        results.mit_results.forEach(function(r) {
+                            var mp = (r.measurement_point || r.fix || '').toUpperCase();
+                            if (mp === mitKey || mp.indexOf(mitKey) !== -1) {
+                                var pct = r.compliance_pct || r.compliance_rate || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                matched++;
+                            }
+                        });
+                    }
+
+                    if (results.gs_results && elKey) {
+                        results.gs_results.forEach(function(r) {
+                            var airport = (r.airport || '').toUpperCase();
+                            if (airport === elKey || 'K' + airport === elKey || airport === 'K' + elKey) {
+                                var pct = r.compliance_pct || r.compliance_rate || 0;
+                                tmi.complied = pct >= 80 ? 'Y' : 'N';
+                                tmi.compliance_pct = Math.round(pct);
+                                matched++;
+                            }
+                        });
+                    }
+                });
+
+                if (matched > 0) {
+                    renderTMITable();
+                    immediateFieldSave();
+                }
+            });
+    }
+
+    // ========================================================================
+    // Demand Chart Snapshots
+    // ========================================================================
+
+    /**
+     * Collect current demand chart data for persistence.
+     * Merges live chart data with any previously saved snapshots.
+     */
+    function gatherDemandSnapshots() {
+        var snapshots = demandSnapshots ? Object.assign({}, demandSnapshots) : {};
+
+        // Capture data from any live charts
+        Object.keys(demandCharts).forEach(function(apt) {
+            var chart = demandCharts[apt];
+            if (chart && typeof chart.getSnapshot === 'function') {
+                var snap = chart.getSnapshot();
+                if (snap) {
+                    snapshots[apt] = snap;
+                }
+            }
+        });
+
+        return Object.keys(snapshots).length > 0 ? snapshots : null;
+    }
+
     // ========================================================================
     // Demand Charts
     // ========================================================================
 
+    var demandChartsInitialized = false;
+    var demandChartParams = null; // Shared time range params for chart creation
+    var demandSyncTimer = null;
+
     function initDemandCharts() {
         if (typeof window.DemandChartCore === 'undefined') return;
-
-        var configs = (window.planData && window.planData.configs) || [];
-        if (configs.length === 0) return;
 
         var eventDate = window.planData.event_date;
         var eventStart = window.planData.event_start || '00:00';
@@ -1131,28 +1326,180 @@
         var now = new Date();
 
         var padMs = 60 * 60 * 1000;
-        var startHoursFromNow = (startUtc.getTime() - padMs - now.getTime()) / (60 * 60 * 1000);
-        var endHoursFromNow = (endUtc.getTime() + padMs - now.getTime()) / (60 * 60 * 1000);
+        var sdMonth = (startUtc.getUTCMonth() + 1).toString().padStart(2, '0');
+        var sdDay = startUtc.getUTCDate().toString().padStart(2, '0');
+        var sdYear = startUtc.getUTCFullYear();
+        var sdTime = startUtc.getUTCHours().toString().padStart(2, '0') + startUtc.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        var edTime = endUtc.getUTCHours().toString().padStart(2, '0') + endUtc.getUTCMinutes().toString().padStart(2, '0') + 'Z';
 
-        configs.forEach(function(cfg) {
-            var containerId = 'demand_chart_' + cfg.airport;
-            var el = document.getElementById(containerId);
-            if (!el) return;
+        demandChartParams = {
+            startHoursFromNow: (startUtc.getTime() - padMs - now.getTime()) / (60 * 60 * 1000),
+            endHoursFromNow: (endUtc.getTime() + padMs - now.getTime()) / (60 * 60 * 1000),
+            dateLabel: sdMonth + '/' + sdDay + '/' + sdYear + ' ' + sdTime + ' - ' + edTime,
+        };
 
-            var icao = cfg.airport;
-            if (icao && icao.length === 3) icao = 'K' + icao;
+        var configs = (window.planData && window.planData.configs) || [];
+        var tabLink = $('a[data-toggle="tab"][href="#tmr_airport"]');
 
-            var chart = window.DemandChartCore.createChart(containerId, {
-                direction: 'both',
-                granularity: 'hourly',
-                showRateLines: true,
-                timeRangeStart: startHoursFromNow,
-                timeRangeEnd: endHoursFromNow,
+        function loadInitialCharts() {
+            if (demandChartsInitialized) return;
+            demandChartsInitialized = true;
+
+            // Load charts for pre-existing plan configs
+            var seen = {};
+            configs.forEach(function(cfg) {
+                if (seen[cfg.airport]) return;
+                seen[cfg.airport] = true;
+                addDemandChart(cfg.airport, cfg.aar, cfg.adr);
             });
 
-            if (chart) {
-                demandCharts[cfg.airport] = chart;
-                chart.load(icao);
+            // Also sync any airports already in the textarea
+            syncDemandChartsFromTextarea();
+
+            // Load charts from saved snapshots (for airports not in plan configs or textarea)
+            if (demandSnapshots) {
+                Object.keys(demandSnapshots).forEach(function(apt) {
+                    if (!seen[apt] && !demandCharts[apt]) {
+                        addDemandChart(apt, null, null);
+                    }
+                });
+            }
+        }
+
+        // Defer loading until Airport Conditions tab is visible (ECharts needs visible container)
+        if ($('#tmr_airport').hasClass('active')) {
+            loadInitialCharts();
+        } else {
+            tabLink.one('shown.bs.tab', loadInitialCharts);
+        }
+
+        // Resize charts when tab becomes visible
+        tabLink.on('shown.bs.tab', function() {
+            Object.keys(demandCharts).forEach(function(apt) {
+                demandCharts[apt].resize();
+            });
+        });
+
+        // Sync charts when textarea content changes (debounced)
+        $('#tmr_airport_conditions').on('input', function() {
+            if (demandSyncTimer) clearTimeout(demandSyncTimer);
+            demandSyncTimer = setTimeout(function() {
+                if (demandChartsInitialized) syncDemandChartsFromTextarea();
+            }, 1500);
+        });
+    }
+
+    /**
+     * Add a demand chart for an airport if one doesn't already exist.
+     * Creates DOM container dynamically and loads the chart.
+     */
+    function addDemandChart(airport, aar, adr) {
+        if (!demandChartParams) return;
+        if (demandCharts[airport]) return; // Already loaded
+
+        var icao = airport;
+        if (icao && icao.length === 3) icao = 'K' + icao;
+
+        var containerId = 'demand_chart_' + airport;
+        var el = document.getElementById(containerId);
+
+        // Create container if it doesn't exist
+        if (!el) {
+            var wrapper = document.getElementById('tmr_demand_charts');
+            if (!wrapper) return;
+
+            // Remove the "no configs" empty state if present
+            var emptyMsg = wrapper.querySelector('.text-muted.text-center');
+            if (emptyMsg) emptyMsg.remove();
+
+            var block = document.createElement('div');
+            block.className = 'mb-3';
+            block.id = 'demand_block_' + airport;
+            var rateStr = (aar || '?') + ' / ' + (adr || '?');
+            block.innerHTML = '<h6 class="text-warning">' + escapeHtml(airport) +
+                ' <span class="text-muted small">AAR: ' + escapeHtml(String(aar || '?')) +
+                ' | ADR: ' + escapeHtml(String(adr || '?')) + '</span></h6>' +
+                '<div class="demand-chart-container" id="' + containerId + '"></div>';
+            wrapper.appendChild(block);
+            el = document.getElementById(containerId);
+        }
+
+        if (!el) return;
+
+        var chart = window.DemandChartCore.createChart(containerId, {
+            direction: 'both',
+            granularity: 'hourly',
+            showRateLines: true,
+            timeRangeStart: demandChartParams.startHoursFromNow,
+            timeRangeEnd: demandChartParams.endHoursFromNow,
+        });
+
+        if (chart) {
+            demandCharts[airport] = chart;
+
+            // Try restoring from saved snapshot first (for historical events)
+            var savedSnap = demandSnapshots && (demandSnapshots[airport] || demandSnapshots[icao]);
+            if (savedSnap && savedSnap.demandData) {
+                chart.loadFromSnapshot(savedSnap);
+                chart.setTitle(icao + '          Saved Snapshot          ' + demandChartParams.dateLabel);
+            } else {
+                // Fetch live data
+                chart.load(icao).then(function(result) {
+                    if (result && result.success) {
+                        chart.setTitle(icao + '          Archived          ' + demandChartParams.dateLabel);
+                        // Auto-save snapshot after successful live load
+                        scheduleSave();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Parse airport codes from the conditions textarea and add charts for new airports.
+     * Supports:
+     *   - Pipe-delimited: "SFO | 28L/28R | 01L/01R | 35/40"
+     *   - PERTI format:   "07/2023  SFO  VMC  ARR:28L/28R DEP:01L/01R  AAR(Strat):35 ADR:40"
+     */
+    function syncDemandChartsFromTextarea() {
+        var text = $('#tmr_airport_conditions').val();
+        if (!text) return;
+
+        var exclude = /^(VMC|IMC|ARR|DEP|AAR|ADR|VFR|IFR|RWY|CAT|OVC|BKN|FEW|SCT|CLR|SKC)$/;
+
+        text.split(/\n/).forEach(function(line) {
+            line = line.trim();
+            if (!line) return;
+
+            var airport = null;
+            var aar = null;
+            var adr = null;
+
+            // Format: PERTI "07/2023  SFO  VMC  ARR:...  AAR(Strat):35 ADR:40 [$ ...]"
+            var perti = line.match(/^\d{2}\/\d{4}\s+([A-Z]{3,4})\b/);
+            if (perti) {
+                airport = perti[1];
+                var aarM = line.match(/AAR[^:]*:\s*(\d+)/);
+                var adrM = line.match(/ADR[^:]*:\s*(\d+)/);
+                if (aarM) aar = aarM[1];
+                if (adrM) adr = adrM[1];
+            }
+
+            // Format: Pipe-delimited "KJFK | 22L,22R | 31L | 40/44"
+            if (!airport && line.indexOf('|') !== -1) {
+                var parts = line.split('|');
+                var code = parts[0].trim().toUpperCase();
+                if (/^K?[A-Z]{3,4}$/.test(code)) {
+                    airport = code;
+                }
+                if (parts.length >= 4) {
+                    var rates = parts[3].trim().match(/(\d+)\s*\/\s*(\d+)/);
+                    if (rates) { aar = rates[1]; adr = rates[2]; }
+                }
+            }
+
+            if (airport && !exclude.test(airport)) {
+                addDemandChart(airport, aar, adr);
             }
         });
     }

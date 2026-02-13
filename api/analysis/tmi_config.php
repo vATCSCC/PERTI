@@ -9,87 +9,90 @@
  *   POST                  - Save TMI config for a plan
  */
 
-header('Content-Type: application/json');
+// Only run endpoint handler when accessed directly (not when included as library)
+if (realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) {
+    header('Content-Type: application/json');
 
-include("../../load/config.php");
+    include("../../load/config.php");
 
-$response = [
-    'success' => true,
-    'data' => null,
-    'message' => ''
-];
+    $response = [
+        'success' => true,
+        'data' => null,
+        'message' => ''
+    ];
 
-try {
-    $data_path = realpath(__DIR__ . '/../../data/tmi_compliance');
-    if (!$data_path) {
-        // Create directory if it doesn't exist
-        $data_path = __DIR__ . '/../../data/tmi_compliance';
-        if (!is_dir($data_path)) {
-            mkdir($data_path, 0755, true);
+    try {
+        $data_path = realpath(__DIR__ . '/../../data/tmi_compliance');
+        if (!$data_path) {
+            // Create directory if it doesn't exist
+            $data_path = __DIR__ . '/../../data/tmi_compliance';
+            if (!is_dir($data_path)) {
+                mkdir($data_path, 0755, true);
+            }
+            $data_path = realpath($data_path);
         }
-        $data_path = realpath($data_path);
+
+        // Handle GET - Load config
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $plan_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
+
+            if ($plan_id <= 0) {
+                throw new Exception("Invalid or missing plan ID");
+            }
+
+            $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
+
+            if (file_exists($config_path)) {
+                $config = json_decode(file_get_contents($config_path), true);
+                $response['data'] = $config;
+                $response['message'] = 'Configuration loaded';
+            } else {
+                $response['data'] = null;
+                $response['message'] = 'No saved configuration found';
+            }
+        }
+
+        // Handle POST - Save config
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            $plan_id = isset($input['p_id']) ? intval($input['p_id']) : 0;
+
+            if ($plan_id <= 0) {
+                throw new Exception("Invalid or missing plan ID");
+            }
+
+            $config = [
+                'plan_id' => $plan_id,
+                'destinations' => $input['destinations'] ?? '',
+                'event_start' => $input['event_start'] ?? '',
+                'event_end' => $input['event_end'] ?? '',
+                'ntml_text' => $input['ntml_text'] ?? '',
+                'saved_utc' => gmdate('Y-m-d H:i:s')
+            ];
+
+            // Parse all entries - unified parser detects NTML vs ADVZY format
+            $config['parsed_tmis'] = parse_tmi_text($config['ntml_text'], $config['event_start']);
+
+            $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
+
+            if (file_put_contents($config_path, json_encode($config, JSON_PRETTY_PRINT))) {
+                $response['data'] = $config;
+                $response['message'] = 'Configuration saved';
+            } else {
+                throw new Exception("Failed to save configuration");
+            }
+        }
+
+        echo json_encode($response, JSON_PRETTY_PRINT);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
     }
-
-    // Handle GET - Load config
-    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $plan_id = isset($_GET['p_id']) ? intval($_GET['p_id']) : 0;
-
-        if ($plan_id <= 0) {
-            throw new Exception("Invalid or missing plan ID");
-        }
-
-        $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
-
-        if (file_exists($config_path)) {
-            $config = json_decode(file_get_contents($config_path), true);
-            $response['data'] = $config;
-            $response['message'] = 'Configuration loaded';
-        } else {
-            $response['data'] = null;
-            $response['message'] = 'No saved configuration found';
-        }
-    }
-
-    // Handle POST - Save config
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-
-        $plan_id = isset($input['p_id']) ? intval($input['p_id']) : 0;
-
-        if ($plan_id <= 0) {
-            throw new Exception("Invalid or missing plan ID");
-        }
-
-        $config = [
-            'plan_id' => $plan_id,
-            'destinations' => $input['destinations'] ?? '',
-            'event_start' => $input['event_start'] ?? '',
-            'event_end' => $input['event_end'] ?? '',
-            'ntml_text' => $input['ntml_text'] ?? '',
-            'saved_utc' => gmdate('Y-m-d H:i:s')
-        ];
-
-        // Parse all entries - unified parser detects NTML vs ADVZY format
-        $config['parsed_tmis'] = parse_tmi_text($config['ntml_text'], $config['event_start']);
-
-        $config_path = $data_path . '/tmi_config_' . $plan_id . '.json';
-
-        if (file_put_contents($config_path, json_encode($config, JSON_PRETTY_PRINT))) {
-            $response['data'] = $config;
-            $response['message'] = 'Configuration saved';
-        } else {
-            throw new Exception("Failed to save configuration");
-        }
-    }
-
-    echo json_encode($response, JSON_PRETTY_PRINT);
-
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
 }
 
 /**
@@ -113,10 +116,11 @@ function parseFacilities($line) {
         $cleanLine = preg_replace('/\(MULTIPLE\)\s*$/i', '', $line);
     }
 
-    // Parse facility pair at end of line
+    // Parse facility pair from line
     // Pattern matches: FACILITY(,FACILITY)*:FACILITY(,FACILITY)*
     // Handles: ZNY:ZDC, N90:ZNY, ZNY,N90:ZDC,ZBW, KJFK:ZNY
-    if (preg_match('/\b([A-Z0-9]+(?:,[A-Z0-9]+)*):([A-Z0-9]+(?:,[A-Z0-9]+)*)\s*$/i', $cleanLine, $matches)) {
+    // Facility codes start with a letter (2-4 chars) to avoid matching time patterns
+    if (preg_match('/\b([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*):([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*)\b/i', $cleanLine, $matches)) {
         $result['requestor'] = strtoupper($matches[1]);
         $result['provider'] = strtoupper($matches[2]);
     }
@@ -418,6 +422,60 @@ function parse_ntml_line($line) {
         $tmi['requestor'] = $facilities['requestor'];
         $tmi['provider'] = $facilities['provider'];
         $tmi['is_multiple'] = $facilities['is_multiple'];
+    }
+    // GS compact pattern: "DCA GS (PCT) 0030Z-0115Z" or "GS DCA 0030Z-0115Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+GS|GS\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'GS';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        // Extract facility in parentheses: "(PCT)"
+        if (preg_match('/\(([A-Z0-9]{2,4})\)/i', $line, $facMatch)) {
+            $tmi['ctl_element'] = strtoupper($facMatch[1]);
+        }
+
+        // Extract impacting condition if present
+        if (preg_match('/(?:reason|due to|condition)[:\s]+(.+?)(?:\d{4}Z|\s*$)/i', $line, $condMatch)) {
+            $tmi['impacting_condition'] = trim($condMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
+    }
+    // GDP compact pattern: "JFK GDP AAR:30 2200Z-0200Z" or "GDP JFK AAR:30 2200Z-0200Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+GDP|GDP\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'GDP';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        // Extract rate: "AAR:30" or "Rate:30" or "rate 30"
+        if (preg_match('/(?:AAR|Rate)[:\s]+(\d+)/i', $line, $rateMatch)) {
+            $tmi['program_rate'] = intval($rateMatch[1]);
+        }
+
+        // Extract delay limit if present
+        if (preg_match('/(?:delay|max)[:\s]+(\d+)\s*(?:min)?/i', $line, $delayMatch)) {
+            $tmi['delay_limit'] = intval($delayMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
+    }
+    // AFP compact pattern: "AFP JFK 2200Z-0200Z" or "JFK AFP Rate:30 2200Z-0200Z"
+    elseif (preg_match('/\b(?:(\w{3,4})\s+AFP|AFP\s+(\w{3,4}))\b/i', $line, $matches)) {
+        $tmi['type'] = 'AFP';
+        $tmi['dest'] = strtoupper($matches[1] ?: $matches[2]);
+
+        if (preg_match('/(?:AAR|Rate)[:\s]+(\d+)/i', $line, $rateMatch)) {
+            $tmi['program_rate'] = intval($rateMatch[1]);
+        }
+
+        if (preg_match('/(\d{4})Z?\s*-\s*(\d{4})Z?/', $line, $timeMatches)) {
+            $tmi['start_time'] = $timeMatches[1];
+            $tmi['end_time'] = $timeMatches[2];
+        }
     }
 
     return $tmi['type'] ? $tmi : null;

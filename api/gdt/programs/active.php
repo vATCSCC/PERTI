@@ -58,7 +58,7 @@ $sql = "
         p.is_active,
         p.start_utc,
         p.end_utc,
-        p.cumulative_start_utc,
+        p.cumulative_start,
         p.program_rate,
         p.delay_limit_min,
         p.impacting_condition,
@@ -83,6 +83,17 @@ $sql = "
         p.created_at,
         p.activated_at,
         p.updated_at,
+        -- Computed: status sort order (needed for UNION ORDER BY)
+        CASE p.status
+            WHEN 'ACTIVE' THEN 1
+            WHEN 'MODELING' THEN 2
+            WHEN 'PROPOSED' THEN 3
+            WHEN 'PENDING_COORD' THEN 4
+            WHEN 'TRANSITIONED' THEN 5
+            WHEN 'COMPLETED' THEN 6
+            WHEN 'CANCELLED' THEN 7
+            ELSE 8
+        END AS status_sort_order,
         -- Computed: elapsed percentage
         CASE
             WHEN p.start_utc IS NOT NULL AND p.end_utc IS NOT NULL
@@ -113,13 +124,23 @@ if ($include_recent) {
         p.program_id, p.program_guid, p.ctl_element, p.element_type,
         p.program_type, p.program_name, p.adv_number, p.status,
         p.is_proposed, p.is_active, p.start_utc, p.end_utc,
-        p.cumulative_start_utc, p.program_rate, p.delay_limit_min,
+        p.cumulative_start, p.program_rate, p.delay_limit_min,
         p.impacting_condition, p.cause_text, p.comments, p.gs_probability,
         p.total_flights, p.controlled_flights, p.exempt_flights,
         p.airborne_flights, p.avg_delay_min, p.max_delay_min, p.total_delay_min,
         p.parent_program_id, p.advisory_chain_id, p.transition_type,
         p.revision_number, p.superseded_by_id, p.scope_json, p.rates_hourly_json,
         p.created_by, p.created_at, p.activated_at, p.updated_at,
+        CASE p.status
+            WHEN 'ACTIVE' THEN 1
+            WHEN 'MODELING' THEN 2
+            WHEN 'PROPOSED' THEN 3
+            WHEN 'PENDING_COORD' THEN 4
+            WHEN 'TRANSITIONED' THEN 5
+            WHEN 'COMPLETED' THEN 6
+            WHEN 'CANCELLED' THEN 7
+            ELSE 8
+        END AS status_sort_order,
         CAST(100.0 AS DECIMAL(5,1)) AS elapsed_pct,
         0 AS minutes_remaining
     FROM dbo.tmi_programs p
@@ -128,18 +149,7 @@ if ($include_recent) {
     ";
 }
 
-$sql .= " ORDER BY
-    CASE status
-        WHEN 'ACTIVE' THEN 1
-        WHEN 'MODELING' THEN 2
-        WHEN 'PROPOSED' THEN 3
-        WHEN 'PENDING_COORD' THEN 4
-        WHEN 'TRANSITIONED' THEN 5
-        WHEN 'COMPLETED' THEN 6
-        WHEN 'CANCELLED' THEN 7
-        ELSE 8
-    END,
-    start_utc ASC";
+$sql .= " ORDER BY status_sort_order, start_utc ASC";
 
 $result = fetch_all($conn_tmi, $sql);
 

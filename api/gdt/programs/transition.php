@@ -102,6 +102,7 @@ if ($phase === 'propose') {
     $reserve_rate = isset($payload['reserve_rate']) ? (int)$payload['reserve_rate'] : null;
     $delay_limit_min = isset($payload['delay_limit_min']) ? (int)$payload['delay_limit_min'] : 180;
     $impacting_condition = isset($payload['impacting_condition']) ? trim($payload['impacting_condition']) : ($gs_program['impacting_condition'] ?? 'WEATHER');
+    $cause_text = isset($payload['cause_text']) ? trim($payload['cause_text']) : ($gs_program['cause_text'] ?? '');
     $comments = isset($payload['comments']) ? trim($payload['comments']) : '';
 
     if ($gdp_end_utc === null) {
@@ -173,7 +174,7 @@ if ($phase === 'propose') {
         $ctl_element, $element_type, $gdp_type, $program_name,
         $gdp_start, $gdp_end_utc, $cumulative_start, $gdp_end_utc,
         $program_rate, $reserve_rate, $delay_limit_min,
-        $impacting_condition, $comments, $comments,
+        $impacting_condition, $cause_text, $comments,
         $scope_json, $exemptions_json,
         $gs_program_id, $chain_id,
         $auth_cid
@@ -187,6 +188,7 @@ if ($phase === 'propose') {
         ]);
     }
 
+    sqlsrv_next_result($stmt);
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     $gdp_program_id = ($row && isset($row['gdp_program_id'])) ? (int)$row['gdp_program_id'] : 0;
     sqlsrv_free_stmt($stmt);
@@ -252,13 +254,17 @@ if ($phase === 'activate') {
         ]);
     }
 
-    // Transition GS to TRANSITIONED
+    // Transition GS and activate GDP atomically
+    sqlsrv_begin_transaction($conn_tmi);
+
+
     $result1 = execute_query($conn_tmi,
         "UPDATE dbo.tmi_programs SET status = 'TRANSITIONED', is_active = 0, updated_at = SYSUTCDATETIME() WHERE program_id = ?",
         [$gs_program_id]
     );
 
     if (!$result1['success']) {
+        sqlsrv_rollback($conn_tmi);
         respond_json(500, [
             'status' => 'error',
             'message' => 'Failed to transition GS',
@@ -266,19 +272,21 @@ if ($phase === 'activate') {
         ]);
     }
 
-    // Activate GDP
     $result2 = execute_query($conn_tmi,
         "UPDATE dbo.tmi_programs SET status = 'ACTIVE', is_proposed = 0, is_active = 1, activated_at = SYSUTCDATETIME(), updated_at = SYSUTCDATETIME() WHERE program_id = ?",
         [$gdp_program_id]
     );
 
     if (!$result2['success']) {
+        sqlsrv_rollback($conn_tmi);
         respond_json(500, [
             'status' => 'error',
             'message' => 'Failed to activate GDP',
             'errors' => $result2['error']
         ]);
     }
+
+    sqlsrv_commit($conn_tmi);
 
     // Log events
     execute_query($conn_tmi,

@@ -39,28 +39,69 @@ require_once __DIR__ . '/../../analysis/tmi_config.php';
 $event_start = $input['event_start'] ?? null;
 $parsed = parse_tmi_text($text, $event_start);
 
-// Normalize to TMR format
+// Pass through all parsed fields with category + element + normalized times
 $tmis = [];
 foreach ($parsed as $p) {
-    $tmi = [
-        'type' => $p['type'] ?? 'Other',
-        'element' => $p['dest'] ?? $p['fix'] ?? $p['airport'] ?? '',
-        'detail' => buildDetail($p),
-        'start_utc' => isset($p['start_time']) ? $p['start_time'] . 'z' : null,
-        'end_utc' => isset($p['end_time']) ? $p['end_time'] . 'z' : null,
-        'facility' => $p['requestor'] ?? $p['provider'] ?? null,
-    ];
+    // Determine category
+    $type = $p['type'] ?? 'Other';
+    switch ($type) {
+        case 'GS_PROGRAM':
+            $category = 'program';
+            $type = 'GS';
+            break;
+        case 'GS':
+        case 'GS_CNX':
+        case 'GDP':
+        case 'AFP':
+            $category = 'program';
+            break;
+        case 'REROUTE_PROGRAM':
+            $category = 'reroute';
+            $type = 'Reroute';
+            break;
+        case 'REROUTE':
+        case 'REROUTE_CNX':
+            $category = 'reroute';
+            break;
+        default:
+            $category = 'ntml';
+            break;
+    }
 
-    // For GS/GDP programs, use program fields
+    // For program types, also override type from program_type field
     if (isset($p['program_type'])) {
-        $tmi['type'] = $p['program_type'];
-        $tmi['element'] = $p['airport'] ?? $tmi['element'];
+        $type = $p['program_type'];
+        $category = 'program';
+    }
+    if (isset($p['reroute_type'])) {
+        $type = 'Reroute';
+        $category = 'reroute';
     }
 
-    // For reroute programs
-    if (isset($p['reroute_type'])) {
-        $tmi['type'] = 'Reroute';
+    // Resolve element via field fallback
+    $element = $p['dest'] ?? $p['airport'] ?? $p['fix'] ?? $p['ctl_element'] ?? '';
+
+    // Normalize times: start_time/end_time or effective_start/effective_end → start_utc/end_utc
+    $start_utc = null;
+    $end_utc = null;
+    if (isset($p['start_time'])) {
+        $start_utc = $p['start_time'] . 'z';
+    } elseif (isset($p['effective_start'])) {
+        $start_utc = $p['effective_start'] . 'z';
     }
+    if (isset($p['end_time'])) {
+        $end_utc = $p['end_time'] . 'z';
+    } elseif (isset($p['effective_end'])) {
+        $end_utc = $p['effective_end'] . 'z';
+    }
+
+    // Build entry: all parser fields + overrides
+    $tmi = $p;
+    $tmi['type'] = $type;
+    $tmi['category'] = $category;
+    $tmi['element'] = $element;
+    $tmi['start_utc'] = $start_utc;
+    $tmi['end_utc'] = $end_utc;
 
     $tmis[] = $tmi;
 }
@@ -70,28 +111,3 @@ echo json_encode([
     'tmis' => $tmis,
     'count' => count($tmis),
 ]);
-
-function buildDetail($p) {
-    $parts = [];
-
-    if (!empty($p['fix']) && !empty($p['value'])) {
-        $parts[] = 'via ' . $p['fix'] . ' ' . $p['value'] . ($p['type'] ?? '');
-    }
-
-    if (!empty($p['requestor']) || !empty($p['provider'])) {
-        $fac = [];
-        if (!empty($p['requestor'])) $fac[] = $p['requestor'];
-        if (!empty($p['provider'])) $fac[] = $p['provider'];
-        $parts[] = implode(':', $fac);
-    }
-
-    if (!empty($p['cause'])) {
-        $parts[] = $p['cause'];
-    }
-
-    if (!empty($p['raw']) && empty($parts)) {
-        return $p['raw'];
-    }
-
-    return implode(' ', $parts) ?: ($p['raw'] ?? '');
-}

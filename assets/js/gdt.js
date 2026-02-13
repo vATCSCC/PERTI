@@ -256,6 +256,8 @@
             }
             actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="What-If re-model">Re-model</button>';
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
+        } else if (p.status === 'PROPOSED' || p.status === 'MODELING' || p.status === 'PENDING_COORD') {
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="Delete proposal"><i class="fas fa-trash-alt mr-1"></i>Delete</button>';
         }
 
         var chainIndicator = '';
@@ -490,9 +492,9 @@
         }
 
         // Populate extend modal
-        var info = (program.program_type || 'GS') + ' #' + programId +
+        var info = escapeHtml(program.program_type || 'GS') + ' #' + programId +
             ' - ' + escapeHtml(program.ctl_element || '') +
-            ' (' + (program.status || '') + ')';
+            ' (' + escapeHtml(program.status || '') + ')';
         document.getElementById('gdt_extend_program_info').innerHTML = info;
 
         var currentEnd = formatZuluShort(program.end_utc);
@@ -625,7 +627,7 @@
         }
 
         // Populate revise modal
-        var info = (program.program_type || 'GS') + ' #' + programId +
+        var info = escapeHtml(program.program_type || 'GS') + ' #' + programId +
             ' - ' + escapeHtml(program.ctl_element || '') +
             ' (Rev ' + ((program.revision_number || 0) + 1) + ')';
         document.getElementById('gdt_revise_program_info').innerHTML = info;
@@ -777,7 +779,7 @@
         // Populate GS info
         var gsInfo = 'GS #' + programId + ' - ' + escapeHtml(program.ctl_element || '') +
             ' (' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc) + ')' +
-            ' | ' + (program.impacting_condition || 'WEATHER');
+            ' | ' + escapeHtml(program.impacting_condition || 'WEATHER');
         document.getElementById('gdt_transition_gs_info').innerHTML = gsInfo;
 
         // Reset to phase 1 (propose)
@@ -961,7 +963,7 @@
                     Swal.fire({
                         icon: 'info',
                         title: 'GDP Proposed',
-                        html: 'GDP #' + gdpId + ' created as PROPOSED.<br>GS remains active. Click <strong>Activate</strong> when ready.',
+                        html: 'GDP #' + gdpId + ' created.<br>GS remains active. Click <strong>Activate</strong> when ready.',
                         timer: 5000,
                         showConfirmButton: true
                     });
@@ -1155,6 +1157,51 @@
                     },
                     error: function() {
                         Swal.fire('Error', 'Failed to cancel program.', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    function dashboardDelete(programId) {
+        var prog = findDashboardProgram(programId);
+        var label = prog ? escapeHtml(prog.program_type + ' ' + (prog.ctl_element || '')) : 'Program #' + programId;
+
+        Swal.fire({
+            title: 'Delete ' + label + '?',
+            text: 'This will permanently remove this proposal and any associated flight list.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Yes, delete it'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: GS_API.purge,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        program_id: programId,
+                        purge_reason: 'PROPOSAL_DELETED'
+                    }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            Swal.fire('Deleted', 'Proposal has been removed.', 'success');
+                            loadActiveProgramsDashboard();
+                            if (GS_CURRENT_PROGRAM_ID === programId) {
+                                resetAndNewProgram();
+                            }
+                        } else {
+                            Swal.fire('Error', resp.message || 'Delete failed', 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        var msg = 'Failed to delete proposal.';
+                        try {
+                            var r = JSON.parse(xhr.responseText);
+                            if (r.message) msg = r.message;
+                        } catch(e) {}
+                        Swal.fire('Error', msg, 'error');
                     }
                 });
             }
@@ -1417,6 +1464,7 @@
     window.dashboardRevise = dashboardRevise;
     window.dashboardTransition = dashboardTransition;
     window.dashboardCancel = dashboardCancel;
+    window.dashboardDelete = dashboardDelete;
     window.submitExtend = submitExtend;
     window.submitRevise = submitRevise;
     window.submitTransitionPropose = submitTransitionPropose;
@@ -5263,7 +5311,7 @@
             created_by: 'TMU',
         };
 
-        // Step 1: Create PROPOSED program
+        // Step 1: Create MODELING program (advisory assigned on activation)
         return apiPostJson(GS_API.create, createPayload)
             .then(function(createResp) {
                 if (createResp.status !== 'ok' || !createResp.data || !createResp.data.program_id) {
@@ -5272,7 +5320,7 @@
 
                 const programId = createResp.data.program_id;
                 GS_CURRENT_PROGRAM_ID = programId;
-                GS_CURRENT_PROGRAM_STATUS = 'PROPOSED';
+                GS_CURRENT_PROGRAM_STATUS = 'MODELING';
 
                 if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.programCreated', { id: programId });}
 
