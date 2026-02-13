@@ -225,12 +225,10 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
     $rerouteIds = array_keys($reroutes);
     $placeholders = implode(',', $rerouteIds);
 
-    // Note: origin_filter and dest_filter columns added in migration 026
-    // Query only core columns that always exist
     $routesSql = "
         SELECT
             route_id, reroute_id, origin, destination, route_string,
-            sort_order, created_at
+            sort_order, origin_filter, dest_filter, created_at
         FROM dbo.tmi_reroute_routes
         WHERE reroute_id IN ($placeholders)
         ORDER BY reroute_id, sort_order
@@ -276,16 +274,22 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
         $routeName .= ' (' . trim($routeRow['origin'] ?? '') . '-' . trim($routeRow['destination'] ?? '') . ')';
     }
 
-    // Build origin/destination filter arrays from the origin/destination fields
-    // These are space-delimited airport codes (e.g., "KJFK KLGA KEWR")
+    // Build origin/destination filter arrays
+    // Prefer dedicated origin_filter/dest_filter columns, fall back to splitting origin/destination
     $originFilter = [];
     $destFilter = [];
 
-    if (!empty($routeRow['origin'])) {
+    if (!empty($routeRow['origin_filter'])) {
+        $originFilter = array_map('trim', explode(' ', $routeRow['origin_filter']));
+        $originFilter = array_filter($originFilter);
+    } elseif (!empty($routeRow['origin'])) {
         $originFilter = array_map('trim', explode(' ', $routeRow['origin']));
-        $originFilter = array_filter($originFilter); // Remove empty values
+        $originFilter = array_filter($originFilter);
     }
-    if (!empty($routeRow['destination'])) {
+    if (!empty($routeRow['dest_filter'])) {
+        $destFilter = array_map('trim', explode(' ', $routeRow['dest_filter']));
+        $destFilter = array_filter($destFilter);
+    } elseif (!empty($routeRow['destination'])) {
         $destFilter = array_map('trim', explode(' ', $routeRow['destination']));
         $destFilter = array_filter($destFilter);
     }
