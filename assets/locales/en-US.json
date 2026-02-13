@@ -1851,6 +1851,9 @@
       "selectAll": "Select All",
       "deselectAll": "Deselect All",
       "batchAssess": "Batch Assess",
+      "removeSelected": "Remove Selected",
+      "noSelection": "No Selection",
+      "noSelectionText": "Select TMIs using the checkboxes first.",
       "searchPlaceholder": "Search TMIs...",
       "importCompliance": "Import from Compliance Analysis",
       "source": {
