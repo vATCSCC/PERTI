@@ -29,8 +29,8 @@ This document is three things:
 | **PERTI plans created** | 233 events planned through the platform |
 | **Flights tracked** | 780,967 in Jan-Feb 2026 alone (15-second updates, 24/7) |
 | **TMI activity** | 5,288 entries logged, 152 programs, 1,019 advisories (25 facilities requesting) |
-| **Infrastructure cost** | ~$3,640/month (January 2026 actual) |
-| **Development labor** | 2,000+ hours, 100% volunteer, $0 cost |
+| **Infrastructure cost** | ~$3,640/month (January 2026 actual) — not funded by VATSIM or VATUSA |
+| **Development labor** | 2,000+ hours, 100% volunteer, $0 cost to VATSIM/VATUSA |
 | **Average TMI Compliance** | 66.5% across 6 measurable events (real-world: 85-95%) |
 | **February 12, 2026** | Additional personnel removed from DCC direction; PERTI platform access suspended by VATUSA leadership |
 
@@ -420,7 +420,7 @@ The Discord planning threads demonstrate that Command Center coordination is not
 
 **For controllers:** The TMIs you implement aren't arbitrary numbers from a faceless authority. They're negotiated between people who understand your sectors. When a TMI doesn't work operationally, the planning thread is where you say so — and it gets fixed.
 
-**For VATSIM leadership:** This is what you fund, what you staff, and what you're deciding whether to continue supporting. The question isn't whether it has value — it demonstrably does. The question is whether the organizational decisions being made reflect that value.
+**For VATSIM leadership:** This is what you authorize, what you staff, and what you're deciding whether to continue supporting. The question isn't whether it has value — it demonstrably does. The question is whether the organizational decisions being made reflect that value.
 
 ---
 
@@ -438,7 +438,7 @@ The Discord planning threads demonstrate that Command Center coordination is not
 | **Overall Compliance** | **66.5%** | — | 56.9% - 86.3% | 85-95% | **-19 to -29 pts** |
 | **MIT (Spacing)** | **68.4%** | by pairs (n=1,963) | 55.9% - 93.5% | 85-95% | **-17 to -27 pts** |
 | **Ground Stop** | **63.7%** | by flights (n=157) | 33.3% - 100% | 95-99% | **-31 pts** |
-| **Reroutes** | **100%** | — | 100% - 100% | 98-100% | **+2 pts** |
+| **Reroutes** | *Not yet measured* | — | — | 98-100% | *Pending* |
 
 *Averages include 6 events with measurable TMI activity (excludes Plan 227 with no TMI enforcement and Plan 223 with no MIT pairs). Weighted figures use total analyzed pairs/flights as denominator.*
 
@@ -471,11 +471,11 @@ The Discord planning threads demonstrate that Command Center coordination is not
 
 #### Plan 228 - Northeast Corridor FNO (January 30-31, 2026)
 **Event:** Multiple NE airports | **New Flights:** 2,796 | **Network Flights:** ~12,440 active | **TMI Entries:** 60
-**Overall:** 75.2% | **MIT:** 75.5% (267 violations / 1,088 pairs) | **GS:** 69.6% (17 violations / 56 flights) | **Reroutes:** 100% (3 mandatory, all compliant)
+**Overall:** 75.2% | **MIT:** 75.5% (267 violations / 1,088 pairs) | **GS:** 69.6% (17 violations / 56 flights)
 **Grade:** Highest compliance among large-scale events
 **Notable:** Largest event analyzed (1,088 MIT pairs). DEPDY fix had worst performance at 41.9% (25 violations / 43 pairs). BEUTY at 81.5%.
 **TMI scope:** 60 NTML entries spanning BOS, DCA, JFK, LGA, MCO, MIA, FLL, PBI across ZBW, ZNY, ZDC, ZOB, ZJX, ZMA, ZTL, ZHU
-**Planning context:** Most extensively coordinated event in the dataset — 8+ facilities, 60+ TMI entries, GS operations, mandatory reroutes. Post-event compliance analysis was discussed in detail in the planning thread.
+**Planning context:** Most extensively coordinated event in the dataset — 8+ facilities, 60+ TMI entries, GS operations. Post-event compliance analysis was discussed in detail in the planning thread.
 
 #### Plan 229 - All Aboard The Brightline SNO (January 31 - February 1, 2026)
 **Event:** KMCO/KPBI/KFLL/KMIA | **New Flights:** 1,677 | **Network Flights:** ~10,851 active | **TMI Entries:** 1 (cancellation only)
@@ -654,9 +654,11 @@ This is not a system used by 2-3 facilities. **23 facilities** across the NAS ac
 - 100% volunteer (no salaries)
 - Estimated hours: 2,000+ development hours
 - Market value: $200,000+ if contracted
-- **Actual cost: $0** (volunteer labor)
+- **Actual cost to VATSIM/VATUSA: $0** (volunteer labor)
 
 **Total Program Cost: ~$43,700/year** for infrastructure serving 20,000+ pilots across 780K+ tracked flights
+
+**Note:** Neither VATSIM nor VATUSA fund vATCSCC infrastructure or PERTI development. All costs and labor are volunteer-contributed.
 
 ---
 
@@ -727,7 +729,7 @@ VATUSA Deputy Director - Support Services (VATUSA4)
 
 ### 5.2 What This Shows
 
-**Through early 2026, VATUSA treated the Command Center as increasingly essential.** Platform investment grew after 2023 (ADL normalization 2026, TMI compliance analysis 2025), DP001 explicitly listed DCC management as VATUSA5 responsibility, and FNO/SNO policies depended on DCC coordination.
+**Through early 2026, VATUSA treated the Command Center as increasingly essential.** Platform development continued after 2023 (ADL normalization 2026, TMI compliance analysis 2025), DP001 explicitly listed DCC management as VATUSA5 responsibility, and FNO/SNO policies depended on DCC coordination.
 
 **Then in February 2026, the trajectory reversed.** Additional personnel were removed and platform access was suspended — degrading the capabilities that had been growing.
 
@@ -913,10 +915,10 @@ The organizational history shows a pattern:
 | Period | Investment Direction | Outcome |
 |--------|---------------------|---------|
 | 2020-2022 | Dedicated USA15/USA25, then USA9 | Platform built, PERTI methodology established |
-| 2023-early 2026 | No dedicated DCC positions, but platform investment continues | ADL normalization, TMI compliance, GDT, NTML Quick Entry |
-| Feb 2026 | Personnel removed, platform access suspended | Investment rendered inaccessible |
+| 2023-early 2026 | No dedicated DCC positions, but developer-funded platform development continues | ADL normalization, TMI compliance, GDT, NTML Quick Entry |
+| Feb 2026 | Personnel removed, platform access suspended | Developer-funded investment rendered inaccessible |
 
-The platform was built during a period of organizational investment. It continued growing during a period of organizational consolidation (because the developer continued volunteering). Then access was removed — not because the platform failed, but because of an organizational decision unrelated to platform performance.
+The platform was built during a period of organizational investment. It continued growing during organizational consolidation (because the developer continued volunteering). Then access was removed — not because the platform failed, but because of an organizational decision unrelated to platform performance.
 
 **This is the core tension:** Technical investment and organizational investment move independently, and organizational decisions can negate years of technical development overnight.
 
@@ -1038,7 +1040,7 @@ Overall Compliance: 75.2%
 MIT Violations: 267 of 1,088 pairs (24.5% violation rate)
 Worst Fix: DEPDY (41.9% compliance, 25 violations / 43 pairs)
 Ground Stop: 69.6% compliance (17 violations / 56 flights)
-Reroutes: 100% compliance (3 mandatory, all compliant)
+Reroutes: Not yet measured (analysis in development)
 ```
 
 ### 9.2 NTML Quick Entry System (January 2025)
@@ -1216,7 +1218,7 @@ The problem isn't JUST staffing — it's that TMU work is too complex and manual
 
 **Section 3** showed the numbers: 66.5% average TMI compliance across 1,963 measured flight pairs. Not good enough by any standard — but measurably better than zero coordination, and critically, only measurable because the tools to measure it exist.
 
-**Sections 5-7** showed the organizational trajectory: from dedicated DCC leadership (2020) to consolidation under VATUSA5 (2023) to personnel removal and access suspension (February 2026). The trend is toward less investment in the function, even as the evidence for its value grows.
+**Sections 5-7** showed the organizational trajectory: from dedicated DCC leadership (2020) to consolidation under VATUSA5 (2023) to personnel removal and access suspension (February 2026). The trend is toward less organizational support for the function, even as the evidence for its value grows.
 
 ### The Fundamental Contradiction
 
@@ -1240,13 +1242,13 @@ This competence exists independently of VATUSA organizational decisions. But it 
 
 ### For Every Audience
 
-**If you're a pilot** who has ever flown a VATSIM event: the coordination described in this document directly affected your experience. Better coordination = shorter delays, fewer vectors, smoother arrivals. The question is whether VATSIM will invest in the infrastructure that makes that coordination possible.
+**If you're a pilot** who has ever flown a VATSIM event: the coordination described in this document directly affected your experience. Better coordination = shorter delays, fewer vectors, smoother arrivals. The question is whether VATSIM will continue supporting the infrastructure that makes that coordination possible.
 
 **If you're a controller** who has ever worked a VATSIM event: the TMIs you implement come from the process described in this document. When that process works well, your workload is manageable and traffic is sequenced. When it breaks down, you get sector saturation and holding patterns. The question is whether the tools and authority structure support you.
 
 **If you're in TMU** or considering it: the planning threads show what this work actually looks like — technically demanding, collaborative, and genuinely impactful. The question is whether the organizational structure will support and develop you, or burn you out.
 
-**If you're in VATSIM leadership:** the data, the evidence, and the operational record all point the same direction. The Command Center function is vital. The platform investment is justified. The organizational structure needs attention. The February 2026 degradation moves in the wrong direction. The evidence is in this document. The decision is yours.
+**If you're in VATSIM leadership:** the data, the evidence, and the operational record all point the same direction. The Command Center function is vital. The organizational structure needs attention. The February 2026 degradation moves in the wrong direction. The evidence is in this document. The decision is yours.
 
 ---
 
