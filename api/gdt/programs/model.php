@@ -115,10 +115,10 @@ $sql = "
         fp_dept_artcc AS dep_artcc,
         fp_dest_artcc AS arr_artcc,
         aircraft_icao,
-        etd_runway_utc,
-        eta_runway_utc,
-        DATEDIFF(SECOND, '1970-01-01', etd_runway_utc) AS etd_epoch,
-        DATEDIFF(SECOND, '1970-01-01', eta_runway_utc) AS eta_epoch,
+        COALESCE(etd_runway_utc, etd_utc, std_utc) AS etd_runway_utc,
+        COALESCE(eta_runway_utc, eta_utc) AS eta_runway_utc,
+        DATEDIFF(SECOND, '1970-01-01', COALESCE(etd_runway_utc, etd_utc, std_utc)) AS etd_epoch,
+        DATEDIFF(SECOND, '1970-01-01', COALESCE(eta_runway_utc, eta_utc)) AS eta_epoch,
         phase,
         gs_flag,
         CASE
@@ -129,10 +129,11 @@ $sql = "
     WHERE fp_dest_icao = ?
     AND fp_dept_artcc IN ({$placeholders})
     AND (
-        (etd_runway_utc >= ? AND etd_runway_utc <= ?)
-        OR (eta_runway_utc >= ? AND eta_runway_utc <= ?)
+        (COALESCE(etd_runway_utc, etd_utc, std_utc) >= ? AND COALESCE(etd_runway_utc, etd_utc, std_utc) <= ?)
+        OR (COALESCE(eta_runway_utc, eta_utc) >= ? AND COALESCE(eta_runway_utc, eta_utc) <= ?)
     )
-    ORDER BY eta_runway_utc ASC
+    AND (phase IS NULL OR phase NOT IN ('arrived'))
+    ORDER BY COALESCE(eta_runway_utc, eta_utc) ASC
 ";
 
 $params = array_merge(
