@@ -372,10 +372,16 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             prob_extension = prob_match.group(1).strip()
             continue
 
-        # FLT INCL: ALL
+        # FLT INCL: (MANUAL) ZLA or ALL
+        # Extract facility codes as fallback when DEP FACILITIES INCLUDED is absent
         flt_match = re.match(r'^FLT\s+INCL:\s*(.*)', line, re.IGNORECASE)
         if flt_match:
             flt_incl = flt_match.group(1).strip()
+            # Extract facility codes from FLT INCL as fallback for dep_facilities
+            if flt_incl.upper() != 'ALL' and not dep_facilities:
+                flt_codes = [f for f in re.findall(r'\b[A-Z]{3}\b', flt_incl.upper()) if f != 'ALL']
+                if flt_codes:
+                    dep_facilities = flt_codes
             continue
 
         # PREVIOUS TOTAL, MAXIMUM, AVERAGE DELAYS: X, Y, Z
