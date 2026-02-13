@@ -1271,7 +1271,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <script src="assets/js/statsim_rates.js?v=2" defer></script>
 <script src="assets/js/demand.js?v=2"></script>
 <script src="assets/js/review.js"></script>
-<script src="assets/js/tmr_report.js?v=5"></script>
+<script src="assets/js/tmr_report.js?v=6"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js"></script>
 
