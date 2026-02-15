@@ -1597,8 +1597,10 @@ class TMIComplianceAnalyzer:
 
         # 3. For each flight, select the appropriate crossing point
         # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
-        # All TMIs must be met by the handoff point (boundary between provider and requestor)
-        # Priority: Use boundary crossing (the actual handoff point) when available
+        # For facility-specific MITs (with provider:requestor), ONLY use boundary crossings.
+        # The fix identifies the stream but the MIT applies at the handoff point.
+        # Flights that don't cross the provider->requestor boundary aren't subject to this MIT.
+        has_facility_pair = bool(tmi.provider and tmi.requestor)
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
 
@@ -1606,29 +1608,28 @@ class TMIComplianceAnalyzer:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
-            # Prefer boundary crossing (actual handoff point) over fix crossing
             if bnd_cx:
+                # Boundary crossing found - always use it
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
-            elif fix_cx:
-                # Fallback to fix crossing if boundary not available
+            elif fix_cx and not has_facility_pair:
+                # Fix fallback ONLY for TMIs without a facility pair
+                # (facility-specific MITs require boundary crossing)
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
 
         # Determine overall measurement type based on what was actually used
-        if measurement_stats['boundary'] > 0 and measurement_stats['fix'] > 0:
-            measurement_type = MeasurementType.BOUNDARY  # Mixed, but boundary-aware
-            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (or {fix} if earlier)"
-        elif measurement_stats['boundary'] > 0:
-            measurement_type = MeasurementType.BOUNDARY
-            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
-        elif measurement_stats['fix'] > 0:
-            if tmi.provider and tmi.requestor:
-                measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
-                measurement_point = f"{fix} (boundary unavailable)"
+        if has_facility_pair:
+            if measurement_stats['boundary'] > 0:
+                measurement_type = MeasurementType.BOUNDARY
+                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
             else:
-                measurement_type = MeasurementType.FIX
-                measurement_point = fix
+                # No boundary crossings found at all - nothing to analyze
+                measurement_type = MeasurementType.BOUNDARY
+                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
+        elif measurement_stats['fix'] > 0:
+            measurement_type = MeasurementType.FIX
+            measurement_point = fix
         else:
             measurement_type = MeasurementType.FIX
             measurement_point = fix or 'unknown'
