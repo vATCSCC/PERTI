@@ -218,6 +218,12 @@ if (!function_exists('render_dropdown')) {
                 <?= htmlspecialchars($org_display) ?>
             </span>
         <?php endif; ?>
+        <?php if ($org_code === 'vatcan'): ?>
+            <div class="btn-group btn-group-sm mr-2" role="group">
+                <button type="button" class="btn btn-outline-light btn-lang" onclick="setLocale('en-CA')" id="btn-lang-en">EN</button>
+                <button type="button" class="btn btn-outline-light btn-lang" onclick="setLocale('fr-CA')" id="btn-lang-fr">FR</button>
+            </div>
+        <?php endif; ?>
         <?php if ($perm): ?>
             <ul class="navbar-nav me-auto">
                 <li class="nav-item">
@@ -312,4 +318,15 @@ function switchOrg(orgCode) {
         }
     });
 }
+
+function setLocale(locale) {
+    localStorage.setItem('PERTI_LOCALE', locale);
+    window.location.reload();
+}
+(function() {
+    var loc = localStorage.getItem('PERTI_LOCALE') || 'en-CA';
+    var activeBtn = loc === 'fr-CA' ? 'btn-lang-fr' : 'btn-lang-en';
+    var el = document.getElementById(activeBtn);
+    if (el) el.classList.add('active');
+})();
 </script>
