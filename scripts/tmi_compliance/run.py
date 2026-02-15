@@ -413,35 +413,76 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             else:
                 origins = []
 
-            # Build base TMI
-            tmi = TMI(
-                tmi_id=f'{tmi_type.value}_{fix}_{dest}',
-                tmi_type=tmi_type,
-                fix=fix if fix else None,
-                destinations=dest_list,
-                origins=origins,
-                value=pt.get('value', 0),
-                unit='nm' if tmi_type == TMIType.MIT else 'min',
-                provider=pt.get('provider', ''),
-                requestor=pt.get('requestor', ''),
-                start_utc=start_utc,
-                end_utc=end_utc,
-                issued_utc=issued_utc
-            )
+            # Split multi-provider TMIs into separate per-boundary TMI objects
+            # e.g., provider="ZME,ZKC" with requestor="ZFW" becomes two TMIs:
+            #   ZFW:ZME and ZFW:ZKC — each analyzed at its own boundary
+            raw_provider = pt.get('provider', '')
+            raw_requestor = pt.get('requestor', '')
 
-            # Add reroute-specific fields
-            if tmi_type == TMIType.REROUTE:
-                tmi.reroute_name = pt.get('name', '')
-                tmi.reroute_mandatory = pt.get('mandatory', False)
-                tmi.reroute_routes = pt.get('routes', [])
-                tmi.time_type = pt.get('time_type', 'ETD')  # ETA or ETD
-                tmi.reason = pt.get('reason', '')
-                tmi.artccs = pt.get('facilities', [])
-                # Update tmi_id to use name if available
-                if tmi.reroute_name:
-                    tmi.tmi_id = f"REROUTE_{tmi.reroute_name}"
+            if ',' in raw_provider and tmi_type not in (TMIType.GS, TMIType.REROUTE):
+                provider_list = [p.strip() for p in raw_provider.split(',') if p.strip()]
+            else:
+                provider_list = [raw_provider]
 
-            tmis.append(tmi)
+            if ',' in raw_requestor and tmi_type not in (TMIType.GS, TMIType.REROUTE):
+                requestor_list = [r.strip() for r in raw_requestor.split(',') if r.strip()]
+            else:
+                requestor_list = [raw_requestor]
+
+            is_multi_split = len(provider_list) > 1 or len(requestor_list) > 1
+            # Group ID links sub-TMIs from the same original multi-facility TMI
+            # Include time to distinguish groups from different NTML lines for same fix
+            base_tmi_id = f'{tmi_type.value}_{fix}_{dest}'
+            time_tag = f"_{start_utc.strftime('%H%M')}" if (is_multi_split and start_utc) else ''
+            group_id = f'{base_tmi_id}{time_tag}' if is_multi_split else ''
+            original_facilities = f'{raw_requestor}:{raw_provider}' if is_multi_split else ''
+
+            for single_provider in provider_list:
+                for single_requestor in requestor_list:
+                    # Build unique tmi_id that includes facility pair when present
+                    # Multi-facility splits use _mf_ prefix to avoid colliding with
+                    # standalone TMIs that happen to share the same fix/dest/provider
+                    if single_provider or single_requestor:
+                        fac_suffix = f"_{single_requestor}_{single_provider}" if (single_requestor and single_provider) else ""
+                        mf_tag = f'_mf{time_tag}' if is_multi_split else ''
+                        tmi_id = f'{base_tmi_id}{mf_tag}{fac_suffix}'
+                    else:
+                        tmi_id = base_tmi_id
+
+                    tmi = TMI(
+                        tmi_id=tmi_id,
+                        tmi_type=tmi_type,
+                        fix=fix if fix else None,
+                        destinations=dest_list,
+                        origins=origins,
+                        value=pt.get('value', 0),
+                        unit='nm' if tmi_type == TMIType.MIT else 'min',
+                        provider=single_provider,
+                        requestor=single_requestor,
+                        start_utc=start_utc,
+                        end_utc=end_utc,
+                        issued_utc=issued_utc,
+                        group_id=group_id,
+                        original_facilities=original_facilities,
+                    )
+
+                    # Add reroute-specific fields
+                    if tmi_type == TMIType.REROUTE:
+                        tmi.reroute_name = pt.get('name', '')
+                        tmi.reroute_mandatory = pt.get('mandatory', False)
+                        tmi.reroute_routes = pt.get('routes', [])
+                        tmi.time_type = pt.get('time_type', 'ETD')  # ETA or ETD
+                        tmi.reason = pt.get('reason', '')
+                        tmi.artccs = pt.get('facilities', [])
+                        # Update tmi_id to use name if available
+                        if tmi.reroute_name:
+                            tmi.tmi_id = f"REROUTE_{tmi.reroute_name}"
+
+                    tmis.append(tmi)
+
+            if is_multi_split:
+                logger.info(f"  Split multi-facility TMI into {len(provider_list) * len(requestor_list)} "
+                           f"sub-TMIs: {original_facilities} (group={group_id})")
 
         event.tmis = tmis
         event.gs_programs = gs_programs

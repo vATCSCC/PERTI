@@ -606,8 +606,10 @@ class TMIComplianceAnalyzer:
                     result = self._analyze_mit_compliance(tmi)
                     if result:
                         # Use unique key: type_fix_starttime_value to differentiate multiple TMIs per fix
+                        # Include provider/requestor for multi-facility splits so each boundary gets its own result
                         time_key = tmi.start_utc.strftime('%H%M') if tmi.start_utc else 'notime'
-                        key = f"{tmi.tmi_type.value}_{tmi.fix}_{time_key}_{tmi.value}"
+                        fac_key = f"_{tmi.requestor}_{tmi.provider}" if (tmi.group_id and tmi.provider) else ''
+                        key = f"{tmi.tmi_type.value}_{tmi.fix}_{time_key}_{tmi.value}{fac_key}"
                         # Extract trajectories for separate file output
                         self._mit_trajectories[key] = result.pop('_trajectories', {})
                         results['mit_results'][key] = result
@@ -1842,6 +1844,9 @@ class TMIComplianceAnalyzer:
             'was_superseded': tmi.superseded_by_tmi_id is not None,
             # Facility metadata
             'is_multiple': tmi.is_multiple,
+            # Multi-facility grouping (links sub-TMIs split from same original TMI)
+            'group_id': tmi.group_id or '',
+            'original_facilities': tmi.original_facilities or '',
             # Modifier and filter info
             'modifier': tmi.modifier.value if tmi.modifier else None,
             'traffic_direction': tmi.traffic_direction.value if tmi.traffic_direction else None,
@@ -3105,6 +3110,8 @@ class TMIComplianceAnalyzer:
             'post_tmi_flights': post_tmi_flights,
             'provider': tmi.provider,
             'requestor': tmi.requestor,
+            'group_id': tmi.group_id or '',
+            'original_facilities': tmi.original_facilities or '',
             'note': 'APREQ/CFR requires coordination verification - these flights would need release'
         }
 

@@ -696,8 +696,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Sort items by pair count descending within group
                 group.items.sort((a, b) => (b.pairs || 0) - (a.pairs || 0));
 
+                // Group multi-facility TMIs together (same group_id = same original TMI)
+                const facilityGroups = new Map(); // group_id -> [items]
+                const ungrouped = [];
                 for (const r of group.items) {
+                    const gid = r.group_id || '';
+                    if (gid) {
+                        if (!facilityGroups.has(gid)) facilityGroups.set(gid, []);
+                        facilityGroups.get(gid).push(r);
+                    } else {
+                        ungrouped.push(r);
+                    }
+                }
+
+                // Render ungrouped TMIs normally
+                for (const r of ungrouped) {
                     html += this.renderMitCard(r);
+                }
+
+                // Render multi-facility groups as wrapped cards
+                for (const [gid, members] of facilityGroups) {
+                    html += this.renderMultiFacilityGroup(members);
                 }
 
                 html += `
@@ -1767,6 +1786,135 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         html += this.renderMapSection(r, mapId);
 
         html += '</div>';
+        return html;
+    },
+
+    /**
+     * Render a group of multi-facility TMIs as a parent wrapper with sub-entries.
+     * e.g., "DFW via PNUTS 30 MIT ZFW:ZHU,ZME 0000-0400" wraps the individual
+     * ZFW:ZHU and ZFW:ZME boundary analyses.
+     */
+    renderMultiFacilityGroup: function(members) {
+        if (!members || members.length === 0) return '';
+        const first = members[0];
+        const originalFac = first.original_facilities || `${first.requestor}:${first.provider}`;
+        const fix = first.fix || '';
+        const required = first.required || 0;
+        const unitLabel = first.unit === 'min' ? 'min' : 'nm';
+        const tmiType = first.unit === 'min' ? 'MINIT' : 'MIT';
+        const destinations = first.destinations ? first.destinations.join(',') : '';
+        const isRealFix = fix && !['ALL', 'ANY', ''].includes(fix.toUpperCase());
+        const tmiStart = first.tmi_start || '';
+        const tmiEnd = first.tmi_end || '';
+
+        // Aggregate stats across all sub-TMIs
+        let totalPairs = 0, totalCrossings = 0, totalViolations = 0;
+        let allSpacings = [];
+        for (const m of members) {
+            totalPairs += m.pairs || 0;
+            totalCrossings += m.crossings || m.total_crossings || 0;
+            const pairs = m.all_pairs || [];
+            pairs.forEach(p => { if (p.spacing != null) allSpacings.push(p.spacing); });
+            totalViolations += pairs.filter(p => p.spacing_category === 'UNDER').length;
+        }
+        const aggCompPct = totalPairs > 0 ? ((totalPairs - totalViolations) / totalPairs * 100) : 0;
+        const aggCompClass = this.getComplianceClass(aggCompPct);
+        const avgSpacing = allSpacings.length > 0 ? (allSpacings.reduce((a,b) => a+b, 0) / allSpacings.length) : 0;
+
+        // Build notation line
+        let notation = '';
+        if (destinations) notation += `${destinations} `;
+        if (isRealFix) notation += `via ${fix} `;
+        notation += `${required}${unitLabel} ${tmiType} `;
+        notation += `${originalFac} `;
+        notation += `${tmiStart}-${tmiEnd}`;
+
+        const groupToggleId = `mfg_${++this.detailIdCounter}`;
+
+        let html = `
+            <div class="tmi-card mit-card multi-facility-group" style="border-left:3px solid #17a2b8;background:rgba(23,162,184,0.04);">
+                <!-- Multi-Facility Group Header -->
+                <div class="tmi-header">
+                    <div>
+                        <span class="tmi-fix-name">${isRealFix ? fix : (destinations || 'Unknown')}</span>
+                        <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
+                        <span class="text-muted ml-2">| ${tmiStart} - ${tmiEnd}</span>
+                        <span class="badge badge-info ml-2" title="Multi-facility TMI analyzed at ${members.length} boundaries"><i class="fas fa-layer-group"></i> ${members.length} boundaries</span>
+                    </div>
+                    <div class="compliance-badge ${aggCompClass}">${aggCompPct.toFixed(1)}%</div>
+                </div>
+                <div class="standardized-tmi mb-2">
+                    <code class="small">${notation.trim()}</code>
+                </div>
+                <!-- Aggregate stats -->
+                <div class="tmi-stats">
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${totalCrossings}</div>
+                        <div class="tmi-stat-label">Total Crossings</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${totalPairs}</div>
+                        <div class="tmi-stat-label">Total Pairs</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${avgSpacing.toFixed(1)}${unitLabel}</div>
+                        <div class="tmi-stat-label">Avg Spacing</div>
+                    </div>
+                    <div class="tmi-stat">
+                        <div class="tmi-stat-value">${members.length}</div>
+                        <div class="tmi-stat-label">Boundaries</div>
+                    </div>
+                </div>
+                <!-- Per-boundary summary table -->
+                <div class="mt-2 mb-2">
+                    <table class="table table-sm table-striped mb-0" style="font-size:0.85rem;">
+                        <thead><tr>
+                            <th>Boundary</th>
+                            <th class="text-center">Crossings</th>
+                            <th class="text-center">Pairs</th>
+                            <th class="text-center">Compliance</th>
+                            <th class="text-center">Avg Spacing</th>
+                        </tr></thead>
+                        <tbody>`;
+
+        for (const m of members) {
+            const mPairs = m.pairs || 0;
+            const mComp = m.compliance_pct || 0;
+            const mClass = this.getComplianceClass(mComp);
+            const mAvg = (m.spacing_stats?.avg || 0).toFixed(1);
+            const mPoint = m.measurement_point || `${m.requestor}:${m.provider}`;
+            html += `
+                            <tr>
+                                <td><i class="fas fa-border-all text-info mr-1"></i> ${m.requestor}:${m.provider}
+                                    <span class="text-muted small ml-1">${mPoint}</span></td>
+                                <td class="text-center">${m.crossings || m.total_crossings || 0}</td>
+                                <td class="text-center">${mPairs}</td>
+                                <td class="text-center"><span class="${mClass} font-weight-bold">${mComp.toFixed(1)}%</span></td>
+                                <td class="text-center">${mAvg}${unitLabel}</td>
+                            </tr>`;
+        }
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Expand per-boundary details -->
+                <div class="mt-1 mb-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${groupToggleId}">
+                        <i class="fas fa-chevron-down"></i> Per-Boundary Details
+                    </button>
+                </div>
+                <div class="collapse" id="${groupToggleId}">`;
+
+        // Render each sub-TMI as an individual card inside the group
+        for (const m of members) {
+            html += this.renderMitCard(m);
+        }
+
+        html += `
+                </div>
+            </div>`;
+
         return html;
     },
 

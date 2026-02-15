@@ -464,6 +464,9 @@ function format_results($results) {
                 'provider' => $r['provider'] ?? '',
                 'requestor' => $r['requestor'] ?? '',
                 'is_multiple' => $r['is_multiple'] ?? false,
+                // Multi-facility grouping (links sub-TMIs split from same original TMI)
+                'group_id' => $r['group_id'] ?? '',
+                'original_facilities' => $r['original_facilities'] ?? '',
                 // Trajectory metadata (actual data served via separate endpoint for memory efficiency)
                 'has_trajectories' => !empty($r['trajectories']) || ($r['has_trajectories'] ?? false),
                 'trajectory_count' => !empty($r['trajectories']) ? count($r['trajectories']) : ($r['trajectory_count'] ?? 0),
@@ -538,6 +541,8 @@ function format_results($results) {
                 'provider' => $r['provider'] ?? '',
                 'requestor' => $r['requestor'] ?? '',
                 'is_multiple' => $r['is_multiple'] ?? false,
+                'group_id' => $r['group_id'] ?? '',
+                'original_facilities' => $r['original_facilities'] ?? '',
                 'note' => $r['note'] ?? 'APREQ/CFR requires coordination verification'
             ];
         }

@@ -206,6 +206,10 @@ class TMI:
     requestor: str = ''                    # ARTCC/TRACON/Airport requesting the TMI
     is_multiple: bool = False              # (MULTIPLE) suffix - applies to multiple handoff points
 
+    # Multi-facility grouping (set when a multi-provider TMI is split into per-boundary sub-TMIs)
+    group_id: str = ''                     # Common ID linking sub-TMIs from the same original TMI
+    original_facilities: str = ''          # Original req:prov string before split (e.g., "ZFW:ZHU,ZME")
+
     # Timing
     start_utc: Optional[datetime] = None
     end_utc: Optional[datetime] = None
