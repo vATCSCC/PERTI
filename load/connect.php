@@ -403,3 +403,6 @@ if (!function_exists('swim_trigger_sync')) {
         return ['success' => false, 'message' => 'SWIM sync script not found', 'stats' => []];
     }
 }
+
+// Load organization context helpers
+require_once __DIR__ . '/org_context.php';
