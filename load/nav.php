@@ -186,6 +186,38 @@ if (!function_exists('render_dropdown')) {
     </div>
 
     <div class="d-flex align-items-center order-lg-3 ml-lg-auto">
+        <?php
+            require_once __DIR__ . '/org_context.php';
+            $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+            $org_all = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+            $org_display = 'DCC';
+            if (isset($conn_sqli) && $conn_sqli) {
+                $oi = get_org_info($conn_sqli);
+                $org_display = $oi['display_name'] ?? 'DCC';
+            }
+            $org_color = ($org_code === 'vatcan') ? '#d32f2f' : '#1a73e8';
+            $multi_org = count($org_all) > 1;
+        ?>
+        <?php if ($multi_org): ?>
+            <div class="dropdown mr-2">
+                <button class="btn btn-sm dropdown-toggle" style="background:<?= $org_color ?>;color:#fff;font-weight:600;" data-toggle="dropdown">
+                    <?= htmlspecialchars($org_display) ?>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right">
+                    <?php foreach ($org_all as $oc):
+                        $oc_name = ($oc === 'vatcscc') ? 'DCC' : 'NOC';
+                    ?>
+                        <a class="dropdown-item <?= $oc === $org_code ? 'active' : '' ?>" href="#" onclick="switchOrg('<?= $oc ?>');return false;">
+                            <?= $oc_name ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php else: ?>
+            <span class="badge mr-2" style="background:<?= $org_color ?>;color:#fff;font-size:0.75rem;padding:4px 8px;">
+                <?= htmlspecialchars($org_display) ?>
+            </span>
+        <?php endif; ?>
         <?php if ($perm): ?>
             <ul class="navbar-nav me-auto">
                 <li class="nav-item">
@@ -265,3 +297,19 @@ if (!function_exists('render_dropdown')) {
     </div>
 </div>
 <div class="offcanvas-backdrop" id="offcanvasBackdrop"></div>
+
+<script>
+function switchOrg(orgCode) {
+    fetch('/api/session/switch_org.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({org_code: orgCode})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        }
+    });
+}
+</script>
