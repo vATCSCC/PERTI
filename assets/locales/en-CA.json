@@ -1,0 +1,59 @@
+{
+  "org": {
+    "name": "CANTMU",
+    "displayName": "NOC",
+    "airspace": "Canadian Airspace System",
+    "commandCenter": "Canadian TMU",
+    "facilityType": "FIR",
+    "facilityTypePlural": "FIRs",
+    "switchOrg": "Switch Organisation",
+    "currentOrg": "Current: {org}"
+  },
+  "status": {
+    "cancelled": "Cancelled",
+    "coordinating": "Co-ordinating"
+  },
+  "dccRegion": {
+    "west": "Western Canada",
+    "southCentral": "Central Canada",
+    "midwest": "Ontario",
+    "southeast": "Quebec",
+    "northeast": "Atlantic Canada",
+    "canadaEast": "Eastern Canada",
+    "canadaWest": "Western Canada"
+  },
+  "tmi": {
+    "gdp": "Ground Delay Programme",
+    "gs": "Ground Stop",
+    "reroute": "Reroute"
+  },
+  "jatoc": {
+    "auth": {
+      "dccOnly": "Only NOC users may {action}."
+    }
+  },
+  "tmr": {
+    "trigger": {
+      "dccInitiated": "NOC-initiated TMR"
+    },
+    "staffing": {
+      "dcc": "NOC"
+    }
+  },
+  "nod": {
+    "colorMode": {
+      "dccRegion": "NOC Region"
+    }
+  },
+  "splits": {
+    "popup": {
+      "dccRegion": "NOC Region"
+    }
+  },
+  "gdt": {
+    "exemption": {
+      "origArtccs": "Origin FIRs",
+      "destArtccs": "Destination FIRs"
+    }
+  }
+}
