@@ -96,12 +96,42 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) {
 }
 
 /**
+ * Check if a code looks like a real ATC facility (ARTCC, TRACON, or airport).
+ * Mirrors Python classify_facility() logic for consistency.
+ *
+ * @param string $code Facility code to check
+ * @return bool True if code matches a known ATC facility pattern
+ */
+function looksLikeFacility($code) {
+    $code = strtoupper(trim($code));
+    $len = strlen($code);
+
+    // ARTCC: Z + 2 letters (ZFW, ZME, ZKC, ZNY, ZDC, etc.)
+    if ($len === 3 && $code[0] === 'Z' && ctype_alpha($code)) return true;
+
+    // TRACON: letter + 1-2 digits (D10, N90, A80, I90, L30, P50, etc.)
+    if ($len >= 2 && $len <= 3 && ctype_alpha($code[0]) && ctype_digit(substr($code, 1))) return true;
+
+    // TRACON: 3-letter non-Z non-K (PCT, SCT, NCT, etc.)
+    // Also covers 3-letter airport/TRACON overlap (DFW, DAL, ATL, ORD, etc.)
+    if ($len === 3 && ctype_alpha($code) && $code[0] !== 'Z') return true;
+
+    // Airport ICAO: K + 3 letters (KJFK, KBOS, KLAX, etc.)
+    if ($len === 4 && $code[0] === 'K' && ctype_alpha($code)) return true;
+
+    return false;
+}
+
+/**
  * Parse facility pair from line, handling various formats:
  * - Simple: "ZNY:ZDC"
  * - Multiple facilities: "ZNY,N90:ZDC,ZBW"
+ * - Multiple providers: "ZFW:ZME,ZKC"
  * - With (MULTIPLE) suffix: "ZNY:ZDC(MULTIPLE)"
  *
  * Handles ARTCC (ZNY, ZDC), TRACON (N90, A90, C90, PCT, SCT), and Airport codes.
+ * Distinguishes real facility pairs from NTML modifier tokens like TYPE:JET,
+ * VOLUME:VOLUME, and EXCL:DITSY that also use colon notation.
  *
  * @param string $line The line to parse
  * @return array ['requestor' => string, 'provider' => string, 'is_multiple' => bool]
@@ -116,13 +146,52 @@ function parseFacilities($line) {
         $cleanLine = preg_replace('/\(MULTIPLE\)\s*$/i', '', $line);
     }
 
-    // Parse facility pair from line
-    // Pattern matches: FACILITY(,FACILITY)*:FACILITY(,FACILITY)*
-    // Handles: ZNY:ZDC, N90:ZNY, ZNY,N90:ZDC,ZBW, KJFK:ZNY
-    // Facility codes start with a letter (2-4 chars) to avoid matching time patterns
-    if (preg_match('/\b([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*):([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*)\b/i', $cleanLine, $matches)) {
-        $result['requestor'] = strtoupper($matches[1]);
-        $result['provider'] = strtoupper($matches[2]);
+    // NTML modifier keywords that use colon notation but are NOT facility codes.
+    // TYPE:JET, TYPE:PROP, TYPE:TURBO, TYPE:ALL, EXCL:fixname, etc.
+    $non_facility = ['TYPE', 'JET', 'PROP', 'ALL', 'EXCL', 'DEST', 'ORIG', 'RALT'];
+
+    // Find ALL colon-separated pairs that look like facility codes (2-4 alphanumeric)
+    $pattern = '/\b([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*):([A-Z][A-Z0-9]{1,3}(?:,[A-Z][A-Z0-9]{1,3})*)\b/i';
+
+    if (preg_match_all($pattern, $cleanLine, $matches, PREG_SET_ORDER)) {
+        $best = null;
+        $best_score = -1;
+
+        foreach ($matches as $m) {
+            $all_codes = array_merge(
+                array_map('strtoupper', explode(',', $m[1])),
+                array_map('strtoupper', explode(',', $m[2]))
+            );
+
+            // Reject if any token is a known NTML modifier keyword
+            $has_keyword = false;
+            foreach ($all_codes as $code) {
+                if (in_array($code, $non_facility)) {
+                    $has_keyword = true;
+                    break;
+                }
+            }
+            if ($has_keyword) continue;
+
+            // Score by how many codes look like real ATC facilities
+            $facility_count = 0;
+            foreach ($all_codes as $code) {
+                if (looksLikeFacility($code)) $facility_count++;
+            }
+
+            // Prefer matches with more recognized facility codes;
+            // break ties by position (later in line wins, since facility
+            // pair is typically the last colon-token on the NTML line)
+            if ($facility_count > $best_score || ($facility_count === $best_score)) {
+                $best = $m;
+                $best_score = $facility_count;
+            }
+        }
+
+        if ($best) {
+            $result['requestor'] = strtoupper($best[1]);
+            $result['provider'] = strtoupper($best[2]);
+        }
     }
 
     return $result;
