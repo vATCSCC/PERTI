@@ -171,18 +171,18 @@ class CrossingGISDaemon
                 pos.lon AS current_lon,
                 pos.groundspeed_kts,
                 pos.dist_flown_nm,
-                plan.waypoint_count,
+                fp.waypoint_count,
                 DATEDIFF(MINUTE, ISNULL(xing.last_calc, '2000-01-01'), GETUTCDATE()) AS mins_since_calc
             FROM dbo.adl_flight_core core
             JOIN dbo.adl_flight_position pos ON core.flight_uid = pos.flight_uid
-            JOIN dbo.adl_flight_plan plan ON core.flight_uid = plan.flight_uid
+            JOIN dbo.adl_flight_plan fp ON core.flight_uid = fp.flight_uid
             LEFT JOIN (
                 SELECT flight_uid, MAX(calculated_at) AS last_calc
                 FROM dbo.adl_flight_planned_crossings
                 GROUP BY flight_uid
             ) xing ON core.flight_uid = xing.flight_uid
             WHERE core.is_active = 1
-              AND plan.waypoint_count >= 2
+              AND fp.waypoint_count >= 2
               AND pos.lat IS NOT NULL
               AND pos.lon IS NOT NULL
               {$tierCondition}
