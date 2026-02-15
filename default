@@ -21,27 +21,6 @@ server {
     access_log /home/LogFiles/nginx_access.log;
     error_log /home/LogFiles/nginx_error.log;
 
-    # ============================================
-    # UNAVAILABLE 13-16 Feb 2026
-    # Remove this entire block to restore service
-    # ============================================
-    set $maintenance 1;
-
-    if ($request_uri ~* ^/api/) {
-        set $maintenance 0;
-    }
-    if ($request_uri ~* ^/healthcheck) {
-        set $maintenance 0;
-    }
-    if ($request_uri ~* ^/(fpm-status|fpm-ping)$) {
-        set $maintenance 0;
-    }
-
-    if ($maintenance = 1) {
-        rewrite ^ /maintenance.html break;
-    }
-    # ============================================
-
     # PHP-FPM status page (for monitoring)
     location ~ ^/(fpm-status|fpm-ping)$ {
         access_log off;
