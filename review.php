@@ -232,6 +232,20 @@ include("sessions/handler.php");
         .cet-pill.cet-n { background: #dc3545; color: #fff; }
         .cet-pill.cet-na { background: #6c757d; color: #fff; }
 
+        .compliance-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 2px;
+            font-weight: 600;
+            cursor: help;
+            vertical-align: middle;
+        }
+        .compliance-high { background: rgba(40,167,69,0.2); color: #28a745; }
+        .compliance-med  { background: rgba(255,193,7,0.2); color: #d39e00; }
+        .compliance-low  { background: rgba(220,53,69,0.2); color: #dc3545; }
+
         /* METAR timeline */
         .metar-timeline {
             max-height: 300px;

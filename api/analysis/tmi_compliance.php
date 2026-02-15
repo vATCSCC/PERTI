@@ -427,7 +427,8 @@ function format_results($results) {
         'summary' => $results['summary'] ?? [],
         'mit_results' => [],
         'gs_results' => [],
-        'apreq_results' => []
+        'apreq_results' => [],
+        'reroute_results' => []
     ];
 
     // Process MIT results
@@ -544,6 +545,39 @@ function format_results($results) {
                 'group_id' => $r['group_id'] ?? '',
                 'original_facilities' => $r['original_facilities'] ?? '',
                 'note' => $r['note'] ?? 'APREQ/CFR requires coordination verification'
+            ];
+        }
+    }
+
+    // Process Reroute results
+    if (isset($results['reroute_results'])) {
+        foreach ($results['reroute_results'] as $key => $r) {
+            $formatted['reroute_results'][] = [
+                'name' => $r['name'] ?? $key,
+                'mandatory' => $r['mandatory'] ?? false,
+                'route_type' => $r['route_type'] ?? '',
+                'action' => $r['action'] ?? 'FYI',
+                'assessment_mode' => $r['assessment_mode'] ?? 'tracking_only',
+                'start' => $r['start'] ?? '',
+                'end' => $r['end'] ?? '',
+                'origins' => $r['origins'] ?? [],
+                'destinations' => $r['destinations'] ?? [],
+                'total_flights' => $r['total_flights'] ?? 0,
+                'filed_compliance_pct' => $r['filed_compliance_pct'] ?? 0,
+                'flown_compliance_pct' => $r['flown_compliance_pct'] ?? 0,
+                'filed_compliant_count' => is_array($r['filed_compliant'] ?? null) ? count($r['filed_compliant']) : ($r['filed_compliant_count'] ?? 0),
+                'filed_non_compliant_count' => is_array($r['filed_non_compliant'] ?? null) ? count($r['filed_non_compliant']) : ($r['filed_non_compliant_count'] ?? 0),
+                'required_routes' => $r['required_routes'] ?? [],
+                'required_fixes' => $r['required_fixes'] ?? [],
+                'cancelled' => $r['cancelled'] ?? false,
+                'ended_by' => $r['ended_by'] ?? null,
+                'reason' => $r['reason'] ?? '',
+                'constrained_area' => $r['constrained_area'] ?? '',
+                'provider' => $r['provider'] ?? '',
+                'requestor' => $r['requestor'] ?? '',
+                'group_id' => $r['group_id'] ?? '',
+                'original_facilities' => $r['original_facilities'] ?? '',
+                'reroute_key' => $key
             ];
         }
     }

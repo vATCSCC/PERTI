@@ -30,6 +30,7 @@
     var staffingData = null;
     var goalsData = null;
     var demandSnapshots = null;  // Saved demand chart data { airport: snapshot }
+    var _complianceCache = null;  // Cached compliance results from API
 
     // Trigger definitions with icons
     var TRIGGERS = [
@@ -683,6 +684,7 @@
             var cetC = buildCetPill(t._key, 'complied', t.complied);
             var cetE = buildCetPill(t._key, 'effective', t.effective);
             var cetT = buildCetPill(t._key, 'timely', t.timely);
+            var compBadge = buildComplianceBadge(t);
 
             var row = '<tr>' +
                 '<td><input type="checkbox" class="tmi-select-row" data-key="' + t._key + '" ' + checked + '></td>' +
@@ -691,7 +693,7 @@
                 '<td class="text-truncate" style="max-width: 200px;" title="' + escapeHtml(rawTooltip) + '">' + escapeHtml(formattedDetail) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.start_utc) + '</td>' +
                 '<td class="text-nowrap">' + formatTmiTime(t.end_utc) + '</td>' +
-                '<td>' + cetC + '</td>' +
+                '<td>' + cetC + compBadge + '</td>' +
                 '<td>' + cetE + '</td>' +
                 '<td>' + cetT + '</td>' +
                 '<td><span class="badge badge-' + (t._source === 'db' ? 'info' : 'secondary') + '">' + sourceLabel + '</span></td>' +
@@ -706,6 +708,29 @@
         var val = value || 'N/A';
         var cls = val === 'Y' ? 'cet-y' : (val === 'N' ? 'cet-n' : 'cet-na');
         return '<span class="cet-pill ' + cls + '" data-key="' + key + '" data-field="' + field + '" title="Click to toggle">' + val + '</span>';
+    }
+
+    function buildComplianceBadge(tmi) {
+        if (tmi.compliance_pct == null) return '';
+        var pct = tmi.compliance_pct;
+        var cls = pct >= 80 ? 'compliance-high' : (pct >= 50 ? 'compliance-med' : 'compliance-low');
+        var tooltip = '';
+        var d = tmi.compliance_detail;
+        if (d) {
+            if (d.type === 'MIT') {
+                var u = d.unit || 'nm';
+                tooltip = d.pairs + ' pairs | avg ' + (d.avg_spacing || 0).toFixed(1) + u +
+                    ' | min ' + (d.min_spacing || 0).toFixed(1) + u;
+                if (d.violations > 0) tooltip += ' | ' + d.violations + ' violation' + (d.violations > 1 ? 's' : '');
+            } else if (d.type === 'GS') {
+                tooltip = d.total_flights + ' flights | ' + d.compliant + ' compliant';
+                if (d.avg_hold_time_min > 0) tooltip += ' | avg hold ' + d.avg_hold_time_min.toFixed(1) + 'min';
+            } else if (d.type === 'RR') {
+                tooltip = d.total_flights + ' flights | filed ' + Math.round(d.filed_pct) + '%';
+                if (d.flown_pct) tooltip += ' | flown ' + Math.round(d.flown_pct) + '%';
+            }
+        }
+        return '<span class="compliance-badge ' + cls + '" title="' + escapeHtml(tooltip) + '">' + pct + '%</span>';
     }
 
     function showBatchAssessModal() {
@@ -1174,97 +1199,33 @@
     // ========================================================================
 
     function checkComplianceAvailable() {
-        $.getJSON('api/analysis/tmi_compliance.php', { action: 'status', p_id: planId })
+        $.getJSON('api/analysis/tmi_compliance.php', { p_id: planId })
             .done(function(resp) {
-                if (resp && resp.has_results) {
+                if (resp && resp.success && resp.data) {
+                    _complianceCache = resp.data;
                     $('#tmr_import_compliance').show();
+                    if (tmiList.length > 0) tryAutoApplyCompliance();
                 }
-            })
-            .fail(function() {
-                // Compliance not available, that's fine
             });
 
         $('#tmr_import_compliance').on('click', importCompliance);
     }
 
     function importCompliance() {
+        if (_complianceCache) {
+            applyComplianceToTMIs(_complianceCache, false);
+            return;
+        }
         var btn = $('#tmr_import_compliance');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('tmr.status.loading'));
 
-        $.getJSON('api/analysis/tmi_compliance.php', { action: 'results', p_id: planId })
+        $.getJSON('api/analysis/tmi_compliance.php', { p_id: planId })
             .done(function(resp) {
                 btn.prop('disabled', false).html('<i class="fas fa-file-import"></i> ' + PERTII18n.t('tmr.tmi.importCompliance'));
-
-                if (!resp || !resp.results) return;
-
-                var matched = 0;
-                var results = resp.results;
-
-                // Match compliance results to TMIs by element
-                tmiList.forEach(function(tmi) {
-                    if (!tmi.element) return;
-                    var el = tmi.element.toUpperCase();
-
-                    // Search in MIT results
-                    if (results.mit_results) {
-                        results.mit_results.forEach(function(r) {
-                            var mp = (r.measurement_point || r.fix || '').toUpperCase();
-                            if (mp === el || mp.indexOf(el) !== -1) {
-                                var pct = r.compliance_pct || r.compliance_rate || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                matched++;
-                            }
-                        });
-                    }
-
-                    // Search in GS results
-                    if (results.gs_results) {
-                        results.gs_results.forEach(function(r) {
-                            var airport = (r.airport || '').toUpperCase();
-                            if (airport === el || 'K' + airport === el || airport === 'K' + el) {
-                                var pct = r.compliance_pct || r.compliance_rate || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                matched++;
-                            }
-                        });
-                    }
-
-                    // Search in reroute results
-                    if (results.reroute_results && (tmi.category === 'reroute' || (tmi.type || '').toUpperCase() === 'REROUTE')) {
-                        var rrResults = Array.isArray(results.reroute_results) ? results.reroute_results : Object.values(results.reroute_results);
-                        var tmiName = (tmi.name || '').toUpperCase();
-                        rrResults.forEach(function(r) {
-                            var rrName = (r.name || '').toUpperCase();
-                            var nameMatch = tmiName && rrName && (rrName === tmiName || rrName.indexOf(tmiName) !== -1 || tmiName.indexOf(rrName) !== -1);
-                            var destMatch = !nameMatch && el && r.destinations && r.destinations.some(function(d) {
-                                var du = d.toUpperCase();
-                                return du === el || 'K' + du === el || du === 'K' + el;
-                            });
-                            if (nameMatch || destMatch) {
-                                var pct = r.filed_compliance_pct || r.compliance_pct || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                tmi.rr_total_flights = r.total_flights;
-                                tmi.rr_filed_compliance = r.filed_compliance_pct;
-                                tmi.rr_flown_compliance = r.flown_compliance_pct;
-                                matched++;
-                            }
-                        });
-                    }
-                });
-
-                renderTMITable();
-                if (matched > 0) immediateFieldSave();
-
-                Swal.fire({
-                    icon: matched > 0 ? 'success' : 'info',
-                    title: PERTII18n.t('tmr.tmi.importCompliance'),
-                    text: matched + ' TMI(s) matched with compliance data.',
-                    timer: 3000,
-                    showConfirmButton: false,
-                });
+                if (resp && resp.success && resp.data) {
+                    _complianceCache = resp.data;
+                    applyComplianceToTMIs(resp.data, false);
+                }
             })
             .fail(function() {
                 btn.prop('disabled', false).html('<i class="fas fa-file-import"></i> ' + PERTII18n.t('tmr.tmi.importCompliance'));
@@ -1273,81 +1234,179 @@
 
     /**
      * Auto-import compliance data after report loads.
-     * Silently matches compliance results to TMIs without user interaction.
-     * Only runs if TMIs exist and none have compliance_pct already set.
+     * Uses cached data from checkComplianceAvailable if available.
      */
     function autoImportCompliance() {
-        if (tmiList.length === 0) return;
+        if (_complianceCache && tmiList.length > 0) {
+            tryAutoApplyCompliance();
+        }
+    }
 
-        // Skip if any TMI already has compliance_pct (already imported)
-        var alreadyImported = tmiList.some(function(t) { return t.compliance_pct !== undefined && t.compliance_pct !== null; });
+    function tryAutoApplyCompliance() {
+        if (tmiList.length === 0 || !_complianceCache) return;
+        var alreadyImported = tmiList.some(function(t) { return t.compliance_pct != null; });
         if (alreadyImported) return;
+        applyComplianceToTMIs(_complianceCache, true);
+    }
 
-        $.getJSON('api/analysis/tmi_compliance.php', { action: 'results', p_id: planId })
-            .done(function(resp) {
-                if (!resp || !resp.results) return;
+    /**
+     * Normalize airport code for comparison (strip K prefix for US airports).
+     */
+    function normalizeAirport(code) {
+        if (!code) return '';
+        var u = code.toUpperCase().trim();
+        return u.length === 4 && u.charAt(0) === 'K' ? u.substring(1) : u;
+    }
 
-                var matched = 0;
-                var results = resp.results;
+    /**
+     * Check if two time ranges overlap.
+     * Accepts "HH:MMZ", "YYYY-MM-DD HH:MM", or "MM/DD HHMMz" formats.
+     */
+    function timesOverlap(s1, e1, s2, e2) {
+        if (!s1 || !e1 || !s2 || !e2) return true; // If times missing, assume overlap
+        // Normalize to comparable strings — just extract HHMM for same-day comparison
+        function toMinutes(t) {
+            var str = String(t).toUpperCase().replace('Z', '');
+            var m;
+            // "HH:MM" or "YYYY-MM-DD HH:MM" ($ anchor matches last HH:MM)
+            m = str.match(/(\d{2}):(\d{2})$/);
+            if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+            // "HHMMz" format (bare 4-digit time)
+            m = str.match(/^(\d{2})(\d{2})$/);
+            if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+            return -1;
+        }
+        var a1 = toMinutes(s1), a2 = toMinutes(e1);
+        var b1 = toMinutes(s2), b2 = toMinutes(e2);
+        if (a1 < 0 || b1 < 0) return true; // Can't parse, assume overlap
+        // Handle overnight wrapping
+        if (a2 < a1) a2 += 1440;
+        if (b2 < b1) b2 += 1440;
+        return a1 < b2 && b1 < a2;
+    }
 
-                tmiList.forEach(function(tmi) {
-                    // For MIT matching, prefer fix field (measurement point), fall back to element
-                    var mitKey = (tmi.fix || tmi.element || '').toUpperCase();
-                    var elKey = (tmi.element || '').toUpperCase();
+    /**
+     * Match compliance results to TMI list entries and apply metrics.
+     * @param {Object} data - Compliance results from API (mit_results, gs_results, reroute_results)
+     * @param {boolean} silent - If true, no toast notification
+     */
+    function applyComplianceToTMIs(data, silent) {
+        if (!data) return;
+        var matched = 0;
 
-                    if (results.mit_results && mitKey) {
-                        results.mit_results.forEach(function(r) {
-                            var mp = (r.measurement_point || r.fix || '').toUpperCase();
-                            if (mp === mitKey || mp.indexOf(mitKey) !== -1) {
-                                var pct = r.compliance_pct || r.compliance_rate || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                matched++;
-                            }
-                        });
+        tmiList.forEach(function(tmi) {
+            var el = (tmi.element || '').toUpperCase();
+            var fixKey = (tmi.fix || tmi.element || '').toUpperCase();
+            var tmiType = (tmi.type || '').toUpperCase();
+
+            // MIT matching: fix + provider + requestor + time overlap
+            if (data.mit_results && fixKey && /MIT/.test(tmiType)) {
+                data.mit_results.forEach(function(r) {
+                    if (tmi.compliance_pct != null) return; // Already matched
+                    var rFix = (r.fix || '').toUpperCase();
+                    if (!rFix || rFix !== fixKey) return;
+
+                    // Provider/requestor must match if both sides have them
+                    if (tmi.provider && r.provider) {
+                        if (tmi.provider.toUpperCase() !== r.provider.toUpperCase()) return;
+                    }
+                    if (tmi.requestor && r.requestor) {
+                        if (tmi.requestor.toUpperCase() !== r.requestor.toUpperCase()) return;
                     }
 
-                    if (results.gs_results && elKey) {
-                        results.gs_results.forEach(function(r) {
-                            var airport = (r.airport || '').toUpperCase();
-                            if (airport === elKey || 'K' + airport === elKey || airport === 'K' + elKey) {
-                                var pct = r.compliance_pct || r.compliance_rate || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                matched++;
-                            }
-                        });
-                    }
+                    // Time overlap check
+                    if (!timesOverlap(tmi.start_utc, tmi.end_utc, r.tmi_start, r.tmi_end)) return;
 
-                    // Search in reroute results
-                    if (results.reroute_results && (tmi.category === 'reroute' || (tmi.type || '').toUpperCase() === 'REROUTE')) {
-                        var rrResults = Array.isArray(results.reroute_results) ? results.reroute_results : Object.values(results.reroute_results);
-                        var tmiName = (tmi.name || '').toUpperCase();
-                        rrResults.forEach(function(r) {
-                            var rrName = (r.name || '').toUpperCase();
-                            var nameMatch = tmiName && rrName && (rrName === tmiName || rrName.indexOf(tmiName) !== -1 || tmiName.indexOf(rrName) !== -1);
-                            var destMatch = !nameMatch && elKey && r.destinations && r.destinations.some(function(d) {
-                                var du = d.toUpperCase();
-                                return du === elKey || 'K' + du === elKey || du === 'K' + elKey;
-                            });
-                            if (nameMatch || destMatch) {
-                                var pct = r.filed_compliance_pct || r.compliance_pct || 0;
-                                tmi.complied = pct >= 80 ? 'Y' : 'N';
-                                tmi.compliance_pct = Math.round(pct);
-                                tmi.rr_total_flights = r.total_flights;
-                                tmi.rr_filed_compliance = r.filed_compliance_pct;
-                                tmi.rr_flown_compliance = r.flown_compliance_pct;
-                                matched++;
-                            }
-                        });
-                    }
+                    var pct = r.compliance_pct || 0;
+                    tmi.complied = pct >= 80 ? 'Y' : 'N';
+                    tmi.compliance_pct = Math.round(pct);
+                    tmi.compliance_detail = {
+                        type: 'MIT',
+                        pairs: r.pairs || 0,
+                        crossings: r.crossings || 0,
+                        avg_spacing: r.spacing_stats ? (r.spacing_stats.avg || 0) : 0,
+                        min_spacing: r.spacing_stats ? (r.spacing_stats.min || 0) : 0,
+                        violations: (r.violations || []).length,
+                        required: r.required || 0,
+                        unit: r.unit || 'nm',
+                        measurement_point: r.measurement_point || r.fix || ''
+                    };
+                    matched++;
                 });
+            }
 
-                if (matched > 0) {
-                    renderTMITable();
-                    immediateFieldSave();
-                }
+            // GS matching: destination airport + time overlap (exclude cancellations)
+            if (data.gs_results && el && /G\/?S|GROUND.?STOP/.test(tmiType) && !/CNX/.test(tmiType)) {
+                data.gs_results.forEach(function(r) {
+                    if (tmi.compliance_pct != null) return;
+                    var elNorm = normalizeAirport(el);
+                    var destMatch = (r.destinations || []).some(function(d) {
+                        return normalizeAirport(d) === elNorm;
+                    });
+                    if (!destMatch) return;
+
+                    if (!timesOverlap(tmi.start_utc, tmi.end_utc, r.gs_start, r.gs_end)) return;
+
+                    var pct = r.compliance_pct || 0;
+                    tmi.complied = pct >= 80 ? 'Y' : 'N';
+                    tmi.compliance_pct = Math.round(pct);
+                    tmi.compliance_detail = {
+                        type: 'GS',
+                        total_flights: r.total_flights || 0,
+                        compliant: r.compliant_count || 0,
+                        non_compliant: r.non_compliant_count || 0,
+                        avg_hold_time_min: r.avg_hold_time_min || 0
+                    };
+                    matched++;
+                });
+            }
+
+            // Reroute matching: name or destination
+            if (data.reroute_results && (tmi.category === 'reroute' || /RE?ROUTE/.test(tmiType))) {
+                var rrResults = Array.isArray(data.reroute_results) ? data.reroute_results : Object.values(data.reroute_results);
+                var tmiName = (tmi.name || tmi.detail || '').toUpperCase();
+                rrResults.forEach(function(r) {
+                    if (tmi.compliance_pct != null) return;
+                    var rrName = (r.name || '').toUpperCase();
+                    var nameMatch = tmiName && rrName && (rrName === tmiName || rrName.indexOf(tmiName) !== -1 || tmiName.indexOf(rrName) !== -1);
+                    var destMatch = !nameMatch && el && (r.destinations || []).some(function(d) {
+                        return normalizeAirport(d) === normalizeAirport(el);
+                    });
+                    if (!nameMatch && !destMatch) return;
+
+                    // Time overlap check
+                    if (!timesOverlap(tmi.start_utc, tmi.end_utc, r.start, r.end)) return;
+
+                    var pct = r.filed_compliance_pct || 0;
+                    tmi.complied = pct >= 80 ? 'Y' : 'N';
+                    tmi.compliance_pct = Math.round(pct);
+                    tmi.compliance_detail = {
+                        type: 'RR',
+                        total_flights: r.total_flights || 0,
+                        filed_pct: r.filed_compliance_pct || 0,
+                        flown_pct: r.flown_compliance_pct || 0,
+                        mandatory: r.mandatory || false,
+                        action: r.action || ''
+                    };
+                    matched++;
+                });
+            }
+        });
+
+        if (matched > 0) {
+            renderTMITable();
+            immediateFieldSave();
+        }
+
+        if (!silent) {
+            Swal.fire({
+                icon: matched > 0 ? 'success' : 'info',
+                title: PERTII18n.t('tmr.tmi.importCompliance'),
+                text: matched + ' TMI(s) matched with compliance data.',
+                timer: 3000,
+                showConfirmButton: false,
             });
+        }
     }
 
     // ========================================================================
