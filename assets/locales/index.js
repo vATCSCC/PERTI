@@ -21,7 +21,7 @@
     const DEFAULT_LOCALE = 'en-US';
 
     // Supported locales
-    const SUPPORTED_LOCALES = ['en-US'];
+    const SUPPORTED_LOCALES = ['en-US', 'en-CA', 'fr-CA'];
 
     /**
      * Detect user's preferred locale
@@ -49,6 +49,13 @@
             }
         }
 
+        // Check org default locale
+        if (typeof window !== 'undefined' && window.PERTI_ORG && window.PERTI_ORG.defaultLocale) {
+            if (SUPPORTED_LOCALES.includes(window.PERTI_ORG.defaultLocale)) {
+                return window.PERTI_ORG.defaultLocale;
+            }
+        }
+
         // Check browser language
         if (typeof navigator !== 'undefined' && navigator.language) {
             const browserLocale = navigator.language;
@@ -73,7 +80,7 @@
     function loadLocaleSync(locale) {
         // Inline English locale for synchronous loading
         // This avoids async issues during page initialization
-        if (locale === 'en-US') {
+        if (locale === 'en-US' || locale === 'en-CA') {
             return {
                 "common": {
                     "ok": "OK",
@@ -220,6 +227,22 @@
 
         // Also load as primary strings
         PERTII18n.loadStrings(strings);
+
+        // For non-en-US locales, load en-US.json as fallback first
+        if (locale !== 'en-US') {
+            try {
+                var xhrFallback = new XMLHttpRequest();
+                xhrFallback.open('GET', 'assets/locales/en-US.json', false);
+                xhrFallback.send();
+                if (xhrFallback.status === 200) {
+                    var fallbackData = JSON.parse(xhrFallback.responseText);
+                    PERTII18n.loadStrings(fallbackData, true);
+                    console.log('[LocaleLoader] Loaded en-US fallback for', locale);
+                }
+            } catch (e) {
+                console.warn('[LocaleLoader] Could not load en-US fallback:', e.message);
+            }
+        }
 
         // Load full locale JSON synchronously for page-specific keys (nod.*, demand.*, etc.)
         try {
