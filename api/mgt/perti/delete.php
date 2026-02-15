@@ -53,22 +53,22 @@ if (!validate_plan_org($id, $conn_sqli)) {
 }
 $org = get_org_code();
 
-// Insert Data into Database
+// Delete plan and all child records (org_code for defense-in-depth)
 $query = $conn_sqli->multi_query("DELETE FROM p_plans WHERE id=$id AND org_code='$org';
-                                DELETE FROM p_configs WHERE p_id=$id;
-                                DELETE FROM p_dcc_staffing WHERE p_id=$id;
-                                DELETE FROM p_enroute_constraints WHERE p_id=$id;
-                                DELETE FROM p_enroute_init WHERE p_id=$id;
-                                DELETE FROM p_enroute_planning WHERE p_id=$id;
-                                DELETE FROM p_enroute_staffing WHERE p_id=$id;
-                                DELETE FROM p_forecast WHERE p_id=$id;
-                                DELETE FROM p_group_flights WHERE p_id=$id;
-                                DELETE FROM p_historical WHERE p_id=$id;
-                                DELETE FROM p_op_goals WHERE p_id=$id;
-                                DELETE FROM p_terminal_constraints WHERE p_id=$id;
-                                DELETE FROM p_terminal_init WHERE p_id=$id;
-                                DELETE FROM p_terminal_planning WHERE p_id=$id;
-                                DELETE FROM p_terminal_staffing WHERE p_id=$id");
+                                DELETE FROM p_configs WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_dcc_staffing WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_enroute_constraints WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_enroute_init WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_enroute_planning WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_enroute_staffing WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_forecast WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_group_flights WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_historical WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_op_goals WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_terminal_constraints WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_terminal_init WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_terminal_planning WHERE p_id=$id AND org_code='$org';
+                                DELETE FROM p_terminal_staffing WHERE p_id=$id AND org_code='$org'");
 
 if ($query) {
     http_response_code('200');
