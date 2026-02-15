@@ -38,6 +38,12 @@ if ($perm == true) {
 }
 // (E)
 
+// Check org privilege
+if (!is_org_privileged()) {
+    http_response_code(403);
+    exit();
+}
+
 $id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
 require_once(dirname(__DIR__, 3) . '/load/org_context.php');

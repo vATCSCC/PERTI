@@ -38,6 +38,12 @@ if ($perm == true) {
 }
 // (E)
 
+// Check org privilege
+if (!is_org_privileged()) {
+    http_response_code(403);
+    exit();
+}
+
 $event_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['event_name'])));
 $event_date = post_input('event_date');
 $event_start = post_input('event_start');
