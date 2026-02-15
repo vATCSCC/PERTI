@@ -54,8 +54,10 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query
-    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline)
-    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline')";
+    require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+    $org = get_org_code();
+    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline, org_code)
+    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline', '$org')";
 
     $conn_pdo->exec($sql);
 

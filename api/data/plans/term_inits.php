@@ -60,6 +60,12 @@ $times = [
 
 $p_id = get_input('p_id');
 
+require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+if (!validate_plan_org((int)$p_id, $conn_sqli)) {
+    http_response_code(403);
+    exit();
+}
+
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_terminal_init WHERE p_id='$p_id'")->fetch_assoc();
 
 if ($c_q['total'] > 0) {

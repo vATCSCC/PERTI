@@ -51,6 +51,8 @@ if (defined('DEV') && DEV) {
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+
 // Valid levels and TMI types
 $levels = [
     'CDW' => true, 'Possible' => true, 'Probable' => true, 'Expected' => true, 'Active' => true,
@@ -81,13 +83,19 @@ function toMysql($dt) {
 switch ($method) {
     case 'GET':
         $p_id = isset($_GET['p_id']) ? get_int('p_id') : 0;
-        
+
         if ($p_id <= 0) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid plan ID']);
             exit;
         }
-        
+
+        if (!validate_plan_org($p_id, $conn_sqli)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied']);
+            exit;
+        }
+
         // Simple query - just get plan-specific items
         $sql = "SELECT * FROM p_terminal_init_timeline WHERE p_id = ? ORDER BY start_datetime ASC";
         $stmt = $conn_sqli->prepare($sql);
@@ -155,6 +163,13 @@ switch ($method) {
         }
         
         $p_id = intval($input['p_id']);
+
+        if (!validate_plan_org($p_id, $conn_sqli)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied']);
+            exit;
+        }
+
         $facility = $conn_sqli->real_escape_string(trim($input['facility']));
         $area = isset($input['area']) ? $conn_sqli->real_escape_string(trim($input['area'])) : null;
         $tmi_type = $conn_sqli->real_escape_string(trim($input['tmi_type']));
@@ -166,7 +181,7 @@ switch ($method) {
         $notes = isset($input['notes']) ? $conn_sqli->real_escape_string(trim($input['notes'])) : null;
         $is_global = isset($input['is_global']) ? intval($input['is_global']) : 0;
         $advzy_number = isset($input['advzy_number']) ? $conn_sqli->real_escape_string(trim($input['advzy_number'])) : null;
-        
+
         // Validate
         if (!isset($levels[$level])) {
             http_response_code(400);

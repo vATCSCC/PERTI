@@ -40,8 +40,15 @@ if ($perm == true) {
 
 $id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
 
+require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+if (!validate_plan_org($id, $conn_sqli)) {
+    http_response_code(403);
+    exit();
+}
+$org = get_org_code();
+
 // Insert Data into Database
-$query = $conn_sqli->multi_query("DELETE FROM p_plans WHERE id=$id; 
+$query = $conn_sqli->multi_query("DELETE FROM p_plans WHERE id=$id AND org_code='$org';
                                 DELETE FROM p_configs WHERE p_id=$id;
                                 DELETE FROM p_dcc_staffing WHERE p_id=$id;
                                 DELETE FROM p_enroute_constraints WHERE p_id=$id;

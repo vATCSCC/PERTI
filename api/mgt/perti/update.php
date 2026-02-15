@@ -50,7 +50,9 @@ $oplevel = post_input('oplevel');
 $hotline = post_input('hotline');
 
 // Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline' WHERE id=$id");
+require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+$org = get_org_code();
+$query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline' WHERE id=$id AND org_code='$org'");
 
 if ($query) {
     http_response_code('200');
