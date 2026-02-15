@@ -245,6 +245,7 @@ include("sessions/handler.php");
         .compliance-high { background: rgba(40,167,69,0.2); color: #28a745; }
         .compliance-med  { background: rgba(255,193,7,0.2); color: #d39e00; }
         .compliance-low  { background: rgba(220,53,69,0.2); color: #dc3545; }
+        .compliance-na   { background: rgba(108,117,125,0.2); color: #6c757d; }
 
         /* METAR timeline */
         .metar-timeline {

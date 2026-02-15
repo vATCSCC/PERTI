@@ -713,6 +713,13 @@
     function buildComplianceBadge(tmi) {
         if (tmi.compliance_pct == null) return '';
         var pct = tmi.compliance_pct;
+
+        // N/A case: matched but insufficient data (e.g. 0 pairs)
+        if (pct < 0) {
+            var naTooltip = '0 pairs — insufficient data';
+            return '<span class="compliance-badge compliance-na" title="' + escapeHtml(naTooltip) + '">N/A</span>';
+        }
+
         var cls = pct >= 80 ? 'compliance-high' : (pct >= 50 ? 'compliance-med' : 'compliance-low');
         var tooltip = '';
         var d = tmi.compliance_detail;
@@ -1316,6 +1323,18 @@
 
                     // Time overlap check
                     if (!timesOverlap(tmi.start_utc, tmi.end_utc, r.tmi_start, r.tmi_end)) return;
+
+                    // Skip if no pairs — insufficient data to assess compliance
+                    if (!r.pairs || r.pairs === 0) {
+                        tmi.compliance_pct = -1; // Mark as matched but N/A
+                        tmi.compliance_detail = {
+                            type: 'MIT',
+                            pairs: 0,
+                            measurement_point: r.measurement_point || r.fix || ''
+                        };
+                        matched++;
+                        return;
+                    }
 
                     var pct = r.compliance_pct || 0;
                     tmi.complied = pct >= 80 ? 'Y' : 'N';
