@@ -37,6 +37,9 @@ if (defined('DEV') && DEV === true) {
     $_SESSION['VATSIM_CID'] = 0;
     $_SESSION['VATSIM_FIRST_NAME'] = 'Dev';
     $_SESSION['VATSIM_LAST_NAME'] = 'User';
+    $_SESSION['ORG_CODE'] = 'vatcscc';
+    $_SESSION['ORG_PRIVILEGED'] = true;
+    $_SESSION['ORG_ALL'] = ['vatcscc', 'vatcan'];
 }
 
 // Session data is now simply read from PHP's native session storage.

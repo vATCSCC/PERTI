@@ -109,6 +109,10 @@ if (isset($_GET['code'])) {
                 // Start the session and redirect
                 sessionstart($cid, $first_name, $last_name);
 
+                // Load org context
+                require_once dirname(__DIR__) . '/load/org_context.php';
+                load_org_context((int)$cid, $conn_sqli);
+
                 // Redirect to return URL or default to index
                 $redirect_to = '../index';
                 if ($return_url) {
