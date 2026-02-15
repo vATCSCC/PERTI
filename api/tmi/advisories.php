@@ -64,10 +64,14 @@ function listAdvisories() {
     global $conn_tmi;
     
     tmi_init(false);
-    
+
     $where = [];
     $params = [];
-    
+
+    // Scope to active org
+    $where[] = "org_code = ?";
+    $params[] = tmi_get_org_code();
+
     // Status filter
     $status = tmi_param('status');
     if ($status) {
@@ -141,12 +145,15 @@ function getAdvisory($id) {
     
     tmi_init(false);
     
-    $advisory = tmi_query_one("SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ?", [$id]);
-    
+    $advisory = tmi_query_one(
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
+
     if (!$advisory) {
         TmiResponse::error('Advisory not found', 404);
     }
-    
+
     // Include linked program if exists
     if (!empty($advisory['program_id'])) {
         $program = tmi_query_one(
@@ -265,12 +272,15 @@ function updateAdvisory($id) {
         TmiResponse::error('Request body required', 400);
     }
     
-    // Check advisory exists
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ?", [$id]);
+    // Check advisory exists (scoped to org)
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Advisory not found', 404);
     }
-    
+
     $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Handle status changes specially
@@ -342,11 +352,14 @@ function deleteAdvisory($id) {
     
     $auth = tmi_init(true);
     
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ?", [$id]);
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Advisory not found', 404);
     }
-    
+
     $body = tmi_get_json_body() ?? [];
     $cancel_reason = $body['cancel_reason'] ?? tmi_param('reason') ?? 'Cancelled via API';
     

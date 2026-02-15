@@ -60,6 +60,12 @@ $userName = $payload['userName'] ?? 'Unknown';
 $postAdvisory = isset($payload['postAdvisory']) ? (bool)$payload['postAdvisory'] : false;
 $advisoryChannel = $payload['advisoryChannel'] ?? 'advzy_staging';
 
+// Get org code from session context
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+$org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+
 if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE', 'PUBLICROUTE'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid entityType. Must be ENTRY, ADVISORY, PROGRAM, REROUTE, or PUBLICROUTE']);
@@ -120,9 +126,9 @@ try {
         $fetchSql = "SELECT e.*, p.proposal_id
                      FROM dbo.tmi_entries e
                      LEFT JOIN dbo.tmi_proposals p ON e.entry_id = p.activated_entry_id
-                     WHERE e.entry_id = :entry_id";
+                     WHERE e.entry_id = :entry_id AND e.org_code = :org_code";
         $fetchStmt = $tmiConn->prepare($fetchSql);
-        $fetchStmt->execute([':entry_id' => $entityId]);
+        $fetchStmt->execute([':entry_id' => $entityId, ':org_code' => $org_code]);
         $entryData = $fetchStmt->fetch(PDO::FETCH_ASSOC);
 
         // Cancel NTML entry
@@ -133,13 +139,15 @@ try {
                     cancel_reason = :cancel_reason,
                     updated_at = SYSUTCDATETIME()
                 WHERE entry_id = :entry_id
+                  AND org_code = :org_code
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
         $stmt->execute([
             ':cancelled_by' => $userCid,
             ':cancel_reason' => $reason,
-            ':entry_id' => $entityId
+            ':entry_id' => $entityId,
+            ':org_code' => $org_code
         ]);
 
         $rowsAffected = $stmt->rowCount();
@@ -170,13 +178,15 @@ try {
                     cancel_reason = :cancel_reason,
                     updated_at = SYSUTCDATETIME()
                 WHERE advisory_id = :advisory_id
+                  AND org_code = :org_code
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
         $stmt->execute([
             ':cancelled_by' => $userCid,
             ':cancel_reason' => $reason,
-            ':advisory_id' => $entityId
+            ':advisory_id' => $entityId,
+            ':org_code' => $org_code
         ]);
 
         $rowsAffected = $stmt->rowCount();
@@ -201,13 +211,15 @@ try {
                     modified_utc = SYSUTCDATETIME(),
                     modified_by = :modified_by
                 WHERE program_id = :program_id
+                  AND org_code = :org_code
                   AND status NOT IN ('PURGED', 'COMPLETED', 'SUPERSEDED')";
 
         $stmt = $tmiConn->prepare($sql);
         $stmt->execute([
             ':purged_by' => $userName,
             ':modified_by' => $userName,
-            ':program_id' => $entityId
+            ':program_id' => $entityId,
+            ':org_code' => $org_code
         ]);
 
         $rowsAffected = $stmt->rowCount();
@@ -237,11 +249,13 @@ try {
                     SET status = 3,
                         updated_at = SYSUTCDATETIME()
                     WHERE route_id = :id
+                      AND org_code = :org_code
                       AND status NOT IN (2, 3)";
 
             $stmt = $tmiConn->prepare($sql);
             $stmt->execute([
-                ':id' => $entityId
+                ':id' => $entityId,
+                ':org_code' => $org_code
             ]);
 
             $rowsAffected = $stmt->rowCount();
@@ -287,11 +301,13 @@ try {
                     SET status = 5,
                         updated_at = SYSUTCDATETIME()
                     WHERE reroute_id = :id
+                      AND org_code = :org_code
                       AND status NOT IN (4, 5)";
 
             $stmt = $rerouteConn->prepare($sql);
             $stmt->execute([
-                ':id' => $entityId
+                ':id' => $entityId,
+                ':org_code' => $org_code
             ]);
 
             $rowsAffected = $stmt->rowCount();

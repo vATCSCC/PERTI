@@ -140,6 +140,12 @@ $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
 $asyncDiscord = $payload['async'] ?? false; // DISABLED: Queue processor not implemented - post directly to Discord
 
+// Get org code from session context
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+$org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+
 if (empty($entries)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'No entries provided']);
@@ -700,6 +706,10 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
         tmi_debug_log('Auto-set valid_until to COB UTC', ['valid_until' => $validUntil, 'entryType' => $entryType]);
     }
     
+    // Get org_code from global scope (set in main request handler)
+    global $org_code;
+    $entry_org_code = $org_code ?? 'vatcscc';
+
     $sql = "INSERT INTO dbo.tmi_entries (
                 determinant_code, protocol_type, entry_type,
                 ctl_element, element_type, requesting_facility, providing_facility,
@@ -708,7 +718,8 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
                 valid_from, valid_until,
                 status, source_type, source_id,
                 raw_input, parsed_data,
-                created_by, created_by_name
+                created_by, created_by_name,
+                org_code
             ) VALUES (
                 :determinant_code, :protocol_type, :entry_type,
                 :ctl_element, :element_type, :requesting_facility, :providing_facility,
@@ -717,7 +728,8 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
                 :valid_from, :valid_until,
                 :status, :source_type, :source_id,
                 :raw_input, :parsed_data,
-                :created_by, :created_by_name
+                :created_by, :created_by_name,
+                :org_code
             )";
     
     $stmt = $conn->prepare($sql);
@@ -745,9 +757,10 @@ function saveNtmlEntryToDatabase($conn, $entry, $rawText, $status, $userCid, $us
         ':raw_input' => $rawText,
         ':parsed_data' => json_encode($data),
         ':created_by' => $userCid,
-        ':created_by_name' => $userName
+        ':created_by_name' => $userName,
+        ':org_code' => $entry_org_code
     ]);
-    
+
     return $conn->lastInsertId();
 }
 
@@ -795,6 +808,10 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
     // Build scope facilities from various inputs
     $facilities = $data['facilities'] ?? $data['constrained_facilities'] ?? $data['areas'] ?? null;
     
+    // Get org_code from global scope (set in main request handler)
+    global $org_code;
+    $adv_org_code = $org_code ?? 'vatcscc';
+
     $sql = "INSERT INTO dbo.tmi_advisories (
                 advisory_number, advisory_type,
                 ctl_element, element_type, scope_facilities,
@@ -803,7 +820,8 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
                 reason_code, reason_detail,
                 status, is_proposed,
                 source_type, source_id,
-                created_by, created_by_name
+                created_by, created_by_name,
+                org_code
             ) VALUES (
                 :advisory_number, :advisory_type,
                 :ctl_element, :element_type, :scope_facilities,
@@ -812,7 +830,8 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
                 :reason_code, :reason_detail,
                 :status, :is_proposed,
                 :source_type, :source_id,
-                :created_by, :created_by_name
+                :created_by, :created_by_name,
+                :org_code
             )";
     
     $stmt = $conn->prepare($sql);
@@ -836,9 +855,10 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
         ':source_type' => 'WEB',
         ':source_id' => $entry['id'] ?? null,
         ':created_by' => $userCid,
-        ':created_by_name' => $userName
+        ':created_by_name' => $userName,
+        ':org_code' => $adv_org_code
     ]);
-    
+
     return $conn->lastInsertId();
 }
 
@@ -846,18 +866,21 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
  * Update NTML entry with Discord info
  */
 function updateEntryDiscordInfo($conn, $entryId, $messageId, $channelId) {
-    $sql = "UPDATE dbo.tmi_entries 
+    global $org_code;
+    $sql = "UPDATE dbo.tmi_entries
             SET discord_message_id = :message_id,
                 discord_channel_id = :channel_id,
                 discord_posted_at = SYSUTCDATETIME(),
                 updated_at = SYSUTCDATETIME()
-            WHERE entry_id = :entry_id";
-    
+            WHERE entry_id = :entry_id
+              AND org_code = :org_code";
+
     $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':message_id' => $messageId,
         ':channel_id' => $channelId,
-        ':entry_id' => $entryId
+        ':entry_id' => $entryId,
+        ':org_code' => $org_code ?? 'vatcscc'
     ]);
 }
 
@@ -865,18 +888,21 @@ function updateEntryDiscordInfo($conn, $entryId, $messageId, $channelId) {
  * Update advisory with Discord info
  */
 function updateAdvisoryDiscordInfo($conn, $advisoryId, $messageId, $channelId) {
-    $sql = "UPDATE dbo.tmi_advisories 
+    global $org_code;
+    $sql = "UPDATE dbo.tmi_advisories
             SET discord_message_id = :message_id,
                 discord_channel_id = :channel_id,
                 discord_posted_at = SYSUTCDATETIME(),
                 updated_at = SYSUTCDATETIME()
-            WHERE advisory_id = :advisory_id";
-    
+            WHERE advisory_id = :advisory_id
+              AND org_code = :org_code";
+
     $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':message_id' => $messageId,
         ':channel_id' => $channelId,
-        ':advisory_id' => $advisoryId
+        ':advisory_id' => $advisoryId,
+        ':org_code' => $org_code ?? 'vatcscc'
     ]);
 }
 
@@ -925,6 +951,8 @@ function parseValidTime($timeStr) {
  * @return array|null Existing config entry or null if not found
  */
 function checkExistingConfig($conn, $ctlElement, $newValidFrom = null, $newValidUntil = null) {
+    global $org_code;
+
     // Parse new config times
     $newStart = $newValidFrom ? (new DateTime($newValidFrom, new DateTimeZone('UTC')))->format('Y-m-d H:i:s') : null;
     $newEnd = $newValidUntil ? (new DateTime($newValidUntil, new DateTimeZone('UTC')))->format('Y-m-d H:i:s') : null;
@@ -936,11 +964,12 @@ function checkExistingConfig($conn, $ctlElement, $newValidFrom = null, $newValid
             FROM dbo.tmi_entries
             WHERE entry_type = 'CONFIG'
               AND ctl_element = :ctl_element
+              AND org_code = :org_code
               AND status = 'ACTIVE'
               AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())";
 
     // Add overlap conditions if new config has time bounds
-    $params = [':ctl_element' => strtoupper($ctlElement)];
+    $params = [':ctl_element' => strtoupper($ctlElement), ':org_code' => $org_code ?? 'vatcscc'];
 
     if ($newStart && $newEnd) {
         // New config has both start and end - check for overlap
@@ -1014,13 +1043,16 @@ function getConfigChanges($newData, $existingData) {
  * @return array Result with id and flags
  */
 function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userName, $alreadyPostedToDiscord = false) {
+    global $org_code;
+
     $sql = "UPDATE dbo.tmi_entries SET
                 raw_input = :raw_input,
                 parsed_data = :parsed_data,
                 updated_by = :user_cid,
                 updated_by_name = :user_name,
                 updated_at = SYSUTCDATETIME()
-            WHERE entry_id = :entry_id";
+            WHERE entry_id = :entry_id
+              AND org_code = :org_code";
 
     $stmt = $conn->prepare($sql);
     $stmt->execute([
@@ -1028,7 +1060,8 @@ function updateExistingConfig($conn, $entryId, $rawText, $data, $userCid, $userN
         ':parsed_data' => json_encode($data),
         ':user_cid' => $userCid,
         ':user_name' => $userName,
-        ':entry_id' => $entryId
+        ':entry_id' => $entryId,
+        ':org_code' => $org_code ?? 'vatcscc'
     ]);
 
     tmi_debug_log('Updated existing CONFIG entry', [

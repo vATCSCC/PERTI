@@ -67,11 +67,15 @@ function listEntries() {
     
     // Public read access - no auth required for list
     tmi_init(false);
-    
+
     // Build query
     $where = [];
     $params = [];
-    
+
+    // Scope to active org
+    $where[] = "org_code = ?";
+    $params[] = tmi_get_org_code();
+
     // Status filter
     $status = tmi_param('status');
     if ($status) {
@@ -155,8 +159,8 @@ function getEntry($id) {
     
     tmi_init(false);
     
-    $sql = "SELECT * FROM dbo.tmi_entries WHERE entry_id = ?";
-    $entry = tmi_query_one($sql, [$id]);
+    $sql = "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?";
+    $entry = tmi_query_one($sql, [$id, tmi_get_org_code()]);
     
     if (!$entry) {
         TmiResponse::error('Entry not found', 404);
@@ -272,12 +276,15 @@ function updateEntry($id) {
         TmiResponse::error('Request body required', 400);
     }
     
-    // Check entry exists
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_entries WHERE entry_id = ?", [$id]);
+    // Check entry exists (scoped to org)
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Entry not found', 404);
     }
-    
+
     // Build update data (only update provided fields)
     $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
@@ -331,12 +338,15 @@ function deleteEntry($id) {
     
     $auth = tmi_init(true);
     
-    // Check entry exists
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_entries WHERE entry_id = ?", [$id]);
+    // Check entry exists (scoped to org)
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Entry not found', 404);
     }
-    
+
     // Get cancel reason from query or body
     $body = tmi_get_json_body() ?? [];
     $cancel_reason = $body['cancel_reason'] ?? tmi_param('reason') ?? 'Cancelled via API';
