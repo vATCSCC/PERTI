@@ -69,6 +69,12 @@ $source = strtoupper($_GET['source'] ?? 'PRODUCTION');
 $includeStaging = ($source === 'ALL' || $source === 'STAGING');
 $stagingOnly = ($source === 'STAGING');
 
+// Get org code from session context
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+$org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+
 // Connect to TMI database (for entries, advisories, programs)
 $tmiConn = null;
 try {
@@ -297,10 +303,11 @@ function formatDatetime($value) {
  * Get currently active NTML entries
  */
 function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
-    
+
     // Status filter based on source selection
     if ($stagingOnly) {
         $statusIn = "('STAGED')";
@@ -335,13 +342,14 @@ function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOn
                 created_by_name
             FROM dbo.tmi_entries
             WHERE status IN {$statusIn}
+              AND org_code = :org_code
               AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
               AND (valid_from IS NULL OR valid_from <= SYSUTCDATETIME())
             ORDER BY valid_from DESC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
         
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -359,6 +367,7 @@ function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOn
  * status but future valid_from (e.g., CONFIG entries published for a future time)
  */
 function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -404,12 +413,13 @@ function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagin
                 created_by_name
             FROM dbo.tmi_entries
             WHERE {$whereClause}
+              AND org_code = :org_code
             ORDER BY valid_from ASC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
-        
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $entries[] = formatNtmlEntry($row);
@@ -424,10 +434,11 @@ function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagin
  * Get recently cancelled NTML entries
  */
 function getCancelledNtmlEntries($conn, $hours, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
-    
+
     $sql = "SELECT TOP {$limit}
                 entry_id,
                 entry_guid,
@@ -457,13 +468,14 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
                 created_by_name
             FROM dbo.tmi_entries
             WHERE status = 'CANCELLED'
+              AND org_code = :org_code
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
-        
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $entries[] = formatNtmlEntry($row);
@@ -478,10 +490,11 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
  * Get currently active advisories
  */
 function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
-    
+
     // Status filter based on source selection
     if ($stagingOnly) {
         $statusIn = "('STAGED')";
@@ -511,13 +524,14 @@ function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnl
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status IN {$statusIn}
+              AND org_code = :org_code
               AND (effective_until IS NULL OR effective_until > SYSUTCDATETIME())
               AND (effective_from IS NULL OR effective_from <= SYSUTCDATETIME())
             ORDER BY effective_from DESC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
         
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -533,10 +547,11 @@ function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnl
  * Get scheduled advisories
  */
 function getScheduledAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
-    
+
     // Status filter based on source selection
     if ($stagingOnly) {
         $statusIn = "('STAGED')";
@@ -566,12 +581,13 @@ function getScheduledAdvisories($conn, $limit, $includeStaging = false, $staging
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status IN {$statusIn}
+              AND org_code = :org_code
               AND effective_from > SYSUTCDATETIME()
             ORDER BY effective_from ASC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
         
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -587,10 +603,11 @@ function getScheduledAdvisories($conn, $limit, $includeStaging = false, $staging
  * Get recently cancelled advisories
  */
 function getCancelledAdvisories($conn, $hours, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
-    
+
     $sql = "SELECT TOP {$limit}
                 advisory_id,
                 advisory_guid,
@@ -615,12 +632,13 @@ function getCancelledAdvisories($conn, $hours, $limit) {
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status = 'CANCELLED'
+              AND org_code = :org_code
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
-    
+
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
         
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -784,6 +802,7 @@ function buildAdvisorySummary($row) {
  * Get currently active GDT programs
  */
 function getActivePrograms($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -814,13 +833,14 @@ function getActivePrograms($conn, $limit) {
                 activated_utc
             FROM dbo.tmi_programs
             WHERE status IN ('ACTIVE', 'MODELING')
+              AND org_code = :org_code
               AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME())
               AND (start_utc IS NULL OR start_utc <= SYSUTCDATETIME())
             ORDER BY start_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -836,6 +856,7 @@ function getActivePrograms($conn, $limit) {
  * Get scheduled (future) GDT programs
  */
 function getScheduledPrograms($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -865,12 +886,13 @@ function getScheduledPrograms($conn, $limit) {
                 modified_utc
             FROM dbo.tmi_programs
             WHERE status IN ('PROPOSED', 'SCHEDULED')
+              AND org_code = :org_code
               AND start_utc > SYSUTCDATETIME()
             ORDER BY start_utc ASC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -886,6 +908,7 @@ function getScheduledPrograms($conn, $limit) {
  * Get recently cancelled/completed GDT programs
  */
 function getCancelledPrograms($conn, $hours, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -917,12 +940,13 @@ function getCancelledPrograms($conn, $hours, $limit) {
                 purged_utc
             FROM dbo.tmi_programs
             WHERE status IN ('COMPLETED', 'PURGED', 'SUPERSEDED')
+              AND org_code = :org_code
               AND modified_utc > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY modified_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1018,6 +1042,7 @@ function buildProgramSummary($row) {
  * Uses aliases to normalize column names for formatReroute()
  */
 function getActiveReroutes($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1046,13 +1071,14 @@ function getActiveReroutes($conn, $limit) {
                 activated_at AS activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
+              AND org_code = :org_code
               AND (end_utc IS NULL OR end_utc > GETUTCDATE())
               AND (start_utc IS NULL OR start_utc <= GETUTCDATE())
             ORDER BY start_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1068,6 +1094,7 @@ function getActiveReroutes($conn, $limit) {
  * Get scheduled (future) reroutes
  */
 function getScheduledReroutes($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1095,12 +1122,13 @@ function getScheduledReroutes($conn, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (0, 1)  -- draft, proposed
+              AND org_code = :org_code
               AND start_utc > GETUTCDATE()
             ORDER BY start_utc ASC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1116,6 +1144,7 @@ function getScheduledReroutes($conn, $limit) {
  * Get recently cancelled/expired reroutes
  */
 function getCancelledReroutes($conn, $hours, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1143,12 +1172,13 @@ function getCancelledReroutes($conn, $hours, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (4, 5)  -- expired, cancelled
+              AND org_code = :org_code
               AND updated_at > DATEADD(HOUR, -{$hours}, GETUTCDATE())
             ORDER BY updated_at DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1242,6 +1272,7 @@ function buildRerouteSummary($row) {
  * Get currently active public routes
  */
 function getActivePublicRoutes($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1266,13 +1297,14 @@ function getActivePublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
+              AND org_code = :org_code
               AND (valid_end_utc IS NULL OR valid_end_utc > SYSUTCDATETIME())
               AND (valid_start_utc IS NULL OR valid_start_utc <= SYSUTCDATETIME())
             ORDER BY valid_start_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1288,6 +1320,7 @@ function getActivePublicRoutes($conn, $limit) {
  * Get scheduled (future) public routes
  */
 function getScheduledPublicRoutes($conn, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1312,12 +1345,13 @@ function getScheduledPublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
+              AND org_code = :org_code
               AND valid_start_utc > SYSUTCDATETIME()
             ORDER BY valid_start_utc ASC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1333,6 +1367,7 @@ function getScheduledPublicRoutes($conn, $limit) {
  * Get recently cancelled/expired public routes
  */
 function getCancelledPublicRoutes($conn, $hours, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1357,12 +1392,13 @@ function getCancelledPublicRoutes($conn, $hours, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE (status = 0 OR valid_end_utc < SYSUTCDATETIME())
+              AND org_code = :org_code
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1460,6 +1496,7 @@ function buildPublicRouteSummary($row) {
  * Get NTML entries that were active on a specific date
  */
 function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -1489,7 +1526,8 @@ function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeS
                 created_by,
                 created_by_name
             FROM dbo.tmi_entries
-            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
+            WHERE org_code = :org_code
+              AND (valid_from <= :dateEnd OR valid_from IS NULL)
               AND (valid_until >= :dateStart OR valid_until IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY valid_from DESC";
@@ -1497,6 +1535,7 @@ function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeS
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
+            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
@@ -1516,6 +1555,7 @@ function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeS
  * Get advisories that were active on a specific date
  */
 function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
@@ -1542,7 +1582,8 @@ function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeSt
                 created_at,
                 created_by
             FROM dbo.tmi_advisories
-            WHERE (valid_from <= :dateEnd OR valid_from IS NULL)
+            WHERE org_code = :org_code
+              AND (valid_from <= :dateEnd OR valid_from IS NULL)
               AND (valid_until >= :dateStart OR valid_until IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY valid_from DESC";
@@ -1550,6 +1591,7 @@ function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeSt
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
+            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
@@ -1569,6 +1611,7 @@ function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeSt
  * Get GDT programs that were active on a specific date
  */
 function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -1579,7 +1622,8 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
                 issued_utc, start_utc, end_utc, status,
                 parameters, remarks, created_at, created_by
             FROM dbo.tmi_programs
-            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
+            WHERE org_code = :org_code
+              AND (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY start_utc DESC";
@@ -1587,6 +1631,7 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
+            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
@@ -1606,6 +1651,7 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
  * Get reroutes that were active on a specific date
  */
 function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1621,7 +1667,8 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
                 start_utc, end_utc,
                 created_at AS created_utc, updated_at AS updated_utc, activated_at AS activated_utc, created_by
             FROM dbo.tmi_reroutes
-            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
+            WHERE org_code = :org_code
+              AND (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY start_utc DESC";
@@ -1629,6 +1676,7 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
+            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
@@ -1648,6 +1696,7 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
  * Get public routes that were active on a specific date
  */
 function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
+    global $org_code;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1659,7 +1708,8 @@ function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
                 constrained_area, reason, origin_filter, dest_filter, facilities,
                 created_by, created_at, updated_at
             FROM dbo.tmi_public_routes
-            WHERE (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
+            WHERE org_code = :org_code
+              AND (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
               AND (valid_end_utc >= :dateStart OR valid_end_utc IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY valid_start_utc DESC";
@@ -1667,6 +1717,7 @@ function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
+            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd

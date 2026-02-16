@@ -1,0 +1,141 @@
+{
+  "org": {
+    "name": "CANTMU",
+    "displayName": "NOC",
+    "airspace": "Espace a\u00e9rien canadien",
+    "commandCenter": "UGC canadienne",
+    "facilityType": "FIR",
+    "facilityTypePlural": "FIR",
+    "switchOrg": "Changer d'organisation",
+    "currentOrg": "Actuel\u00a0: {org}"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "yes": "Oui",
+    "no": "Non",
+    "yesDelete": "Oui, supprimer",
+    "yesCancel": "Oui, annuler",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succ\u00e8s",
+    "warning": "Avertissement",
+    "info": "Info",
+    "submit": "Soumettre",
+    "apply": "Appliquer",
+    "reset": "R\u00e9initialiser",
+    "refresh": "Actualiser",
+    "copy": "Copier",
+    "copied": "Copi\u00e9\u00a0!",
+    "select": "S\u00e9lectionner",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "clear": "Effacer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "edit": "Modifier",
+    "update": "Mettre \u00e0 jour",
+    "view": "Voir",
+    "details": "D\u00e9tails",
+    "back": "Retour",
+    "next": "Suivant",
+    "done": "Termin\u00e9",
+    "enabled": "Activ\u00e9",
+    "disabled": "D\u00e9sactiv\u00e9",
+    "none": "Aucun",
+    "all": "Tous",
+    "other": "Autre",
+    "unknown": "Inconnu",
+    "unknownError": "Erreur inconnue",
+    "na": "S/O"
+  },
+  "status": {
+    "active": "Actif",
+    "pending": "En attente",
+    "cancelled": "Annul\u00e9",
+    "expired": "Expir\u00e9",
+    "draft": "Brouillon",
+    "proposed": "Propos\u00e9",
+    "simulated": "Simul\u00e9",
+    "actual": "R\u00e9el",
+    "published": "Publi\u00e9",
+    "coordinating": "En coordination",
+    "complete": "Termin\u00e9",
+    "failed": "\u00c9chou\u00e9",
+    "unknown": "Inconnu"
+  },
+  "tmi": {
+    "gdp": "Programme d'attente au sol",
+    "gdpShort": "PAS",
+    "gs": "Arr\u00eat au sol",
+    "gsShort": "AS",
+    "edct": "EDCT",
+    "reroute": "D\u00e9routement",
+    "exempt": "Exempt\u00e9",
+    "uncontrolled": "Non contr\u00f4l\u00e9"
+  },
+  "phase": {
+    "arrived": "Arriv\u00e9",
+    "departed": "D\u00e9coll\u00e9",
+    "enroute": "En route",
+    "taxiing": "Au roulage",
+    "prefile": "Pr\u00e9-planifi\u00e9",
+    "descending": "En descente",
+    "disconnected": "D\u00e9connect\u00e9",
+    "unknown": "Inconnu"
+  },
+  "dialog": {
+    "loading": "Chargement...",
+    "submitting": "Soumission...",
+    "publishing": "Publication...",
+    "saving": "Enregistrement...",
+    "processing": "Traitement..."
+  },
+  "error": {
+    "loadFailed": "\u00c9chec du chargement de {resource}",
+    "saveFailed": "\u00c9chec de l'enregistrement de {resource}",
+    "networkError": "Erreur r\u00e9seau\u00a0: {message}",
+    "connectionFailed": "\u00c9chec de connexion au serveur",
+    "invalidInput": "Entr\u00e9e invalide"
+  },
+  "flight": {
+    "one": "{count} vol",
+    "other": "{count} vols"
+  },
+  "dccRegion": {
+    "west": "Ouest canadien",
+    "southCentral": "Centre du Canada",
+    "midwest": "Ontario",
+    "southeast": "Qu\u00e9bec",
+    "northeast": "Canada atlantique",
+    "canadaEast": "Est du Canada",
+    "canadaWest": "Ouest du Canada"
+  },
+  "jatoc": {
+    "auth": {
+      "dccOnly": "Seuls les utilisateurs du NOC peuvent {action}."
+    }
+  },
+  "tmr": {
+    "trigger": {
+      "dccInitiated": "IGC initialis\u00e9e par le NOC"
+    },
+    "staffing": {
+      "dcc": "NOC"
+    }
+  },
+  "nod": {
+    "colorMode": {
+      "dccRegion": "R\u00e9gion NOC"
+    }
+  },
+  "splits": {
+    "popup": {
+      "dccRegion": "R\u00e9gion NOC"
+    }
+  }
+}

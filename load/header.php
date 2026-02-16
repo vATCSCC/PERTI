@@ -87,6 +87,24 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <!-- Internationalization (i18n) -->
 <script src="<?= $filepath; ?>assets/js/lib/i18n.js"></script>
 <script src="<?= $filepath; ?>assets/locales/index.js"></script>
+
+<!-- Organization Context -->
+<?php
+    require_once __DIR__ . '/org_context.php';
+    $org_info_header = ['default_locale' => 'en-US'];
+    if (isset($conn_sqli) && $conn_sqli) {
+        $org_info_header = get_org_info($conn_sqli);
+    }
+?>
+<script>
+window.PERTI_ORG = {
+    code: <?= json_encode($_SESSION['ORG_CODE'] ?? 'vatcscc') ?>,
+    privileged: <?= !empty($_SESSION['ORG_PRIVILEGED']) ? 'true' : 'false' ?>,
+    allOrgs: <?= json_encode($_SESSION['ORG_ALL'] ?? ['vatcscc']) ?>,
+    defaultLocale: <?= json_encode($org_info_header['default_locale'] ?? 'en-US') ?>
+};
+</script>
+
 <script src="<?= $filepath; ?>assets/js/lib/dialog.js"></script>
 
 <!-- Deep Link Utility -->

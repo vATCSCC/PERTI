@@ -61,6 +61,12 @@ $updates = $payload['updates'] ?? [];
 $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
 
+// Get org code from session context
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+$org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+
 if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid entityType. Must be ENTRY, ADVISORY, PROGRAM, or REROUTE']);
@@ -195,9 +201,11 @@ try {
             $params[':raw_input'] = $updates['rawInput'];
         }
 
+        $params[':org_code'] = $org_code;
         $sql = "UPDATE dbo.tmi_entries
                 SET " . implode(', ', $setClauses) . "
                 WHERE entry_id = :entry_id
+                  AND org_code = :org_code
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -277,9 +285,11 @@ try {
             $params[':delay_cap'] = intval($updates['delayCap']);
         }
 
+        $params[':org_code'] = $org_code;
         $sql = "UPDATE dbo.tmi_advisories
                 SET " . implode(', ', $setClauses) . "
                 WHERE advisory_id = :advisory_id
+                  AND org_code = :org_code
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -353,9 +363,11 @@ try {
             $params[':modified_by'] = $userName;
         }
 
+        $params[':org_code'] = $org_code;
         $sql = "UPDATE dbo.tmi_programs
                 SET " . implode(', ', $setClauses) . "
                 WHERE program_id = :program_id
+                  AND org_code = :org_code
                   AND status NOT IN ('PURGED', 'COMPLETED', 'SUPERSEDED')";
 
         $stmt = $tmiConn->prepare($sql);

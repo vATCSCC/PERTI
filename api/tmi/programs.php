@@ -64,10 +64,14 @@ function listPrograms() {
     global $conn_tmi;
     
     tmi_init(false);
-    
+
     $where = [];
     $params = [];
-    
+
+    // Scope to active org
+    $where[] = "org_code = ?";
+    $params[] = tmi_get_org_code();
+
     // Status filter
     $status = tmi_param('status');
     if ($status) {
@@ -140,12 +144,15 @@ function getProgram($id) {
     
     tmi_init(false);
     
-    $program = tmi_query_one("SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$id]);
-    
+    $program = tmi_query_one(
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
+
     if (!$program) {
         TmiResponse::error('Program not found', 404);
     }
-    
+
     // Include slot summary if requested
     if (tmi_param('include_slots') === '1') {
         $slots = tmi_query(
@@ -268,12 +275,15 @@ function updateProgram($id) {
         TmiResponse::error('Request body required', 400);
     }
     
-    // Check program exists
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$id]);
+    // Check program exists (scoped to org)
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Program not found', 404);
     }
-    
+
     $data = ['updated_at' => gmdate('Y-m-d H:i:s')];
     
     // Handle status changes specially
@@ -378,11 +388,14 @@ function deleteProgram($id) {
     
     $auth = tmi_init(true);
     
-    $existing = tmi_query_one("SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$id]);
+    $existing = tmi_query_one(
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
+        [$id, tmi_get_org_code()]
+    );
     if (!$existing) {
         TmiResponse::error('Program not found', 404);
     }
-    
+
     // Soft delete - mark as purged
     $data = [
         'status' => 'PURGED',

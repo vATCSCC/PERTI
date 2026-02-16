@@ -19,6 +19,23 @@ if (!defined('PERTI_LOADED')) {
 require_once __DIR__ . '/../../load/config.php';
 require_once __DIR__ . '/../../load/connect.php';
 
+// Load org context if available
+$orgContextPath = __DIR__ . '/../../load/org_context.php';
+if (file_exists($orgContextPath)) {
+    require_once $orgContextPath;
+}
+
+/**
+ * Get active org code for TMI operations.
+ * Uses org_context helper if available, falls back to session, then 'vatcscc'.
+ */
+function tmi_get_org_code(): string {
+    if (function_exists('get_org_code')) {
+        return get_org_code();
+    }
+    return $_SESSION['ORG_CODE'] ?? 'vatcscc';
+}
+
 /**
  * TMI Response Helper
  */
@@ -552,7 +569,12 @@ function tmi_query_one($sql, $params = []) {
  */
 function tmi_insert($table, $data) {
     global $conn_tmi;
-    
+
+    // Auto-inject org_code if not already present
+    if (!isset($data['org_code'])) {
+        $data['org_code'] = tmi_get_org_code();
+    }
+
     $columns = array_keys($data);
     $placeholders = array_fill(0, count($columns), '?');
     $values = array_values($data);
@@ -580,14 +602,18 @@ function tmi_insert($table, $data) {
  */
 function tmi_update($table, $data, $where, $where_params = []) {
     global $conn_tmi;
-    
+
     $sets = [];
     $values = [];
     foreach ($data as $col => $val) {
         $sets[] = "$col = ?";
         $values[] = $val;
     }
-    
+
+    // Scope updates to the active org
+    $where .= ' AND org_code = ?';
+    $where_params[] = tmi_get_org_code();
+
     $sql = "UPDATE dbo.$table SET " . implode(', ', $sets) . " WHERE $where";
     $params = array_merge($values, $where_params);
     
@@ -606,9 +632,13 @@ function tmi_update($table, $data, $where, $where_params = []) {
  */
 function tmi_delete($table, $where, $params = []) {
     global $conn_tmi;
-    
+
+    // Scope deletes to the active org
+    $where .= ' AND org_code = ?';
+    $params[] = tmi_get_org_code();
+
     $sql = "DELETE FROM dbo.$table WHERE $where";
-    
+
     $result = sqlsrv_query($conn_tmi, $sql, $params);
     if ($result === false) {
         return false;

@@ -109,6 +109,30 @@ if (isset($_GET['code'])) {
                 // Start the session and redirect
                 sessionstart($cid, $first_name, $last_name);
 
+                // Auto-detect org from VATSIM division for new users
+                $division = $obj_at['data']['vatsim']['division']['id'] ?? null;
+                $auto_org = 'vatcscc';
+                if ($division === 'VATCAN' || $division === 'CAN') {
+                    $auto_org = 'vatcan';
+                }
+
+                // Check if user already has org assignment
+                $org_check = mysqli_prepare($conn_sqli, "SELECT COUNT(*) as cnt FROM user_orgs WHERE cid = ?");
+                mysqli_stmt_bind_param($org_check, "i", $cid);
+                mysqli_stmt_execute($org_check);
+                $org_result = mysqli_stmt_get_result($org_check);
+                $org_row = mysqli_fetch_assoc($org_result);
+
+                if ($org_row['cnt'] == 0) {
+                    $insert_org = mysqli_prepare($conn_sqli, "INSERT INTO user_orgs (cid, org_code, is_privileged, is_primary) VALUES (?, ?, 0, 1)");
+                    mysqli_stmt_bind_param($insert_org, "is", $cid, $auto_org);
+                    mysqli_stmt_execute($insert_org);
+                }
+
+                // Load org context
+                require_once dirname(__DIR__) . '/load/org_context.php';
+                load_org_context((int)$cid, $conn_sqli);
+
                 // Redirect to return URL or default to index
                 $redirect_to = '../index';
                 if ($return_url) {

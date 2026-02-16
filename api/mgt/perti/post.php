@@ -38,6 +38,12 @@ if ($perm == true) {
 }
 // (E)
 
+// Check org privilege
+if (!is_org_privileged()) {
+    http_response_code(403);
+    exit();
+}
+
 $event_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['event_name'])));
 $event_date = post_input('event_date');
 $event_start = post_input('event_start');
@@ -54,8 +60,10 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query
-    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline)
-    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline')";
+    require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+    $org = get_org_code();
+    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline, org_code)
+    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline', '$org')";
 
     $conn_pdo->exec($sql);
 

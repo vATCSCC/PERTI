@@ -38,7 +38,20 @@ if ($perm == true) {
 }
 // (E)
 
+// Check org privilege
+if (!is_org_privileged()) {
+    http_response_code(403);
+    exit();
+}
+
 $id = post_input('id');
+
+require_once(dirname(__DIR__, 3) . '/load/org_context.php');
+if (!validate_plan_org((int)$id, $conn_sqli)) {
+    http_response_code(403);
+    exit();
+}
+$org = get_org_code();
 
 $event_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['event_name'])));
 $event_date = post_input('event_date');
@@ -49,8 +62,8 @@ $event_banner = post_input('event_banner');
 $oplevel = post_input('oplevel');
 $hotline = post_input('hotline');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline' WHERE id=$id");
+// Update Data in Database
+$query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline' WHERE id=$id AND org_code='$org'");
 
 if ($query) {
     http_response_code('200');
