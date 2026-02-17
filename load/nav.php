@@ -321,7 +321,13 @@ function switchOrg(orgCode) {
 
 function setLocale(locale) {
     localStorage.setItem('PERTI_LOCALE', locale);
-    window.location.reload();
+    fetch('/api/data/locale.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({locale: locale})
+    }).then(function() {
+        window.location.reload();
+    });
 }
 (function() {
     var loc = localStorage.getItem('PERTI_LOCALE') || 'en-CA';
