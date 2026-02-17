@@ -154,6 +154,16 @@ REROUTE_COMPLIANT_THRESHOLD = 0.95    # 95%+ = COMPLIANT
 REROUTE_PARTIAL_THRESHOLD = 0.50      # 50-94% = PARTIAL
                                        # <50% = NON_COMPLIANT
 
+# Holding pattern detection thresholds
+HOLD_MIN_HEADING_CHANGE_DEG = 270     # Min cumulative turn for one orbit
+HOLD_MIN_DURATION_SEC = 120           # 2 min minimum hold duration
+HOLD_MAX_RADIUS_NM = 5.0             # Max spatial containment radius
+HOLD_FIX_MATCH_RADIUS_NM = 5.0       # Fix search radius for matching
+HOLD_CIRCLING_ALT_AGL_FT = 2000      # Exclude circling approaches below this AGL
+HOLD_CIRCLING_DIST_NM = 5.0          # Exclude approaches within this of destination
+HOLD_GAP_RESET_SEC = 180             # Reset heading accumulator if gap > 3 min
+HOLD_LOW_CONFIDENCE_INTERVAL_SEC = 120  # Flag if avg data interval sparser than this
+
 
 @dataclass
 class TMI:
@@ -334,6 +344,51 @@ class DelayEntry:
     # Context
     reason: str = ''                           # VOLUME, WEATHER, etc.
     raw_line: str = ''                         # Original line for debugging
+
+
+@dataclass
+class HoldingEvent:
+    """A detected holding pattern from trajectory analysis."""
+    callsign: str
+    flight_uid: int
+    hold_start_utc: datetime
+    hold_end_utc: datetime
+    duration_sec: int
+    orbit_count: int
+    center_lat: float
+    center_lon: float
+    avg_radius_nm: float
+    avg_altitude_ft: float
+    avg_groundspeed_kts: float
+    turn_direction: str                      # 'R' or 'L'
+    matched_fix: Optional[str] = None
+    fix_match_source: Optional[str] = None   # 'route', 'star', 'navfix'
+    fix_distance_nm: float = 0.0
+    fix_on_route: bool = False
+    ntml_corroborated: bool = False
+    low_confidence: bool = False
+    dept: str = ''
+    dest: str = ''
+    tmi_attribution: Optional[str] = None    # 'gs', 'gdp', 'mit', or None
+    tmi_program_id: Optional[str] = None
+
+    @property
+    def duration_min(self) -> float:
+        return self.duration_sec / 60.0
+
+
+@dataclass
+class HoldingFixSummary:
+    """Aggregate holding statistics at a single fix/location."""
+    fix_name: Optional[str]
+    center: list                             # [lon, lat]
+    flight_count: int
+    total_orbits: int
+    avg_duration_sec: float
+    peak_concurrent: int
+    ntml_corroborated: bool
+    time_range: list                         # [start_utc_iso, end_utc_iso]
+    events: list = field(default_factory=list)
 
 
 @dataclass
