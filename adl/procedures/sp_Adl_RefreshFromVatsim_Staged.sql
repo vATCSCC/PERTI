@@ -1,25 +1,26 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Staged V9.1.0 - Position Skip-Unchanged Optimization
+-- sp_Adl_RefreshFromVatsim_Staged V9.2.0 - Deferred Expensive Processing
 --
--- V9.1.0 Changes:
---   - Position updates now skip unchanged flights (saves 30-40% of writes)
---   - Thresholds: 0.0001° lat/lon (~11m), 50ft altitude, 2kts groundspeed
---   - Replaces MERGE with INSERT + conditional UPDATE for positions
---   - Adds @positions_inserted and @positions_updated counters
+-- V9.2.0 Changes:
+--   - New @defer_expensive parameter: when 1, defers ETA/snapshot steps
+--   - Trajectory position capture ALWAYS runs (ephemeral data)
+--   - Step 8: splits trajectory (always) from ETA (deferrable)
+--   - Steps 8d, 12, 13: wrapped in @defer_expensive = 0 conditional
+--   - Daemon runs deferred steps when cycle time budget allows
+--   - Saves ~800ms per cycle, reducing missed VATSIM feeds
+--
+-- V9.1.0 Changes (kept):
+--   - Position updates skip unchanged flights (saves 30-40% of writes)
 --
 -- V9.0.0 Changes (kept):
 --   - Reads from staging tables instead of parsing JSON with OPENJSON
---   - OPENJSON parsing: 3-5 seconds (SQL compute)
---   - Staging table read: ~100ms (much faster)
---   - PHP does JSON parsing: ~100ms (fixed-cost App Service)
---
--- Cost savings: ~50% reduction in Azure SQL Serverless vCore-hours
 --
 -- Architecture:
 --   1. PHP daemon parses VATSIM JSON
 --   2. PHP inserts data into adl_staging_pilots / adl_staging_prefiles
 --   3. PHP calls this SP with @batch_id
 --   4. SP reads from staging tables (no OPENJSON)
+--   5. When @defer_expensive=1, ETA calcs run in daemon after SP returns
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -29,7 +30,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Staged
     @batch_id UNIQUEIDENTIFIER,
-    @skip_zone_detection BIT = 0  -- Set to 1 when zone_daemon.php is running
+    @skip_zone_detection BIT = 0,  -- Set to 1 when zone_daemon.php is running
+    @defer_expensive BIT = 0       -- When 1: trajectory always captured, ETA/snapshot deferred to daemon
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -759,11 +761,18 @@ BEGIN
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- Step 8: Process Trajectory & ETA
+    -- Trajectory points are ephemeral (unique per timestamp) - always capture
+    -- ETA is recalculable from live data - defer when @defer_expensive = 1
     SET @step_start = SYSUTCDATETIME();
 
     IF OBJECT_ID('dbo.sp_ProcessTrajectoryBatch', 'P') IS NOT NULL
     BEGIN
-        EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
+        IF @defer_expensive = 1
+            -- Trajectory only: capture position points, defer ETA to daemon
+            EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 0, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
+        ELSE
+            -- Full processing: trajectory + ETA together
+            EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
     END
 
     SET @step8_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
@@ -782,10 +791,10 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
     SET @step8c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 8d: Batch ETA Calculation
+    -- Step 8d: Batch ETA Calculation (deferred when @defer_expensive = 1)
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_CalculateETABatch', 'P') IS NOT NULL
+    IF @defer_expensive = 0 AND OBJECT_ID('dbo.sp_CalculateETABatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CalculateETABatch @eta_count = @batch_eta_count OUTPUT;
     END
@@ -810,14 +819,18 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
     SET @step11_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 12: Log Trajectory
+    -- Step 12: Log Trajectory (deferred when @defer_expensive = 1)
+    -- Redundant with Step 8 trajectory when it runs; legacy 60s-interval bulk log
     SET @step_start = SYSUTCDATETIME();
-    EXEC dbo.sp_Log_Trajectory;
+    IF @defer_expensive = 0
+    BEGIN
+        EXEC dbo.sp_Log_Trajectory;
+    END
     SET @step12_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 13: Phase Snapshot
+    -- Step 13: Phase Snapshot (deferred when @defer_expensive = 1)
     SET @step_start = SYSUTCDATETIME();
-    IF OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
+    IF @defer_expensive = 0 AND OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CapturePhaseSnapshot;
     END
@@ -877,8 +890,9 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.1.0 created successfully';
+PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.2.0 created successfully';
+PRINT 'V9.2.0: @defer_expensive defers ETA/snapshot, trajectory always captured';
 PRINT 'V9.1.0: Position updates skip unchanged flights (saves 30-40% writes)';
 PRINT 'V9.0.0: Reads from staging tables instead of OPENJSON';
-PRINT 'Expected Step 3 improvement: ~800ms -> ~500ms';
+PRINT 'Expected savings with @defer_expensive=1: ~800ms per cycle';
 GO
