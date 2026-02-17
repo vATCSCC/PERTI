@@ -15,6 +15,9 @@ include_once(__DIR__ . "/config.php");
 // Include safe input handling functions for PHP 8.2+
 require_once(__DIR__ . '/input.php');
 
+// Include PHP i18n module (lazy-loaded, same JSON files as JS PERTII18n)
+require_once(__DIR__ . '/i18n.php');
+
 // -------------------------------------------------------------------------
 // Helper for ADL SQL Server error messages (used by Azure SQL connection)
 // -------------------------------------------------------------------------
