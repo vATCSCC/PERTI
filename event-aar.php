@@ -295,8 +295,8 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 bg-dark text-light" style="min-height: 120px;">
     <div class="container-fluid pt-2 pb-3">
         <center>
-            <h1>Event <span class="text-info">AAR/ADR</span> Entry</h1>
-            <p class="mb-0">Enter hourly arrival/departure rates for events</p>
+            <h1><?= __('eventAar.page.title') ?></h1>
+            <p class="mb-0"><?= __('eventAar.page.subtitle') ?></p>
         </center>
     </div>
 </section>
@@ -304,14 +304,14 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 <div class="container-fluid mt-4 mb-5">
     <?php if (!$conn_adl): ?>
         <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle"></i> ADL database connection not available.
+            <i class="fas fa-exclamation-triangle"></i> <?= __('eventAar.page.adlUnavailable') ?>
         </div>
     <?php elseif ($edit_mode && $event): ?>
         <!-- Edit Mode -->
         <div class="row mb-4">
             <div class="col-12">
                 <a href="event-aar.php" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-arrow-left"></i> Back to List
+                    <i class="fas fa-arrow-left"></i> <?= __('eventAar.page.backToList') ?>
                 </a>
             </div>
         </div>
@@ -324,37 +324,37 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
                 <div class="row">
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>Event Type</label>
+                            <label><?= __('eventAar.page.eventType') ?></label>
                             <div class="value"><?= htmlspecialchars($event['event_type'] ?? 'N/A') ?></div>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>Start (UTC)</label>
+                            <label><?= __('eventAar.page.startUtc') ?></label>
                             <div class="value"><?= $event['start_utc'] ? $event['start_utc']->format('Y-m-d H:i') : 'N/A' ?></div>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>End (UTC)</label>
+                            <label><?= __('eventAar.page.endUtc') ?></label>
                             <div class="value"><?= $event['end_utc'] ? $event['end_utc']->format('Y-m-d H:i') : 'N/A' ?></div>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>Total Arrivals</label>
+                            <label><?= __('eventAar.page.totalArrivals') ?></label>
                             <div class="value text-primary"><?= $event['total_arrivals'] ?? 0 ?></div>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>Total Departures</label>
+                            <label><?= __('eventAar.page.totalDepartures') ?></label>
                             <div class="value text-primary"><?= $event['total_departures'] ?? 0 ?></div>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="info-card">
-                            <label>Duration</label>
+                            <label><?= __('eventAar.page.duration') ?></label>
                             <div class="value"><?= $event['duration_hours'] ? number_format($event['duration_hours'], 1) . 'h' : 'N/A' ?></div>
                         </div>
                     </div>
@@ -365,7 +365,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
         <?php if (count($configs) > 0): ?>
         <div class="card mb-4">
             <div class="card-header">
-                <h6 class="mb-0">Quick Apply: Airport Configurations</h6>
+                <h6 class="mb-0"><?= __('eventAar.page.quickApply') ?></h6>
             </div>
             <div class="card-body">
                 <p class="text-muted small">Click a config to apply its rates to all hourly slots. Colors indicate weather:
@@ -407,7 +407,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0">Hourly Rate Entry</h6>
+                <h6 class="mb-0"><?= __('eventAar.page.hourlyRateEntry') ?></h6>
             </div>
             <div class="card-body">
                 <form id="hourlyForm">
@@ -416,9 +416,9 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 
                     <div class="hourly-grid">
                         <div class="hourly-header">
-                            <span>Hour (UTC)</span>
-                            <span class="text-center">Actual Arr</span>
-                            <span class="text-center">Actual Dep</span>
+                            <span><?= __('eventAar.page.hourUtc') ?></span>
+                            <span class="text-center"><?= __('eventAar.page.actualArr') ?></span>
+                            <span class="text-center"><?= __('eventAar.page.actualDep') ?></span>
                             <span class="text-center">VATSIM AAR</span>
                             <span class="text-center">VATSIM ADR</span>
                         </div>
@@ -444,10 +444,10 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 
                     <div class="mt-4">
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Save All Hourly Rates
+                            <i class="fas fa-save"></i> <?= __('eventAar.page.saveAll') ?>
                         </button>
                         <button type="button" class="btn btn-warning" onclick="fillAllEmpty()">
-                            <i class="fas fa-fill"></i> Fill All Empty
+                            <i class="fas fa-fill"></i> <?= __('eventAar.page.fillAllEmpty') ?>
                         </button>
                         <a href="event-aar.php" class="btn btn-secondary">Cancel</a>
                     </div>
@@ -459,20 +459,20 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
         <!-- List Mode -->
         <div class="card">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Events Missing AAR/ADR Data</h5>
+                <h5 class="mb-0"><?= __('eventAar.page.eventsMissingData') ?></h5>
             </div>
             <div class="card-body">
                 <table class="table table-sm table-striped table-bordered" id="eventsTable">
                     <thead class="table-dark">
                         <tr>
-                            <th>Date</th>
-                            <th>Airport</th>
-                            <th>Event Name</th>
-                            <th>Type</th>
-                            <th class="text-center">Arrivals</th>
-                            <th class="text-center">Departures</th>
-                            <th class="text-center">Duration</th>
-                            <th class="text-center">Hourly</th>
+                            <th><?= __('eventAar.page.date') ?></th>
+                            <th><?= __('eventAar.page.airport') ?></th>
+                            <th><?= __('eventAar.page.eventName') ?></th>
+                            <th><?= __('eventAar.page.eventType') ?></th>
+                            <th class="text-center"><?= __('eventAar.page.arrivals') ?></th>
+                            <th class="text-center"><?= __('eventAar.page.departures') ?></th>
+                            <th class="text-center"><?= __('eventAar.page.duration') ?></th>
+                            <th class="text-center"><?= __('eventAar.page.hourly') ?></th>
                             <th></th>
                         </tr>
                     </thead>

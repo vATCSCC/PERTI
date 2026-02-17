@@ -2274,28 +2274,28 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
                     <h4 class="text-white mb-1">
-                        <i class="fas fa-server mr-2"></i>PERTI System Status
+                        <i class="fas fa-server mr-2"></i><?= __('statusPage.title') ?>
                     </h4>
                     <div class="status-timestamp">
-                        <?= $current_time ?> UTC &mdash; Auto-refreshes every 60 seconds
+                        <?= $current_time ?> UTC &mdash; <?= __('statusPage.autoRefresh') ?>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <?php if ($overallStatus === 'operational'): ?>
                         <span class="status-overall operational">
-                            <i class="fas fa-check-circle mr-2"></i>All Systems Operational
+                            <i class="fas fa-check-circle mr-2"></i><?= __('statusPage.allOperational') ?>
                         </span>
                     <?php elseif ($overallStatus === 'degraded'): ?>
                         <span class="status-overall degraded">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>Degraded Performance
+                            <i class="fas fa-exclamation-triangle mr-2"></i><?= __('statusPage.degradedPerformance') ?>
                         </span>
                     <?php else: ?>
                         <span class="status-overall critical">
-                            <i class="fas fa-times-circle mr-2"></i>System Issues
+                            <i class="fas fa-times-circle mr-2"></i><?= __('statusPage.systemIssues') ?>
                         </span>
                     <?php endif; ?>
                     <span class="auto-refresh-indicator <?= $overallStatus ?> ml-3">
-                        <span class="dot"></span> Live
+                        <span class="dot"></span> <?= __('statusPage.live') ?>
                     </span>
                 </div>
             </div>
@@ -2307,7 +2307,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         <?php if (!empty($statusIssues)): ?>
         <div class="issues-list <?= $overallStatus === 'critical' ? 'critical' : '' ?>">
-            <h6><i class="fas fa-exclamation-triangle mr-1"></i> Active Issues</h6>
+            <h6><i class="fas fa-exclamation-triangle mr-1"></i> <?= __('statusPage.activeIssues') ?></h6>
             <ul>
                 <?php foreach ($statusIssues as $issue): ?>
                     <li><?= htmlspecialchars($issue) ?></li>
@@ -2320,7 +2320,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <!-- CATEGORY: OVERVIEW & METRICS -->
         <!-- ============================================ -->
         <div class="category-header" id="cat-overview-header" onclick="toggleCategory('cat-overview')">
-            <span><i class="fas fa-tachometer-alt"></i>Overview & Metrics</span>
+            <span><i class="fas fa-tachometer-alt"></i><?= __('statusPage.overviewMetrics') ?></span>
             <i class="fas fa-chevron-down toggle-icon"></i>
         </div>
         <div class="category-content" id="cat-overview-content">
@@ -2329,40 +2329,40 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <div class="metric-row">
             <div class="metric-card <?= $liveData['active_flights'] > 0 ? '' : 'warning' ?>">
                 <div class="metric-value"><?= number_format($liveData['active_flights']) ?></div>
-                <div class="metric-label">Active Flights</div>
-                <div class="metric-sublabel">Currently tracked</div>
+                <div class="metric-label"><?= __('statusPage.activeFlights') ?></div>
+                <div class="metric-sublabel"><?= __('statusPage.currentlyTracked') ?></div>
             </div>
             <div class="metric-card info">
                 <div class="metric-value"><?= number_format($liveData['queue_pending']) ?></div>
-                <div class="metric-label">Queue Pending</div>
+                <div class="metric-label"><?= __('statusPage.queuePending') ?></div>
                 <div class="metric-sublabel"><?= $liveData['queue_processing'] ?> processing</div>
             </div>
             <div class="metric-card primary">
                 <div class="metric-value"><?= number_format($liveData['queue_complete_1h']) ?></div>
-                <div class="metric-label">Parsed (1h)</div>
+                <div class="metric-label"><?= __('statusPage.parsed1h') ?></div>
                 <div class="metric-sublabel">Avg <?= $liveData['avg_parse_ms'] ?>ms</div>
             </div>
             <div class="metric-card <?= $liveData['queue_failed_1h'] > 10 ? 'error' : '' ?>">
                 <div class="metric-value"><?= number_format($liveData['queue_failed_1h']) ?></div>
-                <div class="metric-label">Failed (1h)</div>
-                <div class="metric-sublabel">Parse errors</div>
+                <div class="metric-label"><?= __('statusPage.failed1h') ?></div>
+                <div class="metric-sublabel"><?= __('statusPage.parseErrors') ?></div>
             </div>
             <div class="metric-card">
                 <div class="metric-value"><?= number_format($liveData['trajectories_1h']) ?></div>
-                <div class="metric-label">Trajectories (1h)</div>
-                <div class="metric-sublabel">ETA calculations</div>
+                <div class="metric-label"><?= __('statusPage.trajectories1h') ?></div>
+                <div class="metric-sublabel"><?= __('statusPage.etaCalculations') ?></div>
             </div>
             <div class="metric-card info">
                 <div class="metric-value"><?= number_format($liveData['weather_alerts_active']) ?></div>
-                <div class="metric-label">Weather Alerts</div>
-                <div class="metric-sublabel">Active SIGMETs</div>
+                <div class="metric-label"><?= __('statusPage.weatherAlerts') ?></div>
+                <div class="metric-sublabel"><?= __('statusPage.activeSigmets') ?></div>
             </div>
         </div>
 
         <!-- Data Processing Pipeline -->
         <div class="pipeline-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i>Flight Data Processing Pipeline</h6>
+                <h6 class="mb-0"><i class="fas fa-project-diagram mr-2"></i><?= __('statusPage.flightDataPipeline') ?></h6>
                 <div>
                     <span class="runtime-badge <?= $runtimes['total'] < 800 ? 'fast' : ($runtimes['total'] < 2000 ? 'medium' : 'slow') ?>">
                         Page: <?= $runtimes['total'] ?>ms
@@ -2378,44 +2378,44 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="pipeline-flow">
                 <div class="pipeline-stage active">
                     <div class="pipeline-stage-icon"><i class="fas fa-plane"></i></div>
-                    <div class="pipeline-stage-name">VATSIM Feed</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.vatsimFeed') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['total_flights_today']) ?></div>
-                    <div class="pipeline-stage-label">flights today</div>
+                    <div class="pipeline-stage-label"><?= __('statusPage.flightsToday') ?></div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage <?= $liveData['active_flights'] > 0 ? 'active' : '' ?>">
                     <div class="pipeline-stage-icon"><i class="fas fa-filter"></i></div>
-                    <div class="pipeline-stage-name">Active Flights</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.activeFlights') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['active_flights']) ?></div>
-                    <div class="pipeline-stage-label">currently tracked</div>
+                    <div class="pipeline-stage-label"><?= __('statusPage.currentlyTracked') ?></div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage <?= $liveData['queue_processing'] > 0 ? 'processing' : ($liveData['queue_pending'] > 0 ? 'active' : '') ?>">
                     <div class="pipeline-stage-icon"><i class="fas fa-cogs"></i></div>
-                    <div class="pipeline-stage-name">Parse Queue</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.parseQueue') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['queue_pending']) ?></div>
                     <div class="pipeline-stage-label"><?= $liveData['queue_processing'] ?> processing &bull; <?= $liveData['avg_parse_ms'] ?>ms avg</div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage active">
                     <div class="pipeline-stage-icon"><i class="fas fa-map-marker-alt"></i></div>
-                    <div class="pipeline-stage-name">Waypoints</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.waypoints') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['waypoints_total']) ?></div>
-                    <div class="pipeline-stage-label">extracted points</div>
+                    <div class="pipeline-stage-label"><?= __('statusPage.extractedPoints') ?></div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage <?= $liveData['trajectories_1h'] > 0 ? 'active' : '' ?>">
                     <div class="pipeline-stage-icon"><i class="fas fa-route"></i></div>
-                    <div class="pipeline-stage-name">Trajectories</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.trajectories') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['trajectories_total']) ?></div>
                     <div class="pipeline-stage-label"><?= number_format($liveData['trajectories_1h']) ?> this hour</div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage <?= $liveData['zone_transitions_1h'] > 0 || $liveData['boundary_crossings_1h'] > 0 ? 'active' : '' ?>">
                     <div class="pipeline-stage-icon"><i class="fas fa-border-all"></i></div>
-                    <div class="pipeline-stage-name">Detection</div>
+                    <div class="pipeline-stage-name"><?= __('statusPage.detection') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['zone_transitions_1h'] + $liveData['boundary_crossings_1h']) ?></div>
-                    <div class="pipeline-stage-label">events this hour</div>
+                    <div class="pipeline-stage-label"><?= __('statusPage.eventsThisHour') ?></div>
                 </div>
             </div>
         </div>
@@ -2425,10 +2425,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-lg-7">
                 <div class="chart-container">
                     <div class="chart-header">
-                        <span class="chart-title"><i class="fas fa-plane mr-1"></i> Flight Activity (24 Hours)</span>
+                        <span class="chart-title"><i class="fas fa-plane mr-1"></i> <?= __('statusPage.flightActivity24h') ?></span>
                         <span class="runtime-badge"><?= number_format($liveData['active_flights']) ?> active</span>
                         <label class="ml-3" style="font-size: 11px; cursor: pointer;">
-                            <input type="checkbox" id="phaseChartLogScale" style="margin-right: 4px;"> Log Scale
+                            <input type="checkbox" id="phaseChartLogScale" style="margin-right: 4px;"> <?= __('statusPage.logScale') ?>
                         </label>
                     </div>
                     <div class="chart-wrapper" style="height: 220px;">
@@ -2437,17 +2437,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <!-- Collapsible 24-hour summary stats -->
                     <div class="mt-2">
                         <a data-toggle="collapse" href="#phaseSummaryStats" role="button" aria-expanded="false" aria-controls="phaseSummaryStats" style="font-size: 11px; color: #666;">
-                            <i class="fas fa-chevron-down mr-1"></i> 24-Hour Summary Statistics
+                            <i class="fas fa-chevron-down mr-1"></i> <?= __('statusPage.summaryStats24h') ?>
                         </a>
                         <div class="collapse" id="phaseSummaryStats">
                             <table class="table table-sm table-bordered mt-2" style="font-size: 10px;">
                                 <thead class="thead-light">
                                     <tr>
                                         <th>Phase</th>
-                                        <th>Min</th>
-                                        <th>Max</th>
-                                        <th>Avg</th>
-                                        <th>Median</th>
+                                        <th><?= __('statusPage.min') ?></th>
+                                        <th><?= __('statusPage.max') ?></th>
+                                        <th><?= __('statusPage.avg') ?></th>
+                                        <th><?= __('statusPage.median') ?></th>
                                     </tr>
                                 </thead>
                                 <tbody id="phaseSummaryBody">
@@ -2462,7 +2462,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-lg-5">
                 <div class="status-section h-100">
                     <div class="status-section-header">
-                        <span><i class="fas fa-fire mr-2"></i>Peak Hours (7 Day Heatmap)</span>
+                        <span><i class="fas fa-fire mr-2"></i><?= __('statusPage.peakHours') ?></span>
                     </div>
                     <div style="padding: 8px; overflow-x: auto;">
                         <?php
@@ -2522,7 +2522,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-4">
                 <div class="chart-container">
                     <div class="chart-header">
-                        <span class="chart-title"><i class="fas fa-chart-area mr-1"></i> Processing Rate</span>
+                        <span class="chart-title"><i class="fas fa-chart-area mr-1"></i> <?= __('statusPage.processingRate') ?></span>
                         <span class="runtime-badge"><?= number_format($liveData['queue_complete_1h']) ?>/hr</span>
                     </div>
                     <div class="chart-wrapper">
@@ -2533,7 +2533,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-4">
                 <div class="chart-container">
                     <div class="chart-header">
-                        <span class="chart-title"><i class="fas fa-clock mr-1"></i> API Latency</span>
+                        <span class="chart-title"><i class="fas fa-clock mr-1"></i> <?= __('statusPage.apiLatency') ?></span>
                         <span class="runtime-badge">Live</span>
                     </div>
                     <div class="chart-wrapper">
@@ -2544,20 +2544,20 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-4">
                 <div class="chart-container">
                     <div class="chart-header">
-                        <span class="chart-title"><i class="fas fa-database mr-1"></i> Data Sizes</span>
+                        <span class="chart-title"><i class="fas fa-database mr-1"></i> <?= __('statusPage.dataSizes') ?></span>
                     </div>
                     <div class="d-flex justify-content-around align-items-center" style="height: 120px;">
                         <div class="text-center">
                             <div class="data-size data-size-large"><?= number_format($liveData['queue_total']) ?></div>
-                            <div class="metric-sublabel">Queue Records</div>
+                            <div class="metric-sublabel"><?= __('statusPage.queueRecords') ?></div>
                         </div>
                         <div class="text-center">
                             <div class="data-size data-size-large"><?= number_format($liveData['waypoints_total']) ?></div>
-                            <div class="metric-sublabel">Waypoints</div>
+                            <div class="metric-sublabel"><?= __('statusPage.waypoints') ?></div>
                         </div>
                         <div class="text-center">
                             <div class="data-size data-size-large"><?= number_format($liveData['boundaries_total']) ?></div>
-                            <div class="metric-sublabel">Boundaries</div>
+                            <div class="metric-sublabel"><?= __('statusPage.boundaries') ?></div>
                         </div>
                     </div>
                 </div>
@@ -2570,7 +2570,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <!-- CATEGORY: INFRASTRUCTURE & HEALTH -->
         <!-- ============================================ -->
         <div class="category-header" id="cat-infra-header" onclick="toggleCategory('cat-infra')">
-            <span><i class="fas fa-server"></i>Infrastructure & Health</span>
+            <span><i class="fas fa-server"></i><?= __('statusPage.infrastructure') ?></span>
             <i class="fas fa-chevron-down toggle-icon"></i>
         </div>
         <div class="category-content" id="cat-infra-content">
@@ -2581,15 +2581,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Database Connections -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-database mr-2"></i>Database Connections</span>
-                        <span class="cycle-badge">Live</span>
+                        <span><i class="fas fa-database mr-2"></i><?= __('statusPage.databaseConnections') ?></span>
+                        <span class="cycle-badge"><?= __('statusPage.live') ?></span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Database</th>
-                                <th>Status</th>
-                                <th>Info</th>
+                                <th><?= __('statusPage.database') ?></th>
+                                <th><?= __('common.status') ?></th>
+                                <th><?= __('statusPage.info') ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2600,9 +2600,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['adl_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge down">Offline</span>
+                                        <span class="status-badge down"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="timing-info"><?= $liveData['last_vatsim_refresh'] ?? 'N/A' ?></td>
@@ -2614,9 +2614,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['mysql_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge down">Offline</span>
+                                        <span class="status-badge down"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="comment-text on-time">ON-TIME</td>
@@ -2628,7 +2628,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['tmi_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
                                         <span class="status-badge warning">Offline</span>
                                     <?php endif; ?>
@@ -2642,7 +2642,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['gis_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
                                         <span class="status-badge warning">Offline</span>
                                     <?php endif; ?>
@@ -2656,7 +2656,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['swim_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
                                         <span class="status-badge warning">Offline</span>
                                     <?php endif; ?>
@@ -2670,7 +2670,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 </td>
                                 <td>
                                     <?php if ($liveData['ref_connected']): ?>
-                                        <span class="status-badge up">Connected</span>
+                                        <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
                                         <span class="status-badge warning">Offline</span>
                                     <?php endif; ?>
@@ -2684,15 +2684,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- External API Health -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-plug mr-2"></i>External APIs</span>
-                        <span class="cycle-badge">Health Check</span>
+                        <span><i class="fas fa-plug mr-2"></i><?= __('statusPage.externalApis') ?></span>
+                        <span class="cycle-badge"><?= __('statusPage.healthCheck') ?></span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Service</th>
-                                <th>Status</th>
-                                <th>Latency</th>
+                                <th><?= __('statusPage.service') ?></th>
+                                <th><?= __('common.status') ?></th>
+                                <th><?= __('statusPage.latency') ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2745,15 +2745,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Recent Activity -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-chart-line mr-2"></i>Recent Activity (1h)</span>
-                        <span class="cycle-badge">Metrics</span>
+                        <span><i class="fas fa-chart-line mr-2"></i><?= __('statusPage.recentActivity1h') ?></span>
+                        <span class="cycle-badge"><?= __('statusPage.metrics') ?></span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Metric</th>
-                                <th>Count</th>
-                                <th>Status</th>
+                                <th><?= __('statusPage.metric') ?></th>
+                                <th><?= __('statusPage.count') ?></th>
+                                <th><?= __('common.status') ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2814,8 +2814,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Resource Tree -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-sitemap mr-2"></i>Resource Tree</span>
-                        <span class="cycle-badge">Architecture</span>
+                        <span><i class="fas fa-sitemap mr-2"></i><?= __('statusPage.resourceTree') ?></span>
+                        <span class="cycle-badge"><?= __('statusPage.architecture') ?></span>
                     </div>
                     <div class="resource-tree">
                         <div class="tree-node">
@@ -3543,7 +3543,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <!-- CATEGORY: DATA PROCESSING -->
         <!-- ============================================ -->
         <div class="category-header" id="cat-processing-header" onclick="toggleCategory('cat-processing')">
-            <span><i class="fas fa-cogs"></i>Data Processing</span>
+            <span><i class="fas fa-cogs"></i><?= __('statusPage.dataProcessing') ?></span>
             <i class="fas fa-chevron-down toggle-icon"></i>
         </div>
         <div class="category-content" id="cat-processing-content">
@@ -3946,7 +3946,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <!-- CATEGORY: SYSTEM INTERNALS -->
         <!-- ============================================ -->
         <div class="category-header" id="cat-system-header" onclick="toggleCategory('cat-system')">
-            <span><i class="fas fa-microchip"></i>System Internals</span>
+            <span><i class="fas fa-microchip"></i><?= __('statusPage.systemInternals') ?></span>
             <i class="fas fa-chevron-down toggle-icon"></i>
         </div>
         <div class="category-content" id="cat-system-content">
@@ -4085,7 +4085,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         <!-- CATEGORY: ANALYTICS & STATS -->
         <!-- ============================================ -->
         <div class="category-header" id="cat-analytics-header" onclick="toggleCategory('cat-analytics')">
-            <span><i class="fas fa-chart-bar"></i>Analytics & Stats</span>
+            <span><i class="fas fa-chart-bar"></i><?= __('statusPage.analyticsStats') ?></span>
             <i class="fas fa-chevron-down toggle-icon"></i>
         </div>
         <div class="category-content" id="cat-analytics-content">

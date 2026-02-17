@@ -84,8 +84,8 @@ if (!$perm) {
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <h2><i class="fas fa-draw-polygon text-primary"></i> Airspace Elements</h2>
-            <p class="text-muted">Define custom airspace volumes, points, and lines for planned crossing analysis.</p>
+            <h2><i class="fas fa-draw-polygon text-primary"></i> <?= __('airspace.page.title') ?></h2>
+            <p class="text-muted"><?= __('airspace.page.subtitle') ?></p>
         </div>
     </div>
 
@@ -93,10 +93,10 @@ if (!$perm) {
     <div class="row mb-3">
         <div class="col-12">
             <button class="btn btn-success" data-toggle="modal" data-target="#createElementModal">
-                <i class="fas fa-plus"></i> Create Element
+                <i class="fas fa-plus"></i> <?= __('airspace.page.createElement') ?>
             </button>
             <button class="btn btn-outline-secondary ml-2" onclick="refreshElements()">
-                <i class="fas fa-sync-alt"></i> Refresh
+                <i class="fas fa-sync-alt"></i> <?= __('airspace.page.refresh') ?>
             </button>
         </div>
     </div>
@@ -105,31 +105,31 @@ if (!$perm) {
     <div class="filter-section">
         <div class="row">
             <div class="col-md-3">
-                <label class="small text-muted">Element Type</label>
+                <label class="small text-muted"><?= __('airspace.page.elementType') ?></label>
                 <select id="filterType" class="form-control form-control-sm" onchange="refreshElements()">
-                    <option value="">All Types</option>
-                    <option value="VOLUME">Volume</option>
-                    <option value="POINT">Point</option>
-                    <option value="LINE">Line</option>
+                    <option value=""><?= __('airspace.page.allTypes') ?></option>
+                    <option value="VOLUME"><?= __('airspace.page.volume') ?></option>
+                    <option value="POINT"><?= __('airspace.page.point') ?></option>
+                    <option value="LINE"><?= __('airspace.page.line') ?></option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="small text-muted">Category</label>
+                <label class="small text-muted"><?= __('airspace.page.category') ?></label>
                 <select id="filterCategory" class="form-control form-control-sm" onchange="refreshElements()">
-                    <option value="">All Categories</option>
+                    <option value=""><?= __('airspace.page.allCategories') ?></option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="small text-muted">Status</label>
+                <label class="small text-muted"><?= __('common.status') ?></label>
                 <select id="filterActive" class="form-control form-control-sm" onchange="refreshElements()">
-                    <option value="1">Active Only</option>
-                    <option value="0">Inactive Only</option>
+                    <option value="1"><?= __('airspace.page.activeOnly') ?></option>
+                    <option value="0"><?= __('airspace.page.inactiveOnly') ?></option>
                     <option value="">All</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="small text-muted">Search</label>
-                <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="Search by name..." onkeyup="debounceSearch()">
+                <label class="small text-muted"><?= __('common.search') ?></label>
+                <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="<?= __('airspace.page.searchPlaceholder') ?>" onkeyup="debounceSearch()">
             </div>
         </div>
     </div>
@@ -138,7 +138,7 @@ if (!$perm) {
     <div id="elementsList" class="row">
         <div class="col-12 text-center py-5">
             <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-            <p class="text-muted mt-2">Loading elements...</p>
+            <p class="text-muted mt-2"><?= __('airspace.page.loadingElements') ?></p>
         </div>
     </div>
 
@@ -149,7 +149,7 @@ if (!$perm) {
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-plus"></i> Create Airspace Element</h5>
+                <h5 class="modal-title"><i class="fas fa-plus"></i> <?= __('airspace.page.createAirspaceElement') ?></h5>
                 <button type="button" class="close text-white" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
@@ -159,26 +159,26 @@ if (!$perm) {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Element Name <span class="text-danger">*</span></label>
+                                <label><?= __('airspace.page.elementName') ?> <span class="text-danger">*</span></label>
                                 <input type="text" name="element_name" class="form-control" required placeholder="e.g., FCA_KJFK_WEST">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Element Type <span class="text-danger">*</span></label>
+                                <label><?= __('airspace.page.elementType') ?> <span class="text-danger">*</span></label>
                                 <select name="element_type" class="form-control" required onchange="updateSubtypeOptions(this.value, 'create')">
                                     <option value="">Select...</option>
-                                    <option value="VOLUME">Volume</option>
-                                    <option value="POINT">Point</option>
-                                    <option value="LINE">Line</option>
+                                    <option value="VOLUME"><?= __('airspace.page.volume') ?></option>
+                                    <option value="POINT"><?= __('airspace.page.point') ?></option>
+                                    <option value="LINE"><?= __('airspace.page.line') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Subtype</label>
+                                <label><?= __('airspace.page.subtype') ?></label>
                                 <select name="element_subtype" id="createSubtype" class="form-control">
-                                    <option value="">Select type first...</option>
+                                    <option value=""><?= __('airspace.page.selectTypeFirst') ?></option>
                                 </select>
                             </div>
                         </div>
@@ -187,7 +187,7 @@ if (!$perm) {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Category</label>
+                                <label><?= __('airspace.page.category') ?></label>
                                 <select name="category" class="form-control">
                                     <option value="">None</option>
                                     <option value="TMI">TMI</option>
@@ -200,74 +200,74 @@ if (!$perm) {
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Description</label>
-                                <input type="text" name="description" class="form-control" placeholder="Brief description...">
+                                <label><?= __('airspace.page.descriptionLabel') ?></label>
+                                <input type="text" name="description" class="form-control" placeholder="<?= __('airspace.page.descriptionPlaceholder') ?>">
                             </div>
                         </div>
                     </div>
 
                     <hr>
-                    <h6 class="text-muted">Reference (Optional - link to existing data)</h6>
+                    <h6 class="text-muted"><?= __('airspace.page.reference') ?></h6>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Reference Boundary</label>
+                                <label><?= __('airspace.page.referenceBoundary') ?></label>
                                 <select name="reference_boundary_id" class="form-control selectpicker" data-live-search="true" data-size="10">
-                                    <option value="">None (Custom)</option>
+                                    <option value=""><?= __('airspace.page.noneCustom') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Reference Fix</label>
+                                <label><?= __('airspace.page.referenceFix') ?></label>
                                 <input type="text" name="reference_fix_name" class="form-control" placeholder="e.g., JFK">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Reference Airway</label>
+                                <label><?= __('airspace.page.referenceAirway') ?></label>
                                 <input type="text" name="reference_airway" class="form-control" placeholder="e.g., J60">
                             </div>
                         </div>
                     </div>
 
                     <hr>
-                    <h6 class="text-muted">Constraints (Optional)</h6>
+                    <h6 class="text-muted"><?= __('airspace.page.constraints') ?></h6>
 
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Radius (nm)</label>
+                                <label><?= __('airspace.page.radiusNm') ?></label>
                                 <input type="number" name="radius_nm" class="form-control" step="0.1" placeholder="For points">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Floor (FL)</label>
+                                <label><?= __('airspace.page.floorFl') ?></label>
                                 <input type="number" name="floor_fl" class="form-control" placeholder="e.g., 240">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Ceiling (FL)</label>
+                                <label><?= __('airspace.page.ceilingFl') ?></label>
                                 <input type="number" name="ceiling_fl" class="form-control" placeholder="e.g., 450">
                             </div>
                         </div>
                     </div>
 
                     <hr>
-                    <h6 class="text-muted">Custom Geometry (Optional - WKT format)</h6>
+                    <h6 class="text-muted"><?= __('airspace.page.customGeometry') ?></h6>
                     <div class="form-group">
                         <textarea name="geometry_wkt" class="form-control" rows="3" placeholder="POLYGON((-77.0 38.9, -77.1 38.9, -77.1 38.8, -77.0 38.8, -77.0 38.9))"></textarea>
-                        <small class="form-text text-muted">Use WKT format: POLYGON, POINT, or LINESTRING</small>
+                        <small class="form-text text-muted"><?= __('airspace.page.wktHelp') ?></small>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.cancel') ?></button>
                 <button type="button" class="btn btn-success" onclick="createElement()">
-                    <i class="fas fa-plus"></i> Create Element
+                    <i class="fas fa-plus"></i> <?= __('airspace.page.createElement') ?>
                 </button>
             </div>
         </div>
@@ -279,7 +279,7 @@ if (!$perm) {
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-edit"></i> Edit Airspace Element</h5>
+                <h5 class="modal-title"><i class="fas fa-edit"></i> <?= __('airspace.page.editAirspaceElement') ?></h5>
                 <button type="button" class="close text-white" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
@@ -290,23 +290,23 @@ if (!$perm) {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Element Name <span class="text-danger">*</span></label>
+                                <label><?= __('airspace.page.elementName') ?> <span class="text-danger">*</span></label>
                                 <input type="text" name="element_name" id="editElementName" class="form-control" required>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Element Type <span class="text-danger">*</span></label>
+                                <label><?= __('airspace.page.elementType') ?> <span class="text-danger">*</span></label>
                                 <select name="element_type" id="editElementType" class="form-control" required onchange="updateSubtypeOptions(this.value, 'edit')">
-                                    <option value="VOLUME">Volume</option>
-                                    <option value="POINT">Point</option>
-                                    <option value="LINE">Line</option>
+                                    <option value="VOLUME"><?= __('airspace.page.volume') ?></option>
+                                    <option value="POINT"><?= __('airspace.page.point') ?></option>
+                                    <option value="LINE"><?= __('airspace.page.line') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Subtype</label>
+                                <label><?= __('airspace.page.subtype') ?></label>
                                 <select name="element_subtype" id="editSubtype" class="form-control"></select>
                             </div>
                         </div>
@@ -315,7 +315,7 @@ if (!$perm) {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Category</label>
+                                <label><?= __('airspace.page.category') ?></label>
                                 <select name="category" id="editCategory" class="form-control">
                                     <option value="">None</option>
                                     <option value="TMI">TMI</option>
@@ -328,7 +328,7 @@ if (!$perm) {
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Description</label>
+                                <label><?= __('airspace.page.descriptionLabel') ?></label>
                                 <input type="text" name="description" id="editDescription" class="form-control">
                             </div>
                         </div>
@@ -337,19 +337,19 @@ if (!$perm) {
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Radius (nm)</label>
+                                <label><?= __('airspace.page.radiusNm') ?></label>
                                 <input type="number" name="radius_nm" id="editRadius" class="form-control" step="0.1">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Floor (FL)</label>
+                                <label><?= __('airspace.page.floorFl') ?></label>
                                 <input type="number" name="floor_fl" id="editFloor" class="form-control">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>Ceiling (FL)</label>
+                                <label><?= __('airspace.page.ceilingFl') ?></label>
                                 <input type="number" name="ceiling_fl" id="editCeiling" class="form-control">
                             </div>
                         </div>
@@ -365,18 +365,18 @@ if (!$perm) {
                     </div>
 
                     <div class="form-group">
-                        <label>Custom Geometry (WKT)</label>
+                        <label><?= __('airspace.page.customGeometry') ?></label>
                         <textarea name="geometry_wkt" id="editGeometry" class="form-control" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-danger mr-auto" onclick="deleteElement()">
-                    <i class="fas fa-trash"></i> Delete
+                    <i class="fas fa-trash"></i> <?= __('common.delete') ?>
                 </button>
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.cancel') ?></button>
                 <button type="button" class="btn btn-primary" onclick="updateElement()">
-                    <i class="fas fa-save"></i> Save Changes
+                    <i class="fas fa-save"></i> <?= __('common.saveChanges') ?>
                 </button>
             </div>
         </div>
