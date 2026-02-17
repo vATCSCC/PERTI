@@ -37,6 +37,15 @@ $stmt_plans->bind_param("s", $org);
 $stmt_plans->execute();
 $query = $stmt_plans->get_result();
 
+// Org display names for scope badges
+$org_display = [];
+$org_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations");
+if ($org_result) {
+    while ($org_row = $org_result->fetch_assoc()) {
+        $org_display[$org_row['org_code']] = $org_row['display_name'];
+    }
+}
+
 // Hotline badge abbreviations
 $hotline_badges = [
     'NY Metro' => 'NYC',
@@ -72,8 +81,17 @@ while ($data = mysqli_fetch_array($query)) {
         $icon_prefix = '<i class="fas fa-tree fa-sm text-success" style="margin-right: 4px;"></i>';
     }
 
+    // Scope indicator
+    $plan_org = $data['org_code'] ?? null;
+    if ($plan_org === null) {
+        $scope_badge = ' <i class="fas fa-globe-americas text-muted fa-sm" data-toggle="tooltip" title="Global"></i>';
+    } else {
+        $scope_label = $org_display[$plan_org] ?? strtoupper($plan_org);
+        $scope_badge = ' <span class="badge badge-dark" data-toggle="tooltip" title="'.$scope_label.' Only" style="font-size: 0.65em;">'.$scope_label.'</span>';
+    }
+
     echo '<tr>';
-    echo '<td>'.$icon_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$hotline.' Hotline">'.$hotline_badge.'</span></td>';
+    echo '<td>'.$icon_prefix.$data['event_name'].' <span class="badge badge-secondary" data-toggle="tooltip" title="'.$hotline.' Hotline">'.$hotline_badge.'</span>'.$scope_badge.'</td>';
     
     // Start Date
     echo '<td class="text-center">'.$data['event_date'].'</td>';
