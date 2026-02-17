@@ -46,6 +46,12 @@ $first_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['f
 $last_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['last_name'])));
 $n_cid = post_input('cid');
 
+// Org memberships from form checkboxes (defaults to vatcscc if none selected)
+$orgs = $_POST['orgs'] ?? ['vatcscc'];
+if (!is_array($orgs) || empty($orgs)) {
+    $orgs = ['vatcscc'];
+}
+
 // Insert Data into Database
 try {
 
@@ -57,6 +63,18 @@ try {
     VALUES ($n_cid, '$first_name', '$last_name')";
 
     $conn_pdo->exec($sql);
+
+    // Create org memberships
+    $assigner_cid = intval($_SESSION['VATSIM_CID'] ?? 0);
+    $is_first = true;
+    foreach ($orgs as $org) {
+        $org = preg_replace('/[^a-z]/', '', $org);
+        $is_primary = $is_first ? 1 : 0;
+        $stmt = mysqli_prepare($conn_sqli, "INSERT IGNORE INTO user_orgs (cid, org_code, is_privileged, is_primary, assigned_by) VALUES (?, ?, 0, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "isii", $n_cid, $org, $is_primary, $assigner_cid);
+        mysqli_stmt_execute($stmt);
+        $is_first = false;
+    }
 
     $conn_pdo->commit();
     http_response_code(200);

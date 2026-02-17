@@ -216,6 +216,18 @@ include('load/nav.php');
                     <?= __('schedule.page.lastName') ?>
                     <input type="text" name="last_name" class="form-control" id="last_name">
 
+                    <hr>
+                    <label><b>Organization</b></label>
+                    <?php
+                        $orgs_q = $conn_sqli->query("SELECT org_code, display_name FROM organizations WHERE is_active = 1 ORDER BY org_code");
+                        while ($org_row = mysqli_fetch_assoc($orgs_q)):
+                    ?>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="orgs[]" value="<?= $org_row['org_code'] ?>" id="add-org-<?= $org_row['org_code'] ?>" <?= $org_row['org_code'] === 'vatcscc' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="add-org-<?= $org_row['org_code'] ?>"><?= $org_row['display_name'] ?></label>
+                    </div>
+                    <?php endwhile; ?>
+
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-success" value="Add">
