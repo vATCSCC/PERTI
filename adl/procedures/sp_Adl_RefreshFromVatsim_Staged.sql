@@ -1,25 +1,25 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Staged V9.1.0 - Position Skip-Unchanged Optimization
+-- sp_Adl_RefreshFromVatsim_Staged V9.3.0 - Delta Detection (Skip Heartbeat Flights)
 --
--- V9.1.0 Changes:
---   - Position updates now skip unchanged flights (saves 30-40% of writes)
---   - Thresholds: 0.0001° lat/lon (~11m), 50ft altitude, 2kts groundspeed
---   - Replaces MERGE with INSERT + conditional UPDATE for positions
---   - Adds @positions_inserted and @positions_updated counters
+-- V9.3.0 Changes:
+--   - PHP daemon detects unchanged flights (change_flags bitmask in staging)
+--   - Heartbeat flights (change_flags=0) skip geography, position, plan, aircraft
+--   - Heartbeat flights only get timestamps updated (is_active, last_seen_utc)
+--   - Trajectory logging (Step 8) is NOT filtered - all flights get trajectory points
+--   - Two-layer threshold: PHP exact match (processing) + SQL V9.1 (disk write I/O)
+--
+-- change_flags bitmask:
+--   Bit 0 (1): POSITION_CHANGED
+--   Bit 1 (2): PLAN_CHANGED
+--   Bit 2 (4): NEW_FLIGHT
+--   Value 0:   Heartbeat (identical to previous cycle)
+--   Default 15: Full processing (backward-compatible)
+--
+-- V9.1.0 Changes (kept):
+--   - Position write threshold: 0.0001deg lat/lon, 50ft alt, 2kts gs
 --
 -- V9.0.0 Changes (kept):
---   - Reads from staging tables instead of parsing JSON with OPENJSON
---   - OPENJSON parsing: 3-5 seconds (SQL compute)
---   - Staging table read: ~100ms (much faster)
---   - PHP does JSON parsing: ~100ms (fixed-cost App Service)
---
--- Cost savings: ~50% reduction in Azure SQL Serverless vCore-hours
---
--- Architecture:
---   1. PHP daemon parses VATSIM JSON
---   2. PHP inserts data into adl_staging_pilots / adl_staging_prefiles
---   3. PHP calls this SP with @batch_id
---   4. SP reads from staging tables (no OPENJSON)
+--   - Reads from staging tables instead of OPENJSON
 -- ============================================================================
 
 SET ANSI_NULLS ON;
@@ -96,6 +96,7 @@ BEGIN
         s.flight_key,
         s.route_hash,
         s.airline_icao,
+        s.change_flags,
         -- Placeholders for enrichment
         CAST(NULL AS DECIMAL(10,7)) AS dept_lat,
         CAST(NULL AS DECIMAL(11,7)) AS dept_lon,
@@ -124,7 +125,9 @@ BEGIN
     SET @step1_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 1b: Enrich with airport data (unchanged)
+    -- Step 1b: Enrich with airport data (V9.3.0 - filtered for changed flights)
+    -- Airport lat/lon lookups (cheap JOINs) run for ALL flights.
+    -- Geography::Point distance calculations only run for changed/new flights.
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
@@ -146,6 +149,8 @@ BEGIN
     INNER JOIN dbo.apts a ON a.ICAO_ID = p.dest_icao
     WHERE p.dest_icao IS NOT NULL;
 
+    -- V9.3.0: Skip expensive geography calculations for heartbeat flights
+    -- change_flags & 5 = POSITION_CHANGED (1) or NEW_FLIGHT (4)
     UPDATE #pilots
     SET
         gcd_nm = CASE
@@ -172,7 +177,8 @@ BEGIN
                  geography::Point(lat, lon, 4326)) / 1852.0
             ELSE NULL
         END
-    WHERE lat IS NOT NULL
+    WHERE (change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
+      AND lat IS NOT NULL
       AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180;
 
     UPDATE #pilots
@@ -184,15 +190,20 @@ BEGIN
         END
         ELSE NULL
     END
-    WHERE gcd_nm IS NOT NULL;
+    WHERE (change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
+      AND gcd_nm IS NOT NULL;
 
     SET @step1b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 2: Upsert adl_flight_core (unchanged)
+    -- Step 2: Upsert adl_flight_core (V9.3.0 - split heartbeat / full)
+    -- Heartbeat flights (change_flags=0) only get timestamps updated.
+    -- Changed flights get full phase recalculation.
+    -- New flight INSERT is unfiltered (only fires for missing flight_key).
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
+    -- 2a. INSERT new flights (unfiltered - only fires for flights NOT in adl_flight_core)
     INSERT INTO dbo.adl_flight_core (
         flight_key, cid, callsign, flight_id,
         phase, last_source, is_active,
@@ -219,6 +230,18 @@ BEGIN
 
     SET @new_flights = @@ROWCOUNT;
 
+    -- 2b. Heartbeat: timestamps only (no phase recalc, no CASE expression)
+    -- These flights have pct_complete=NULL (Step 1b skipped), so they must NOT
+    -- enter the phase CASE expression which depends on pct_complete.
+    UPDATE c
+    SET c.is_active = 1,
+        c.last_seen_utc = @now,
+        c.snapshot_utc = @now
+    FROM dbo.adl_flight_core c
+    INNER JOIN #pilots p ON c.flight_key = p.flight_key
+    WHERE p.change_flags = 0;
+
+    -- 2c. Changed: full update with phase recalculation
     UPDATE c
     SET c.is_active = 1,
         c.last_seen_utc = @now,
@@ -234,7 +257,8 @@ BEGIN
         END,
         c.flight_id = COALESCE(p.flight_server, c.flight_id)
     FROM dbo.adl_flight_core c
-    INNER JOIN #pilots p ON c.flight_key = p.flight_key;
+    INNER JOIN #pilots p ON c.flight_key = p.flight_key
+    WHERE p.change_flags > 0;
 
     SET @updated_flights = @@ROWCOUNT;
 
@@ -352,16 +376,17 @@ BEGIN
     SET @step2b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 3: Upsert adl_flight_position (OPTIMIZED V9.1 - skip unchanged)
-    -- Only UPDATE if position actually changed (saves 30-40% of writes)
-    -- Thresholds: 0.0001° lat/lon (~11m), 50ft altitude, 2kts groundspeed
+    -- Step 3: Upsert adl_flight_position (V9.3.0 - delta filtered + V9.1 threshold)
+    -- Two-layer optimization:
+    --   Layer 1 (PHP): Exact match — heartbeat flights skip entirely
+    --   Layer 2 (SQL): V9.1 threshold — skip disk write for sub-meaningful jitter
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
     DECLARE @positions_inserted INT = 0;
     DECLARE @positions_updated INT = 0;
 
-    -- 3a. INSERT new positions (flights without existing position record)
+    -- 3a. INSERT new positions (NEW_FLIGHT or POSITION_CHANGED, no existing record)
     INSERT INTO dbo.adl_flight_position (
         flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
         heading_deg, qnh_in_hg, qnh_mb, dist_to_dest_nm, dist_flown_nm,
@@ -376,6 +401,7 @@ BEGIN
     FROM #pilots p
     WHERE p.flight_uid IS NOT NULL
       AND p.lat IS NOT NULL
+      AND (p.change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
       AND p.lat BETWEEN -90 AND 90
       AND p.lon BETWEEN -180 AND 180
       AND NOT EXISTS (
@@ -385,7 +411,7 @@ BEGIN
 
     SET @positions_inserted = @@ROWCOUNT;
 
-    -- 3b. UPDATE only positions that actually changed
+    -- 3b. UPDATE only positions that changed (delta filtered + V9.1 write threshold)
     UPDATE pos
     SET
         lat = p.lat,
@@ -403,15 +429,14 @@ BEGIN
     FROM dbo.adl_flight_position pos
     INNER JOIN #pilots p ON p.flight_uid = pos.flight_uid
     WHERE p.lat IS NOT NULL
+      AND (p.change_flags & 1) > 0  -- POSITION_CHANGED (PHP exact match passed)
       AND p.lat BETWEEN -90 AND 90
       AND p.lon BETWEEN -180 AND 180
       AND (
-          -- Position changed by > ~11 meters
+          -- V9.1 write threshold: skip disk write for sub-meaningful jitter
           ABS(pos.lat - p.lat) > 0.0001
           OR ABS(pos.lon - p.lon) > 0.0001
-          -- Altitude changed by > 50 feet
           OR ABS(ISNULL(pos.altitude_ft, 0) - ISNULL(p.altitude_ft, 0)) > 50
-          -- Speed changed by > 2 knots
           OR ABS(ISNULL(pos.groundspeed_kts, 0) - ISNULL(p.groundspeed_kts, 0)) > 2
       );
 
@@ -433,12 +458,13 @@ BEGIN
     WHERE p.flight_uid IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM dbo.adl_flight_plan fp WHERE fp.flight_uid = p.flight_uid);
 
-    -- 4b. Identify flights with route changes (existing flights, hash mismatch)
+    -- 4b. Identify flights with route changes (V9.3.0: only PLAN_CHANGED flights)
     SELECT p.flight_uid, p.route_hash
     INTO #route_changes
     FROM #pilots p
     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = p.flight_uid
     WHERE p.flight_uid IS NOT NULL
+      AND (p.change_flags & 2) > 0  -- PLAN_CHANGED
       AND p.route IS NOT NULL
       AND LEN(LTRIM(RTRIM(p.route))) > 0
       AND (fp.fp_hash IS NULL OR fp.fp_hash != p.route_hash);
@@ -677,7 +703,8 @@ BEGIN
     SET @step5b_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 6: Upsert adl_flight_aircraft (unchanged)
+    -- Step 6: Upsert adl_flight_aircraft (V9.3.0: only new/plan-changed flights)
+    -- Aircraft type comes from flight plan, so only changes when plan changes.
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
@@ -706,7 +733,8 @@ BEGIN
         FROM #pilots p
         LEFT JOIN dbo.ACD_Data acd ON acd.ICAO_Code = CASE WHEN p.aircraft_faa_raw LIKE '%/%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2) WHEN p.aircraft_faa_raw LIKE '%/%' THEN PARSENAME(REPLACE(p.aircraft_faa_raw, '/', '.'), 2) ELSE COALESCE(p.aircraft_short, p.aircraft_faa_raw) END
         LEFT JOIN dbo.airlines al ON al.icao = p.airline_icao
-        WHERE p.flight_uid IS NOT NULL AND (p.aircraft_faa_raw IS NOT NULL OR p.aircraft_short IS NOT NULL)
+        WHERE p.flight_uid IS NOT NULL AND (p.change_flags & 6) > 0  -- PLAN_CHANGED or NEW_FLIGHT
+          AND (p.aircraft_faa_raw IS NOT NULL OR p.aircraft_short IS NOT NULL)
     ) AS source
     ON target.flight_uid = source.flight_uid
     WHEN MATCHED THEN
@@ -827,6 +855,10 @@ BEGIN
     -- Cleanup and return stats
     -- ========================================================================
 
+    -- V9.3.0: Count heartbeat flights for monitoring
+    DECLARE @heartbeat_count INT = 0;
+    SELECT @heartbeat_count = COUNT(*) FROM #pilots WHERE change_flags = 0;
+
     DROP TABLE IF EXISTS #route_changes;
     DROP TABLE IF EXISTS #pilots;
 
@@ -834,6 +866,7 @@ BEGIN
 
     SELECT
         @pilot_count AS pilots_received,
+        @heartbeat_count AS heartbeat_flights,
         @new_flights AS new_flights,
         @updated_flights AS updated_flights,
         @positions_inserted AS positions_inserted,
@@ -877,8 +910,9 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.1.0 created successfully';
-PRINT 'V9.1.0: Position updates skip unchanged flights (saves 30-40% writes)';
+PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.3.0 created successfully';
+PRINT 'V9.3.0: Delta detection - heartbeat flights skip geography, position, plan, aircraft';
+PRINT 'V9.1.0: Position write threshold (0.0001deg, 50ft, 2kts) retained as secondary filter';
 PRINT 'V9.0.0: Reads from staging tables instead of OPENJSON';
-PRINT 'Expected Step 3 improvement: ~800ms -> ~500ms';
+PRINT 'Expected improvement: ~350-500ms per cycle at 2500 pilots';
 GO

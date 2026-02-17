@@ -367,6 +367,7 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
             // This is the V8.9 result set with step timings
             $result['stats'] = [
                 'pilots'      => $row['pilots_received'] ?? 0,
+                'heartbeat'   => $row['heartbeat_flights'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
                 'pos_ins'     => $row['positions_inserted'] ?? 0,
@@ -781,6 +782,7 @@ function insertPilotsBulkLiteral($conn, array $pilots, string $batchId, int $bat
                 sqlEscapeString($p['flight_key']),
                 sqlEscapeBinary($p['route_hash']),
                 sqlEscapeString($p['airline_icao']),
+                sqlEscapeNumber($p['change_flags'] ?? 15, true),
                 $escapedBatchId,
             ];
 
@@ -793,7 +795,7 @@ function insertPilotsBulkLiteral($conn, array $pilots, string $batchId, int $bat
             fp_rule, dept_icao, dest_icao, alt_icao, route, remarks,
             altitude_filed_raw, tas_filed_raw, dep_time_z, enroute_time_raw,
             fuel_time_raw, aircraft_faa_raw, aircraft_short, fp_dof_raw,
-            flight_key, route_hash, airline_icao, batch_id
+            flight_key, route_hash, airline_icao, change_flags, batch_id
         ) VALUES " . implode(',', $valuesClauses);
 
         $stmt = sqlsrv_query($conn, $sql);
@@ -903,6 +905,7 @@ function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skip
         if ($row && isset($row['pilots_received']) && isset($row['step1_json_ms'])) {
             $result['stats'] = [
                 'pilots'      => $row['pilots_received'] ?? 0,
+                'heartbeat'   => $row['heartbeat_flights'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
                 'pos_ins'     => $row['positions_inserted'] ?? 0,
@@ -956,6 +959,54 @@ function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skip
     }
 
     return $result;
+}
+
+// ============================================================================
+// DELTA DETECTION (V9.3.0)
+// ============================================================================
+
+/**
+ * Compare current pilot data against previous cycle to detect changes.
+ *
+ * Returns a bitmask:
+ *   1 = POSITION_CHANGED (lat, lon, altitude, groundspeed, heading)
+ *   2 = PLAN_CHANGED     (route_hash, altitude, TAS, rule, aircraft, remarks)
+ *   4 = NEW_FLIGHT       (flight_key not in previous cycle)
+ *   0 = Heartbeat        (everything identical — skip expensive processing)
+ *
+ * Position uses loose comparison (!=) for float tolerance.
+ * Integers and strings use strict comparison (!==).
+ */
+function computeChangeFlags(array $current, ?array $previous): int {
+    if ($previous === null) {
+        return 7; // NEW_FLIGHT | PLAN_CHANGED | POSITION_CHANGED
+    }
+
+    $flags = 0;
+
+    // Position: exact match (zero threshold) for robust state tracking
+    if (($current['lat'] ?? 0) != ($previous['lat'] ?? 0)
+        || ($current['lon'] ?? 0) != ($previous['lon'] ?? 0)
+        || ($current['altitude_ft'] ?? 0) !== ($previous['altitude_ft'] ?? 0)
+        || ($current['groundspeed_kts'] ?? 0) !== ($previous['groundspeed_kts'] ?? 0)
+        || ($current['heading_deg'] ?? 0) !== ($previous['heading_deg'] ?? 0)
+    ) {
+        $flags |= 1; // POSITION_CHANGED
+    }
+
+    // Plan: compare ALL plan-relevant fields (not just route hash)
+    // Catches: route change, altitude amendment, TAS change, aircraft swap, rule change, remarks edit
+    if (($current['route_hash'] ?? '') !== ($previous['route_hash'] ?? '')
+        || ($current['altitude_filed_raw'] ?? '') !== ($previous['altitude_filed_raw'] ?? '')
+        || ($current['tas_filed_raw'] ?? '') !== ($previous['tas_filed_raw'] ?? '')
+        || ($current['fp_rule'] ?? '') !== ($previous['fp_rule'] ?? '')
+        || ($current['aircraft_faa_raw'] ?? '') !== ($previous['aircraft_faa_raw'] ?? '')
+        || ($current['remarks'] ?? '') !== ($previous['remarks'] ?? '')
+    ) {
+        $flags |= 2; // PLAN_CHANGED
+    }
+
+    return $flags;
 }
 
 /**
@@ -1732,6 +1783,8 @@ function runDaemon(array $config): void {
         // V9.0 Staging stats
         'total_staging_ms'     => 0,
         'total_insert_ms'      => 0,
+        // V9.3 Delta detection stats
+        'total_heartbeat'      => 0,
     ];
     
     // WebSocket: Track last refresh time for event detection
@@ -1798,6 +1851,44 @@ function runDaemon(array $config): void {
                 $parsedPilots = parseVatsimPilots($vatsimData);
                 $parsedPrefiles = parseVatsimPrefiles($vatsimData);
                 $stagingMs = round((microtime(true) - $stagingStart) * 1000);
+
+                // 4a2. Delta detection: compare against previous cycle (V9.3.0)
+                static $previousPilots = [];
+
+                foreach ($parsedPilots as &$pilot) {
+                    $key = $pilot['flight_key'];
+                    $prev = $previousPilots[$key] ?? null;
+                    $pilot['change_flags'] = computeChangeFlags($pilot, $prev);
+                }
+                unset($pilot);
+
+                // Delta stats for logging
+                $deltaStats = ['heartbeat' => 0, 'pos_changed' => 0, 'plan_changed' => 0, 'new' => 0];
+                foreach ($parsedPilots as $p) {
+                    $f = $p['change_flags'];
+                    if ($f === 0) $deltaStats['heartbeat']++;
+                    if ($f & 1) $deltaStats['pos_changed']++;
+                    if ($f & 2) $deltaStats['plan_changed']++;
+                    if ($f & 4) $deltaStats['new']++;
+                }
+
+                // Rebuild previous state for next cycle (only store comparison fields)
+                $previousPilots = [];
+                foreach ($parsedPilots as $p) {
+                    $previousPilots[$p['flight_key']] = [
+                        'lat'              => $p['lat'],
+                        'lon'              => $p['lon'],
+                        'altitude_ft'      => $p['altitude_ft'],
+                        'groundspeed_kts'  => $p['groundspeed_kts'],
+                        'heading_deg'      => $p['heading_deg'],
+                        'route_hash'       => $p['route_hash'],
+                        'altitude_filed_raw' => $p['altitude_filed_raw'] ?? '',
+                        'tas_filed_raw'    => $p['tas_filed_raw'] ?? '',
+                        'fp_rule'          => $p['fp_rule'] ?? '',
+                        'aircraft_faa_raw' => $p['aircraft_faa_raw'] ?? '',
+                        'remarks'          => $p['remarks'] ?? '',
+                    ];
+                }
 
                 // 4b. Insert to staging tables
                 $insertStart = microtime(true);
@@ -2003,6 +2094,7 @@ function runDaemon(array $config): void {
             if ($config['staged_refresh_enabled']) {
                 $stats['total_staging_ms'] += $stagingMs;
                 $stats['total_insert_ms'] += $insertMs;
+                $stats['total_heartbeat'] += $deltaStats['heartbeat'] ?? 0;
             }
 
             // 7. Log with performance level
@@ -2028,6 +2120,8 @@ function runDaemon(array $config): void {
                 $logContext['parse_ms'] = $parseMs;
                 $logContext['stg_ms'] = $stagingMs;
                 $logContext['ins_ms'] = $insertMs;
+                // V9.3 delta stats
+                $logContext['hb'] = $deltaStats['heartbeat'] ?? 0;
             }
 
             if ($atisImported > 0 || $atisParsed > 0 || $atisSkipped > 0) {
