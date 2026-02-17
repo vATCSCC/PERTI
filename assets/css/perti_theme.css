@@ -480,3 +480,64 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
   opacity: 1 !important;
   color: #28a745;
 }
+
+/* ===========================================
+   PERTI Plan Listing - Temporal Status Styles
+   =========================================== */
+
+/* Row left-border indicators by temporal status */
+.plan-row-live {
+  border-left: 4px solid #28a745;
+}
+.plan-row-week {
+  border-left: 4px solid #17a2b8;
+}
+.plan-row-upcoming {
+  border-left: 4px solid #6c757d;
+}
+.plan-row-past {
+  opacity: 0.7;
+}
+.plan-row-past-hidden {
+  opacity: 0.7;
+  display: none;
+}
+
+/* Section header rows (full-width dividers within the table) */
+.plan-section-header td {
+  background: var(--gray-100, #f8f9fa);
+  font-weight: 600;
+  font-size: 0.9em;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--gray-300, #dee2e6);
+  color: var(--gray-700, #495057);
+}
+.plan-section-header.section-live td {
+  border-left: 4px solid #28a745;
+}
+.plan-section-header.section-week td {
+  border-left: 4px solid #17a2b8;
+}
+.plan-section-header.section-upcoming td {
+  border-left: 4px solid #6c757d;
+}
+.plan-section-header.section-past td {
+  border-left: 4px solid var(--gray-500, #adb5bd);
+}
+
+/* LIVE badge with pulse animation */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.badge-live {
+  background-color: #28a745;
+  color: #fff;
+  animation: pulse-live 2s infinite;
+}
+
+/* Past toggle link styling */
+.plan-past-toggle {
+  cursor: pointer;
+  font-size: 0.85em;
+}

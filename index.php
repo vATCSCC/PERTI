@@ -463,6 +463,19 @@ include('load/nav.php');
         $(document).ready(function() {
             loadData();
 
+            // Past events expand/collapse
+            $(document).on('click', '.plan-past-toggle', function(e) {
+                e.preventDefault();
+                $('.plan-row-past-hidden').toggle();
+                var total = $(this).data('total');
+                if ($('.plan-row-past-hidden').first().is(':visible')) {
+                    $(this).text(PERTII18n.t('home.section.showLess'));
+                } else {
+                    $(this).text(PERTII18n.t('home.section.showAllPast', { count: total }));
+                }
+                tooltips();
+            });
+
             // Auto-default org based on hotline selection
             function hotlineToOrg(hotline) {
                 if (hotline === 'Canada East' || hotline === 'Canada West') return 'vatcan';

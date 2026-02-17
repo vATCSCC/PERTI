@@ -4935,6 +4935,26 @@
       "deleteFailedText": "There was an error in deleting this PERTI Plan.",
       "updateFailed": "Not Edited",
       "updateFailedText": "There was an error in editing this PERTI Plan."
+    },
+    "section": {
+      "happeningNow": "Happening Now",
+      "thisWeek": "This Week",
+      "upcoming": "Upcoming",
+      "pastEvents": "Past Events",
+      "showing": "showing {count}",
+      "showAllPast": "Show all {count} past events",
+      "showLess": "Show less"
+    },
+    "status": {
+      "live": "LIVE",
+      "thisWeek": "THIS WEEK",
+      "past": "PAST"
+    },
+    "overlap": {
+      "overlapsWith": "Overlaps with: {plans}"
+    },
+    "duplicate": {
+      "possibleDuplicate": "Possible duplicate of: {name} (#{id})"
     }
   },
   "swim": {
