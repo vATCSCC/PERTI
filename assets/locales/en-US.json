@@ -4902,6 +4902,9 @@
     "tmuOpLevel": "TMU OpLevel",
     "hotline": "Hotline",
     "eventBannerUrl": "Event Banner URL",
+    "organization": "Organization",
+    "orgGlobal": "Global (All Organizations)",
+    "orgHint": "Leave as Global to show this plan for all organizations, or select a specific org.",
     "create": "Create",
     "saveChanges": "Save Changes",
     "table": {

@@ -123,14 +123,15 @@ function load_org_context(int $cid, $conn, ?string $target_org = null): void {
 }
 
 /**
- * Validate that a plan belongs to the current org
+ * Validate that a plan belongs to the current org or is global.
+ * Global plans (org_code IS NULL) are accessible from any org.
  * @param int $p_id Plan ID
  * @param mysqli $conn MySQLi connection
  * @return bool
  */
 function validate_plan_org(int $p_id, $conn): bool {
     $org = get_org_code();
-    $stmt = mysqli_prepare($conn, "SELECT id FROM p_plans WHERE id = ? AND org_code = ?");
+    $stmt = mysqli_prepare($conn, "SELECT id FROM p_plans WHERE id = ? AND (org_code = ? OR org_code IS NULL)");
     mysqli_stmt_bind_param($stmt, "is", $p_id, $org);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);

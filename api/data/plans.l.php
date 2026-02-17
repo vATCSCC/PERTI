@@ -32,7 +32,7 @@ if (!defined('DEV')) {
 
 require_once(dirname(__DIR__, 2) . '/load/org_context.php');
 $org = get_org_code();
-$stmt_plans = $conn_sqli->prepare("SELECT * FROM p_plans WHERE org_code = ? ORDER BY event_date DESC");
+$stmt_plans = $conn_sqli->prepare("SELECT * FROM p_plans WHERE org_code = ? OR org_code IS NULL ORDER BY event_date DESC");
 $stmt_plans->bind_param("s", $org);
 $stmt_plans->execute();
 $query = $stmt_plans->get_result();
@@ -120,7 +120,7 @@ while ($data = mysqli_fetch_array($query)) {
 
             if ($perm == true) {
                 echo ' ';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit PERTI Plan"><span class="badge badge-warning" data-toggle="modal" data-target="#editplanModal" data-id="'.$data['id'].'" data-event_name="'.$data['event_name'].'" data-event_date="'.$data['event_date'].'" data-event_start="'.$data['event_start'].'" data-event_end_date="'.$event_end_date.'" data-event_end_time="'.$event_end_time.'" data-oplevel="'.$data['oplevel'].'" data-hotline="'.$data['hotline'].'" data-event_banner="'.$data['event_banner'].'">
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit PERTI Plan"><span class="badge badge-warning" data-toggle="modal" data-target="#editplanModal" data-id="'.$data['id'].'" data-event_name="'.$data['event_name'].'" data-event_date="'.$data['event_date'].'" data-event_start="'.$data['event_start'].'" data-event_end_date="'.$event_end_date.'" data-event_end_time="'.$event_end_time.'" data-oplevel="'.$data['oplevel'].'" data-hotline="'.$data['hotline'].'" data-event_banner="'.$data['event_banner'].'" data-org_code="'.($data['org_code'] ?? '').'">
                     <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                 echo ' ';
                 echo '<a href="javascript:void(0)" onclick="deletePlan('.$data['id'].')" data-toggle="tooltip" title="Delete PERTI Plan"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';

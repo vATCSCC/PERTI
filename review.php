@@ -38,8 +38,8 @@ include("sessions/handler.php");
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
 
     require_once('load/org_context.php');
-    $plan_org_code = $plan_info['org_code'] ?? 'vatcscc';
-    $org_mismatch = !$plan_info ? false : ($plan_org_code !== get_org_code());
+    $plan_org_code = $plan_info['org_code'] ?? null;
+    $org_mismatch = !$plan_info ? false : ($plan_org_code !== null && $plan_org_code !== get_org_code());
 
     if (!$plan_info) {
         http_response_code(404);

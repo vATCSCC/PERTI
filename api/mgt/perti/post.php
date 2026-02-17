@@ -61,9 +61,16 @@ try {
 
     // SQL Query
     require_once(dirname(__DIR__, 3) . '/load/org_context.php');
-    $org = get_org_code();
-    $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline, org_code)
-    VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline', '$org')";
+    $org_code_raw = post_input('org_code');
+    $org_code = ($org_code_raw !== '' && $org_code_raw !== null) ? $org_code_raw : null;
+
+    if ($org_code !== null) {
+        $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline, org_code)
+        VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline', '$org_code')";
+    } else {
+        $sql = "INSERT INTO p_plans (event_name, event_date, event_start, event_end_date, event_end_time, event_banner, oplevel, hotline, org_code)
+        VALUES ('$event_name', '$event_date', '$event_start', '$event_end_date', '$event_end_time', '$event_banner', '$oplevel', '$hotline', NULL)";
+    }
 
     $conn_pdo->exec($sql);
 

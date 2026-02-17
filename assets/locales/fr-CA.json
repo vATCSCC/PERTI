@@ -5269,6 +5269,9 @@
     "tmuOpLevel": "Niveau op. TMU",
     "hotline": "Ligne directe",
     "eventBannerUrl": "URL de la bannière",
+    "organization": "Organisation",
+    "orgGlobal": "Globale (toutes les organisations)",
+    "orgHint": "Laisser Globale pour afficher ce plan dans toutes les organisations, ou sélectionner une org. spécifique.",
     "create": "Créer",
     "saveChanges": "Enregistrer",
     "table": {

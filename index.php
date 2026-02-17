@@ -31,6 +31,14 @@ include("sessions/handler.php");
         $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
     }
 
+    // Load organizations for plan org selector
+    $org_options = [];
+    $org_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations ORDER BY display_name");
+    if ($org_result) {
+        while ($org_row = $org_result->fetch_assoc()) {
+            $org_options[] = $org_row;
+        }
+    }
 ?>
 
 <!DOCTYPE html>
@@ -244,6 +252,21 @@ include('load/nav.php');
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label><?= __('home.organization') ?></label>
+                                <select class="form-control" name="org_code">
+                                    <option value=""><?= __('home.orgGlobal') ?></option>
+                                    <?php foreach ($org_options as $o): ?>
+                                    <option value="<?= htmlspecialchars($o['org_code']) ?>"><?= htmlspecialchars($o['display_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-text text-muted"><?= __('home.orgHint') ?></small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label><?= __('home.eventBannerUrl') ?></label>
                         <input type="text" class="form-control" name="event_banner" placeholder="https://..." required>
@@ -358,6 +381,21 @@ include('load/nav.php');
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label><?= __('home.organization') ?></label>
+                                <select class="form-control" name="org_code" id="org_code">
+                                    <option value=""><?= __('home.orgGlobal') ?></option>
+                                    <?php foreach ($org_options as $o): ?>
+                                    <option value="<?= htmlspecialchars($o['org_code']) ?>"><?= htmlspecialchars($o['display_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-text text-muted"><?= __('home.orgHint') ?></small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label><?= __('home.eventBannerUrl') ?></label>
                         <input type="text" class="form-control" name="event_banner" id="event_banner" placeholder="https://..." required>
@@ -423,7 +461,17 @@ include('load/nav.php');
         }
         
         $(document).ready(function() {
-            loadData();      
+            loadData();
+
+            // Auto-default org based on hotline selection
+            function hotlineToOrg(hotline) {
+                if (hotline === 'Canada East' || hotline === 'Canada West') return 'vatcan';
+                return '';
+            }
+            $('select[name="hotline"]').on('change', function() {
+                var orgSelect = $(this).closest('form').find('select[name="org_code"]');
+                orgSelect.val(hotlineToOrg($(this).val()));
+            });
 
             // Init: Date Time Picker for Create modal - Start Date
             $('#date').datetimepicker({
@@ -498,6 +546,7 @@ include('load/nav.php');
                 modal.find('.modal-body #oplevel').val(button.data('oplevel')).trigger('change');
                 modal.find('.modal-body #hotline').val(button.data('hotline')).trigger('change');
                 modal.find('.modal-body #event_banner').val(button.data('event_banner'));
+                modal.find('.modal-body #org_code').val(button.data('org_code') || '');
 
                 // Init: Date Time Picker for Edit modal - Start Date
                 $('#e-date').datetimepicker({
