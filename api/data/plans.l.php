@@ -112,7 +112,7 @@ foreach ($plans as &$p) {
     } elseif ($end_ts && $now > $end_ts) {
         $p['_status'] = 'past';
         $sections['past'][] = &$p;
-    } elseif ($start_ts && $start_ts >= $week_start && $start_ts <= $week_end) {
+    } elseif ($start_ts && $now < $start_ts && $start_ts >= $week_start && $start_ts <= $week_end) {
         $p['_status'] = 'week';
         $sections['week'][] = &$p;
     } elseif ($start_ts && $now < $start_ts) {
@@ -157,13 +157,13 @@ $duplicates = [];
 function plan_normalize_name(string $name): string {
     return preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/', '', strtolower(trim($name))));
 }
-for ($i = 0, $n = count($plans); $i < $n; $i++) {
+for ($i = 0, $n = count($non_past); $i < $n; $i++) {
     for ($j = $i + 1; $j < $n; $j++) {
-        if (($plans[$i]['event_date'] ?? '') === ($plans[$j]['event_date'] ?? '') && $plans[$i]['event_date'] !== '') {
-            similar_text(plan_normalize_name($plans[$i]['event_name']), plan_normalize_name($plans[$j]['event_name']), $pct);
+        if (($non_past[$i]['event_date'] ?? '') === ($non_past[$j]['event_date'] ?? '') && $non_past[$i]['event_date'] !== '') {
+            similar_text(plan_normalize_name($non_past[$i]['event_name']), plan_normalize_name($non_past[$j]['event_name']), $pct);
             if ($pct > 80) {
-                $duplicates[$plans[$i]['id']][] = ['name' => $plans[$j]['event_name'], 'id' => $plans[$j]['id']];
-                $duplicates[$plans[$j]['id']][] = ['name' => $plans[$i]['event_name'], 'id' => $plans[$i]['id']];
+                $duplicates[$non_past[$i]['id']][] = ['name' => $non_past[$j]['event_name'], 'id' => $non_past[$j]['id']];
+                $duplicates[$non_past[$j]['id']][] = ['name' => $non_past[$i]['event_name'], 'id' => $non_past[$i]['id']];
             }
         }
     }
