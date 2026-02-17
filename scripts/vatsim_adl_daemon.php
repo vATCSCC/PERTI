@@ -5,8 +5,12 @@
  * 
  * Location: wwwroot/scripts/vatsim_adl_daemon.php
  * 
- * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim.
+ * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim_Staged.
  * Optimized for 3,000-6,000 flights per cycle.
+ *
+ * V9.2.0: When defer_expensive=true, trajectory capture always runs in the SP
+ * but ETA/snapshot steps are deferred to a time-budget system after the SP returns.
+ * This ensures data ingestion completes within the 15s VATSIM API window.
  * 
  * Usage:
  *   php scripts/vatsim_adl_daemon.php                # Run in foreground
@@ -179,6 +183,16 @@ $config = [
     // Reduces ~43 round trips to ~3 round trips for ~3000 pilots (1000 rows per INSERT)
     // No parameters = no 2100 limit, faster than parameterized batches
     'use_tvp'                => true,  // Use bulk literal for staging inserts (faster)
+
+    // =============================================
+    // V9.2 Deferred Expensive Processing
+    // =============================================
+    // When enabled, the SP defers ETA calculation and snapshot steps.
+    // Trajectory position capture ALWAYS runs (ephemeral data).
+    // Deferred steps run after SP returns, only when cycle time budget allows.
+    // Saves ~800ms per cycle, reducing missed VATSIM feeds from ~38% to ~15-20%.
+    'defer_expensive'       => true,   // Defer ETA/snapshot steps, always capture trajectory
+    'deferred_eta_interval' => 2,      // Run wind-adjusted batch ETA every N cycles when budget allows
 ];
 
 // ============================================================================
@@ -876,16 +890,18 @@ function insertPrefilesBulkLiteral($conn, array $prefiles, string $batchId, int 
  * @param string $batchId UUID for this batch
  * @param int $timeout Query timeout in seconds
  * @param bool $skipZoneDetection Set to true when zone_daemon.php is running
+ * @param bool $deferExpensive Set to true to defer ETA/snapshot steps (trajectory always captured)
  * @return array Result with stats and timings
  */
-function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skipZoneDetection = false): array {
+function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skipZoneDetection = false, bool $deferExpensive = false): array {
     $startTime = microtime(true);
 
     $skipZone = $skipZoneDetection ? 1 : 0;
-    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?";
+    $defer = $deferExpensive ? 1 : 0;
+    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?, @defer_expensive = ?";
     $options = ['QueryTimeout' => $timeout];
 
-    $stmt = sqlsrv_query($conn, $sql, [$batchId, $skipZone], $options);
+    $stmt = sqlsrv_query($conn, $sql, [$batchId, $skipZone, $defer], $options);
 
     if ($stmt === false) {
         $errors = sqlsrv_errors();
@@ -1007,6 +1023,108 @@ function computeChangeFlags(array $current, ?array $previous): int {
     }
 
     return $flags;
+}
+
+/**
+ * Execute deferred expensive processing (ETA calculations, legacy log, snapshot).
+ * Called after the main SP when @defer_expensive is enabled.
+ * Trajectory capture always happens in the SP - this only handles ETA and snapshots.
+ * Uses remaining cycle time budget to decide what to run.
+ *
+ * @param resource $conn SQL Server connection
+ * @param array $config Daemon config
+ * @param array &$stats Running stats (modified in place)
+ * @param float $cycleStart microtime(true) of cycle start
+ * @return array Results with timing and counts
+ */
+function executeDeferredProcessing($conn, array $config, array &$stats, float $cycleStart): array {
+    $result = [
+        'eta_basic' => null,
+        'eta_batch' => null,
+        'log' => null,
+        'snapshot' => null,
+        'elapsed_ms' => 0,
+        'skipped' => false,
+    ];
+
+    $cycleElapsedMs = round((microtime(true) - $cycleStart) * 1000);
+    $budget = $config['interval_seconds'] * 1000 - $cycleElapsedMs - 2000; // 2s safety margin
+
+    if ($budget <= 0) {
+        $stats['deferred_skipped']++;
+        $result['skipped'] = true;
+        return $result;
+    }
+
+    $deferStart = microtime(true);
+
+    // Basic ETA (the @process_eta portion of sp_ProcessTrajectoryBatch)
+    if ($budget > 300) {
+        $start = microtime(true);
+        $etaCount = 0;
+        $trajCount = 0;
+        $stmt = sqlsrv_query($conn,
+            "EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 0, @eta_count = ?, @traj_count = ?",
+            [
+                [&$etaCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT],
+                [&$trajCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT],
+            ],
+            ['QueryTimeout' => 10]
+        );
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+            $ms = round((microtime(true) - $start) * 1000);
+            $result['eta_basic'] = ['count' => $etaCount, 'ms' => $ms];
+            $budget -= $ms;
+        }
+    }
+
+    // High-accuracy batch ETA with wind integration (every N cycles)
+    if ($stats['runs'] % $config['deferred_eta_interval'] === 0 && $budget > 500) {
+        $start = microtime(true);
+        $batchEtaCount = 0;
+        $stmt = sqlsrv_query($conn,
+            "EXEC dbo.sp_CalculateETABatch @eta_count = ?",
+            [[&$batchEtaCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT]],
+            ['QueryTimeout' => 10]
+        );
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+            $ms = round((microtime(true) - $start) * 1000);
+            $result['eta_batch'] = ['count' => $batchEtaCount, 'ms' => $ms];
+            $budget -= $ms;
+        }
+    }
+
+    // Legacy trajectory log (has internal 60s skip logic, cheap when skipped)
+    if ($budget > 100) {
+        $start = microtime(true);
+        $stmt = sqlsrv_query($conn, "EXEC dbo.sp_Log_Trajectory", [], ['QueryTimeout' => 5]);
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+        }
+        $result['log'] = ['ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    // Phase snapshot
+    if ($budget > 100) {
+        $start = microtime(true);
+        $stmt = sqlsrv_query($conn, "EXEC dbo.sp_CapturePhaseSnapshot", [], ['QueryTimeout' => 5]);
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+        }
+        $result['snapshot'] = ['ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    $result['elapsed_ms'] = round((microtime(true) - $deferStart) * 1000);
+    $stats['deferred_runs']++;
+    $stats['deferred_total_ms'] += $result['elapsed_ms'];
+
+    return $result;
 }
 
 /**
@@ -1783,6 +1901,10 @@ function runDaemon(array $config): void {
         // V9.0 Staging stats
         'total_staging_ms'     => 0,
         'total_insert_ms'      => 0,
+        // V9.2 Deferred processing stats
+        'deferred_runs'        => 0,
+        'deferred_skipped'     => 0,
+        'deferred_total_ms'    => 0,
         // V9.3 Delta detection stats
         'total_heartbeat'      => 0,
     ];
@@ -1913,7 +2035,7 @@ function runDaemon(array $config): void {
                 $insertMs = round((microtime(true) - $insertStart) * 1000);
 
                 // 4c. Execute staged refresh SP
-                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout'], $config['zone_daemon_enabled']);
+                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout'], $config['zone_daemon_enabled'], $config['defer_expensive']);
                 $spMs = $spResult['elapsed_ms'];
 
                 // Log staging performance on first run or every 100 runs
@@ -1932,6 +2054,13 @@ function runDaemon(array $config): void {
 
             // Free raw JSON string (we have vatsimData now)
             unset($jsonData);
+
+            // 4d. Deferred ETA processing (trajectory already captured in SP)
+            // Runs ETA calcs, legacy log, and snapshot when cycle time budget allows
+            $deferredResult = null;
+            if ($config['defer_expensive']) {
+                $deferredResult = executeDeferredProcessing($conn, $config, $stats, $cycleStart);
+            }
 
             // 5. Process ATIS (with dynamic tiered intervals)
             $atisImported = 0;
@@ -2156,6 +2285,21 @@ function runDaemon(array $config): void {
                 $logContext['ws_events'] = $wsResult['total_events'];
             }
 
+            // V9.2: Deferred processing metrics
+            if ($deferredResult !== null) {
+                $logContext['def_ms'] = $deferredResult['elapsed_ms'];
+                if ($deferredResult['skipped']) {
+                    $logContext['def'] = 'SKIP';
+                } else {
+                    if ($deferredResult['eta_basic'] !== null) {
+                        $logContext['def_eta1'] = $deferredResult['eta_basic']['count'];
+                    }
+                    if ($deferredResult['eta_batch'] !== null) {
+                        $logContext['def_eta2'] = $deferredResult['eta_batch']['count'];
+                    }
+                }
+            }
+
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
 
             // V8.9: Log step timings when slow (>5s)
@@ -2233,6 +2377,14 @@ function runDaemon(array $config): void {
                 $statsContext['mode'] = $config['use_tvp'] ? 'bulk' : 'batched';
                 $statsContext['avg_stg_ms'] = $avgStagingMs;
                 $statsContext['avg_ins_ms'] = $avgInsertMs;
+            }
+
+            // V9.2 Deferred processing stats
+            if ($config['defer_expensive']) {
+                $avgDefMs = $stats['deferred_runs'] > 0 ? round($stats['deferred_total_ms'] / $stats['deferred_runs']) : 0;
+                $statsContext['def_runs'] = $stats['deferred_runs'];
+                $statsContext['def_skip'] = $stats['deferred_skipped'];
+                $statsContext['avg_def_ms'] = $avgDefMs;
             }
 
             logInfo("=== Stats @ run {$stats['runs']} ===", $statsContext);

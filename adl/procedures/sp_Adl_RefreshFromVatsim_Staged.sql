@@ -15,6 +15,9 @@
 --   Value 0:   Heartbeat (identical to previous cycle)
 --   Default 15: Full processing (backward-compatible)
 --
+-- V9.2.0 Changes (kept):
+--   - @defer_expensive defers ETA/snapshot steps, trajectory always captured
+--
 -- V9.1.0 Changes (kept):
 --   - Position write threshold: 0.0001deg lat/lon, 50ft alt, 2kts gs
 --
@@ -29,7 +32,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_Adl_RefreshFromVatsim_Staged
     @batch_id UNIQUEIDENTIFIER,
-    @skip_zone_detection BIT = 0  -- Set to 1 when zone_daemon.php is running
+    @skip_zone_detection BIT = 0,  -- Set to 1 when zone_daemon.php is running
+    @defer_expensive BIT = 0       -- When 1: trajectory always captured, ETA/snapshot deferred to daemon
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -787,11 +791,18 @@ BEGIN
     SET @step7_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- Step 8: Process Trajectory & ETA
+    -- Trajectory points are ephemeral (unique per timestamp) - always capture
+    -- ETA is recalculable from live data - defer when @defer_expensive = 1
     SET @step_start = SYSUTCDATETIME();
 
     IF OBJECT_ID('dbo.sp_ProcessTrajectoryBatch', 'P') IS NOT NULL
     BEGIN
-        EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
+        IF @defer_expensive = 1
+            -- Trajectory only: capture position points, defer ETA to daemon
+            EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 0, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
+        ELSE
+            -- Full processing: trajectory + ETA together
+            EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 1, @eta_count = @eta_count OUTPUT, @traj_count = @traj_count OUTPUT;
     END
 
     SET @step8_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
@@ -810,10 +821,10 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
     SET @step8c_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 8d: Batch ETA Calculation
+    -- Step 8d: Batch ETA Calculation (deferred when @defer_expensive = 1)
     SET @step_start = SYSUTCDATETIME();
 
-    IF OBJECT_ID('dbo.sp_CalculateETABatch', 'P') IS NOT NULL
+    IF @defer_expensive = 0 AND OBJECT_ID('dbo.sp_CalculateETABatch', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CalculateETABatch @eta_count = @batch_eta_count OUTPUT;
     END
@@ -838,14 +849,18 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
     SET @step11_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 12: Log Trajectory
+    -- Step 12: Log Trajectory (deferred when @defer_expensive = 1)
+    -- Redundant with Step 8 trajectory when it runs; legacy 60s-interval bulk log
     SET @step_start = SYSUTCDATETIME();
-    EXEC dbo.sp_Log_Trajectory;
+    IF @defer_expensive = 0
+    BEGIN
+        EXEC dbo.sp_Log_Trajectory;
+    END
     SET @step12_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
-    -- Step 13: Phase Snapshot
+    -- Step 13: Phase Snapshot (deferred when @defer_expensive = 1)
     SET @step_start = SYSUTCDATETIME();
-    IF OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
+    IF @defer_expensive = 0 AND OBJECT_ID('dbo.sp_CapturePhaseSnapshot', 'P') IS NOT NULL
     BEGIN
         EXEC dbo.sp_CapturePhaseSnapshot;
     END
@@ -912,7 +927,7 @@ GO
 
 PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.3.0 created successfully';
 PRINT 'V9.3.0: Delta detection - heartbeat flights skip geography, position, plan, aircraft';
+PRINT 'V9.2.0: @defer_expensive defers ETA/snapshot, trajectory always captured';
 PRINT 'V9.1.0: Position write threshold (0.0001deg, 50ft, 2kts) retained as secondary filter';
 PRINT 'V9.0.0: Reads from staging tables instead of OPENJSON';
-PRINT 'Expected improvement: ~350-500ms per cycle at 2500 pilots';
 GO
