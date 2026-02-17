@@ -1283,40 +1283,40 @@ $(document).ready(function() {
             if (e.features && e.features.length > 0) {
                 const props = e.features[0].properties;
                 let content = '<div class="sua-popup" style="font-family: Inconsolata, monospace; font-size: 0.85rem;">';
-                content += '<strong style="font-size: 1.1em; color: #239BCD;">' + (props.name || props.designator || 'Unknown SUA') + '</strong>';
+                content += '<strong style="font-size: 1.1em; color: #239BCD;">' + (props.name || props.designator || PERTII18n.t('route.sua.unknownSua')) + '</strong>';
 
                 if (props.suaType) {
-                    // Map type codes to readable names
-                    const typeLabels = {
-                        'P': 'Prohibited',
-                        'R': 'Restricted',
-                        'W': 'Warning',
-                        'A': 'Alert',
-                        'MOA': 'MOA',
-                        'NSA': 'National Security Area',
-                        'ATCAA': 'ATC Assigned',
-                        'TFR_VIP': 'TFR: VIP',
-                        'TFR_EMERG': 'TFR: Emergency',
-                        'TFR_SEC': 'TFR: Security',
-                        'TFR_HAZ': 'TFR: Hazard',
-                        'TFR_HID': 'TFR: Hazard',
-                        'TFR_EVT': 'TFR: Event',
-                        'TFR_SPC': 'TFR: Space Ops',
-                        'TFR_HBP': 'TFR: High Barometric',
+                    // Map type codes to i18n keys
+                    const typeKeyMap = {
+                        'P': 'route.sua.prohibited',
+                        'R': 'route.sua.restricted',
+                        'W': 'route.sua.warning',
+                        'A': 'route.sua.alert',
+                        'MOA': 'route.sua.moa',
+                        'NSA': 'route.sua.nationalSecurityArea',
+                        'ATCAA': 'route.sua.atcAssigned',
+                        'TFR_VIP': 'route.sua.tfrVip',
+                        'TFR_EMERG': 'route.sua.tfrEmergency',
+                        'TFR_SEC': 'route.sua.tfrSecurity',
+                        'TFR_HAZ': 'route.sua.tfrHazard',
+                        'TFR_HID': 'route.sua.tfrHazard',
+                        'TFR_EVT': 'route.sua.tfrEvent',
+                        'TFR_SPC': 'route.sua.tfrSpaceOps',
+                        'TFR_HBP': 'route.sua.tfrBarometric',
                     };
-                    const typeLabel = typeLabels[props.suaType] || props.suaType;
+                    const typeLabel = typeKeyMap[props.suaType] ? PERTII18n.t(typeKeyMap[props.suaType]) : props.suaType;
                     content += '<br><span style="color: var(--dark-text-subtle); font-size: 0.85em;">' + typeLabel + '</span>';
                 }
 
                 if (props.notamId) {
-                    content += '<br><span style="font-size: 0.85em;">NOTAM: ' + props.notamId + '</span>';
+                    content += '<br><span style="font-size: 0.85em;">' + PERTII18n.t('route.sua.notam') + ' ' + props.notamId + '</span>';
                 }
 
                 // Support both old (altLow/altHigh) and new (lowerLimit/upperLimit) property names
                 const altLow = props.altLow || props.lowerLimit;
                 const altHigh = props.altHigh || props.upperLimit;
                 if (altLow || altHigh) {
-                    content += '<br><span style="font-size: 0.85em;">ALT: ';
+                    content += '<br><span style="font-size: 0.85em;">' + PERTII18n.t('route.sua.alt') + ' ';
                     if (altLow) {content += altLow;}
                     if (altLow && altHigh) {content += ' - ';}
                     if (altHigh) {content += altHigh;}
@@ -1324,11 +1324,11 @@ $(document).ready(function() {
                 }
 
                 if (props.schedule) {
-                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">Schedule: ' + props.schedule + '</span>';
+                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">' + PERTII18n.t('route.sua.schedule') + ' ' + props.schedule + '</span>';
                 }
 
                 if (props.artcc) {
-                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">ARTCC: ' + props.artcc + '</span>';
+                    content += '<br><span style="font-size: 0.8em; color: var(--dark-text-disabled);">' + PERTII18n.t('route.sua.artcc') + ' ' + props.artcc + '</span>';
                 }
 
                 content += '</div>';
@@ -1755,15 +1755,15 @@ $(document).ready(function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     const layerConfig = {
-        'superhigh_splits': { layerIds: ['superhigh-splits-lines'], label: 'Superhigh Splits' },
-        'high_splits': { layerIds: ['high-splits-lines'], label: 'High Splits' },
-        'low_splits': { layerIds: ['low-splits-lines'], label: 'Low Splits' },
-        'tracon': { layerIds: ['tracon-lines'], label: 'TRACON Boundaries' },
-        'navaids': { layerIds: ['navaids-circles'], label: 'All NAVAIDs' },
-        'cells': { layerIds: ['weather-cells-layer'], label: 'WX Radar' },
-        'sigmets': { layerIds: ['sigmets-fill'], label: 'SIGMETs' },
-        'sua': { layerIds: ['sua-fill', 'sua-outline'], label: 'Active SUA/TFR', onEnable: loadSuaData },
-        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: 'Route Fix Labels', defaultOn: true },
+        'superhigh_splits': { layerIds: ['superhigh-splits-lines'], label: PERTII18n.t('route.layer.superhighSplits') },
+        'high_splits': { layerIds: ['high-splits-lines'], label: PERTII18n.t('route.layer.highSplits') },
+        'low_splits': { layerIds: ['low-splits-lines'], label: PERTII18n.t('route.layer.lowSplits') },
+        'tracon': { layerIds: ['tracon-lines'], label: PERTII18n.t('route.layer.traconBoundaries') },
+        'navaids': { layerIds: ['navaids-circles'], label: PERTII18n.t('route.layer.allNavaids') },
+        'cells': { layerIds: ['weather-cells-layer'], label: PERTII18n.t('route.layer.wxRadar') },
+        'sigmets': { layerIds: ['sigmets-fill'], label: PERTII18n.t('route.layer.sigmets') },
+        'sua': { layerIds: ['sua-fill', 'sua-outline'], label: PERTII18n.t('route.layer.activeSuaTfr'), onEnable: loadSuaData },
+        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
     };
 
     let layerControlExpanded = false;
@@ -1785,8 +1785,8 @@ $(document).ready(function() {
                     background: white; border: none; padding: 6px 10px; border-radius: 4px;
                     box-shadow: 0 1px 5px rgba(0,0,0,0.4); cursor: pointer;
                     font-size: 12px; font-weight: bold;
-                " title="Toggle Overlays">
-                    <i class="fas fa-layer-group"></i> Overlays
+                " title="${PERTII18n.t('route.overlays')}">
+                    <i class="fas fa-layer-group"></i> ${PERTII18n.t('route.overlays')}
                 </button>
                 <div id="layer-control-panel" style="
                     display: none; background: white; padding: 10px; border-radius: 4px;
@@ -2485,7 +2485,7 @@ $(document).ready(function() {
                 segmentInfo += `<div style="color: var(--dark-text-disabled);">${props.distance} nm</div>`;
             }
 
-            const lineType = props.isFan ? 'Fan' : (props.solid ? 'Mandatory' : 'Dashed');
+            const lineType = props.isFan ? PERTII18n.t('route.segment.fan') : (props.solid ? PERTII18n.t('route.segment.mandatory') : PERTII18n.t('route.segment.dashed'));
             const isVisible = routeLabelsVisible.has(routeId);
 
             // Create segment key for symbology
@@ -2509,13 +2509,13 @@ $(document).ready(function() {
                                 data-seg-type="${props.isFan ? 'fan' : (props.solid ? 'solid' : 'dashed')}"
                                 data-color="${props.color}"
                                 style="flex: 1; font-size: 10px; padding: 2px 6px;">
-                            <i class="fas fa-paint-brush"></i> Style
+                            <i class="fas fa-paint-brush"></i> ${PERTII18n.t('route.styleBtn')}
                         </button>
                         ` : ''}
                         <button class="btn btn-sm btn-outline-secondary route-popup-labels-btn" 
                                 data-route-id="${routeId}" 
                                 style="flex: 1; font-size: 10px; padding: 2px 6px;">
-                            <i class="fas fa-tag"></i> ${isVisible ? 'Hide' : 'Show'}
+                            <i class="fas fa-tag"></i> ${isVisible ? PERTII18n.t('route.hideBtn') : PERTII18n.t('route.showBtn')}
                         </button>
                     </div>
                 </div>
@@ -2569,7 +2569,7 @@ $(document).ready(function() {
                 const labelStatus = isVisible ? '👁' : '○';
                 const fromTo = (props.fromFix && props.toFix)
                     ? `${props.fromFix}→${props.toFix}`
-                    : `Route ${routeId}`;
+                    : PERTII18n.t('route.routePicker.routeLabel', { id: routeId });
                 return `
                     <div class="route-picker-option" data-route-id="${routeId}" data-color="${props.color || '#C70039'}"
                          style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; align-items: center;"
@@ -2584,11 +2584,11 @@ $(document).ready(function() {
             const content = `
                 <div class="route-picker" style="font-family: 'Inconsolata', monospace; min-width: 180px;">
                     <div style="font-weight: bold; font-size: 11px; color: var(--dark-text-disabled); padding: 6px 8px; border-bottom: 2px solid #ddd; text-transform: uppercase;">
-                        ${routes.length} Overlapping Routes
+                        ${PERTII18n.t('route.routePicker.overlappingRoutes', { count: routes.length })}
                     </div>
                     ${options}
                     <div style="font-size: 9px; color: var(--dark-text-subtle); padding: 4px 8px; text-align: center;">
-                        Click to toggle labels
+                        ${PERTII18n.t('route.routePicker.clickToToggleLabels')}
                     </div>
                 </div>
             `;
@@ -3669,32 +3669,32 @@ $(document).ready(function() {
                     <div class="modal-dialog modal-sm">
                         <div class="modal-content">
                             <div class="modal-header py-2">
-                                <h6 class="modal-title">${isEdit ? 'Edit' : 'Add'} Color Rule</h6>
+                                <h6 class="modal-title">${isEdit ? PERTII18n.t('route.colorRule.editTitle') : PERTII18n.t('route.colorRule.addTitle')}</h6>
                                 <button type="button" class="close" data-dismiss="modal">&times;</button>
                             </div>
                             <div class="modal-body">
                                 <div class="form-group mb-2">
-                                    <label class="small mb-1">Field</label>
+                                    <label class="small mb-1">${PERTII18n.t('route.colorRule.field')}</label>
                                     <select class="form-control form-control-sm" id="rule_field">
-                                        <option value="carrier" ${rule.field === 'carrier' ? 'selected' : ''}>Carrier (3-letter code)</option>
-                                        <option value="origin" ${rule.field === 'origin' ? 'selected' : ''}>Origin Airport</option>
-                                        <option value="dest" ${rule.field === 'dest' ? 'selected' : ''}>Destination Airport</option>
-                                        <option value="aircraft_type" ${rule.field === 'aircraft_type' ? 'selected' : ''}>Aircraft Type</option>
-                                        <option value="weight_class" ${rule.field === 'weight_class' ? 'selected' : ''}>Weight Class</option>
-                                        <option value="dep_center" ${rule.field === 'dep_center' ? 'selected' : ''}>Departure Center</option>
-                                        <option value="arr_center" ${rule.field === 'arr_center' ? 'selected' : ''}>Arrival Center</option>
-                                        <option value="callsign" ${rule.field === 'callsign' ? 'selected' : ''}>Callsign</option>
+                                        <option value="carrier" ${rule.field === 'carrier' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.carrierCode')}</option>
+                                        <option value="origin" ${rule.field === 'origin' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.originAirport')}</option>
+                                        <option value="dest" ${rule.field === 'dest' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.destAirport')}</option>
+                                        <option value="aircraft_type" ${rule.field === 'aircraft_type' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.aircraftType')}</option>
+                                        <option value="weight_class" ${rule.field === 'weight_class' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.weightClass')}</option>
+                                        <option value="dep_center" ${rule.field === 'dep_center' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.depCenter')}</option>
+                                        <option value="arr_center" ${rule.field === 'arr_center' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.arrCenter')}</option>
+                                        <option value="callsign" ${rule.field === 'callsign' ? 'selected' : ''}>${PERTII18n.t('route.colorRule.callsign')}</option>
                                     </select>
                                 </div>
                                 <div class="form-group mb-2">
-                                    <label class="small mb-1">Values <span class="text-muted">(space-separated, * for wildcard)</span></label>
+                                    <label class="small mb-1">${PERTII18n.t('route.colorRule.values')} <span class="text-muted">(${PERTII18n.t('route.colorRule.valuesHint')})</span></label>
                                     <input type="text" class="form-control form-control-sm" id="rule_values" 
                                         placeholder="AAL DAL UAL or B76* or KATL KJFK" 
                                         value="${rule.values.join(' ')}">
-                                    <small class="text-muted">Examples: AAL SWA JBU, B73*, KATL KORD</small>
+                                    <small class="text-muted">${PERTII18n.t('route.colorRule.examples')}</small>
                                 </div>
                                 <div class="form-group mb-2">
-                                    <label class="small mb-1">Color</label>
+                                    <label class="small mb-1">${PERTII18n.t('route.colorRule.color')}</label>
                                     <div class="d-flex align-items-center">
                                         <input type="text" class="form-control form-control-sm mr-2" id="rule_color" 
                                             placeholder="blue, #ff6600, or color name" 
@@ -3702,16 +3702,16 @@ $(document).ready(function() {
                                         <input type="color" class="form-control form-control-sm" id="rule_color_picker" 
                                             value="${parseColor(rule.color) || '#4e79a7'}" style="width:40px;padding:2px;">
                                     </div>
-                                    <small class="text-muted">Named: red, blue, green, orange, teal, purple, etc.</small>
+                                    <small class="text-muted">${PERTII18n.t('route.colorRule.namedColors')}</small>
                                 </div>
                                 <div class="quick-colors mb-2">
-                                    <small class="text-muted d-block mb-1">Quick colors:</small>
+                                    <small class="text-muted d-block mb-1">${PERTII18n.t('route.colorRule.quickColors')}</small>
                                     ${TABLEAU_10.map(c => `<span class="quick-color" data-color="${c}" style="display:inline-block;width:20px;height:20px;background:${c};border:1px solid #333;border-radius:2px;margin:1px;cursor:pointer;" title="${c}"></span>`).join('')}
                                 </div>
                             </div>
                             <div class="modal-footer py-2">
-                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-sm btn-primary" id="save_color_rule">${isEdit ? 'Save' : 'Add'}</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">${PERTII18n.t('common.cancel')}</button>
+                                <button type="button" class="btn btn-sm btn-primary" id="save_color_rule">${isEdit ? PERTII18n.t('common.save') : PERTII18n.t('common.add')}</button>
                             </div>
                         </div>
                     </div>
@@ -3743,7 +3743,7 @@ $(document).ready(function() {
                 const color = $('#rule_color').val().trim();
 
                 if (!valuesStr || !color) {
-                    alert('Please enter values and a color');
+                    alert(PERTII18n.t('route.colorRule.enterValuesAndColor'));
                     return;
                 }
 
@@ -4122,53 +4122,53 @@ $(document).ready(function() {
             switch (state.colorBy) {
                 case 'weight_class':
                     items = [
-                        { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'Super (▬▬)' },
-                        { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'Heavy (═)' },
-                        { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'Large (✈)' },
-                        { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'Small (○)' },
+                        { color: WEIGHT_CLASS_COLORS['SUPER'], label: PERTII18n.t('route.legend.super') },
+                        { color: WEIGHT_CLASS_COLORS['HEAVY'], label: PERTII18n.t('route.legend.heavy') },
+                        { color: WEIGHT_CLASS_COLORS['LARGE'], label: PERTII18n.t('route.legend.large') },
+                        { color: WEIGHT_CLASS_COLORS['SMALL'], label: PERTII18n.t('route.legend.small') },
                     ];
                     break;
                 case 'aircraft_category':
                     items = [
-                        { color: AIRCRAFT_CATEGORY_COLORS['JET'], label: 'Jet' },
-                        { color: AIRCRAFT_CATEGORY_COLORS['TURBO'], label: 'Turbo' },
-                        { color: AIRCRAFT_CATEGORY_COLORS['PROP'], label: 'Prop' },
+                        { color: AIRCRAFT_CATEGORY_COLORS['JET'], label: PERTII18n.t('route.legend.jet') },
+                        { color: AIRCRAFT_CATEGORY_COLORS['TURBO'], label: PERTII18n.t('route.legend.turbo') },
+                        { color: AIRCRAFT_CATEGORY_COLORS['PROP'], label: PERTII18n.t('route.legend.prop') },
                     ];
                     break;
                 case 'aircraft_type':
                     items = [
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: 'Airbus' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: 'Boeing' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: 'Embraer' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
-                        { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: 'Other' },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: PERTII18n.t('route.legend.airbus') },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: PERTII18n.t('route.legend.boeing') },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: PERTII18n.t('route.legend.embraer') },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: PERTII18n.t('route.legend.bombardier') },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: PERTII18n.t('route.legend.mdDc') },
+                        { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: PERTII18n.t('route.legend.other') },
                     ];
                     break;
                 case 'aircraft_config':
                     items = [
-                        { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
-                        { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: 'Quad-jet' },
-                        { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: 'Heavy Twin' },
-                        { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: 'Tri-jet' },
-                        { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: 'Twin-jet' },
-                        { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: 'Regional' },
-                        { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: 'Turboprop' },
-                        { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: 'Prop' },
+                        { color: AIRCRAFT_CONFIG_COLORS['A380'], label: PERTII18n.t('route.legend.a380') },
+                        { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: PERTII18n.t('route.legend.quadJet') },
+                        { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: PERTII18n.t('route.legend.heavyTwin') },
+                        { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: PERTII18n.t('route.legend.triJet') },
+                        { color: AIRCRAFT_CONFIG_COLORS['TWIN_JET'], label: PERTII18n.t('route.legend.twinJet') },
+                        { color: AIRCRAFT_CONFIG_COLORS['REGIONAL_JET'], label: PERTII18n.t('route.legend.regional') },
+                        { color: AIRCRAFT_CONFIG_COLORS['TURBOPROP'], label: PERTII18n.t('route.legend.turboprop') },
+                        { color: AIRCRAFT_CONFIG_COLORS['PROP'], label: PERTII18n.t('route.legend.prop') },
                     ];
                     break;
                 case 'wake_category':
                     items = [
-                        { color: WAKE_CATEGORY_COLORS['SUPER'], label: 'Super' },
-                        { color: WAKE_CATEGORY_COLORS['HEAVY'], label: 'Heavy' },
+                        { color: WAKE_CATEGORY_COLORS['SUPER'], label: PERTII18n.t('route.legend.super') },
+                        { color: WAKE_CATEGORY_COLORS['HEAVY'], label: PERTII18n.t('route.legend.heavy') },
                         { color: WAKE_CATEGORY_COLORS['B757'], label: 'B757' },
-                        { color: WAKE_CATEGORY_COLORS['LARGE'], label: 'Large' },
-                        { color: WAKE_CATEGORY_COLORS['SMALL'], label: 'Small' },
+                        { color: WAKE_CATEGORY_COLORS['LARGE'], label: PERTII18n.t('route.legend.large') },
+                        { color: WAKE_CATEGORY_COLORS['SMALL'], label: PERTII18n.t('route.legend.small') },
                     ];
                     break;
                 case 'altitude':
                     items = [
-                        { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: 'Ground' },
+                        { color: ALTITUDE_BLOCK_COLORS['GROUND'], label: PERTII18n.t('route.legend.ground') },
                         { color: ALTITUDE_BLOCK_COLORS['LOW'], label: '<FL100' },
                         { color: ALTITUDE_BLOCK_COLORS['LOWMED'], label: 'FL100-180' },
                         { color: ALTITUDE_BLOCK_COLORS['MED'], label: 'FL180-240' },
@@ -4180,9 +4180,9 @@ $(document).ready(function() {
                     break;
                 case 'arr_dep':
                     items = [
-                        { color: ARR_DEP_COLORS['ARR'], label: 'Enroute' },
-                        { color: ARR_DEP_COLORS['DEP'], label: 'Climbing' },
-                        { color: '#666666', label: 'Ground' },
+                        { color: ARR_DEP_COLORS['ARR'], label: PERTII18n.t('route.legend.enroute') },
+                        { color: ARR_DEP_COLORS['DEP'], label: PERTII18n.t('route.legend.climbing') },
+                        { color: '#666666', label: PERTII18n.t('route.legend.ground') },
                     ];
                     break;
                 case 'carrier':
@@ -4199,12 +4199,12 @@ $(document).ready(function() {
                     break;
                 case 'operator_group':
                     items = [
-                        { color: OPERATOR_GROUP_COLORS['MAJOR'], label: 'Major' },
-                        { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: 'Regional' },
-                        { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: 'Freight' },
-                        { color: OPERATOR_GROUP_COLORS['GA'], label: 'GA' },
-                        { color: OPERATOR_GROUP_COLORS['MILITARY'], label: 'Military' },
-                        { color: OPERATOR_GROUP_COLORS['OTHER'], label: 'Other' },
+                        { color: OPERATOR_GROUP_COLORS['MAJOR'], label: PERTII18n.t('route.legend.major') },
+                        { color: OPERATOR_GROUP_COLORS['REGIONAL'], label: PERTII18n.t('route.legend.regional') },
+                        { color: OPERATOR_GROUP_COLORS['FREIGHT'], label: PERTII18n.t('route.legend.freight') },
+                        { color: OPERATOR_GROUP_COLORS['GA'], label: PERTII18n.t('route.legend.ga') },
+                        { color: OPERATOR_GROUP_COLORS['MILITARY'], label: PERTII18n.t('route.legend.military') },
+                        { color: OPERATOR_GROUP_COLORS['OTHER'], label: PERTII18n.t('route.legend.other') },
                     ];
                     break;
                 case 'dep_center':
@@ -4218,29 +4218,29 @@ $(document).ready(function() {
                 case 'dep_tracon':
                 case 'arr_tracon':
                     items = [
-                        { color: getDccRegionColorByName('WEST'), label: 'West' },
-                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'S.Central' },
-                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
-                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
-                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: PERTII18n.t('route.legend.west') },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: PERTII18n.t('route.legend.sCentral') },
+                        { color: getDccRegionColorByName('MIDWEST'), label: PERTII18n.t('route.legend.midwest') },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: PERTII18n.t('route.legend.southeast') },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: PERTII18n.t('route.legend.northeast') },
                     ];
                     break;
                 case 'dcc_region':
                     items = [
-                        { color: getDccRegionColorByName('WEST'), label: 'West' },
-                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: 'South Central' },
-                        { color: getDccRegionColorByName('MIDWEST'), label: 'Midwest' },
-                        { color: getDccRegionColorByName('SOUTHEAST'), label: 'Southeast' },
-                        { color: getDccRegionColorByName('NORTHEAST'), label: 'Northeast' },
+                        { color: getDccRegionColorByName('WEST'), label: PERTII18n.t('route.legend.west') },
+                        { color: getDccRegionColorByName('SOUTH_CENTRAL'), label: PERTII18n.t('route.legend.southCentral') },
+                        { color: getDccRegionColorByName('MIDWEST'), label: PERTII18n.t('route.legend.midwest') },
+                        { color: getDccRegionColorByName('SOUTHEAST'), label: PERTII18n.t('route.legend.southeast') },
+                        { color: getDccRegionColorByName('NORTHEAST'), label: PERTII18n.t('route.legend.northeast') },
                     ];
                     break;
                 case 'dep_airport':
                 case 'arr_airport':
                     items = [
-                        { color: AIRPORT_TIER_COLORS['CORE30'], label: 'Core 30' },
-                        { color: AIRPORT_TIER_COLORS['OEP35'], label: 'OEP 35' },
-                        { color: AIRPORT_TIER_COLORS['ASPM82'], label: 'ASPM 82' },
-                        { color: AIRPORT_TIER_COLORS['OTHER'], label: 'Other' },
+                        { color: AIRPORT_TIER_COLORS['CORE30'], label: PERTII18n.t('route.legend.core30') },
+                        { color: AIRPORT_TIER_COLORS['OEP35'], label: PERTII18n.t('route.legend.oep35') },
+                        { color: AIRPORT_TIER_COLORS['ASPM82'], label: PERTII18n.t('route.legend.aspm82') },
+                        { color: AIRPORT_TIER_COLORS['OTHER'], label: PERTII18n.t('route.legend.other') },
                     ];
                     break;
                 case 'eta_relative':
@@ -4281,9 +4281,9 @@ $(document).ready(function() {
                         : [];
                     items = publicRoutes.map(route => ({
                         color: route.color || '#17a2b8',
-                        label: route.name || 'Route',
+                        label: route.name || PERTII18n.t('route.legend.route'),
                     }));
-                    items.push({ color: '#666666', label: 'No Match' });
+                    items.push({ color: '#666666', label: PERTII18n.t('route.legend.noMatch') });
                     break;
                 }
                 case 'status': {
@@ -4869,8 +4869,8 @@ $(document).ready(function() {
         // ─────────────────────────────────────────────────────────────────────
 
         function updateStats() {
-            $('#adl_stats_display').html('<strong>' + state.filteredFlights.length + '</strong> shown');
-            $('#adl_stats_total').html('<strong>' + state.flights.length + '</strong> total');
+            $('#adl_stats_display').html('<strong>' + state.filteredFlights.length + '</strong> ' + PERTII18n.t('route.adl.shown'));
+            $('#adl_stats_total').html('<strong>' + state.flights.length + '</strong> ' + PERTII18n.t('route.adl.total'));
         }
 
         function updateRefreshStatus(status) {

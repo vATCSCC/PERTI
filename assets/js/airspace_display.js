@@ -46,7 +46,7 @@ const AirspaceDisplay = (function() {
     // SUA type styling
     const SUA_STYLES = {
         'PA': {
-            name: 'Prohibited',
+            name: PERTII18n.t('airspace.suaProhibited'),
             color: '#ff0000',
             fillOpacity: 0.35,
             strokeWidth: 2,
@@ -54,7 +54,7 @@ const AirspaceDisplay = (function() {
             priority: 0,
         },
         'RA': {
-            name: 'Restricted',
+            name: PERTII18n.t('airspace.suaRestricted'),
             color: '#ff4444',
             fillOpacity: 0.25,
             strokeWidth: 2,
@@ -62,7 +62,7 @@ const AirspaceDisplay = (function() {
             priority: 1,
         },
         'WA': {
-            name: 'Warning',
+            name: PERTII18n.t('airspace.suaWarning'),
             color: '#ffcc00',
             fillOpacity: 0.2,
             strokeWidth: 1.5,
@@ -70,7 +70,7 @@ const AirspaceDisplay = (function() {
             priority: 2,
         },
         'AA': {
-            name: 'Alert',
+            name: PERTII18n.t('airspace.suaAlert'),
             color: '#ff8800',
             fillOpacity: 0.15,
             strokeWidth: 1.5,
@@ -78,7 +78,7 @@ const AirspaceDisplay = (function() {
             priority: 3,
         },
         'MOA': {
-            name: 'MOA',
+            name: PERTII18n.t('airspace.suaMoa'),
             color: '#ff00ff',
             fillOpacity: 0.15,
             strokeWidth: 1,
@@ -86,7 +86,7 @@ const AirspaceDisplay = (function() {
             priority: 4,
         },
         'NSA': {
-            name: 'NSA',
+            name: PERTII18n.t('airspace.suaNsa'),
             color: '#0066ff',
             fillOpacity: 0.2,
             strokeWidth: 1.5,
@@ -98,49 +98,49 @@ const AirspaceDisplay = (function() {
     // TFR type styling
     const TFR_STYLES = {
         'VIP': {
-            name: 'VIP',
+            name: PERTII18n.t('airspace.tfrVip'),
             color: '#cc0000',
             fillOpacity: 0.4,
             strokeWidth: 3,
             strokeDash: null,
         },
         'SECURITY': {
-            name: 'Security',
+            name: PERTII18n.t('airspace.tfrSecurity'),
             color: '#ff0000',
             fillOpacity: 0.35,
             strokeWidth: 2.5,
             strokeDash: null,
         },
         'HAZARDS': {
-            name: 'Hazards',
+            name: PERTII18n.t('airspace.tfrHazards'),
             color: '#ff6600',
             fillOpacity: 0.3,
             strokeWidth: 2,
             strokeDash: [8, 4],
         },
         'SPACE': {
-            name: 'Space Ops',
+            name: PERTII18n.t('airspace.tfrSpaceOps'),
             color: '#9900ff',
             fillOpacity: 0.35,
             strokeWidth: 2,
             strokeDash: null,
         },
         'STADIUM': {
-            name: 'Stadium',
+            name: PERTII18n.t('airspace.tfrStadium'),
             color: '#0066ff',
             fillOpacity: 0.25,
             strokeWidth: 1.5,
             strokeDash: [5, 5],
         },
         'SPECIAL': {
-            name: 'Special',
+            name: PERTII18n.t('airspace.tfrSpecial'),
             color: '#ff00ff',
             fillOpacity: 0.25,
             strokeWidth: 1.5,
             strokeDash: [3, 3],
         },
         'OTHER': {
-            name: 'Other',
+            name: PERTII18n.t('airspace.tfrOther'),
             color: '#888888',
             fillOpacity: 0.2,
             strokeWidth: 1,

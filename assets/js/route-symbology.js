@@ -63,13 +63,13 @@
     };
 
     const DASH_PATTERN_LABELS = {
-        'solid': 'Solid',
-        'dashed': 'Dashed (- - -)',
-        'dotted': 'Dotted (···)',
-        'dash-dot': 'Dash-Dot (-·-)',
-        'long-dash': 'Long Dash (— —)',
-        'short-dash': 'Short Dash (--)',
-        'dense-dot': 'Dense Dot',
+        'solid': PERTII18n.t('route.dashSolid'),
+        'dashed': PERTII18n.t('route.dashDashed'),
+        'dotted': PERTII18n.t('route.dashDotted'),
+        'dash-dot': PERTII18n.t('route.dashDashDot'),
+        'long-dash': PERTII18n.t('route.dashLongDash'),
+        'short-dash': PERTII18n.t('route.dashShortDash'),
+        'dense-dot': PERTII18n.t('route.dashDenseDot'),
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -487,13 +487,13 @@
         // Global controls
         $panel.on('input change', '#symb-global-width', function() {
             const val = $(this).val();
-            $('#symb-global-width-val').text(val ? parseFloat(val).toFixed(1) : 'Default');
+            $('#symb-global-width-val').text(val ? parseFloat(val).toFixed(1) : PERTII18n.t('route.default'));
             setGlobalDefaults({ width: val ? parseFloat(val) : null });
         });
 
         $panel.on('input change', '#symb-global-opacity', function() {
             const val = $(this).val();
-            $('#symb-global-opacity-val').text(val ? Math.round(parseFloat(val) * 100) + '%' : 'Default');
+            $('#symb-global-opacity-val').text(val ? Math.round(parseFloat(val) * 100) + '%' : PERTII18n.t('route.default'));
             setGlobalDefaults({ opacity: val ? parseFloat(val) : null });
         });
 
@@ -512,7 +512,7 @@
 
         // Reset button
         $panel.on('click', '#symb-reset-defaults', function() {
-            if (confirm('Reset all route symbology settings to defaults?')) {
+            if (confirm(PERTII18n.t('route.confirmResetDefaults'))) {
                 resetToDefaults();
                 updatePanelUI();
             }
@@ -520,7 +520,7 @@
 
         // Clear overrides button
         $panel.on('click', '#symb-clear-overrides', function() {
-            if (confirm('Clear all segment and route overrides?')) {
+            if (confirm(PERTII18n.t('route.confirmClearOverrides'))) {
                 clearAllOverrides();
             }
         });
@@ -647,9 +647,9 @@
         // Global
         const global = currentSymbology.global || {};
         $('#symb-global-width').val(global.width ?? '');
-        $('#symb-global-width-val').text(global.width ? global.width.toFixed(1) : 'Default');
+        $('#symb-global-width-val').text(global.width ? global.width.toFixed(1) : PERTII18n.t('route.default'));
         $('#symb-global-opacity').val(global.opacity ?? '');
-        $('#symb-global-opacity-val').text(global.opacity ? Math.round(global.opacity * 100) + '%' : 'Default');
+        $('#symb-global-opacity-val').text(global.opacity ? Math.round(global.opacity * 100) + '%' : PERTII18n.t('route.default'));
         const hasGlobalColor = global.color != null;
         $('#symb-global-color-enable').prop('checked', hasGlobalColor);
         $('#symb-global-color').prop('disabled', !hasGlobalColor);
@@ -698,8 +698,8 @@
         // Update toggle button text
         $('#symb-toggle-all-fixes').html(
             fixes.visible !== false
-                ? '<i class="fas fa-eye-slash"></i> Hide All'
-                : '<i class="fas fa-eye"></i> Show All',
+                ? '<i class="fas fa-eye-slash"></i> ' + PERTII18n.t('route.hideAll')
+                : '<i class="fas fa-eye"></i> ' + PERTII18n.t('route.showAll'),
         );
     }
 
@@ -711,12 +711,12 @@
         popup.className = 'symbology-segment-editor';
         popup.innerHTML = `
             <div class="symb-editor-header">
-                <strong>Segment Style</strong>
+                <strong>${PERTII18n.t('route.segmentStyle')}</strong>
                 <button type="button" class="close symb-editor-close">&times;</button>
             </div>
             <div class="symb-editor-body">
                 <div class="form-group mb-2">
-                    <label class="small mb-1">COLOR</label>
+                    <label class="small mb-1">${PERTII18n.t('route.color')}</label>
                     <div class="d-flex align-items-center">
                         <input type="checkbox" id="seg-color-enable" class="mr-2" ${currentStyle.color ? 'checked' : ''}>
                         <input type="color" id="seg-color" value="${currentStyle.color || '#C70039'}" 
@@ -724,30 +724,30 @@
                     </div>
                 </div>
                 <div class="form-group mb-2">
-                    <label class="small mb-1">WIDTH</label>
+                    <label class="small mb-1">${PERTII18n.t('route.width')}</label>
                     <div class="d-flex align-items-center">
                         <input type="range" id="seg-width" min="0.5" max="8" step="0.5" value="${currentStyle.width || 3}" class="form-control-range flex-grow-1">
                         <span class="ml-2 small" id="seg-width-val">${(currentStyle.width || 3).toFixed(1)}</span>
                     </div>
                 </div>
                 <div class="form-group mb-2">
-                    <label class="small mb-1">OPACITY</label>
+                    <label class="small mb-1">${PERTII18n.t('route.opacity')}</label>
                     <div class="d-flex align-items-center">
                         <input type="range" id="seg-opacity" min="0.1" max="1" step="0.1" value="${currentStyle.opacity || 1}" class="form-control-range flex-grow-1">
                         <span class="ml-2 small" id="seg-opacity-val">${Math.round((currentStyle.opacity || 1) * 100)}%</span>
                     </div>
                 </div>
                 <div class="form-group mb-2">
-                    <label class="small mb-1">DASH STYLE</label>
+                    <label class="small mb-1">${PERTII18n.t('route.dashStyle')}</label>
                     <select id="seg-dash" class="form-control form-control-sm">
                         ${getDashPatternOptions(getDashPatternKey(currentStyle.dashArray))}
                     </select>
                 </div>
                 <div class="d-flex justify-content-between mt-3">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="seg-clear">Clear Override</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="seg-clear">${PERTII18n.t('route.clearOverride')}</button>
                     <div>
-                        <button type="button" class="btn btn-sm btn-outline-info mr-1" id="seg-apply-route">Apply to Route</button>
-                        <button type="button" class="btn btn-sm btn-primary" id="seg-apply">Apply</button>
+                        <button type="button" class="btn btn-sm btn-outline-info mr-1" id="seg-apply-route">${PERTII18n.t('route.applyToRoute')}</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="seg-apply">${PERTII18n.t('common.apply')}</button>
                     </div>
                 </div>
             </div>

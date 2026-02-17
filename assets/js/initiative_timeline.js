@@ -25,20 +25,20 @@ class InitiativeTimeline {
 
         // Level definitions
         this.levels = {
-            'CDW': { name: 'Critical Decision Window', category: 'cdw', icon: 'fa-clock' },
-            'Possible': { name: 'Possible TMI', category: 'tmi', icon: 'fa-question-circle' },
-            'Probable': { name: 'Probable TMI', category: 'tmi', icon: 'fa-exclamation-circle' },
-            'Expected': { name: 'Expected TMI', category: 'tmi', icon: 'fa-check-circle' },
-            'Active': { name: 'Active TMI', category: 'tmi', icon: 'fa-broadcast-tower' },
-            'Advisory_Terminal': { name: 'TMI Advisory', category: 'tmi', icon: 'fa-info-circle' },
-            'Advisory_EnRoute': { name: 'Advisory', category: 'tmi', icon: 'fa-info-circle' },
-            'Constraint_Terminal': { name: 'Terminal Constraint', category: 'constraint', icon: 'fa-exclamation-triangle' },
-            'Constraint_EnRoute': { name: 'En Route Constraint', category: 'constraint', icon: 'fa-exclamation-triangle' },
-            'Special_Event': { name: 'Special Event', category: 'event', icon: 'fa-star' },
-            'Space_Op': { name: 'Space Operation', category: 'space', icon: 'fa-rocket' },
-            'VIP': { name: 'VIP Movement', category: 'vip', icon: 'fa-user-shield' },
-            'Staffing': { name: 'Staffing Trigger', category: 'staffing', icon: 'fa-users' },
-            'Misc': { name: 'Miscellaneous', category: 'misc', icon: 'fa-ellipsis-h' },
+            'CDW': { name: PERTII18n.t('initiative.level.cdw'), category: 'cdw', icon: 'fa-clock' },
+            'Possible': { name: PERTII18n.t('initiative.level.possibleTmi'), category: 'tmi', icon: 'fa-question-circle' },
+            'Probable': { name: PERTII18n.t('initiative.level.probableTmi'), category: 'tmi', icon: 'fa-exclamation-circle' },
+            'Expected': { name: PERTII18n.t('initiative.level.expectedTmi'), category: 'tmi', icon: 'fa-check-circle' },
+            'Active': { name: PERTII18n.t('initiative.level.activeTmi'), category: 'tmi', icon: 'fa-broadcast-tower' },
+            'Advisory_Terminal': { name: PERTII18n.t('initiative.level.tmiAdvisory'), category: 'tmi', icon: 'fa-info-circle' },
+            'Advisory_EnRoute': { name: PERTII18n.t('initiative.level.advisory'), category: 'tmi', icon: 'fa-info-circle' },
+            'Constraint_Terminal': { name: PERTII18n.t('initiative.level.terminalConstraint'), category: 'constraint', icon: 'fa-exclamation-triangle' },
+            'Constraint_EnRoute': { name: PERTII18n.t('initiative.level.enRouteConstraint'), category: 'constraint', icon: 'fa-exclamation-triangle' },
+            'Special_Event': { name: PERTII18n.t('initiative.level.specialEvent'), category: 'event', icon: 'fa-star' },
+            'Space_Op': { name: PERTII18n.t('initiative.level.spaceOperation'), category: 'space', icon: 'fa-rocket' },
+            'VIP': { name: PERTII18n.t('initiative.level.vipMovement'), category: 'vip', icon: 'fa-user-shield' },
+            'Staffing': { name: PERTII18n.t('initiative.level.staffingTrigger'), category: 'staffing', icon: 'fa-users' },
+            'Misc': { name: PERTII18n.t('initiative.level.miscellaneous'), category: 'misc', icon: 'fa-ellipsis-h' },
         };
 
         this.terminalLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_Terminal', 'Constraint_Terminal', 'VIP', 'Misc'];
@@ -665,7 +665,7 @@ class InitiativeTimeline {
         if (!container) {return;}
 
         if (this.filteredOut.size === 0) {
-            container.innerHTML = '<span class="dcccp-filter-tag-none">None</span>';
+            container.innerHTML = `<span class="dcccp-filter-tag-none">${PERTII18n.t('common.none')}</span>`;
         } else {
             container.innerHTML = Array.from(this.filteredOut)
                 .map(l => `<span class="dcccp-filter-tag">${this.levels[l].name}</span>`).join('');
@@ -751,7 +751,7 @@ class InitiativeTimeline {
 
         const groups = {};
         data.forEach(i => {
-            const f = i.facility || 'Unknown';
+            const f = i.facility || PERTII18n.t('common.unknown');
             if (!groups[f]) {groups[f] = [];}
             groups[f].push(i);
         });
@@ -771,7 +771,7 @@ class InitiativeTimeline {
 
         if (!facilities.length) {
             facCol.innerHTML = '';
-            rowsEl.innerHTML = '<div class="dcccp-no-data">No data available</div>';
+            rowsEl.innerHTML = `<div class="dcccp-no-data">${PERTII18n.t('initiative.noData')}</div>`;
             this.renderTimeAxis(startTime, endTime);
             this.updateNowLine(startTime, totalMs);
             return;
@@ -880,9 +880,9 @@ class InitiativeTimeline {
             case 'vip': return `${item.tmi_type || 'VIP'}: ${item.facility}→${item.area}`;
             case 'space': return `${item.tmi_type}: ${item.cause || ''}`;
             case 'staffing': return `${PERTII18n.t('initiative.label.staffingPrefix')}: ${item.area || item.facility}`;
-            case 'event': return item.cause || 'Special Event';
-            case 'cdw': return item.cause || 'CDW';
-            case 'misc': return item.cause || 'Misc';
+            case 'event': return item.cause || PERTII18n.t('initiative.label.specialEvent');
+            case 'cdw': return item.cause || PERTII18n.t('initiative.label.cdw');
+            case 'misc': return item.cause || PERTII18n.t('initiative.label.misc');
             default: return item.tmi_type || item.cause || '';
         }
     }

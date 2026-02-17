@@ -2178,7 +2178,7 @@ function termInitStateDialog(options) {
         inputValue: currentVal,
         inputPlaceholder: PERTII18n.t('plan.initDialog.selectState'),
         showCancelButton: true,
-        confirmButtonText: 'Save',
+        confirmButtonText: PERTII18n.t('common.save'),
     }).then(function(result) {
         if (!result.isConfirmed) {
             return;
@@ -2325,7 +2325,7 @@ function enrouteInitStateDialog(options) {
         inputValue: currentVal,
         inputPlaceholder: PERTII18n.t('plan.initDialog.selectState'),
         showCancelButton: true,
-        confirmButtonText: 'Save',
+        confirmButtonText: PERTII18n.t('common.save'),
     }).then(function(result) {
         if (!result.isConfirmed) {
             return;
@@ -2869,12 +2869,12 @@ function opsPlanUpdateMessage() {
     });
 
     if (staffingLines.length === 1) {
-        staffingLines.push('NONE');
+        staffingLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // TERMINAL CONSTRAINTS (from timeline)
     const termConstraintLines = [];
-    termConstraintLines.push('TERMINAL CONSTRAINTS:');
+    termConstraintLines.push(PERTII18n.t('plan.opsPlan.terminalConstraints'));
 
     // Get terminal constraints from timeline
     const termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
@@ -2903,12 +2903,12 @@ function opsPlanUpdateMessage() {
     });
 
     if (termConstraintLines.length === 1) {
-        termConstraintLines.push('NONE');
+        termConstraintLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // EN ROUTE CONSTRAINTS (from timeline)
     const enrouteConstraintLines = [];
-    enrouteConstraintLines.push('EN ROUTE CONSTRAINTS:');
+    enrouteConstraintLines.push(PERTII18n.t('plan.opsPlan.enRouteConstraints'));
 
     // Get enroute constraints from timeline
     const enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
@@ -2937,7 +2937,7 @@ function opsPlanUpdateMessage() {
     });
 
     if (enrouteConstraintLines.length === 1) {
-        enrouteConstraintLines.push('NONE');
+        enrouteConstraintLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // Helper: Format datetime from MySQL/ISO format to DD/HHMM format
@@ -3002,9 +3002,9 @@ function opsPlanUpdateMessage() {
 
             // For planned items (Possible/Probable/Expected), include probability
             let probLabel = '';
-            if (item.level === 'Possible') {probLabel = ' POSSIBLE';}
-            else if (item.level === 'Probable') {probLabel = ' PROBABLE';}
-            else if (item.level === 'Expected') {probLabel = ' EXPECTED';}
+            if (item.level === 'Possible') {probLabel = PERTII18n.t('plan.opsPlan.possible');}
+            else if (item.level === 'Probable') {probLabel = PERTII18n.t('plan.opsPlan.probable');}
+            else if (item.level === 'Expected') {probLabel = PERTII18n.t('plan.opsPlan.expected');}
 
             const line = startTime + '-' + endTime + ' -' + desc + probLabel;
             result.push(line);
@@ -3094,17 +3094,17 @@ function opsPlanUpdateMessage() {
 
     // TERMINAL ACTIVE
     const termActiveLines = [];
-    termActiveLines.push('TERMINAL ACTIVE:');
+    termActiveLines.push(PERTII18n.t('plan.opsPlan.terminalActive'));
     const termActiveTmis = buildTmiLinesFromTimeline(termTimelineData, ['Active']);
     if (termActiveTmis.length) {
         termActiveTmis.forEach(function(l) { termActiveLines.push(l); });
     } else {
-        termActiveLines.push('NONE');
+        termActiveLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // TERMINAL PLANNED (Possible, Probable, Expected)
     const termPlannedLines = [];
-    termPlannedLines.push('TERMINAL PLANNED:');
+    termPlannedLines.push(PERTII18n.t('plan.opsPlan.terminalPlanned'));
     const termPlannedTmis = buildTmiLinesFromTimeline(termTimelineData, ['Possible', 'Probable', 'Expected']);
     if (termPlannedTmis.length) {
         termPlannedTmis.forEach(function(l) { termPlannedLines.push(l); });
@@ -3121,7 +3121,7 @@ function opsPlanUpdateMessage() {
         termPlannedLines.push(line);
     });
     if (termPlannedLines.length === 1) {
-        termPlannedLines.push('NONE');
+        termPlannedLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
 
@@ -3130,17 +3130,17 @@ function opsPlanUpdateMessage() {
 
     // EN ROUTE ACTIVE
     const enrouteActiveLines = [];
-    enrouteActiveLines.push('EN ROUTE ACTIVE:');
+    enrouteActiveLines.push(PERTII18n.t('plan.opsPlan.enRouteActive'));
     const enrouteActiveTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Active']);
     if (enrouteActiveTmis.length) {
         enrouteActiveTmis.forEach(function(l) { enrouteActiveLines.push(l); });
     } else {
-        enrouteActiveLines.push('NONE');
+        enrouteActiveLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // EN ROUTE PLANNED (Possible, Probable, Expected)
     const enroutePlannedLines = [];
-    enroutePlannedLines.push('EN ROUTE PLANNED:');
+    enroutePlannedLines.push(PERTII18n.t('plan.opsPlan.enRoutePlanned'));
     const enroutePlannedTmis = buildTmiLinesFromTimeline(enrouteTimelineData, ['Possible', 'Probable', 'Expected']);
     if (enroutePlannedTmis.length) {
         enroutePlannedTmis.forEach(function(l) { enroutePlannedLines.push(l); });
@@ -3157,7 +3157,7 @@ function opsPlanUpdateMessage() {
         enroutePlannedLines.push(line);
     });
     if (enroutePlannedLines.length === 1) {
-        enroutePlannedLines.push('NONE');
+        enroutePlannedLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
 
@@ -3166,53 +3166,53 @@ function opsPlanUpdateMessage() {
 
     // VIP MOVEMENTS (from both terminal and enroute timelines)
     const vipLines = [];
-    vipLines.push('VIP MOVEMENTS:');
+    vipLines.push(PERTII18n.t('plan.opsPlan.vipMovements'));
     const allTimelineData = termTimelineData.concat(enrouteTimelineData);
     const vipTmis = buildSpecialLinesFromTimeline(allTimelineData, ['VIP']);
     if (vipTmis.length) {
         vipTmis.forEach(function(l) { vipLines.push(l); });
     } else {
-        vipLines.push('NONE');
+        vipLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // SPACE OPERATIONS (from both timelines)
     const spaceLines = [];
-    spaceLines.push('SPACE OPERATIONS:');
+    spaceLines.push(PERTII18n.t('plan.opsPlan.spaceOperations'));
     const spaceTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Space_Op']);
     if (spaceTmis.length) {
         spaceTmis.forEach(function(l) { spaceLines.push(l); });
     } else {
-        spaceLines.push('NONE');
+        spaceLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // SPECIAL EVENTS (from both timelines)
     const specialEventLines = [];
-    specialEventLines.push('SPECIAL EVENTS:');
+    specialEventLines.push(PERTII18n.t('plan.opsPlan.specialEvents'));
     const specialTmis = buildSpecialLinesFromTimeline(allTimelineData, ['Special_Event']);
     if (specialTmis.length) {
         specialTmis.forEach(function(l) { specialEventLines.push(l); });
     } else {
-        specialEventLines.push('NONE');
+        specialEventLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // ADVISORIES (Terminal and EnRoute)
     const advisoryLines = [];
-    advisoryLines.push('ADVISORIES:');
+    advisoryLines.push(PERTII18n.t('plan.opsPlan.advisories'));
     const advisoryTmis = buildAdvisoryLinesFromTimeline(allTimelineData, ['Advisory_Terminal', 'Advisory_EnRoute']);
     if (advisoryTmis.length) {
         advisoryTmis.forEach(function(l) { advisoryLines.push(l); });
     } else {
-        advisoryLines.push('NONE');
+        advisoryLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
     // CDRS/SWAP/... and SIRs (still default to NONE for now)
     const cdrLines = [];
-    cdrLines.push('CDRS/SWAP/CAPPING/TUNNELING/HOTLINE/DIVERSION RECOVERY:');
-    cdrLines.push('NONE');
+    cdrLines.push(PERTII18n.t('plan.opsPlan.cdrSwap'));
+    cdrLines.push(PERTII18n.t('plan.opsPlan.none'));
 
     const sirLines = [];
-    sirLines.push('RUNWAY/EQUIPMENT/POSSIBLE SYSTEM IMPACT REPORTS (SIRs):');
-    sirLines.push('NONE');
+    sirLines.push(PERTII18n.t('plan.opsPlan.sirReports'));
+    sirLines.push(PERTII18n.t('plan.opsPlan.none'));
 
     // Footer time summary
     const footerLines = [];
@@ -3393,28 +3393,28 @@ function pertiUpdateMessage() {
 
     const lines = [];
 
-    lines.push(eventName + ' | TMU OpLevel ' + opLevel + ' | PERTI Data Request');
+    lines.push(PERTII18n.t('plan.pertiNotification.titleLine', { eventName, opLevel }));
 
     if (startDate && endDate && startDate === endDate) {
-        lines.push(eventName + ' is on ' + startDate + ' from ' + startZ + ' to ' + endZ + '.');
+        lines.push(PERTII18n.t('plan.pertiNotification.sameDay', { eventName, date: startDate, startZ, endZ }));
     } else {
         const sdText = startDate || '____';
         const edText = endDate   || '____';
-        lines.push(eventName + ' is from ' + sdText + ' ' + startZ + ' to ' + edText + ' ' + endZ + '.');
+        lines.push(PERTII18n.t('plan.pertiNotification.multiDay', { eventName, startDate: sdText, startZ, endDate: edText, endZ }));
     }
 
     const ts = pertiComputeDiscordTimestamps(startDate, startTime, endDate, endTime);
     if (ts && ts.startTs && ts.endTs) {
-        lines.push('Start: <t:' + ts.startTs + ':F> (<t:' + ts.startTs + ':R>) in your timezone');
-        lines.push('End:   <t:' + ts.endTs + ':F> (<t:' + ts.endTs + ':R>) in your timezone');
+        lines.push(PERTII18n.t('plan.pertiNotification.startTimestamp', { ts: ts.startTs }));
+        lines.push(PERTII18n.t('plan.pertiNotification.endTimestamp', { ts: ts.endTs }));
     } else {
-        lines.push('Start: <t:discord_timestamp_start:F> (<t:discord_timestamp_start:R>) in your timezone');
-        lines.push('End:   <t:discord_timestamp_end:F> (<t:discord_timestamp_end:R>) in your timezone');
+        lines.push(PERTII18n.t('plan.pertiNotification.startTimestampPlaceholder'));
+        lines.push(PERTII18n.t('plan.pertiNotification.endTimestampPlaceholder'));
     }
 
     lines.push('');
 
-    lines.push('Review and fill out the PERTI Plan:');
+    lines.push(PERTII18n.t('plan.pertiNotification.reviewPlan'));
     lines.push('[PERTI Plan](https://perti.vatcscc.org/plan?' + planNumber + ')');
     lines.push('[Staffing Data](https://perti.vatcscc.org/data?' + planNumber + ')');
     lines.push('[PERTI NAS Operations Dashboard (NOD)](https://perti.vatcscc.org/nod)');
@@ -3445,14 +3445,14 @@ function pertiUpdateMessage() {
         }
     }
 
-    lines.push('Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.');
+    lines.push(PERTII18n.t('plan.pertiNotification.coordinateInstructions'));
     lines.push('---------------------------------------------------------');
     lines.push('<@&1268395359714021396> please react with your availability to NOM for this event.');
     lines.push('<@&1268395210665361478> please react with your availability to shadow this event.');
     lines.push('');
-    lines.push('🟢 = Available');
-    lines.push('🟡 = Partially available/unsure');
-    lines.push('🔴 = Unavailable');
+    lines.push(PERTII18n.t('plan.pertiNotification.availableEmoji'));
+    lines.push(PERTII18n.t('plan.pertiNotification.partialEmoji'));
+    lines.push(PERTII18n.t('plan.pertiNotification.unavailableEmoji'));
     lines.push('---------------------------------------------------------');
 
     $('#pertiMessage').val(lines.join('\n'));

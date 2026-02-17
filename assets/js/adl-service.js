@@ -420,7 +420,7 @@ const ADLService = (function() {
         if (!tbodyEl) {return;}
 
         const {
-            emptyMessage = 'No flights found',
+            emptyMessage = PERTII18n.t('common.noFlightsFound'),
             colspan = 8,
             preserveOnEmpty = true,
             sortFn = null,

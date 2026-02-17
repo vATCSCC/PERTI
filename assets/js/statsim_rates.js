@@ -47,12 +47,12 @@
 
             // Legend items - Arrivals first (left bar), then Departures (right bar)
             const items = [
-                { color: '#ff0000', label: 'Arrivals', type: 'box' },
-                { color: '#00ff00', label: 'Departures', type: 'box' },
-                { color: '#ffffff', label: 'VATSIM AAR', type: 'line', dash: false },
-                { color: '#ffffff', label: 'VATSIM ADR', type: 'line', dash: true },
-                { color: '#00ffff', label: 'RW AAR', type: 'line', dash: false },
-                { color: '#00ffff', label: 'RW ADR', type: 'line', dash: true },
+                { color: '#ff0000', label: PERTII18n.t('statsim.arrivals'), type: 'box' },
+                { color: '#00ff00', label: PERTII18n.t('statsim.departures'), type: 'box' },
+                { color: '#ffffff', label: PERTII18n.t('statsim.vatsimAar'), type: 'line', dash: false },
+                { color: '#ffffff', label: PERTII18n.t('statsim.vatsimAdr'), type: 'line', dash: true },
+                { color: '#00ffff', label: PERTII18n.t('statsim.rwAar'), type: 'line', dash: false },
+                { color: '#00ffff', label: PERTII18n.t('statsim.rwAdr'), type: 'line', dash: true },
             ];
 
             ctx.font = 'bold 9px "Segoe UI", Tahoma, Arial, sans-serif';
@@ -189,7 +189,7 @@
         openUrl: function() {
             const url = this.buildUrl();
             if (url) {window.open(url, '_blank');}
-            else {alert('Please fill in all fields first.');}
+            else {alert(PERTII18n.t('statsim.fillAllFields'));}
         },
 
         fetchData: function() {
@@ -198,18 +198,18 @@
             const to = document.getElementById('statsim_to').value;
 
             if (!airports || !from || !to) {
-                alert('Please fill in all fields.');
+                alert(PERTII18n.t('statsim.fillAllFields'));
                 return;
             }
 
             const resultsDiv = document.getElementById('statsim_results');
-            resultsDiv.innerHTML = '<div class="statsim-loading"><i class="fas fa-spinner fa-spin"></i> Fetching data from Statsim...</div>';
+            resultsDiv.innerHTML = '<div class="statsim-loading"><i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('statsim.fetchingData') + '</div>';
 
             fetch(`api/statsim/fetch.php?airports=${airports}&from=${from}&to=${to}`)
                 .then(r => r.json())
                 .then(data => this.displayResults(data))
                 .catch(err => {
-                    resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Error: ${err.message}</div>`;
+                    resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> ${PERTII18n.t('common.error')}: ${err.message}</div>`;
                 });
         },
 
@@ -218,7 +218,7 @@
 
             if (data.error === true || data.success === false) {
                 resultsDiv.innerHTML = `
-                    <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> ${data.message || 'An error occurred'}</div>
+                    <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> ${data.message || PERTII18n.t('statsim.anErrorOccurred')}</div>
                     ${data.statsim_url ? `<p><a href="${data.statsim_url}" target="_blank" class="btn btn-sm btn-primary">Open Statsim</a></p>` : ''}
                 `;
                 return;
@@ -235,15 +235,15 @@
             resultsDiv.innerHTML = `
                 <div class="statsim-totals mb-3">
                     <div class="total-item">
-                        <div class="total-label">Total Movements</div>
+                        <div class="total-label">${PERTII18n.t('statsim.totalMovements')}</div>
                         <div class="total-value">${data.totalMovements || (data.totals.arrivals + data.totals.departures)}</div>
                     </div>
                     <div class="total-item">
-                        <div class="total-label">Arrivals</div>
+                        <div class="total-label">${PERTII18n.t('statsim.arrivals')}</div>
                         <div class="total-value arrivals">${data.totals?.arrivals || 0}</div>
                     </div>
                     <div class="total-item">
-                        <div class="total-label">Departures</div>
+                        <div class="total-label">${PERTII18n.t('statsim.departures')}</div>
                         <div class="total-value departures">${data.totals?.departures || 0}</div>
                     </div>
                 </div>
@@ -393,7 +393,7 @@
             const container = document.getElementById('hourly_rates_container');
 
             if (Object.keys(this.airports).length === 0) {
-                container.innerHTML = `<div class="text-muted text-center py-3"><i class="fas fa-info-circle"></i> Fetch Statsim data to populate hourly rate inputs.</div>`;
+                container.innerHTML = `<div class="text-muted text-center py-3"><i class="fas fa-info-circle"></i> ${PERTII18n.t('statsim.fetchStatsimPrompt')}</div>`;
                 document.getElementById('rates_actions').style.display = 'none';
                 return;
             }
@@ -417,10 +417,10 @@
                         
                         <!-- Export buttons bar -->
                         <div class="chart-export-bar">
-                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportPNG('${icao}')" title="Download PNG"><i class="fas fa-download"></i> PNG</button>
-                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportSVG('${icao}')" title="Download SVG"><i class="fas fa-download"></i> SVG</button>
-                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportChartCSV('${icao}')" title="Download CSV"><i class="fas fa-download"></i> CSV</button>
-                            <button class="btn btn-sm btn-info" onclick="HourlyRates.copyToClipboard('${icao}', 'png')" title="Copy PNG to clipboard"><i class="fas fa-copy"></i> Copy</button>
+                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportPNG('${icao}')" title="${PERTII18n.t('statsim.export.downloadPng')}"><i class="fas fa-download"></i> PNG</button>
+                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportSVG('${icao}')" title="${PERTII18n.t('statsim.export.downloadSvg')}"><i class="fas fa-download"></i> SVG</button>
+                            <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportChartCSV('${icao}')" title="${PERTII18n.t('statsim.export.downloadCsv')}"><i class="fas fa-download"></i> CSV</button>
+                            <button class="btn btn-sm btn-info" onclick="HourlyRates.copyToClipboard('${icao}', 'png')" title="${PERTII18n.t('statsim.export.copyPngToClipboard')}"><i class="fas fa-copy"></i> Copy</button>
                         </div>
                         
                         <!-- FSM-style Demand Bar Graph (title & legend on canvas) -->
@@ -433,22 +433,22 @@
                             <div class="quick-fill-group">
                                 <label>VATSIM AAR:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_vatsim_aar" min="0">
-                                <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_aar')" title="Fill all"><i class="fas fa-fill"></i></button>
+                                <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_aar')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
                                 <label>VATSIM ADR:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_vatsim_adr" min="0">
-                                <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_adr')" title="Fill all"><i class="fas fa-fill"></i></button>
+                                <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_adr')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
                                 <label>RW AAR:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_rw_aar" min="0">
-                                <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_aar')" title="Fill all"><i class="fas fa-fill"></i></button>
+                                <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_aar')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
                                 <label>RW ADR:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_rw_adr" min="0">
-                                <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_adr')" title="Fill all"><i class="fas fa-fill"></i></button>
+                                <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_adr')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                         </div>
                         
@@ -511,7 +511,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr class="totals-row">
-                                        <td colspan="2" class="text-right"><strong>TOTALS:</strong></td>
+                                        <td colspan="2" class="text-right"><strong>${PERTII18n.t('statsim.totals')}</strong></td>
                                         <td class="statsim-col col-arr text-center">${airport.totalArr}</td>
                                         <td class="statsim-col col-dep text-center">${airport.totalDep}</td>
                                         <td class="vatsim-col text-center" id="total_${icao}_vatsim_aar">-</td>
@@ -582,7 +582,7 @@
                     datasets: [
                         {
                             // Arrivals = Bright Red (LEFT bar)
-                            label: 'Arrivals',
+                            label: PERTII18n.t('statsim.chart.arrivalsLabel'),
                             data: arrData,
                             backgroundColor: '#ff0000',
                             borderColor: '#cc0000',
@@ -593,7 +593,7 @@
                         },
                         {
                             // Departures = Bright Green (RIGHT bar)
-                            label: 'Departures',
+                            label: PERTII18n.t('statsim.chart.departuresLabel'),
                             data: depData,
                             backgroundColor: '#00ff00',
                             borderColor: '#00cc00',
@@ -743,7 +743,7 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Time in 60-Minute Increments',
+                                text: PERTII18n.t('statsim.axisTime'),
                                 color: '#000000',
                                 font: { ...fsmFont, size: 10 },
                                 padding: { top: 2 },
@@ -767,7 +767,7 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Demand',
+                                text: PERTII18n.t('statsim.axisDemand'),
                                 color: '#000000',
                                 font: { ...fsmFont, size: 10 },
                                 padding: { bottom: 2 },
@@ -815,26 +815,26 @@
                             await navigator.clipboard.write([
                                 new ClipboardItem({ 'image/png': blob }),
                             ]);
-                            this.showCopySuccess('PNG copied to clipboard!');
+                            this.showCopySuccess(PERTII18n.t('statsim.pngCopied'));
                         } catch (err) {
                             console.error('Clipboard write failed:', err);
-                            alert('Could not copy to clipboard. Try the download button instead.');
+                            alert(PERTII18n.t('statsim.clipboardFailed'));
                         }
                     }, 'image/png');
 
                 } else if (format === 'csv') {
                     const csv = this.generateChartCSV(icao);
                     await navigator.clipboard.writeText(csv);
-                    this.showCopySuccess('CSV copied to clipboard!');
+                    this.showCopySuccess(PERTII18n.t('statsim.csvCopied'));
 
                 } else if (format === 'svg') {
                     const svg = this.generateSVG(icao);
                     await navigator.clipboard.writeText(svg);
-                    this.showCopySuccess('SVG copied to clipboard!');
+                    this.showCopySuccess(PERTII18n.t('statsim.svgCopied'));
                 }
             } catch (err) {
                 console.error('Copy failed:', err);
-                alert('Could not copy to clipboard: ' + err.message);
+                alert(PERTII18n.t('statsim.clipboardFailed') + ': ' + err.message);
             }
         },
 
@@ -1063,7 +1063,7 @@
             const value = qfInput.value;
 
             if (value === '') {
-                alert('Enter a value to fill first.');
+                alert(PERTII18n.t('statsim.enterValueFirst'));
                 return;
             }
 
@@ -1081,7 +1081,7 @@
         },
 
         clearAll: function() {
-            if (!confirm('Clear all rate values?')) {return;}
+            if (!confirm(PERTII18n.t('statsim.confirmClearRates'))) {return;}
 
             Object.keys(this.airports).forEach(icao => {
                 this.airports[icao].hours.forEach(hour => {
@@ -1098,7 +1098,7 @@
         saveRates: function() {
             const saveBtn = document.querySelector('#rates_actions .btn-success');
             const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('dialog.saving');
             saveBtn.disabled = true;
 
             const airports = [];
@@ -1146,18 +1146,18 @@
                 .then(data => {
                     saveBtn.innerHTML = originalText;
                     saveBtn.disabled = false;
-                    alert(data.success ? 'Rates saved successfully to VATSIM_ADL!' : 'Error: ' + (data.message || 'Unknown error'));
+                    alert(data.success ? PERTII18n.t('statsim.saveSuccess') : PERTII18n.t('statsim.saveFailed', { message: data.message || PERTII18n.t('common.unknownError') }));
                 })
                 .catch(err => {
                     saveBtn.innerHTML = originalText;
                     saveBtn.disabled = false;
-                    alert('Error saving rates: ' + err.message);
+                    alert(PERTII18n.t('statsim.saveError', { message: err.message }));
                 });
         },
 
         exportCSV: function() {
             if (Object.keys(this.airports).length === 0) {
-                alert('No data to export.');
+                alert(PERTII18n.t('statsim.noDataToExport'));
                 return;
             }
 

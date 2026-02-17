@@ -200,7 +200,7 @@ include("load/i18n.php");
 
         <div class="info-card">
             <h4><i class="fas fa-database mr-2"></i><?= __('transparency.azureSqlDatabases') ?></h4>
-            <p class="text-muted mb-3">Hosted on <code>vatsim.database.windows.net</code> (East US)</p>
+            <p class="text-muted mb-3"><?= __('transparency.hostedOn', ['host' => 'vatsim.database.windows.net', 'region' => 'East US']) ?></p>
             <table class="cost-table">
                 <thead>
                     <tr>

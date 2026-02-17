@@ -1275,7 +1275,7 @@ const NODDemandLayer = (function() {
 
         if (currentLabel) {
             if (state.settings.selectedBucket === null) {
-                currentLabel.textContent = 'Now+60m';
+                currentLabel.textContent = PERTII18n.t('nod.demand.nowPlus60m');
             } else {
                 const minutes = state.settings.selectedBucket * state.settings.bucketMinutes;
                 const hours = Math.floor(minutes / 60);
@@ -1341,7 +1341,7 @@ const NODDemandLayer = (function() {
                 vertical-align: bottom;
                 border-radius: 2px 2px 0 0;
             `;
-            bar.title = `+${i * state.settings.bucketMinutes}min: ${bucketTotal} flights`;
+            bar.title = `+${i * state.settings.bucketMinutes}min: ${PERTII18n.t('nod.demand.flightCount', { count: bucketTotal })}`;
             bar.dataset.bucket = i;
             bar.onclick = () => setBucket(i);
 
@@ -1763,13 +1763,13 @@ const NODDemandLayer = (function() {
                     ? `${monitor.from} → ${monitor.to}`
                     : (monitor.route_string || monitor.id || 'Route');
             case 'airway':
-                return monitor.airway || monitor.id || 'Airway';
+                return monitor.airway || monitor.id || PERTII18n.t('nod.demand.airway');
             case 'airway_segment':
                 return (monitor.from && monitor.airway && monitor.to)
                     ? `${monitor.from} ${monitor.airway} ${monitor.to}`
-                    : (monitor.id || 'Airway Segment');
+                    : (monitor.id || PERTII18n.t('nod.demand.airwaySegment'));
             case 'via_fix': {
-                if (!monitor.filter || !monitor.via) return monitor.id || 'Via Fix';
+                if (!monitor.filter || !monitor.via) return monitor.id || PERTII18n.t('nod.demand.viaFix');
                 const dir = monitor.filter.direction === 'arr' ? '↓' :
                     monitor.filter.direction === 'dep' ? '↑' : '↕';
                 return `${monitor.filter.code}${dir} via ${monitor.via}`;
@@ -1789,7 +1789,7 @@ const NODDemandLayer = (function() {
         // Update count label and Clear All button visibility
         const countEl = document.getElementById('demand-monitors-count');
         const clearBtn = document.getElementById('demand-clear-all-btn');
-        if (countEl) countEl.textContent = state.monitors.length > 0 ? state.monitors.length + ' monitors' : '';
+        if (countEl) countEl.textContent = state.monitors.length > 0 ? PERTII18n.t('nod.demand.monitorCount', { count: state.monitors.length }) : '';
         if (clearBtn) clearBtn.style.display = state.monitors.length > 1 ? '' : 'none';
 
         if (state.monitors.length === 0) {
@@ -1824,14 +1824,14 @@ const NODDemandLayer = (function() {
                 <div class="demand-monitor-item d-flex align-items-center justify-content-between py-1 px-2 mb-1"
                      style="background: rgba(255,255,255,0.05); border-radius: 3px; font-size: 11px; cursor: pointer;"
                      onclick="NODDemandLayer.showMonitorFlights(${idx})"
-                     title="Click to see flights">
+                     title="${PERTII18n.t('nod.demand.clickToSeeFlights')}">
                     <span>
                         <i class="fas ${typeIcon} text-info mr-2" style="width: 14px;"></i>
                         ${label}${countBadge}
                     </span>
                     <button class="btn btn-sm btn-link text-danger p-0"
                             onclick="event.stopPropagation(); NODDemandLayer.removeMonitor('${id}')"
-                            title="Remove monitor">
+                            title="${PERTII18n.t('nod.demand.removeMonitor')}">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -1926,7 +1926,7 @@ const NODDemandLayer = (function() {
         container.innerHTML = `
             <div class="demand-flights-header d-flex justify-content-between align-items-center mb-2">
                 <span class="font-weight-bold">${label}</span>
-                <span class="badge badge-info">${flights.length} flights</span>
+                <span class="badge badge-info">${PERTII18n.t('nod.demand.flightCount', { count: flights.length })}</span>
                 <button class="btn btn-sm btn-link text-muted p-0" onclick="document.getElementById('demand-flights-detail').style.display='none'">
                     <i class="fas fa-times"></i>
                 </button>
@@ -2134,13 +2134,13 @@ const NODDemandLayer = (function() {
                 `;
             }).join('');
 
-            const moreText = flights.length > 15 ? `<div class="popup-more text-muted">+${flights.length - 15} more flights</div>` : '';
+            const moreText = flights.length > 15 ? `<div class="popup-more text-muted">${PERTII18n.t('nod.demand.moreFlights', { count: flights.length - 15 })}</div>` : '';
 
             content = `
                 <div class="demand-details-popup">
                     <div class="popup-header">
                         <span>${label}</span>
-                        <span class="popup-count">${flights.length} flights</span>
+                        <span class="popup-count">${PERTII18n.t('nod.demand.flightCount', { count: flights.length })}</span>
                     </div>
                     <table class="popup-flights">
                         <thead>

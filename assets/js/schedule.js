@@ -36,7 +36,7 @@ function bindOrgToggles() {
                     toast: true,
                     position: 'bottom-right',
                     icon: 'success',
-                    title: action === 'add' ? 'Organization added' : 'Organization removed',
+                    title: action === 'add' ? PERTII18n.t('schedule.orgAdded') : PERTII18n.t('schedule.orgRemoved'),
                     timer: 2000,
                     showConfirmButton: false
                 });
@@ -44,12 +44,12 @@ function bindOrgToggles() {
             error: function(xhr) {
                 // Revert checkbox
                 $cb.prop('checked', !$cb.is(':checked'));
-                var msg = 'Failed to update organization';
+                var msg = PERTII18n.t('schedule.error.updateOrgFailed');
                 try {
                     var resp = JSON.parse(xhr.responseText);
                     if (resp.error) msg = resp.error;
                 } catch(e) {}
-                Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                Swal.fire({ icon: 'error', title: PERTII18n.t('common.error'), text: msg });
             }
         });
     });

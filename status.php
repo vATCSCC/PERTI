@@ -2758,49 +2758,49 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="component-name">Routes Parsed</td>
+                                <td class="component-name"><?= __('statusPage.routesParsed') ?></td>
                                 <td class="timing-info"><?= number_format($liveData['queue_complete_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['queue_complete_1h'] > 0 ? 'complete' : 'warning' ?>">
-                                    <?= $liveData['queue_complete_1h'] > 0 ? 'Active' : 'Idle' ?>
+                                    <?= $liveData['queue_complete_1h'] > 0 ? __('status.active') : __('statusPage.idle') ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Trajectory Logs</td>
+                                <td class="component-name"><?= __('statusPage.trajectoryLogs') ?></td>
                                 <td class="timing-info"><?= number_format($liveData['trajectories_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['trajectories_1h'] > 0 ? 'complete' : 'scheduled' ?>">
-                                    <?= $liveData['trajectories_1h'] > 0 ? 'Active' : 'Waiting' ?>
+                                    <?= $liveData['trajectories_1h'] > 0 ? __('status.active') : __('statusPage.waiting') ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Zone Transitions</td>
+                                <td class="component-name"><?= __('statusPage.zoneTransitions') ?></td>
                                 <td class="timing-info"><?= number_format($liveData['zone_transitions_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['zone_transitions_1h'] > 0 ? 'complete' : 'scheduled' ?>">
-                                    <?= $liveData['zone_transitions_1h'] > 0 ? 'Detected' : 'None' ?>
+                                    <?= $liveData['zone_transitions_1h'] > 0 ? __('statusPage.detected') : __('common.none') ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(BG)</span>
-                                    <div style="font-size: 9px; color: #888;">A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?> | <?= number_format($liveData['boundary_pending']) ?> pending</div>
+                                <td class="component-name"><?= __('statusPage.boundaryDetection') ?> <span style="font-size: 9px; color: #6366f1;">(BG)</span>
+                                    <div style="font-size: 9px; color: #888;">A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?> | <?= number_format($liveData['boundary_pending']) ?> <?= __('status.pending') ?></div>
                                 </td>
                                 <td class="timing-info"><?= number_format($liveData['boundary_crossings_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
-                                    <?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : ($liveData['boundary_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                    <?= $liveData['boundary_crossings_1h'] > 0 ? __('status.active') : ($liveData['boundary_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(BG)</span>
-                                    <div style="font-size: 9px; color: #888;"><?= number_format($liveData['flights_with_crossings']) ?> flights | <?= number_format($liveData['crossings_pending']) ?> pending</div>
+                                <td class="component-name"><?= __('statusPage.plannedCrossings') ?> <span style="font-size: 9px; color: #6366f1;">(BG)</span>
+                                    <div style="font-size: 9px; color: #888;"><?= number_format($liveData['flights_with_crossings']) ?> <?= __('statusPage.flights') ?> | <?= number_format($liveData['crossings_pending']) ?> <?= __('status.pending') ?></div>
                                 </td>
                                 <td class="timing-info"><?= number_format($liveData['planned_crossings_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
-                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : ($liveData['crossings_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                    <?= $liveData['planned_crossings_1h'] > 0 ? __('status.active') : ($liveData['crossings_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
                                 </span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Parse Failures</td>
+                                <td class="component-name"><?= __('statusPage.parseFailures') ?></td>
                                 <td class="timing-info"><?= number_format($liveData['queue_failed_1h']) ?></td>
                                 <td><span class="status-badge <?= $liveData['queue_failed_1h'] == 0 ? 'complete' : ($liveData['queue_failed_1h'] < 10 ? 'warning' : 'error') ?>">
-                                    <?= $liveData['queue_failed_1h'] == 0 ? 'None' : $liveData['queue_failed_1h'] . ' errors' ?>
+                                    <?= $liveData['queue_failed_1h'] == 0 ? __('common.none') : $liveData['queue_failed_1h'] . ' ' . __('statusPage.errors') ?>
                                 </span></td>
                             </tr>
                         </tbody>
@@ -3120,136 +3120,136 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Data Pipeline Status -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-stream mr-2"></i>Data Pipeline</span>
-                        <span class="cycle-badge">Continuous</span>
+                        <span><i class="fas fa-stream mr-2"></i><?= __('statusPage.dataPipeline') ?></span>
+                        <span class="cycle-badge"><?= __('statusPage.continuous') ?></span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Component</th>
-                                <th>Interval</th>
-                                <th>Status</th>
+                                <th><?= __('statusPage.component') ?></th>
+                                <th><?= __('statusPage.interval') ?></th>
+                                <th><?= __('common.status') ?></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>
-                                    <div class="component-name">ATIS Daemon</div>
-                                    <div class="component-desc">Runway assignments</div>
+                                    <div class="component-name"><?= __('statusPage.atisDaemon') ?></div>
+                                    <div class="component-desc"><?= __('statusPage.runwayAssignments') ?></div>
                                 </td>
                                 <td class="timing-info">15s</td>
-                                <td><span class="status-badge running">Running</span></td>
+                                <td><span class="status-badge running"><?= __('statusPage.running') ?></span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Parse Queue</div>
-                                    <div class="component-desc"><?= number_format($liveData['queue_pending']) ?> pending</div>
+                                    <div class="component-name"><?= __('statusPage.parseQueue') ?></div>
+                                    <div class="component-desc"><?= number_format($liveData['queue_pending']) ?> <?= __('status.pending') ?></div>
                                 </td>
                                 <td class="timing-info">5s</td>
                                 <td><span class="status-badge <?= $liveData['queue_pending'] > 500 ? 'warning' : 'running' ?>">
-                                    <?= $liveData['queue_pending'] > 500 ? 'Backlog' : 'Running' ?>
+                                    <?= $liveData['queue_pending'] > 500 ? __('statusPage.backlog') : __('statusPage.running') ?>
                                 </span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Weather Import</div>
-                                    <div class="component-desc"><?= $liveData['weather_alerts_active'] ?> active alerts</div>
+                                    <div class="component-name"><?= __('statusPage.weatherImport') ?></div>
+                                    <div class="component-desc"><?= $liveData['weather_alerts_active'] ?> <?= __('statusPage.activeAlerts') ?></div>
                                 </td>
                                 <td class="timing-info">5m</td>
-                                <td><span class="status-badge scheduled">Scheduled</span></td>
+                                <td><span class="status-badge scheduled"><?= __('statusPage.scheduled') ?></span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Trajectory Batch</div>
+                                    <div class="component-name"><?= __('statusPage.trajectoryBatch') ?></div>
                                     <div class="component-desc"><?= number_format($liveData['trajectories_1h']) ?>/hr</div>
                                 </td>
-                                <td class="timing-info">Continuous</td>
+                                <td class="timing-info"><?= __('statusPage.continuous') ?></td>
                                 <td><span class="status-badge <?= $liveData['trajectories_1h'] > 0 ? 'complete' : 'scheduled' ?>">
-                                    <?= $liveData['trajectories_1h'] > 0 ? 'Active' : 'Idle' ?>
+                                    <?= $liveData['trajectories_1h'] > 0 ? __('status.active') : __('statusPage.idle') ?>
                                 </span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Zone Detection</div>
-                                    <div class="component-desc"><?= number_format($liveData['zone_transitions_1h']) ?> transitions/hr</div>
+                                    <div class="component-name"><?= __('statusPage.zoneDetection') ?></div>
+                                    <div class="component-desc"><?= number_format($liveData['zone_transitions_1h']) ?> <?= __('statusPage.transitionsPerHr') ?></div>
                                 </td>
-                                <td class="timing-info">Continuous</td>
-                                <td><span class="status-badge complete">Active</span></td>
+                                <td class="timing-info"><?= __('statusPage.continuous') ?></td>
+                                <td><span class="status-badge complete"><?= __('status.active') ?></span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Boundary Detection <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
+                                    <div class="component-name"><?= __('statusPage.boundaryDetection') ?> <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
                                     <div class="component-desc">
                                         ARTCC: <?= number_format($liveData['boundary_artcc_1h']) ?>/hr &bull;
                                         TRACON: <?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
-                                        <?= number_format($liveData['flights_with_artcc']) ?> tracked
+                                        <?= number_format($liveData['flights_with_artcc']) ?> <?= __('statusPage.tracked') ?>
                                         <?php if ($liveData['boundary_pending'] > 0): ?>
-                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['boundary_pending']) ?> pending</span>
+                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['boundary_pending']) ?> <?= __('status.pending') ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td class="timing-info"><?= $liveData['last_boundary_detection'] ?? 'N/A' ?></td>
+                                <td class="timing-info"><?= $liveData['last_boundary_detection'] ?? __('common.na') ?></td>
                                 <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
-                                    <?= $liveData['boundary_crossings_1h'] > 0 ? 'Active' : ($liveData['boundary_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                    <?= $liveData['boundary_crossings_1h'] > 0 ? __('status.active') : ($liveData['boundary_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
                                 </span></td>
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Planned Crossings <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
+                                    <div class="component-name"><?= __('statusPage.plannedCrossings') ?> <span style="font-size: 9px; color: #6366f1;">(boundary_daemon.php)</span></div>
                                     <div class="component-desc">
                                         <?= number_format($liveData['planned_crossings_1h']) ?> calc/hr &bull;
-                                        <?= number_format($liveData['flights_with_crossings']) ?> flights
+                                        <?= number_format($liveData['flights_with_crossings']) ?> <?= __('statusPage.flights') ?>
                                         <?php if ($liveData['crossings_pending'] > 0): ?>
-                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['crossings_pending']) ?> pending</span>
+                                            <span style="color: #f59e0b;">&bull; <?= number_format($liveData['crossings_pending']) ?> <?= __('status.pending') ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? 'N/A' ?></td>
+                                <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? __('common.na') ?></td>
                                 <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
-                                    <?= $liveData['planned_crossings_1h'] > 0 ? 'Active' : ($liveData['crossings_pending'] > 0 ? 'Pending' : 'Idle') ?>
+                                    <?= $liveData['planned_crossings_1h'] > 0 ? __('status.active') : ($liveData['crossings_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
                                 </span></td>
                             </tr>
                             <!-- GIS-based Processing (PostGIS) -->
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
                                 <td>
-                                    <div class="component-name" style="color: #3b82f6;">GIS Route Parsing <span style="font-size: 9px;">(parse_queue_gis_daemon.php)</span></div>
+                                    <div class="component-name" style="color: #3b82f6;"><?= __('statusPage.gisRouteParsing') ?> <span style="font-size: 9px;">(parse_queue_gis_daemon.php)</span></div>
                                     <div class="component-desc">
-                                        PostGIS route expansion &bull;
-                                        <?= number_format($liveData['gis_nav_fixes']) ?> nav fixes &bull;
-                                        <?= number_format($liveData['gis_airway_segments']) ?> segments
+                                        <?= __('statusPage.postgisRouteExpansion') ?> &bull;
+                                        <?= number_format($liveData['gis_nav_fixes']) ?> <?= __('statusPage.navFixes') ?> &bull;
+                                        <?= number_format($liveData['gis_airway_segments']) ?> <?= __('statusPage.segments') ?>
                                     </div>
                                 </td>
                                 <td class="timing-info">5s</td>
                                 <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
-                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
+                                    <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
                                 </span></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
                                 <td>
-                                    <div class="component-name" style="color: #3b82f6;">GIS Boundary Detection <span style="font-size: 9px;">(boundary_gis_daemon.php)</span></div>
+                                    <div class="component-name" style="color: #3b82f6;"><?= __('statusPage.gisBoundaryDetection') ?> <span style="font-size: 9px;">(boundary_gis_daemon.php)</span></div>
                                     <div class="component-desc">
-                                        PostGIS spatial containment &bull;
+                                        <?= __('statusPage.postgisSpatialContainment') ?> &bull;
                                         <?= $liveData['gis_artcc_boundaries'] ?> ARTCCs &bull;
                                         <?= $liveData['gis_tracon_boundaries'] ?> TRACONs &bull;
-                                        <?= $liveData['gis_sector_boundaries'] ?> Sectors
+                                        <?= $liveData['gis_sector_boundaries'] ?> <?= __('statusPage.sectors') ?>
                                     </div>
                                 </td>
                                 <td class="timing-info">15s</td>
                                 <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
-                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
+                                    <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
                                 </span></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
                                 <td>
-                                    <div class="component-name" style="color: #3b82f6;">GIS Trajectory Crossings <span style="font-size: 9px;">(crossing_gis_daemon.php)</span></div>
+                                    <div class="component-name" style="color: #3b82f6;"><?= __('statusPage.gisTrajectoryCrossings') ?> <span style="font-size: 9px;">(crossing_gis_daemon.php)</span></div>
                                     <div class="component-desc">
-                                        PostGIS line-polygon intersection &bull;
-                                        ARTCC/sector crossing ETAs
+                                        <?= __('statusPage.postgisLineIntersection') ?> &bull;
+                                        <?= __('statusPage.artccSectorCrossingEtas') ?>
                                     </div>
                                 </td>
                                 <td class="timing-info">30s</td>
                                 <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
-                                    <?= $liveData['gis_connected'] ? 'Running' : 'Offline' ?>
+                                    <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
                                 </span></td>
                             </tr>
                         </tbody>
@@ -3259,7 +3259,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- ADL Refresh Procedure Steps -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-sync-alt mr-2"></i>ADL Refresh Procedure</span>
+                        <span><i class="fas fa-sync-alt mr-2"></i><?= __('statusPage.adlRefreshProcedure') ?></span>
                         <span class="cycle-badge">V8.9.12 &bull; 15s Cycle + Daemon Background</span>
                     </div>
                     <!-- Live Stats Header -->
@@ -3283,8 +3283,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">1</span>
                             <div class="step-content">
-                                <div class="step-name">Parse JSON into Temp Table <span class="step-category ingest">Ingest</span></div>
-                                <div class="step-desc">Extract pilot/flight data from VATSIM JSON feed</div>
+                                <div class="step-name"><?= __('statusPage.sp.parseJson') ?> <span class="step-category ingest"><?= __('statusPage.sp.ingest') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.parseJsonDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['active_flights'] > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['active_flights']) ?></span>
@@ -3295,16 +3295,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">1b</span>
                             <div class="step-content">
-                                <div class="step-name">Enrich with Airport Data</div>
-                                <div class="step-desc">Add coordinates, ARTCC, TRACON, GCD calculations</div>
+                                <div class="step-name"><?= __('statusPage.sp.enrichAirport') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.enrichAirportDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 2 -->
                         <div class="procedure-step">
                             <span class="step-number">2</span>
                             <div class="step-content">
-                                <div class="step-name">Upsert adl_flight_core <span class="step-category core">Core</span></div>
-                                <div class="step-desc">Insert new flights, update existing flight status/phase</div>
+                                <div class="step-name"><?= __('statusPage.sp.upsertCore') ?> <span class="step-category core"><?= __('statusPage.sp.core') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.upsertCoreDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['new_flights_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['new_flights_15m'] ?? 0) ?></span>
@@ -3315,24 +3315,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">2a</span>
                             <div class="step-content">
-                                <div class="step-name">Process VATSIM Prefiles</div>
-                                <div class="step-desc">Handle prefiled flight plans (phase='prefile')</div>
+                                <div class="step-name"><?= __('statusPage.sp.processPrefiles') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.processPrefilesDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 2b -->
                         <div class="procedure-step sub-step">
                             <span class="step-number">2b</span>
                             <div class="step-content">
-                                <div class="step-name">Create adl_flight_times</div>
-                                <div class="step-desc">Initialize time tracking for new flights</div>
+                                <div class="step-name"><?= __('statusPage.sp.createTimes') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.createTimesDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 3 -->
                         <div class="procedure-step">
                             <span class="step-number">3</span>
                             <div class="step-content">
-                                <div class="step-name">Upsert adl_flight_position <span class="step-category core">Core</span></div>
-                                <div class="step-desc">Update lat/lon, altitude, groundspeed, heading</div>
+                                <div class="step-name"><?= __('statusPage.sp.upsertPosition') ?> <span class="step-category core"><?= __('statusPage.sp.core') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.upsertPositionDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['updated_flights_15m'] ?? 0) > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['updated_flights_15m'] ?? 0) ?></span>
@@ -3343,8 +3343,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">4</span>
                             <div class="step-content">
-                                <div class="step-name">Detect Route Changes <span class="step-category route">Route</span></div>
-                                <div class="step-desc">Hash route for change detection, upsert flight plans</div>
+                                <div class="step-name"><?= __('statusPage.sp.detectRouteChanges') ?> <span class="step-category route"><?= __('statusPage.sp.route') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.detectRouteChangesDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['routes_queued_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['routes_queued_15m'] ?? 0) ?></span>
@@ -3355,8 +3355,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">4b</span>
                             <div class="step-content">
-                                <div class="step-name">ETD/STD Calculation</div>
-                                <div class="step-desc">Calculate estimated/scheduled departure times</div>
+                                <div class="step-name"><?= __('statusPage.sp.etdCalculation') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.etdCalculationDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['etds_calculated_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['etds_calculated_15m'] ?? 0) ?></span>
@@ -3367,8 +3367,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">4c</span>
                             <div class="step-content">
-                                <div class="step-name">SimBrief/ICAO Parsing</div>
-                                <div class="step-desc">Parse step climbs, cost index from flight plans</div>
+                                <div class="step-name"><?= __('statusPage.sp.simbriefParsing') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.simbriefParsingDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['simbrief_flights'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['simbrief_flights'] ?? 0) ?></span>
@@ -3379,8 +3379,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">5</span>
                             <div class="step-content">
-                                <div class="step-name">Queue Routes for Parsing <span class="step-category route">Route</span></div>
-                                <div class="step-desc">Add changed routes to parse queue with tier priority</div>
+                                <div class="step-name"><?= __('statusPage.sp.queueRoutes') ?> <span class="step-category route"><?= __('statusPage.sp.route') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.queueRoutesDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['queue_pending'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['queue_pending']) ?></span>
@@ -3391,24 +3391,24 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">5b</span>
                             <div class="step-content">
-                                <div class="step-name">Route Distance Calculation</div>
-                                <div class="step-desc">Calculate route_distance_nm using sp_RouteDistanceBatch</div>
+                                <div class="step-name"><?= __('statusPage.sp.routeDistance') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.routeDistanceDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 6 -->
                         <div class="procedure-step">
                             <span class="step-number">6</span>
                             <div class="step-content">
-                                <div class="step-name">Upsert adl_flight_aircraft <span class="step-category core">Core</span></div>
-                                <div class="step-desc">Update aircraft type, weight class, engine info</div>
+                                <div class="step-name"><?= __('statusPage.sp.upsertAircraft') ?> <span class="step-category core"><?= __('statusPage.sp.core') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.upsertAircraftDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 7 -->
                         <div class="procedure-step">
                             <span class="step-number">7</span>
                             <div class="step-content">
-                                <div class="step-name">Mark Inactive Flights <span class="step-category core">Core</span></div>
-                                <div class="step-desc">Flag flights not seen in 5+ minutes as inactive</div>
+                                <div class="step-name"><?= __('statusPage.sp.markInactive') ?> <span class="step-category core"><?= __('statusPage.sp.core') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.markInactiveDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['inactive_flights_1h'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['inactive_flights_1h'] ?? 0) ?></span>
@@ -3419,8 +3419,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">8</span>
                             <div class="step-content">
-                                <div class="step-name">Process Trajectory & ETA <span class="step-category time">Time</span></div>
-                                <div class="step-desc">Calculate estimated arrival times from trajectory</div>
+                                <div class="step-name"><?= __('statusPage.sp.processTrajectoryEta') ?> <span class="step-category time"><?= __('statusPage.sp.time') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.processTrajectoryEtaDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['etas_calculated_15m'] ?? 0) > 0 ? '' : 'zero' ?>"><?= number_format($liveData['etas_calculated_15m'] ?? 0) ?></span>
@@ -3431,16 +3431,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">8b</span>
                             <div class="step-content">
-                                <div class="step-name">Update Arrival Buckets</div>
-                                <div class="step-desc">Calculate 15-minute arrival time buckets</div>
+                                <div class="step-name"><?= __('statusPage.sp.updateBuckets') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.updateBucketsDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 8c (DISABLED - moved to waypoint_eta_daemon.php) -->
                         <div class="procedure-step sub-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
                             <span class="step-number" style="background: #6c757d;">8c</span>
                             <div class="step-content">
-                                <div class="step-name">Waypoint ETA Calculation <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
-                                <div class="step-desc">Moved to waypoint_eta_daemon.php (15s tiered)</div>
+                                <div class="step-name"><?= __('statusPage.sp.waypointEta') ?> <span class="step-category" style="background: #6c757d;"><?= __('statusPage.sp.daemon') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.waypointEtaDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= ($liveData['waypoint_etas_total'] ?? 0) > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['waypoint_etas_total'] ?? 0) ?></span>
@@ -3451,16 +3451,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step sub-step">
                             <span class="step-number">8d</span>
                             <div class="step-content">
-                                <div class="step-name">Batch ETA Calculation</div>
-                                <div class="step-desc">Calculate arrival ETAs via sp_CalculateETABatch</div>
+                                <div class="step-name"><?= __('statusPage.sp.batchEta') ?></div>
+                                <div class="step-desc"><?= __('statusPage.sp.batchEtaDesc') ?></div>
                             </div>
                         </div>
                         <!-- Step 9 -->
                         <div class="procedure-step">
                             <span class="step-number">9</span>
                             <div class="step-content">
-                                <div class="step-name">Zone Detection (OOOI) <span class="step-category detect">Detect</span></div>
-                                <div class="step-desc">Detect Out/Off/On/In state transitions</div>
+                                <div class="step-name"><?= __('statusPage.sp.zoneDetection') ?> <span class="step-category detect"><?= __('statusPage.sp.detect') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.zoneDetectionDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['zone_transitions_1h'] > 0 ? '' : 'zero' ?>"><?= number_format($liveData['zone_transitions_1h']) ?></span>
@@ -3471,12 +3471,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
                             <span class="step-number" style="background: #6c757d;">10</span>
                             <div class="step-content">
-                                <div class="step-name">Boundary Detection <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
+                                <div class="step-name"><?= __('statusPage.boundaryDetection') ?> <span class="step-category" style="background: #6c757d;"><?= __('statusPage.sp.daemon') ?></span></div>
                                 <div class="step-desc">
-                                    Moved to boundary_daemon.php (15s adaptive) &bull;
+                                    <?= __('statusPage.sp.movedToBoundaryDaemon') ?> &bull;
                                     A:<?= number_format($liveData['boundary_artcc_1h']) ?> T:<?= number_format($liveData['boundary_tracon_1h']) ?>/hr &bull;
-                                    <?= number_format($liveData['flights_with_artcc']) ?> tracked
-                                    <?php if ($liveData['boundary_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['boundary_pending'] ?> pending</span><?php endif; ?>
+                                    <?= number_format($liveData['flights_with_artcc']) ?> <?= __('statusPage.tracked') ?>
+                                    <?php if ($liveData['boundary_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['boundary_pending'] ?> <?= __('status.pending') ?></span><?php endif; ?>
                                 </div>
                             </div>
                             <div class="step-metric">
@@ -3488,10 +3488,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step disabled" style="opacity: 0.6; border-left: 3px solid #6c757d;">
                             <span class="step-number" style="background: #6c757d;">11</span>
                             <div class="step-content">
-                                <div class="step-name">Planned Crossings <span class="step-category" style="background: #6c757d;">DAEMON</span></div>
+                                <div class="step-name"><?= __('statusPage.plannedCrossings') ?> <span class="step-category" style="background: #6c757d;"><?= __('statusPage.sp.daemon') ?></span></div>
                                 <div class="step-desc">
-                                    Moved to boundary_daemon.php (tiered) &bull;
-                                    <?= number_format($liveData['flights_with_crossings']) ?> flights &bull;
+                                    <?= __('statusPage.sp.movedToBoundaryDaemonTiered') ?> &bull;
+                                    <?= number_format($liveData['flights_with_crossings']) ?> <?= __('statusPage.flights') ?> &bull;
                                     Tiers: <?php
                                         $tierParts = [];
                                         foreach ($liveData['crossing_tiers'] as $t => $cnt) {

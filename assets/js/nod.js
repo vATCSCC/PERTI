@@ -3269,9 +3269,9 @@
         container.innerHTML = items.map(gs => {
             const airport = gs.ctl_element || gs.airports || 'N/A';
             const remaining = timeRemaining(gs.end_utc);
-            const probExt = gs.prob_ext ? `<span class="nod-tmi-metric">Prob. extension: <strong>${gs.prob_ext}%</strong></span>` : '';
-            const origins = gs.origin_centers ? `<span class="nod-tmi-metric">Origins: <strong>${escapeHtml(gs.origin_centers)}</strong></span>` : '';
-            const held = gs.flights_held > 0 ? `<span class="nod-tmi-metric"><i class="fas fa-plane"></i> <strong>${gs.flights_held}</strong> held</span>` : '';
+            const probExt = gs.prob_ext ? `<span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.probExtension', { pct: gs.prob_ext })}</span>` : '';
+            const origins = gs.origin_centers ? `<span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.origins', { facilities: escapeHtml(gs.origin_centers) })}</span>` : '';
+            const held = gs.flights_held > 0 ? `<span class="nod-tmi-metric"><i class="fas fa-plane"></i> ${PERTII18n.t('nod.tmi.flightsHeld', { count: gs.flights_held })}</span>` : '';
 
             return `<div class="nod-tmi-card gs" data-tmi-type="GS" data-airport="${escapeHtml(airport)}">
                 <div class="nod-tmi-header">
@@ -3287,7 +3287,7 @@
                     ${formatTimeRange(gs.start_utc, gs.end_utc)}
                 </div>
                 <div class="nod-tmi-actions">
-                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GS', '${escapeHtml(airport)}')" title="View on map">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GS', '${escapeHtml(airport)}')" title="${PERTII18n.t('nod.tmi.viewOnMap')}">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
                 </div>
@@ -3322,8 +3322,8 @@
             const exempt = gdp.exempt_count || 0;
             const totalFlights = controlled + exempt;
             const compliancePct = totalFlights > 0 ? Math.round((controlled / totalFlights) * 100) : 0;
-            const avgDelay = gdp.avg_delay ? `Avg delay: <strong>${gdp.avg_delay} min</strong>` : '';
-            const maxDelay = gdp.max_delay ? `Max delay: <strong>${gdp.max_delay} min</strong>` : '';
+            const avgDelay = gdp.avg_delay ? PERTII18n.t('nod.tmi.avgDelay', { minutes: gdp.avg_delay }) : '';
+            const maxDelay = gdp.max_delay ? PERTII18n.t('nod.tmi.maxDelay', { minutes: gdp.max_delay }) : '';
 
             return `<div class="nod-tmi-card gdp" data-tmi-type="GDP" data-airport="${escapeHtml(airport)}">
                 <div class="nod-tmi-header">
@@ -3335,8 +3335,8 @@
                     ${gdp.impacting_condition ? escapeHtml(gdp.impacting_condition) : PERTII18n.t('tmi.gdp')}
                 </div>
                 ${controlled > 0 || exempt > 0 ? `<div class="nod-tmi-info">
-                    <span class="nod-tmi-metric">Controlled: <strong>${controlled}</strong></span>
-                    <span class="nod-tmi-metric" style="margin-left: 8px">Exempt: <strong>${exempt}</strong></span>
+                    <span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.controlled', { count: controlled })}</span>
+                    <span class="nod-tmi-metric" style="margin-left: 8px">${PERTII18n.t('nod.tmi.exempt', { count: exempt })}</span>
                 </div>` : ''}
                 ${avgDelay || maxDelay ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${[avgDelay, maxDelay].filter(Boolean).join(' / ')}</span></div>` : ''}
                 ${totalFlights > 0 ? `<div class="nod-tmi-compliance-bar"><div class="nod-tmi-compliance-bar-fill" style="width: ${compliancePct}%; background: ${compliancePct > 80 ? '#28a745' : compliancePct > 50 ? '#ffc107' : '#dc3545'}"></div></div>` : ''}
@@ -3344,10 +3344,10 @@
                     ${formatTimeRange(gdp.start_time, gdp.end_time)}
                 </div>
                 <div class="nod-tmi-actions">
-                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GDP', '${escapeHtml(airport)}')" title="View on map">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('GDP', '${escapeHtml(airport)}')" title="${PERTII18n.t('nod.tmi.viewOnMap')}">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
-                    <button class="nod-tmi-action-btn" onclick="NOD.openGDT('${escapeHtml(airport)}')" title="Open GDT">
+                    <button class="nod-tmi-action-btn" onclick="NOD.openGDT('${escapeHtml(airport)}')" title="${PERTII18n.t('nod.tmi.openGdt')}">
                         <i class="fas fa-table"></i>
                     </button>
                 </div>
@@ -3384,7 +3384,7 @@
             return `<div class="nod-tmi-card reroute" style="border-left-color: ${rr.color || '#17a2b8'}" data-tmi-type="REROUTE" data-id="${rr.id}">
                 <div class="nod-tmi-header">
                     <span class="nod-tmi-type reroute">${escapeHtml(rr.adv_number || 'RR')}</span>
-                    <span class="nod-tmi-airport">${escapeHtml(rr.name || 'Reroute')}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(rr.name || PERTII18n.t('nod.tmi.rerouteFallback'))}</span>
                     ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 <div class="nod-tmi-info">
@@ -3392,8 +3392,8 @@
                     ${rr.comments ? (rr.impacting_condition ? '<br>' : '') + escapeHtml(rr.comments) : ''}
                 </div>
                 ${assigned > 0 ? `<div class="nod-tmi-info">
-                    <span class="nod-tmi-metric">Assigned: <strong>${assigned}</strong></span>
-                    <span class="nod-tmi-metric" style="margin-left: 8px">Compliant: <strong>${compliant}</strong></span>
+                    <span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.assigned', { count: assigned })}</span>
+                    <span class="nod-tmi-metric" style="margin-left: 8px">${PERTII18n.t('nod.tmi.compliant', { count: compliant })}</span>
                     <span class="nod-tmi-metric" style="margin-left: 8px">(<strong>${compRate}%</strong>)</span>
                 </div>
                 <div class="nod-tmi-compliance-bar"><div class="nod-tmi-compliance-bar-fill" style="width: ${compRate}%; background: ${compRate > 80 ? '#28a745' : compRate > 50 ? '#ffc107' : '#dc3545'}"></div></div>` : ''}
@@ -3401,7 +3401,7 @@
                     ${formatTimeRange(rr.start_utc, rr.end_utc)}
                 </div>
                 <div class="nod-tmi-actions">
-                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('REROUTE', '${rr.id}')" title="View on map">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('REROUTE', '${rr.id}')" title="${PERTII18n.t('nod.tmi.viewOnMap')}">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
                 </div>
@@ -3434,7 +3434,7 @@
             <div class="nod-tmi-card public-route" style="border-left-color: ${pr.color || '#28a745'}">
                 <div class="nod-tmi-header">
                     <span class="nod-tmi-type" style="background: ${pr.color || '#28a745'}">${escapeHtml(pr.adv_number || 'PR')}</span>
-                    <span class="nod-tmi-airport">${escapeHtml(pr.name || 'Public Route')}</span>
+                    <span class="nod-tmi-airport">${escapeHtml(pr.name || PERTII18n.t('nod.tmi.publicRouteFallback'))}</span>
                 </div>
                 <div class="nod-tmi-info">
                     ${pr.constrained_area ? `${PERTII18n.t('nod.tmi.area')}: ${escapeHtml(pr.constrained_area)}` : ''}
@@ -3467,7 +3467,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-arrows-alt-h"></i><p>No active MITs or AFPs</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-arrows-alt-h"></i><p>' + PERTII18n.t('nod.tmi.noActiveMITs') + '</p></div>';
             return;
         }
 
@@ -3487,12 +3487,12 @@
                     ${remaining ? `<span class="nod-tmi-countdown">${remaining}</span>` : ''}
                 </div>
                 ${facilities ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${escapeHtml(facilities)}</span></div>` : ''}
-                ${entry.reason_code ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">Reason: <strong>${escapeHtml(entry.reason_code)}</strong></span></div>` : ''}
+                ${entry.reason_code ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.reason', { reason: escapeHtml(entry.reason_code) })}</span></div>` : ''}
                 <div class="nod-tmi-time">
                     ${formatTimeRange(entry.valid_from, entry.valid_until)}
                 </div>
                 ${entry.fix_lat != null ? `<div class="nod-tmi-actions">
-                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('MIT', '${escapeHtml(fix)}')" title="View on map">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('MIT', '${escapeHtml(fix)}')" title="${PERTII18n.t('nod.tmi.viewOnMap')}">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
                 </div>` : ''}
@@ -3518,7 +3518,7 @@
         }
 
         if (items.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><i class="fas fa-hourglass-half"></i><p>No active delays</p></div>';
+            container.innerHTML = '<div class="nod-empty"><i class="fas fa-hourglass-half"></i><p>' + PERTII18n.t('nod.tmi.noActiveDelays') + '</p></div>';
             return;
         }
 
@@ -3526,8 +3526,8 @@
             const severity = d.delay_minutes >= 60 ? 'severe' : d.delay_minutes >= 45 ? 'high' : d.delay_minutes >= 30 ? 'moderate' : 'low';
             const trendIcon = d.delay_trend === 'increasing' ? 'fa-arrow-up' : d.delay_trend === 'decreasing' ? 'fa-arrow-down' : 'fa-minus';
             const trendClass = d.delay_trend || 'steady';
-            const trendLabel = d.delay_trend === 'increasing' ? 'Increasing' : d.delay_trend === 'decreasing' ? 'Decreasing' : 'Stable';
-            const holdingInfo = d.holding_status === '+Holding' && d.holding_fix ? `Holding: <strong>${escapeHtml(d.holding_fix)}</strong>` : '';
+            const trendLabel = d.delay_trend === 'increasing' ? PERTII18n.t('nod.tmi.delayTrend.increasing') : d.delay_trend === 'decreasing' ? PERTII18n.t('nod.tmi.delayTrend.decreasing') : PERTII18n.t('nod.tmi.delayTrend.steady');
+            const holdingInfo = d.holding_status === '+Holding' && d.holding_fix ? PERTII18n.t('nod.tmi.holding', { fix: escapeHtml(d.holding_fix) }) : '';
             const airport = d.airport || 'N/A';
 
             return `<div class="nod-tmi-card delay severity-${severity}" data-tmi-type="DELAY" data-airport="${escapeHtml(airport)}">
@@ -3536,15 +3536,15 @@
                     <span class="nod-tmi-airport">${escapeHtml(airport)}</span>
                 </div>
                 <div class="nod-tmi-info">
-                    <span class="nod-tmi-metric"><strong>${d.delay_minutes} min</strong> avg</span>
+                    <span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.avgDelay', { minutes: d.delay_minutes })}</span>
                     <span class="nod-tmi-trend ${trendClass}" style="margin-left: 8px">
                         <i class="fas ${trendIcon}"></i> ${trendLabel}
                     </span>
                 </div>
                 ${holdingInfo ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${holdingInfo}</span></div>` : ''}
-                ${d.reason ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">Reason: <strong>${escapeHtml(d.reason)}</strong></span></div>` : ''}
+                ${d.reason ? `<div class="nod-tmi-info"><span class="nod-tmi-metric">${PERTII18n.t('nod.tmi.reason', { reason: escapeHtml(d.reason) })}</span></div>` : ''}
                 <div class="nod-tmi-actions">
-                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('DELAY', '${escapeHtml(airport)}')" title="View on map">
+                    <button class="nod-tmi-action-btn" onclick="NOD.viewTMIOnMap('DELAY', '${escapeHtml(airport)}')" title="${PERTII18n.t('nod.tmi.viewOnMap')}">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
                 </div>
@@ -4047,14 +4047,14 @@
             // Don't update to 0 if we previously had data (buffered pattern)
             const currentShown = parseInt(displayEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
             if (filteredCount > 0 || currentShown === 0) {
-                displayEl.innerHTML = `<strong>${filteredCount}</strong> shown`;
+                displayEl.innerHTML = `<strong>${filteredCount}</strong> ${PERTII18n.t('nod.page.shown')}`;
             }
         }
 
         if (totalEl) {
             const currentTotal = parseInt(totalEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
             if (totalFlights > 0 || currentTotal === 0) {
-                totalEl.innerHTML = `<strong>${totalFlights}</strong> total`;
+                totalEl.innerHTML = `<strong>${totalFlights}</strong> ${PERTII18n.t('nod.page.totalLabel')}`;
             }
         }
 
@@ -5030,27 +5030,27 @@
                 break;
             case 'aircraft_category':
                 items = [
-                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'J (Jet)' },
-                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'H (Heavy)' },
-                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'L (Large)' },
-                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'S (Small)' },
+                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: PERTII18n.t('nod.legend.acCatJ') },
+                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: PERTII18n.t('nod.legend.acCatH') },
+                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: PERTII18n.t('nod.legend.acCatL') },
+                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: PERTII18n.t('nod.legend.acCatS') },
                 ];
                 break;
             case 'aircraft_type':
                 items = [
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: 'Airbus' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: 'Boeing' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: 'Embraer' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['CESSNA'], label: 'Cessna' },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: PERTII18n.t('nod.legend.airbus') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: PERTII18n.t('nod.legend.boeing') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: PERTII18n.t('nod.legend.embraer') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: PERTII18n.t('nod.legend.bombardier') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: PERTII18n.t('nod.legend.mdDc') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['CESSNA'], label: PERTII18n.t('nod.legend.cessna') },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'aircraft_config':
                 items = [
-                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
-                    { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
+                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: PERTII18n.t('nod.legend.concorde') },
+                    { color: AIRCRAFT_CONFIG_COLORS['A380'], label: PERTII18n.t('nod.legend.a380') },
                     { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: PERTII18n.t('nod.legend.quadJet') },
                     { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: PERTII18n.t('nod.legend.heavyTwin') },
                     { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: PERTII18n.t('nod.legend.triJet') },
@@ -5073,12 +5073,12 @@
             case 'wake_category':
                 // FAA RECAT categories (A-F)
                 items = [
-                    { color: RECAT_COLORS['A'], label: 'A (Super)' },
-                    { color: RECAT_COLORS['B'], label: 'B (Upper Heavy)' },
-                    { color: RECAT_COLORS['C'], label: 'C (Lower Heavy)' },
-                    { color: RECAT_COLORS['D'], label: 'D (Upper Large)' },
-                    { color: RECAT_COLORS['E'], label: 'E (Lower Large)' },
-                    { color: RECAT_COLORS['F'], label: 'F (Small)' },
+                    { color: RECAT_COLORS['A'], label: PERTII18n.t('nod.legend.recatA') },
+                    { color: RECAT_COLORS['B'], label: PERTII18n.t('nod.legend.recatB') },
+                    { color: RECAT_COLORS['C'], label: PERTII18n.t('nod.legend.recatC') },
+                    { color: RECAT_COLORS['D'], label: PERTII18n.t('nod.legend.recatD') },
+                    { color: RECAT_COLORS['E'], label: PERTII18n.t('nod.legend.recatE') },
+                    { color: RECAT_COLORS['F'], label: PERTII18n.t('nod.legend.recatF') },
                 ];
                 break;
             case 'altitude':
@@ -5111,17 +5111,17 @@
                     const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
                     const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
                     return [
-                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || 'Prefile' },
-                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || 'Taxiing' },
-                        { color: PC['departed'] || '#f87171', label: PL['departed'] || 'Departed' },
-                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
-                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
-                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
-                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
-                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
+                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || PERTII18n.t('phase.prefile') },
+                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || PERTII18n.t('phase.taxiing') },
+                        { color: PC['departed'] || '#f87171', label: PL['departed'] || PERTII18n.t('phase.departed') },
+                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || PERTII18n.t('phase.enroute') },
+                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || PERTII18n.t('phase.descending') },
+                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || PERTII18n.t('phase.arrived') },
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || PERTII18n.t('phase.disconnected') },
+                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || PERTII18n.t('tmi.exempt') },
                         { color: '#dc3545', label: PERTII18n.t('nod.legend.gsAffected') },
                         { color: '#ffc107', label: PERTII18n.t('nod.legend.edct') },
-                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || PERTII18n.t('phase.unknown') },
                     ];
                 })();
                 break;
@@ -5166,16 +5166,16 @@
             case 'carrier':
                 // Show major carriers
                 items = [
-                    { color: CARRIER_COLORS['AAL'], label: 'American' },
-                    { color: CARRIER_COLORS['UAL'], label: 'United' },
-                    { color: CARRIER_COLORS['DAL'], label: 'Delta' },
-                    { color: CARRIER_COLORS['SWA'], label: 'Southwest' },
-                    { color: CARRIER_COLORS['JBU'], label: 'JetBlue' },
-                    { color: CARRIER_COLORS['ASA'], label: 'Alaska' },
-                    { color: CARRIER_COLORS['NKS'], label: 'Spirit' },
-                    { color: CARRIER_COLORS['FFT'], label: 'Frontier' },
-                    { color: CARRIER_COLORS['FDX'], label: 'FedEx' },
-                    { color: CARRIER_COLORS['UPS'], label: 'UPS' },
+                    { color: CARRIER_COLORS['AAL'], label: PERTII18n.t('nod.legend.carrierAAL') },
+                    { color: CARRIER_COLORS['UAL'], label: PERTII18n.t('nod.legend.carrierUAL') },
+                    { color: CARRIER_COLORS['DAL'], label: PERTII18n.t('nod.legend.carrierDAL') },
+                    { color: CARRIER_COLORS['SWA'], label: PERTII18n.t('nod.legend.carrierSWA') },
+                    { color: CARRIER_COLORS['JBU'], label: PERTII18n.t('nod.legend.carrierJBU') },
+                    { color: CARRIER_COLORS['ASA'], label: PERTII18n.t('nod.legend.carrierASA') },
+                    { color: CARRIER_COLORS['NKS'], label: PERTII18n.t('nod.legend.carrierNKS') },
+                    { color: CARRIER_COLORS['FFT'], label: PERTII18n.t('nod.legend.carrierFFT') },
+                    { color: CARRIER_COLORS['FDX'], label: PERTII18n.t('nod.legend.carrierFDX') },
+                    { color: CARRIER_COLORS['UPS'], label: PERTII18n.t('nod.legend.carrierUPS') },
                     { color: CARRIER_COLORS[''], label: PERTII18n.t('common.other') },
                 ];
                 break;
@@ -5234,7 +5234,7 @@
                 const activeRoutes = getActivePublicRoutes();
                 items = activeRoutes.map(route => ({
                     color: route.color || '#17a2b8',
-                    label: route.name || 'Route',
+                    label: route.name || PERTII18n.t('nod.popup.route'),
                 }));
                 // Add "No Match" at the end
                 items.push({ color: '#666666', label: PERTII18n.t('nod.legend.noMatch') });
@@ -5280,26 +5280,26 @@
                 break;
             case 'aircraft_category':
                 items = [
-                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: 'J (Jet)' },
-                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: 'H (Heavy)' },
-                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: 'L (Large)' },
-                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: 'S (Small)' },
+                    { color: WEIGHT_CLASS_COLORS['SUPER'], label: PERTII18n.t('nod.legend.acCatJ') },
+                    { color: WEIGHT_CLASS_COLORS['HEAVY'], label: PERTII18n.t('nod.legend.acCatH') },
+                    { color: WEIGHT_CLASS_COLORS['LARGE'], label: PERTII18n.t('nod.legend.acCatL') },
+                    { color: WEIGHT_CLASS_COLORS['SMALL'], label: PERTII18n.t('nod.legend.acCatS') },
                 ];
                 break;
             case 'aircraft_type':
                 items = [
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: 'Airbus' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: 'Boeing' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: 'Embraer' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: 'Bombardier' },
-                    { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: 'MD/DC' },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['AIRBUS'], label: PERTII18n.t('nod.legend.airbus') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOEING'], label: PERTII18n.t('nod.legend.boeing') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['EMBRAER'], label: PERTII18n.t('nod.legend.embraer') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['BOMBARDIER'], label: PERTII18n.t('nod.legend.bombardier') },
+                    { color: AIRCRAFT_MANUFACTURER_COLORS['MD_DC'], label: PERTII18n.t('nod.legend.mdDc') },
                     { color: AIRCRAFT_MANUFACTURER_COLORS['OTHER'], label: PERTII18n.t('common.other') },
                 ];
                 break;
             case 'aircraft_config':
                 items = [
-                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: 'Concorde' },
-                    { color: AIRCRAFT_CONFIG_COLORS['A380'], label: 'A380' },
+                    { color: AIRCRAFT_CONFIG_COLORS['CONC'], label: PERTII18n.t('nod.legend.concorde') },
+                    { color: AIRCRAFT_CONFIG_COLORS['A380'], label: PERTII18n.t('nod.legend.a380') },
                     { color: AIRCRAFT_CONFIG_COLORS['QUAD_JET'], label: PERTII18n.t('nod.legend.quadJet') },
                     { color: AIRCRAFT_CONFIG_COLORS['HEAVY_TWIN'], label: PERTII18n.t('nod.legend.heavyTwin') },
                     { color: AIRCRAFT_CONFIG_COLORS['TRI_JET'], label: PERTII18n.t('nod.legend.triJet') },
@@ -5312,12 +5312,12 @@
             case 'wake_category':
                 // FAA RECAT categories (A-F)
                 items = [
-                    { color: RECAT_COLORS['A'], label: 'A (Super)' },
-                    { color: RECAT_COLORS['B'], label: 'B (Upper Heavy)' },
-                    { color: RECAT_COLORS['C'], label: 'C (Lower Heavy)' },
-                    { color: RECAT_COLORS['D'], label: 'D (Upper Large)' },
-                    { color: RECAT_COLORS['E'], label: 'E (Lower Large)' },
-                    { color: RECAT_COLORS['F'], label: 'F (Small)' },
+                    { color: RECAT_COLORS['A'], label: PERTII18n.t('nod.legend.recatA') },
+                    { color: RECAT_COLORS['B'], label: PERTII18n.t('nod.legend.recatB') },
+                    { color: RECAT_COLORS['C'], label: PERTII18n.t('nod.legend.recatC') },
+                    { color: RECAT_COLORS['D'], label: PERTII18n.t('nod.legend.recatD') },
+                    { color: RECAT_COLORS['E'], label: PERTII18n.t('nod.legend.recatE') },
+                    { color: RECAT_COLORS['F'], label: PERTII18n.t('nod.legend.recatF') },
                 ];
                 break;
             case 'altitude':
@@ -5349,17 +5349,17 @@
                     const PC = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {};
                     const PL = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {};
                     return [
-                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || 'Prefile' },
-                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || 'Taxiing' },
-                        { color: PC['departed'] || '#f87171', label: PL['departed'] || 'Departed' },
-                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || 'Enroute' },
-                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || 'Descending' },
-                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || 'Arrived' },
-                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || 'Disconnected' },
-                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || 'Exempt' },
+                        { color: PC['prefile'] || '#3b82f6', label: PL['prefile'] || PERTII18n.t('phase.prefile') },
+                        { color: PC['taxiing'] || '#22c55e', label: PL['taxiing'] || PERTII18n.t('phase.taxiing') },
+                        { color: PC['departed'] || '#f87171', label: PL['departed'] || PERTII18n.t('phase.departed') },
+                        { color: PC['enroute'] || '#dc2626', label: PL['enroute'] || PERTII18n.t('phase.enroute') },
+                        { color: PC['descending'] || '#991b1b', label: PL['descending'] || PERTII18n.t('phase.descending') },
+                        { color: PC['arrived'] || '#1a1a1a', label: PL['arrived'] || PERTII18n.t('phase.arrived') },
+                        { color: PC['disconnected'] || '#f97316', label: PL['disconnected'] || PERTII18n.t('phase.disconnected') },
+                        { color: PC['exempt'] || '#6b7280', label: PL['exempt'] || PERTII18n.t('tmi.exempt') },
                         { color: '#dc3545', label: PERTII18n.t('nod.legend.gsAffected') },
                         { color: '#ffc107', label: PERTII18n.t('nod.legend.edct') },
-                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || 'Unknown' },
+                        { color: PC['unknown'] || '#9333ea', label: PL['unknown'] || PERTII18n.t('phase.unknown') },
                     ];
                 })();
                 break;
@@ -5455,7 +5455,7 @@
                 const activeRoutesLegend = getActivePublicRoutes();
                 items = activeRoutesLegend.map(route => ({
                     color: route.color || '#17a2b8',
-                    label: route.name || 'Route',
+                    label: route.name || PERTII18n.t('nod.popup.route'),
                 }));
                 items.push({ color: '#666666', label: PERTII18n.t('nod.legend.noMatch') });
                 break;
@@ -5553,8 +5553,8 @@
             valid_end_utc: document.getElementById('advisoryEnd').value || null,
             impacted_area: document.getElementById('advisoryArea').value || null,
             impacted_facilities: facilities.length > 0 ? facilities : null,
-            created_by: config.userName || 'Unknown',
-            updated_by: config.userName || 'Unknown',
+            created_by: config.userName || PERTII18n.t('common.unknown'),
+            updated_by: config.userName || PERTII18n.t('common.unknown'),
         };
 
         if (id) {
@@ -5660,8 +5660,8 @@
         const html = `
             <div style="font-family: 'Consolas', monospace; font-size: 12px; min-width: 180px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                    <strong style="font-size:14px;">${escapeHtml(props.callsign || 'Unknown')}</strong>
-                    <span title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
+                    <strong style="font-size:14px;">${escapeHtml(props.callsign || PERTII18n.t('common.unknown'))}</strong>
+                    <span title="${PERTII18n.t('nod.popup.weightClass')}: ${props.weight_class || '?'}">${wcSymbol}</span>
                 </div>
                 <div style="color:var(--dark-text-disabled); font-size:10px; margin-bottom:4px;">
                     ${escapeHtml(props.ac_type || '---')} (${props.weight_class || '?'})
@@ -5755,8 +5755,8 @@
             <div style="font-family:'Consolas',monospace;font-size:12px;min-width:280px;max-width:350px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #444;">
                     <div>
-                        <strong style="font-size:16px;color:#4a9eff;">${escapeHtml(props.callsign || 'Unknown')}</strong>
-                        <span style="margin-left:8px;font-size:12px;" title="Weight Class: ${props.weight_class || '?'}">${wcSymbol}</span>
+                        <strong style="font-size:16px;color:#4a9eff;">${escapeHtml(props.callsign || PERTII18n.t('common.unknown'))}</strong>
+                        <span style="margin-left:8px;font-size:12px;" title="${PERTII18n.t('nod.popup.weightClass')}: ${props.weight_class || '?'}">${wcSymbol}</span>
                     </div>
                     <span style="font-size:10px;color:var(--dark-text-subtle);background:#333;padding:2px 6px;border-radius:3px;">${PERTII18n.t('nod.popup.detailedView')}</span>
                 </div>
@@ -5898,7 +5898,7 @@
     function showIncidentPopup(props, lngLat) {
         const html = `
             <div style="font-family: 'Consolas', monospace; font-size: 12px;">
-                <strong style="color: ${props.color || '#ffc107'}">${escapeHtml(props.facility || 'Unknown')}</strong><br>
+                <strong style="color: ${props.color || '#ffc107'}">${escapeHtml(props.facility || PERTII18n.t('common.unknown'))}</strong><br>
                 ${PERTII18n.t('nod.popup.incidentType')}: ${escapeHtml(props.incident_type || props.type || 'N/A')}<br>
                 ${PERTII18n.t('nod.popup.incidentStatus')}: ${escapeHtml(props.status || 'N/A')}<br>
                 ${props.trigger_desc ? `${PERTII18n.t('nod.popup.incidentTrigger')}: ${escapeHtml(props.trigger_desc)}<br>` : ''}
@@ -5923,12 +5923,12 @@
         const tmis = [];
         (state.tmi.groundStops || []).forEach(gs => {
             if ((gs.ctl_element || gs.airports) === airport) {
-                tmis.push(`<tr><td style="color:${color}">GS</td><td>${escapeHtml(gs.comments || 'Ground Stop')}</td></tr>`);
+                tmis.push(`<tr><td style="color:${color}">GS</td><td>${escapeHtml(gs.comments || PERTII18n.t('tmi.gs'))}</td></tr>`);
             }
         });
         (state.tmi.gdps || []).forEach(gdp => {
             if (gdp.airport === airport) {
-                tmis.push(`<tr><td style="color:#fd7e14">GDP</td><td>${escapeHtml(gdp.impacting_condition || 'Ground Delay Program')}</td></tr>`);
+                tmis.push(`<tr><td style="color:#fd7e14">GDP</td><td>${escapeHtml(gdp.impacting_condition || PERTII18n.t('tmi.gdp'))}</td></tr>`);
             }
         });
         (state.tmi.delays || []).forEach(d => {
@@ -5975,8 +5975,8 @@
                     <strong style="color: #17a2b8; font-size: 13px;">${escapeHtml(fix)}</strong>
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
-                    <tr><td style="color:#888">Type:</td><td style="text-align:right">${escapeHtml(entryType)}</td></tr>
-                    <tr><td style="color:#888">Restriction:</td><td style="text-align:right">${escapeHtml(restriction)}</td></tr>
+                    <tr><td style="color:#888">${PERTII18n.t('nod.popup.type')}:</td><td style="text-align:right">${escapeHtml(entryType)}</td></tr>
+                    <tr><td style="color:#888">${PERTII18n.t('nod.popup.restriction')}:</td><td style="text-align:right">${escapeHtml(restriction)}</td></tr>
                 </table>
             </div>
         `;
@@ -5997,7 +5997,7 @@
     }
 
     function showSplitsPopup(props, lngLat) {
-        const sectorId = props.id || props.sector || props.label || 'Unknown';
+        const sectorId = props.id || props.sector || props.label || PERTII18n.t('common.unknown');
         const boundaryType = props.boundary_type || '';
         const boundaryLabel = boundaryType ? ` <span style="color:var(--dark-text-subtle);font-size:10px;">(${boundaryType.toUpperCase()})</span>` : '';
 
@@ -6167,7 +6167,7 @@
                 case 'flight':
                     icon = '✈';
                     iconClass = 'flight';
-                    label = props.callsign || 'Unknown';
+                    label = props.callsign || PERTII18n.t('common.unknown');
                     sublabel = `${props.origin || '???'} → ${props.dest || '???'}`;
                     break;
                 case 'route':
@@ -6194,19 +6194,19 @@
                 case 'tmi-airport':
                     icon = '!';
                     iconClass = 'incident';
-                    label = props.airport || 'Airport';
+                    label = props.airport || PERTII18n.t('nod.tmi.airportFallback');
                     sublabel = props.tmi_type || 'TMI';
                     break;
                 case 'tmi-mit':
                     icon = '>';
                     iconClass = 'route';
-                    label = props.fix_name || 'Fix';
+                    label = props.fix_name || PERTII18n.t('nod.tmi.fixFallback');
                     sublabel = props.restriction || 'MIT';
                     break;
                 default:
                     icon = '?';
                     iconClass = '';
-                    label = 'Unknown';
+                    label = PERTII18n.t('common.unknown');
                     sublabel = '';
             }
 
@@ -6264,7 +6264,7 @@
             const end = new Date(endUtc);
             const now = new Date();
             const diffMs = end - now;
-            if (diffMs <= 0) return 'Expired';
+            if (diffMs <= 0) return PERTII18n.t('nod.tmi.expired');
             const totalMin = Math.floor(diffMs / 60000);
             if (totalMin < 60) return `${totalMin}m`;
             const hours = Math.floor(totalMin / 60);
@@ -6835,11 +6835,11 @@
         allFacilities.sort((a, b) => a.code.localeCompare(b.code));
 
         // Clear existing options except placeholder
-        select.innerHTML = '<option value="">Select facility...</option>';
+        select.innerHTML = `<option value="">${PERTII18n.t('nod.flows.selectFacility')}</option>`;
 
         // Add ARTCC optgroup
         const artccGroup = document.createElement('optgroup');
-        artccGroup.label = 'ARTCCs';
+        artccGroup.label = PERTII18n.t('nod.flows.artccsGroup');
         allFacilities.filter(f => f.type === 'ARTCC').forEach(f => {
             const opt = document.createElement('option');
             opt.value = f.code;
@@ -6856,7 +6856,7 @@
             'S46', 'S56', 'SCT', 'T75', 'U90', 'Y90'
         ];
         const traconGroup = document.createElement('optgroup');
-        traconGroup.label = 'TRACONs';
+        traconGroup.label = PERTII18n.t('nod.flows.traconsGroup');
         tracons.forEach(code => {
             const opt = document.createElement('option');
             opt.value = code;
@@ -6881,7 +6881,7 @@
             state.flows.configs = [];
             state.flows.activeConfig = null;
             if (configSelect) {
-                configSelect.innerHTML = '<option value="">Select config...</option>';
+                configSelect.innerHTML = `<option value="">${PERTII18n.t('nod.flows.selectConfig')}</option>`;
                 configSelect.disabled = true;
             }
             if (btnNew) btnNew.disabled = true;
@@ -6910,11 +6910,11 @@
 
         // Populate config dropdown
         if (configSelect) {
-            configSelect.innerHTML = '<option value="">Select config...</option>';
+            configSelect.innerHTML = `<option value="">${PERTII18n.t('nod.flows.selectConfig')}</option>`;
             state.flows.configs.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.config_id;
-                opt.textContent = c.config_name + (c.is_default ? ' (default)' : '');
+                opt.textContent = c.config_name + (c.is_default ? ` ${PERTII18n.t('nod.flows.defaultSuffix')}` : '');
                 configSelect.appendChild(opt);
             });
             configSelect.disabled = false;
@@ -6981,16 +6981,16 @@
         const sections = [
             { list: 'flow-arr-fixes-list', count: 'flow-arr-fixes-count', section: 'section-flow-arr-fixes',
               items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'ARRIVAL') : [],
-              empty: 'No arrival fixes configured' },
+              empty: PERTII18n.t('nod.flows.noArrivalFixes') },
             { list: 'flow-dep-fixes-list', count: 'flow-dep-fixes-count', section: 'section-flow-dep-fixes',
               items: config ? (config.elements || []).filter(e => e.element_type === 'FIX' && e.direction === 'DEPARTURE') : [],
-              empty: 'No departure fixes configured' },
+              empty: PERTII18n.t('nod.flows.noDepartureFixes') },
             { list: 'flow-procedures-list', count: 'flow-procedures-count', section: 'section-flow-procedures',
               items: config ? (config.elements || []).filter(e => e.element_type === 'PROCEDURE') : [],
-              empty: 'No procedures configured' },
+              empty: PERTII18n.t('nod.flows.noProcedures') },
             { list: 'flow-routes-list', count: 'flow-routes-count', section: 'section-flow-routes',
               items: config ? (config.elements || []).filter(e => e.element_type === 'ROUTE') : [],
-              empty: 'No routes configured' },
+              empty: PERTII18n.t('nod.flows.noRoutes') },
         ];
 
         sections.forEach(s => {
@@ -7042,7 +7042,7 @@
         if (badge) badge.textContent = gates.length;
 
         if (gates.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><p>No gates configured</p></div>';
+            container.innerHTML = '<div class="nod-empty"><p>${PERTII18n.t('nod.flows.noGatesConfigured')}</p></div>';
             return;
         }
 
@@ -7054,15 +7054,15 @@
                 <span>${escapeHtml(gate.gate_name)}</span>
                 <span class="badge badge-secondary ml-1">${members.length}</span>
                 <span class="nod-flow-element-controls ml-auto">
-                    <input type="color" value="${gate.color || '#17a2b8'}" title="Gate color"
+                    <input type="color" value="${gate.color || '#17a2b8'}" title="${PERTII18n.t('nod.flows.gateColorTitle')}"
                            onchange="NOD.updateGate(${gate.gate_id}, {color: this.value})" onclick="event.stopPropagation()">
-                    <button class="btn-icon" onclick="event.stopPropagation(); NOD.deleteGate(${gate.gate_id})" title="Delete gate">
+                    <button class="btn-icon" onclick="event.stopPropagation(); NOD.deleteGate(${gate.gate_id})" title="${PERTII18n.t('nod.flows.deleteGateTitle')}">
                         <i class="fas fa-trash"></i>
                     </button>
                 </span>
             </div>
             <div class="nod-flow-gate-members">
-                ${members.length > 0 ? members.map(el => renderFlowElementRow(el)).join('') : '<div class="p-1 text-muted small">No member fixes</div>'}
+                ${members.length > 0 ? members.map(el => renderFlowElementRow(el)).join('') : '<div class="p-1 text-muted small">${PERTII18n.t('nod.flows.noMemberFixes')}</div>'}
             </div>`;
         });
 
@@ -7089,7 +7089,7 @@
         if (showLineWeight) {
             lineWeightHtml = `<select class="form-control form-control-sm bg-dark text-light border-secondary"
                 style="width: 38px; font-size: 10px; padding: 0 2px; height: 22px;"
-                title="Line weight" onchange="NOD.updateFlowElement(${el.element_id}, {line_weight: parseInt(this.value)})">
+                title="${PERTII18n.t('nod.flows.lineWeightTitle')}" onchange="NOD.updateFlowElement(${el.element_id}, {line_weight: parseInt(this.value)})">
                 ${[1, 2, 3, 4, 5].map(w => `<option value="${w}" ${w === lineWeight ? 'selected' : ''}>${w}</option>`).join('')}
             </select>`;
         }
@@ -7100,18 +7100,18 @@
                 ${el.demand_count != null ? `<span class="badge badge-info">${el.demand_count}</span>` : ''}
             </span>
             <span class="nod-flow-element-controls">
-                <input type="color" value="${el.color || '#17a2b8'}" title="Color"
+                <input type="color" value="${el.color || '#17a2b8'}" title="${PERTII18n.t('nod.flows.colorTitle')}"
                        onchange="NOD.updateFlowElement(${el.element_id}, {color: this.value})">
                 ${lineWeightHtml}
-                ${showFEA ? `<button class="btn-icon ${hasFEA ? 'fea-active' : ''}" title="${hasFEA ? 'Remove FEA' : 'Monitor as FEA'}"
+                ${showFEA ? `<button class="btn-icon ${hasFEA ? 'fea-active' : ''}" title="${hasFEA ? PERTII18n.t('nod.flows.removeFea') : PERTII18n.t('nod.flows.feaCreate')}"
                        onclick="NOD.toggleFlowFEA(${el.element_id})">
                     <i class="fas fa-chart-bar"></i>
                 </button>` : ''}
-                <button class="btn-icon ${isVisible ? 'active' : ''}" title="Toggle visibility"
+                <button class="btn-icon ${isVisible ? 'active' : ''}" title="${PERTII18n.t('nod.flows.toggleVisibility')}"
                        onclick="NOD.toggleFlowVisibility(${el.element_id})">
                     <i class="fas fa-${isVisible ? 'eye' : 'eye-slash'}"></i>
                 </button>
-                <button class="btn-icon" title="Delete" onclick="NOD.deleteFlowElement(${el.element_id})">
+                <button class="btn-icon" title="${PERTII18n.t('nod.flows.deleteTitle')}" onclick="NOD.deleteFlowElement(${el.element_id})">
                     <i class="fas fa-trash"></i>
                 </button>
             </span>
@@ -7326,10 +7326,10 @@
         const form = document.createElement('div');
         form.className = 'nod-flow-add-form';
         form.innerHTML = `
-            <input type="text" placeholder="Gate name..." id="flow-add-gate-input">
+            <input type="text" placeholder="${PERTII18n.t('nod.flows.gateNamePlaceholder')}" id="flow-add-gate-input">
             <select id="flow-add-gate-dir" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 80px; font-size: 11px;">
-                <option value="ARRIVAL">Arr</option>
-                <option value="DEPARTURE">Dep</option>
+                <option value="ARRIVAL">${PERTII18n.t('nod.flows.arr')}</option>
+                <option value="DEPARTURE">${PERTII18n.t('nod.flows.dep')}</option>
             </select>
             <button class="btn btn-sm btn-info" onclick="NOD.submitAddGate()">
                 <i class="fas fa-plus"></i>

@@ -304,20 +304,20 @@ window.PublicRoutes = (function() {
                 if (typeof Swal !== 'undefined') {
                     // Build Discord status line based on actual result
                     const discordLine = discordPublished
-                        ? '<i class="fab fa-discord text-info mr-1"></i> Published to Discord'
-                        : '<i class="fab fa-discord text-muted mr-1"></i> <span class="text-muted">Discord: Not published (no advisory text or Discord not configured)</span>';
+                        ? '<i class="fab fa-discord text-info mr-1"></i> ' + PERTII18n.t('publicRoutes.publishedToDiscord')
+                        : '<i class="fab fa-discord text-muted mr-1"></i> <span class="text-muted">' + PERTII18n.t('publicRoutes.discordNotPublished') + '</span>';
 
                     Swal.fire({
                         icon: 'success',
                         title: PERTII18n.t('publicRoutes.routePublished'),
                         html: `
-                            <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been published successfully.</p>
+                            <p>${PERTII18n.t('publicRoutes.publishedSuccessfully', { name: '<strong>' + escapeHtml(routeName) + '</strong>' + (advNum ? ' (Advisory #' + escapeHtml(advNum) + ')' : '') })}</p>
                             <p class="small text-muted mt-2">
                                 ${discordLine}<br>
-                                <i class="fas fa-list-alt text-primary mr-1"></i> Visible on <a href="tmi" target="_blank">Active Restrictions & Advisories</a>
+                                <i class="fas fa-list-alt text-primary mr-1"></i> ${PERTII18n.t('publicRoutes.visibleOn')} <a href="tmi" target="_blank">${PERTII18n.t('publicRoutes.activeRestrictionsAdvisories')}</a>
                             </p>
                         `,
-                        confirmButtonText: 'OK',
+                        confirmButtonText: PERTII18n.t('common.ok'),
                         timer: 8000,
                         timerProgressBar: true,
                     });
@@ -411,20 +411,20 @@ window.PublicRoutes = (function() {
                 badgeText = visibleCount + '/' + totalCount;
             }
 
-            let title = visibleCount + ' route(s) on map';
+            let title = PERTII18n.t('publicRoutes.routesOnMap', { count: visibleCount });
             if (visibleCount < totalCount) {
-                title += ' of ' + totalCount + ' total';
+                title += PERTII18n.t('publicRoutes.ofTotal', { total: totalCount });
             }
-            title += '\n\nCategories:\n';
-            if (state.showActive) {title += '  ✓ Active: ' + counts.active + '\n';}
-            else {title += '  ○ Active: ' + counts.active + ' (hidden)\n';}
-            if (state.showFuture) {title += '  ✓ Future: ' + counts.future + '\n';}
-            else {title += '  ○ Future: ' + counts.future + ' (hidden)\n';}
-            if (state.showPast) {title += '  ✓ Past: ' + counts.past;}
-            else {title += '  ○ Past: ' + counts.past + ' (hidden)';}
+            title += '\n\n' + PERTII18n.t('publicRoutes.categories') + '\n';
+            if (state.showActive) {title += '  \u2713 ' + PERTII18n.t('publicRoutes.active') + ': ' + counts.active + '\n';}
+            else {title += '  \u25CB ' + PERTII18n.t('publicRoutes.active') + ': ' + counts.active + ' ' + PERTII18n.t('publicRoutes.hidden') + '\n';}
+            if (state.showFuture) {title += '  \u2713 ' + PERTII18n.t('publicRoutes.future') + ': ' + counts.future + '\n';}
+            else {title += '  \u25CB ' + PERTII18n.t('publicRoutes.future') + ': ' + counts.future + ' ' + PERTII18n.t('publicRoutes.hidden') + '\n';}
+            if (state.showPast) {title += '  \u2713 ' + PERTII18n.t('publicRoutes.past') + ': ' + counts.past;}
+            else {title += '  \u25CB ' + PERTII18n.t('publicRoutes.past') + ': ' + counts.past + ' ' + PERTII18n.t('publicRoutes.hidden');}
 
             if (individuallyHiddenCount > 0) {
-                title += '\n\n' + individuallyHiddenCount + ' route(s) individually hidden';
+                title += '\n\n' + PERTII18n.t('publicRoutes.individuallyHidden', { count: individuallyHiddenCount });
             }
 
             $indicator.find('.badge').text(badgeText);
@@ -456,28 +456,28 @@ window.PublicRoutes = (function() {
             $filterControls = $(`
                 <div id="pr_filter_controls" class="pr-filter-controls p-2 border-bottom">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="small text-muted font-weight-bold">Show:</span>
+                        <span class="small text-muted font-weight-bold">${PERTII18n.t('publicRoutes.showLabel')}</span>
                         <div class="btn-group btn-group-xs">
-                            <button class="btn btn-xs btn-outline-secondary pr-show-all" title="Show all categories">
+                            <button class="btn btn-xs btn-outline-secondary pr-show-all" title="${PERTII18n.t('publicRoutes.showAllCategories')}">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            <button class="btn btn-xs btn-outline-secondary pr-hide-all" title="Hide all categories">
+                            <button class="btn btn-xs btn-outline-secondary pr-hide-all" title="${PERTII18n.t('publicRoutes.hideAllCategories')}">
                                 <i class="fas fa-eye-slash"></i>
                             </button>
                         </div>
                     </div>
                     <div class="d-flex flex-wrap" style="gap: 8px;">
-                        <label class="pr-toggle-label mb-0" title="Show currently active routes">
+                        <label class="pr-toggle-label mb-0" title="${PERTII18n.t('publicRoutes.showCurrentlyActive')}">
                             <input type="checkbox" class="pr-visibility-toggle" data-status="active" ${state.showActive ? 'checked' : ''}>
-                            <span class="badge badge-success"><i class="fas fa-play-circle mr-1"></i>Active <span class="pr-count-active">(${counts.active})</span></span>
+                            <span class="badge badge-success"><i class="fas fa-play-circle mr-1"></i>${PERTII18n.t('publicRoutes.active')} <span class="pr-count-active">(${counts.active})</span></span>
                         </label>
-                        <label class="pr-toggle-label mb-0" title="Show scheduled future routes">
+                        <label class="pr-toggle-label mb-0" title="${PERTII18n.t('publicRoutes.showScheduledFuture')}">
                             <input type="checkbox" class="pr-visibility-toggle" data-status="future" ${state.showFuture ? 'checked' : ''}>
-                            <span class="badge badge-info"><i class="fas fa-calendar-alt mr-1"></i>Future <span class="pr-count-future">(${counts.future})</span></span>
+                            <span class="badge badge-info"><i class="fas fa-calendar-alt mr-1"></i>${PERTII18n.t('publicRoutes.future')} <span class="pr-count-future">(${counts.future})</span></span>
                         </label>
-                        <label class="pr-toggle-label mb-0" title="Show expired routes">
+                        <label class="pr-toggle-label mb-0" title="${PERTII18n.t('publicRoutes.showExpiredRoutes')}">
                             <input type="checkbox" class="pr-visibility-toggle" data-status="past" ${state.showPast ? 'checked' : ''}>
-                            <span class="badge badge-secondary"><i class="fas fa-history mr-1"></i>Past <span class="pr-count-past">(${counts.past})</span></span>
+                            <span class="badge badge-secondary"><i class="fas fa-history mr-1"></i>${PERTII18n.t('publicRoutes.past')} <span class="pr-count-past">(${counts.past})</span></span>
                         </label>
                     </div>
                 </div>
@@ -571,10 +571,10 @@ window.PublicRoutes = (function() {
             let statusBadge = '';
             if (timeStatus === 'future') {
                 groupClass += ' pr-future';
-                statusBadge = '<span class="badge badge-info badge-sm mr-1" title="Starts in the future"><i class="fas fa-calendar-alt"></i></span>';
+                statusBadge = '<span class="badge badge-info badge-sm mr-1" title="' + PERTII18n.t('publicRoutes.startsInFuture') + '"><i class="fas fa-calendar-alt"></i></span>';
             } else if (timeStatus === 'past') {
                 groupClass += ' pr-past';
-                statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="Expired"><i class="fas fa-history"></i></span>';
+                statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="' + PERTII18n.t('publicRoutes.expired') + '"><i class="fas fa-history"></i></span>';
             } else if (timeStatus === 'active') {
                 groupClass += ' pr-active';
             }
@@ -582,7 +582,7 @@ window.PublicRoutes = (function() {
             // Group visibility toggle
             const groupVisIcon = allHidden ? 'fa-eye-slash' : (someHidden ? 'fa-eye' : 'fa-eye');
             const groupVisClass = allHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
-            const groupVisTitle = allHidden ? 'Show all routes' : 'Hide all routes';
+            const groupVisTitle = allHidden ? PERTII18n.t('publicRoutes.showAllRoutes') : PERTII18n.t('publicRoutes.hideAllRoutes');
 
             const $groupItem = $(`
                 <div class="${groupClass}" data-group-id="${group.groupId}" data-time-status="${timeStatus}">
@@ -596,7 +596,7 @@ window.PublicRoutes = (function() {
                                 <strong class="route-name text-truncate" style="max-width: 130px;">
                                     ${statusBadge}${escapeHtml(group.groupName)}
                                 </strong>
-                                <span class="badge badge-pill badge-secondary ml-1" style="font-size: 0.65rem;">${group.routes.length} routes</span>
+                                <span class="badge badge-pill badge-secondary ml-1" style="font-size: 0.65rem;">${PERTII18n.t('publicRoutes.routesBadge', { count: group.routes.length })}</span>
                                 <i class="fas fa-chevron-down group-expand-icon ml-auto" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
                             </div>
                             <div class="route-details small">
@@ -635,13 +635,13 @@ window.PublicRoutes = (function() {
 
                 const $routeItem = $(`
                     <div class="group-route-item d-flex align-items-center py-1 ${routeHidden ? 'text-muted' : ''}" data-route-id="${route.id}" style="font-size: 0.75rem;">
-                        <button class="btn btn-xs ${routeVisClass} route-visibility-toggle mr-2" style="padding: 1px 4px; font-size: 0.6rem;" title="${routeHidden ? 'Show' : 'Hide'}">
+                        <button class="btn btn-xs ${routeVisClass} route-visibility-toggle mr-2" style="padding: 1px 4px; font-size: 0.6rem;" title="${routeHidden ? PERTII18n.t('publicRoutes.show') : PERTII18n.t('publicRoutes.hide')}">
                             <i class="fas ${routeVisIcon}"></i>
                         </button>
                         <span class="route-origin-dest ${routeHidden ? 'text-decoration-line-through' : ''}" style="cursor: pointer;">
                             ${escapeHtml(originDest || route.name)}
                         </span>
-                        <button class="btn btn-xs btn-link route-zoom p-0 ml-auto" title="Zoom to route">
+                        <button class="btn btn-xs btn-link route-zoom p-0 ml-auto" title="${PERTII18n.t('publicRoutes.zoomToRoute')}">
                             <i class="fas fa-search-plus" style="font-size: 0.7rem;"></i>
                         </button>
                     </div>
@@ -710,17 +710,17 @@ window.PublicRoutes = (function() {
         let statusBadge = '';
         if (timeStatus === 'future') {
             itemClass += ' pr-future';
-            statusBadge = '<span class="badge badge-info badge-sm mr-1" title="Starts in the future"><i class="fas fa-calendar-alt"></i></span>';
+            statusBadge = '<span class="badge badge-info badge-sm mr-1" title="' + PERTII18n.t('publicRoutes.startsInFuture') + '"><i class="fas fa-calendar-alt"></i></span>';
         } else if (timeStatus === 'past') {
             itemClass += ' pr-past';
-            statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="Expired"><i class="fas fa-history"></i></span>';
+            statusBadge = '<span class="badge badge-secondary badge-sm mr-1" title="' + PERTII18n.t('publicRoutes.expired') + '"><i class="fas fa-history"></i></span>';
         } else if (timeStatus === 'active') {
             itemClass += ' pr-active';
         }
 
         const visToggleIcon = isHidden ? 'fa-eye-slash' : 'fa-eye';
         const visToggleClass = isHidden ? 'btn-outline-warning' : 'btn-outline-secondary';
-        const visToggleTitle = isHidden ? 'Show on map' : 'Hide from map';
+        const visToggleTitle = isHidden ? PERTII18n.t('publicRoutes.showOnMap') : PERTII18n.t('publicRoutes.hideFromMap');
 
         let $item;
         if (isHidden) {
@@ -748,13 +748,13 @@ window.PublicRoutes = (function() {
                             <div class="d-flex justify-content-between align-items-center">
                                 <strong class="route-name text-truncate" style="max-width: 130px;">${statusBadge}${escapeHtml(route.name)}</strong>
                                 <div class="route-actions flex-shrink-0">
-                                    <button class="btn btn-xs btn-outline-primary route-zoom" title="Zoom to route">
+                                    <button class="btn btn-xs btn-outline-primary route-zoom" title="${PERTII18n.t('publicRoutes.zoomToRoute')}">
                                         <i class="fas fa-search-plus"></i>
                                     </button>
-                                    <button class="btn btn-xs btn-outline-secondary route-edit" title="Edit route">
+                                    <button class="btn btn-xs btn-outline-secondary route-edit" title="${PERTII18n.t('publicRoutes.editRoute')}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-xs btn-outline-danger route-delete" title="Delete route">
+                                    <button class="btn btn-xs btn-outline-danger route-delete" title="${PERTII18n.t('publicRoutes.deleteRoute')}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -857,24 +857,24 @@ window.PublicRoutes = (function() {
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header py-2">
-                                <h6 class="modal-title"><i class="fas fa-route mr-2"></i>Route Details</h6>
+                                <h6 class="modal-title"><i class="fas fa-route mr-2"></i>${PERTII18n.t('publicRoutes.routeDetails')}</h6>
                                 <button type="button" class="close" data-dismiss="modal">&times;</button>
                             </div>
                             <div class="modal-body" id="publicRouteDetailBody"></div>
                             <div class="modal-footer py-2">
                                 <button type="button" class="btn btn-sm btn-success d-none" id="publicRouteSaveBtn">
-                                    <i class="fas fa-save mr-1"></i>Save Changes
+                                    <i class="fas fa-save mr-1"></i>${PERTII18n.t('publicRoutes.saveChanges')}
                                 </button>
-                                <button type="button" class="btn btn-sm btn-warning" id="publicRouteEditBuilderBtn" title="Edit this route in the Advisory Builder">
-                                    <i class="fas fa-file-alt mr-1"></i>Edit in Builder
+                                <button type="button" class="btn btn-sm btn-warning" id="publicRouteEditBuilderBtn" title="${PERTII18n.t('publicRoutes.editInBuilder')}">
+                                    <i class="fas fa-file-alt mr-1"></i>${PERTII18n.t('publicRoutes.editInBuilder')}
                                 </button>
                                 <button type="button" class="btn btn-sm btn-primary" id="publicRouteZoomBtn">
-                                    <i class="fas fa-search-plus mr-1"></i>Zoom
+                                    <i class="fas fa-search-plus mr-1"></i>${PERTII18n.t('publicRoutes.zoom')}
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="publicRouteEditBtn">
-                                    <i class="fas fa-edit mr-1"></i>Quick Edit
+                                    <i class="fas fa-edit mr-1"></i>${PERTII18n.t('publicRoutes.quickEdit')}
                                 </button>
-                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">${PERTII18n.t('common.close')}</button>
                             </div>
                         </div>
                     </div>
@@ -892,36 +892,40 @@ window.PublicRoutes = (function() {
         // Status badge for future/past routes
         let statusBadge = '';
         if (timeStatus === 'future') {
-            statusBadge = '<span class="badge badge-info ml-2">Future</span>';
+            statusBadge = '<span class="badge badge-info ml-2">' + PERTII18n.t('publicRoutes.future') + '</span>';
         } else if (timeStatus === 'past') {
-            statusBadge = '<span class="badge badge-secondary ml-2">Expired</span>';
+            statusBadge = '<span class="badge badge-secondary ml-2">' + PERTII18n.t('publicRoutes.expired') + '</span>';
         }
+
+        const timeStatusLabel = timeStatus === 'future' ? PERTII18n.t('publicRoutes.startsIn')
+            : timeStatus === 'past' ? PERTII18n.t('publicRoutes.expired')
+            : PERTII18n.t('publicRoutes.timeRemaining');
 
         const viewContent = `
             <div class="row">
                 <div class="col-md-6">
                     <table class="table table-sm table-borderless mb-0">
-                        <tr><td class="text-muted" width="130">Name</td><td><strong>${escapeHtml(route.name)}</strong>${statusBadge}</td></tr>
-                        <tr><td class="text-muted">Advisory #</td><td>${route.adv_number || '--'}</td></tr>
-                        <tr><td class="text-muted">Constrained Area</td><td>${route.constrained_area || '--'}</td></tr>
-                        <tr><td class="text-muted">Reason</td><td>${route.reason || '--'}</td></tr>
-                        <tr><td class="text-muted">Facilities</td><td>${route.facilities || '--'}</td></tr>
+                        <tr><td class="text-muted" width="130">${PERTII18n.t('publicRoutes.name')}</td><td><strong>${escapeHtml(route.name)}</strong>${statusBadge}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.advisoryNumber')}</td><td>${route.adv_number || '--'}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.constrainedArea')}</td><td>${route.constrained_area || '--'}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.reason')}</td><td>${route.reason || '--'}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.facilities')}</td><td>${route.facilities || '--'}</td></tr>
                     </table>
                 </div>
                 <div class="col-md-6">
                     <table class="table table-sm table-borderless mb-0">
-                        <tr><td class="text-muted" width="130">Valid Start</td><td>${validStart}</td></tr>
-                        <tr><td class="text-muted">Valid End</td><td>${validEnd}</td></tr>
+                        <tr><td class="text-muted" width="130">${PERTII18n.t('publicRoutes.validStart')}</td><td>${validStart}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.validEnd')}</td><td>${validEnd}</td></tr>
                         <tr>
-                            <td class="text-muted">${timeStatus === 'future' ? 'Starts In' : timeStatus === 'past' ? 'Expired' : 'Time Remaining'}</td>
+                            <td class="text-muted">${timeStatusLabel}</td>
                             <td><span class="${timeInfo.class} font-weight-bold"><i class="fas ${timeInfo.icon} mr-1"></i>${timeInfo.text}</span></td>
                         </tr>
-                        <tr><td class="text-muted">Created By</td><td>${route.created_by || '--'}</td></tr>
+                        <tr><td class="text-muted">${PERTII18n.t('publicRoutes.createdBy')}</td><td>${route.created_by || '--'}</td></tr>
                         <tr>
-                            <td class="text-muted">Color</td>
+                            <td class="text-muted">${PERTII18n.t('publicRoutes.color')}</td>
                             <td>
                                 <span class="badge" style="background-color: ${route.color}; color: white;">${route.color}</span>
-                                <button class="btn btn-xs btn-outline-secondary ml-2 edit-color-btn" title="Change color"><i class="fas fa-palette"></i></button>
+                                <button class="btn btn-xs btn-outline-secondary ml-2 edit-color-btn" title="${PERTII18n.t('publicRoutes.changeColor')}"><i class="fas fa-palette"></i></button>
                             </td>
                         </tr>
                     </table>
@@ -931,7 +935,7 @@ window.PublicRoutes = (function() {
                 <hr class="my-2">
                 <div>
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="small text-muted mb-0">Advisory Text</label>
+                        <label class="small text-muted mb-0">${PERTII18n.t('publicRoutes.advisoryText')}</label>
                     </div>
                     <pre class="p-2 bg-light rounded mb-0" style="font-size: 0.75rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${escapeHtml(route.advisory_text)}</pre>
                 </div>
@@ -942,47 +946,47 @@ window.PublicRoutes = (function() {
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Name</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.name')}</label>
                         <input type="text" class="form-control form-control-sm" id="editRouteName" value="${escapeHtml(route.name)}">
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Constrained Area</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.constrainedArea')}</label>
                         <input type="text" class="form-control form-control-sm" id="editRouteArea" value="${escapeHtml(route.constrained_area || '')}">
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Reason</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.reason')}</label>
                         <input type="text" class="form-control form-control-sm" id="editRouteReason" value="${escapeHtml(route.reason || '')}">
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Facilities</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.facilities')}</label>
                         <input type="text" class="form-control form-control-sm" id="editRouteFacilities" value="${escapeHtml(route.facilities || '')}">
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Color</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.color')}</label>
                         <div class="input-group input-group-sm">
                             <div class="input-group-prepend">
-                                <input type="color" id="editRouteColorPicker" value="${route.color}" 
+                                <input type="color" id="editRouteColorPicker" value="${route.color}"
                                     style="width: 40px; height: 31px; padding: 0; border: 1px solid #ced4da; cursor: pointer;">
                             </div>
                             <input type="text" class="form-control form-control-sm font-monospace" id="editRouteColor" value="${route.color}">
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Valid Times</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.validTimes')}</label>
                         <div class="small text-muted">${validStart} - ${validEnd}</div>
-                        <div class="${expInfo.class} small"><i class="fas fa-hourglass-half mr-1"></i>${expInfo.text} remaining</div>
+                        <div class="${expInfo.class} small"><i class="fas fa-hourglass-half mr-1"></i>${PERTII18n.t('publicRoutes.remaining', { text: expInfo.text })}</div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1">Created By</label>
+                        <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.createdBy')}</label>
                         <div class="small">${route.created_by || '--'}</div>
                     </div>
                 </div>
             </div>
             <hr class="my-2">
             <div class="form-group mb-0">
-                <label class="small text-muted mb-1">Advisory Text</label>
+                <label class="small text-muted mb-1">${PERTII18n.t('publicRoutes.advisoryText')}</label>
                 <textarea class="form-control form-control-sm" id="editRouteAdvisory" rows="5" style="font-family: Inconsolata, monospace; font-size: 0.75rem;">${escapeHtml(route.advisory_text || '')}</textarea>
             </div>
         `;
@@ -1497,36 +1501,36 @@ window.PublicRoutes = (function() {
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header py-2" id="publishModalHeader">
-                                <h6 class="modal-title" id="publishModalTitle"><i class="fas fa-globe mr-2"></i>Publish Route</h6>
+                                <h6 class="modal-title" id="publishModalTitle"><i class="fas fa-globe mr-2"></i>${PERTII18n.t('publicRoutes.publishRoute')}</h6>
                                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
                             </div>
                             <div class="modal-body">
                                 <p class="small text-muted mb-3" id="publishModalDesc">
-                                    Publishing will make this route visible to all users on the map.
+                                    ${PERTII18n.t('publicRoutes.publishingDesc')}
                                 </p>
                                 <div class="form-group">
-                                    <label class="small mb-1">Route Name</label>
+                                    <label class="small mb-1">${PERTII18n.t('publicRoutes.routeName')}</label>
                                     <input type="text" class="form-control form-control-sm" id="publishRouteName" placeholder="e.g., GOLDDR">
                                 </div>
                                 <div class="form-group">
-                                    <label class="small mb-1">Route Color</label>
+                                    <label class="small mb-1">${PERTII18n.t('publicRoutes.routeColor')}</label>
                                     <div class="color-picker-grid">${colorOptions}</div>
                                     <div class="color-picker-custom">
-                                        <input type="color" id="publishRouteColorPicker" value="#e74c3c" title="Custom color">
+                                        <input type="color" id="publishRouteColorPicker" value="#e74c3c" title="${PERTII18n.t('publicRoutes.custom')}">
                                         <input type="text" class="form-control form-control-sm" id="publishRouteColorHex" value="#e74c3c" placeholder="#hex">
-                                        <span class="small text-muted">Custom</span>
+                                        <span class="small text-muted">${PERTII18n.t('publicRoutes.custom')}</span>
                                     </div>
                                     <input type="hidden" id="publishRouteColor" value="#e74c3c">
                                 </div>
                                 <div class="form-group mb-0">
-                                    <label class="small mb-1">Your Name/CID (optional)</label>
+                                    <label class="small mb-1">${PERTII18n.t('publicRoutes.creatorLabel')}</label>
                                     <input type="text" class="form-control form-control-sm" id="publishRouteCreator" placeholder="e.g., John D.">
                                 </div>
                             </div>
                             <div class="modal-footer py-2">
-                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">${PERTII18n.t('common.cancel')}</button>
                                 <button type="button" class="btn btn-sm btn-success" id="confirmPublishBtn">
-                                    <i class="fas fa-check mr-1"></i>Publish
+                                    <i class="fas fa-check mr-1"></i>${PERTII18n.t('publicRoutes.publish')}
                                 </button>
                             </div>
                         </div>
@@ -1578,14 +1582,14 @@ window.PublicRoutes = (function() {
         // Update modal appearance based on edit vs new
         if (isEditing) {
             $('#publishModalHeader').removeClass('bg-success').addClass('bg-warning');
-            $('#publishModalTitle').html('<i class="fas fa-edit mr-2"></i>Update Route');
-            $('#publishModalDesc').text('Update this route\'s display settings. Changes will be visible to all users.');
-            $('#confirmPublishBtn').removeClass('btn-success').addClass('btn-warning').html('<i class="fas fa-save mr-1"></i>Update');
+            $('#publishModalTitle').html('<i class="fas fa-edit mr-2"></i>' + PERTII18n.t('publicRoutes.updateRoute'));
+            $('#publishModalDesc').text(PERTII18n.t('publicRoutes.updatingDesc'));
+            $('#confirmPublishBtn').removeClass('btn-success').addClass('btn-warning').html('<i class="fas fa-save mr-1"></i>' + PERTII18n.t('common.update'));
         } else {
             $('#publishModalHeader').removeClass('bg-warning').addClass('bg-success');
-            $('#publishModalTitle').html('<i class="fas fa-globe mr-2"></i>Publish Route');
-            $('#publishModalDesc').text('Publishing will make this route visible to all users on the map.');
-            $('#confirmPublishBtn').removeClass('btn-warning').addClass('btn-success').html('<i class="fas fa-check mr-1"></i>Publish');
+            $('#publishModalTitle').html('<i class="fas fa-globe mr-2"></i>' + PERTII18n.t('publicRoutes.publishRoute'));
+            $('#publishModalDesc').text(PERTII18n.t('publicRoutes.publishingDesc'));
+            $('#confirmPublishBtn').removeClass('btn-warning').addClass('btn-success').html('<i class="fas fa-check mr-1"></i>' + PERTII18n.t('publicRoutes.publish'));
         }
 
         // Pre-fill values
@@ -1721,7 +1725,7 @@ window.PublicRoutes = (function() {
         $publishBtn
             .removeClass('btn-success')
             .addClass('btn-warning')
-            .html('<i class="fas fa-save mr-1"></i> Update Route');
+            .html('<i class="fas fa-save mr-1"></i> ' + PERTII18n.t('publicRoutes.updateRoute'));
 
         // Add editing indicator
         let $indicator = $('#adv_editing_indicator');
@@ -1730,10 +1734,10 @@ window.PublicRoutes = (function() {
                 <div id="adv_editing_indicator" class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center justify-content-between">
                     <span>
                         <i class="fas fa-edit mr-2"></i>
-                        <strong>Editing:</strong> <span id="adv_editing_name"></span>
+                        <strong>${PERTII18n.t('publicRoutes.editing')}</strong> <span id="adv_editing_name"></span>
                     </span>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="adv_cancel_edit">
-                        <i class="fas fa-times mr-1"></i>Cancel Edit
+                        <i class="fas fa-times mr-1"></i>${PERTII18n.t('publicRoutes.cancelEdit')}
                     </button>
                 </div>
             `);
@@ -1948,22 +1952,22 @@ window.PublicRoutes = (function() {
             const diffMins = Math.floor(diffMs / 60000);
             const diffHours = Math.floor(diffMins / 60);
 
-            let text;
+            let timeStr;
             if (diffHours >= 24) {
                 const days = Math.floor(diffHours / 24);
                 const hrs = diffHours % 24;
-                text = 'Starts in ' + days + 'd ' + hrs + 'h';
+                timeStr = days + 'd ' + hrs + 'h';
             } else if (diffHours >= 1) {
-                text = 'Starts in ' + diffHours + 'h ' + (diffMins % 60) + 'm';
+                timeStr = diffHours + 'h ' + (diffMins % 60) + 'm';
             } else {
-                text = 'Starts in ' + diffMins + 'm';
+                timeStr = diffMins + 'm';
             }
 
             return {
-                text: text,
+                text: PERTII18n.t('publicRoutes.startsInTime', { time: timeStr }),
                 icon: 'fa-calendar-alt',
                 class: 'text-info',
-                title: 'Route starts in the future',
+                title: PERTII18n.t('publicRoutes.startsInFuture'),
             };
         } else if (timeStatus === 'past') {
             // Calculate time since end
@@ -1973,21 +1977,21 @@ window.PublicRoutes = (function() {
             const diffMins = Math.floor(diffMs / 60000);
             const diffHours = Math.floor(diffMins / 60);
 
-            let text;
+            let timeStr;
             if (diffHours >= 24) {
                 const days = Math.floor(diffHours / 24);
-                text = 'Expired ' + days + 'd ago';
+                timeStr = days + 'd';
             } else if (diffHours >= 1) {
-                text = 'Expired ' + diffHours + 'h ago';
+                timeStr = diffHours + 'h';
             } else {
-                text = 'Expired ' + diffMins + 'm ago';
+                timeStr = diffMins + 'm';
             }
 
             return {
-                text: text,
+                text: PERTII18n.t('publicRoutes.expiredAgo', { time: timeStr }),
                 icon: 'fa-history',
                 class: 'text-secondary',
-                title: 'Route has expired',
+                title: PERTII18n.t('publicRoutes.routeExpired'),
             };
         } else {
             // Active - use existing expiration info
@@ -1996,7 +2000,7 @@ window.PublicRoutes = (function() {
                 text: expInfo.text,
                 icon: 'fa-hourglass-half',
                 class: expInfo.class,
-                title: 'Time until expiration',
+                title: PERTII18n.t('publicRoutes.timeUntilExpiration'),
             };
         }
     }
@@ -2036,13 +2040,13 @@ window.PublicRoutes = (function() {
                         icon: 'success',
                         title: PERTII18n.t('publicRoutes.routeUpdated'),
                         html: `
-                            <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been updated successfully.</p>
+                            <p>${PERTII18n.t('publicRoutes.updatedSuccessfully', { name: '<strong>' + escapeHtml(routeName) + '</strong>' + (advNum ? ' (Advisory #' + escapeHtml(advNum) + ')' : '') })}</p>
                             <p class="small text-muted mt-2">
-                                <i class="fab fa-discord text-info mr-1"></i> Updated on Discord<br>
-                                <i class="fas fa-list-alt text-primary mr-1"></i> Visible on <a href="tmi" target="_blank">Active Restrictions & Advisories</a>
+                                <i class="fab fa-discord text-info mr-1"></i> ${PERTII18n.t('publicRoutes.updatedOnDiscord')}<br>
+                                <i class="fas fa-list-alt text-primary mr-1"></i> ${PERTII18n.t('publicRoutes.visibleOn')} <a href="tmi" target="_blank">${PERTII18n.t('publicRoutes.activeRestrictionsAdvisories')}</a>
                             </p>
                         `,
-                        confirmButtonText: 'OK',
+                        confirmButtonText: PERTII18n.t('common.ok'),
                         timer: 6000,
                         timerProgressBar: true,
                     });
@@ -2130,7 +2134,7 @@ window.PublicRoutes = (function() {
             const $body = $('#public_routes_panel_body');
             const isVisible = $body.is(':visible');
             $body.slideToggle(200);
-            $(this).text(isVisible ? 'Show' : 'Hide');
+            $(this).text(isVisible ? PERTII18n.t('publicRoutes.show') : PERTII18n.t('publicRoutes.hide'));
         });
 
         // Publish button in advisory builder

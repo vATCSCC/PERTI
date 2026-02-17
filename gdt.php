@@ -1849,7 +1849,7 @@ include("load/i18n.php");
                         <thead class="thead-dark" style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th class="gs-sortable" data-sort="acid" style="cursor:pointer;">ACID <i class="fas fa-sort fa-xs text-muted"></i></th>
-                                <th class="gs-sortable" data-sort="carrier" style="cursor:pointer;">Carrier <i class="fas fa-sort fa-xs text-muted"></i></th>
+                                <th class="gs-sortable" data-sort="carrier" style="cursor:pointer;"><?= __('gdt.page.carrier') ?> <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th class="gs-sortable" data-sort="orig" style="cursor:pointer;">ORIG <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th class="gs-sortable" data-sort="dest" style="cursor:pointer;">DEST <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th class="gs-sortable" data-sort="dcenter" style="cursor:pointer;">DCTR <i class="fas fa-sort fa-xs text-muted"></i></th>
@@ -1860,8 +1860,8 @@ include("load/i18n.php");
                                 <th class="gs-sortable" data-sort="oeta" style="cursor:pointer;">OETA <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th class="gs-sortable" data-sort="eta" style="cursor:pointer;">ETA <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th>CTA</th>
-                                <th class="gs-sortable" data-sort="delay" style="cursor:pointer;">Delay <i class="fas fa-sort fa-xs text-muted"></i></th>
-                                <th>Status</th>
+                                <th class="gs-sortable" data-sort="delay" style="cursor:pointer;"><?= __('gdt.page.delay') ?> <i class="fas fa-sort fa-xs text-muted"></i></th>
+                                <th><?= __('common.status') ?></th>
                             </tr>
                         </thead>
                         <tbody id="gs_flight_list_body">

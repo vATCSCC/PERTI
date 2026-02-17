@@ -64,7 +64,11 @@
       "program": "Programme",
       "reviseProgram": "Revise Programme",
       "programRateArrHr": "Programme Rate (arrivals/hr)",
-      "cumulativeProgramPeriod": "Cumulative Programme Period"
+      "cumulativeProgramPeriod": "Cumulative Programme Period",
+      "activePrograms": "Active Programmes",
+      "noActivePrograms": "No active programmes",
+      "controlledAcrossAll": "controlled across all programmes",
+      "activateGsTooltip": "Activate GS programme immediately"
     },
     "scope": {
       "individualFacilities": "Individual ACCs / FIRs"
@@ -73,19 +77,45 @@
       "activeStatus": "ACTIVE: Programme {programId} | {controlled} controlled flights",
       "program": "Programme",
       "programCreated": "Programme created: {id}",
-      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Programme {programId}"
+      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Programme {programId}",
+      "activatingProgram": "Activating programme {id}...",
+      "creatingProgram": "Creating GS programme...",
+      "modelingProgram": "Modeling programme {id}...",
+      "noProgramCreatingPreview": "No programme - creating preview...",
+      "noProgramToActivate": "No programme to activate. Create a programme first.",
+      "noProgramToSubmit": "No programme to submit. Create a programme first."
     },
     "purge": {
       "purgeLocalTitle": "Purge Programme {id}?",
       "purgeLocalBtn": "Purge Programme",
       "programPurgedStatus": "Programme {id} purged.",
-      "programPurgedCreateNew": "Programme purged. Create a new program to begin."
+      "programPurgedCreateNew": "Programme purged. Create a new program to begin.",
+      "purgeAllTitle": "Purge All GS Programmes?",
+      "purgeAllText": "This will purge ALL active and proposed GS programmes. This cannot be undone.",
+      "fetchingPrograms": "Fetching active GS programmes...",
+      "purgingPrograms": "Purging {count} GS programmes...",
+      "fetchProgramListFailed": "Failed to fetch programme list",
+      "noProgramsToPurge": "No active GS programmes to purge.",
+      "allPurgedCreateNew": "All GS programmes purged. Create a new programme to begin.",
+      "allPurged": "All GS programmes have been purged.",
+      "purgeLocalText": "This will purge this GS programme. This cannot be undone.",
+      "noCurrentProgram": "No current GS programme to purge.",
+      "purgingProgram": "Purging GS programme {id}...",
+      "purgeGsProgramFailed": "Failed to purge GS programme",
+      "programPurged": "GS programme has been purged.",
+      "purgedCount": "{count} programme(s) purged"
     },
     "dataSource": {
       "gsProgramMode": "GS Programme Mode"
     },
     "edit": {
-      "programNotFound": "Programme not found"
+      "programNotFound": "Programme not found",
+      "editingProgram": "Editing {type} programme {id} ({status})",
+      "loadFailed": "Failed to load programme",
+      "loadingProgram": "Loading programme {id} for editing..."
+    },
+    "status": {
+      "createNewProgram": "Create a new programme to begin."
     }
   },
   "nav": {
@@ -124,7 +154,11 @@
       "centerPoint": "Centre Point (for circular TFR)",
       "usnNavy": "Navy",
       "usArmy": "Army",
-      "airNationalGuard": "Air Reserve"
+      "airNationalGuard": "Air Reserve",
+      "circularTfrHint": "Enter centre coordinates and radius to generate circular TFR geometry"
+    },
+    "typeNames": {
+      "WSRP": "Weather Surveillance Radar Programme"
     }
   },
   "tmiPublish": {
@@ -142,7 +176,19 @@
       "cancelProgram": "Cancel Programme",
       "program": "Programme:",
       "programId": "Programme ID:",
-      "programDataFromGdt": "Programme data received from GDT"
+      "programDataFromGdt": "Programme data received from GDT",
+      "disregardEdctsText": "All EDCTs for this programme should be disregarded",
+      "noProgramDataLoaded": "No programme data loaded..."
+    },
+    "noProgramLoaded": "No programme loaded",
+    "noProgramToSubmit": "No programme data to submit",
+    "noProgramToPublish": "No programme data to publish",
+    "statusBadge": {
+      "dccApproved": "NOC Approved",
+      "dccDenied": "NOC Denied"
+    },
+    "proposalAction": {
+      "dccOverride": "This is a NOC override action."
     }
   },
   "route": {
@@ -160,7 +206,9 @@
       "originArtcc": "Origin ACC",
       "destTracon": "Dest Terminal",
       "destArtcc": "Dest ACC",
-      "color": "Colour"
+      "color": "Colour",
+      "colors": "Colours:",
+      "symbologyDesc": "Configure line styles, colours, opacity, dash patterns, and fix/waypoint display"
     }
   },
   "review": {
@@ -180,7 +228,8 @@
     },
     "overview": {
       "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the VATCAN Discord.",
-      "resourceTransgression": "VATCAN Trangression Reporting Form"
+      "resourceTransgression": "VATCAN Trangression Reporting Form",
+      "resourceGdtDesc": "for ground delay programme/ground stop management."
     },
     "dcc": {
       "dccPersonnel": "NOC Personnel"
@@ -207,6 +256,13 @@
     },
     "page": {
       "dccCommandCenter": "NOC (Operations Centre)"
+    },
+    "facilityPatch": {
+      "selectDccService": "Select NOC Service...",
+      "selectDccServiceFirst": "Select NOC Service first...",
+      "validation": {
+        "selectDccService": "Please select a NOC Service."
+      }
     }
   },
   "splits": {
@@ -257,6 +313,9 @@
       "validation": {
         "selectArtcc": "Please select an ACC first."
       }
+    },
+    "buttons": {
+      "changeColor": "Change colour"
     }
   },
   "sheet": {
@@ -292,7 +351,8 @@
   "swim": {
     "page": {
       "flightsEndpoint": "List flights with filtering by airport, ACC, callsign, phase, and TMI status",
-      "licence": "Licence"
+      "licence": "Licence",
+      "tmiProgramsEndpoint": "Active TMI programmes (Ground Stops, GDPs)"
     }
   },
   "privacy": {
@@ -328,9 +388,93 @@
     },
     "detail": {
       "program": "Programme:"
+    },
+    "edit": {
+      "programNotFound": "Could not find programme data"
+    },
+    "fallback": {
+      "program": "Programme"
+    },
+    "detailTable": {
+      "programType": "Programme Type:",
+      "programRate": "Programme Rate:",
+      "scopeCenters": "Scope Centres:",
+      "originCenters": "Origin Centres:",
+      "destCenters": "Dest Centres:"
+    },
+    "editLabel": {
+      "programRate": "Programme Rate",
+      "programRateHr": "Programme Rate (/hr)",
+      "originCenters": "Origin Centres",
+      "destCenters": "Dest Centres"
+    },
+    "scopeOption": {
+      "center": "Centre"
     }
   },
   "footer": {
     "copyright": "Copyright © {year} VATCAN - All Rights Reserved."
+  },
+  "weather": {
+    "colors": "Colours:"
+  },
+  "nod": {
+    "page": {
+      "dccRegion": "NOC Region",
+      "departureArtcc": "Departure ACC",
+      "arrivalArtcc": "Arrival ACC",
+      "departureTracon": "Departure TCA",
+      "arrivalTracon": "Arrival TCA",
+      "groundDelayPrograms": "Ground Delay Programmes"
+    },
+    "tmi": {
+      "gdpInEffect": "Ground Delay Programme",
+      "linkedProgram": "Programme: {name}"
+    },
+    "colorMode": {
+      "dccRegion": "NOC Region",
+      "depCenter": "Dep Centre",
+      "arrCenter": "Arr Centre",
+      "depTracon": "Dep TCA",
+      "arrTracon": "Arr TCA"
+    },
+    "popup": {
+      "artcc": "ACC",
+      "currentArtcc": "Current ACC",
+      "depArtcc": "Dep ACC",
+      "arrArtcc": "Arr ACC"
+    },
+    "flows": {
+      "artccsGroup": "ACCs",
+      "traconsGroup": "TCAs",
+      "gateColorTitle": "Gate colour",
+      "colorTitle": "Colour"
+    }
+  },
+  "tmiCompliance": {
+    "reroute": {
+      "programHistory": "Programme History"
+    },
+    "map": {
+      "artcc": "ACC",
+      "tracon": "TCA"
+    },
+    "measuredAtBoundaryTitle": "Measured at ACC handoff point",
+    "programHistoryLabel": "Programme History",
+    "gsProgramSummary": "{count} programme",
+    "gsProgramSummaryPlural": "{count} programmes",
+    "rerouteSummary": "{count} programme ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
+    "rerouteSummaryPlural": "{count} programmes ({mandatory} mandatory), {flights} flights, filed {pct}% compliant"
+  },
+  "eventAar": {
+    "page": {
+      "quickApplyDesc": "Click a config to apply its rates to all hourly slots. Colours indicate weather:"
+    }
+  },
+  "fir": {
+    "domesticTitle": "Domestic (US/Canada ACC tiers)"
+  },
+  "advisoryConfig": {
+    "usDcc": "US NOC"
   }
 }

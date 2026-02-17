@@ -129,7 +129,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    <b class="text-danger">P</b><?= __('schedule.page.planPersonnel') ?>
+                    <?= __('schedule.page.planPersonnel') ?>
                     <select class="form-control" name="p_cid" id="p_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -139,7 +139,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">E</b><?= __('schedule.page.executePersonnel') ?>
+                    <?= __('schedule.page.executePersonnel') ?>
                     <select class="form-control" name="e_cid" id="e_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -149,7 +149,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">R</b><?= __('schedule.page.reviewPersonnel') ?>
+                    <?= __('schedule.page.reviewPersonnel') ?>
                     <select class="form-control" name="t_cid" id="t_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -159,7 +159,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">T</b><?= __('schedule.page.trainPersonnel') ?>
+                    <?= __('schedule.page.trainPersonnel') ?>
                     <select class="form-control" name="r_cid" id="r_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -169,7 +169,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">I</b><?= __('schedule.page.improvePersonnel') ?>
+                    <?= __('schedule.page.improvePersonnel') ?>
                     <select class="form-control" name="i_cid" id="i_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 

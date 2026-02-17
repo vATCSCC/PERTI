@@ -30,7 +30,7 @@
 
         return fetch('assets/data/fir_tiers.json', { cache: 'default' })
             .then(function(res) {
-                if (!res.ok) {throw new Error('Failed to load FIR tiers');}
+                if (!res.ok) {throw new Error(PERTII18n.t('fir.error.loadTiersFailed'));}
                 return res.json();
             })
             .then(function(data) {
@@ -78,12 +78,12 @@
         toggleContainer.style.cssText = 'display: inline-flex; margin-left: 10px;';
         toggleContainer.innerHTML = `
             <button type="button" id="gs_scope_mode_domestic" class="btn btn-primary btn-sm active" 
-                    title="Domestic (US/Canada ARTCC tiers)">
-                <i class="fas fa-flag-usa me-1"></i>Domestic
+                    title="${PERTII18n.t('fir.domesticTitle')}">
+                <i class="fas fa-flag-usa me-1"></i>${PERTII18n.t('fir.domestic')}
             </button>
-            <button type="button" id="gs_scope_mode_intl" class="btn btn-outline-primary btn-sm" 
-                    title="International (FIR-based scope)">
-                <i class="fas fa-globe me-1"></i>International
+            <button type="button" id="gs_scope_mode_intl" class="btn btn-outline-primary btn-sm"
+                    title="${PERTII18n.t('fir.internationalTitle')}">
+                <i class="fas fa-globe me-1"></i>${PERTII18n.t('fir.international')}
             </button>
         `;
 
@@ -160,7 +160,7 @@
 
         // Minimal fallback - add basic presets
         const optgroupPresets = document.createElement('optgroup');
-        optgroupPresets.label = 'Presets';
+        optgroupPresets.label = PERTII18n.t('fir.presets');
 
         ['ALL', 'ALL+Canada', 'Manual'].forEach(function(code) {
             const opt = document.createElement('option');
@@ -179,14 +179,14 @@
         if (!FIR_TIER_DATA) {
             const opt = document.createElement('option');
             opt.value = '';
-            opt.textContent = 'Loading FIR data...';
+            opt.textContent = PERTII18n.t('fir.loadingFirData');
             sel.appendChild(opt);
             return;
         }
 
         // Global presets
         const optgroupGlobal = document.createElement('optgroup');
-        optgroupGlobal.label = 'Global Presets';
+        optgroupGlobal.label = PERTII18n.t('fir.globalPresets');
 
         Object.keys(FIR_TIER_DATA.global || {}).forEach(function(code) {
             const entry = FIR_TIER_DATA.global[code];
@@ -204,7 +204,7 @@
 
         // Regional groups
         const optgroupRegional = document.createElement('optgroup');
-        optgroupRegional.label = 'Regional Groups';
+        optgroupRegional.label = PERTII18n.t('fir.regionalGroups');
 
         Object.keys(FIR_TIER_DATA.regional || {}).forEach(function(code) {
             const entry = FIR_TIER_DATA.regional[code];
@@ -222,12 +222,12 @@
 
         // Individual FIR prefixes grouped by region
         const regions = {
-            'EUR': { label: 'Europe', prefixes: [] },
-            'APAC': { label: 'Asia-Pacific', prefixes: [] },
-            'MID': { label: 'Middle East', prefixes: [] },
-            'AFR': { label: 'Africa', prefixes: [] },
-            'SAM': { label: 'South America', prefixes: [] },
-            'NAM': { label: 'North America (Intl)', prefixes: [] },
+            'EUR': { label: PERTII18n.t('fir.regionEurope'), prefixes: [] },
+            'APAC': { label: PERTII18n.t('fir.regionAsiaPacific'), prefixes: [] },
+            'MID': { label: PERTII18n.t('fir.regionMiddleEast'), prefixes: [] },
+            'AFR': { label: PERTII18n.t('fir.regionAfrica'), prefixes: [] },
+            'SAM': { label: PERTII18n.t('fir.regionSouthAmerica'), prefixes: [] },
+            'NAM': { label: PERTII18n.t('fir.regionNorthAmericaIntl'), prefixes: [] },
         };
 
         // Categorize prefixes by region based on ICAO letter
@@ -259,7 +259,7 @@
             if (region.prefixes.length === 0) {return;}
 
             const optgroup = document.createElement('optgroup');
-            optgroup.label = region.label + ' FIRs';
+            optgroup.label = region.label + ' ' + PERTII18n.t('fir.firsSuffix');
 
             region.prefixes.sort(function(a, b) {
                 return a.prefix.localeCompare(b.prefix);
@@ -277,11 +277,11 @@
 
         // Manual entry option
         const optgroupManual = document.createElement('optgroup');
-        optgroupManual.label = 'Custom';
+        optgroupManual.label = PERTII18n.t('fir.custom');
         const manualOpt = document.createElement('option');
         manualOpt.value = 'FIR_Manual';
         manualOpt.dataset.type = 'fir-manual';
-        manualOpt.textContent = 'Manual (enter patterns)';
+        manualOpt.textContent = PERTII18n.t('fir.manualEnterPatterns');
         optgroupManual.appendChild(manualOpt);
         sel.appendChild(optgroupManual);
     }

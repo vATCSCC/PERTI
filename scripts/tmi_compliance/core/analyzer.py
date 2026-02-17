@@ -9,7 +9,7 @@ import math
 import re
 import logging
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Dict, List, Any, Optional
 
 from .models import (
@@ -83,6 +83,52 @@ def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
     bearing = math.atan2(x, y)
     return (math.degrees(bearing) + 360) % 360
+
+
+def compute_approach_bearing(trajectory: List[dict], crossing_lat: float, crossing_lon: float,
+                              crossing_seg_idx: int, approach_dist_nm: float = 150.0) -> Optional[float]:
+    """
+    Compute approach bearing from upstream trajectory to the crossing point.
+
+    Unlike instantaneous heading at the crossing (which is convergent for all
+    flights merging toward the same destination), approach bearing reveals the
+    corridor a flight came from by looking ~150nm back along the trajectory.
+
+    At arrival fixes, all flights converge with similar headings regardless of
+    corridor. But 150nm back, flights are still on their enroute segments with
+    distinct directions: flights from Arkansas might approach at ~200 degrees
+    while flights from Mississippi approach at ~270 degrees — a separation that
+    gap-based clustering can detect.
+
+    Uses 150nm (not 75nm) because STAR convergence begins ~50-100nm from the
+    destination, so 75nm still captures partially-converged traffic.
+
+    Args:
+        trajectory: Full flight trajectory (time-ordered list with lat, lon keys)
+        crossing_lat: Latitude of the crossing point
+        crossing_lon: Longitude of the crossing point
+        crossing_seg_idx: Index into trajectory near the crossing (scan starts here)
+        approach_dist_nm: Target lookback distance (default 150nm)
+
+    Returns:
+        Bearing in degrees (0-360) or None if insufficient upstream trajectory
+    """
+    # Scan backward from crossing segment to find a point ~approach_dist_nm upstream
+    for i in range(min(crossing_seg_idx, len(trajectory) - 1), -1, -1):
+        pt = trajectory[i]
+        dist = haversine_nm(pt['lat'], pt['lon'], crossing_lat, crossing_lon)
+        if dist >= approach_dist_nm:
+            return calculate_bearing(pt['lat'], pt['lon'], crossing_lat, crossing_lon)
+
+    # Didn't reach target distance. Use earliest trajectory point if at least
+    # 30nm away (otherwise too close for meaningful corridor identification).
+    if trajectory:
+        first = trajectory[0]
+        dist = haversine_nm(first['lat'], first['lon'], crossing_lat, crossing_lon)
+        if dist >= 30.0:
+            return calculate_bearing(first['lat'], first['lon'], crossing_lat, crossing_lon)
+
+    return None
 
 
 def compute_traffic_sector(crossings: List, trajectory_cache: dict,
@@ -285,6 +331,150 @@ def cluster_crossings_by_bearing(crossings: List, gap_threshold_deg: float = 30.
 
     if without_bearing:
         result[-1] = without_bearing
+
+    return result
+
+
+def cluster_crossings_by_trajectory(crossings: List, trajectory_cache: dict,
+                                     fix_lat: float, fix_lon: float,
+                                     inner_nm: float = 80.0,
+                                     outer_nm: float = 250.0,
+                                     eps_nm: float = 20.0,
+                                     min_flights: int = 2) -> Dict[int, List]:
+    """
+    Cluster crossings into traffic streams using spatial DBSCAN on
+    per-flight trajectory centroids computed from the upstream (far-from-fix)
+    portion of each flight's path.
+
+    For each flight, the centroid of all trajectory points between inner_nm
+    and outer_nm from the fix is computed. This single representative point
+    captures which geographic corridor the flight used (e.g., NW Arkansas vs
+    E Texas for SEEVR). DBSCAN then clusters these centroids.
+
+    Unlike segment-based DBSCAN, this avoids the "chaining" problem where
+    near-fix segment overlap causes all corridors to merge into one cluster.
+
+    Args:
+        crossings: List of CrossingResult
+        trajectory_cache: Dict mapping callsign -> list of trajectory points
+        fix_lat, fix_lon: Fix coordinates
+        inner_nm: Minimum distance from fix for centroid (default 80nm)
+        outer_nm: Maximum distance from fix for centroid (default 250nm)
+        eps_nm: DBSCAN neighborhood radius in nm (default 20nm)
+        min_flights: Minimum flights to form a cluster (default 2)
+
+    Returns:
+        Dict mapping stream_id (0-based) to list of CrossingResult.
+        Stream -1 contains flights without sufficient trajectory data.
+    """
+    # Phase 1: Compute per-flight centroid from far-out trajectory points
+    # Only points between inner_nm and outer_nm from fix are used
+    samples = []  # (crossing_idx, centroid_lat, centroid_lon)
+    unsampled_indices = []
+
+    for idx, crossing in enumerate(crossings):
+        trajectory = trajectory_cache.get(crossing.callsign, [])
+        if len(trajectory) < 2:
+            unsampled_indices.append(idx)
+            continue
+
+        far_points = []
+        for pt in trajectory:
+            dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
+            if inner_nm <= dist <= outer_nm:
+                far_points.append((pt['lat'], pt['lon']))
+
+        if far_points:
+            centroid_lat = sum(p[0] for p in far_points) / len(far_points)
+            centroid_lon = sum(p[1] for p in far_points) / len(far_points)
+            samples.append((idx, centroid_lat, centroid_lon))
+        else:
+            # No far-out points — try with lower threshold (50nm)
+            fallback_points = []
+            for pt in trajectory:
+                dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
+                if 50.0 <= dist <= outer_nm:
+                    fallback_points.append((pt['lat'], pt['lon']))
+            if fallback_points:
+                centroid_lat = sum(p[0] for p in fallback_points) / len(fallback_points)
+                centroid_lon = sum(p[1] for p in fallback_points) / len(fallback_points)
+                samples.append((idx, centroid_lat, centroid_lon))
+            else:
+                unsampled_indices.append(idx)
+
+    if len(samples) < min_flights:
+        return {0: list(crossings)} if crossings else {}
+
+    # Phase 2: DBSCAN on per-flight centroids
+    n = len(samples)
+    labels = [None] * n
+    cluster_id = 0
+
+    def region_query(i):
+        return [j for j in range(n)
+                if haversine_nm(samples[i][1], samples[i][2],
+                                samples[j][1], samples[j][2]) <= eps_nm]
+
+    for i in range(n):
+        if labels[i] is not None:
+            continue
+        neighbors = region_query(i)
+        if len(neighbors) < min_flights:
+            labels[i] = -1
+            continue
+        labels[i] = cluster_id
+        seed_set = set(neighbors) - {i}
+        while seed_set:
+            j = seed_set.pop()
+            if labels[j] == -1:
+                labels[j] = cluster_id
+            if labels[j] is not None:
+                continue
+            labels[j] = cluster_id
+            j_neighbors = region_query(j)
+            if len(j_neighbors) >= min_flights:
+                seed_set.update(j_neighbors)
+        cluster_id += 1
+
+    # Phase 3: Assign noise points to nearest cluster
+    if cluster_id > 0:
+        for i in range(n):
+            if labels[i] is None or labels[i] == -1:
+                best_cluster = 0
+                best_dist = float('inf')
+                for j in range(n):
+                    if labels[j] is not None and labels[j] >= 0:
+                        d = haversine_nm(samples[i][1], samples[i][2],
+                                        samples[j][1], samples[j][2])
+                        if d < best_dist:
+                            best_dist = d
+                            best_cluster = labels[j]
+                labels[i] = best_cluster
+    else:
+        labels = [0] * n
+
+    # Phase 4: Build result dict
+    result = {}
+    for i, (cx_idx, lat, lon) in enumerate(samples):
+        sid = labels[i]
+        if sid not in result:
+            result[sid] = []
+        result[sid].append(crossings[cx_idx])
+
+    if unsampled_indices:
+        result[-1] = [crossings[idx] for idx in unsampled_indices]
+
+    # Log cluster info
+    for sid in sorted(result.keys()):
+        if sid == -1:
+            continue
+        cluster_pts = [(samples[i][1], samples[i][2]) for i in range(n) if labels[i] == sid]
+        if cluster_pts:
+            avg_lat = sum(p[0] for p in cluster_pts) / len(cluster_pts)
+            avg_lon = sum(p[1] for p in cluster_pts) / len(cluster_pts)
+            logger.info(f"    Stream {sid}: {len(result[sid])} flights, "
+                       f"centroid={avg_lat:.2f},{avg_lon:.2f} "
+                       f"({inner_nm}-{outer_nm}nm from fix)")
 
     return result
 
@@ -1498,8 +1688,7 @@ class TMIComplianceAnalyzer:
             metadata = self._trajectory_metadata.get(callsign, {})
             best_dist = float('inf')
             best_result = None
-            best_p1 = None
-            best_p2 = None
+            best_seg_idx = -1
 
             for i in range(len(trajectory) - 1):
                 p1 = trajectory[i]
@@ -1532,8 +1721,7 @@ class TMIComplianceAnalyzer:
                     continue
 
                 best_dist = min_dist
-                best_p1 = p1
-                best_p2 = p2
+                best_seg_idx = i
                 gs1 = p1['gs'] if p1['gs_valid'] else 250
                 gs2 = p2['gs'] if p2['gs_valid'] else 250
 
@@ -1551,11 +1739,9 @@ class TMIComplianceAnalyzer:
                 )
 
             if best_result and best_dist <= CROSSING_RADIUS_NM:
-                if best_p1 and best_p2:
-                    best_result.bearing = calculate_bearing(
-                        best_p1['lat'], best_p1['lon'],
-                        best_p2['lat'], best_p2['lon']
-                    )
+                best_result.bearing = compute_approach_bearing(
+                    trajectory, best_result.lat, best_result.lon, best_seg_idx
+                )
                 crossings.append(best_result)
 
         logger.info(f"  Fix crossings ({fix_name}): {len(crossings)} detected "
@@ -1631,14 +1817,12 @@ class TMIComplianceAnalyzer:
         for callsign, pos_list in flight_positions.items():
             closest_dist = float('inf')
             closest_pos = None
-            closest_idx = -1
-            for idx, pos in enumerate(pos_list):
+            for pos in pos_list:
                 cs, fuid, ts, lat, lon, gs, alt, dept, dest = pos
                 lat, lon = float(lat), float(lon)
                 dist = haversine_nm(lat, lon, fix_lat, fix_lon)
                 if dist < closest_dist:
                     closest_dist = dist
-                    closest_idx = idx
                     closest_pos = CrossingResult(
                         callsign=callsign, flight_uid=fuid,
                         crossing_time=normalize_datetime(ts), distance_nm=dist,
@@ -1648,18 +1832,8 @@ class TMIComplianceAnalyzer:
                         dept=dept or 'UNK', dest=dest or 'UNK'
                     )
             if closest_pos and closest_dist <= CROSSING_RADIUS_NM:
-                # Compute bearing from adjacent trajectory points
-                if len(pos_list) >= 2:
-                    if closest_idx > 0:
-                        p_prev = pos_list[closest_idx - 1]
-                        p_next = pos_list[closest_idx]
-                    else:
-                        p_prev = pos_list[closest_idx]
-                        p_next = pos_list[closest_idx + 1]
-                    closest_pos.bearing = calculate_bearing(
-                        float(p_prev[3]), float(p_prev[4]),
-                        float(p_next[3]), float(p_next[4])
-                    )
+                # bbox fallback has no upstream trajectory data — leave bearing None
+                # (approach bearing requires full trajectory, only available in cache path)
                 crossings.append(closest_pos)
 
         return crossings
@@ -2052,9 +2226,11 @@ class TMIComplianceAnalyzer:
                 crossing_gs = prev_gs + (curr_gs - prev_gs) * seg_frac
                 crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
 
-                # Compute bearing from the segment
-                bearing = calculate_bearing(
-                    prev['lat'], prev['lon'], curr['lat'], curr['lon']
+                # Compute approach bearing (from ~75nm upstream, not segment heading)
+                crossing_lat = prev['lat'] + seg_frac * (curr['lat'] - prev['lat'])
+                crossing_lon = prev['lon'] + seg_frac * (curr['lon'] - prev['lon'])
+                bearing = compute_approach_bearing(
+                    trajectory, crossing_lat, crossing_lon, i - 1
                 )
 
                 return crossing_time, crossing_gs, crossing_alt, bearing
@@ -2600,7 +2776,7 @@ class TMIComplianceAnalyzer:
         # Determine if we're using boundary-based or fix-based measurement
         is_boundary_based = measurement_type in (MeasurementType.BOUNDARY, MeasurementType.BOUNDARY_FALLBACK_FIX)
 
-        # Stream-aware grouping: cluster crossings by bearing to avoid
+        # Stream-aware grouping: cluster crossings geographically to avoid
         # pairing flights from different traffic corridors
         modifier = tmi.modifier
         if modifier in (MITModifier.AS_ONE, MITModifier.SINGLE_STREAM):
@@ -2617,9 +2793,23 @@ class TMIComplianceAnalyzer:
                 stream_groups[dept].append(c)
             logger.info(f"  Stream grouping: PER_AIRPORT ({len(stream_groups)} groups)")
         else:
-            # Default: cluster by bearing (gap-based)
-            stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
-            logger.info(f"  Stream grouping: bearing-based ({len(stream_groups)} streams)")
+            # Default: cluster by trajectory position (spatial DBSCAN)
+            # Geography-based: samples trajectory positions upstream from fix and
+            # clusters spatially, correctly separating converging corridors that
+            # approach the fix at similar bearings but from different geographic paths
+            fix_lat = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
+            fix_lon = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
+
+            if fix_lat is not None and self._trajectory_cache_loaded:
+                stream_groups = cluster_crossings_by_trajectory(
+                    sorted_crossings, self._trajectory_cache,
+                    fix_lat, fix_lon
+                )
+                logger.info(f"  Stream grouping: trajectory DBSCAN ({len(stream_groups)} streams)")
+            else:
+                # Fallback to bearing-based when no trajectory cache or fix coords
+                stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
+                logger.info(f"  Stream grouping: bearing-based fallback ({len(stream_groups)} streams)")
             for sid, sc in stream_groups.items():
                 meta = compute_stream_metadata(sc)
                 logger.info(f"    Stream {sid}: {len(sc)} crossings, "

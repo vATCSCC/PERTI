@@ -249,15 +249,15 @@
         // Determine which quick actions to show
         var actions = '';
         if (p.status === 'ACTIVE') {
-            actions += '<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); dashboardExtend(' + p.program_id + ');" title="Extend end time">Extend</button>';
-            actions += '<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); dashboardRevise(' + p.program_id + ');" title="Revise parameters">Revise</button>';
+            actions += '<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); dashboardExtend(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.extendTitle') + '">' + PERTII18n.t('gdt.dashboard.action.extend') + '</button>';
+            actions += '<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); dashboardRevise(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.reviseTitle') + '">' + PERTII18n.t('gdt.dashboard.action.revise') + '</button>';
             if (typeLabel === 'GS') {
-                actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardTransition(' + p.program_id + ');" title="Transition to GDP">GS&rarr;GDP</button>';
+                actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardTransition(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.transitionTitle') + '">GS&rarr;GDP</button>';
             }
-            actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="What-If re-model">Re-model</button>';
-            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="Cancel">Cancel</button>';
+            actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.remodelTitle') + '">' + PERTII18n.t('gdt.dashboard.action.remodel') + '</button>';
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.cancelTitle') + '">' + PERTII18n.t('gdt.dashboard.action.cancel') + '</button>';
         } else if (p.status === 'PROPOSED' || p.status === 'MODELING' || p.status === 'PENDING_COORD') {
-            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="Delete proposal"><i class="fas fa-trash-alt mr-1"></i>Delete</button>';
+            actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.deleteTitle') + '"><i class="fas fa-trash-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.delete') + '</button>';
         }
 
         var chainIndicator = '';
@@ -285,9 +285,9 @@
                 '<div class="gdt-card-progress-bar" style="width: ' + Math.min(100, elapsed) + '%; background: ' + progressColor + ';"></div>' +
             '</div>' +
             '<div class="gdt-card-metrics">' +
-                '<div><span class="gdt-card-metric-value">' + controlled + '</span> controlled</div>' +
-                '<div><span class="gdt-card-metric-value">' + exempt + '</span> exempt</div>' +
-                '<div><span class="gdt-card-metric-value">' + avgDelay + '</span> avg delay</div>' +
+                '<div><span class="gdt-card-metric-value">' + controlled + '</span> ' + PERTII18n.t('gdt.dashboard.metric.controlled') + '</div>' +
+                '<div><span class="gdt-card-metric-value">' + exempt + '</span> ' + PERTII18n.t('gdt.dashboard.metric.exempt') + '</div>' +
+                '<div><span class="gdt-card-metric-value">' + avgDelay + '</span> ' + PERTII18n.t('gdt.dashboard.metric.avgDelay') + '</div>' +
             '</div>' +
             (actions ? '<div class="gdt-card-actions">' + actions + '</div>' : '') +
         '</div>';
@@ -474,7 +474,7 @@
         // Update status badge
         var badge = document.getElementById('gs_status_badge');
         if (badge) {
-            badge.textContent = 'Draft (local)';
+            badge.textContent = PERTII18n.t('gdt.dashboard.draftLocal');
             badge.className = 'badge tmi-badge-status badge-secondary';
         }
     }
@@ -487,7 +487,7 @@
         // Find program in cached data
         var program = findDashboardProgram(programId);
         if (!program) {
-            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.programNotFound'), 'error');
             return;
         }
 
@@ -542,7 +542,7 @@
         var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
             String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
 
-        var typeLabel = (program.program_type || 'GS') === 'GS' ? 'GROUND STOP' : 'GROUND DELAY PROGRAM';
+        var typeLabel = (program.program_type || 'GS') === 'GS' ? PERTII18n.t('gdt.page.groundStopLabel') : PERTII18n.t('gdt.page.groundDelayProgramLabel');
 
         var lines = [];
         lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM ' + typeLabel + ' EXTENSION');
@@ -563,7 +563,7 @@
         var btn = document.getElementById('gdt_extend_submit_btn');
 
         if (!newEndVal) {
-            errEl.textContent = 'New end time is required.';
+            errEl.textContent = PERTII18n.t('gdt.dashboard.newEndTimeRequired');
             errEl.classList.remove('d-none');
             return;
         }
@@ -573,7 +573,7 @@
         var newEndUtc = newEndDt.toISOString();
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Extending...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdt.dashboard.extending');
 
         $.ajax({
             url: GS_API.extend,
@@ -585,15 +585,15 @@
             }),
             success: function(resp) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Extend Program';
+                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> ' + PERTII18n.t('gdt.page.extendProgram');
 
                 if (resp.status === 'ok') {
                     $('#gdt_extend_modal').modal('hide');
                     Swal.fire({
                         icon: 'success',
-                        title: 'Program Extended',
-                        text: 'Program #' + programId + ' extended.' +
-                            (resp.data && resp.data.new_slots_count ? ' ' + resp.data.new_slots_count + ' new slots created.' : ''),
+                        title: PERTII18n.t('gdt.dashboard.programExtended'),
+                        text: PERTII18n.t('gdt.dashboard.programExtendedText', { id: programId }) +
+                            (resp.data && resp.data.new_slots_count ? ' ' + PERTII18n.t('gdt.dashboard.newSlotsCreated', { count: resp.data.new_slots_count }) : ''),
                         timer: 3000,
                         showConfirmButton: false
                     });
@@ -604,14 +604,14 @@
                         populateFormFromProgram(resp.data.program);
                     }
                 } else {
-                    errEl.textContent = resp.message || 'Extend failed.';
+                    errEl.textContent = resp.message || PERTII18n.t('gdt.dashboard.extendFailed');
                     errEl.classList.remove('d-none');
                 }
             },
             error: function(xhr) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> Extend Program';
-                var msg = 'Failed to extend program.';
+                btn.innerHTML = '<i class="fas fa-clock mr-1"></i> ' + PERTII18n.t('gdt.page.extendProgram');
+                var msg = PERTII18n.t('gdt.dashboard.extendFailed');
                 try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
                 errEl.textContent = msg;
                 errEl.classList.remove('d-none');
@@ -622,7 +622,7 @@
     function dashboardRevise(programId) {
         var program = findDashboardProgram(programId);
         if (!program) {
-            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.programNotFound'), 'error');
             return;
         }
 
@@ -668,7 +668,7 @@
         var headerDate = String(now.getUTCMonth() + 1).padStart(2, '0') + '/' +
             String(now.getUTCDate()).padStart(2, '0') + '/' + now.getUTCFullYear();
 
-        var typeLabel = (program.program_type || 'GS') === 'GS' ? 'GROUND STOP' : 'GROUND DELAY PROGRAM';
+        var typeLabel = (program.program_type || 'GS') === 'GS' ? PERTII18n.t('gdt.page.groundStopLabel') : PERTII18n.t('gdt.page.groundDelayProgramLabel');
 
         var lines = [];
         lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM ' + typeLabel + ' REVISION');
@@ -715,7 +715,7 @@
         if (comments) body.comments = comments;
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Revising...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdt.dashboard.revising');
 
         $.ajax({
             url: GS_API.revise,
@@ -724,18 +724,18 @@
             data: JSON.stringify(body),
             success: function(resp) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> Revise Program';
+                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> ' + PERTII18n.t('gdt.page.reviseProgram');
 
                 if (resp.status === 'ok') {
                     $('#gdt_revise_modal').modal('hide');
 
                     var changesText = (resp.data && resp.data.changes)
                         ? resp.data.changes.join(', ')
-                        : 'Parameters updated';
+                        : PERTII18n.t('gdt.dashboard.parametersUpdated');
 
                     Swal.fire({
                         icon: 'success',
-                        title: 'Program Revised',
+                        title: PERTII18n.t('gdt.dashboard.programRevised'),
                         html: 'Program #' + programId + ' revision #' +
                             (resp.data ? resp.data.revision_number : '?') +
                             '<br><small class="text-muted">' + escapeHtml(changesText) + '</small>',
@@ -749,14 +749,14 @@
                         populateFormFromProgram(resp.data.program);
                     }
                 } else {
-                    errEl.textContent = resp.message || 'Revise failed.';
+                    errEl.textContent = resp.message || PERTII18n.t('gdt.dashboard.reviseFailed');
                     errEl.classList.remove('d-none');
                 }
             },
             error: function(xhr) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> Revise Program';
-                var msg = 'Failed to revise program.';
+                btn.innerHTML = '<i class="fas fa-edit mr-1"></i> ' + PERTII18n.t('gdt.page.reviseProgram');
+                var msg = PERTII18n.t('gdt.dashboard.reviseFailed');
                 try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
                 errEl.textContent = msg;
                 errEl.classList.remove('d-none');
@@ -767,12 +767,12 @@
     function dashboardTransition(programId) {
         var program = findDashboardProgram(programId);
         if (!program) {
-            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.programNotFound'), 'error');
             return;
         }
 
         if ((program.program_type || '') !== 'GS') {
-            Swal.fire('Error', 'Only Ground Stop programs can be transitioned to GDP.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.onlyGsCanTransition'), 'error');
             return;
         }
 
@@ -827,8 +827,8 @@
 
         if (phase === 'propose') {
             phaseBadge.className = 'badge badge-secondary mr-2';
-            phaseBadge.textContent = 'PHASE 1: PROPOSE';
-            phaseHelp.textContent = 'Create a proposed GDP while the GS remains active.';
+            phaseBadge.textContent = PERTII18n.t('gdt.dashboard.phase1Propose');
+            phaseHelp.textContent = PERTII18n.t('gdt.dashboard.phase1Help');
             paramsDiv.classList.remove('d-none');
             proposedBanner.classList.add('d-none');
             cumulativeRow.classList.add('d-none');
@@ -836,8 +836,8 @@
             activateBtn.classList.add('d-none');
         } else if (phase === 'activate') {
             phaseBadge.className = 'badge badge-success mr-2';
-            phaseBadge.textContent = 'PHASE 2: ACTIVATE';
-            phaseHelp.textContent = 'Activate the GDP and cancel the Ground Stop.';
+            phaseBadge.textContent = PERTII18n.t('gdt.dashboard.phase2Activate');
+            phaseHelp.textContent = PERTII18n.t('gdt.dashboard.phase2Help');
             paramsDiv.classList.add('d-none');
             proposedBanner.classList.remove('d-none');
             cumulativeRow.classList.remove('d-none');
@@ -902,12 +902,12 @@
         var endUtcVal = document.getElementById('gdt_transition_end_utc').value;
 
         if (!rate || parseInt(rate) <= 0) {
-            errEl.textContent = 'Program rate is required.';
+            errEl.textContent = PERTII18n.t('gdt.dashboard.rateRequired');
             errEl.classList.remove('d-none');
             return;
         }
         if (!endUtcVal) {
-            errEl.textContent = 'GDP end time is required.';
+            errEl.textContent = PERTII18n.t('gdt.dashboard.gdpEndTimeRequired');
             errEl.classList.remove('d-none');
             return;
         }
@@ -932,7 +932,7 @@
         if (comments) body.comments = comments;
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Proposing...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdt.dashboard.proposing');
         errEl.classList.add('d-none');
 
         $.ajax({
@@ -942,7 +942,7 @@
             data: JSON.stringify(body),
             success: function(resp) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> ' + PERTII18n.t('gdt.page.proposeGdp');
 
                 if (resp.status === 'ok' && resp.data) {
                     var gdpId = resp.data.gdp_program_id;
@@ -952,7 +952,7 @@
                     var cumStart = formatZuluFromIso(resp.data.cumulative_start);
                     var cumEnd = formatZuluFromIso(resp.data.cumulative_end);
                     document.getElementById('gdt_transition_cumulative').textContent = cumStart + ' - ' + cumEnd;
-                    document.getElementById('gdt_transition_proposed_id').textContent = 'GDP #' + gdpId;
+                    document.getElementById('gdt_transition_proposed_id').textContent = PERTII18n.t('gdt.dashboard.gdpNumber', { id: gdpId });
 
                     // Advance to phase 2
                     setTransitionPhase('activate');
@@ -962,22 +962,22 @@
 
                     Swal.fire({
                         icon: 'info',
-                        title: 'GDP Proposed',
-                        html: 'GDP #' + gdpId + ' created.<br>GS remains active. Click <strong>Activate</strong> when ready.',
+                        title: PERTII18n.t('gdt.dashboard.gdpProposed'),
+                        html: PERTII18n.t('gdt.dashboard.gdpProposedText', { id: gdpId }),
                         timer: 5000,
                         showConfirmButton: true
                     });
 
                     loadActiveProgramsDashboard();
                 } else {
-                    errEl.textContent = resp.message || 'Propose failed.';
+                    errEl.textContent = resp.message || PERTII18n.t('gdt.dashboard.proposeFailed');
                     errEl.classList.remove('d-none');
                 }
             },
             error: function(xhr) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> Propose GDP';
-                var msg = 'Failed to propose GDP.';
+                btn.innerHTML = '<i class="fas fa-file-alt mr-1"></i> ' + PERTII18n.t('gdt.page.proposeGdp');
+                var msg = PERTII18n.t('gdt.dashboard.proposeFailed');
                 try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
                 errEl.textContent = msg;
                 errEl.classList.remove('d-none');
@@ -993,23 +993,23 @@
         var btn = document.getElementById('gdt_transition_activate_btn');
 
         if (!gdpProgramId || gdpProgramId <= 0) {
-            errEl.textContent = 'No proposed GDP found. Run Phase 1 first.';
+            errEl.textContent = PERTII18n.t('gdt.dashboard.noProposedGdp');
             errEl.classList.remove('d-none');
             return;
         }
 
         Swal.fire({
-            title: 'Activate GDP #' + gdpProgramId + '?',
-            html: 'This will:<br>- Set GS #' + gsProgramId + ' to <strong>TRANSITIONED</strong><br>- Activate GDP #' + gdpProgramId,
+            title: PERTII18n.t('gdt.dashboard.activateGdpTitle', { id: gdpProgramId }),
+            html: PERTII18n.t('gdt.dashboard.activateGdpText', { gsId: gsProgramId, gdpId: gdpProgramId }),
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
-            confirmButtonText: 'Yes, activate'
+            confirmButtonText: PERTII18n.t('gdt.dashboard.yesActivate')
         }).then(function(result) {
             if (!result.isConfirmed) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Activating...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdt.dashboard.activating');
             errEl.classList.add('d-none');
 
             $.ajax({
@@ -1023,13 +1023,13 @@
                 }),
                 success: function(resp) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> ' + PERTII18n.t('gdt.page.activateGdpCancelGs');
 
                     if (resp.status === 'ok') {
                         $('#gdt_transition_modal').modal('hide');
                         Swal.fire({
                             icon: 'success',
-                            title: 'Transition Complete',
+                            title: PERTII18n.t('gdt.dashboard.transitionComplete'),
                             html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE',
                             timer: 4000,
                             showConfirmButton: false
@@ -1041,14 +1041,14 @@
                             resetAndNewProgram();
                         }
                     } else {
-                        errEl.textContent = resp.message || 'Activation failed.';
+                        errEl.textContent = resp.message || PERTII18n.t('gdt.dashboard.activationFailed');
                         errEl.classList.remove('d-none');
                     }
                 },
                 error: function(xhr) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Activate GDP & Cancel GS';
-                    var msg = 'Failed to activate GDP.';
+                    btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> ' + PERTII18n.t('gdt.page.activateGdpCancelGs');
+                    var msg = PERTII18n.t('gdt.dashboard.activateGdpFailed');
                     try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
                     errEl.textContent = msg;
                     errEl.classList.remove('d-none');
@@ -1060,12 +1060,12 @@
     function dashboardRemodel(programId) {
         var program = findDashboardProgram(programId);
         if (!program) {
-            Swal.fire('Error', 'Program not found in dashboard data.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.programNotFound'), 'error');
             return;
         }
 
         if (program.status !== 'ACTIVE') {
-            Swal.fire('Error', 'Only active programs can be re-modeled.', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.onlyActiveCanRemodel'), 'error');
             return;
         }
 
@@ -1089,9 +1089,8 @@
 
         Swal.fire({
             icon: 'info',
-            title: 'What-If Mode',
-            html: 'Adjust parameters and click <strong>Simulate</strong> to see projected results.<br>' +
-                'Changes are <strong>not saved</strong> until you choose to Revise.',
+            title: PERTII18n.t('gdt.dashboard.whatIfMode'),
+            html: PERTII18n.t('gdt.dashboard.whatIfModeText'),
             timer: 5000,
             showConfirmButton: true
         });
@@ -1119,8 +1118,8 @@
 
         Swal.fire({
             icon: 'info',
-            title: 'What-If Discarded',
-            text: 'Returned to active program state.',
+            title: PERTII18n.t('gdt.dashboard.whatIfDiscarded'),
+            text: PERTII18n.t('gdt.dashboard.returnedToActive'),
             timer: 2000,
             showConfirmButton: false
         });
@@ -1128,12 +1127,12 @@
 
     function dashboardCancel(programId) {
         Swal.fire({
-            title: 'Cancel Program #' + programId + '?',
-            text: 'This will cancel the program and purge the flight list.',
+            title: PERTII18n.t('gdt.dashboard.cancelProgramTitle', { id: programId }),
+            text: PERTII18n.t('gdt.dashboard.cancelProgramText'),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Yes, cancel it'
+            confirmButtonText: PERTII18n.t('gdt.dashboard.yesCancelIt')
         }).then(function(result) {
             if (result.isConfirmed) {
                 $.ajax({
@@ -1146,17 +1145,17 @@
                     }),
                     success: function(resp) {
                         if (resp.status === 'ok') {
-                            Swal.fire('Cancelled', 'Program has been cancelled.', 'success');
+                            Swal.fire(PERTII18n.t('gdt.dashboard.cancelled'), PERTII18n.t('gdt.dashboard.programCancelled'), 'success');
                             loadActiveProgramsDashboard();
                             if (GS_CURRENT_PROGRAM_ID === programId) {
                                 resetAndNewProgram();
                             }
                         } else {
-                            Swal.fire('Error', resp.message || 'Cancel failed', 'error');
+                            Swal.fire(PERTII18n.t('common.error'), resp.message || PERTII18n.t('gdt.dashboard.cancelFailed'), 'error');
                         }
                     },
                     error: function() {
-                        Swal.fire('Error', 'Failed to cancel program.', 'error');
+                        Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.cancelFailed'), 'error');
                     }
                 });
             }
@@ -1168,12 +1167,12 @@
         var label = prog ? escapeHtml(prog.program_type + ' ' + (prog.ctl_element || '')) : 'Program #' + programId;
 
         Swal.fire({
-            title: 'Delete ' + label + '?',
-            text: 'This will permanently remove this proposal and any associated flight list.',
+            title: PERTII18n.t('gdt.dashboard.deleteTitle', { label: label }),
+            text: PERTII18n.t('gdt.dashboard.deleteText'),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Yes, delete it'
+            confirmButtonText: PERTII18n.t('common.yesDelete')
         }).then(function(result) {
             if (result.isConfirmed) {
                 $.ajax({
@@ -1186,22 +1185,22 @@
                     }),
                     success: function(resp) {
                         if (resp.status === 'ok') {
-                            Swal.fire('Deleted', 'Proposal has been removed.', 'success');
+                            Swal.fire(PERTII18n.t('gdt.dashboard.deleted'), PERTII18n.t('gdt.dashboard.proposalRemoved'), 'success');
                             loadActiveProgramsDashboard();
                             if (GS_CURRENT_PROGRAM_ID === programId) {
                                 resetAndNewProgram();
                             }
                         } else {
-                            Swal.fire('Error', resp.message || 'Delete failed', 'error');
+                            Swal.fire(PERTII18n.t('common.error'), resp.message || PERTII18n.t('gdt.dashboard.deleteFailed'), 'error');
                         }
                     },
                     error: function(xhr) {
-                        var msg = 'Failed to delete proposal.';
+                        var msg = PERTII18n.t('gdt.dashboard.deleteFailed');
                         try {
                             var r = JSON.parse(xhr.responseText);
                             if (r.message) msg = r.message;
                         } catch(e) {}
-                        Swal.fire('Error', msg, 'error');
+                        Swal.fire(PERTII18n.t('common.error'), msg, 'error');
                     }
                 });
             }
@@ -1244,7 +1243,7 @@
 
         GDT_TIMELINE_VISIBLE = !GDT_TIMELINE_VISIBLE;
         container.style.display = GDT_TIMELINE_VISIBLE ? 'block' : 'none';
-        if (toggleText) toggleText.textContent = GDT_TIMELINE_VISIBLE ? 'Hide Timeline' : 'Show Timeline';
+        if (toggleText) toggleText.textContent = GDT_TIMELINE_VISIBLE ? PERTII18n.t('gdt.page.hideTimeline') : PERTII18n.t('gdt.page.showTimeline');
 
         if (GDT_TIMELINE_VISIBLE) {
             renderTimeline();
@@ -1380,7 +1379,7 @@
                             maxTicksLimit: 12,
                             font: { size: 10 }
                         },
-                        title: { display: true, text: 'UTC Time', font: { size: 10 } }
+                        title: { display: true, text: PERTII18n.t('gdt.chart.utcTime'), font: { size: 10 } }
                     },
                     y: {
                         ticks: { font: { size: 10 } }
@@ -3435,7 +3434,7 @@
         const arr = summary.arr || model.arr || '';
 
         const acft = model.aircraft || '';
-        const status = (model.flightStatus || model.status || 'Normal');
+        const status = (model.flightStatus || model.status || PERTII18n.t('gdt.page.normalStatus'));
         const src = model.source || '';
 
         const etdCell = tr.querySelector('.gs_etd_cell');
@@ -3516,7 +3515,7 @@
         const dep = summary.dep || model.dep || '';
         const arr = summary.arr || model.arr || '';
         const acft = model.aircraft || '';
-        const status = (model.flightStatus || model.status || 'Normal');
+        const status = (model.flightStatus || model.status || PERTII18n.t('gdt.page.normalStatus'));
 
         function readEpochAttr(attr) {
             const v = tr.getAttribute(attr) || '';
@@ -4599,7 +4598,7 @@
         const sendBtn = document.getElementById('gs_send_actual_btn');
         if (sendBtn) {
             sendBtn.disabled = !enabled;
-            sendBtn.title = enabled ? 'Activate GS program immediately' : (reason || '');
+            sendBtn.title = enabled ? PERTII18n.t('gdt.page.activateGsTooltip') : (reason || '');
         }
     }
 
@@ -4728,77 +4727,77 @@
         // Check origin airport exemption
         if (exemptions.orig_airports && exemptions.orig_airports.length > 0) {
             if (exemptions.orig_airports.indexOf(dep) >= 0) {
-                reason = 'Exempted by Departing Airport';
+                reason = PERTII18n.t('gdt.exemptReason.departingAirport');
             }
         }
 
         // Check origin TRACON exemption
         if (!reason && exemptions.orig_tracons && exemptions.orig_tracons.length > 0) {
             if (depTracon && exemptions.orig_tracons.indexOf(depTracon) >= 0) {
-                reason = 'Exempted by Departing TRACON';
+                reason = PERTII18n.t('gdt.exemptReason.departingTracon');
             }
         }
 
         // Check origin ARTCC exemption
         if (!reason && exemptions.orig_artccs && exemptions.orig_artccs.length > 0) {
             if (depCenter && exemptions.orig_artccs.indexOf(depCenter) >= 0) {
-                reason = 'Exempted by Departing Center';
+                reason = PERTII18n.t('gdt.exemptReason.departingCenter');
             }
         }
 
         // Check destination airport exemption
         if (!reason && exemptions.dest_airports && exemptions.dest_airports.length > 0) {
             if (exemptions.dest_airports.indexOf(arr) >= 0) {
-                reason = 'Exempted by Destination Airport';
+                reason = PERTII18n.t('gdt.exemptReason.destAirport');
             }
         }
 
         // Check destination TRACON exemption
         if (!reason && exemptions.dest_tracons && exemptions.dest_tracons.length > 0) {
             if (arrTracon && exemptions.dest_tracons.indexOf(arrTracon) >= 0) {
-                reason = 'Exempted by Destination TRACON';
+                reason = PERTII18n.t('gdt.exemptReason.destTracon');
             }
         }
 
         // Check destination ARTCC exemption
         if (!reason && exemptions.dest_artccs && exemptions.dest_artccs.length > 0) {
             if (arrCenter && exemptions.dest_artccs.indexOf(arrCenter) >= 0) {
-                reason = 'Exempted by Destination Center';
+                reason = PERTII18n.t('gdt.exemptReason.destCenter');
             }
         }
 
         // Check aircraft type exemptions
         if (!reason) {
             if (exemptions.exempt_jet && isJetAircraft(acftType)) {
-                reason = 'Excluded by Aircraft Type (Jet)';
+                reason = PERTII18n.t('gdt.exemptReason.aircraftJet');
             } else if (exemptions.exempt_turboprop && isTurbopropAircraft(acftType)) {
-                reason = 'Excluded by Aircraft Type (Turboprop)';
+                reason = PERTII18n.t('gdt.exemptReason.aircraftTurboprop');
             } else if (exemptions.exempt_prop && isPropAircraft(acftType)) {
-                reason = 'Excluded by Aircraft Type (Prop)';
+                reason = PERTII18n.t('gdt.exemptReason.aircraftProp');
             }
         }
 
         // Check existing EDCT exemption
         if (!reason && exemptions.exempt_has_edct && hasEdct) {
-            reason = 'Exempted by Existing EDCT';
+            reason = PERTII18n.t('gdt.exemptReason.existingEdct');
         }
 
         // Check altitude exemptions
         if (!reason && exemptions.exempt_alt_below > 0) {
             if (altitude > 0 && altitude < exemptions.exempt_alt_below * 100) {
-                reason = 'Exempted by Altitude (Below FL' + exemptions.exempt_alt_below + ')';
+                reason = PERTII18n.t('gdt.exemptReason.altitudeBelow', { fl: exemptions.exempt_alt_below });
             }
         }
         if (!reason && exemptions.exempt_alt_above > 0) {
             if (altitude > 0 && altitude > exemptions.exempt_alt_above * 100) {
-                reason = 'Exempted by Altitude (Above FL' + exemptions.exempt_alt_above + ')';
+                reason = PERTII18n.t('gdt.exemptReason.altitudeAbove', { fl: exemptions.exempt_alt_above });
             }
         }
 
         // Check individual flight exemption
         if (!reason && exemptions.exempt_flights && exemptions.exempt_flights.length > 0) {
             if (exemptions.exempt_flights.indexOf(callsign) >= 0) {
-                reason = 'Exempted by Specific Flight';
+                reason = PERTII18n.t('gdt.exemptReason.specificFlight');
             }
         }
 
@@ -4809,7 +4808,7 @@
             if (etdEpoch > 0) {
                 const minutesUntilDep = (etdEpoch - nowEpoch) / 60;
                 if (minutesUntilDep >= 0 && minutesUntilDep <= exemptions.exempt_depart_within) {
-                    reason = 'Exempted by Departure Time (within ' + exemptions.exempt_depart_within + ' min)';
+                    reason = PERTII18n.t('gdt.exemptReason.departureTime', { minutes: exemptions.exempt_depart_within });
                 }
             }
         }
@@ -5188,7 +5187,7 @@
             flightTableHtml = '<div class="table-responsive" style="max-height: 200px; overflow-y: auto;">';
             flightTableHtml += '<table class="table table-sm table-striped mb-0" style="font-size: 0.85em;">';
             flightTableHtml += '<thead class="thead-light"><tr>';
-            flightTableHtml += '<th>Callsign</th><th>Dep</th><th>Arr</th><th>Type</th><th>EDCT</th><th>Delay</th>';
+            flightTableHtml += '<th>' + PERTII18n.t('gdt.flight.carrier') + '</th><th>' + PERTII18n.t('gdt.flight.departure') + '</th><th>' + PERTII18n.t('gdt.flight.arrival') + '</th><th>' + PERTII18n.t('gdt.flight.type') + '</th><th>' + PERTII18n.t('gdt.flight.edctLabel') + '</th><th>' + PERTII18n.t('gdt.flight.delayMin') + '</th>';
             flightTableHtml += '</tr></thead><tbody>';
 
             const displayFlights = flights.slice(0, 15);
@@ -5210,7 +5209,7 @@
                 flightTableHtml += '<td>' + escapeHtml(f.arr || f.dest_icao || f.arr_airport || '') + '</td>';
                 flightTableHtml += '<td>' + escapeHtml(f.ac_type || f.aircraft_type || '') + '</td>';
                 flightTableHtml += '<td>' + escapeHtml(edct) + '</td>';
-                flightTableHtml += '<td class="' + delayClass + '">' + delay + ' min</td>';
+                flightTableHtml += '<td class="' + delayClass + '">' + PERTII18n.t('gdt.dashboard.delayMinutes', { delay: delay }) + '</td>';
                 flightTableHtml += '</tr>';
             });
             flightTableHtml += '</tbody></table>';
@@ -5469,7 +5468,7 @@
 
     function handleWhatIfSimulate() {
         var statusEl = document.getElementById('gs_adl_status');
-        if (statusEl) statusEl.textContent = 'Running what-if simulation (dry run)...';
+        if (statusEl) statusEl.textContent = PERTII18n.t('gdt.dashboard.whatIfRunning');
 
         // Collect what-if overrides from the form
         var body = {
@@ -5522,15 +5521,14 @@
                     var summary = resp.data.summary || {};
                     var overrides = resp.data.what_if_overrides;
                     var overrideText = overrides ? ' | Overrides: ' + JSON.stringify(overrides) : '';
-                    statusEl.textContent = 'What-If: ' + flights.length + ' flights, max delay ' +
-                        (summary.max_delay_min || 0) + ' min' + overrideText + ' (DRY RUN)';
+                    statusEl.textContent = PERTII18n.t('gdt.dashboard.whatIfStatus', { flights: flights.length, maxDelay: summary.max_delay_min || 0 }) + overrideText;
                 }
 
                 buildAdvisory();
             })
             .catch(function(err) {
                 console.error('What-if simulate failed', err);
-                if (statusEl) statusEl.textContent = 'What-if failed: ' + (err && err.message ? err.message : err);
+                if (statusEl) statusEl.textContent = PERTII18n.t('gdt.dashboard.whatIfFailed') + ': ' + (err && err.message ? err.message : err);
             });
     }
 
@@ -7015,7 +7013,7 @@
                 handleGsSubmitToTmi();
             });
             // Initialize as disabled - must run Simulate first
-            setSubmitTmiEnabled(false, "Run 'Simulate' first to enable");
+            setSubmitTmiEnabled(false, PERTII18n.t('gdt.gsWorkflow.simulateFirstTooltip'));
         }
 
         const sendActualBtn = document.getElementById('gs_send_actual_btn');
@@ -7405,13 +7403,13 @@
         const delayChangeEl = document.getElementById('ecr_delay_change');
         if (delayChangeEl) {
             if (delayChange > 0) {
-                delayChangeEl.textContent = '+' + delayChange + ' min';
+                delayChangeEl.textContent = '+' + PERTII18n.t('gdt.dashboard.delayMinutes', { delay: delayChange });
                 delayChangeEl.className = 'text-danger';
             } else if (delayChange < 0) {
-                delayChangeEl.textContent = delayChange + ' min';
+                delayChangeEl.textContent = PERTII18n.t('gdt.dashboard.delayMinutes', { delay: delayChange });
                 delayChangeEl.className = 'text-success';
             } else {
-                delayChangeEl.textContent = '0 min';
+                delayChangeEl.textContent = PERTII18n.t('gdt.dashboard.delayMinutes', { delay: 0 });
                 delayChangeEl.className = 'text-muted';
             }
         }
@@ -8084,14 +8082,14 @@
             let sourceText = '--';
             if (rateData.match_type) {
                 const matchTypeMap = {
-                    'EXACT': 'Exact', 'PARTIAL_ARR': 'Partial', 'PARTIAL_DEP': 'Partial',
-                    'SUBSET_ARR': 'Subset', 'SUBSET_DEP': 'Subset', 'WIND_BASED': 'Wind',
-                    'CAPACITY_DEFAULT': 'Default', 'VMC_FALLBACK': 'Fallback',
-                    'DETECTED_TRACKS': 'Detected', 'MANUAL': 'Manual',
+                    'EXACT': PERTII18n.t('nod.matchType.exact'), 'PARTIAL_ARR': PERTII18n.t('nod.matchType.partial'), 'PARTIAL_DEP': PERTII18n.t('nod.matchType.partial'),
+                    'SUBSET_ARR': PERTII18n.t('nod.matchType.subset'), 'SUBSET_DEP': PERTII18n.t('nod.matchType.subset'), 'WIND_BASED': PERTII18n.t('nod.matchType.wind'),
+                    'CAPACITY_DEFAULT': PERTII18n.t('nod.matchType.default'), 'VMC_FALLBACK': PERTII18n.t('nod.matchType.fallback'),
+                    'DETECTED_TRACKS': PERTII18n.t('gdt.page.detectedLabel'), 'MANUAL': PERTII18n.t('gdt.page.manualLabel'),
                 };
                 sourceText = matchTypeMap[rateData.match_type] || rateData.match_type;
             } else if (rateData.is_suggested) {
-                sourceText = 'Suggested';
+                sourceText = PERTII18n.t('nod.matchType.suggested');
             }
             sourceEl.textContent = sourceText;
         }
@@ -8403,12 +8401,12 @@
         let el;
         el = document.getElementById('gs_model_total_flts'); if (el) {el.textContent = totalFlts;}
         el = document.getElementById('gs_model_affected_flts'); if (el) {el.textContent = affectedFlts;}
-        el = document.getElementById('gs_model_total_delay'); if (el) {el.textContent = totalDelay + ' min';}
-        el = document.getElementById('gs_model_max_delay'); if (el) {el.textContent = maxDelay + ' min';}
-        el = document.getElementById('gs_model_avg_delay'); if (el) {el.textContent = avgDelay + ' min';}
-        el = document.getElementById('gs_model_horizon_60'); if (el) {el.textContent = count60 + ' flts';}
-        el = document.getElementById('gs_model_horizon_30'); if (el) {el.textContent = count30 + ' flts';}
-        el = document.getElementById('gs_model_horizon_15'); if (el) {el.textContent = count15 + ' flts';}
+        el = document.getElementById('gs_model_total_delay'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.delayMinutes', { delay: totalDelay });}
+        el = document.getElementById('gs_model_max_delay'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.delayMinutes', { delay: maxDelay });}
+        el = document.getElementById('gs_model_avg_delay'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.delayMinutes', { delay: avgDelay });}
+        el = document.getElementById('gs_model_horizon_60'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.flightsCount', { count: count60 });}
+        el = document.getElementById('gs_model_horizon_30'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.flightsCount', { count: count30 });}
+        el = document.getElementById('gs_model_horizon_15'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.flightsCount', { count: count15 });}
 
         el = document.getElementById('gs_model_ctl_element'); if (el) {el.textContent = gsPayload.gs_ctl_element || '-';}
         el = document.getElementById('gs_model_gs_start'); if (el) {el.textContent = gsPayload.gs_start ? formatZuluFromIso(gsPayload.gs_start) : '-';}

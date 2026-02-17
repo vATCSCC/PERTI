@@ -153,37 +153,37 @@ include('load/nav.php');
 
                                 <h4><b><?= __('sheet.page.resources') ?></b></h4>
                                 <ul>
-                                    <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
-                                    <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
-                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
-                                    <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
-                                        <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
+                                    <li><?= __('sheet.page.resTmuDashboard') ?> <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank"><?= __('sheet.page.resHere') ?></a>.</li>
+                                    <li><?= __('sheet.page.resJatocMonitor') ?> <a href="https://vats.im/JATOC" target="_blank"><?= __('sheet.page.resHere') ?></a>.</li>
+                                    <li><?= __('sheet.page.resDiscordChannels') ?></li>
+                                    <li><?= __('sheet.page.resNtos') ?> <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank"><?= __('sheet.page.resHere') ?></a>.
+                                        <ul><li><?= __('sheet.page.resNtosNote') ?></li></ul></li>
                                     <?php if (stripos($plan_info['hotline'], 'Canada') !== false): ?>
-                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.
-                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
-                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline']; ?> Hotline will serve as a primary backup if the VATCAN TeamSpeak fails.</li>
-                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <li><?= __('sheet.page.resVatcanTs') ?>
+                                        <ul><li><?= __('sheet.page.resCredentials') ?></li>
+                                        <li><?= __('sheet.page.resVatusaTsBackup', ['hotline' => $plan_info['hotline']]) ?></li>
+                                        <li><?= __('sheet.page.resDiscordBackup', ['hotline' => $plan_info['hotline']]) ?></li></ul></li>
                                     <?php else: ?>
-                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
-                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
-                                        <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
-                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <li><?= __('sheet.page.resVatusaTs', ['hotline' => $plan_info['hotline']]) ?>
+                                        <ul><li><?= __('sheet.page.resCredentials') ?></li>
+                                        <li><?= __('sheet.page.resVatcanTsBackup') ?></li>
+                                        <li><?= __('sheet.page.resDiscordBackup', ['hotline' => $plan_info['hotline']]) ?></li></ul></li>
                                     <?php endif; ?>
-                                    <li>Post any known virtual airline/group flights in <b>both</b> the #va-hotline channel of vATCSCC Discord and the PERTI Plan Staffing Sheet <a href="https://vats.im/dcc/PERTI_Staffing" target="_blank">here</a>.</li>
-                                    <li>Monthly & Current Traffic Dashboards:
+                                    <li><?= __('sheet.page.resGroupFlights') ?> <a href="https://vats.im/dcc/PERTI_Staffing" target="_blank"><?= __('sheet.page.resHere') ?></a>.</li>
+                                    <li><?= __('sheet.page.resTrafficDashboards') ?>
                                         <ul>
                                             <li><a href="https://vats.im/dcc/VATUSA_Traffic_Dashboard" target="_blank">https://vats.im/dcc/VATUSA_Traffic_Dashboard</a></li>
                                             <li><a href="https://vats.im/dcc/Current_Traffic_Dashboard" target="_blank">https://vats.im/dcc/Current_Traffic_Dashboard</a></li>
                                         </ul>
                                     </li>
-                                    <li>CDR & Preferred Route Databases:
+                                    <li><?= __('sheet.page.resCdrPrd') ?>
                                         <ul>
                                             <li><a href="https://vats.im/dcc/CDR" target="_blank">https://vats.im/dcc/CDR</a></li>
                                             <li><a href="https://vats.im/dcc/PRD" target="_blank">https://vats.im/dcc/PRD</a></li>
                                         </ul>
                                     </li>
-                                    <li>TMU personnel must utilize <b>authorized</b> callsigns (XX_XX_TMU) in accordance with <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank">this policy</a>.</li>
-                                    <li>Trangression Reporting Form for incident reporting available <a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">here</a>.</li>
+                                    <li><?= __('sheet.page.resTmuCallsigns') ?> <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank"><?= __('sheet.page.resThisPolicy') ?></a>.</li>
+                                    <li><?= __('sheet.page.resTransgressionForm') ?> <a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank"><?= __('sheet.page.resHere') ?></a>.</li>
                                 </ul>
 
                             </div>

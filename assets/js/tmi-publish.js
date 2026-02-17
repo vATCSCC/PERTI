@@ -119,101 +119,101 @@
         ? PERTI.ATFM.NTML_QUALIFIERS
         : {
             spacing: [
-                { code: 'AS ONE', label: 'AS ONE', desc: 'Combined traffic as one stream' },
-                { code: 'PER STREAM', label: 'PER STREAM', desc: 'Spacing per traffic stream' },
-                { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: 'Spacing per departure airport' },
-                { code: 'PER FIX', label: 'PER FIX', desc: 'Spacing per arrival fix' },
-                { code: 'PER ROUTE', label: 'PER ROUTE', desc: 'Spacing per route' },
-                { code: 'EACH', label: 'EACH', desc: 'Each aircraft separately' },
-                { code: 'EVERY OTHER', label: 'EVERY OTHER', desc: 'Every other aircraft' },
-                { code: 'PER STRAT', label: 'PER STRAT', desc: 'Per stratum/altitude band' },
-                { code: 'SINGLE STREAM', label: 'SINGLE STREAM', desc: 'Single traffic stream' },
-                { code: 'NO STACKS', label: 'NO STACKS', desc: 'No altitude stacking' },
+                { code: 'AS ONE', label: 'AS ONE', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.asOne') },
+                { code: 'PER STREAM', label: 'PER STREAM', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.perStream') },
+                { code: 'PER AIRPORT', label: 'PER AIRPORT', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.perAirport') },
+                { code: 'PER FIX', label: 'PER FIX', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.perFix') },
+                { code: 'PER ROUTE', label: 'PER ROUTE', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.perRoute') },
+                { code: 'EACH', label: 'EACH', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.each') },
+                { code: 'EVERY OTHER', label: 'EVERY OTHER', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.everyOther') },
+                { code: 'PER STRAT', label: 'PER STRAT', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.perStrat') },
+                { code: 'SINGLE STREAM', label: 'SINGLE STREAM', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.singleStream') },
+                { code: 'NO STACKS', label: 'NO STACKS', desc: PERTII18n.t('tmiPublish.qualifiers.spacingDesc.noStacks') },
             ],
             aircraft: [
-                { code: 'JET', label: 'JET', desc: 'Jet aircraft only' },
-                { code: 'PROP', label: 'PROP', desc: 'Propeller aircraft only' },
-                { code: 'TURBOJET', label: 'TURBOJET', desc: 'Turbojet aircraft only' },
-                { code: 'TURBOPROP', label: 'TURBOPROP', desc: 'Turboprop aircraft only' },
-                { code: 'B757', label: 'B757', desc: 'B757 aircraft only' },
-                { code: 'SUPER', label: 'SUPER', desc: 'Super aircraft (A380, AN-225)' },
+                { code: 'JET', label: 'JET', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.jet') },
+                { code: 'PROP', label: 'PROP', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.prop') },
+                { code: 'TURBOJET', label: 'TURBOJET', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.turbojet') },
+                { code: 'TURBOPROP', label: 'TURBOPROP', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.turboprop') },
+                { code: 'B757', label: 'B757', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.b757') },
+                { code: 'SUPER', label: 'SUPER', desc: PERTII18n.t('tmiPublish.qualifiers.aircraftDesc.super') },
             ],
             weight: [
-                { code: 'HEAVY', label: 'HEAVY', desc: 'Heavy aircraft (>255,000 lbs)' },
-                { code: 'LARGE', label: 'LARGE', desc: 'Large aircraft (41,000-255,000 lbs)' },
-                { code: 'SMALL', label: 'SMALL', desc: 'Small aircraft (<41,000 lbs)' },
-                { code: 'SUPER', label: 'SUPER', desc: 'Superheavy aircraft (A380, AN-225)' },
+                { code: 'HEAVY', label: 'HEAVY', desc: PERTII18n.t('tmiPublish.qualifiers.weightDesc.heavy') },
+                { code: 'LARGE', label: 'LARGE', desc: PERTII18n.t('tmiPublish.qualifiers.weightDesc.large') },
+                { code: 'SMALL', label: 'SMALL', desc: PERTII18n.t('tmiPublish.qualifiers.weightDesc.small') },
+                { code: 'SUPER', label: 'SUPER', desc: PERTII18n.t('tmiPublish.qualifiers.weightDesc.super') },
             ],
             equipment: [
-                { code: 'RNAV', label: 'RNAV', desc: 'RNAV-equipped aircraft only' },
-                { code: 'NON-RNAV', label: 'NON-RNAV', desc: 'Non-RNAV aircraft only' },
-                { code: 'RNP', label: 'RNP', desc: 'RNP-capable aircraft only' },
-                { code: 'RVSM', label: 'RVSM', desc: 'RVSM-compliant only' },
-                { code: 'NON-RVSM', label: 'NON-RVSM', desc: 'Non-RVSM aircraft only' },
+                { code: 'RNAV', label: 'RNAV', desc: PERTII18n.t('tmiPublish.qualifiers.equipmentDesc.rnav') },
+                { code: 'NON-RNAV', label: 'NON-RNAV', desc: PERTII18n.t('tmiPublish.qualifiers.equipmentDesc.nonRnav') },
+                { code: 'RNP', label: 'RNP', desc: PERTII18n.t('tmiPublish.qualifiers.equipmentDesc.rnp') },
+                { code: 'RVSM', label: 'RVSM', desc: PERTII18n.t('tmiPublish.qualifiers.equipmentDesc.rvsm') },
+                { code: 'NON-RVSM', label: 'NON-RVSM', desc: PERTII18n.t('tmiPublish.qualifiers.equipmentDesc.nonRvsm') },
             ],
             flow: [
-                { code: 'ARR', label: 'ARR', desc: 'Arrival traffic only' },
-                { code: 'DEP', label: 'DEP', desc: 'Departure traffic only' },
-                { code: 'OVFLT', label: 'OVFLT', desc: 'Overflight traffic only' },
+                { code: 'ARR', label: 'ARR', desc: PERTII18n.t('tmiPublish.qualifiers.flowDesc.arr') },
+                { code: 'DEP', label: 'DEP', desc: PERTII18n.t('tmiPublish.qualifiers.flowDesc.dep') },
+                { code: 'OVFLT', label: 'OVFLT', desc: PERTII18n.t('tmiPublish.qualifiers.flowDesc.ovflt') },
             ],
             operator: [
-                { code: 'AIR CARRIER', label: 'AIR CARRIER', desc: 'Air carrier operations' },
-                { code: 'AIR TAXI', label: 'AIR TAXI', desc: 'Air taxi operations' },
-                { code: 'GA', label: 'GA', desc: 'General aviation' },
-                { code: 'CARGO', label: 'CARGO', desc: 'Cargo operations' },
-                { code: 'MIL', label: 'MIL', desc: 'Military operations' },
-                { code: 'MAJOR', label: 'MAJOR', desc: 'Major carrier operations' },
-                { code: 'REGIONAL', label: 'REGIONAL', desc: 'Regional carrier operations' },
+                { code: 'AIR CARRIER', label: 'AIR CARRIER', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.airCarrier') },
+                { code: 'AIR TAXI', label: 'AIR TAXI', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.airTaxi') },
+                { code: 'GA', label: 'GA', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.ga') },
+                { code: 'CARGO', label: 'CARGO', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.cargo') },
+                { code: 'MIL', label: 'MIL', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.mil') },
+                { code: 'MAJOR', label: 'MAJOR', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.major') },
+                { code: 'REGIONAL', label: 'REGIONAL', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.regional') },
             ],
             altitude: [
-                { code: 'AOB', label: 'At or Below', desc: 'At or below specified altitude (e.g., AOB240)' },
-                { code: 'AOA', label: 'At or Above', desc: 'At or above specified altitude (e.g., AOA330)' },
-                { code: 'BETWEEN', label: 'Between', desc: 'Between two altitudes (e.g., 170B190)' },
+                { code: 'AOB', label: 'At or Below', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aob') },
+                { code: 'AOA', label: 'At or Above', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aoa') },
+                { code: 'BETWEEN', label: 'Between', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.between') },
             ],
         };
 
     // Reason categories: PERTI > hardcoded fallback
     const REASON_CATEGORIES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.REASON_CATEGORIES)
         ? PERTI.ATFM.REASON_CATEGORIES
-        : [{ code: 'VOLUME', label: 'Volume' }, { code: 'WEATHER', label: 'Weather' }, { code: 'RUNWAY', label: 'Runway' }, { code: 'EQUIPMENT', label: 'Equipment' }, { code: 'OTHER', label: 'Other' }];
+        : [{ code: 'VOLUME', label: PERTII18n.t('tmiPublish.reasons.volume') }, { code: 'WEATHER', label: PERTII18n.t('tmiPublish.reasons.weather') }, { code: 'RUNWAY', label: PERTII18n.t('tmiPublish.reasons.runway') }, { code: 'EQUIPMENT', label: PERTII18n.t('tmiPublish.reasons.equipment') }, { code: 'OTHER', label: PERTII18n.t('tmiPublish.reasons.other') }];
 
     // Cause codes: PERTI > hardcoded fallback
     const REASON_CAUSES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.REASON_CAUSES)
         ? PERTI.ATFM.REASON_CAUSES
         : {
             VOLUME: [
-                { code: 'VOLUME', label: 'Volume', desc: 'Volume' },
-                { code: 'COMPACTED DEMAND', label: 'Compacted Demand', desc: 'Compacted Demand' },
-                { code: 'MULTI-TAXI', label: 'Multi-Taxi', desc: 'Multi-Taxi' },
-                { code: 'AIRSPACE', label: 'Airspace', desc: 'Airspace' },
+                { code: 'VOLUME', label: PERTII18n.t('tmiPublish.causes.volume'), desc: PERTII18n.t('tmiPublish.causes.volume') },
+                { code: 'COMPACTED DEMAND', label: PERTII18n.t('tmiPublish.causes.compactedDemand'), desc: PERTII18n.t('tmiPublish.causes.compactedDemand') },
+                { code: 'MULTI-TAXI', label: PERTII18n.t('tmiPublish.causes.multiTaxi'), desc: PERTII18n.t('tmiPublish.causes.multiTaxi') },
+                { code: 'AIRSPACE', label: PERTII18n.t('tmiPublish.causes.airspace'), desc: PERTII18n.t('tmiPublish.causes.airspace') },
             ],
             WEATHER: [
-                { code: 'WEATHER', label: 'Weather', desc: 'Weather' },
-                { code: 'THUNDERSTORMS', label: 'Thunderstorms', desc: 'Thunderstorms' },
-                { code: 'LOW CEILINGS', label: 'Low Ceilings', desc: 'Low Ceilings' },
-                { code: 'LOW VISIBILITY', label: 'Low Visibility', desc: 'Low Visibility' },
-                { code: 'FOG', label: 'Fog', desc: 'Fog' },
-                { code: 'WIND', label: 'Wind', desc: 'Wind' },
-                { code: 'SNOW/ICE', label: 'Snow/Ice', desc: 'Snow/Ice' },
+                { code: 'WEATHER', label: PERTII18n.t('tmiPublish.causes.weather'), desc: PERTII18n.t('tmiPublish.causes.weather') },
+                { code: 'THUNDERSTORMS', label: PERTII18n.t('tmiPublish.causes.thunderstorms'), desc: PERTII18n.t('tmiPublish.causes.thunderstorms') },
+                { code: 'LOW CEILINGS', label: PERTII18n.t('tmiPublish.causes.lowCeilings'), desc: PERTII18n.t('tmiPublish.causes.lowCeilings') },
+                { code: 'LOW VISIBILITY', label: PERTII18n.t('tmiPublish.causes.lowVisibility'), desc: PERTII18n.t('tmiPublish.causes.lowVisibility') },
+                { code: 'FOG', label: PERTII18n.t('tmiPublish.causes.fog'), desc: PERTII18n.t('tmiPublish.causes.fog') },
+                { code: 'WIND', label: PERTII18n.t('tmiPublish.causes.wind'), desc: PERTII18n.t('tmiPublish.causes.wind') },
+                { code: 'SNOW/ICE', label: PERTII18n.t('tmiPublish.causes.snowIce'), desc: PERTII18n.t('tmiPublish.causes.snowIce') },
             ],
             RUNWAY: [
-                { code: 'RUNWAY', label: 'Runway', desc: 'Runway' },
-                { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration', desc: 'Runway Configuration' },
-                { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction', desc: 'Runway Construction' },
-                { code: 'RUNWAY CLOSURE', label: 'Runway Closure', desc: 'Runway Closure' },
+                { code: 'RUNWAY', label: PERTII18n.t('tmiPublish.causes.runway'), desc: PERTII18n.t('tmiPublish.causes.runway') },
+                { code: 'RUNWAY CONFIGURATION', label: PERTII18n.t('tmiPublish.causes.runwayConfig'), desc: PERTII18n.t('tmiPublish.causes.runwayConfig') },
+                { code: 'RUNWAY CONSTRUCTION', label: PERTII18n.t('tmiPublish.causes.runwayConstruction'), desc: PERTII18n.t('tmiPublish.causes.runwayConstruction') },
+                { code: 'RUNWAY CLOSURE', label: PERTII18n.t('tmiPublish.causes.runwayClosure'), desc: PERTII18n.t('tmiPublish.causes.runwayClosure') },
             ],
             EQUIPMENT: [
-                { code: 'EQUIPMENT', label: 'Equipment', desc: 'Equipment' },
-                { code: 'VATSIM EQUIPMENT', label: 'VATSIM Equipment', desc: 'VATSIM Equipment' },
-                { code: 'NON-VATSIM EQUIPMENT', label: 'Non-VATSIM Equipment', desc: 'Non-VATSIM Equipment' },
+                { code: 'EQUIPMENT', label: PERTII18n.t('tmiPublish.causes.equipment'), desc: PERTII18n.t('tmiPublish.causes.equipment') },
+                { code: 'VATSIM EQUIPMENT', label: PERTII18n.t('tmiPublish.causes.vatsimEquipment'), desc: PERTII18n.t('tmiPublish.causes.vatsimEquipment') },
+                { code: 'NON-VATSIM EQUIPMENT', label: PERTII18n.t('tmiPublish.causes.nonVatsimEquipment'), desc: PERTII18n.t('tmiPublish.causes.nonVatsimEquipment') },
             ],
             OTHER: [
-                { code: 'OTHER', label: 'Other', desc: 'Other' },
-                { code: 'STAFFING', label: 'Staffing', desc: 'Staffing' },
-                { code: 'AIR SHOW', label: 'Air Show', desc: 'Air Show' },
-                { code: 'VIP MOVEMENT', label: 'VIP Movement', desc: 'VIP Movement' },
-                { code: 'SPECIAL EVENT', label: 'Special Event', desc: 'Special Event' },
-                { code: 'SECURITY', label: 'Security', desc: 'Security' },
+                { code: 'OTHER', label: PERTII18n.t('tmiPublish.causes.other'), desc: PERTII18n.t('tmiPublish.causes.other') },
+                { code: 'STAFFING', label: PERTII18n.t('tmiPublish.causes.staffing'), desc: PERTII18n.t('tmiPublish.causes.staffing') },
+                { code: 'AIR SHOW', label: PERTII18n.t('tmiPublish.causes.airShow'), desc: PERTII18n.t('tmiPublish.causes.airShow') },
+                { code: 'VIP MOVEMENT', label: PERTII18n.t('tmiPublish.causes.vipMovement'), desc: PERTII18n.t('tmiPublish.causes.vipMovement') },
+                { code: 'SPECIAL EVENT', label: PERTII18n.t('tmiPublish.causes.specialEvent'), desc: PERTII18n.t('tmiPublish.causes.specialEvent') },
+                { code: 'SECURITY', label: PERTII18n.t('tmiPublish.causes.security'), desc: PERTII18n.t('tmiPublish.causes.security') },
             ],
         };
 
@@ -452,7 +452,7 @@
                 formHtml = buildCancelForm();
                 break;
             default:
-                formHtml = '<div class="alert alert-warning">Unknown entry type</div>';
+                formHtml = `<div class="alert alert-warning">${PERTII18n.t('tmiPublish.unknownEntryType')}</div>`;
         }
 
         $('#ntmlFormContainer').html(formHtml);
@@ -467,13 +467,13 @@
 
     function buildQualifiersHtml(showAll = true) {
         let html = '<div class="mb-3">';
-        html += '<label class="form-label small text-muted">Qualifiers (optional)</label>';
+        html += `<label class="form-label small text-muted">${PERTII18n.t('tmiPublish.qualifiers.label')}</label>`;
         html += '<div class="qualifier-sections">';
 
         if (showAll) {
             // Aircraft Type
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Type:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.type')}</span>';
             NTML_QUALIFIERS.aircraft.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="aircraft" title="${q.desc}">${q.label}</button>`;
             });
@@ -481,7 +481,7 @@
 
             // Weight Class
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Weight:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.weight')}</span>';
             NTML_QUALIFIERS.weight.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="weight" title="${q.desc}">${q.label}</button>`;
             });
@@ -489,7 +489,7 @@
 
             // Spacing Method
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Spacing:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.spacing')}</span>';
             NTML_QUALIFIERS.spacing.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="spacing" title="${q.desc}">${q.label}</button>`;
             });
@@ -497,7 +497,7 @@
 
             // Equipment/Capability
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Equipment:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.equipment')}</span>';
             NTML_QUALIFIERS.equipment.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="equipment" title="${q.desc}">${q.label}</button>`;
             });
@@ -505,7 +505,7 @@
 
             // Flow Type
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Flow:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.flow')}</span>';
             NTML_QUALIFIERS.flow.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="flow" title="${q.desc}">${q.label}</button>`;
             });
@@ -513,7 +513,7 @@
 
             // Operator Category
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">Operator:</span>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.operator')}</span>';
             NTML_QUALIFIERS.operator.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="operator" title="${q.desc}">${q.label}</button>`;
             });
@@ -521,15 +521,15 @@
 
             // Altitude Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
-            html += '<span class="small text-muted mr-2">Altitude:</span>';
-            html += '<input type="text" class="form-control form-control-sm text-uppercase" id="ntml_altitude_filter" placeholder="e.g., AOB120, AOA320, 140B180" style="max-width: 200px;" maxlength="20">';
-            html += '<small class="text-muted ml-2">AOB=At/Below, AOA=At/Above, ###B###=Block</small>';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.altitude')}</span>';
+            html += '<input type="text" class="form-control form-control-sm text-uppercase" id="ntml_altitude_filter" placeholder="' + PERTII18n.t('tmiPublish.qualifiers.altitudePlaceholder') + '" style="max-width: 200px;" maxlength="20">';
+            html += '<small class="text-muted ml-2">' + PERTII18n.t('tmiPublish.qualifiers.altitudeHint') + '</small>';
             html += '</div>';
 
             // Speed Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
-            html += '<span class="small text-muted mr-2">Speed:</span>';
-            html += '<input type="number" class="form-control form-control-sm" id="ntml_speed_filter" placeholder="e.g., 250" style="max-width: 100px;" min="0" max="999">';
+            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.speed')}</span>';
+            html += '<input type="number" class="form-control form-control-sm" id="ntml_speed_filter" placeholder="' + PERTII18n.t('tmiPublish.qualifiers.speedPlaceholder') + '" style="max-width: 100px;" min="0" max="999">';
             html += '<span class="small text-muted ml-1">KTS</span>';
             html += '</div>';
         }
@@ -542,7 +542,7 @@
         let html = `
             <div class="row">
                 <div class="col-6">
-                    <label class="form-label small text-muted">Impacting Condition</label>
+                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.impactingCondition')}</label>
                     <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()" style="min-width: 100%;">
         `;
         REASON_CATEGORIES.forEach(r => {
@@ -552,7 +552,7 @@
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="form-label small text-muted">Specific Impact</label>
+                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.specificImpact')}</label>
                     <select class="form-control" id="ntml_reason_cause" style="min-width: 100%;">
         `;
         // Default to VOLUME causes
@@ -579,13 +579,13 @@
     }
 
     function buildMitMinitForm(type) {
-        const unit = type === 'MIT' ? 'Miles' : 'Minutes';
+        const unit = type === 'MIT' ? PERTII18n.t('tmiPublish.form.miles') : PERTII18n.t('tmiPublish.form.minutes');
         const times = getSmartDefaultTimes();
 
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> ${type === 'MIT' ? 'Miles-In-Trail' : 'Minutes-In-Trail'} Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-ruler-horizontal mr-1"></i> ${type === 'MIT' ? PERTII18n.t('tmiPublish.form.mitDetails') : PERTII18n.t('tmiPublish.form.minitDetails')}</span>
                 </div>
                 <div class="card-body">
                     <!-- Row 1: Value, Airport/Fix, Traffic Flow, Via -->
@@ -595,21 +595,21 @@
                             <input type="number" class="form-control" id="ntml_value" min="5" max="100" step="5" value="20">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Airport/Fix</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airportFix')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.trafficFlow')}</label>
                             <select class="form-control" id="ntml_traffic_flow">
-                                <option value="">All Traffic</option>
-                                <option value="ARRIVALS">Arrivals</option>
-                                <option value="DEPARTURES">Departures</option>
-                                <option value="OVERFLIGHTS">Overflights</option>
+                                <option value="">${PERTII18n.t('tmiPublish.form.allTraffic')}</option>
+                                <option value="ARRIVALS">${PERTII18n.t('tmiPublish.form.arrivals')}</option>
+                                <option value="DEPARTURES">${PERTII18n.t('tmiPublish.form.departures')}</option>
+                                <option value="OVERFLIGHTS">${PERTII18n.t('tmiPublish.form.overflights')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Via Route/Fix</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.viaRouteFix')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="CLIPR/SKILS or ALL" maxlength="30">
                         </div>
                     </div>
@@ -617,7 +617,7 @@
                     <!-- Row 2: Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.reason')}</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -625,31 +625,31 @@
                     <!-- Row 3: Facilities + Exclusions -->
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.requestingFacility')}</label>
                             <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_req_facility" placeholder="ZNY" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Providing Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.providingFacility')}</label>
                             <input type="text" class="form-control text-uppercase facility-autocomplete" id="ntml_prov_facility" placeholder="ZOB" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Exclusions</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.exclusions')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_exclusions" placeholder="NONE" value="NONE" maxlength="30">
-                            <small class="text-muted">e.g., NONE, AAL, UAL</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.exclusionsHint')}</small>
                         </div>
                     </div>
                     
                     <!-- Row 4: Valid Times -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                     </div>
                     
@@ -659,10 +659,10 @@
                     <hr>
                     <div class="d-flex justify-content-between">
                         <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">
-                            Reset
+                            ${PERTII18n.t('common.reset')}
                         </button>
                         <button class="btn btn-primary" type="button" onclick="TMIPublisher.addNtmlToQueue('${type}')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -677,27 +677,27 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-danger text-white">
-                    <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> Flow Stoppage Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> ${PERTII18n.t('tmiPublish.form.stopDetails')}</span>
                 </div>
                 <div class="card-body">
                     <!-- Row 1: Airport/Fix, Traffic Flow, Via -->
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Airport/Fix</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airportFix')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.trafficFlow')}</label>
                             <select class="form-control" id="ntml_traffic_flow">
-                                <option value="">All Traffic</option>
-                                <option value="ARRIVALS">Arrivals</option>
-                                <option value="DEPARTURES">Departures</option>
-                                <option value="OVERFLIGHTS">Overflights</option>
+                                <option value="">${PERTII18n.t('tmiPublish.form.allTraffic')}</option>
+                                <option value="ARRIVALS">${PERTII18n.t('tmiPublish.form.arrivals')}</option>
+                                <option value="DEPARTURES">${PERTII18n.t('tmiPublish.form.departures')}</option>
+                                <option value="OVERFLIGHTS">${PERTII18n.t('tmiPublish.form.overflights')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Via Route/Fix</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.viaRouteFix')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" placeholder="LENDY or ALL" maxlength="30">
                         </div>
                     </div>
@@ -705,7 +705,7 @@
                     <!-- Row 2: Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.reason')}</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -713,15 +713,15 @@
                     <!-- Row 3: Facilities + Exclusions -->
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.requestingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_req_facility" placeholder="ZNY" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Providing Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.providingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" placeholder="ZBW" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Exclusions</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.exclusions')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_exclusions" placeholder="NONE" value="NONE" maxlength="30">
                         </div>
                     </div>
@@ -729,20 +729,20 @@
                     <!-- Row 4: Valid Times -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                     </div>
                     
                     <!-- Limited qualifiers for STOP -->
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Qualifiers (optional)</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.qualifiers.optional')}</label>
                         <div class="d-flex flex-wrap">
                             ${NTML_QUALIFIERS.aircraft.map(q =>
         `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" title="${q.desc}">${q.label}</button>`,
@@ -755,9 +755,9 @@
                     
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-danger" type="button" onclick="TMIPublisher.addNtmlToQueue('STOP')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -772,32 +772,32 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
-                    <span class="tmi-section-title"><i class="fas fa-phone mr-1"></i> APREQ/CFR Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-phone mr-1"></i> ${PERTII18n.t('tmiPublish.form.apreqDetails')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-2">
-                            <label class="form-label small text-muted">Type</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.type')}</label>
                             <select class="form-control" id="ntml_apreq_type">
-                                <option value="APREQ">APREQ</option>
-                                <option value="CFR">CFR</option>
+                                <option value="APREQ">${PERTII18n.t('tmiPublish.form.apreqOption')}</option>
+                                <option value="CFR">${PERTII18n.t('tmiPublish.form.cfrOption')}</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Airport</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airport')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="KJFK" maxlength="10">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.trafficFlow')}</label>
                             <select class="form-control" id="ntml_traffic_flow">
-                                <option value="">All Traffic</option>
-                                <option value="ARRIVALS">Arrivals</option>
-                                <option value="DEPARTURES">Departures</option>
-                                <option value="OVERFLIGHTS">Overflights</option>
+                                <option value="">${PERTII18n.t('tmiPublish.form.allTraffic')}</option>
+                                <option value="ARRIVALS">${PERTII18n.t('tmiPublish.form.arrivals')}</option>
+                                <option value="DEPARTURES">${PERTII18n.t('tmiPublish.form.departures')}</option>
+                                <option value="OVERFLIGHTS">${PERTII18n.t('tmiPublish.form.overflights')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Via Route/Fix</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.viaRouteFix')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="30">
                         </div>
                     </div>
@@ -805,7 +805,7 @@
                     <!-- Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.reason')}</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
@@ -813,25 +813,25 @@
                     <!-- Facilities -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.requestingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Providing Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.providingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                     </div>
                     
@@ -840,9 +840,9 @@
                     
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-warning" type="button" onclick="TMIPublisher.addNtmlToQueue('APREQ')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -857,72 +857,72 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-success text-white">
-                    <span class="tmi-section-title"><i class="fas fa-tachometer-alt mr-1"></i> TBM/TBFM (Time-Based Flow Management) Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-tachometer-alt mr-1"></i> ${PERTII18n.t('tmiPublish.form.tbmDetails')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Airport</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airport')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="ATL" maxlength="10">
                             <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Traffic Flow</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.trafficFlow')}</label>
                             <select class="form-control" id="ntml_traffic_flow">
-                                <option value="">All Traffic</option>
-                                <option value="ARRIVALS" selected>Arrivals</option>
-                                <option value="DEPARTURES">Departures</option>
-                                <option value="OVERFLIGHTS">Overflights</option>
+                                <option value="">${PERTII18n.t('tmiPublish.form.allTraffic')}</option>
+                                <option value="ARRIVALS" selected>${PERTII18n.t('tmiPublish.form.arrivals')}</option>
+                                <option value="DEPARTURES">${PERTII18n.t('tmiPublish.form.departures')}</option>
+                                <option value="OVERFLIGHTS">${PERTII18n.t('tmiPublish.form.overflights')}</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Meter Point/Arc</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.meterPoint')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_meter_point" placeholder="ZTL33 or ERLIN" maxlength="10">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Freeze Horizon (min)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.freezeHorizon')}</label>
                             <input type="number" class="form-control" id="ntml_freeze_horizon" min="10" max="120" value="20">
-                            <small class="text-muted">Output: TIME+{value}MIN</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.freezeHorizonHint')}</small>
                         </div>
                     </div>
 
                     <!-- Reason -->
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small text-muted">Reason</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.reason')}</label>
                             ${buildReasonSelect()}
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.requestingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList" value="${getUserFacility()}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Providing Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.providingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
-                            <small class="text-muted">Date and time in Zulu</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.dateTimeZulu')}</small>
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-12">
-                            <label class="form-label small text-muted">Participating Facilities</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.participatingFacilities')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_participating" placeholder="ZTL ZJX ZDC ZID" maxlength="50">
-                            <small class="text-muted">Space-separated list of ARTCCs participating in metering</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.participatingHint')}</small>
                         </div>
                     </div>
                     
@@ -931,9 +931,9 @@
                     
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-success" type="button" onclick="TMIPublisher.addNtmlToQueue('TBM')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -948,65 +948,65 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header" style="background-color: #fd7e14; color: white;">
-                    <span class="tmi-section-title"><i class="fas fa-hourglass-half mr-1"></i> Delay Advisory Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-hourglass-half mr-1"></i> ${PERTII18n.t('tmiPublish.form.delayDetails')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Delay Type</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.delayType')}</label>
                             <select class="form-control" id="ntml_delay_type">
-                                <option value="E/D">E/D (En Route Delay)</option>
-                                <option value="A/D">A/D (Arrival Delay)</option>
-                                <option value="D/D">D/D (Departure Delay)</option>
+                                <option value="E/D">${PERTII18n.t('tmiPublish.delay.enRouteDelay')}</option>
+                                <option value="A/D">${PERTII18n.t('tmiPublish.delay.arrivalDelay')}</option>
+                                <option value="D/D">${PERTII18n.t('tmiPublish.delay.departureDelay')}</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.facility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="4">
                             <small id="airport_lookup_status"></small>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Delay (minutes)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.delayMinutes')}</label>
                             <input type="number" class="form-control" id="ntml_delay_minutes" min="0" max="180" value="30">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Trend</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.trend')}</label>
                             <select class="form-control" id="ntml_delay_trend">
-                                <option value="STABLE">Stable</option>
-                                <option value="INC">Increasing</option>
-                                <option value="DEC">Decreasing</option>
+                                <option value="STABLE">${PERTII18n.t('tmiPublish.delay.stable')}</option>
+                                <option value="INC">${PERTII18n.t('tmiPublish.delay.increasing')}</option>
+                                <option value="DEC">${PERTII18n.t('tmiPublish.delay.decreasing')}</option>
                             </select>
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Impacting Condition</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.impactingCondition')}</label>
                             <select class="form-control" id="ntml_reason_category" onchange="TMIPublisher.updateCauseOptions()">
                                 ${REASON_CATEGORIES.map(r => `<option value="${r.code}">${r.label}</option>`).join('')}
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Specific Impact</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.specificImpact')}</label>
                             <select class="form-control" id="ntml_reason_cause">
                                 ${REASON_CAUSES.VOLUME.map(c => `<option value="${c.code}">${c.label}</option>`).join('')}
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Report Time (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.reportTimeUtc')}</label>
                             <input type="time" class="form-control" id="ntml_report_time" value="${currentTime}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Aircraft Count</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.delay.aircraftCount')}</label>
                             <input type="number" class="form-control" id="ntml_acft_count" min="1" value="1">
                         </div>
                     </div>
 
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-warning" type="button" onclick="TMIPublisher.addNtmlToQueue('DELAY')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -1020,24 +1020,24 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header" style="background-color: #6f42c1; color: white;">
-                    <span class="tmi-section-title"><i class="fas fa-plane-departure mr-1"></i> Airport Configuration Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-plane-departure mr-1"></i> ${PERTII18n.t('tmiPublish.form.configDetails')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Airport</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airport')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" placeholder="JFK" maxlength="4">
-                            <small class="text-muted">Enter FAA or ICAO code</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.enterFaaIcao')}</small>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Config Preset</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.configPreset')}</label>
                             <select class="form-control" id="ntml_config_preset">
-                                <option value="">-- Enter airport first --</option>
+                                <option value="">-- ${PERTII18n.t('tmiPublish.form.enterAirportFirst')} --</option>
                             </select>
                             <small class="text-muted" id="config_preset_status"></small>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Weather Category</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.weatherCategory')}</label>
                             <select class="form-control" id="ntml_weather">
                                 <option value="VMC">VMC</option>
                                 <option value="MVFR">MVFR</option>
@@ -1049,11 +1049,11 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Arrival Runways</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.arrivalRunways')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_arr_runways" placeholder="22L, 22R">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Departure Runways</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.departureRunways')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_dep_runways" placeholder="31L, 31R">
                         </div>
                     </div>
@@ -1064,10 +1064,10 @@
                             <input type="number" class="form-control" id="ntml_aar" min="0" max="120" value="60">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">AAR Type</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.aarType')}</label>
                             <select class="form-control" id="ntml_aar_type">
-                                <option value="Strat">Strategic (config rate)</option>
-                                <option value="Dyn">Dynamic (user-defined)</option>
+                                <option value="Strat">${PERTII18n.t('tmiPublish.form.strategic')}</option>
+                                <option value="Dyn">${PERTII18n.t('tmiPublish.form.dynamic')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -1078,27 +1078,27 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_from" value="${times.start}">
-                            <small class="text-muted">When this config becomes active</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.whenConfigActive')}</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="ntml_valid_until" value="${times.end}">
-                            <small class="text-muted">When this config expires</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.form.whenConfigExpires')}</small>
                         </div>
                     </div>
 
                     <div class="alert alert-info small mb-3">
                         <i class="fas fa-info-circle"></i>
-                        Enter an airport code to load saved presets. See <a href="airport_config.php" target="_blank">Airport Configurations</a> for full list.
+                        ${PERTII18n.t('tmiPublish.config.presetInfoHtml')}
                     </div>
 
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-primary" type="button" style="background-color: #6f42c1; border-color: #6f42c1;" onclick="TMIPublisher.addNtmlToQueue('CONFIG')">
-                            Add to Queue
+                            ${PERTII18n.t('tmiPublish.form.addToQueue')}
                         </button>
                     </div>
                 </div>
@@ -1110,43 +1110,43 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-secondary text-white">
-                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> Cancel TMI Details</span>
+                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> ${PERTII18n.t('tmiPublish.form.cancelDetails')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Cancel Scope</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.cancelScope')}</label>
                             <select class="form-control" id="ntml_cancel_type">
-                                <option value="SPECIFIC">Specific TMI</option>
-                                <option value="ALL">All TMIs (Airport)</option>
+                                <option value="SPECIFIC">${PERTII18n.t('tmiPublish.form.specificTmi')}</option>
+                                <option value="ALL">${PERTII18n.t('tmiPublish.form.allTmisAirport')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Airport/Element</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.airportElement')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_ctl_element" maxlength="10">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Via Fix (if specific)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.viaFixSpecific')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_via_fix" maxlength="10">
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Requesting Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.requestingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_req_facility" maxlength="30" list="facilityList">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Providing Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.providingFacility')}</label>
                             <input type="text" class="form-control text-uppercase" id="ntml_prov_facility" maxlength="30" list="facilityList">
                         </div>
                     </div>
                     
                     <hr>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">Reset</button>
+                        <button class="btn btn-secondary" type="button" onclick="TMIPublisher.resetNtmlForm()">${PERTII18n.t('common.reset')}</button>
                         <button class="btn btn-dark" type="button" onclick="TMIPublisher.addNtmlToQueue('CANCEL')">
-                            Add Cancel to Queue
+                            ${PERTII18n.t('tmiPublish.form.addCancelToQueue')}
                         </button>
                     </div>
                 </div>
@@ -1239,8 +1239,8 @@
         const $preset = $('#ntml_config_preset');
         const $status = $('#config_preset_status');
 
-        $status.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
-        $preset.html('<option value="">Loading...</option>').prop('disabled', true);
+        $status.html(`<i class="fas fa-spinner fa-spin"></i> ${PERTII18n.t('tmiPublish.config.loading')}`);
+        $preset.html(`<option value="">${PERTII18n.t('tmiPublish.config.loading')}</option>`).prop('disabled', true);
 
         $.ajax({
             url: 'api/mgt/tmi/airport_configs.php',
@@ -1250,7 +1250,7 @@
                 if (response.success && response.configs && response.configs.length > 0) {
                     configPresets = response.configs;
 
-                    let options = '<option value="">-- Select config --</option>';
+                    let options = `<option value="">${PERTII18n.t('tmiPublish.config.selectConfig')}</option>`;
                     response.configs.forEach(function(cfg) {
                         const displayName = cfg.configCode
                             ? `${cfg.configName} (${cfg.configCode})`
@@ -1260,19 +1260,19 @@
                     });
 
                     $preset.html(options).prop('disabled', false);
-                    $status.html(`<span class="text-success">${response.count} config(s) found</span>`);
+                    $status.html(`<span class="text-success">${PERTII18n.t('tmiPublish.config.configsFound', { count: response.count })}</span>`);
 
                     console.log('[TMI] Loaded', response.count, 'configs for', airport);
                 } else {
-                    $preset.html('<option value="">-- No configs found --</option>').prop('disabled', true);
-                    $status.html('<span class="text-warning">No presets available</span>');
+                    $preset.html(`<option value="">${PERTII18n.t('tmiPublish.config.noConfigsFound')}</option>`).prop('disabled', true);
+                    $status.html(`<span class="text-warning">${PERTII18n.t('tmiPublish.config.noPresetsAvailable')}</span>`);
                     configPresets = [];
                 }
             },
             error: function(xhr, status, error) {
                 console.error('[TMI] Config load error:', error);
-                $preset.html('<option value="">-- Error loading --</option>').prop('disabled', true);
-                $status.html('<span class="text-danger">Error loading configs</span>');
+                $preset.html(`<option value="">${PERTII18n.t('tmiPublish.config.errorLoading')}</option>`).prop('disabled', true);
+                $status.html(`<span class="text-danger">${PERTII18n.t('tmiPublish.config.errorLoadingConfigs')}</span>`);
                 configPresets = [];
             },
         });
@@ -1394,7 +1394,7 @@
                 }
                 $statusEl.html(html);
             } else {
-                $statusEl.html('<span class="text-warning">Not found</span>');
+                $statusEl.html(`<span class="text-warning">${PERTII18n.t('tmiPublish.config.notFound')}</span>`);
             }
         });
     }
@@ -1422,7 +1422,7 @@
                 formHtml = buildSwapForm();
                 break;
             default:
-                formHtml = '<div class="alert alert-warning">Unknown advisory type</div>';
+                formHtml = `<div class="alert alert-warning">${PERTII18n.t('tmiPublish.unknownAdvisoryType')}</div>`;
         }
 
         $('#advisoryFormContainer').html(formHtml);
@@ -1440,43 +1440,43 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <span class="tmi-section-title"><i class="fas fa-clipboard-check mr-1"></i> Operations Plan</span>
-                    <button type="button" class="btn btn-sm btn-light" id="btnImportPertiPlan" title="Import from PERTI Plan">
-                        <i class="fas fa-file-import mr-1"></i> Import PERTI Plan
+                    <span class="tmi-section-title"><i class="fas fa-clipboard-check mr-1"></i> ${PERTII18n.t('tmiPublish.page.opsPlanDesc')}</span>
+                    <button type="button" class="btn btn-sm btn-light" id="btnImportPertiPlan" title="${PERTII18n.t('tmiPublish.importPlan.title')}">
+                        <i class="fas fa-file-import mr-1"></i> ${PERTII18n.t('tmiPublish.importPlan.title')}
                     </button>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Advisory #</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.facility')}</label>
                             <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_valid_from" value="${currentDateTime}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_valid_until" value="${endDateTime}">
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Key Initiatives</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.keyInitiatives')}</label>
                         <textarea class="form-control" id="adv_initiatives" rows="4" placeholder="List key TMIs and initiatives for the operational period..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Terminal/Enroute Constraints</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.terminalEnrouteConstraints')}</label>
                         <textarea class="form-control" id="adv_weather" rows="2" placeholder="Summarize weather impacts and constraints..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Special Events</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.specialEvents')}</label>
                         <textarea class="form-control" id="adv_events" rows="2" placeholder="List any special events affecting traffic..."></textarea>
                     </div>
                 </div>
@@ -1493,39 +1493,39 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-secondary text-white">
-                    <span class="tmi-section-title"><i class="fas fa-file-alt mr-1"></i> Free-Form Advisory</span>
+                    <span class="tmi-section-title"><i class="fas fa-file-alt mr-1"></i> ${PERTII18n.t('tmiPublish.form.freeFormAdvisory')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Advisory #</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Facility</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.facility')}</label>
                             <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Subject</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.subject')}</label>
                             <input type="text" class="form-control text-uppercase" id="adv_subject" placeholder="Advisory Subject">
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid From (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_valid_from" value="${currentDateTime}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Valid Until (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validUntilUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_valid_until" value="${endDateTime}">
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Advisory Text</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.advisoryText')}</label>
                         <textarea class="form-control" id="adv_text" rows="8" placeholder="Enter advisory text..."></textarea>
-                        <small class="text-muted">Max 2000 characters for Discord</small>
+                        <small class="text-muted">${PERTII18n.t('tmiPublish.form.maxDiscordChars')}</small>
                     </div>
                 </div>
             </div>
@@ -1573,31 +1573,31 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-danger text-white">
-                    <span class="tmi-section-title"><i class="fas fa-phone-volume mr-1"></i> Hotline Advisory</span>
+                    <span class="tmi-section-title"><i class="fas fa-phone-volume mr-1"></i> ${PERTII18n.t('tmiPublish.form.hotlineAdvisory')}</span>
                 </div>
                 <div class="card-body">
                     <!-- Row 1: Advisory #, Action, Hotline Name -->
                     <div class="row mb-3">
                         <div class="col-md-2">
-                            <label class="form-label small text-muted">Advisory #</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Action</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.action')}</label>
                             <select class="form-control" id="adv_hotline_action">
-                                <option value="ACTIVATION">Activation</option>
-                                <option value="UPDATE">Update</option>
-                                <option value="TERMINATION">Termination</option>
+                                <option value="ACTIVATION">${PERTII18n.t('tmiPublish.form.activation')}</option>
+                                <option value="UPDATE">${PERTII18n.t('common.update')}</option>
+                                <option value="TERMINATION">${PERTII18n.t('tmiPublish.form.termination')}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small text-muted">Hotline Name</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.hotlineName')}</label>
                             <select class="form-control" id="adv_hotline_name">
                                 ${hotlineNameOptions}
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Participation</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.participation')}</label>
                             <select class="form-control" id="adv_participation">
                                 ${participationOpts}
                             </select>
@@ -1607,11 +1607,11 @@
                     <!-- Row 2: Event Times (with dates) -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Start Date/Time (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.startDateTimeUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_start_datetime" value="${currentDateTime}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">End Date/Time (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.endDateTimeUtc')}</label>
                             <input type="datetime-local" class="form-control" id="adv_end_datetime">
                         </div>
                     </div>
@@ -1619,7 +1619,7 @@
                     <!-- Row 3: Facilities -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Constrained Facilities</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.constrainedFacilities')}</label>
                             <div class="facility-selector-wrapper">
                                 <select class="form-control mb-1" id="adv_constrained_select" multiple size="4">
                                     ${buildFacilityOptions()}
@@ -1627,11 +1627,11 @@
                                 <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities" 
                                        placeholder="Or type: ZNY, ZBW, ZDC" 
                                        data-linked-select="adv_constrained_select">
-                                <small class="text-muted">Select from list or type comma-separated codes</small>
+                                <small class="text-muted">${PERTII18n.t('tmiPublish.hotlineForm.selectOrTypeHint')}</small>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Facilities to Attend</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.facilitiesToAttend')}</label>
                             <div class="facility-selector-wrapper">
                                 <select class="form-control mb-1" id="adv_attend_select" multiple size="4">
                                     ${buildFacilityOptions()}
@@ -1639,7 +1639,7 @@
                                 <input type="text" class="form-control text-uppercase" id="adv_facilities" 
                                        placeholder="Or type: ZNY, ZBW, ZDC, ZOB" 
                                        data-linked-select="adv_attend_select">
-                                <small class="text-muted">Select from list or type comma-separated codes</small>
+                                <small class="text-muted">${PERTII18n.t('tmiPublish.hotlineForm.selectOrTypeHint')}</small>
                             </div>
                         </div>
                     </div>
@@ -1647,19 +1647,19 @@
                     <!-- Row 4: Impact Details -->
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Impacting Condition</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.impactingCondition')}</label>
                             <select class="form-control" id="adv_reason">
-                                <option value="WEATHER">Weather</option>
-                                <option value="VOLUME">Volume</option>
-                                <option value="EQUIPMENT">Equipment</option>
-                                <option value="STAFFING">Staffing</option>
-                                <option value="RUNWAY CONSTRUCTION">Runway Construction</option>
-                                <option value="SPECIAL EVENT">Special Event</option>
-                                <option value="OTHER">Other</option>
+                                <option value="WEATHER">${PERTII18n.t('tmiPublish.hotlineForm.weather')}</option>
+                                <option value="VOLUME">${PERTII18n.t('tmiPublish.hotlineForm.volume')}</option>
+                                <option value="EQUIPMENT">${PERTII18n.t('tmiPublish.hotlineForm.equipment')}</option>
+                                <option value="STAFFING">${PERTII18n.t('tmiPublish.hotlineForm.staffing')}</option>
+                                <option value="RUNWAY CONSTRUCTION">${PERTII18n.t('tmiPublish.hotlineForm.runwayConstruction')}</option>
+                                <option value="SPECIAL EVENT">${PERTII18n.t('tmiPublish.hotlineForm.specialEvent')}</option>
+                                <option value="OTHER">${PERTII18n.t('tmiPublish.hotlineForm.other')}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Location of Impact</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.hotlineForm.locationOfImpact')}</label>
                             <input type="text" class="form-control" id="adv_impacted_area" placeholder="e.g., NY Metro, EWR/JFK/LGA arrivals">
                         </div>
                     </div>
@@ -1667,24 +1667,23 @@
                     <!-- Row 5: Hotline Address (auto-mapped) -->
                     <div class="row mb-3">
                         <div class="col-md-12">
-                            <label class="form-label small text-muted">Hotline Address</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.hotlineForm.hotlineAddress')}</label>
                             <select class="form-control" id="adv_hotline_address">
                                 ${addressOptions}
                             </select>
-                            <small class="text-muted">Auto-selected based on hotline region. Canada hotlines use VATCAN TeamSpeak.</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.hotlineForm.addressAutoHint')}</small>
                         </div>
                     </div>
                     
                     <!-- Row 6: Notes -->
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Additional Remarks</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.hotlineForm.additionalRemarks')}</label>
                         <textarea class="form-control" id="adv_notes" rows="2" placeholder="Additional coordination notes..."></textarea>
                     </div>
-                    
+
                     <div class="alert alert-info small mb-0">
-                        <i class="fas fa-info-circle"></i> 
-                        <strong>Note:</strong> For Activation, the boilerplate text will be auto-generated. 
-                        Update/Termination advisories use a simpler format.
+                        <i class="fas fa-info-circle"></i>
+                        ${PERTII18n.t('tmiPublish.hotlineForm.boilerplateNote')}
                     </div>
                 </div>
             </div>
@@ -1760,82 +1759,82 @@
         return `
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
-                    <span class="tmi-section-title"><i class="fas fa-cloud-sun-rain mr-1"></i> SWAP (Severe Weather Avoidance Plan) Advisory</span>
+                    <span class="tmi-section-title"><i class="fas fa-cloud-sun-rain mr-1"></i> ${PERTII18n.t('tmiPublish.swap.title')}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Advisory #</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
                             <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">SWAP Action</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.swapAction')}</label>
                             <select class="form-control" id="adv_swap_type">
-                                <option value="IMPLEMENTATION">Implementation</option>
-                                <option value="UPDATE">Update</option>
-                                <option value="TERMINATION">Termination</option>
+                                <option value="IMPLEMENTATION">${PERTII18n.t('tmiPublish.swap.implementation')}</option>
+                                <option value="UPDATE">${PERTII18n.t('tmiPublish.swap.update')}</option>
+                                <option value="TERMINATION">${PERTII18n.t('tmiPublish.swap.termination')}</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Effective Date/Time (UTC)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.effectiveDateTime')}</label>
                             <input type="datetime-local" class="form-control" id="adv_effective_datetime" value="${currentDateTime}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small text-muted">Duration (hrs)</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.durationHrs')}</label>
                             <input type="number" class="form-control" id="adv_duration" min="1" max="24" value="4">
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Impacted Area</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.impactedArea')}</label>
                             <input type="text" class="form-control" id="adv_impacted_area" placeholder="e.g., ZNY/ZBW/ZOB airspace">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Affected Facilities</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.affectedFacilities')}</label>
                             <input type="text" class="form-control text-uppercase" id="adv_areas" placeholder="ZNY, ZBW, ZDC, ZOB">
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Include Traffic</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.includeTraffic')}</label>
                             <select class="form-control" id="adv_include_traffic">
-                                <option value="ALL">All Traffic</option>
-                                <option value="EASTBOUND">Eastbound Only</option>
-                                <option value="WESTBOUND">Westbound Only</option>
-                                <option value="NORTHBOUND">Northbound Only</option>
-                                <option value="SOUTHBOUND">Southbound Only</option>
+                                <option value="ALL">${PERTII18n.t('tmiPublish.swap.allTraffic')}</option>
+                                <option value="EASTBOUND">${PERTII18n.t('tmiPublish.swap.eastboundOnly')}</option>
+                                <option value="WESTBOUND">${PERTII18n.t('tmiPublish.swap.westboundOnly')}</option>
+                                <option value="NORTHBOUND">${PERTII18n.t('tmiPublish.swap.northboundOnly')}</option>
+                                <option value="SOUTHBOUND">${PERTII18n.t('tmiPublish.swap.southboundOnly')}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small text-muted">Probability of Extension</label>
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.probExtension')}</label>
                             <select class="form-control" id="adv_extension_prob">
-                                <option value="NONE">None</option>
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
+                                <option value="NONE">${PERTII18n.t('tmiPublish.swap.none')}</option>
+                                <option value="LOW">${PERTII18n.t('tmiPublish.swap.low')}</option>
+                                <option value="MEDIUM">${PERTII18n.t('tmiPublish.swap.medium')}</option>
+                                <option value="HIGH">${PERTII18n.t('tmiPublish.swap.high')}</option>
                             </select>
                         </div>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Weather Synopsis</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.weatherSynopsis')}</label>
                         <textarea class="form-control" id="adv_weather" rows="3" placeholder="Describe weather conditions, movement, and forecast..."></textarea>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Active Playbook Routes</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.activePlaybookRoutes')}</label>
                         <textarea class="form-control" id="adv_routes" rows="3" placeholder="List active playbook routes (one per line)...&#10;e.g., ZNY-WEST GATE: J584 HARWL J60&#10;ZBW-SOUTH: Q436 MERIT J174"></textarea>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Associated Restrictions</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.associatedRestrictions')}</label>
                         <input type="text" class="form-control" id="adv_restrictions" placeholder="e.g., 20MIT via affected fixes, EDCT +2hrs">
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Additional Remarks</label>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.additionalRemarks')}</label>
                         <textarea class="form-control" id="adv_notes" rows="2" placeholder="Additional coordination information..."></textarea>
                     </div>
                 </div>
@@ -1962,7 +1961,7 @@
             `,
             width: 450,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-download"></i> Import',
+            confirmButtonText: PERTII18n.t('tmiPublish.importBtn'),
             confirmButtonColor: '#007bff',
             cancelKey: 'common.cancel',
             preConfirm: () => {
@@ -2225,7 +2224,7 @@
                     `,
                     width: 500,
                     showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-check"></i> Select',
+                    confirmButtonText: PERTII18n.t('tmiPublish.selectBtn'),
                     confirmButtonColor: '#dc3545',
                     cancelKey: 'common.cancel',
                     preConfirm: () => {
@@ -2320,15 +2319,15 @@
 
         // Add note referencing original advisory
         const note = action === 'TERMINATION'
-            ? 'This advisory terminates the referenced hotline activation.'
-            : 'This advisory updates the referenced hotline activation.';
+            ? PERTII18n.t('tmiPublish.hotlineForm.terminatesRef')
+            : PERTII18n.t('tmiPublish.hotlineForm.updatesRef');
         $('#adv_notes').val(note);
 
         // Trigger address mapping and preview update
         $('#adv_hotline_name').trigger('change');
         updateAdvisoryPreview();
 
-        const instruction = action === 'TERMINATION' ? 'confirm the termination time' : 'make your updates';
+        const instruction = action === 'TERMINATION' ? PERTII18n.t('tmiPublish.hotlineForm.confirmTerminationTime') : PERTII18n.t('tmiPublish.hotlineForm.makeYourUpdates');
         PERTIDialog.success(
             'tmiPublish.fieldsAutoFilled',
             'tmiPublish.hotline.autoFilledText',
@@ -3256,9 +3255,9 @@
             // Check if this entry requires coordination
             const needsCoord = requiresCoordination(entrySubType);
             const submitBtnClass = needsCoord ? 'btn-outline-warning' : 'btn-outline-success';
-            const submitBtnTitle = needsCoord ? 'Submit for Coordination' : 'Publish Directly';
+            const submitBtnTitle = needsCoord ? PERTII18n.t('tmiPublish.queueItem.submitForCoord') : PERTII18n.t('tmiPublish.queueItem.publishDirectly');
             const submitBtnIcon = needsCoord ? 'fa-paper-plane' : 'fa-check';
-            const submitBtnText = needsCoord ? 'Coord' : 'Pub';
+            const submitBtnText = needsCoord ? PERTII18n.t('tmiPublish.queueItem.coord') : PERTII18n.t('tmiPublish.queueItem.pub');
 
             html += `
                 <div class="queue-item p-3 border-left-4 ${typeClass} mb-2 bg-light rounded">
@@ -3276,11 +3275,11 @@
                             <button class="btn btn-sm ${submitBtnClass} mb-1" onclick="TMIPublisher.submitSingleEntry(${index})" title="${submitBtnTitle}">
                                 <i class="fas ${submitBtnIcon}"></i><span class="ml-1 d-none d-sm-inline">${submitBtnText}</span>
                             </button>
-                            <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})" title="Preview">
-                                <i class="fas fa-eye"></i><span class="ml-1 d-none d-sm-inline">View</span>
+                            <button class="btn btn-sm btn-outline-primary mb-1" onclick="TMIPublisher.previewEntry(${index})" title="${PERTII18n.t('tmiPublish.queueItem.preview')}">
+                                <i class="fas fa-eye"></i><span class="ml-1 d-none d-sm-inline">${PERTII18n.t('tmiPublish.queueItem.view')}</span>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="TMIPublisher.removeFromQueue(${index})" title="Remove">
-                                <i class="fas fa-times"></i><span class="ml-1 d-none d-sm-inline">Del</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="TMIPublisher.removeFromQueue(${index})" title="${PERTII18n.t('tmiPublish.queueItem.remove')}">
+                                <i class="fas fa-times"></i><span class="ml-1 d-none d-sm-inline">${PERTII18n.t('tmiPublish.queueItem.del')}</span>
                             </button>
                         </div>
                     </div>
@@ -3304,7 +3303,7 @@
             'tmiPublish.queue.clearQueue',
             'tmiPublish.queue.clearQueueText',
             { count: state.queue.length },
-            { confirmButtonColor: '#dc3545', confirmButtonText: 'Clear All' },
+            { confirmButtonColor: '#dc3545', confirmButtonText: PERTII18n.t('tmiPublish.queueItem.clearAll') },
         ).then((result) => {
             if (result.isConfirmed) {
                 state.queue = [];
@@ -3318,7 +3317,7 @@
         const entry = state.queue[index];
         if (!entry) {return;}
 
-        const previewText = entry.preview || 'No preview available';
+        const previewText = entry.preview || PERTII18n.t('tmiPublish.queueItem.noPreview');
         $('#previewModalContent').text(previewText);
         $('#previewModal').modal('show');
     }
@@ -3426,32 +3425,32 @@
         const directCount = results.directPublished.length;
 
         let icon = 'success';
-        let title = 'Submitted!';
+        let title = PERTII18n.t('tmiPublish.coordination.submitted');
 
         if (failedCount > 0 || discordFailedCount > 0) {
             icon = 'warning';
-            title = 'Partially Submitted';
+            title = PERTII18n.t('tmiPublish.coordination.partiallySubmitted');
         }
         if (successCount === 0 && discordFailedCount === 0) {
             icon = 'error';
-            title = 'Submission Failed';
+            title = PERTII18n.t('tmiPublish.coordination.submissionFailed');
         }
 
         let html = '';
         if (successCount > 0) {
-            html += `<p class="text-success"><i class="fas fa-check"></i> ${successCount} proposal(s) posted to #coordination</p>`;
+            html += `<p class="text-success"><i class="fas fa-check"></i> ${PERTII18n.t('tmiPublish.coordination.proposalsPosted', { count: successCount })}</p>`;
         }
         if (discordFailedCount > 0) {
-            html += `<p class="text-warning"><i class="fas fa-exclamation-triangle"></i> ${discordFailedCount} proposal(s) saved but Discord failed</p>`;
+            html += `<p class="text-warning"><i class="fas fa-exclamation-triangle"></i> ${PERTII18n.t('tmiPublish.coordination.proposalsSavedDiscordFailed', { count: discordFailedCount })}</p>`;
         }
         if (failedCount > 0) {
-            html += `<p class="text-danger"><i class="fas fa-times"></i> ${failedCount} proposal(s) failed</p>`;
+            html += `<p class="text-danger"><i class="fas fa-times"></i> ${PERTII18n.t('tmiPublish.coordination.proposalsFailed', { count: failedCount })}</p>`;
             results.failed.forEach(f => {
                 html += `<small class="text-muted d-block">${f.entry.data?.ctl_element || 'Entry'}: ${f.error}</small>`;
             });
         }
         if (directCount > 0) {
-            html += `<p class="text-info"><i class="fas fa-paper-plane"></i> ${directCount} entry(ies) published directly</p>`;
+            html += `<p class="text-info"><i class="fas fa-paper-plane"></i> ${PERTII18n.t('tmiPublish.coordination.entriesPublishedDirectly', { count: directCount })}</p>`;
         }
 
         // Clear successfully submitted entries from queue
@@ -3618,11 +3617,11 @@
             PERTIDialog.confirm(
                 null, null, {},
                 {
-                    title: `Submit to ${mode}?`,
-                    html: `<p>Post <strong>${state.queue.length}</strong> entries to Discord.</p>
-                           <p class="${modeClass}">Mode: <strong>${mode}</strong></p>`,
+                    title: PERTII18n.t('tmiPublish.coordination.submitToMode', { mode }),
+                    html: `<p>${PERTII18n.t('tmiPublish.coordination.postEntriesToDiscord', { count: state.queue.length })}</p>
+                           <p class="${modeClass}">${PERTII18n.t('tmiPublish.coordination.modeLabel', { mode })}</p>`,
                     confirmButtonColor: '#28a745',
-                    confirmButtonText: `Submit to ${mode}`,
+                    confirmButtonText: PERTII18n.t('tmiPublish.coordination.submitToModeBtn', { mode }),
                 },
             ).then((result) => {
                 if (result.isConfirmed) {
@@ -3659,8 +3658,8 @@
             PERTIDialog.confirm(
                 'tmiPublish.publish.publishNow', null, {},
                 {
-                    html: `<p>Post <strong>${state.queue.length}</strong> entry(ies) directly to Discord.</p>
-                           <p class="small text-muted">${typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.publish.noCoordRequired') : 'These entry types do not require facility coordination.'}</p>`,
+                    html: `<p>${PERTII18n.t('tmiPublish.coordination.postDirectly', { count: state.queue.length })}</p>
+                           <p class="small text-muted">${PERTII18n.t('tmiPublish.publish.noCoordRequired')}</p>`,
                     confirmButtonColor: '#28a745',
                     confirmKey: 'tmiPublish.publish.publishBtn',
                 },
@@ -3679,11 +3678,11 @@
         }
 
         // Multiple entries - ask user how they want to proceed
-        let message = `<p><strong>${entriesRequiringCoord.length}</strong> entries require coordination.</p>`;
+        let message = `<p>${PERTII18n.t('tmiPublish.coordination.entriesRequireCoord', { count: entriesRequiringCoord.length })}</p>`;
         if (entriesNotRequiringCoord.length > 0) {
-            message += `<p class="small text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</p>`;
+            message += `<p class="small text-muted">${PERTII18n.t('tmiPublish.coordination.otherEntriesPublishDirectly', { count: entriesNotRequiringCoord.length })}</p>`;
         }
-        message += `<p>How would you like to proceed?</p>`;
+        message += `<p>${PERTII18n.t('tmiPublish.coordination.howToProceed')}</p>`;
 
         PERTIDialog.show({
             titleKey: 'tmiPublish.submit.title',
@@ -3694,8 +3693,8 @@
             confirmButtonColor: '#007bff',
             denyButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Verify Each Entry',
-            denyButtonText: typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.quickSubmit') : 'Quick Submit (Same Facilities)',
+            confirmButtonText: PERTII18n.t('tmiPublish.coordination.verifyEachEntry'),
+            denyButtonText: PERTII18n.t('tmiPublish.quickSubmit'),
             cancelKey: 'common.cancel',
             width: '500px',
         }).then((result) => {
@@ -3729,7 +3728,7 @@
         }
 
         Swal.fire({
-            title: 'Submit for Coordination',
+            title: PERTII18n.t('tmiPublish.coordination.submitForCoordination'),
             html: `
                 <div class="text-left">
                     ${entryDetailHtml}
@@ -3739,25 +3738,25 @@
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_coordinate" name="coordOption" class="custom-control-input" value="coordinate" checked>
                             <label class="custom-control-label" for="coordOption_coordinate">
-                                <strong>Submit for Coordination</strong>
+                                <strong>${PERTII18n.t('tmiPublish.coordination.submitForCoordination')}</strong>
                             </label>
                         </div>
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_precoordinated" name="coordOption" class="custom-control-input" value="precoordinated">
                             <label class="custom-control-label" for="coordOption_precoordinated">
-                                <strong>Already Coordinated</strong>
+                                <strong>${PERTII18n.t('tmiPublish.coordination.alreadyCoordinated')}</strong>
                             </label>
                         </div>
                     </div>
 
                     <div id="coordinationOptions" class="mt-3 p-3 bg-light rounded">
                         <div class="form-group mb-3">
-                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes" class="row">
                                 ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
                             </div>
@@ -3768,7 +3767,7 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Submit',
+            confirmButtonText: PERTII18n.t('tmiPublish.coordination.submit'),
             width: '550px',
             didOpen: () => {
                 document.querySelectorAll('input[name="coordOption"]').forEach(radio => {
@@ -3783,7 +3782,7 @@
                 if (mode === 'coordinate') {
                     const deadline = document.getElementById('coordDeadline').value;
                     if (!deadline) {
-                        Swal.showValidationMessage('Please set an approval deadline');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                         return false;
                     }
                     const facilities = [];
@@ -3791,7 +3790,7 @@
                         facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                     });
                     if (facilities.length === 0) {
-                        Swal.showValidationMessage('Please select at least one facility');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                         return false;
                     }
                     return { mode: 'coordinate', deadline, facilities };
@@ -3834,22 +3833,22 @@
             const entryDetailHtml = buildEntryDetailHtml(entry);
 
             const result = await Swal.fire({
-                title: `Entry ${i + 1} of ${totalEntries}`,
+                title: PERTII18n.t('tmiPublish.coordination.entryOfTotal', { current: i + 1, total: totalEntries }),
                 html: `
                     <div class="text-left">
                         ${entryDetailHtml}
 
                         <div class="form-group mb-3">
-                            <label for="coordDeadline_${i}"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline_${i}"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline_${i}" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes_${i}" class="row">
                                 ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
                             </div>
-                            <small class="text-muted">Auto-detected from entry. Modify as needed.</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.coordination.autoDetectedHint')}</small>
                         </div>
                     </div>
                 `,
@@ -3858,15 +3857,15 @@
                 showDenyButton: i > 0,
                 confirmButtonColor: i === totalEntries - 1 ? '#dc3545' : '#007bff',
                 denyButtonColor: '#6c757d',
-                confirmButtonText: i === totalEntries - 1 ? 'Submit All' : 'Next Entry →',
-                denyButtonText: '← Back',
-                cancelButtonText: 'Cancel All',
+                confirmButtonText: i === totalEntries - 1 ? PERTII18n.t('tmiPublish.coordination.submitAll') : PERTII18n.t('tmiPublish.coordination.nextEntry'),
+                denyButtonText: PERTII18n.t('tmiPublish.coordination.back'),
+                cancelButtonText: PERTII18n.t('tmiPublish.coordination.cancelAll'),
                 width: '550px',
                 allowOutsideClick: false,
                 preConfirm: () => {
                     const deadline = document.getElementById(`coordDeadline_${i}`).value;
                     if (!deadline) {
-                        Swal.showValidationMessage('Please set an approval deadline');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                         return false;
                     }
                     const facilities = [];
@@ -3874,7 +3873,7 @@
                         facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                     });
                     if (facilities.length === 0) {
-                        Swal.showValidationMessage('Please select at least one facility');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                         return false;
                     }
                     return { deadline, facilities };
@@ -3915,26 +3914,26 @@
         const deadline = calculateEntryDeadline(entriesRequiringCoord[0]);
         const deadlineStr = deadline.toISOString().slice(0, 16);
 
-        let coordMessage = `Post <strong>${entriesRequiringCoord.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span>`;
+        let coordMessage = PERTII18n.t('tmiPublish.coordination.postToProduction', { count: entriesRequiringCoord.length });
         if (entriesNotRequiringCoord.length > 0) {
-            coordMessage += `<br><small class="text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</small>`;
+            coordMessage += `<br><small class="text-muted">${PERTII18n.t('tmiPublish.coordination.otherEntriesPublishDirectly', { count: entriesNotRequiringCoord.length })}</small>`;
         }
 
         Swal.fire({
-            title: 'Quick Submit - Same Facilities',
+            title: PERTII18n.t('tmiPublish.coordination.quickSubmitTitle'),
             html: `
                 <div class="text-left">
                     <p class="mb-3">${coordMessage}</p>
-                    <p class="small text-warning"><strong>Note:</strong> All entries will use the same facilities and deadline.</p>
+                    <p class="small text-warning">${PERTII18n.t('tmiPublish.coordination.sameDeadlineNote')}</p>
 
                     <div class="p-3 bg-light rounded">
                         <div class="form-group mb-3">
-                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes" class="row">
                                 ${buildFacilityCheckboxes()}
                             </div>
@@ -3945,12 +3944,12 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Submit All',
+            confirmButtonText: PERTII18n.t('tmiPublish.coordination.submitAll'),
             width: '550px',
             preConfirm: () => {
                 const deadline = document.getElementById('coordDeadline').value;
                 if (!deadline) {
-                    Swal.showValidationMessage('Please set an approval deadline');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                     return false;
                 }
                 const facilities = [];
@@ -3958,7 +3957,7 @@
                     facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                 });
                 if (facilities.length === 0) {
-                    Swal.showValidationMessage('Please select at least one facility');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                     return false;
                 }
                 return { deadline, facilities };
@@ -4121,7 +4120,7 @@
             const reasonStr = reasonDetail ? `${reasonCode}:${reasonDetail}` : reasonCode;
             detailRows += `
                 <tr>
-                    <td class="text-muted" style="width: 100px;">Reason:</td>
+                    <td class="text-muted" style="width: 100px;">${PERTII18n.t('tmiPublish.entryDetail.reason')}</td>
                     <td>${reasonStr.toUpperCase()}</td>
                 </tr>
             `;
@@ -4131,7 +4130,7 @@
         if (exclusions && exclusions.toUpperCase() !== 'NONE') {
             detailRows += `
                 <tr>
-                    <td class="text-muted">Exclusions:</td>
+                    <td class="text-muted">${PERTII18n.t('tmiPublish.entryDetail.exclusions')}</td>
                     <td>${exclusions.toUpperCase()}</td>
                 </tr>
             `;
@@ -4140,7 +4139,7 @@
         // Valid times row
         detailRows += `
             <tr>
-                <td class="text-muted">Valid:</td>
+                <td class="text-muted">${PERTII18n.t('tmiPublish.entryDetail.valid')}</td>
                 <td><strong>${timeRange}</strong></td>
             </tr>
         `;
@@ -4149,7 +4148,7 @@
         if (reqFacility || provFacility) {
             detailRows += `
                 <tr>
-                    <td class="text-muted">Req:Prov:</td>
+                    <td class="text-muted">${PERTII18n.t('tmiPublish.entryDetail.reqProv')}</td>
                     <td>${reqFacility}${provFacility ? ':' + provFacility : ''}</td>
                 </tr>
             `;
@@ -4892,15 +4891,15 @@
         if (state.productionMode) {
             badge.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
             targetMode.removeClass('badge-warning').addClass('badge-danger').text('PRODUCTION');
-            btnText.text('Submit to Production');
-            hint.text('Entries will post directly to LIVE Discord channels');
+            btnText.text(PERTII18n.t('tmiPublish.modeIndicator.submitToProduction'));
+            hint.text(PERTII18n.t('tmiPublish.modeIndicator.postsToProduction'));
             warning.slideDown();
             $('#submitAllBtn').removeClass('btn-success').addClass('btn-danger');
         } else {
             badge.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
             targetMode.removeClass('badge-danger').addClass('badge-warning').text('STAGING');
-            btnText.text('Submit to Staging');
-            hint.text('Entries will post to staging channels for review');
+            btnText.text(PERTII18n.t('tmiPublish.modeIndicator.submitToStaging'));
+            hint.text(PERTII18n.t('tmiPublish.modeIndicator.postsToStaging'));
             warning.slideUp();
             $('#submitAllBtn').removeClass('btn-danger').addClass('btn-success');
         }
@@ -4922,7 +4921,7 @@
         const orgNames = Array.from(orgs).map(code => {
             return CONFIG.discordOrgs?.[code]?.name || code;
         });
-        $('#targetOrgsDisplay').text(orgNames.length > 0 ? orgNames.join(', ') : 'None selected');
+        $('#targetOrgsDisplay').text(orgNames.length > 0 ? orgNames.join(', ') : PERTII18n.t('tmiPublish.noneSelected'));
     }
 
     function resetNtmlForm() {
@@ -5382,11 +5381,11 @@
         }
 
         if (displayName) {
-            $label.text('User Profile');
+            $label.text(PERTII18n.t('tmiPublish.userProfile'));
             $display.html(`<i class="fas fa-user-edit mr-1 small text-muted"></i>${displayName}`);
         } else {
-            $label.text('User Profile');
-            $display.html('<i class="fas fa-user-edit mr-1 small text-muted"></i><span class="text-warning">Set Up Profile</span>');
+            $label.text(PERTII18n.t('tmiPublish.userProfile'));
+            $display.html(`<i class="fas fa-user-edit mr-1 small text-muted"></i><span class="text-warning">${PERTII18n.t('tmiPublish.page.setUpProfile')}</span>`);
         }
     }
 
@@ -5576,16 +5575,16 @@
     function handleReopenProposal(proposalId) {
         PERTIDialog.show({
             titleKey: 'tmiPublish.reopen.title',
-            html: `<p>Reopen Proposal #${proposalId} for coordination?</p>
-                   <p class="small text-muted">This will reset all facility approvals and set status back to PENDING.</p>
+            html: `<p>${PERTII18n.t('tmiPublish.reopenProposal.confirmHtml', { id: proposalId })}</p>
+                   <p class="small text-muted">${PERTII18n.t('tmiPublish.reopenProposal.resetApprovals')}</p>
                    <div class="form-group text-left mt-3">
-                       <label class="small">Reason (optional):</label>
+                       <label class="small">${PERTII18n.t('tmiPublish.reopenProposal.reasonLabel')}</label>
                        <input type="text" id="reopen_reason" class="form-control form-control-sm" placeholder="e.g., Conditions changed">
                    </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#f0ad4e',
-            confirmButtonText: '<i class="fas fa-undo mr-1"></i> Reopen',
+            confirmButtonText: PERTII18n.t('tmiPublish.reopenProposal.reopenBtn'),
             cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
@@ -5613,7 +5612,7 @@
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.reopen.reopened', null, {}, {
-                        text: `Proposal #${proposalId} is now pending coordination.`,
+                        text: PERTII18n.t('tmiPublish.reopenProposal.pendingCoord', { id: proposalId }),
                         timer: 2000,
                     });
                     loadProposals();
@@ -5641,17 +5640,17 @@
             title: `<i class="fas fa-broadcast-tower text-success"></i> ${publishTitle}`,
             html: `
                 <div class="text-left">
-                    <p>Ready to publish <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> to production Discord channels?</p>
+                    <p>${PERTII18n.t('tmiPublish.publishProposal.readyHtml', { entryType: escapeHtml(entryType), ctlElement: escapeHtml(ctlElement) })}</p>
                     <div class="alert alert-info small py-2">
                         <i class="fas fa-info-circle mr-1"></i>
-                        This proposal has been fully approved by all required facilities.
+                        ${PERTII18n.t('tmiPublish.publishProposal.fullyApproved')}
                     </div>
                 </div>
             `,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
-            confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
+            confirmButtonText: PERTII18n.t('tmiPublish.publishProposal.publishNowBtn'),
             cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
@@ -5679,8 +5678,8 @@
                     const activation = response.activation || {};
                     PERTIDialog.success('tmiPublish.publish.published', null, {}, {
                         html: `
-                            <p>TMI published successfully.</p>
-                            ${activation.tmi_entry_id ? `<p class="small text-muted">Entry ID: #${activation.tmi_entry_id}</p>` : ''}
+                            <p>${PERTII18n.t('tmiPublish.publishProposal.tmiPublished')}</p>
+                            ${activation.tmi_entry_id ? `<p class="small text-muted">${PERTII18n.t('tmiPublish.publishProposal.entryId', { id: activation.tmi_entry_id })}</p>` : ''}
                         `,
                         timer: 3000,
                         showConfirmButton: true,
@@ -5705,10 +5704,10 @@
         PERTIDialog.confirm(
             'tmiPublish.publish.publishNow', null, {},
             {
-                html: `<p>Immediately publish this scheduled ${entryType} to Discord?</p>
-                       <p class="small text-muted">The proposal will be activated and posted to the advisories channel.</p>`,
+                html: `<p>${PERTII18n.t('tmiPublish.publishProposal.immediatePublish', { entryType })}</p>
+                       <p class="small text-muted">${PERTII18n.t('tmiPublish.publishProposal.activatedAndPosted')}</p>`,
                 confirmButtonColor: '#28a745',
-                confirmButtonText: '<i class="fas fa-broadcast-tower mr-1"></i> Publish Now',
+                confirmButtonText: PERTII18n.t('tmiPublish.publishProposal.publishNowBtn'),
             },
         ).then((result) => {
             if (result.isConfirmed) {
@@ -5729,7 +5728,7 @@
                         PERTIDialog.close();
                         if (response.success) {
                             PERTIDialog.success('tmiPublish.publish.published', null, {}, {
-                                html: `<p>${entryType} published to Discord.</p>`,
+                                html: `<p>${PERTII18n.t('tmiPublish.publishProposal.publishedToDiscord', { entryType })}</p>`,
                                 timer: 3000,
                                 showConfirmButton: true,
                             });
@@ -5768,23 +5767,23 @@
         }
 
         PERTIDialog.show({
-            title: '<i class="fas fa-broadcast-tower text-success"></i> Batch Publish?',
+            title: `<i class="fas fa-broadcast-tower text-success"></i> ${PERTII18n.t('tmiPublish.batchPublish.title')}`,
             html: `
                 <div class="text-left">
-                    <p>Publish <strong>${approvedIds.length}</strong> approved proposal(s) to Discord?</p>
+                    <p>${PERTII18n.t('tmiPublish.batchPublish.confirmHtml', { count: approvedIds.length })}</p>
                     <div class="alert alert-info small py-2">
                         <i class="fas fa-info-circle mr-1"></i>
-                        All TMIs will be created and posted to production channels.
+                        ${PERTII18n.t('tmiPublish.batchPublish.allTmisCreated')}
                     </div>
                     <div class="small text-muted">
-                        Proposal IDs: ${approvedIds.join(', ')}
+                        ${PERTII18n.t('tmiPublish.batchPublish.proposalIds', { ids: approvedIds.join(', ') })}
                     </div>
                 </div>
             `,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
-            confirmButtonText: `<i class="fas fa-broadcast-tower mr-1"></i> Publish All (${approvedIds.length})`,
+            confirmButtonText: PERTII18n.t('tmiPublish.batchPublish.publishAllBtn', { count: approvedIds.length }),
             cancelKey: 'common.cancel',
         }).then((result) => {
             if (result.isConfirmed) {
@@ -5796,7 +5795,7 @@
     function submitBatchPublish(proposalIds) {
         PERTIDialog.show({
             titleKey: 'tmiPublish.publish.publishing',
-            html: `<p>Publishing ${proposalIds.length} proposal(s)...</p><p class="small text-muted" id="batchPublishProgress">Starting...</p>`,
+            html: `<p>${PERTII18n.t('tmiPublish.batchPublish.publishingCount', { count: proposalIds.length })}</p><p class="small text-muted" id="batchPublishProgress">${PERTII18n.t('tmiPublish.batchPublish.starting')}</p>`,
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
         });
@@ -5854,16 +5853,16 @@
 
     function handleCancelProposal(proposalId, entryType, ctlElement) {
         PERTIDialog.show({
-            title: '<i class="fas fa-trash text-danger"></i> Cancel Proposal?',
+            title: `<i class="fas fa-trash text-danger"></i> ${PERTII18n.t('tmiPublish.cancelProposal.title')}`,
             html: `
                 <div class="text-left">
-                    <p>Cancel <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> proposal?</p>
+                    <p>${PERTII18n.t('tmiPublish.cancelProposal.confirmHtml', { entryType: escapeHtml(entryType), ctlElement: escapeHtml(ctlElement) })}</p>
                     <div class="alert alert-warning small py-2">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        This will permanently cancel the proposal. It cannot be undone.
+                        ${PERTII18n.t('tmiPublish.cancelProposal.permanentWarning')}
                     </div>
                     <div class="form-group mt-3">
-                        <label class="small">Reason (optional):</label>
+                        <label class="small">${PERTII18n.t('tmiPublish.cancelProposal.reasonLabel')}</label>
                         <input type="text" id="cancel_reason" class="form-control form-control-sm" placeholder="e.g., No longer needed">
                     </div>
                 </div>
@@ -5871,8 +5870,8 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: '<i class="fas fa-trash mr-1"></i> Cancel Proposal',
-            cancelButtonText: 'Keep',
+            confirmButtonText: PERTII18n.t('tmiPublish.cancelProposal.cancelBtn'),
+            cancelButtonText: PERTII18n.t('tmiPublish.cancelProposal.keepBtn'),
         }).then((result) => {
             if (result.isConfirmed) {
                 const reason = $('#cancel_reason').val();
@@ -5899,7 +5898,7 @@
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('dialog.success.deleted', null, {}, {
-                        text: `Proposal #${proposalId} has been cancelled.`,
+                        text: PERTII18n.t('tmiPublish.cancelProposal.cancelled', { id: proposalId }),
                         timer: 2000,
                     });
                     loadProposals();
@@ -5961,70 +5960,70 @@
         };
 
         Swal.fire({
-            title: `<i class="fas fa-edit text-info"></i> Edit Proposal #${proposal.proposal_id}`,
+            title: `<i class="fas fa-edit text-info"></i> ${PERTII18n.t('tmiPublish.editProposal.title', { id: proposal.proposal_id })}`,
             html: `
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="alert alert-warning small py-2">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <strong>Warning:</strong> Editing will clear all facility approvals and restart coordination.
+                        ${PERTII18n.t('tmiPublish.editProposal.editWarning')}
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.type')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(proposal.entry_type || 'TMI')}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Control Element</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.controlElement')}</label>
                             <input type="text" id="editPropCtlElement" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.ctl_element || entryData.ctl_element || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Requesting Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.requestingFacility')}</label>
                             <input type="text" id="editPropReqFac" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.requesting_facility || entryData.requesting_facility || '')}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Providing Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.providingFacility')}</label>
                             <input type="text" id="editPropProvFac" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.providing_facility || entryData.providing_facility || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid From (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.validFromUtc')}</label>
                             <input type="datetime-local" id="editPropValidFrom" class="form-control form-control-sm"
                                    value="${formatForInput(proposal.valid_from || entryData.valid_from)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid Until (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.validUntilUtc')}</label>
                             <input type="datetime-local" id="editPropValidUntil" class="form-control form-control-sm"
                                    value="${formatForInput(proposal.valid_until || entryData.valid_until)}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Restriction Value</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.restrictionValue')}</label>
                             <input type="number" id="editPropValue" class="form-control form-control-sm"
                                    value="${entryData.restriction_value || entryData.value || ''}" placeholder="e.g., 20">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Unit</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.unit')}</label>
                             <select id="editPropUnit" class="form-control form-control-sm">
-                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>MIT (miles)</option>
-                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>MINIT (minutes)</option>
+                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.mitMiles')}</option>
+                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.minitMinutes')}</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Restriction Text</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.restrictionText')}</label>
                         <textarea id="editPropRawText" class="form-control form-control-sm" rows="4"
                                   style="font-family: monospace; font-size: 11px;">${escapeHtml(proposal.raw_text || '')}</textarea>
-                        <small class="text-muted">This is the NTML text that facilities will see</small>
+                        <small class="text-muted">${PERTII18n.t('tmiPublish.editProposal.ntmlTextHint')}</small>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Edit Reason</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.editReason')}</label>
                         <input type="text" id="editPropReason" class="form-control form-control-sm"
                                placeholder="Why is this proposal being edited?" required>
                     </div>
@@ -6032,9 +6031,9 @@
             `,
             width: 650,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save & Restart Coordination',
+            confirmButtonText: PERTII18n.t('tmiPublish.editProposal.saveAndRestart'),
             confirmButtonColor: '#17a2b8',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('tmiPublish.editProposal.cancel'),
             didOpen: () => {
                 // Auto-update raw_text when restriction value or unit changes
                 const valueInput = document.getElementById('editPropValue');
@@ -6069,7 +6068,7 @@
             preConfirm: () => {
                 const reason = document.getElementById('editPropReason').value.trim();
                 if (!reason) {
-                    Swal.showValidationMessage('Please provide a reason for the edit');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.editProposal.provideReason'));
                     return false;
                 }
                 return {
@@ -6092,7 +6091,7 @@
     }
 
     function submitProposalEdit(proposalId, updates) {
-        PERTIDialog.loading('tmiPublish.saving', 'Updating proposal and restarting coordination');
+        PERTIDialog.loading('tmiPublish.saving', PERTII18n.t('tmiPublish.editProposal.updatingProposal'));
 
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
@@ -6136,7 +6135,7 @@
             <tr>
                 <td colspan="8" class="text-center text-muted py-4">
                     <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                    Loading proposals...
+                    ${PERTII18n.t('tmiPublish.proposals.loading')}
                 </td>
             </tr>
         `);
@@ -6157,11 +6156,11 @@
                         $('#pendingProposalsBadge').hide();
                     }
                 } else {
-                    showProposalsError('proposalsTableBody', response.error || 'Failed to load proposals');
+                    showProposalsError('proposalsTableBody', response.error || PERTII18n.t('tmiPublish.proposals.loadFailed'));
                 }
             },
             error: function(xhr, status, error) {
-                showProposalsError('proposalsTableBody', 'Failed to connect to server');
+                showProposalsError('proposalsTableBody', PERTII18n.t('tmiPublish.proposals.connectionFailed'));
             },
         });
 
@@ -6192,7 +6191,7 @@
             $tbody.html(`
                 <tr>
                     <td colspan="${colSpan}" class="text-center text-muted py-3">
-                        <em>No ${isPending ? 'pending' : 'recent'} proposals</em>
+                        <em>${isPending ? PERTII18n.t('tmiPublish.proposals.noPending') : PERTII18n.t('tmiPublish.proposals.noRecent')}</em>
                     </td>
                 </tr>
             `);
@@ -6329,7 +6328,7 @@
                                         data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
                                         data-ctl-element="${escapeHtml(p.ctl_element || '')}"
                                         title="Publish to Discord Now">
-                                    <i class="fas fa-broadcast-tower mr-1"></i>Publish Now
+                                    <i class="fas fa-broadcast-tower mr-1"></i>${PERTII18n.t('tmiPublish.proposals.publishNow')}
                                 </button>
                             ` : ''}
                             ${canReopen ? `
@@ -6352,7 +6351,7 @@
             const approvedCount = proposals.filter(p => p.status === 'APPROVED').length;
             const $batchBtn = $('#batchPublishApproved');
             if (approvedCount > 0 && isUserLoggedIn()) {
-                $batchBtn.text(`Publish All Approved (${approvedCount})`).prepend('<i class="fas fa-broadcast-tower mr-1"></i>').show();
+                $batchBtn.text(PERTII18n.t('tmiPublish.proposals.publishAllApproved', { count: approvedCount })).prepend('<i class="fas fa-broadcast-tower mr-1"></i>').show();
             } else {
                 $batchBtn.hide();
             }
@@ -6362,25 +6361,25 @@
     function getStatusBadge(status, dccOverride, dccAction) {
         if (dccOverride) {
             if (dccAction === 'APPROVE') {
-                return '<span class="badge badge-success"><i class="fas fa-gavel mr-1"></i>DCC Approved</span>';
+                return `<span class="badge badge-success"><i class="fas fa-gavel mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.dccApproved')}</span>`;
             } else if (dccAction === 'DENY') {
-                return '<span class="badge badge-danger"><i class="fas fa-gavel mr-1"></i>DCC Denied</span>';
+                return `<span class="badge badge-danger"><i class="fas fa-gavel mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.dccDenied')}</span>`;
             }
         }
 
         switch (status) {
             case 'PENDING':
-                return '<span class="badge badge-warning"><i class="fas fa-clock mr-1"></i>Pending</span>';
+                return `<span class="badge badge-warning"><i class="fas fa-clock mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.pending')}</span>`;
             case 'APPROVED':
-                return '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Approved</span>';
+                return `<span class="badge badge-success"><i class="fas fa-check mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.approved')}</span>`;
             case 'ACTIVATED':
-                return '<span class="badge badge-success"><i class="fas fa-broadcast-tower mr-1"></i>Activated</span>';
+                return `<span class="badge badge-success"><i class="fas fa-broadcast-tower mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.activated')}</span>`;
             case 'SCHEDULED':
-                return '<span class="badge badge-info"><i class="fas fa-calendar mr-1"></i>Scheduled</span>';
+                return `<span class="badge badge-info"><i class="fas fa-calendar mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.scheduled')}</span>`;
             case 'DENIED':
-                return '<span class="badge badge-danger"><i class="fas fa-times mr-1"></i>Denied</span>';
+                return `<span class="badge badge-danger"><i class="fas fa-times mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.denied')}</span>`;
             case 'EXPIRED':
-                return '<span class="badge badge-secondary"><i class="fas fa-hourglass-end mr-1"></i>Expired</span>';
+                return `<span class="badge badge-secondary"><i class="fas fa-hourglass-end mr-1"></i>${PERTII18n.t('tmiPublish.statusBadge.expired')}</span>`;
             default:
                 return `<span class="badge badge-secondary">${escapeHtml(status || 'Unknown')}</span>`;
         }
@@ -6403,7 +6402,7 @@
                            String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
 
             if (diff < 0) {
-                return `<span class="text-danger">${timeStr} (expired)</span>`;
+                return `<span class="text-danger">${timeStr} (${PERTII18n.t('tmiPublish.deadlineDialog.expired')})</span>`;
             } else if (diff < 3600000) {
                 const mins = Math.round(diff / 60000);
                 return `<span class="text-warning">${timeStr} (${mins}m)</span>`;
@@ -6445,23 +6444,23 @@
         const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
 
         Swal.fire({
-            title: 'Extend Deadline',
+            title: PERTII18n.t('tmiPublish.deadlineDialog.extendTitle'),
             html: `
                 <div class="text-left">
-                    <p>Extend approval deadline for Proposal #${proposalId}</p>
+                    <p>${PERTII18n.t('tmiPublish.deadlineDialog.extendForProposal', { id: proposalId })}</p>
                     <div class="form-group">
-                        <label for="newDeadline"><strong>New Deadline (UTC):</strong></label>
+                        <label for="newDeadline"><strong>${PERTII18n.t('tmiPublish.deadlineDialog.newDeadlineUtc')}</strong></label>
                         <input type="datetime-local" class="form-control" id="newDeadline" value="${deadlineStr}">
                     </div>
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: 'Extend',
+            confirmButtonText: PERTII18n.t('tmiPublish.deadlineDialog.extendBtn'),
             confirmButtonColor: '#007bff',
             preConfirm: () => {
                 const newDeadline = document.getElementById('newDeadline').value;
                 if (!newDeadline) {
-                    Swal.showValidationMessage('Please enter a new deadline');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.deadlineDialog.enterNewDeadline'));
                     return false;
                 }
                 return newDeadline;
@@ -6503,7 +6502,7 @@
             error: function(xhr, status, error) {
                 PERTIDialog.close();
                 PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                    text: error || 'Failed to extend deadline',
+                    text: error || PERTII18n.t('tmiPublish.deadlineDialog.failedToExtend'),
                 });
             },
         });
@@ -6514,12 +6513,12 @@
         const actionColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
 
         Swal.fire({
-            title: `${action === 'APPROVE' ? 'Approve' : 'Deny'} Proposal?`,
-            html: `<p>Are you sure you want to <strong>${actionText}</strong> Proposal #${proposalId}?</p>
-                   <p class="small text-muted">This is a DCC override action.</p>`,
+            title: action === 'APPROVE' ? PERTII18n.t('tmiPublish.proposalAction.approveTitle') : PERTII18n.t('tmiPublish.proposalAction.denyTitle'),
+            html: `<p>${PERTII18n.t('tmiPublish.proposalAction.confirmAction', { action: `<strong>${actionText}</strong>`, id: proposalId })}</p>
+                   <p class="small text-muted">${PERTII18n.t('tmiPublish.proposalAction.dccOverride')}</p>`,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: action === 'APPROVE' ? 'Approve' : 'Deny',
+            confirmButtonText: action === 'APPROVE' ? PERTII18n.t('tmiPublish.proposalAction.approveBtn') : PERTII18n.t('tmiPublish.proposalAction.denyBtn'),
             confirmButtonColor: actionColor,
         }).then((result) => {
             if (result.isConfirmed) {
@@ -6530,7 +6529,7 @@
 
     function submitProposalAction(proposalId, action) {
         PERTIDialog.show({
-            title: `${action === 'APPROVE' ? 'Approving' : 'Denying'}...`,
+            title: action === 'APPROVE' ? PERTII18n.t('tmiPublish.proposalAction.approving') : PERTII18n.t('tmiPublish.proposalAction.denying'),
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
         });
@@ -6561,7 +6560,7 @@
             error: function(xhr, status, error) {
                 PERTIDialog.close();
                 PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                    text: error || 'Failed to process action',
+                    text: error || PERTII18n.t('tmiPublish.proposalAction.failedToProcess'),
                 });
             },
         });
@@ -8493,8 +8492,8 @@
                 if (result.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Draft Saved',
-                        text: `Draft saved successfully (ID: ${result.draft_id})`,
+                        title: PERTII18n.t('tmiPublish.drafts.draftSaved'),
+                        text: PERTII18n.t('tmiPublish.drafts.draftSavedText', { id: result.draft_id }),
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -8504,7 +8503,7 @@
                 }
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to save draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.saveFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8515,7 +8514,7 @@
             const $list = $('#rr_drafts_list');
 
             if (!this.userCid) {
-                $list.html('<div class="list-group-item text-center text-muted small">Sign in to save drafts</div>');
+                $list.html(`<div class="list-group-item text-center text-muted small">${PERTII18n.t('tmiPublish.drafts.signInToSave')}</div>`);
                 return;
             }
 
@@ -8524,7 +8523,7 @@
                 const result = await response.json();
 
                 if (!result.success || !result.drafts.length) {
-                    $list.html('<div class="list-group-item text-center text-muted small">No saved drafts</div>');
+                    $list.html(`<div class="list-group-item text-center text-muted small">${PERTII18n.t('tmiPublish.drafts.noSavedDrafts')}</div>`);
                     return;
                 }
 
@@ -8551,7 +8550,7 @@
 
             } catch (e) {
                 console.error('[REROUTE] Failed to load drafts:', e);
-                $list.html('<div class="list-group-item text-center text-danger small">Failed to load drafts</div>');
+                $list.html(`<div class="list-group-item text-center text-danger small">${PERTII18n.t('tmiPublish.drafts.failedToLoadDrafts')}</div>`);
             }
         },
 
@@ -8572,13 +8571,13 @@
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Draft Loaded',
+                    title: PERTII18n.t('tmiPublish.drafts.draftLoaded'),
                     timer: 1500,
                     showConfirmButton: false,
                 });
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to load draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.loadFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8587,12 +8586,12 @@
          */
         deleteDraft: async function(draftId) {
             const confirm = await Swal.fire({
-                title: 'Delete Draft?',
-                text: 'This cannot be undone.',
+                title: PERTII18n.t('tmiPublish.drafts.deleteTitle'),
+                text: PERTII18n.t('tmiPublish.drafts.deleteText'),
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                confirmButtonText: 'Delete',
+                confirmButtonText: PERTII18n.t('tmiPublish.drafts.deleteBtn'),
             });
 
             if (!confirm.isConfirmed) {return;}
@@ -8610,7 +8609,7 @@
                 }
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to delete draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.deleteFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8667,9 +8666,9 @@
 
             // Show deadline dialog
             const { value: deadline } = await Swal.fire({
-                title: 'Coordination Deadline',
+                title: PERTII18n.t('tmiPublish.rerouteCoord.deadlineTitle'),
                 html: `
-                    <p class="mb-2">Set deadline for facility approvals:</p>
+                    <p class="mb-2">${PERTII18n.t('tmiPublish.rerouteCoord.setDeadline')}</p>
                     <input type="datetime-local" id="swal-deadline" class="swal2-input"
                            style="width: 100%;">
                     <p class="small text-muted mt-2">
@@ -8686,16 +8685,16 @@
                     return document.getElementById('swal-deadline').value;
                 },
                 showCancelButton: true,
-                confirmButtonText: 'Submit',
-                cancelButtonText: 'Cancel',
+                confirmButtonText: PERTII18n.t('tmiPublish.rerouteCoord.submitBtn'),
+                cancelButtonText: PERTII18n.t('tmiPublish.rerouteCoord.cancelBtn'),
             });
 
             if (!deadline) {return;}
 
             // Submit to coordination API
             Swal.fire({
-                title: 'Submitting...',
-                text: 'Creating coordination proposal',
+                title: PERTII18n.t('tmiPublish.rerouteCoord.submitting'),
+                text: PERTII18n.t('tmiPublish.rerouteCoord.creatingProposal'),
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading(),
             });
@@ -8719,15 +8718,15 @@
                 if (result.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Submitted for Coordination',
+                        title: PERTII18n.t('tmiPublish.submittedForCoord'),
                         html: `
                             <p>Proposal ID: <strong>${result.proposal_id}</strong></p>
                             ${result.auto_approved ?
-        '<p class="text-success">Auto-approved (internal TMI)</p>' :
-        '<p>Awaiting facility approvals on Discord.</p>'
+        `<p class="text-success">${PERTII18n.t('tmiPublish.autoApproved')}</p>` :
+        `<p>${PERTII18n.t('tmiPublish.awaitingApprovals')}</p>`
     }
                         `,
-                        confirmButtonText: 'View in Coordination Tab',
+                        confirmButtonText: PERTII18n.t('tmiPublish.viewInCoordTab'),
                     }).then(() => {
                         // Switch to coordination tab
                         $('#coordination-tab').tab('show');

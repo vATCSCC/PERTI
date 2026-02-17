@@ -238,7 +238,7 @@
 
             // Initialize Type and Status filters with Select2 (simpler config)
             const simpleSelect2Config = {
-                placeholder: 'All',
+                placeholder: PERTII18n.t('common.all'),
                 allowClear: true,
                 width: '100%',
                 closeOnSelect: false,
@@ -590,7 +590,7 @@
         $('body').append(progressHtml);
 
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
-        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown');
         const advisoryChannel = window.TMI_PUBLISHER_CONFIG?.advisoryChannel || 'advzy_staging';
 
         let successes = 0;
@@ -644,7 +644,7 @@
                             advisoriesPosted++;
                         }
                     } else {
-                        failures.push({ id: item.entityId, error: response.error || 'Unknown error' });
+                        failures.push({ id: item.entityId, error: response.error || PERTII18n.t('common.unknownError') });
                     }
                 },
                 error: function(xhr) {
@@ -1039,7 +1039,7 @@
             parts.push(`(${item.impactingCondition})`);
         }
 
-        return parts.join(' ') || item.summary || 'Reroute';
+        return parts.join(' ') || item.summary || PERTII18n.t('tmiActive.fallback.reroute');
     }
 
     function buildRestrictionText(item) {
@@ -1107,7 +1107,7 @@
             parts.push(`${item.requestingFacility}:${item.providingFacility}`);
         }
 
-        return parts.join(' ') || item.summary || item.rawText || 'Restriction';
+        return parts.join(' ') || item.summary || item.rawText || PERTII18n.t('tmiActive.fallback.restriction');
     }
 
     function renderAdvisories() {
@@ -1201,7 +1201,7 @@
         const isReroute = item.entityType === 'REROUTE';
         const advNum = item.advisoryNumber || '???';
         const advType = isReroute ? 'REROUTE' : (item.entryType || 'ADVISORY');
-        const subject = isReroute ? (item.name || item.summary || 'Reroute') : (item.subject || advType);
+        const subject = isReroute ? (item.name || item.summary || PERTII18n.t('tmiActive.fallback.reroute')) : (item.subject || advType);
         const effectiveTime = formatFaaDateTime(item.validFrom);
         const status = item.status || 'ACTIVE';
 
@@ -1479,12 +1479,12 @@
         }
 
         let detailHtml = '';
-        let title = 'TMI Details';
+        let title = PERTII18n.t('tmiActive.detailTitle');
         let editUrl = null;
 
         if (item.entityType === 'PROGRAM') {
             // GDP/GS Program details
-            title = `${item.entryType || 'Program'} Details`;
+            title = PERTII18n.t('tmiActive.programDetailTitle', { type: item.entryType || PERTII18n.t('tmiActive.fallback.program') });
             editUrl = 'gdt?edit=' + item.entityId;
 
             const scopeCenters = item.scopeCenters ?
@@ -1493,31 +1493,31 @@
             detailHtml = `
                 <div class="restriction-detail">
                     <table class="table table-sm table-borderless">
-                        <tr><th width="140">Program Type:</th><td><span class="badge badge-${item.entryType === 'GS' ? 'danger' : 'warning'}">${escapeHtml(item.entryType || 'PROGRAM')}</span></td></tr>
-                        <tr><th>Airport:</th><td class="font-weight-bold">${escapeHtml(item.ctlElement || '-')}</td></tr>
-                        <tr><th>Program Rate:</th><td>${item.programRate ? item.programRate + '/hr' : '-'}</td></tr>
-                        <tr><th>Scope Type:</th><td>${escapeHtml(item.scopeType || '-')}</td></tr>
-                        <tr><th>Scope Centers:</th><td>${escapeHtml(scopeCenters)}</td></tr>
-                        <tr><th>Cause:</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
-                        <tr><th>Cause Detail:</th><td>${escapeHtml(item.causeText || '-')}</td></tr>
-                        <tr><th>Total Flights:</th><td>${item.totalFlights || '-'}</td></tr>
-                        <tr><th>Controlled:</th><td>${item.controlledFlights || '-'}</td></tr>
-                        <tr><th>Exempt:</th><td>${item.exemptFlights || '-'}</td></tr>
-                        <tr><th>Start Time:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
-                        <tr><th>End Time:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
-                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'COMPLETED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
-                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? 'by ' + escapeHtml(item.createdBy) : ''}</td></tr>
+                        <tr><th width="140">${PERTII18n.t('tmiActive.detailTable.programType')}</th><td><span class="badge badge-${item.entryType === 'GS' ? 'danger' : 'warning'}">${escapeHtml(item.entryType || 'PROGRAM')}</span></td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.airport')}</th><td class="font-weight-bold">${escapeHtml(item.ctlElement || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.programRate')}</th><td>${item.programRate ? item.programRate + '/hr' : '-'}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.scopeType')}</th><td>${escapeHtml(item.scopeType || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.scopeCenters')}</th><td>${escapeHtml(scopeCenters)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.cause')}</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.causeDetail')}</th><td>${escapeHtml(item.causeText || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.totalFlights')}</th><td>${item.totalFlights || '-'}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.controlled')}</th><td>${item.controlledFlights || '-'}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.exempt')}</th><td>${item.exemptFlights || '-'}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.startTime')}</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.endTime')}</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.status')}</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'COMPLETED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.created')}</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? PERTII18n.t('tmiActive.detailTable.by') + ' ' + escapeHtml(item.createdBy) : ''}</td></tr>
                     </table>
                     ${item.comments ? `
                     <hr>
-                    <div class="small text-muted mb-1">Comments:</div>
+                    <div class="small text-muted mb-1">${PERTII18n.t('tmiActive.detailTable.comments')}</div>
                     <div class="bg-light p-2 small">${escapeHtml(item.comments)}</div>
                     ` : ''}
                 </div>
             `;
         } else if (item.entityType === 'REROUTE') {
             // Reroute details
-            title = 'Reroute Details';
+            title = PERTII18n.t('tmiActive.rerouteDetailTitle');
             editUrl = 'route?edit=' + item.entityId;
 
             // Link to view route on map (type=publicroute means it's from tmi_public_routes)
@@ -1529,38 +1529,38 @@
                 <div class="restriction-detail">
                     <div class="text-center mb-3">
                         <a href="${viewMapUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-map-marked-alt mr-1"></i> View Route on Map
+                            <i class="fas fa-map-marked-alt mr-1"></i> ${PERTII18n.t('tmiActive.viewRouteOnMap')}
                         </a>
                     </div>
                     <table class="table table-sm table-borderless">
-                        <tr><th width="140">Name:</th><td class="font-weight-bold">${escapeHtml(item.name || '-')}</td></tr>
-                        <tr><th>Advisory #:</th><td>${escapeHtml(item.advisoryNumber || '-')}</td></tr>
-                        <tr><th>Origin Centers:</th><td>${escapeHtml(item.originCenters || '-')}</td></tr>
-                        <tr><th>Origin Airports:</th><td>${escapeHtml(item.originAirports || '-')}</td></tr>
-                        <tr><th>Dest Centers:</th><td>${escapeHtml(item.destCenters || '-')}</td></tr>
-                        <tr><th>Dest Airports:</th><td>${escapeHtml(item.destAirports || '-')}</td></tr>
-                        <tr><th>Constrained Area:</th><td>${escapeHtml(item.constrainedArea || '-')}</td></tr>
-                        <tr><th>Protected Segment:</th><td>${escapeHtml(item.protectedSegment || item.protectedFixes || '-')}</td></tr>
-                        <tr><th>Avoid Fixes:</th><td>${escapeHtml(item.avoidFixes || '-')}</td></tr>
-                        <tr><th>Cause:</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
-                        <tr><th>Start Time:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
-                        <tr><th>End Time:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
-                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'EXPIRED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
-                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? 'by ' + escapeHtml(item.createdBy) : ''}</td></tr>
+                        <tr><th width="140">${PERTII18n.t('tmiActive.detailTable.name')}</th><td class="font-weight-bold">${escapeHtml(item.name || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.advisoryNum')}</th><td>${escapeHtml(item.advisoryNumber || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originCenters')}</th><td>${escapeHtml(item.originCenters || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originAirports')}</th><td>${escapeHtml(item.originAirports || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destCenters')}</th><td>${escapeHtml(item.destCenters || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destAirports')}</th><td>${escapeHtml(item.destAirports || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.constrainedArea')}</th><td>${escapeHtml(item.constrainedArea || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.protectedSegment')}</th><td>${escapeHtml(item.protectedSegment || item.protectedFixes || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.avoidFixes')}</th><td>${escapeHtml(item.avoidFixes || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.cause')}</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.startTime')}</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.endTime')}</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.status')}</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' || item.status === 'EXPIRED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.created')}</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdBy ? PERTII18n.t('tmiActive.detailTable.by') + ' ' + escapeHtml(item.createdBy) : ''}</td></tr>
                     </table>
                     ${item.routeString ? `
                     <hr>
-                    <div class="small text-muted mb-1">Route String:</div>
+                    <div class="small text-muted mb-1">${PERTII18n.t('tmiActive.detailTable.routeString')}</div>
                     <pre class="bg-light p-2 small" style="white-space: pre-wrap;">${escapeHtml(item.routeString)}</pre>
                     ` : ''}
                     ${item.advisoryText ? `
                     <hr>
-                    <div class="small text-muted mb-1">Advisory Text:</div>
+                    <div class="small text-muted mb-1">${PERTII18n.t('tmiActive.detailTable.advisoryText')}</div>
                     <pre class="bg-light p-2 small" style="white-space: pre-wrap;">${escapeHtml(item.advisoryText)}</pre>
                     ` : ''}
                     ${item.comments ? `
                     <hr>
-                    <div class="small text-muted mb-1">Comments:</div>
+                    <div class="small text-muted mb-1">${PERTII18n.t('tmiActive.detailTable.comments')}</div>
                     <div class="bg-light p-2 small">${escapeHtml(item.comments)}</div>
                     ` : ''}
                 </div>
@@ -1570,24 +1570,24 @@
             detailHtml = `
                 <div class="restriction-detail">
                     <table class="table table-sm table-borderless">
-                        <tr><th width="140">Type:</th><td>${escapeHtml(item.entryType || '-')}</td></tr>
-                        <tr><th>Control Element:</th><td>${escapeHtml(item.ctlElement || '-')}</td></tr>
-                        <tr><th>Requesting:</th><td>${escapeHtml(item.requestingFacility || '-')}</td></tr>
-                        <tr><th>Providing:</th><td>${escapeHtml(item.providingFacility || '-')}</td></tr>
-                        <tr><th>Value:</th><td>${item.restrictionValue ? item.restrictionValue + ' ' + (item.restrictionUnit || '') : '-'}</td></tr>
-                        <tr><th>Via/Condition:</th><td>${escapeHtml(item.conditionText || '-')}</td></tr>
-                        <tr><th>Qualifiers:</th><td>${escapeHtml(item.qualifiers || '-')}</td></tr>
-                        <tr><th>Exclusions:</th><td>${escapeHtml(item.exclusions || '-')}</td></tr>
-                        <tr><th>Reason:</th><td>${escapeHtml(item.reasonCode || '-')} ${item.reasonDetail ? ': ' + escapeHtml(item.reasonDetail) : ''}</td></tr>
-                        <tr><th>Valid From:</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
-                        <tr><th>Valid Until:</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
-                        <tr><th>Status:</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
-                        <tr><th>Created:</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdByName ? 'by ' + escapeHtml(item.createdByName) : ''}</td></tr>
-                        ${item.cancelledAt ? `<tr><th>Cancelled:</th><td>${formatFaaDateTime(item.cancelledAt)} ${item.cancelReason ? '- ' + escapeHtml(item.cancelReason) : ''}</td></tr>` : ''}
+                        <tr><th width="140">${PERTII18n.t('tmiActive.detailTable.type')}</th><td>${escapeHtml(item.entryType || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.controlElement')}</th><td>${escapeHtml(item.ctlElement || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.requesting')}</th><td>${escapeHtml(item.requestingFacility || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.providing')}</th><td>${escapeHtml(item.providingFacility || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.value')}</th><td>${item.restrictionValue ? item.restrictionValue + ' ' + (item.restrictionUnit || '') : '-'}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.viaCondition')}</th><td>${escapeHtml(item.conditionText || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.qualifiers')}</th><td>${escapeHtml(item.qualifiers || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.exclusions')}</th><td>${escapeHtml(item.exclusions || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.reason')}</th><td>${escapeHtml(item.reasonCode || '-')} ${item.reasonDetail ? ': ' + escapeHtml(item.reasonDetail) : ''}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.validFrom')}</th><td>${formatFaaDateTime(item.validFrom)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.validUntil')}</th><td>${formatFaaDateTime(item.validUntil)}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.status')}</th><td><span class="badge badge-${item.status === 'ACTIVE' ? 'success' : item.status === 'CANCELLED' ? 'secondary' : 'info'}">${item.status || 'UNKNOWN'}</span></td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.created')}</th><td>${formatFaaDateTime(item.createdAt)} ${item.createdByName ? PERTII18n.t('tmiActive.detailTable.by') + ' ' + escapeHtml(item.createdByName) : ''}</td></tr>
+                        ${item.cancelledAt ? `<tr><th>${PERTII18n.t('tmiActive.detailTable.cancelled')}</th><td>${formatFaaDateTime(item.cancelledAt)} ${item.cancelReason ? '- ' + escapeHtml(item.cancelReason) : ''}</td></tr>` : ''}
                     </table>
                     ${item.rawText ? `
                     <hr>
-                    <div class="small text-muted mb-1">Raw Text:</div>
+                    <div class="small text-muted mb-1">${PERTII18n.t('tmiActive.detailTable.rawText')}</div>
                     <pre class="bg-light p-2 small">${escapeHtml(item.rawText)}</pre>
                     ` : ''}
                 </div>
@@ -1664,7 +1664,7 @@
 
         // Get user info from TMI_PUBLISHER_CONFIG if available
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
-        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown');
 
         // Map entity type to API type
         const entityType = ['ADVISORY', 'PROGRAM', 'REROUTE'].includes(type) ? type : 'ENTRY';
@@ -1761,78 +1761,78 @@
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.type')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(entryType)}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Control Element</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.controlElement')}</label>
                             <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Requesting Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.requestingFacility')}</label>
                             <input type="text" id="editReqFac" class="form-control form-control-sm" value="${escapeHtml(item.requestingFacility || '')}" placeholder="e.g., ZDC,ZNY">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Providing Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.providingFacility')}</label>
                             <input type="text" id="editProvFac" class="form-control form-control-sm" value="${escapeHtml(item.providingFacility || '')}" placeholder="e.g., ZOB">
                         </div>
                     </div>
                     ${showValueField ? `
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Value</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.value')}</label>
                             <input type="number" id="editValue" class="form-control form-control-sm" value="${item.restrictionValue || ''}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Unit</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.unit')}</label>
                             <select id="editUnit" class="form-control form-control-sm">
-                                <option value="MIT" ${item.restrictionUnit === 'MIT' ? 'selected' : ''}>MIT (Miles)</option>
-                                <option value="MIN" ${item.restrictionUnit === 'MIN' ? 'selected' : ''}>MIN (Minutes)</option>
+                                <option value="MIT" ${item.restrictionUnit === 'MIT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.edit.mitMiles')}</option>
+                                <option value="MIN" ${item.restrictionUnit === 'MIN' ? 'selected' : ''}>${PERTII18n.t('tmiActive.edit.minMinutes')}</option>
                             </select>
                         </div>
                     </div>
                     ` : ''}
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid From (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.validFromUtc')}</label>
                             <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid Until (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.validUntilUtc')}</label>
                             <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Via / Condition</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.viaCondition')}</label>
                         <input type="text" id="editCondition" class="form-control form-control-sm" value="${escapeHtml(item.conditionText || '')}" placeholder="e.g., BRISS">
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Qualifiers</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.qualifiers')}</label>
                             <input type="text" id="editQualifiers" class="form-control form-control-sm" value="${escapeHtml(item.qualifiers || '')}" placeholder="e.g., JETS">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Exclusions</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.exclusions')}</label>
                             <input type="text" id="editExclusions" class="form-control form-control-sm" value="${escapeHtml(item.exclusions || '')}" placeholder="e.g., PROPS">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Reason Code</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonCode')}</label>
                             <select id="editReasonCode" class="form-control form-control-sm">
-                                <option value="">-- Select --</option>
-                                <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
-                                <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
-                                <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
-                                <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
-                                <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
-                                <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                                <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                                <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volume')}</option>
+                                <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weather')}</option>
+                                <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.staffing')}</option>
+                                <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runway')}</option>
+                                <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.equipment')}</option>
+                                <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.other')}</option>
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Reason Detail</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonDetail')}</label>
                             <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
                         </div>
                     </div>
@@ -1840,9 +1840,9 @@
             `,
             width: 600,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonText: PERTII18n.t('tmiActive.saveChangesBtn'),
             confirmButtonColor: '#28a745',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             preConfirm: () => {
                 return {
                     validFrom: document.getElementById('editValidFrom').value,
@@ -1922,11 +1922,11 @@
                 <div class="text-left" style="max-height: 65vh; overflow-y: auto;">
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Advisory #</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.advisoryNum')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(item.advisoryNumber || '-')}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.type')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(advType)}" readonly>
                         </div>
                     </div>
@@ -1935,9 +1935,9 @@
             `,
             width: 650,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonText: PERTII18n.t('tmiActive.saveChangesBtn'),
             confirmButtonColor: '#28a745',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             preConfirm: preConfirmFn,
         }).then((result) => {
             if (result.isConfirmed) {
@@ -1972,13 +1972,13 @@
         return `
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Action</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.action')}</label>
                     <select id="editHotlineAction" class="form-control form-control-sm">
                         ${actionOpts}
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Hotline Name</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.hotlineName')}</label>
                     <select id="editHotlineName" class="form-control form-control-sm">
                         ${hotlineNameOpts}
                     </select>
@@ -1986,55 +1986,55 @@
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Start Date/Time (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.startDateTimeUtc')}</label>
                     <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">End Date/Time (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.endDateTimeUtc')}</label>
                     <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Constrained Facilities</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.constrainedFacilities')}</label>
                     <input type="text" id="editConstrainedFacilities" class="form-control form-control-sm text-uppercase"
                            value="${escapeHtml(item.constrainedFacilities || item.scopeFacilities || '')}" placeholder="e.g., ZNY, ZBW, ZDC">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Attending Facilities</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.attendingFacilities')}</label>
                     <input type="text" id="editAttendingFacilities" class="form-control form-control-sm text-uppercase"
                            value="${escapeHtml(item.attendingFacilities || '')}" placeholder="e.g., ZNY, ZBW, ZDC, ZOB">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Participation</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.participation')}</label>
                     <select id="editParticipation" class="form-control form-control-sm">
                         ${participationOpts}
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Impacting Condition</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.impactingCondition')}</label>
                     <select id="editReasonCode" class="form-control form-control-sm">
-                        <option value="">-- Select --</option>
-                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>Weather</option>
-                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>Volume</option>
-                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>Equipment</option>
-                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>Staffing</option>
-                        <option value="RUNWAY CONSTRUCTION" ${item.reasonCode === 'RUNWAY CONSTRUCTION' ? 'selected' : ''}>Runway Construction</option>
-                        <option value="SPECIAL EVENT" ${item.reasonCode === 'SPECIAL EVENT' ? 'selected' : ''}>Special Event</option>
-                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>Other</option>
+                        <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weatherLabel')}</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volumeLabel')}</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.equipmentLabel')}</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.staffingLabel')}</option>
+                        <option value="RUNWAY CONSTRUCTION" ${item.reasonCode === 'RUNWAY CONSTRUCTION' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runwayConstruction')}</option>
+                        <option value="SPECIAL EVENT" ${item.reasonCode === 'SPECIAL EVENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.specialEvent')}</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.otherLabel')}</option>
                     </select>
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Location of Impact</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.locationOfImpact')}</label>
                     <input type="text" id="editImpactedArea" class="form-control form-control-sm"
                            value="${escapeHtml(item.impactedArea || item.reasonDetail || '')}" placeholder="e.g., NY Metro, EWR/JFK/LGA arrivals">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Hotline Address</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.hotlineAddress')}</label>
                     <select id="editHotlineAddress" class="form-control form-control-sm">
                         <option value="ts.vatusa.net" ${item.hotlineAddress === 'ts.vatusa.net' ? 'selected' : ''}>VATUSA TeamSpeak (ts.vatusa.net)</option>
                         <option value="ts.vatcan.ca" ${item.hotlineAddress === 'ts.vatcan.ca' ? 'selected' : ''}>VATCAN TeamSpeak (ts.vatcan.ca)</option>
@@ -2043,7 +2043,7 @@
                 </div>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Additional Remarks</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.additionalRemarks')}</label>
                 <textarea id="editNotes" class="form-control form-control-sm" rows="2">${escapeHtml(item.notes || item.bodyText || '')}</textarea>
             </div>
         `;
@@ -2069,40 +2069,40 @@
         return `
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Facility</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.facility')}</label>
                     <input type="text" id="editFacility" class="form-control form-control-sm text-uppercase"
                            value="${escapeHtml(item.facility || 'DCC')}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Subject</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.subject')}</label>
                     <input type="text" id="editSubject" class="form-control form-control-sm"
                            value="${escapeHtml(item.subject || '')}">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Valid From (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.validFromUtc')}</label>
                     <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Valid Until (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.validUntilUtc')}</label>
                     <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                 </div>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Key Initiatives</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.keyInitiatives')}</label>
                 <textarea id="editInitiatives" class="form-control form-control-sm" rows="4"
-                          placeholder="List key TMIs and initiatives...">${escapeHtml(item.initiatives || item.bodyText || '')}</textarea>
+                          placeholder="${PERTII18n.t('tmiActive.editPlaceholder.listTmis')}">${escapeHtml(item.initiatives || item.bodyText || '')}</textarea>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Terminal/Enroute Constraints</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.termEnrouteConstraints')}</label>
                 <textarea id="editConstraints" class="form-control form-control-sm" rows="2"
-                          placeholder="Weather impacts and constraints...">${escapeHtml(item.constraints || item.weatherImpacts || '')}</textarea>
+                          placeholder="${PERTII18n.t('tmiActive.editPlaceholder.weatherImpacts')}">${escapeHtml(item.constraints || item.weatherImpacts || '')}</textarea>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Special Events</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.specialEvents')}</label>
                 <textarea id="editEvents" class="form-control form-control-sm" rows="2"
-                          placeholder="Special events affecting traffic...">${escapeHtml(item.specialEvents || '')}</textarea>
+                          placeholder="${PERTII18n.t('tmiActive.editPlaceholder.specialEvents')}">${escapeHtml(item.specialEvents || '')}</textarea>
             </div>
         `;
     }
@@ -2122,59 +2122,59 @@
     function buildProgramEditForm(item, formatForInput, advType) {
         return `
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Subject</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.subject')}</label>
                 <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Control Element</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.controlElement')}</label>
                     <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Scope Facilities</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.scopeFacilities')}</label>
                     <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Effective From (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.effectiveFromUtc')}</label>
                     <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Effective Until (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.effectiveUntilUtc')}</label>
                     <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Program Rate</label>
-                    <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}" placeholder="Flights/hr">
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.programRate')}</label>
+                    <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}" placeholder="${PERTII18n.t('tmiActive.editPlaceholder.flightsHr')}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Delay Cap (min)</label>
-                    <input type="number" id="editDelayCap" class="form-control form-control-sm" value="${item.delayCap || ''}" placeholder="Minutes">
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.delayCap')}</label>
+                    <input type="number" id="editDelayCap" class="form-control form-control-sm" value="${item.delayCap || ''}" placeholder="${PERTII18n.t('tmiActive.editPlaceholder.minutes')}">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Reason Code</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonCode')}</label>
                     <select id="editReasonCode" class="form-control form-control-sm">
-                        <option value="">-- Select --</option>
-                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
-                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
-                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
-                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
-                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
-                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                        <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volume')}</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weather')}</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.staffing')}</option>
+                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runway')}</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.equipment')}</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.other')}</option>
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Reason Detail</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonDetail')}</label>
                     <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
                 </div>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Body Text</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.bodyText')}</label>
                 <textarea id="editBodyText" class="form-control form-control-sm" rows="4" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
             </div>
         `;
@@ -2198,49 +2198,49 @@
     function buildFreeformEditForm(item, formatForInput) {
         return `
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Subject</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.subject')}</label>
                 <input type="text" id="editSubject" class="form-control form-control-sm" value="${escapeHtml(item.subject || '')}">
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Control Element</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.controlElement')}</label>
                     <input type="text" id="editCtlElement" class="form-control form-control-sm" value="${escapeHtml(item.ctlElement || '')}" placeholder="e.g., KJFK">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Scope Facilities</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.scopeFacilities')}</label>
                     <input type="text" id="editScopeFac" class="form-control form-control-sm" value="${escapeHtml(item.scopeFacilities || '')}" placeholder="e.g., ZNY,ZBW">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Effective From (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.effectiveFromUtc')}</label>
                     <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Effective Until (UTC)</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.effectiveUntilUtc')}</label>
                     <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                 </div>
             </div>
             <div class="row mb-2">
                 <div class="col-6">
-                    <label class="small font-weight-bold">Reason Code</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonCode')}</label>
                     <select id="editReasonCode" class="form-control form-control-sm">
-                        <option value="">-- Select --</option>
-                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>VOLUME</option>
-                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>WEATHER</option>
-                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>STAFFING</option>
-                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>RUNWAY</option>
-                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>EQUIPMENT</option>
-                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                        <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                        <option value="VOLUME" ${item.reasonCode === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volume')}</option>
+                        <option value="WEATHER" ${item.reasonCode === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weather')}</option>
+                        <option value="STAFFING" ${item.reasonCode === 'STAFFING' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.staffing')}</option>
+                        <option value="RUNWAY" ${item.reasonCode === 'RUNWAY' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runway')}</option>
+                        <option value="EQUIPMENT" ${item.reasonCode === 'EQUIPMENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.equipment')}</option>
+                        <option value="OTHER" ${item.reasonCode === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.other')}</option>
                     </select>
                 </div>
                 <div class="col-6">
-                    <label class="small font-weight-bold">Reason Detail</label>
+                    <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.reasonDetail')}</label>
                     <input type="text" id="editReasonDetail" class="form-control form-control-sm" value="${escapeHtml(item.reasonDetail || '')}">
                 </div>
             </div>
             <div class="form-group mb-2">
-                <label class="small font-weight-bold">Body Text</label>
+                <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.bodyText')}</label>
                 <textarea id="editBodyText" class="form-control form-control-sm" rows="6" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.bodyText || item.rawText || '')}</textarea>
             </div>
         `;
@@ -2284,70 +2284,70 @@
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.type')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(programType)}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Airport</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.airport')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(item.ctlElement || '')}" readonly>
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Start Time (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.startTimeUtc')}</label>
                             <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">End Time (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.endTimeUtc')}</label>
                             <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                         </div>
                     </div>
                     ${isGDP ? `
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Program Rate (/hr)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.programRateHr')}</label>
                             <input type="number" id="editProgramRate" class="form-control form-control-sm" value="${item.programRate || ''}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Scope Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.scopeType')}</label>
                             <select id="editScopeType" class="form-control form-control-sm">
-                                <option value="">-- Select --</option>
-                                <option value="TIER" ${item.scopeType === 'TIER' ? 'selected' : ''}>Tier</option>
-                                <option value="DISTANCE" ${item.scopeType === 'DISTANCE' ? 'selected' : ''}>Distance</option>
-                                <option value="CENTER" ${item.scopeType === 'CENTER' ? 'selected' : ''}>Center</option>
-                                <option value="ALL" ${item.scopeType === 'ALL' ? 'selected' : ''}>All</option>
+                                <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                                <option value="TIER" ${item.scopeType === 'TIER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.scopeOption.tier')}</option>
+                                <option value="DISTANCE" ${item.scopeType === 'DISTANCE' ? 'selected' : ''}>${PERTII18n.t('tmiActive.scopeOption.distance')}</option>
+                                <option value="CENTER" ${item.scopeType === 'CENTER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.scopeOption.center')}</option>
+                                <option value="ALL" ${item.scopeType === 'ALL' ? 'selected' : ''}>${PERTII18n.t('tmiActive.scopeOption.all')}</option>
                             </select>
                         </div>
                     </div>
                     ` : ''}
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Impacting Condition</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.impactingCondition')}</label>
                             <select id="editImpactingCondition" class="form-control form-control-sm">
-                                <option value="">-- Select --</option>
-                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>Weather</option>
-                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>Volume</option>
-                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>Runway</option>
-                                <option value="EQUIPMENT" ${item.impactingCondition === 'EQUIPMENT' ? 'selected' : ''}>Equipment</option>
-                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>Other</option>
+                                <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weatherLabel')}</option>
+                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volumeLabel')}</option>
+                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runway')}</option>
+                                <option value="EQUIPMENT" ${item.impactingCondition === 'EQUIPMENT' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.equipmentLabel')}</option>
+                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.otherLabel')}</option>
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Cause Detail</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.causeDetail')}</label>
                             <input type="text" id="editCauseText" class="form-control form-control-sm" value="${escapeHtml(item.causeText || '')}">
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Comments</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.comments')}</label>
                         <textarea id="editComments" class="form-control form-control-sm" rows="3">${escapeHtml(item.comments || '')}</textarea>
                     </div>
                 </div>
             `,
             width: 600,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonText: PERTII18n.t('tmiActive.saveChangesBtn'),
             confirmButtonColor: '#28a745',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             preConfirm: () => {
                 return {
                     validFrom: document.getElementById('editValidFrom').value,
@@ -2388,47 +2388,47 @@
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
                         <div class="col-12">
-                            <label class="small font-weight-bold">Name</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.name')}</label>
                             <input type="text" id="editName" class="form-control form-control-sm" value="${escapeHtml(item.name || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Start Time (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.startTimeUtc')}</label>
                             <input type="datetime-local" id="editValidFrom" class="form-control form-control-sm" value="${formatForInput(item.validFrom)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">End Time (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.endTimeUtc')}</label>
                             <input type="datetime-local" id="editValidUntil" class="form-control form-control-sm" value="${formatForInput(item.validUntil)}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Origin Centers</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.originCenters')}</label>
                             <input type="text" id="editOriginCenters" class="form-control form-control-sm" value="${escapeHtml(item.originCenters || '')}" placeholder="e.g., ZNY,ZBW">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Dest Centers</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.destCenters')}</label>
                             <input type="text" id="editDestCenters" class="form-control form-control-sm" value="${escapeHtml(item.destCenters || '')}" placeholder="e.g., ZLA,ZOA">
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Protected Segment / Fixes</label>
-                        <input type="text" id="editProtectedSegment" class="form-control form-control-sm" value="${escapeHtml(item.protectedSegment || item.protectedFixes || '')}" placeholder="Route or fixes">
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.protectedSegmentFixes')}</label>
+                        <input type="text" id="editProtectedSegment" class="form-control form-control-sm" value="${escapeHtml(item.protectedSegment || item.protectedFixes || '')}" placeholder="${PERTII18n.t('tmiActive.editPlaceholder.routeOrFixes')}">
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Avoid Fixes</label>
-                        <input type="text" id="editAvoidFixes" class="form-control form-control-sm" value="${escapeHtml(item.avoidFixes || '')}" placeholder="Fixes to avoid">
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.avoidFixes')}</label>
+                        <input type="text" id="editAvoidFixes" class="form-control form-control-sm" value="${escapeHtml(item.avoidFixes || '')}" placeholder="${PERTII18n.t('tmiActive.editPlaceholder.fixesToAvoid')}">
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Impacting Condition</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.impactingCondition')}</label>
                             <select id="editImpactingCondition" class="form-control form-control-sm">
-                                <option value="">-- Select --</option>
-                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>Weather</option>
-                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>Volume</option>
-                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>Runway</option>
-                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>Other</option>
+                                <option value="">${PERTII18n.t('tmiActive.reasonOption.select')}</option>
+                                <option value="WEATHER" ${item.impactingCondition === 'WEATHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.weatherLabel')}</option>
+                                <option value="VOLUME" ${item.impactingCondition === 'VOLUME' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.volumeLabel')}</option>
+                                <option value="RUNWAY" ${item.impactingCondition === 'RUNWAY' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.runway')}</option>
+                                <option value="OTHER" ${item.impactingCondition === 'OTHER' ? 'selected' : ''}>${PERTII18n.t('tmiActive.reasonOption.otherLabel')}</option>
                             </select>
                         </div>
                         <div class="col-6">
@@ -2436,20 +2436,20 @@
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Comments</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.comments')}</label>
                         <textarea id="editComments" class="form-control form-control-sm" rows="2">${escapeHtml(item.comments || '')}</textarea>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Advisory Text</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiActive.editLabel.advisoryText')}</label>
                         <textarea id="editAdvisoryText" class="form-control form-control-sm" rows="3" style="font-family: monospace; font-size: 11px;">${escapeHtml(item.advisoryText || '')}</textarea>
                     </div>
                 </div>
             `,
             width: 600,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save Changes',
+            confirmButtonText: PERTII18n.t('tmiActive.saveChangesBtn'),
             confirmButtonColor: '#28a745',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             preConfirm: () => {
                 return {
                     validFrom: document.getElementById('editValidFrom').value,
@@ -2479,7 +2479,7 @@
         });
 
         const userCid = window.TMI_PUBLISHER_CONFIG?.userCid || null;
-        const userName = window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown';
+        const userName = window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown');
 
         // Map type to API entity type
         const entityType = ['ADVISORY', 'PROGRAM', 'REROUTE'].includes(type) ? type : 'ENTRY';

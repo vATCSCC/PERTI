@@ -314,6 +314,9 @@ function switchOrg(orgCode) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
+            if (data.default_locale) {
+                localStorage.setItem('PERTI_LOCALE', data.default_locale);
+            }
             window.location.reload();
         }
     });
