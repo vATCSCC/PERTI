@@ -182,7 +182,7 @@ window.PublicRoutes = (function() {
             if (!groups.has(groupId)) {
                 // Extract base name (remove origin-dest suffix if present)
                 // Format: "N90_TO_MIA_ARS (KEWR-KMIA)" -> "N90_TO_MIA_ARS"
-                let baseName = route.name || 'Unnamed Route';
+                let baseName = route.name || PERTII18n.t('publicRoutes.unnamedRoute');
                 const parenMatch = baseName.match(/^(.+?)\s*\([^)]+\)$/);
                 if (parenMatch) {
                     baseName = parenMatch[1].trim();
@@ -279,7 +279,7 @@ window.PublicRoutes = (function() {
         const apiKey = getApiKey();
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
-            alert('API key not configured. Contact administrator.');
+            alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
             return $.Deferred().reject('No API key');
         }
 
@@ -309,7 +309,7 @@ window.PublicRoutes = (function() {
 
                     Swal.fire({
                         icon: 'success',
-                        title: 'Route Published!',
+                        title: PERTII18n.t('publicRoutes.routePublished'),
                         html: `
                             <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been published successfully.</p>
                             <p class="small text-muted mt-2">
@@ -327,17 +327,17 @@ window.PublicRoutes = (function() {
             } else {
                 console.error('[PublicRoutes] Save error:', data.error);
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire('Error', 'Failed to save route: ' + data.error, 'error');
+                    Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('publicRoutes.failedToSaveRoute', { error: data.error }), 'error');
                 } else {
-                    alert('Failed to save route: ' + data.error);
+                    alert(PERTII18n.t('publicRoutes.failedToSaveRoute', { error: data.error }));
                 }
             }
         }).fail(function(xhr, status, err) {
             console.error('[PublicRoutes] Save failed:', status, err);
             if (typeof Swal !== 'undefined') {
-                Swal.fire('Error', 'Failed to save route: ' + err, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('publicRoutes.failedToSaveRoute', { error: err }), 'error');
             } else {
-                alert('Failed to save route: ' + err);
+                alert(PERTII18n.t('publicRoutes.failedToSaveRoute', { error: err }));
             }
         });
     }
@@ -346,14 +346,14 @@ window.PublicRoutes = (function() {
      * Delete a public route
      */
     function deleteRoute(routeId, hard = false) {
-        if (!confirm('Are you sure you want to ' + (hard ? 'permanently delete' : 'deactivate') + ' this route?')) {
+        if (!confirm(hard ? PERTII18n.t('publicRoutes.confirmDelete') : PERTII18n.t('publicRoutes.confirmDeactivate'))) {
             return $.Deferred().reject();
         }
 
         const apiKey = getApiKey();
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
-            alert('API key not configured. Contact administrator.');
+            alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
             return $.Deferred().reject('No API key');
         }
 
@@ -370,11 +370,11 @@ window.PublicRoutes = (function() {
                 fetchRoutes();  // Refresh the list
             } else {
                 console.error('[PublicRoutes] Delete error:', data.error);
-                alert('Failed to delete route: ' + data.error);
+                alert(PERTII18n.t('publicRoutes.failedToDeleteRoute', { error: data.error }));
             }
         }).fail(function(xhr, status, err) {
             console.error('[PublicRoutes] Delete failed:', status, err);
-            alert('Failed to delete route: ' + err);
+            alert(PERTII18n.t('publicRoutes.failedToDeleteRoute', { error: err }));
         });
     }
 
@@ -537,9 +537,9 @@ window.PublicRoutes = (function() {
 
         if (categoryRoutes.length === 0) {
             const totalRoutes = state.routes.length;
-            let emptyMessage = 'No public routes';
+            let emptyMessage = PERTII18n.t('publicRoutes.noPublicRoutes');
             if (totalRoutes > 0) {
-                emptyMessage = totalRoutes + ' route(s) hidden by category filters';
+                emptyMessage = totalRoutes + ' ' + PERTII18n.t('publicRoutes.hiddenByFilters');
             }
             $list.html('<div class="text-muted text-center py-3"><i class="fas fa-route mr-2"></i>' + emptyMessage + '</div>');
             return;
@@ -834,9 +834,9 @@ window.PublicRoutes = (function() {
         if (visibleCount === 0) {
             if (!$emptyMsg.length) {
                 const totalRoutes = state.routes.length;
-                let emptyMessage = 'No public routes';
+                let emptyMessage = PERTII18n.t('publicRoutes.noPublicRoutes');
                 if (totalRoutes > 0) {
-                    emptyMessage = totalRoutes + ' route(s) hidden by filters';
+                    emptyMessage = totalRoutes + ' ' + PERTII18n.t('publicRoutes.hiddenByFilters');
                 }
                 $list.append('<div class="pr-empty-message text-muted text-center py-3"><i class="fas fa-eye-slash mr-2"></i>' + emptyMessage + '</div>');
             }
@@ -1319,7 +1319,7 @@ window.PublicRoutes = (function() {
         const editingRoute = state.editingRoute;
 
         // Get values from advisory builder form
-        const name = $('#advName').val() || 'Unnamed Route';
+        const name = $('#advName').val() || PERTII18n.t('publicRoutes.unnamedRoute');
         const advNumber = $('#advNumber').val();
         const constrainedArea = $('#advConstrainedArea').val();
         const reason = $('#advReason').val();
@@ -1356,12 +1356,12 @@ window.PublicRoutes = (function() {
 
         // For editing, we may not need new route geometry
         if (!routeString && !isEditing) {
-            alert('Please plot routes first using the "Plot Routes" button.');
+            alert(PERTII18n.t('publicRoutes.plotRoutesFirst'));
             return;
         }
 
         if (!validStart || !validEnd) {
-            alert('Please enter valid start and end times (DDHHMM format).');
+            alert(PERTII18n.t('publicRoutes.enterValidTimes'));
             return;
         }
 
@@ -1371,7 +1371,7 @@ window.PublicRoutes = (function() {
         const endUtc = parseDDHHMM(validEnd, now);
 
         if (!startUtc || !endUtc) {
-            alert('Invalid time format. Use DDHHMM (e.g., 251430).');
+            alert(PERTII18n.t('publicRoutes.invalidTimeFormat'));
             return;
         }
 
@@ -1614,7 +1614,7 @@ window.PublicRoutes = (function() {
             console.log('[PublicRoutes] Modal routeData keys:', Object.keys(finalData));
             console.log('[PublicRoutes] Modal route_geojson present:', !!finalData.route_geojson);
 
-            finalData.name = $('#publishRouteName').val() || 'Unnamed Route';
+            finalData.name = $('#publishRouteName').val() || PERTII18n.t('publicRoutes.unnamedRoute');
             finalData.color = $('#publishRouteColor').val();
             finalData.created_by = $('#publishRouteCreator').val();
 
@@ -1748,7 +1748,7 @@ window.PublicRoutes = (function() {
             });
         }
 
-        $('#adv_editing_name').text(route.name || 'Unnamed Route');
+        $('#adv_editing_name').text(route.name || PERTII18n.t('publicRoutes.unnamedRoute'));
         $indicator.show();
     }
 
@@ -1887,7 +1887,7 @@ window.PublicRoutes = (function() {
         const diffMs = end - now;
 
         if (diffMs <= 0) {
-            return { text: 'Expired', class: 'text-danger', expired: true };
+            return { text: PERTII18n.t('publicRoutes.expired'), class: 'text-danger', expired: true };
         }
 
         const diffMins = Math.floor(diffMs / 60000);
@@ -2010,7 +2010,7 @@ window.PublicRoutes = (function() {
         const apiKey = getApiKey();
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
-            alert('API key not configured. Contact administrator.');
+            alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
             return $.Deferred().reject('No API key');
         }
 
@@ -2034,7 +2034,7 @@ window.PublicRoutes = (function() {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Route Updated!',
+                        title: PERTII18n.t('publicRoutes.routeUpdated'),
                         html: `
                             <p><strong>${escapeHtml(routeName)}</strong>${advNum ? ` (Advisory #${escapeHtml(advNum)})` : ''} has been updated successfully.</p>
                             <p class="small text-muted mt-2">
@@ -2052,17 +2052,17 @@ window.PublicRoutes = (function() {
             } else {
                 console.error('[PublicRoutes] Update error:', data.error);
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire('Error', 'Failed to update route: ' + data.error, 'error');
+                    Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('publicRoutes.failedToSaveRoute', { error: data.error }), 'error');
                 } else {
-                    alert('Failed to update route: ' + data.error);
+                    alert(PERTII18n.t('publicRoutes.failedToSaveRoute', { error: data.error }));
                 }
             }
         }).fail(function(xhr, status, err) {
             console.error('[PublicRoutes] Update failed:', status, err);
             if (typeof Swal !== 'undefined') {
-                Swal.fire('Error', 'Failed to update route: ' + err, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('publicRoutes.failedToSaveRoute', { error: err }), 'error');
             } else {
-                alert('Failed to update route: ' + err);
+                alert(PERTII18n.t('publicRoutes.failedToSaveRoute', { error: err }));
             }
         });
     }
@@ -2182,7 +2182,7 @@ window.PublicRoutes = (function() {
                 } else {
                     console.warn('[PublicRoutes] Route not found for ID:', targetId);
                     if (!isEmbedMode && typeof Swal !== 'undefined') {
-                        Swal.fire('Not Found', 'The requested route could not be found.', 'warning');
+                        Swal.fire(PERTII18n.t('publicRoutes.notFound'), PERTII18n.t('publicRoutes.notFoundText'), 'warning');
                     }
                 }
             });

@@ -150,8 +150,8 @@ include('load/nav.php');
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
 
             <center>
-                <h1><b><span class="text-danger"><?= $plan_info['event_name']; ?></span> PERTI Plan</b></h1>
-                <h5><a class="text-light" href="data?<?= $plan_info['id']; ?>"><i class="fas fa-table text-success"></i> Edit Staffing Data</a></h5>
+                <h1><b><span class="text-danger"><?= $plan_info['event_name']; ?></span> <?= __('plan.pageTitle') ?></b></h1>
+                <h5><a class="text-light" href="data?<?= $plan_info['id']; ?>"><i class="fas fa-table text-success"></i> <?= __('plan.editStaffingData') ?></a></h5>
             </center>
 
         </div>       
@@ -161,24 +161,24 @@ include('load/nav.php');
         <div class="row">
             <div class="col-2">
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
-                    <li><a class="nav-link active rounded" data-toggle="tab" href="#overview">Overview</a></li>
+                    <li><a class="nav-link active rounded" data-toggle="tab" href="#overview"><?= __('plan.tabs.overview') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing">DCC Staffing</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#historical">Historical Data</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#forecast">Weather Forecast</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing"><?= __('plan.tabs.dccStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#historical"><?= __('plan.tabs.historical') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#forecast"><?= __('plan.tabs.forecast') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_initiatives">Terminal Initiatives</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_planning">Terminal Planning</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_initiatives"><?= __('plan.tabs.termInitiatives') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing"><?= __('plan.tabs.termStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#configs"><?= __('plan.tabs.configs') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_planning"><?= __('plan.tabs.termPlanning') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_initiatives">En-Route Initiatives</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_planning">En-Route Planning</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_initiatives"><?= __('plan.tabs.enrouteInitiatives') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing"><?= __('plan.tabs.enrouteStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_planning"><?= __('plan.tabs.enroutePlanning') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#group_flights">Group Flights</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#outlook">Extended Outlook</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#advisories">Advisory Builder</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#group_flights"><?= __('plan.tabs.groupFlights') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#outlook"><?= __('plan.tabs.outlook') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#advisories"><?= __('plan.tabs.advisories') ?></a></li>
                 </ul>
             </div>
             <div class="col-10">
@@ -192,9 +192,9 @@ include('load/nav.php');
                                 <hr>
 
                                 <?php if ($perm == true) { ?>
-                                    <h4><b>Operational Goals</b> <span class="badge badge-success" data-toggle="modal" data-target="#addgoalModal"><i class="fas fa-plus" data-toggle="tooltip" title="Add Operational Goal"></i></span></h4>
+                                    <h4><b><?= __('plan.overview.operationalGoals') ?></b> <span class="badge badge-success" data-toggle="modal" data-target="#addgoalModal"><i class="fas fa-plus" data-toggle="tooltip" title="<?= __('plan.overview.addGoalTooltip') ?>"></i></span></h4>
                                 <?php } else { ?>
-                                    <h4><b>Operational Goals</b></h4>
+                                    <h4><b><?= __('plan.overview.operationalGoals') ?></b></h4>
                                 <?php } ?>
 
 
@@ -204,23 +204,23 @@ include('load/nav.php');
                             </div>
 
                             <div class="col-6">
-                                <h4><b>Event Information</b></h4>
+                                <h4><b><?= __('plan.overview.eventInformation') ?></b></h4>
                                 <table class="table table-striped table-bordered">
                                     <tbody>
                                         <tr>
-                                            <td><b>Event Name</b></td>
+                                            <td><b><?= __('plan.overview.eventName') ?></b></td>
                                             <td><?= $plan_info['event_name']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Start Date</b></td>
+                                            <td><b><?= __('plan.overview.eventStartDate') ?></b></td>
                                             <td><?= $plan_info['event_date']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Start Time</b></td>
+                                            <td><b><?= __('plan.overview.eventStartTime') ?></b></td>
                                             <td><?= $plan_info['event_start']; ?>Z</td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event End Date</b></td>
+                                            <td><b><?= __('plan.overview.eventEndDate') ?></b></td>
                                             <td><?php
                                                 $end_date = $plan_info['event_end_date'] ?? '';
                                                 if (!empty($end_date)) {
@@ -231,7 +231,7 @@ include('load/nav.php');
                                             ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event End Time</b></td>
+                                            <td><b><?= __('plan.overview.eventEndTime') ?></b></td>
                                             <td><?php
                                                 $end_time = $plan_info['event_end_time'] ?? '';
                                                 if (!empty($end_time)) {
@@ -242,19 +242,19 @@ include('load/nav.php');
                                             ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>TMU OpLevel</b></td>
+                                            <td><b><?= __('plan.overview.tmuOpLevel') ?></b></td>
                                             <?php
                                                 if ($plan_info['oplevel'] == 1) {
-                                                    echo '<td class="text-dark">'.$plan_info['oplevel'].' - Steady State</td>';
+                                                    echo '<td class="text-dark">'.$plan_info['oplevel'].' - '.__('plan.overview.opLevel1').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 2) {
-                                                    echo '<td class="text-success">'.$plan_info['oplevel'].' - Localized Impact</td>';
+                                                    echo '<td class="text-success">'.$plan_info['oplevel'].' - '.__('plan.overview.opLevel2').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 3) {
-                                                    echo '<td class="text-warning">'.$plan_info['oplevel'].' - Regional Impact</td>';
+                                                    echo '<td class="text-warning">'.$plan_info['oplevel'].' - '.__('plan.overview.opLevel3').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 4) {
-                                                    echo '<td class="text-danger">'.$plan_info['oplevel'].' - NAS-Wide Impact/td>';
+                                                    echo '<td class="text-danger">'.$plan_info['oplevel'].' - '.__('plan.overview.opLevel4').'</td>';
                                                 }
                                             ?>
                                         </tr>
@@ -263,41 +263,41 @@ include('load/nav.php');
 
                                 <hr>
 
-                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="Switch between US DCC and Canadian NOC advisory formats">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="<?= __('plan.advisoryOrg.switchTooltip') ?>">
                                     <i class="fas fa-globe"></i> <span id="advisoryOrgDisplay">DCC</span>
                                 </button>
 
                                 <button type="button" class="btn btn-sm btn-primary mb-2" onclick="openPertiModal();">
-                                    Create PERTI Discord Notification
+                                    <?= __('plan.overview.createPertiNotification') ?>
                                 </button>
 
                                 <button type="button" class="btn btn-sm btn-outline-primary mb-2" onclick="openOpsPlanModal();">
-                                    Create Operations Plan Advisory
+                                    <?= __('plan.overview.createOpsPlanAdvisory') ?>
                                 </button>
 
                                 <hr>
 
-                                <h4><b>Resources</b></h4>
+                                <h4><b><?= __('plan.overview.resources') ?></b></h4>
                                 <ul>
-                                    <li><a href="https://perti.vatcscc.org/nod" target="_blank">PERTI NAS Operations Dashboard (NOD)</a> for NAS-wide information.</li>
-                                    <li><a href="https://perti.vatcscc.org/splits" target="_blank">PERTI Active Splits</a> for airspace split coordination.</li>
-                                    <li><a href="https://perti.vatcscc.org/gdt" target="_blank">PERTI Ground Delay Tool (GDT)</a> for ground delay program/ground stop management.</li>
-                                    <li><a href="https://perti.vatcscc.org/jatoc" target="_blank">PERTI JATOC AWO Incident Monitor</a> for incident management and real-time tracking.</li>
-                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
+                                    <li><a href="https://perti.vatcscc.org/nod" target="_blank"><?= __('plan.overview.resourceNod') ?></a> <?= __('plan.overview.resourceNodDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/splits" target="_blank"><?= __('plan.overview.resourceSplits') ?></a> <?= __('plan.overview.resourceSplitsDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/gdt" target="_blank"><?= __('plan.overview.resourceGdt') ?></a> <?= __('plan.overview.resourceGdtDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/jatoc" target="_blank"><?= __('plan.overview.resourceJatoc') ?></a> <?= __('plan.overview.resourceJatocDesc') ?></li>
+                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> <?= __('plan.overview.resourceDiscord') ?></li>
                                     <?php if (stripos($plan_info['hotline'], 'Canada') !== false): ?>
-                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.
-                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
-                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline']; ?> Hotline will serve as a primary backup if the VATCAN TeamSpeak fails.</li>
-                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> <?= __('plan.overview.resourceHotlineVatcan') ?>
+                                        <ul><li><?= __('plan.overview.resourceCredentials') ?></li>
+                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline']; ?> <?= __('plan.overview.resourcePrimaryBackupVatusa') ?></li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> <?= __('plan.overview.resourceSecondaryBackup') ?></li></ul></li>
                                     <?php else: ?>
-                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> Hotline for real-time operational coordination.
-                                        <ul><li>Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.</li>
-                                        <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang channel will serve as a primary backup if the VATUSA TeamSpeak fails.</li>
-                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> Hotline voice channel will serve as a secondary backup.</li></ul></li>
+                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline']; ?></b></span> <?= __('plan.overview.resourceHotlineVatusa') ?>
+                                        <ul><li><?= __('plan.overview.resourceCredentials') ?></li>
+                                        <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang <?= __('plan.overview.resourcePrimaryBackupVatcan') ?></li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> <?= __('plan.overview.resourceSecondaryBackup') ?></li></ul></li>
                                     <?php endif; ?>
-                                    <li>Post any known virtual airline/group flight entries into <a href="https://bit.ly/NTML_Entry" target="_blank">this form</a>.</li>
-                                    <li>TMU personnel must utilize <b>authorized</b> callsigns (XX_XX_TMU) in accordance with <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank">this policy</a>.</li>
-                                    <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank">vATCSCC Trangression Reporting Form</a> for incident reporting.</li>
+                                    <li><?= __('plan.overview.resourceGroupFlights') ?> <a href="https://bit.ly/NTML_Entry" target="_blank"><?= __('plan.overview.resourceGroupFlightsLink') ?></a>.</li>
+                                    <li><?= __('plan.overview.resourceCallsigns') ?> <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank"><?= __('plan.overview.resourceCallsignsLink') ?></a>.</li>
+                                    <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank"><?= __('plan.overview.resourceTransgression') ?></a> <?= __('plan.overview.resourceTransgressionDesc') ?></li>
                                 </ul>
 
                             </div>
@@ -308,20 +308,20 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="dcc_staffing">
                         
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#add_dccstaffingModal"><i class="fas fa-plus"></i> Add Personnel</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#add_dccstaffingModal"><i class="fas fa-plus"></i> <?= __('plan.dcc.addPersonnel') ?></button>
 
                             <hr>
                         <?php } ?>
 
                         <div class="row">
                             <div class="col-6">
-                                <h4><b>DCC Personnel</b></h4>
+                                <h4><b><?= __('plan.dcc.dccPersonnel') ?></b></h4>
 
                                 <table class="table table-striped table-bordered">
                                     <thead>
-                                        <th class="text-center"><b>OIs</b></th>
-                                        <th><b>Personnel Name</b></th>
-                                        <th><b>Position Name</b></th>
+                                        <th class="text-center"><b><?= __('plan.dcc.ois') ?></b></th>
+                                        <th><b><?= __('plan.dcc.personnelName') ?></b></th>
+                                        <th><b><?= __('plan.dcc.positionName') ?></b></th>
                                         <?php if ($perm == true) {
                                             echo '<th></th>';
                                         }
@@ -332,13 +332,13 @@ include('load/nav.php');
                             </div>
 
                             <div class="col-6">
-                                <h4><b>Facility Personnel</b></h4>
+                                <h4><b><?= __('plan.dcc.facilityPersonnel') ?></b></h4>
 
                                 <table class="table table-striped table-bordered">
                                     <thead>
-                                        <th class="text-center"><b>Facility</b></th>
-                                        <th class="text-center"><b>OIs</b></th>
-                                        <th><b>Personnel Name</b></th>
+                                        <th class="text-center"><b><?= __('plan.dcc.facility') ?></b></th>
+                                        <th class="text-center"><b><?= __('plan.dcc.ois') ?></b></th>
+                                        <th><b><?= __('plan.dcc.personnelName') ?></b></th>
                                         <?php if ($perm == true) {
                                             echo '<th></th>';
                                         }
@@ -354,7 +354,7 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="historical">
 
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addhistoricalModal"><i class="fas fa-plus"></i> Add Data</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addhistoricalModal"><i class="fas fa-plus"></i> <?= __('plan.historicalTab.addData') ?></button>
 
                             <hr>
                         <?php } ?>
@@ -365,7 +365,7 @@ include('load/nav.php');
                     <!-- Tab: Forecast Entry -->
                     <div class="tab-pane fade" id="forecast">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addforecastModal"><i class="fas fa-plus"></i> Add Forecast</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addforecastModal"><i class="fas fa-plus"></i> <?= __('plan.forecastTab.addForecast') ?></button>
 
                             <hr>
                         <?php } ?>
@@ -376,14 +376,14 @@ include('load/nav.php');
                     <!-- Tab: Terminal Initiatives -->
                     <div class="tab-pane fade" id="t_initiatives">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success mb-3" onclick="window.termInitTimeline && window.termInitTimeline.showAddModal()"><i class="fas fa-plus"></i> Add Initiative</button>
+                            <button class="btn btn-sm btn-success mb-3" onclick="window.termInitTimeline && window.termInitTimeline.showAddModal()"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiative') ?></button>
                         <?php } ?>
                         <div id="term_inits_timeline"></div>
-                        
+
                         <!-- Legacy view (hidden by default, kept for backwards compatibility) -->
                         <div id="term_inits_legacy" style="display: none;">
                             <?php if ($perm == true) { ?>
-                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addterminalinitModal"><i class="fas fa-plus"></i> Add Initiative (Legacy)</button>      
+                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addterminalinitModal"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiativeLegacy') ?></button>      
                                 <hr>
                             <?php } ?>
                             <center><div id="term_inits"></div></center>
@@ -394,7 +394,7 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="t_staffing">
                         
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addtermstaffingModal"><i class="fas fa-plus"></i> Add Staffing</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addtermstaffingModal"><i class="fas fa-plus"></i> <?= __('plan.staffing.addStaffing') ?></button>
 
                             <hr>
                         <?php } ?>
@@ -402,10 +402,10 @@ include('load/nav.php');
 
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.facilityName') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.status') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.quantity') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
                                 }
@@ -419,20 +419,20 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="configs">
                         
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addconfigModal"><i class="fas fa-plus"></i> Add Config</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addconfigModal"><i class="fas fa-plus"></i> <?= __('plan.configTab.addConfig') ?></button>
 
                             <hr>
                         <?php } ?>
 
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Field</b></th>
-                                <th class="text-center"><b>Conditions</b></th>
-                                <th class="text-center"><b>Arriving</b></th>
-                                <th class="text-center"><b>Departing</b></th>
+                                <th class="text-center"><b><?= __('plan.configTab.field') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.configTab.conditions') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.configTab.arriving') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.configTab.departing') ?></b></th>
                                 <th class="text-center"><b>AAR</b></th>
                                 <th class="text-center"><b>ADR</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
                                 }
@@ -445,7 +445,7 @@ include('load/nav.php');
                     <!-- Tab: Terminal Planning -->
                     <div class="tab-pane fade" id="t_planning">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addtermplanningModal"><i class="fas fa-plus"></i> Add Plan</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addtermplanningModal"><i class="fas fa-plus"></i> <?= __('plan.planning.addPlan') ?></button>
 
                             <hr>
                         <?php } ?>
@@ -456,14 +456,14 @@ include('load/nav.php');
                     <!-- Tab: Enroute Initiatives -->
                     <div class="tab-pane fade" id="e_initiatives">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success mb-3" onclick="window.enrouteInitTimeline && window.enrouteInitTimeline.showAddModal()"><i class="fas fa-plus"></i> Add Initiative</button>
+                            <button class="btn btn-sm btn-success mb-3" onclick="window.enrouteInitTimeline && window.enrouteInitTimeline.showAddModal()"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiative') ?></button>
                         <?php } ?>
                         <div id="enroute_inits_timeline"></div>
-                        
+
                         <!-- Legacy view (hidden by default, kept for backwards compatibility) -->
                         <div id="enroute_inits_legacy" style="display: none;">
                             <?php if ($perm == true) { ?>
-                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteinitModal"><i class="fas fa-plus"></i> Add Initiative (Legacy)</button>      
+                                <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteinitModal"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiativeLegacy') ?></button>      
                                 <hr>
                             <?php } ?>                          
                             <center><div id="enroute_inits"></div></center>
@@ -473,17 +473,17 @@ include('load/nav.php');
                     <!-- Tab: Enroute Staffing -->
                     <div class="tab-pane fade" id="e_staffing">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenroutestaffingModal"><i class="fas fa-plus"></i> Add Staffing</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenroutestaffingModal"><i class="fas fa-plus"></i> <?= __('plan.staffing.addStaffing') ?></button>
 
                             <hr>
-                        <?php } ?>                           
+                        <?php } ?>
 
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.facilityName') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.status') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.quantity') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
                                 }
@@ -496,10 +496,10 @@ include('load/nav.php');
                     <!-- Tab: Enroute Planning -->
                     <div class="tab-pane fade" id="e_planning">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteplanningModal"><i class="fas fa-plus"></i> Add Plan</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addenrouteplanningModal"><i class="fas fa-plus"></i> <?= __('plan.planning.addPlan') ?></button>
 
                             <hr>
-                        <?php } ?>                         
+                        <?php } ?>
 
                         <div class="row gutters-tiny py-20" id="enrouteplanningdata"></div>
                     </div>
@@ -507,21 +507,21 @@ include('load/nav.php');
                     <!-- Tab: Group Flights -->
                     <div class="tab-pane fade" id="group_flights">
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addgroupflightModal"><i class="fas fa-plus"></i> Add Flight</button>      
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addgroupflightModal"><i class="fas fa-plus"></i> <?= __('plan.groupFlights.addFlight') ?></button>
 
                             <hr>
-                        <?php } ?>                           
+                        <?php } ?>
 
 
                         <center><table class="table table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Group/Entity</b></th>
-                                <th class="text-center"><b>DEP</b></th>
-                                <th class="text-center"><b>ARR</b></th>
-                                <th class="text-center"><b>ETD</b></th>
-                                <th class="text-center"><b>ETA</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Route</b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.groupEntity') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.dep') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.arr') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.etd') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.eta') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.staffing.quantity') ?></b></th>
+                                <th class="text-center"><b><?= __('plan.groupFlights.route') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
                                 }
@@ -540,7 +540,7 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="advisories">
                         <div class="card">
                             <div class="card-header">
-                                <strong>vATCSCC Advisory Builder (Discord)</strong>
+                                <strong><?= __('plan.advisory.cardTitle') ?></strong>
                             </div>
                             <div class="card-body">
                                 <div class="container-fluid">
@@ -548,18 +548,18 @@ include('load/nav.php');
                                     <!-- Line 1: vATCSCC ADVZY ... -->
                                     <div class="form-row">
                                         <div class="form-group col-md-3">
-                                            <label for="advzyNumber">Advisory Number</label>
+                                            <label for="advzyNumber"><?= __('plan.advisory.advisoryNumber') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyNumber" placeholder="e.g. 027">
                                             <small class="form-text text-muted">
-                                                Numeric; will be zero-padded to 3 digits.
+                                                <?= __('plan.advisory.advisoryNumberHint') ?>
                                             </small>
                                         </div>
                                         <div class="form-group col-md-3">
-                                            <label for="advzyFacility">Facility (optional)</label>
+                                            <label for="advzyFacility"><?= __('plan.advisory.facilityOptional') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyFacility" placeholder="e.g. DCC or JFK/ZNY">
                                         </div>
                                         <div class="form-group col-md-6">
-                                            <label for="advzyDate">Advisory Date (UTC, mm/dd/yyyy)</label>
+                                            <label for="advzyDate"><?= __('plan.advisory.advisoryDateUtc') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyDate" placeholder="mm/dd/yyyy">
                                         </div>
                                     </div>
@@ -567,10 +567,10 @@ include('load/nav.php');
                                     <!-- Advisory Type/Name (OPERATIONS PLAN, ROUTE, etc.) -->
                                     <div class="form-row">
                                         <div class="form-group col-md-12">
-                                            <label for="advzyType">Advisory Type/Name</label>
+                                            <label for="advzyType"><?= __('plan.advisory.advisoryTypeName') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyType" placeholder="e.g. OPERATIONS PLAN">
                                             <small class="form-text text-muted">
-                                                Examples: OPERATIONS PLAN, ROUTE, PLAYBOOK, INFORMATIONAL, etc.
+                                                <?= __('plan.advisory.advisoryTypeHint') ?>
                                             </small>
                                         </div>
                                     </div>
@@ -578,16 +578,16 @@ include('load/nav.php');
                                     <!-- VALID FOR line -->
                                     <div class="form-row">
                                         <div class="form-group col-md-3">
-                                            <label for="advzyValidFrom">Valid From (ddhhmm)</label>
+                                            <label for="advzyValidFrom"><?= __('plan.advisory.validFrom') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyValidFrom" placeholder="e.g. 301300">
                                         </div>
                                         <div class="form-group col-md-3">
-                                            <label for="advzyValidTo">Valid To (ddhhmm)</label>
+                                            <label for="advzyValidTo"><?= __('plan.advisory.validTo') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyValidTo" placeholder="e.g. 301900">
                                         </div>
                                         <div class="form-group col-md-6">
                                             <small class="form-text text-muted mt-4">
-                                                If both are filled, a <code>VALID FOR ddhhmm THRU ddhhmm</code> line will be added.
+                                                <?= __('plan.advisory.validHint') ?>
                                             </small>
                                         </div>
                                     </div>
@@ -596,36 +596,36 @@ include('load/nav.php');
 
                                     <!-- Free-text advisory body -->
                                     <div class="form-group">
-                                        <label for="advzyBody">Advisory Text</label>
+                                        <label for="advzyBody"><?= __('plan.advisory.advisoryText') ?></label>
                                         <textarea class="form-control" id="advzyBody" rows="6"></textarea>
                                         <small class="form-text text-muted">
-                                            Free-form text; lines are wrapped to 68 characters per line.
+                                            <?= __('plan.advisory.advisoryTextHint') ?>
                                         </small>
                                     </div>
 
                                     <!-- Effective time line -->
                                     <div class="form-row">
                                         <div class="form-group col-md-3">
-                                            <label for="advzyEffFrom">Effective From (ddhhmm)</label>
+                                            <label for="advzyEffFrom"><?= __('plan.advisory.effectiveFrom') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyEffFrom" placeholder="e.g. 301224">
                                         </div>
                                         <div class="form-group col-md-3">
-                                            <label for="advzyEffTo">Effective To (ddhhmm)</label>
+                                            <label for="advzyEffTo"><?= __('plan.advisory.effectiveTo') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="advzyEffTo" placeholder="e.g. 301359">
                                         </div>
                                         <div class="form-group col-md-6">
                                             <small class="form-text text-muted mt-4">
-                                                Creates the <code>ddhhmm-ddhhmm</code> line for advisory coverage time.
+                                                <?= __('plan.advisory.effectiveHint') ?>
                                             </small>
                                         </div>
                                     </div>
 
                                     <!-- Signature line -->
                                     <div class="form-group">
-                                        <label for="advzySignature">Signature Line</label>
+                                        <label for="advzySignature"><?= __('plan.advisory.signatureLine') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="advzySignature" placeholder="YY/MM/DD hh:mm /OI">
                                         <small class="form-text text-muted">
-                                            Example: <code>25/12/07 13:45 /HP</code>.
+                                            <?= __('plan.advisory.signatureHint') ?>
                                         </small>
                                     </div>
 
@@ -634,16 +634,16 @@ include('load/nav.php');
                                     <!-- Build & copy -->
                                     <div class="form-group">
                                         <button type="button" class="btn btn-sm btn-primary" id="advzyBuildBtn">
-                                            Generate Advisory Text
+                                            <?= __('plan.advisory.generateButton') ?>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-primary" id="advzyCopyBtn">
-                                            Copy to Clipboard
+                                            <?= __('plan.advisory.copyButton') ?>
                                         </button>
                                     </div>
 
                                     <!-- Final Discord-ready output -->
                                     <div class="form-group mt-2">
-                                        <label for="advzyMessage">Advisory Text (copy into Discord)</label>
+                                        <label for="advzyMessage"><?= __('plan.advisory.outputLabel') ?></label>
                                         <textarea class="form-control" id="advzyMessage" rows="14" style="font-family: Menlo, Consolas, monospace;"></textarea>
                                     </div>
 
@@ -668,7 +668,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Operational Goal</h5>
+                <h5 class="modal-title"><?= __('plan.modal.addGoalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -680,13 +680,13 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Operational Goal:
+                    <?= __('plan.modal.operationalGoalLabel') ?>:
                     <textarea class="form-control" name="comments" placeholder="Manage DTW airport operations to keep departure and airborne arrival delays to less than 30 minutes." rows="3"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -700,7 +700,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Operational Goal</h5>
+                <h5 class="modal-title"><?= __('plan.modal.editGoalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -712,13 +712,13 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Operational Goal:
+                    <?= __('plan.modal.operationalGoalLabel') ?>:
                     <textarea class="form-control" name="comments" id="comments" placeholder="Manage DTW airport operations to keep departure and airborne arrival delays to less than 30 minutes." rows="3"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -732,7 +732,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Personnel</h5>
+                <h5 class="modal-title"><?= __('plan.dcc.addPersonnel') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -744,7 +744,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility:
+                    <?= __('plan.dcc.facility') ?>:
                     <select class="form-control" name="position_facility" required>
                         <option value="DCC">DCC - Command Center</option>
                         <option value="VATCAN">VATCAN - Command Center</option>
@@ -792,7 +792,7 @@ include('load/nav.php');
                         <option value="MMID">MMID - Merida FIR</option>
                     </select>
 
-                    Position:
+                    <?= __('plan.dcc.position') ?>:
                     <select class="form-control" name="position_name" required>
                         <option>Traffic Management Coordinator (TMC/STMC)</option>
                         <option>Western NTMS/NTMO (VATUSA94)</option>
@@ -811,16 +811,16 @@ include('load/nav.php');
 
                     <hr>
 
-                    Personnel Name:
-                    <input type="text" class="form-control" name="personnel_name" maxlength="128" placeholder="Leave Blank for Vacancy">
+                    <?= __('plan.dcc.personnelNameLabel') ?>:
+                    <input type="text" class="form-control" name="personnel_name" maxlength="128" placeholder="<?= __('plan.dcc.leaveBlankForVacancy') ?>">
 
-                    Personnel OIs:
-                    <input type="text" class="form-control" name="personnel_ois" maxlength="2" placeholder="Leave Blank for Vacancy">
+                    <?= __('plan.dcc.personnelOis') ?>:
+                    <input type="text" class="form-control" name="personnel_ois" maxlength="2" placeholder="<?= __('plan.dcc.leaveBlankForVacancy') ?>">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -834,7 +834,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Personnel</h5>
+                <h5 class="modal-title"><?= __('plan.dcc.editPersonnel') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -846,7 +846,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility:
+                    <?= __('plan.dcc.facility') ?>:
                     <select class="form-control" name="position_facility" id="position_facility" required>
                         <option value="DCC">DCC - Command Center</option>
                         <option value="VATCAN">VATCAN - Command Center</option>
@@ -894,7 +894,7 @@ include('load/nav.php');
                         <option value="MMID">MMID - Merida FIR</option>
                     </select>
 
-                    Position:
+                    <?= __('plan.dcc.position') ?>:
                     <select class="form-control" name="position_name" id="position_name" required>
                         <option>Traffic Management Coordinator (TMC/STMC)</option>
                         <option>Western NTMS/NTMO (VATUSA94)</option>
@@ -913,16 +913,16 @@ include('load/nav.php');
 
                     <hr>
 
-                    Personnel Name:
-                    <input type="text" class="form-control" name="personnel_name" id="personnel_name" maxlength="128" placeholder="Leave Blank for Vacancy">
+                    <?= __('plan.dcc.personnelNameLabel') ?>:
+                    <input type="text" class="form-control" name="personnel_name" id="personnel_name" maxlength="128" placeholder="<?= __('plan.dcc.leaveBlankForVacancy') ?>">
 
-                    Personnel OIs:
-                    <input type="text" class="form-control" name="personnel_ois" id="personnel_ois" maxlength="2" placeholder="Leave Blank for Vacancy">
+                    <?= __('plan.dcc.personnelOis') ?>:
+                    <input type="text" class="form-control" name="personnel_ois" id="personnel_ois" maxlength="2" placeholder="<?= __('plan.dcc.leaveBlankForVacancy') ?>">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -936,7 +936,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Historical Data</h5>
+                <h5 class="modal-title"><?= __('plan.historicalTab.addTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -948,27 +948,27 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Title:
+                    <?= __('plan.historicalTab.title') ?>:
                     <input type="text" class="form-control" name="title">
 
-                    Date:
+                    <?= __('plan.historicalTab.date') ?>:
                     <input type="text" class="form-control" id="ah_date" name="date" readonly>
 
-                    Summary:
+                    <?= __('plan.historicalTab.summary') ?>:
                     <textarea class="form-control" name="summary" rows="3"></textarea>
 
                     <hr>
 
-                    Image (URL):
+                    <?= __('plan.historicalTab.imageUrl') ?>:
                     <input type="text" class="form-control" name="image_url">
 
-                    Source (URL):
+                    <?= __('plan.historicalTab.sourceUrl') ?>:
                     <input type="text" class="form-control" name="source_url">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -982,7 +982,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Historical Data</h5>
+                <h5 class="modal-title"><?= __('plan.historicalTab.editTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -994,27 +994,27 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Title:
+                    <?= __('plan.historicalTab.title') ?>:
                     <input type="text" class="form-control" name="title" id="title">
 
-                    Date:
+                    <?= __('plan.historicalTab.date') ?>:
                     <input type="text" class="form-control" id="eh_date" name="date" readonly>
 
-                    Summary:
+                    <?= __('plan.historicalTab.summary') ?>:
                     <textarea class="form-control" name="summary" id="summary" rows="3"></textarea>
 
                     <hr>
 
-                    Image (URL):
+                    <?= __('plan.historicalTab.imageUrl') ?>:
                     <input type="text" class="form-control" name="image_url" id="image_url">
 
-                    Source (URL):
+                    <?= __('plan.historicalTab.sourceUrl') ?>:
                     <input type="text" class="form-control" name="source_url" id="source_url">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1028,7 +1028,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Forecast Entry</h5>
+                <h5 class="modal-title"><?= __('plan.forecastTab.addTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1040,21 +1040,21 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Date:
+                    <?= __('plan.historicalTab.date') ?>:
                     <input type="text" class="form-control" id="af_date" name="date" readonly>
 
-                    Summary:
+                    <?= __('plan.historicalTab.summary') ?>:
                     <textarea class="form-control" name="summary" rows="3"></textarea>
 
                     <hr>
 
-                    Image (URL):
+                    <?= __('plan.historicalTab.imageUrl') ?>:
                     <input type="text" class="form-control" name="image_url">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1068,7 +1068,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Forecast Entry</h5>
+                <h5 class="modal-title"><?= __('plan.forecastTab.editTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1080,21 +1080,21 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Date:
+                    <?= __('plan.historicalTab.date') ?>:
                     <input type="text" class="form-control" id="ef_date" name="date" readonly>
 
-                    Summary:
+                    <?= __('plan.historicalTab.summary') ?>:
                     <textarea class="form-control" name="summary" id="summary" rows="3"></textarea>
 
                     <hr>
 
-                    Image (URL):
+                    <?= __('plan.historicalTab.imageUrl') ?>:
                     <input type="text" class="form-control" name="image_url" id="image_url">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1108,7 +1108,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Terminal Initiative</h5>
+                <h5 class="modal-title"><?= __('plan.initiatives.addTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1120,16 +1120,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility/Initiative:
+                    <?= __('plan.initiatives.facilityInitiative') ?>:
                     <input type="text" class="form-control" name="title" placeholder="D21/PCT - CFR/Metering/MIT">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" placeholder="Volume">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1143,7 +1143,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Terminal Initiative</h5>
+                <h5 class="modal-title"><?= __('plan.initiatives.editTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1155,16 +1155,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility/Initiative:
+                    <?= __('plan.initiatives.facilityInitiative') ?>:
                     <input type="text" class="form-control" name="title" id="title" placeholder="D21/PCT - CFR/Metering/MIT">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" id="context" placeholder="Volume">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1178,7 +1178,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Terminal Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('plan.staffing.addTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1190,28 +1190,28 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <input type="text" class="form-control" name="facility_name" placeholder="SCT - SoCal TRACON" required>
 
-                    Staffing Status:
+                    <?= __('plan.staffing.staffingStatus') ?>:
                     <select class="form-control" name="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="3">Understaffed</option>
-                        <option value="1">Top Down</option>
-                        <option value="2">Yes</option>
-                        <option value="4">No</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
+                        <option value="3"><?= __('plan.staffing.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('plan.staffing.statusTopDown') ?></option>
+                        <option value="2"><?= __('plan.staffing.statusYes') ?></option>
+                        <option value="4"><?= __('plan.staffing.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('plan.staffing.staffingQuantity') ?>:
                     <input type="text" class="form-control" name="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1225,7 +1225,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Terminal Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('plan.staffing.editTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1237,28 +1237,28 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <input type="text" class="form-control" name="facility_name" id="facility_name" placeholder="SCT - SoCal TRACON" required>
 
-                    Staffing Status:
+                    <?= __('plan.staffing.staffingStatus') ?>:
                     <select class="form-control" name="staffing_status" id="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="3">Understaffed</option>
-                        <option value="1">Top Down</option>
-                        <option value="2">Yes</option>
-                        <option value="4">No</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
+                        <option value="3"><?= __('plan.staffing.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('plan.staffing.statusTopDown') ?></option>
+                        <option value="2"><?= __('plan.staffing.statusYes') ?></option>
+                        <option value="4"><?= __('plan.staffing.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('plan.staffing.staffingQuantity') ?>:
                     <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments" id="comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1272,7 +1272,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Config Entry</h5>
+                <h5 class="modal-title"><?= __('plan.configTab.addTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1288,49 +1288,49 @@ include('load/nav.php');
                     <div class="form-group">
                         <div class="custom-control custom-checkbox mb-2">
                             <input type="checkbox" class="custom-control-input" id="addconfig_use_adl">
-                            <label class="custom-control-label" for="addconfig_use_adl">Load from ADL Config</label>
+                            <label class="custom-control-label" for="addconfig_use_adl"><?= __('plan.configTab.loadFromAdl') ?></label>
                         </div>
                         <div id="addconfig_picker" style="display: none;">
                             <select class="form-control mb-2" id="addconfig_select" disabled>
-                                <option value="">-- Select configuration --</option>
+                                <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
                             </select>
-                            <small class="text-muted">Enter airport code above then select a configuration</small>
+                            <small class="text-muted"><?= __('plan.configTab.selectConfigHintAdd') ?></small>
                         </div>
                     </div>
 
                     <hr class="my-2">
 
-                    Field:
+                    <?= __('plan.configTab.field') ?>:
                     <input type="text" class="form-control" name="airport" id="addconfig_airport" placeholder="BWI" maxlength="4" required>
 
-                    Meteorological Condition:
+                    <?= __('plan.configTab.meteorologicalCondition') ?>:
                     <select class="form-control" name="weather" id="addconfig_weather">
-                        <option value="0">Unknown</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
                         <option value="1">VMC</option>
                         <option value="2">LVMC</option>
                         <option value="3">IMC</option>
                         <option value="4">LIMC</option>
                     </select>
 
-                    Arrival Runways:
+                    <?= __('plan.configTab.arrivalRunways') ?>:
                     <input type="text" class="form-control" name="arrive" id="addconfig_arrive" placeholder="33L/33R">
 
-                    Departure Runways:
+                    <?= __('plan.configTab.departureRunways') ?>:
                     <input type="text" class="form-control" name="depart" id="addconfig_depart" placeholder="33R/28">
 
-                    Airport Arrival Rate (AAR):
+                    <?= __('plan.configTab.airportArrivalRate') ?>:
                     <input type="text" class="form-control" name="aar" id="addconfig_aar" maxlength="3">
 
-                    Airport Departure Rate (ADR):
+                    <?= __('plan.configTab.airportDepartureRate') ?>:
                     <input type="text" class="form-control" name="adr" id="addconfig_adr" maxlength="3">
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1344,7 +1344,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Config Entry</h5>
+                <h5 class="modal-title"><?= __('plan.configTab.editTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1360,49 +1360,49 @@ include('load/nav.php');
                     <div class="form-group">
                         <div class="custom-control custom-checkbox mb-2">
                             <input type="checkbox" class="custom-control-input" id="editconfig_use_adl">
-                            <label class="custom-control-label" for="editconfig_use_adl">Load from ADL Config</label>
+                            <label class="custom-control-label" for="editconfig_use_adl"><?= __('plan.configTab.loadFromAdl') ?></label>
                         </div>
                         <div id="editconfig_picker" style="display: none;">
                             <select class="form-control mb-2" id="editconfig_select" disabled>
-                                <option value="">-- Select configuration --</option>
+                                <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
                             </select>
-                            <small class="text-muted">Select a configuration to load runways and rates</small>
+                            <small class="text-muted"><?= __('plan.configTab.selectConfigHintEdit') ?></small>
                         </div>
                     </div>
 
                     <hr class="my-2">
 
-                    Field:
+                    <?= __('plan.configTab.field') ?>:
                     <input type="text" class="form-control" name="airport" id="editconfig_airport" placeholder="BWI" maxlength="4" required>
 
-                    Meteorological Condition:
+                    <?= __('plan.configTab.meteorologicalCondition') ?>:
                     <select class="form-control" name="weather" id="editconfig_weather">
-                        <option value="0">Unknown</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
                         <option value="1">VMC</option>
                         <option value="2">LVMC</option>
                         <option value="3">IMC</option>
                         <option value="4">LIMC</option>
                     </select>
 
-                    Arrival Runways:
+                    <?= __('plan.configTab.arrivalRunways') ?>:
                     <input type="text" class="form-control" name="arrive" id="editconfig_arrive" placeholder="33L/33R">
 
-                    Departure Runways:
+                    <?= __('plan.configTab.departureRunways') ?>:
                     <input type="text" class="form-control" name="depart" id="editconfig_depart" placeholder="33R/28">
 
-                    Airport Arrival Rate (AAR):
+                    <?= __('plan.configTab.airportArrivalRate') ?>:
                     <input type="text" class="form-control" name="aar" id="editconfig_aar" maxlength="3">
 
-                    Airport Departure Rate (ADR):
+                    <?= __('plan.configTab.airportDepartureRate') ?>:
                     <input type="text" class="form-control" name="adr" id="editconfig_adr" maxlength="3">
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments" id="editconfig_comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1416,7 +1416,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Terminal Planning Entry</h5>
+                <h5 class="modal-title"><?= __('plan.planning.addTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1428,16 +1428,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <input type="text" class="form-control" name="facility_name" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <textarea class="form-control rounded-0" name="comments" id="atp_comments" rows="5"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1451,7 +1451,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Terminal Planning Entry</h5>
+                <h5 class="modal-title"><?= __('plan.planning.editTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1463,16 +1463,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <input type="text" class="form-control" name="facility_name" id="facility_name" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <textarea class="form-control rounded-0" name="comments" id="etp_comments" rows="5"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1486,7 +1486,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Terminal Constraint</h5>
+                <h5 class="modal-title"><?= __('plan.constraints.addTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1498,22 +1498,22 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Location:
+                    <?= __('plan.constraints.location') ?>:
                     <input type="text" class="form-control" name="location" placeholder="DTW/IAD/BWI">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" placeholder="WX">
 
-                    Through (Date):
+                    <?= __('plan.constraints.throughDate') ?>:
                     <input type="text" class="form-control" name="date" id="at_date" readonly>
 
-                    Impact:
+                    <?= __('plan.constraints.impact') ?>:
                     <input type="text" class="form-control" name="impact" placeholder="Reduced AAR">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1527,7 +1527,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Terminal Constraint</h5>
+                <h5 class="modal-title"><?= __('plan.constraints.editTerminalTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1539,22 +1539,22 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Location:
+                    <?= __('plan.constraints.location') ?>:
                     <input type="text" class="form-control" name="location" id="location" placeholder="DTW/IAD/BWI">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" id="context" placeholder="WX">
 
-                    Through (Date):
+                    <?= __('plan.constraints.throughDate') ?>:
                     <input type="text" class="form-control" name="date" id="et_date" readonly>
 
-                    Impact:
+                    <?= __('plan.constraints.impact') ?>:
                     <input type="text" class="form-control" name="impact" id="impact" placeholder="Reduced AAR">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1569,7 +1569,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Enroute Initiative</h5>
+                <h5 class="modal-title"><?= __('plan.initiatives.addEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1581,16 +1581,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility/Initiative:
+                    <?= __('plan.initiatives.facilityInitiative') ?>:
                     <input type="text" class="form-control" name="title" placeholder="ZOB/ZDC/ZNY - Reroutes">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" placeholder="Structure">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1604,7 +1604,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Enroute Initiative</h5>
+                <h5 class="modal-title"><?= __('plan.initiatives.editEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1616,16 +1616,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility/Initiative:
+                    <?= __('plan.initiatives.facilityInitiative') ?>:
                     <input type="text" class="form-control" name="title" id="title" placeholder="ZOB/ZDC/ZNY - Reroutes">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" id="context" placeholder="Structure">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1639,7 +1639,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Enroute Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('plan.staffing.addEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1651,7 +1651,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <select class="form-control" name="facility_name" required>
                         <option>ZLA - Los Angeles ARTCC</option>
                         <option>ZOA - Oakland ARTCC</option>
@@ -1696,24 +1696,24 @@ include('load/nav.php');
                         <option>MMID - Merida FIR</option>
                     </select>
 
-                    Staffing Status:
+                    <?= __('plan.staffing.staffingStatus') ?>:
                     <select class="form-control" name="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="2">Understaffed</option>
-                        <option value="1">Yes</option>
-                        <option value="3">No</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
+                        <option value="2"><?= __('plan.staffing.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('plan.staffing.statusYes') ?></option>
+                        <option value="3"><?= __('plan.staffing.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('plan.staffing.staffingQuantity') ?>:
                     <input type="text" class="form-control" name="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1727,7 +1727,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Enroute Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('plan.staffing.editEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1739,7 +1739,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <select class="form-control" name="facility_name" id="facility_name" required>
                         <option>ZLA - Los Angeles ARTCC</option>
                         <option>ZOA - Oakland ARTCC</option>
@@ -1784,24 +1784,24 @@ include('load/nav.php');
                         <option>MMID - Merida FIR</option>
                     </select>
 
-                    Staffing Status:
+                    <?= __('plan.staffing.staffingStatus') ?>:
                     <select class="form-control" name="staffing_status" id="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="2">Understaffed</option>
-                        <option value="1">Yes</option>
-                        <option value="3">No</option>
+                        <option value="0"><?= __('plan.staffing.statusUnknown') ?></option>
+                        <option value="2"><?= __('plan.staffing.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('plan.staffing.statusYes') ?></option>
+                        <option value="3"><?= __('plan.staffing.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('plan.staffing.staffingQuantity') ?>:
                     <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <input type="text" class="form-control" name="comments" id="comments">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1815,7 +1815,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Enroute Planning Entry</h5>
+                <h5 class="modal-title"><?= __('plan.planning.addEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1827,7 +1827,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <select class="form-control" name="facility_name" id="facility_name" required>
                         <option>ZLA - Los Angeles ARTCC</option>
                         <option>ZOA - Oakland ARTCC</option>
@@ -1872,13 +1872,13 @@ include('load/nav.php');
                         <option>MMID - Merida FIR</option>
                     </select>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <textarea class="form-control rounded-0" name="comments" id="aep_comments" rows="5"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1892,7 +1892,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Enroute Planning Entry</h5>
+                <h5 class="modal-title"><?= __('plan.planning.editEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1904,7 +1904,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('plan.staffing.facilityName') ?>:
                     <select class="form-control" name="facility_name" id="facility_name" required>
                         <option>ZLA - Los Angeles ARTCC</option>
                         <option>ZOA - Oakland ARTCC</option>
@@ -1949,13 +1949,13 @@ include('load/nav.php');
                         <option>MMID - Merida FIR</option>
                     </select>
 
-                    Comments:
+                    <?= __('plan.staffing.comments') ?>:
                     <textarea class="form-control rounded-0" name="comments" id="eep_comments" rows="5"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -1969,7 +1969,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Enroute Constraint</h5>
+                <h5 class="modal-title"><?= __('plan.constraints.addEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1981,22 +1981,22 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Location:
+                    <?= __('plan.constraints.location') ?>:
                     <input type="text" class="form-control" name="location" placeholder="ZJX/ZMA/ZHU">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" placeholder="WX">
 
-                    Through (Date):
+                    <?= __('plan.constraints.throughDate') ?>:
                     <input type="text" class="form-control" name="date" id="ae_date" readonly>
 
-                    Impact:
+                    <?= __('plan.constraints.impact') ?>:
                     <input type="text" class="form-control" name="impact" placeholder="Reduced AAR">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -2010,7 +2010,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Enroute Constraint</h5>
+                <h5 class="modal-title"><?= __('plan.constraints.editEnrouteTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -2022,22 +2022,22 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Location:
+                    <?= __('plan.constraints.location') ?>:
                     <input type="text" class="form-control" name="location" id="location" placeholder="ZJX/ZMA/ZHU">
 
-                    Cause/Context:
+                    <?= __('plan.initiatives.causeContext') ?>:
                     <input type="text" class="form-control" name="context" id="context" placeholder="WX">
 
-                    Through (Date):
+                    <?= __('plan.constraints.throughDate') ?>:
                     <input type="text" class="form-control" name="date" id="ee_date" readonly>
 
-                    Impact:
+                    <?= __('plan.constraints.impact') ?>:
                     <input type="text" class="form-control" name="impact" id="impact" placeholder="Reduced AAR">
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -2051,7 +2051,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Group Flight Entry</h5>
+                <h5 class="modal-title"><?= __('plan.groupFlights.addTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -2063,31 +2063,31 @@ include('load/nav.php');
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    Group/Entity Name:
+                    <?= __('plan.groupFlights.groupEntityName') ?>:
                     <input type="text" class="form-control" name="entity" required>
 
-                    Departure Field:
+                    <?= __('plan.groupFlights.departureField') ?>:
                     <input type="text" class="form-control" name="dep" placeholder="DTW" maxlength="4" required>
 
-                    Arrival Field:
+                    <?= __('plan.groupFlights.arrivalField') ?>:
                     <input type="text" class="form-control" name="arr" placeholder="BWI" maxlength="4" required>
 
-                    Estimated Time of Departure (ETD, in Zulu):
+                    <?= __('plan.groupFlights.etdZulu') ?>:
                     <input type="text" class="form-control" name="etd" placeholder="2300" maxlength="4">
 
-                    Estimated Time of Arrival (ETA, in Zulu):
+                    <?= __('plan.groupFlights.etaZulu') ?>:
                     <input type="text" class="form-control" name="eta" placeholder="0100" maxlength="4">
 
-                    Pilot Quantity:
+                    <?= __('plan.groupFlights.pilotQuantity') ?>:
                     <input type="text" class="form-control" name="pilot_quantity" placeholder="5" value="0" maxlength="2" required>
 
-                    Route:
+                    <?= __('plan.groupFlights.route') ?>:
                     <textarea class="form-control" name="route" id="route" rows="3"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('plan.modal.add') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -2101,7 +2101,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Group Flight Entry</h5>
+                <h5 class="modal-title"><?= __('plan.groupFlights.editTitle') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -2113,31 +2113,31 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Group/Entity Name:
+                    <?= __('plan.groupFlights.groupEntityName') ?>:
                     <input type="text" class="form-control" name="entity" id="entity" required>
 
-                    Departure Field:
+                    <?= __('plan.groupFlights.departureField') ?>:
                     <input type="text" class="form-control" name="dep" id="dep" placeholder="DTW" maxlength="4" required>
 
-                    Arrival Field:
+                    <?= __('plan.groupFlights.arrivalField') ?>:
                     <input type="text" class="form-control" name="arr" id="arr" placeholder="BWI" maxlength="4" required>
 
-                    Estimated Time of Departure (ETD, in Zulu):
+                    <?= __('plan.groupFlights.etdZulu') ?>:
                     <input type="text" class="form-control" name="etd" id="etd" placeholder="2300" maxlength="4">
 
-                    Estimated Time of Arrival (ETA, in Zulu):
+                    <?= __('plan.groupFlights.etaZulu') ?>:
                     <input type="text" class="form-control" name="eta" id="eta" placeholder="0100" maxlength="4">
 
-                    Pilot Quantity:
+                    <?= __('plan.groupFlights.pilotQuantity') ?>:
                     <input type="text" class="form-control" name="pilot_quantity" id="pilot_quantity" placeholder="5" maxlength="2" required>
 
-                    Route:
+                    <?= __('plan.groupFlights.route') ?>:
                     <textarea class="form-control" name="route" id="route" rows="3"></textarea>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Edit">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('plan.modal.edit') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
                 </div>
         </div>
 
@@ -2152,7 +2152,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="pertiModalLabel">PERTI Discord Notification</h5>
+                <h5 class="modal-title" id="pertiModalLabel"><?= __('plan.pertiModal.title') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -2162,41 +2162,41 @@ include('load/nav.php');
             <!-- Start / End date & time (all UTC) -->
             <div class="form-row">
                 <div class="form-group col-md-6">
-                    <label for="pertiStartDate">Start Date (UTC)</label>
+                    <label for="pertiStartDate"><?= __('plan.pertiModal.startDateUtc') ?></label>
                     <input type="date" class="form-control form-control-sm" id="pertiStartDate">
                     <small class="form-text text-muted">
-                        Defaults from event date.
+                        <?= __('plan.pertiModal.startDateHint') ?>
                     </small>
                 </div>
                 <div class="form-group col-md-6">
-                    <label for="pertiStartTime">Start Time (UTC)</label>
+                    <label for="pertiStartTime"><?= __('plan.pertiModal.startTimeUtc') ?></label>
                     <input type="text" class="form-control form-control-sm" id="pertiStartTime" placeholder="e.g. 1800">
                     <small class="form-text text-muted">
-                        Defaults from event start time.
+                        <?= __('plan.pertiModal.startTimeHint') ?>
                     </small>
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group col-md-6">
-                    <label for="pertiEndDate">End Date (UTC)</label>
+                    <label for="pertiEndDate"><?= __('plan.pertiModal.endDateUtc') ?></label>
                     <input type="date" class="form-control form-control-sm" id="pertiEndDate">
                     <small class="form-text text-muted">
-                        Defaults from event end date, or calculated from start if not set.
+                        <?= __('plan.pertiModal.endDateHint') ?>
                     </small>
                 </div>
                 <div class="form-group col-md-6">
-                    <label for="pertiEndTime">End Time (UTC)</label>
+                    <label for="pertiEndTime"><?= __('plan.pertiModal.endTimeUtc') ?></label>
                     <input type="text" class="form-control form-control-sm" id="pertiEndTime" placeholder="e.g. 0300">
                     <small class="form-text text-muted">
-                        Defaults from event end time. Used for Discord timestamps.
+                        <?= __('plan.pertiModal.endTimeHint') ?>
                     </small>
                 </div>
             </div>
 
                 <!-- Facilities selector -->
                 <div class="form-group mt-3">
-                    <label class="small mb-0" for="advFacilities">Facilities Included</label>
+                    <label class="small mb-0" for="advFacilities"><?= __('plan.pertiModal.facilitiesIncluded') ?></label>
                     <div class="adv-facilities-wrapper">
                         <div class="input-group input-group-sm">
                             <input type="text"
@@ -2215,12 +2215,12 @@ include('load/nav.php');
                             </div>
                             <div class="mt-2 d-flex justify-content-between align-items-center">
                                 <div>
-                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesClear">Clear</button>
-                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesSelectAll">All</button>
-                                    <button type="button" class="btn btn-sm btn-light" id="advFacilitiesSelectUs">US ARTCCs</button>
+                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesClear"><?= __('plan.pertiModal.clear') ?></button>
+                                    <button type="button" class="btn btn-sm btn-light mr-2" id="advFacilitiesSelectAll"><?= __('plan.pertiModal.all') ?></button>
+                                    <button type="button" class="btn btn-sm btn-light" id="advFacilitiesSelectUs"><?= __('plan.pertiModal.usArtccs') ?></button>
                                 </div>
                                 <div>
-                                    <button type="button" class="btn btn-sm btn-primary" id="advFacilitiesApply">Apply</button>
+                                    <button type="button" class="btn btn-sm btn-primary" id="advFacilitiesApply"><?= __('plan.pertiModal.apply') ?></button>
                                 </div>
                             </div>
                         </div>
@@ -2229,14 +2229,14 @@ include('load/nav.php');
 
                 <!-- Final message -->
                 <div class="form-group mt-3">
-                    <label for="pertiMessage">Notification Text (copy into Discord)</label>
+                    <label for="pertiMessage"><?= __('plan.pertiModal.notificationText') ?></label>
                     <textarea class="form-control" id="pertiMessage" rows="20" style="font-family: Menlo, Consolas, monospace;"></textarea>
                 </div>
 
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="pertiCopyBtn">Copy to Clipboard</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="pertiCopyBtn"><?= __('plan.pertiModal.copyToClipboard') ?></button>
             </div>
         </div>
     </div>
@@ -2249,7 +2249,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="opsPlanModalLabel">Operations Plan Advisory</h5>
+                <h5 class="modal-title" id="opsPlanModalLabel"><?= __('plan.opsPlanModal.title') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -2258,14 +2258,14 @@ include('load/nav.php');
                 <div class="container-fluid">
                     <div class="form-row">
                         <div class="form-group col-md-3">
-                            <label for="opsAdvNum">Advisory Number</label>
+                            <label for="opsAdvNum"><?= __('plan.opsPlanModal.advisoryNumber') ?></label>
                             <input type="text" class="form-control form-control-sm" id="opsAdvNum" placeholder="e.g. 001">
                         </div>
                         <div class="form-group col-md-5">
-                            <label for="opsAdvDate">Advisory Date (UTC, mm/dd/yyyy)</label>
+                            <label for="opsAdvDate"><?= __('plan.opsPlanModal.advisoryDateUtc') ?></label>
                             <input type="text" class="form-control form-control-sm" id="opsAdvDate" placeholder="mm/dd/yyyy">
                             <small class="form-text text-muted">
-                                Defaults from event date if left blank.
+                                <?= __('plan.opsPlanModal.advisoryDateHint') ?>
                             </small>
                         </div>
                     </div>
@@ -2274,33 +2274,33 @@ include('load/nav.php');
 
                     <div class="form-row">
                         <div class="form-group col-md-3">
-                            <label for="opsStartDate">Start Date (UTC)</label>
+                            <label for="opsStartDate"><?= __('plan.opsPlanModal.startDateUtc') ?></label>
                             <input type="date" class="form-control form-control-sm" id="opsStartDate">
                         </div>
                         <div class="form-group col-md-3">
-                            <label for="opsStartTime">Start Time (UTC)</label>
+                            <label for="opsStartTime"><?= __('plan.opsPlanModal.startTimeUtc') ?></label>
                             <input type="text" class="form-control form-control-sm" id="opsStartTime" placeholder="e.g. 2359">
                         </div>
                         <div class="form-group col-md-3">
-                            <label for="opsEndDate">End Date (UTC)</label>
+                            <label for="opsEndDate"><?= __('plan.opsPlanModal.endDateUtc') ?></label>
                             <input type="date" class="form-control form-control-sm" id="opsEndDate">
                         </div>
                         <div class="form-group col-md-3">
-                            <label for="opsEndTime">End Time (UTC)</label>
+                            <label for="opsEndTime"><?= __('plan.opsPlanModal.endTimeUtc') ?></label>
                             <input type="text" class="form-control form-control-sm" id="opsEndTime" placeholder="e.g. 0400">
                         </div>
                     </div>
 
                     <div class="form-group mt-2">
-                        <label for="opsNarrative">Narrative</label>
+                        <label for="opsNarrative"><?= __('plan.opsPlanModal.narrative') ?></label>
                         <textarea class="form-control" id="opsNarrative" rows="4"></textarea>
                         <small class="form-text text-muted">
-                            This text populates the NARRATIVE section of the advisory.
+                            <?= __('plan.opsPlanModal.narrativeHint') ?>
                         </small>
                     </div>
 
                     <div class="form-group mt-2">
-                        <label for="opsPlanMessage">Operations Plan Advisory Text</label>
+                        <label for="opsPlanMessage"><?= __('plan.opsPlanModal.outputLabel') ?></label>
                         <small class="form-text text-muted mb-1">
                             Auto-generated from the PERTI plan. If the text exceeds Discord’s 2000-character limit, it will be split into multiple parts labeled <code>(PART 1 OF N)</code>, <code>(PART 2 OF N)</code>, etc.
                         </small>
@@ -2309,8 +2309,8 @@ include('load/nav.php');
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="opsPlanCopyBtn">Copy to Clipboard</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal"><?= __('plan.modal.close') ?></button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="opsPlanCopyBtn"><?= __('plan.opsPlanModal.copyToClipboard') ?></button>
             </div>
         </div>
     </div>
@@ -2322,26 +2322,26 @@ include('load/nav.php');
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i>Advisory Organization</h5>
+                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i><?= __('plan.advisoryOrg.title') ?></h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="advisoryOrg" id="orgDCC" value="DCC">
                     <label class="form-check-label" for="orgDCC">
-                        <strong>US DCC</strong><br><small class="text-muted">vATCSCC ADVZY ... DCC</small>
+                        <strong><?= __('plan.advisoryOrg.usDcc') ?></strong><br><small class="text-muted"><?= __('plan.advisoryOrg.usDccHint') ?></small>
                     </label>
                 </div>
                 <div class="form-check mt-3">
                     <input class="form-check-input" type="radio" name="advisoryOrg" id="orgNOC" value="NOC">
                     <label class="form-check-label" for="orgNOC">
-                        <strong>Canadian NOC</strong><br><small class="text-muted">vNAVCAN ADVZY ... NOC</small>
+                        <strong><?= __('plan.advisoryOrg.canadianNoc') ?></strong><br><small class="text-muted"><?= __('plan.advisoryOrg.canadianNocHint') ?></small>
                     </label>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('plan.advisoryOrg.cancel') ?></button>
+                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()"><?= __('plan.advisoryOrg.save') ?></button>
             </div>
         </div>
     </div>

@@ -190,7 +190,7 @@ const PlaybookCDRSearch = (function() {
         // Check if any filter is set
         const hasFilter = Object.values(filters).some(function(v) { return v !== ''; });
         if (!hasFilter) {
-            showNoResults('Enter at least one search criterion');
+            showNoResults(PERTII18n.t('route.enterSearchCriterion'));
             return;
         }
 
@@ -540,7 +540,7 @@ const PlaybookCDRSearch = (function() {
         $container.empty();
 
         if (results.length === 0) {
-            showNoResults('No matching routes found');
+            showNoResults(PERTII18n.t('route.noMatchingRoutes'));
             return;
         }
 
@@ -563,23 +563,24 @@ const PlaybookCDRSearch = (function() {
 
     function renderResultItem(result, idx) {
         const typeClass = result.type === 'playbook' ? 'playbook' : 'cdr';
-        const typeLabel = result.type === 'playbook' ? 'Playbook' : 'CDR';
+        const typeLabel = result.type === 'playbook' ? PERTII18n.t('route.playbook') : PERTII18n.t('route.cdr');
 
         // Build metadata badges
+        const t = PERTII18n.t;
         let metaHtml = '';
         if (result.origAirports && result.origAirports.length > 0) {
-            metaHtml += '<span title="Origin Airports">' + result.origAirports.slice(0, 3).join(' ') +
+            metaHtml += '<span title="' + t('route.originAirports') + '">' + result.origAirports.slice(0, 3).join(' ') +
                        (result.origAirports.length > 3 ? '...' : '') + '</span>';
         }
         if (result.origArtccs && result.origArtccs.length > 0) {
-            metaHtml += '<span title="Origin ARTCCs">' + result.origArtccs.slice(0, 2).join(' ') + '</span>';
+            metaHtml += '<span title="' + t('route.originArtccs') + '">' + result.origArtccs.slice(0, 2).join(' ') + '</span>';
         }
         if (result.destAirports && result.destAirports.length > 0) {
-            metaHtml += '<span title="Dest Airports">→ ' + result.destAirports.slice(0, 3).join(' ') +
+            metaHtml += '<span title="' + t('route.destAirports') + '">' + result.destAirports.slice(0, 3).join(' ') +
                        (result.destAirports.length > 3 ? '...' : '') + '</span>';
         }
         if (result.destArtccs && result.destArtccs.length > 0) {
-            metaHtml += '<span title="Dest ARTCCs">→ ' + result.destArtccs.slice(0, 2).join(' ') + '</span>';
+            metaHtml += '<span title="' + t('route.destArtccs') + '">' + result.destArtccs.slice(0, 2).join(' ') + '</span>';
         }
 
         return '<div class="pbcdr-result-item" data-idx="' + idx + '">' +
@@ -591,10 +592,10 @@ const PlaybookCDRSearch = (function() {
                 '<div class="d-flex align-items-center">' +
                     '<span class="pbcdr-result-type ' + typeClass + '">' + typeLabel + '</span>' +
                     '<div class="pbcdr-result-actions ml-2">' +
-                        '<button class="btn btn-outline-primary pbcdr-action-btn pbcdr-quick-add" title="Add to textarea">' +
+                        '<button class="btn btn-outline-primary pbcdr-action-btn pbcdr-quick-add" title="' + PERTII18n.t('route.addToTextarea') + '">' +
                             '<i class="fas fa-plus"></i>' +
                         '</button>' +
-                        '<button class="btn btn-outline-success pbcdr-action-btn pbcdr-quick-plot ml-1" title="Plot route">' +
+                        '<button class="btn btn-outline-success pbcdr-action-btn pbcdr-quick-plot ml-1" title="' + PERTII18n.t('route.plotRoute') + '">' +
                             '<i class="fas fa-pencil-alt"></i>' +
                         '</button>' +
                     '</div>' +
@@ -760,7 +761,7 @@ const PlaybookCDRSearch = (function() {
 
         if (newRoutes.length === 0) {
             if (showFeedback) {
-                showToast('All routes already in textarea', 'info');
+                showToast(PERTII18n.t('route.allRoutesInTextarea'), 'info');
             }
             return 0;
         }
@@ -776,9 +777,9 @@ const PlaybookCDRSearch = (function() {
 
         const skipped = routes.length - newRoutes.length;
         if (showFeedback) {
-            let msg = 'Added ' + newRoutes.length + ' route(s)';
+            let msg = PERTII18n.t('route.addedRoutes', { count: newRoutes.length });
             if (skipped > 0) {
-                msg += ' (' + skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped)';
+                msg += ' ' + PERTII18n.t('route.duplicatesSkipped', { count: skipped });
             }
             showToast(msg, 'success');
         }
@@ -812,9 +813,9 @@ const PlaybookCDRSearch = (function() {
         $('#plot_r').click();
 
         if (added > 0) {
-            showToast('Plotting ' + added + ' route(s)', 'success');
+            showToast(PERTII18n.t('route.plottingRoutes', { count: added }), 'success');
         } else {
-            showToast('Routes already plotted', 'info');
+            showToast(PERTII18n.t('route.routesAlreadyPlotted'), 'info');
         }
     }
 
@@ -826,7 +827,7 @@ const PlaybookCDRSearch = (function() {
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
-                showToast('Copied ' + routes.length + ' route(s) to clipboard', 'success');
+                showToast(PERTII18n.t('route.copiedRoutes', { count: routes.length }), 'success');
             }).catch(function() {
                 fallbackCopy(text);
             });
@@ -841,7 +842,7 @@ const PlaybookCDRSearch = (function() {
         $temp.val(text).select();
         document.execCommand('copy');
         $temp.remove();
-        showToast('Copied to clipboard', 'success');
+        showToast(PERTII18n.t('common.copied'), 'success');
     }
 
     function quickAddRoute(idx) {
@@ -860,9 +861,9 @@ const PlaybookCDRSearch = (function() {
         const added = addRoutesToTextarea([routeStr], false);
 
         if (added > 0) {
-            showToast('Added: ' + result.displayName, 'success');
+            showToast(PERTII18n.t('route.addedRoute', { name: result.displayName }), 'success');
         } else {
-            showToast('Already in textarea: ' + result.displayName, 'info');
+            showToast(PERTII18n.t('route.alreadyInTextarea', { name: result.displayName }), 'info');
         }
     }
 
@@ -884,12 +885,12 @@ const PlaybookCDRSearch = (function() {
         // Trigger plot
         $('#plot_r').click();
 
-        showToast('Plotting: ' + result.displayName, 'success');
+        showToast(PERTII18n.t('route.plottingRoute', { name: result.displayName }), 'success');
     }
 
     function clearRoutesTextarea() {
         $('#routeSearch').val('');
-        showToast('Routes cleared', 'success');
+        showToast(PERTII18n.t('route.routesCleared'), 'success');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -908,7 +909,7 @@ const PlaybookCDRSearch = (function() {
 
         currentResults = [];
         selectedIndices.clear();
-        showNoResults('Enter search criteria above');
+        showNoResults(PERTII18n.t('route.enterSearchCriteria'));
         updateBulkActionState();
     }
 

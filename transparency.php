@@ -7,6 +7,7 @@
  */
 
 include("load/config.php");
+include("load/i18n.php");
 // No session handler or database connections needed - public static content
 ?>
 
@@ -152,8 +153,8 @@ include("load/config.php");
     <div class="container-fluid pt-2 pb-5 py-lg-6">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1>Infrastructure Transparency</h1>
-            <h4 class="text-white">Open disclosure of PERTI's operational costs and scaling strategy</h4>
+            <h1><?= __('transparency.title') ?></h1>
+            <h4 class="text-white"><?= __('transparency.subtitle') ?></h4>
         </center>
     </div>
 </section>
@@ -161,23 +162,23 @@ include("load/config.php");
 <!-- Main Content -->
 <div class="container mt-5 mb-5">
 
-    <p class="text-muted text-right"><small>Last updated: February 2026</small></p>
+    <p class="text-muted text-right"><small><?= __('transparency.lastUpdated', ['date' => 'February 2026']) ?></small></p>
 
     <!-- Current Costs Section -->
     <div class="transparency-section">
-        <h3><i class="fas fa-dollar-sign mr-2"></i>Current Monthly Costs</h3>
+        <h3><i class="fas fa-dollar-sign mr-2"></i><?= __('transparency.currentMonthlyCosts') ?></h3>
 
-        <p class="lead">PERTI operates on Microsoft Azure infrastructure across the Central US and East US regions. Below is a transparent breakdown of our actual operational costs, sourced directly from Azure Cost Management.</p>
+        <p class="lead"><?= __('transparency.costsIntro') ?></p>
 
         <div class="info-card">
-            <h4><i class="fas fa-cloud mr-2"></i>Compute Resources</h4>
+            <h4><i class="fas fa-cloud mr-2"></i><?= __('transparency.computeResources') ?></h4>
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Resource</th>
-                        <th>Tier/SKU</th>
-                        <th>Purpose</th>
-                        <th>Cost/Month</th>
+                        <th><?= __('transparency.resource') ?></th>
+                        <th><?= __('transparency.tierSku') ?></th>
+                        <th><?= __('transparency.purpose') ?></th>
+                        <th><?= __('transparency.costPerMonth') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -191,14 +192,14 @@ include("load/config.php");
                         <td><strong>vatcscc-atfm-engine</strong><br><small>App Service</small></td>
                         <td><span class="tier-badge tier-current">P1v2</span><br><small>Shared plan</small></td>
                         <td>ATFM processing engine</td>
-                        <td>Included</td>
+                        <td><?= __('transparency.included') ?></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <div class="info-card">
-            <h4><i class="fas fa-database mr-2"></i>Azure SQL Databases</h4>
+            <h4><i class="fas fa-database mr-2"></i><?= __('transparency.azureSqlDatabases') ?></h4>
             <p class="text-muted mb-3">Hosted on <code>vatsim.database.windows.net</code> (East US)</p>
             <table class="cost-table">
                 <thead>
@@ -246,7 +247,7 @@ include("load/config.php");
         </div>
 
         <div class="info-card">
-            <h4><i class="fas fa-database mr-2"></i>MySQL &amp; PostgreSQL Databases</h4>
+            <h4><i class="fas fa-database mr-2"></i><?= __('transparency.mysqlPostgresql') ?></h4>
             <table class="cost-table">
                 <thead>
                     <tr>
@@ -274,7 +275,7 @@ include("load/config.php");
         </div>
 
         <div class="info-card">
-            <h4><i class="fas fa-calculator mr-2"></i>Cost Summary</h4>
+            <h4><i class="fas fa-calculator mr-2"></i><?= __('transparency.costSummary') ?></h4>
             <table class="cost-table">
                 <tbody>
                     <tr>
@@ -310,7 +311,7 @@ include("load/config.php");
                         <td class="text-right">~$5</td>
                     </tr>
                     <tr class="cost-total">
-                        <td><strong>Monthly Total</strong></td>
+                        <td><strong><?= __('transparency.monthlyTotal') ?></strong></td>
                         <td class="text-right"><strong>~$3,500 /month</strong></td>
                     </tr>
                 </tbody>
@@ -322,14 +323,14 @@ include("load/config.php");
         </div>
 
         <div class="info-card">
-            <h4><i class="fas fa-archive mr-2"></i>Storage &amp; Other Services</h4>
+            <h4><i class="fas fa-archive mr-2"></i><?= __('transparency.storageOther') ?></h4>
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Resource</th>
-                        <th>Type</th>
-                        <th>Purpose</th>
-                        <th>Cost/Month</th>
+                        <th><?= __('transparency.resource') ?></th>
+                        <th><?= __('transparency.type') ?></th>
+                        <th><?= __('transparency.purpose') ?></th>
+                        <th><?= __('transparency.costPerMonth') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -361,23 +362,23 @@ include("load/config.php");
                         <td><strong>Deployment Slots</strong></td>
                         <td>App Service</td>
                         <td>Staging &amp; backup slots for zero-downtime deploys</td>
-                        <td>Included</td>
+                        <td><?= __('transparency.included') ?></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <div class="info-card">
-            <h4><i class="fas fa-chart-area mr-2"></i>Cost Trend (4-Month History)</h4>
+            <h4><i class="fas fa-chart-area mr-2"></i><?= __('transparency.costTrend') ?></h4>
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Month</th>
-                        <th>SQL Database</th>
-                        <th>App Service</th>
-                        <th>MySQL</th>
+                        <th><?= __('transparency.month') ?></th>
+                        <th><?= __('transparency.sqlDatabase') ?></th>
+                        <th><?= __('transparency.appService') ?></th>
+                        <th><?= __('transparency.mysql') ?></th>
                         <th>Other</th>
-                        <th>Total</th>
+                        <th><?= __('transparency.total') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -424,39 +425,39 @@ include("load/config.php");
 
     <!-- What You Get Section -->
     <div class="transparency-section">
-        <h3><i class="fas fa-server mr-2"></i>What This Infrastructure Provides</h3>
+        <h3><i class="fas fa-server mr-2"></i><?= __('transparency.whatThisProvides') ?></h3>
 
         <div class="metric-grid">
             <div class="metric-box">
                 <div class="metric-value">40</div>
-                <div class="metric-label">PHP-FPM Workers</div>
+                <div class="metric-label"><?= __('transparency.phpFpmWorkers') ?></div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">15s</div>
-                <div class="metric-label">Data Refresh Rate</div>
+                <div class="metric-label"><?= __('transparency.dataRefreshRate') ?></div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">14</div>
-                <div class="metric-label">Background Daemons</div>
+                <div class="metric-label"><?= __('transparency.backgroundDaemons') ?></div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">24/7</div>
-                <div class="metric-label">Availability</div>
+                <div class="metric-label"><?= __('transparency.availability') ?></div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">7</div>
-                <div class="metric-label">Databases</div>
+                <div class="metric-label"><?= __('transparency.databases') ?></div>
             </div>
             <div class="metric-box">
                 <div class="metric-value">3</div>
-                <div class="metric-label">DB Engines</div>
+                <div class="metric-label"><?= __('transparency.dbEngines') ?></div>
             </div>
         </div>
 
         <div class="row">
             <div class="col-md-6">
                 <div class="info-card">
-                    <h4><i class="fas fa-cogs mr-2"></i>Background Services (14 Daemons)</h4>
+                    <h4><i class="fas fa-cogs mr-2"></i><?= __('transparency.backgroundServices') ?></h4>
                     <ul class="optimization-list">
                         <li><i class="fas fa-check"></i> VATSIM data ingestion (every 15s)</li>
                         <li><i class="fas fa-check"></i> Route parsing with PostGIS spatial queries</li>
@@ -477,7 +478,7 @@ include("load/config.php");
             </div>
             <div class="col-md-6">
                 <div class="info-card">
-                    <h4><i class="fas fa-tachometer-alt mr-2"></i>Performance Optimizations</h4>
+                    <h4><i class="fas fa-tachometer-alt mr-2"></i><?= __('transparency.performanceOptimizations') ?></h4>
                     <ul class="optimization-list">
                         <li><i class="fas fa-check"></i> APCu in-memory caching</li>
                         <li><i class="fas fa-check"></i> Tiered cache TTLs by API tier</li>
@@ -497,12 +498,12 @@ include("load/config.php");
 
     <!-- Scaling Strategy Section -->
     <div class="transparency-section">
-        <h3><i class="fas fa-chart-line mr-2"></i>Scaling Strategy</h3>
+        <h3><i class="fas fa-chart-line mr-2"></i><?= __('transparency.scalingStrategy') ?></h3>
 
-        <p>Our infrastructure uses Azure Hyperscale Serverless databases that automatically scale with demand. The App Service layer can be scaled independently.</p>
+        <p><?= __('transparency.scalingStrategyDesc') ?></p>
 
         <div class="info-card">
-            <h4><i class="fas fa-database mr-2"></i>Database Auto-Scaling (Already Active)</h4>
+            <h4><i class="fas fa-database mr-2"></i><?= __('transparency.dbAutoScaling') ?></h4>
             <p>VATSIM_ADL uses Hyperscale Serverless with automatic scaling:</p>
             <ul>
                 <li><strong>VATSIM_ADL:</strong> 3 - 16 vCores (auto-scales based on query load from 14 daemons)</li>
@@ -514,24 +515,24 @@ include("load/config.php");
         </div>
 
         <div class="scaling-scenario">
-            <h5><span class="tier-badge tier-current">Current</span> Baseline Traffic</h5>
+            <h5><span class="tier-badge tier-current">Current</span> <?= __('transparency.currentBaseline') ?></h5>
             <p class="mb-0">P1v2 App Service with 40 PHP-FPM workers handles normal VATSIM traffic. Estimated capacity: 40-80 requests/second at origin.</p>
         </div>
 
         <div class="scaling-scenario">
-            <h5><span class="tier-badge tier-future">10x Traffic</span> Basic SWIM Adoption</h5>
+            <h5><span class="tier-badge tier-future">10x Traffic</span> <?= __('transparency.basicAdoption') ?></h5>
             <p class="mb-1"><strong>Solution:</strong> Add Azure CDN for API caching (~$5-10/month)</p>
             <p class="mb-0"><strong>Benefit:</strong> 80-90% of requests served from edge, reducing origin load</p>
         </div>
 
         <div class="scaling-scenario">
-            <h5><span class="tier-badge tier-future">100x Traffic</span> Full SWIM Adoption</h5>
+            <h5><span class="tier-badge tier-future">100x Traffic</span> <?= __('transparency.fullAdoption') ?></h5>
             <p class="mb-1"><strong>Solution:</strong> CDN + App Service autoscaling (1-3 instances)</p>
             <p class="mb-0"><strong>Benefit:</strong> Reserved Instance discount (30-50% savings on compute)</p>
         </div>
 
         <div class="scaling-scenario">
-            <h5><span class="tier-badge tier-future">1000x Traffic</span> Heavy External Integrations</h5>
+            <h5><span class="tier-badge tier-future">1000x Traffic</span> <?= __('transparency.heavyIntegrations') ?></h5>
             <p class="mb-1"><strong>Solution:</strong> CDN + Upgrade to P2v2 (7GB, 2 vCPU) + Autoscaling (1-5 instances)</p>
             <p class="mb-0"><strong>Note:</strong> Database layer already handles this scale via Hyperscale auto-scaling</p>
         </div>
@@ -539,12 +540,12 @@ include("load/config.php");
 
     <!-- Cost Optimization Section -->
     <div class="transparency-section">
-        <h3><i class="fas fa-piggy-bank mr-2"></i>Cost Optimization Measures</h3>
+        <h3><i class="fas fa-piggy-bank mr-2"></i><?= __('transparency.costOptimization') ?></h3>
 
         <div class="row">
             <div class="col-md-6">
                 <div class="info-card">
-                    <h4 class="status-implemented"><i class="fas fa-check-circle mr-2"></i>Implemented</h4>
+                    <h4 class="status-implemented"><i class="fas fa-check-circle mr-2"></i><?= __('transparency.implemented') ?></h4>
                     <ul class="optimization-list">
                         <li><i class="fas fa-check"></i> APCu caching (80-90% cache hit rate)</li>
                         <li><i class="fas fa-check"></i> Gzip compression for large responses</li>
@@ -562,7 +563,7 @@ include("load/config.php");
             </div>
             <div class="col-md-6">
                 <div class="info-card">
-                    <h4 class="status-planned"><i class="fas fa-clock mr-2"></i>Available When Needed</h4>
+                    <h4 class="status-planned"><i class="fas fa-clock mr-2"></i><?= __('transparency.availableWhenNeeded') ?></h4>
                     <ul class="optimization-list">
                         <li><i class="fas fa-hourglass-half"></i> Azure Reserved Instances (30-50% savings)</li>
                         <li><i class="fas fa-hourglass-half"></i> Azure CDN edge caching</li>
@@ -575,21 +576,21 @@ include("load/config.php");
 
         <div class="note-box">
             <i class="fas fa-info-circle mr-2"></i>
-            <strong>Note:</strong> We deliberately avoid over-provisioning. Our philosophy is to scale reactively based on actual demand rather than paying for unused capacity.
+            <strong><?= __('transparency.note') ?></strong> <?= __('transparency.costOptNote') ?>
         </div>
     </div>
 
     <!-- Traffic Capacity Section -->
     <div class="transparency-section">
-        <h3><i class="fas fa-network-wired mr-2"></i>Estimated Capacity</h3>
+        <h3><i class="fas fa-network-wired mr-2"></i><?= __('transparency.estimatedCapacity') ?></h3>
 
         <div class="info-card">
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Configuration</th>
-                        <th>Est. Requests/Second</th>
-                        <th>Notes</th>
+                        <th><?= __('transparency.configuration') ?></th>
+                        <th><?= __('transparency.estRequestsPerSec') ?></th>
+                        <th><?= __('transparency.notes') ?></th>
                     </tr>
                 </thead>
                 <tbody>

@@ -12,11 +12,12 @@
  * OPTIMIZED: Public page - no session handler or DB needed
  */
 include("load/config.php");
+include("load/i18n.php");
 
 $file_path = __DIR__ . '/docs/fmds-comparison.md';
 
 if (!file_exists($file_path)) {
-    $error_message = "FMDS comparison document not found.";
+    $error_message = __('fmds.docNotFound');
     $markdown_content = "";
 } else {
     $markdown_content = file_get_contents($file_path);
@@ -322,19 +323,19 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
 <div class="container py-4">
 
     <div class="doc-back">
-        <a href="transparency"><i class="fas fa-arrow-left"></i> Back to About</a>
+        <a href="transparency"><i class="fas fa-arrow-left"></i> <?= __('fmds.backToAbout') ?></a>
     </div>
 
     <div class="doc-viewer">
         <div class="doc-header">
-            <h1>FMDS vs PERTI: Functional Comparison</h1>
-            <p>Mapping FAA Flow Management Data and Services (FMDS) capabilities against PERTI's existing functionality</p>
+            <h1><?= __('fmds.title') ?></h1>
+            <p><?= __('fmds.subtitle') ?></p>
             <div class="doc-actions">
                 <a href="docs/fmds-comparison.md" download>
-                    <i class="fas fa-download"></i> Download Markdown
+                    <i class="fas fa-download"></i> <?= __('fmds.downloadMarkdown') ?>
                 </a>
                 <a href="https://github.com/vATCSCC/PERTI/wiki/FMDS-Comparison" target="_blank">
-                    <i class="fab fa-github"></i> View on Wiki
+                    <i class="fab fa-github"></i> <?= __('fmds.viewOnWiki') ?>
                 </a>
             </div>
         </div>

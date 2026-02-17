@@ -152,8 +152,8 @@ $perm = true;
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-broadcast-tower"></i> TMI Publisher</h1>
-            <p class="text-white-50 mb-0">NTML Entries &amp; Advisories</p>
+            <h1><i class="fas fa-broadcast-tower"></i> <?= __('tmiPublish.page.title') ?></h1>
+            <p class="text-white-50 mb-0"><?= __('tmiPublish.page.subtitle') ?></p>
         </center>
     </div>
 </section>
@@ -170,7 +170,7 @@ $perm = true;
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
-                            <div class="perti-info-label">Current UTC</div>
+                            <div class="perti-info-label"><?= __('tmiPublish.page.currentUtc') ?></div>
                             <div id="utc_clock" class="perti-clock-display perti-clock-display-lg"></div>
                         </div>
                         <div class="ml-3">
@@ -182,21 +182,21 @@ $perm = true;
             
             <!-- User Info -->
             <div class="col-auto px-1">
-                <div class="card shadow-sm perti-info-card h-100" style="cursor: pointer;" onclick="TMIPublisher.showProfileModal()" data-toggle="tooltip" title="Click to edit profile">
+                <div class="card shadow-sm perti-info-card h-100" style="cursor: pointer;" onclick="TMIPublisher.showProfileModal()" data-toggle="tooltip" title="<?= __('tmiPublish.page.clickToEditProfile') ?>">
                     <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
                         <div>
-                            <div class="perti-info-label" id="userInfoLabel"><?= $userName ? 'Logged In As' : 'User Profile' ?></div>
+                            <div class="perti-info-label" id="userInfoLabel"><?= $userName ? __('tmiPublish.page.loggedInAs') : __('tmiPublish.page.userProfile') ?></div>
                             <div class="font-weight-bold" id="userInfoDisplay">
                                 <i class="fas fa-user-edit mr-1 small text-muted"></i>
                                 <?php if ($userName): ?>
                                     <?= htmlspecialchars($userName) ?>
                                 <?php else: ?>
-                                    <span class="text-warning">Set Up Profile</span>
+                                    <span class="text-warning"><?= __('tmiPublish.page.setUpProfile') ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
                         <?php if ($userPrivileged): ?>
-                        <span class="badge badge-warning ml-2" data-toggle="tooltip" title="Privileged: Can post to all organizations">PRIV</span>
+                        <span class="badge badge-warning ml-2" data-toggle="tooltip" title="<?= __('tmiPublish.page.privilegedTooltip') ?>">PRIV</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -210,9 +210,9 @@ $perm = true;
                     <div class="card-body d-flex align-items-center py-2 px-3">
                         <div class="custom-control custom-switch mr-3">
                             <input type="checkbox" class="custom-control-input" id="productionMode">
-                            <label class="custom-control-label" for="productionMode">Production</label>
+                            <label class="custom-control-label" for="productionMode"><?= __('tmiPublish.page.production') ?></label>
                         </div>
-                        <span class="badge" id="modeIndicator">STAGING</span>
+                        <span class="badge" id="modeIndicator"><?= __('tmiPublish.page.staging') ?></span>
                     </div>
                 </div>
             </div>
@@ -222,19 +222,19 @@ $perm = true;
     <!-- Production Warning -->
     <div class="alert alert-danger production-warning mb-3" id="prodWarning" style="display: none;">
         <i class="fas fa-exclamation-triangle"></i> 
-        <strong>Production Mode Active</strong> - Entries will post directly to LIVE Discord channels
+        <strong><?= __('tmiPublish.page.productionWarning') ?></strong> - <?= __('tmiPublish.page.productionWarningText') ?>
     </div>
 
     <!-- Main Content Tabs -->
     <ul class="nav nav-tabs nav-tabs-publisher mb-3" id="publisherTabs" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="ntml-tab" data-toggle="tab" href="#ntmlPanel" role="tab">
-                <i class="fas fa-clipboard-list mr-1"></i> NTML Entry
+                <i class="fas fa-clipboard-list mr-1"></i> <?= __('tmiPublish.page.tabNtml') ?>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="advisory-tab" data-toggle="tab" href="#advisoryPanel" role="tab">
-                <i class="fas fa-bullhorn mr-1"></i> Advisory
+                <i class="fas fa-bullhorn mr-1"></i> <?= __('tmiPublish.page.tabAdvisory') ?>
             </a>
         </li>
         <li class="nav-item">

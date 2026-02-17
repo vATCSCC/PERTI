@@ -16,6 +16,7 @@
  * Login state is handled by nav_public.php (cheap session read)
  */
 include("load/config.php");
+include("load/i18n.php");
 ?>
 
 <!DOCTYPE html>
@@ -345,15 +346,15 @@ include("load/config.php");
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-database mr-2"></i>VATSWIM API</h1>
-            <h4 class="text-white pl-1">System Wide Information Management</h4>
-            <p class="text-muted mb-3">Version 1.0.0 &bull; Production Ready</p>
+            <h1><i class="fas fa-database mr-2"></i><?= __('swim.page.title') ?></h1>
+            <h4 class="text-white pl-1"><?= __('swim.page.subtitle') ?></h4>
+            <p class="text-muted mb-3"><?= __('swim.page.version') ?> &bull; <?= __('swim.page.productionReady') ?></p>
             <div>
                 <a href="swim-keys" class="btn btn-success mr-2">
-                    <i class="fas fa-key mr-1"></i>Get API Key
+                    <i class="fas fa-key mr-1"></i><?= __('swim.page.getApiKey') ?>
                 </a>
                 <a href="docs/swim/" class="btn btn-outline-light" target="_blank">
-                    <i class="fas fa-book mr-1"></i>Documentation
+                    <i class="fas fa-book mr-1"></i><?= __('swim.page.documentation') ?>
                 </a>
             </div>
         </center>
@@ -365,33 +366,33 @@ include("load/config.php");
 
     <!-- What is SWIM Section -->
     <div class="section-header">
-        <h2>What is VATSWIM?</h2>
-        <p>A centralized real-time data exchange hub for flight information across the VATSIM network.</p>
+        <h2><?= __('swim.page.whatIsSwim') ?></h2>
+        <p><?= __('swim.page.whatIsSwimDesc') ?></p>
     </div>
 
     <div class="row mb-4">
         <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <h5><i class="fas fa-bolt"></i>REST API</h5>
-                <p>Query flights, positions, and TMI data with filtering and pagination.</p>
+                <h5><i class="fas fa-bolt"></i><?= __('swim.page.restApi') ?></h5>
+                <p><?= __('swim.page.restApiDesc') ?></p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <h5><i class="fas fa-broadcast-tower"></i>WebSocket</h5>
-                <p>Real-time event streaming for departures, arrivals, and position updates.</p>
+                <h5><i class="fas fa-broadcast-tower"></i><?= __('swim.page.webSocket') ?></h5>
+                <p><?= __('swim.page.webSocketDesc') ?></p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <h5><i class="fas fa-map-marked-alt"></i>GeoJSON</h5>
-                <p>Position data ready for MapLibre, Leaflet, or Mapbox rendering.</p>
+                <h5><i class="fas fa-map-marked-alt"></i><?= __('swim.page.geoJson') ?></h5>
+                <p><?= __('swim.page.geoJsonDesc') ?></p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
             <div class="feature-card">
-                <h5><i class="fas fa-traffic-light"></i>TMI Data</h5>
-                <p>Ground Stops, GDPs, EDCTs, and controlled flight information.</p>
+                <h5><i class="fas fa-traffic-light"></i><?= __('swim.page.tmiData') ?></h5>
+                <p><?= __('swim.page.tmiDataDesc') ?></p>
             </div>
         </div>
     </div>
@@ -400,23 +401,23 @@ include("load/config.php");
 
     <!-- Getting Started Section -->
     <div class="section-header">
-        <h2>Getting Started</h2>
-        <p>Start integrating with SWIM in three steps.</p>
+        <h2><?= __('swim.page.gettingStarted') ?></h2>
+        <p><?= __('swim.page.gettingStartedDesc') ?></p>
     </div>
 
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">1</div>
-                <h5>Create Your API Key</h5>
-                <p>Log in with your VATSIM account at the <a href="swim-keys">API Key Portal</a> to create a key instantly.</p>
+                <h5><?= __('swim.page.step1Title') ?></h5>
+                <p><?= __('swim.page.step1Desc') ?></p>
             </div>
         </div>
         <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">2</div>
-                <h5>Make a Request</h5>
-                <p>Include your API key in the Authorization header:</p>
+                <h5><?= __('swim.page.step2Title') ?></h5>
+                <p><?= __('swim.page.step2Desc') ?></p>
                 <div class="code-block">
                     <pre><span class="keyword">curl</span> -H <span class="string">"Authorization: Bearer YOUR_KEY"</span> \
   https://perti.vatcscc.org/api/swim/v1/flights</pre>
@@ -426,8 +427,8 @@ include("load/config.php");
         <div class="col-md-4 mb-3">
             <div class="getting-started-step">
                 <div class="step-number">3</div>
-                <h5>Explore the API</h5>
-                <p>Read the <a href="docs/swim/" target="_blank">full documentation</a> to discover all endpoints, filters, and WebSocket events.</p>
+                <h5><?= __('swim.page.step3Title') ?></h5>
+                <p><?= __('swim.page.step3Desc') ?></p>
             </div>
         </div>
     </div>
@@ -436,55 +437,55 @@ include("load/config.php");
 
     <!-- API Access Tiers -->
     <div class="section-header">
-        <h2>API Access Tiers</h2>
-        <p>Choose the tier that fits your needs. Public and Developer keys are available instantly.</p>
+        <h2><?= __('swim.page.accessTiers') ?></h2>
+        <p><?= __('swim.page.accessTiersDesc') ?></p>
     </div>
 
     <div class="table-responsive mb-5">
         <table class="tier-table">
             <thead>
                 <tr>
-                    <th>Feature</th>
-                    <th><span class="tier-header tier-public">Public</span></th>
-                    <th><span class="tier-header tier-developer">Developer</span></th>
-                    <th><span class="tier-header tier-partner">Partner</span></th>
-                    <th><span class="tier-header tier-system">System</span></th>
+                    <th><?= __('swim.page.feature') ?></th>
+                    <th><span class="tier-header tier-public"><?= __('swim.page.public') ?></span></th>
+                    <th><span class="tier-header tier-developer"><?= __('swim.page.developer') ?></span></th>
+                    <th><span class="tier-header tier-partner"><?= __('swim.page.partner') ?></span></th>
+                    <th><span class="tier-header tier-system"><?= __('swim.page.system') ?></span></th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Rate Limit</strong></td>
+                    <td><strong><?= __('swim.page.rateLimit') ?></strong></td>
                     <td>100 req/min</td>
                     <td>300 req/min</td>
                     <td>3,000 req/min</td>
                     <td>30,000 req/min</td>
                 </tr>
                 <tr>
-                    <td><strong>WebSocket Connections</strong></td>
+                    <td><strong><?= __('swim.page.webSocketConnections') ?></strong></td>
                     <td>5</td>
                     <td>50</td>
                     <td>500</td>
                     <td>10,000</td>
                 </tr>
                 <tr>
-                    <td><strong>Write Access</strong></td>
+                    <td><strong><?= __('swim.page.writeAccess') ?></strong></td>
                     <td><i class="fas fa-times text-danger"></i></td>
                     <td><i class="fas fa-times text-danger"></i></td>
                     <td><i class="fas fa-check text-warning"></i> Limited</td>
                     <td><i class="fas fa-check text-success"></i> Full</td>
                 </tr>
                 <tr>
-                    <td><strong>Self-Service</strong></td>
+                    <td><strong><?= __('swim.page.selfService') ?></strong></td>
                     <td><i class="fas fa-check text-success"></i></td>
                     <td><i class="fas fa-check text-success"></i></td>
                     <td><i class="fas fa-times text-muted"></i> Contact Us</td>
                     <td><i class="fas fa-times text-muted"></i> Contact Us</td>
                 </tr>
                 <tr>
-                    <td><strong>Best For</strong></td>
-                    <td>Personal projects</td>
-                    <td>Development & testing</td>
-                    <td>Virtual airlines</td>
+                    <td><strong><?= __('swim.page.bestFor') ?></strong></td>
+                    <td><?= __('swim.page.personalProjects') ?></td>
+                    <td><?= __('swim.page.devTesting') ?></td>
+                    <td><?= __('swim.page.virtualAirlines') ?></td>
                     <td>vNAS, CRC, SimTraffic</td>
                 </tr>
             </tbody>
@@ -495,54 +496,54 @@ include("load/config.php");
 
     <!-- API Endpoints -->
     <div class="section-header">
-        <h2>API Endpoints</h2>
-        <p>Complete REST API for querying flight data and ingesting updates.</p>
+        <h2><?= __('swim.page.apiEndpoints') ?></h2>
+        <p><?= __('swim.page.apiEndpointsDesc') ?></p>
     </div>
 
     <div class="endpoint-table mb-5">
         <table class="table mb-0">
             <thead>
                 <tr>
-                    <th style="width: 100px;">Method</th>
-                    <th>Endpoint</th>
-                    <th>Description</th>
+                    <th style="width: 100px;"><?= __('swim.page.method') ?></th>
+                    <th><?= __('swim.page.endpoint') ?></th>
+                    <th><?= __('swim.page.description') ?></th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td><span class="method-badge method-get">GET</span></td>
                     <td><code>/api/swim/v1/flights</code></td>
-                    <td>List flights with filtering by airport, ARTCC, callsign, phase, and TMI status</td>
+                    <td><?= __('swim.page.flightsEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-get">GET</span></td>
                     <td><code>/api/swim/v1/flight</code></td>
-                    <td>Get single flight by GUFI, flight_uid, or flight_key</td>
+                    <td><?= __('swim.page.flightEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-get">GET</span></td>
                     <td><code>/api/swim/v1/positions</code></td>
-                    <td>Bulk flight positions in GeoJSON FeatureCollection format</td>
+                    <td><?= __('swim.page.positionsEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-get">GET</span></td>
                     <td><code>/api/swim/v1/tmi/programs</code></td>
-                    <td>Active TMI programs (Ground Stops, GDPs)</td>
+                    <td><?= __('swim.page.tmiProgramsEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-get">GET</span></td>
                     <td><code>/api/swim/v1/tmi/controlled</code></td>
-                    <td>Flights under TMI control with EDCT/slot assignments</td>
+                    <td><?= __('swim.page.tmiControlledEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-post">POST</span></td>
                     <td><code>/api/swim/v1/ingest/adl</code></td>
-                    <td>Ingest flight data (OOOI times, ETAs) — Partner+ tier</td>
+                    <td><?= __('swim.page.ingestAdlEndpoint') ?></td>
                 </tr>
                 <tr>
                     <td><span class="method-badge method-post">POST</span></td>
                     <td><code>/api/swim/v1/ingest/track</code></td>
-                    <td>Ingest track/position updates — System tier</td>
+                    <td><?= __('swim.page.ingestTrackEndpoint') ?></td>
                 </tr>
             </tbody>
         </table>
@@ -552,8 +553,8 @@ include("load/config.php");
 
     <!-- Use Cases by Role -->
     <div class="section-header">
-        <h2>Use Cases by Role</h2>
-        <p>SWIM serves different needs across the VATSIM ecosystem.</p>
+        <h2><?= __('swim.page.useCasesByRole') ?></h2>
+        <p><?= __('swim.page.useCasesByRoleDesc') ?></p>
     </div>
 
     <ul class="nav nav-tabs use-case-tabs mb-0" id="useCaseTabs" role="tablist">
@@ -706,8 +707,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
 
     <!-- Client SDKs -->
     <div class="section-header">
-        <h2>Client SDKs</h2>
-        <p>Official client libraries (coming soon).</p>
+        <h2><?= __('swim.page.clientSdks') ?></h2>
+        <p><?= __('swim.page.clientSdksDesc') ?></p>
     </div>
 
     <div class="row mb-4">
@@ -715,28 +716,28 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <div class="sdk-card">
                 <i class="fab fa-python"></i>
                 <h6>Python</h6>
-                <small>Coming Soon</small>
+                <small><?= __('swim.page.comingSoon') ?></small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
             <div class="sdk-card">
                 <i class="fab fa-js-square"></i>
                 <h6>JavaScript</h6>
-                <small>Coming Soon</small>
+                <small><?= __('swim.page.comingSoon') ?></small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
             <div class="sdk-card">
                 <i class="fab fa-microsoft"></i>
                 <h6>C# / .NET</h6>
-                <small>Coming Soon</small>
+                <small><?= __('swim.page.comingSoon') ?></small>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-3">
             <div class="sdk-card">
                 <i class="fab fa-java"></i>
                 <h6>Java</h6>
-                <small>Coming Soon</small>
+                <small><?= __('swim.page.comingSoon') ?></small>
             </div>
         </div>
     </div>
@@ -745,8 +746,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
 
     <!-- Resources -->
     <div class="section-header">
-        <h2>Resources</h2>
-        <p>Everything you need to get started with SWIM.</p>
+        <h2><?= __('swim.page.resources') ?></h2>
+        <p><?= __('swim.page.resourcesDesc') ?></p>
     </div>
 
     <div class="row mb-5">
@@ -754,8 +755,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <a href="swim-keys" class="resource-link">
                 <i class="fas fa-key"></i>
                 <div>
-                    <span>API Key Portal</span>
-                    <small>Create and manage your API keys</small>
+                    <span><?= __('swim.page.apiKeyPortal') ?></span>
+                    <small><?= __('swim.page.apiKeyPortalDesc') ?></small>
                 </div>
             </a>
         </div>
@@ -763,8 +764,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <a href="docs/swim/" class="resource-link" target="_blank">
                 <i class="fas fa-book"></i>
                 <div>
-                    <span>Interactive API Docs</span>
-                    <small>Swagger UI with Try It Out</small>
+                    <span><?= __('swim.page.interactiveDocs') ?></span>
+                    <small><?= __('swim.page.interactiveDocsDesc') ?></small>
                 </div>
             </a>
         </div>
@@ -772,8 +773,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <a href="docs/swim/openapi.yaml" class="resource-link" target="_blank">
                 <i class="fas fa-code"></i>
                 <div>
-                    <span>OpenAPI Spec</span>
-                    <small>Machine-readable API definition</small>
+                    <span><?= __('swim.page.openApiSpec') ?></span>
+                    <small><?= __('swim.page.openApiSpecDesc') ?></small>
                 </div>
             </a>
         </div>
@@ -781,8 +782,8 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <a href="https://vats.im/CommandCenter" class="resource-link" target="_blank">
                 <i class="fab fa-discord"></i>
                 <div>
-                    <span>Discord Community</span>
-                    <small>Get help and share projects</small>
+                    <span><?= __('swim.page.discordCommunity') ?></span>
+                    <small><?= __('swim.page.discordCommunityDesc') ?></small>
                 </div>
             </a>
         </div>
@@ -790,7 +791,7 @@ GET /positions?bounds=-76,39,-72,42</pre>
             <a href="mailto:dev@vatcscc.org" class="resource-link">
                 <i class="fas fa-envelope"></i>
                 <div>
-                    <span>Contact Support</span>
+                    <span><?= __('swim.page.contactSupport') ?></span>
                     <small>dev@vatcscc.org</small>
                 </div>
             </a>
@@ -799,13 +800,13 @@ GET /positions?bounds=-76,39,-72,42</pre>
 
     <!-- CTA Section -->
     <div class="cta-section">
-        <h3>Ready to Build with SWIM?</h3>
-        <p>Create your API key in seconds and start integrating real-time VATSIM flight data today.</p>
+        <h3><?= __('swim.page.ctaTitle') ?></h3>
+        <p><?= __('swim.page.ctaDesc') ?></p>
         <a href="swim-keys" class="btn btn-success">
-            <i class="fas fa-key mr-2"></i>Get Your API Key
+            <i class="fas fa-key mr-2"></i><?= __('swim.page.getYourApiKey') ?>
         </a>
         <a href="docs/swim/" class="btn btn-outline-light" target="_blank">
-            <i class="fas fa-book mr-2"></i>Read the Docs
+            <i class="fas fa-book mr-2"></i><?= __('swim.page.readTheDocs') ?>
         </a>
     </div>
 

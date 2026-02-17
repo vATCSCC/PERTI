@@ -738,19 +738,20 @@ const WeatherRadar = (function() {
      * Create radar control panel HTML
      */
     function createControlPanel() {
+        const t = PERTII18n.t;
         const html = `
             <div id="radar-control-panel" class="radar-controls">
                 <div class="radar-header">
                     <label class="radar-toggle">
                         <input type="checkbox" id="radar-enabled-toggle">
-                        <span>Weather Radar</span>
+                        <span>${t('weather.radar')}</span>
                     </label>
                     <span id="radar-timestamp" class="radar-time">--:--Z</span>
                 </div>
-                
+
                 <div class="radar-settings" style="display: none;">
                     <div class="radar-row">
-                        <label>Product:</label>
+                        <label>${t('weather.product')}:</label>
                         <select id="radar-product-select">
                             ${Object.entries(PRODUCTS).map(([id, p]) =>
         `<option value="${id}"${id === state.product ? ' selected' : ''}>${p.name}</option>`,
@@ -759,7 +760,7 @@ const WeatherRadar = (function() {
                     </div>
                     
                     <div class="radar-row">
-                        <label>Colors:</label>
+                        <label>${t('weather.colors')}:</label>
                         <select id="radar-color-select">
                             ${Object.entries(COLOR_TABLES).map(([id, t]) =>
         `<option value="${id}"${id === state.colorTable ? ' selected' : ''}>${t.name}</option>`,
@@ -768,17 +769,17 @@ const WeatherRadar = (function() {
                     </div>
                     
                     <div class="radar-row">
-                        <label>Opacity:</label>
+                        <label>${t('weather.opacity')}:</label>
                         <input type="range" id="radar-opacity-slider" 
                                min="0" max="100" value="${state.opacity * 100}">
                         <span id="radar-opacity-value">${Math.round(state.opacity * 100)}%</span>
                     </div>
                     
                     <div class="radar-animation-controls">
-                        <button id="radar-prev-btn" title="Previous Frame">◀</button>
-                        <button id="radar-play-btn" title="Play/Pause">▶</button>
-                        <button id="radar-next-btn" title="Next Frame">▶</button>
-                        <button id="radar-refresh-btn" title="Refresh">↻</button>
+                        <button id="radar-prev-btn" title="${t('weather.previousFrame')}">◀</button>
+                        <button id="radar-play-btn" title="${t('weather.playPause')}">▶</button>
+                        <button id="radar-next-btn" title="${t('weather.nextFrame')}">▶</button>
+                        <button id="radar-refresh-btn" title="${t('common.refresh')}">↻</button>
                     </div>
                     
                     <div class="radar-legend" id="radar-legend"></div>

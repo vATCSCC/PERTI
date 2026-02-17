@@ -40,7 +40,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "PERTI Planning";
+        $page_title = __('home.pageTitle');
         include("load/header.php");
     ?>
 
@@ -57,9 +57,9 @@ include('load/nav.php');
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 
             <center>
-                <h1>Welcome to vATCSCC's <b><span class="text-info">PERTI</span> Planning Site</b></h1>
+                <h1><?= __('home.welcome') ?> <b><span class="text-info">PERTI</span> <?= __('home.pertiPlanSite') ?></b></h1>
                 <h4 class="text-white hvr-bob pl-1">
-                    <a href="#plans" style="text-decoration: none; color: white;"><i class="fas fa-chevron-down text-danger"></i> Search for Plans</a>
+                    <a href="#plans" style="text-decoration: none; color: white;"><i class="fas fa-chevron-down text-danger"></i> <?= __('home.searchPlans') ?></a>
                 </h4>
             </center>
 
@@ -70,14 +70,14 @@ include('load/nav.php');
         <div class="row">
             <div class="col-2">
                 <center>
-                    <h2>The <span class="text-danger"><b>PERTI</b></span><br>Process</h2>
+                    <h2><?= __('home.pertiProcess') ?></h2>
                 </center>
             </div>
             <div class="col-2">
                 <center>
                     <h2>
                         <i class="fas fa-pencil-ruler"></i><br>
-                        <span class="text-danger">P</span>lan
+                        <?= __('home.plan') ?>
                     </h2>
                 </center>
             </div>
@@ -85,7 +85,7 @@ include('load/nav.php');
                 <center>
                     <h2>
                         <i class="fas fa-running"></i><br>
-                        <span class="text-danger">E</span>xecute
+                        <?= __('home.execute') ?>
                     </h2>
                 </center>
             </div>
@@ -93,7 +93,7 @@ include('load/nav.php');
                 <center>
                     <h2>
                         <i class="fas fa-glasses"></i><br>
-                        <span class="text-danger">R</span>eview
+                        <?= __('home.review') ?>
                     </h2>
                 </center>                    
             </div>
@@ -101,7 +101,7 @@ include('load/nav.php');
                 <center>
                     <h2>
                         <i class="fas fa-chalkboard-teacher"></i><br>
-                        <span class="text-danger">T</span>rain
+                        <?= __('home.train') ?>
                     </h2>
                 </center>                    
             </div>
@@ -109,7 +109,7 @@ include('load/nav.php');
                 <center>
                     <h2>
                         <i class="fas fa-dumbbell"></i><br>
-                        <span class="text-danger">I</span>mprove
+                        <?= __('home.improve') ?>
                     </h2>
                 </center>
             </div>
@@ -120,22 +120,22 @@ include('load/nav.php');
 
     <div id="plans" class="container-fluid pl-3 mb-5">
         <center>
-            <h3><span class="text-danger">P</span>ERTI Plans</h3>
-            <p>Below you will find all available PERTI Plans for viewing and review prior or after the operational execution of an event.</p>
+            <h3><?= __('home.pertiPlans') ?></h3>
+            <p><?= __('home.plansDescription') ?></p>
 
             <?php if ($perm == true) { ?>
-                <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#createplanModal" data-toggle="modal"><i class="fas fa-plus"></i> Create Plan</button>
+                <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#createplanModal" data-toggle="modal"><i class="fas fa-plus"></i> <?= __('home.createPlan') ?></button>
             <?php } ?>
 
             <table class="table table-sm table-striped table-bordered w-100">
                 <thead class="table-dark text-light">
-                    <th style="width: 20%;">Event Name</th>
-                    <th class="text-center" style="width: 8%;">Start Date</th>
-                    <th class="text-center" style="width: 6%;">Start Time</th>
-                    <th class="text-center" style="width: 8%;">End Date</th>
-                    <th class="text-center" style="width: 6%;">End Time</th>
-                    <th class="text-center" style="width: 14%;">TMU OpLevel</th>
-                    <th class="text-center" style="width: 12%;">Last Updated</th>
+                    <th style="width: 20%;"><?= __('home.table.eventName') ?></th>
+                    <th class="text-center" style="width: 8%;"><?= __('home.table.startDate') ?></th>
+                    <th class="text-center" style="width: 6%;"><?= __('home.table.startTime') ?></th>
+                    <th class="text-center" style="width: 8%;"><?= __('home.table.endDate') ?></th>
+                    <th class="text-center" style="width: 6%;"><?= __('home.table.endTime') ?></th>
+                    <th class="text-center" style="width: 14%;"><?= __('home.table.tmuOpLevel') ?></th>
+                    <th class="text-center" style="width: 12%;"><?= __('home.table.lastUpdated') ?></th>
                     <th></th>
                 </thead>
 
@@ -155,7 +155,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createplanModalLabel">Create PERTI Plan</h5>
+                <h5 class="modal-title" id="createplanModalLabel"><?= __('home.createPertiPlan') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -166,14 +166,14 @@ include('load/nav.php');
                 <div class="modal-body">
 
                     <div class="form-group">
-                        <label for="event_name">Event Name</label>
+                        <label for="event_name"><?= __('home.eventName') ?></label>
                         <input type="text" class="form-control" name="event_name" required>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Date / Time (Zulu)</label>
+                                <label><?= __('home.startDateTime') ?></label>
                                 <div class="row">
                                     <div class="col-7">
                                         <input type="text" name="event_date" class="form-control" id="date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
@@ -191,7 +191,7 @@ include('load/nav.php');
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Date / Time (Zulu)</label>
+                                <label><?= __('home.endDateTime') ?></label>
                                 <div class="row">
                                     <div class="col-7">
                                         <input type="text" name="event_end_date" class="form-control" id="end-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
@@ -214,18 +214,18 @@ include('load/nav.php');
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>TMU OpLevel</label>
+                                <label><?= __('home.tmuOpLevel') ?></label>
                                 <select class="form-control" name="oplevel" required>
-                                    <option value="1">OpLevel 1 - Steady State</option>
-                                    <option value="2">OpLevel 2 - Localized Impact</option>
-                                    <option value="3">OpLevel 3 - Regional Impact</option>
-                                    <option value="4">OpLevel 4 - NAS-Wide Impact</option>
+                                    <option value="1"><?= __('home.opLevel1') ?></option>
+                                    <option value="2"><?= __('home.opLevel2') ?></option>
+                                    <option value="3"><?= __('home.opLevel3') ?></option>
+                                    <option value="4"><?= __('home.opLevel4') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Hotline</label>
+                                <label><?= __('home.hotline') ?></label>
                                 <select class="form-control" name="hotline" required>
                                     <option>NY Metro</option>
                                     <option>DC Metro</option>
@@ -245,14 +245,14 @@ include('load/nav.php');
                     </div>
 
                     <div class="form-group">
-                        <label>Event Banner URL</label>
+                        <label><?= __('home.eventBannerUrl') ?></label>
                         <input type="text" class="form-control" name="event_banner" placeholder="https://..." required>
                     </div>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-primary" value="Create">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-primary" value="<?= __('home.create') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('common.close') ?></button>
                 </div>
         </div>
 
@@ -267,7 +267,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editplanModalLabel">Edit PERTI Plan</h5>
+                <h5 class="modal-title" id="editplanModalLabel"><?= __('home.editPertiPlan') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -280,14 +280,14 @@ include('load/nav.php');
                     <input type="hidden" name="id" id="id">
 
                     <div class="form-group">
-                        <label for="event_name">Event Name</label>
+                        <label for="event_name"><?= __('home.eventName') ?></label>
                         <input type="text" class="form-control" name="event_name" id="event_name" required>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Date / Time (Zulu)</label>
+                                <label><?= __('home.startDateTime') ?></label>
                                 <div class="row">
                                     <div class="col-7">
                                         <input type="text" name="event_date" class="form-control" id="e-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
@@ -305,7 +305,7 @@ include('load/nav.php');
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Date / Time (Zulu)</label>
+                                <label><?= __('home.endDateTime') ?></label>
                                 <div class="row">
                                     <div class="col-7">
                                         <input type="text" name="event_end_date" class="form-control" id="e-end-date" autocomplete="off" placeholder="YYYY-MM-DD" readonly>
@@ -328,18 +328,18 @@ include('load/nav.php');
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>TMU OpLevel</label>
+                                <label><?= __('home.tmuOpLevel') ?></label>
                                 <select class="form-control" name="oplevel" id="oplevel" required>
-                                    <option value="1">OpLevel 1 - Steady State</option>
-                                    <option value="2">OpLevel 2 - Localized Impact</option>
-                                    <option value="3">OpLevel 3 - Regional Impact</option>
-                                    <option value="4">OpLevel 4 - NAS-Wide Impact</option>
+                                    <option value="1"><?= __('home.opLevel1') ?></option>
+                                    <option value="2"><?= __('home.opLevel2') ?></option>
+                                    <option value="3"><?= __('home.opLevel3') ?></option>
+                                    <option value="4"><?= __('home.opLevel4') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Hotline</label>
+                                <label><?= __('home.hotline') ?></label>
                                 <select class="form-control" name="hotline" id="hotline" required>
                                     <option>NY Metro</option>
                                     <option>DC Metro</option>
@@ -359,14 +359,14 @@ include('load/nav.php');
                     </div>
 
                     <div class="form-group">
-                        <label>Event Banner URL</label>
+                        <label><?= __('home.eventBannerUrl') ?></label>
                         <input type="text" class="form-control" name="event_banner" id="event_banner" placeholder="https://..." required>
                     </div>
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Save Changes">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('home.saveChanges') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('common.close') ?></button>
                 </div>
         </div>
 
@@ -404,8 +404,8 @@ include('load/nav.php');
                         toast:      true,
                         position:   'bottom-right',
                         icon:       'success',
-                        title:      'Successfully Deleted',
-                        text:       'You have successfully deleted the selected PERTI Plan.',
+                        title:      PERTII18n.t('home.success.deleted'),
+                        text:       PERTII18n.t('home.success.deletedText'),
                         timer:      3000,
                         showConfirmButton: false
                     });
@@ -415,8 +415,8 @@ include('load/nav.php');
                 error:function(data) {
                     Swal.fire({
                         icon:   'error',
-                        title:  'Not Deleted',
-                        text:   'There was an error in deleting this PERTI Plan.'
+                        title:  PERTII18n.t('home.error.deleteFailed'),
+                        text:   PERTII18n.t('home.error.deleteFailedText')
                     });
                 }
             });
@@ -462,8 +462,8 @@ include('load/nav.php');
                             toast:      true,
                             position:   'bottom-right',
                             icon:       'success',
-                            title:      'Successfully Created',
-                            text:       'You have successfully created a PERTI Plan.',
+                            title:      PERTII18n.t('home.success.created'),
+                            text:       PERTII18n.t('home.success.createdText'),
                             timer:      3000,
                             showConfirmButton: false
                         });
@@ -471,15 +471,15 @@ include('load/nav.php');
                         loadData();
                         $('#createplanModal').modal('hide');
                         $('.modal-backdrop').remove();
-                        
+
                         // Reset form
                         $('#createplan')[0].reset();
                     },
                     error:function(data) {
                         Swal.fire({
                             icon:   'error',
-                            title:  'Not Created',
-                            text:   'There was an error in creating this PERTI Plan.'
+                            title:  PERTII18n.t('home.error.createFailed'),
+                            text:   PERTII18n.t('home.error.createFailedText')
                         });
                     }
                 });
@@ -531,8 +531,8 @@ include('load/nav.php');
                             toast:      true,
                             position:   'bottom-right',
                             icon:       'success',
-                            title:      'Successfully Updated',
-                            text:       'You have successfully edited the selected PERTI Plan.',
+                            title:      PERTII18n.t('home.success.updated'),
+                            text:       PERTII18n.t('home.success.updatedText'),
                             timer:      3000,
                             showConfirmButton: false
                         });
@@ -544,8 +544,8 @@ include('load/nav.php');
                     error:function(data) {
                         Swal.fire({
                             icon:   'error',
-                            title:  'Not Edited',
-                            text:   'There was an error in editing this PERTI Plan.'
+                            title:  PERTII18n.t('home.error.updateFailed'),
+                            text:   PERTII18n.t('home.error.updateFailedText')
                         });
                     }
                 });

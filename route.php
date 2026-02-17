@@ -1,4 +1,6 @@
-<?php /* route.php - merged groups_v4 + updated_v3 (header comment added) */ ?>
+<?php /* route.php - merged groups_v4 + updated_v3 (header comment added) */
+include("load/i18n.php");
+?>
 
 
 <!DOCTYPE html>
@@ -1398,7 +1400,7 @@ include('load/nav.php');
                     <div class="card shadow-sm perti-info-card perti-card-utc h-100">
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="perti-info-label">Current UTC</div>
+                                <div class="perti-info-label"><?= __('route.page.currentUtc') ?></div>
                                 <div id="route_utc_clock" class="perti-clock-display perti-clock-display-lg"></div>
                             </div>
                             <div class="ml-3">
@@ -1412,7 +1414,7 @@ include('load/nav.php');
                 <div class="col-auto px-1">
                     <div class="card shadow-sm perti-info-card perti-card-local h-100">
                         <div class="card-body">
-                            <div class="perti-info-label mb-1">US Local Times</div>
+                            <div class="perti-info-label mb-1"><?= __('route.page.usLocalTimes') ?></div>
                             <div class="perti-clock-grid">
                                 <div class="perti-clock-item">
                                     <div class="perti-clock-tz">GM</div>
@@ -1452,7 +1454,7 @@ include('load/nav.php');
                     <div class="card shadow-sm perti-info-card perti-card-global h-100">
                         <div class="card-body">
                             <div class="perti-info-label mb-1">
-                                Global Flights
+                                <?= __('route.page.globalFlights') ?>
                                 <span id="route_stats_global_total" class="badge badge-info badge-total ml-1">-</span>
                             </div>
                             <div class="perti-stat-grid">
@@ -1482,13 +1484,13 @@ include('load/nav.php');
                     <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
                         <div class="card-body">
                             <div class="perti-info-label mb-1">
-                                Domestic Arrivals
+                                <?= __('route.page.domesticArrivals') ?>
                                 <span id="route_stats_domestic_total" class="badge badge-success badge-total ml-1">-</span>
                             </div>
                             <div class="d-flex">
                                 <!-- By DCC Region -->
                                 <div class="perti-stat-section">
-                                    <div class="perti-info-sublabel">DCC Region</div>
+                                    <div class="perti-info-sublabel"><?= __('route.page.dccRegion') ?></div>
                                     <div class="perti-badge-group">
                                         <span class="badge badge-light" title="Northeast"><strong>NE</strong> <span id="route_stats_dcc_ne">-</span></span>
                                         <span class="badge badge-light" title="Southeast"><strong>SE</strong> <span id="route_stats_dcc_se">-</span></span>
@@ -1499,7 +1501,7 @@ include('load/nav.php');
                                 </div>
                                 <!-- By Airport Tier -->
                                 <div class="perti-stat-section">
-                                    <div class="perti-info-sublabel">Airport Tier</div>
+                                    <div class="perti-info-sublabel"><?= __('route.page.airportTier') ?></div>
                                     <div class="perti-badge-group">
                                         <span class="badge badge-warning text-dark" title="ASPM 82 Airports"><strong>ASPM82</strong> <span id="route_stats_aspm82">-</span></span>
                                         <span class="badge badge-primary" title="OEP 35 Airports"><strong>OEP35</strong> <span id="route_stats_oep35">-</span></span>
@@ -1519,9 +1521,9 @@ include('load/nav.php');
             <div class="col-12 col-lg-4 col-xl-3 mb-4 mb-lg-0 route-controls-panel">
                 <div class="route-controls-card">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h4>Plot Routes</h4>
+                        <h4><?= __('route.page.plotRoutes') ?></h4>
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="routeHelpToggle">
-                            <i class="fas fa-question-circle mr-1"></i>Help
+                            <i class="fas fa-question-circle mr-1"></i><?= __('route.page.help') ?>
                         </button>
                     </div>
 
@@ -1529,16 +1531,16 @@ include('load/nav.php');
                     <div id="routeHelpPanel" class="text-left small" style="display: none;">
                         
                         <!-- Route Syntax -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-route mr-1"></i> ROUTE SYNTAX</p>
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-route mr-1"></i> <?= __('route.page.routeSyntax') ?></p>
                         <ul class="pl-3 mb-2">
-                            <li><strong>Multiple routes:</strong> One route per line</li>
-                            <li><strong>Colors:</strong> Add <code>;color</code> or <code>;#hex</code> at end (e.g., <code>FIX1 J60 FIX2;red</code>)</li>
-                            <li><strong>Mandatory segments:</strong> Wrap in <code>&gt;&lt;</code> (e.g., <code>&gt;FIX1 J60 FIX2&lt;</code>)</li>
-                            <li><strong>CDRs:</strong> Just type the code (e.g., <code>ACKMKEN0</code>)</li>
-                            <li><strong>DP/STARs:</strong> Use <code>FIX.PROC#</code> syntax (e.g., <code>KJFK SKORR5.YNKEE</code> or <code>ALB.PARCH# KJFK</code>)</li>
-                            <li><strong>Playbook:</strong> <code>PB.play_name.origins.destinations</code> (e.g., <code>PB.SERMN SOUTH.KJFK KLGA.KDCA</code>)</li>
-                            <li><strong>Multi-origin/dest:</strong> Space-separated airports (e.g., <code>KJFK KLGA route KDCA KIAD</code>)</li>
-                            <li><strong>Route groups:</strong>
+                            <li><strong><?= __('route.page.multipleRoutes') ?></strong> <?= __('route.page.multipleRoutesDesc') ?></li>
+                            <li><strong><?= __('route.page.colors') ?></strong> <?= __('route.page.colorsDesc') ?></li>
+                            <li><strong><?= __('route.page.mandatorySegments') ?></strong> <?= __('route.page.mandatoryDesc') ?></li>
+                            <li><strong><?= __('route.page.cdrs') ?></strong> <?= __('route.page.cdrsDesc') ?></li>
+                            <li><strong><?= __('route.page.dpStars') ?></strong> <?= __('route.page.dpStarsDesc') ?></li>
+                            <li><strong><?= __('route.page.playbook') ?></strong> <?= __('route.page.playbookDesc') ?></li>
+                            <li><strong><?= __('route.page.multiOriginDest') ?></strong> <?= __('route.page.multiOriginDestDesc') ?></li>
+                            <li><strong><?= __('route.page.routeGroups') ?></strong>
 <pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem; margin-top: 4px;">[GROUP NAME];color
 ROUTE1
 ROUTE2</pre>
@@ -1546,57 +1548,57 @@ ROUTE2</pre>
                         </ul>
                         
                         <!-- Toolbar -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-tools mr-1"></i> MAP TOOLBAR</p>
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-tools mr-1"></i> <?= __('route.page.mapToolbar') ?></p>
                         <ul class="pl-3 mb-2">
-                            <li><strong>Filter:</strong> Type airway names to highlight (space-separated)</li>
-                            <li><strong><i class="fas fa-paint-brush"></i> Symbology:</strong> Configure line styles, colors, opacity, dash patterns, and fix/waypoint display</li>
-                            <li><strong><i class="fas fa-plane"></i> Live:</strong> Toggle real-time VATSIM flight display</li>
-                            <li><strong><i class="fas fa-filter"></i> Filters:</strong> Color flights by weight class, carrier, ARTCC, altitude, etc. Filter by aircraft type</li>
+                            <li><strong><?= __('route.page.filterLabel') ?></strong> <?= __('route.page.filterDesc') ?></li>
+                            <li><strong><i class="fas fa-paint-brush"></i> Symbology:</strong> <?= __('route.page.symbologyDesc') ?></li>
+                            <li><strong><i class="fas fa-plane"></i> <?= __('route.page.live') ?>:</strong> <?= __('route.page.liveDesc') ?></li>
+                            <li><strong><i class="fas fa-filter"></i> Filters:</strong> <?= __('route.page.filtersDesc') ?></li>
                         </ul>
                         
                         <!-- Actions -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-mouse-pointer mr-1"></i> ACTIONS</p>
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-mouse-pointer mr-1"></i> <?= __('route.page.actions') ?></p>
                         <ul class="pl-3 mb-2">
-                            <li><strong>Plot:</strong> Render routes on map</li>
-                            <li><strong>Copy:</strong> Copy route text to clipboard</li>
-                            <li><strong>Labels:</strong> Toggle fix name labels on/off</li>
-                            <li><strong>Export:</strong> GeoJSON, KML (Google Earth), GPKG bundle - includes route metadata, groups, playbook/CDR info, DP/STAR, symbology</li>
+                            <li><strong><?= __('route.page.plot') ?>:</strong> <?= __('route.page.plotDesc') ?></li>
+                            <li><strong><?= __('route.page.copy') ?>:</strong> <?= __('route.page.copyDesc') ?></li>
+                            <li><strong><?= __('route.page.labels') ?>:</strong> <?= __('route.page.labelsDesc') ?></li>
+                            <li><strong><?= __('route.page.export') ?></strong> <?= __('route.page.exportDesc') ?></li>
                         </ul>
                         
                         <!-- Map Interaction -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-hand-pointer mr-1"></i> MAP INTERACTION</p>
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-hand-pointer mr-1"></i> <?= __('route.page.mapInteraction') ?></p>
                         <ul class="pl-3 mb-2">
-                            <li><strong>Click route:</strong> View segment info, style options, label toggle</li>
-                            <li><strong>Double-click route:</strong> Quick-open style editor</li>
-                            <li><strong>Click flight:</strong> View callsign, route, altitude, speed</li>
-                            <li><strong>Layer panel (top-right):</strong> Toggle boundaries, sectors, weather radar, SUA</li>
+                            <li><strong><?= __('route.page.clickRoute') ?></strong> <?= __('route.page.clickRouteDesc') ?></li>
+                            <li><strong><?= __('route.page.dblClickRoute') ?></strong> <?= __('route.page.dblClickRouteDesc') ?></li>
+                            <li><strong><?= __('route.page.clickFlight') ?></strong> <?= __('route.page.clickFlightDesc') ?></li>
+                            <li><strong><?= __('route.page.layerPanel') ?></strong> <?= __('route.page.layerPanelDesc') ?></li>
                         </ul>
                         
                         <!-- Advisory Builder -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-file-alt mr-1"></i> REROUTE ADVISORY</p>
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-file-alt mr-1"></i> <?= __('route.page.rerouteAdvisory') ?></p>
                         <ul class="pl-3 mb-0">
-                            <li>Expand panel below map to generate VATCSCC reroute advisories</li>
-                            <li>Configure validity times, included facilities, and traffic filters</li>
-                            <li>Auto-populates from plotted routes</li>
+                            <li><?= __('route.page.advisoryExpandDesc') ?></li>
+                            <li><?= __('route.page.advisoryConfigDesc') ?></li>
+                            <li><?= __('route.page.advisoryAutoDesc') ?></li>
                         </ul>
                         
                     </div>
 
-                    <textarea class="form-control mb-3" name="routeSearch" id="routeSearch" rows="16" placeholder="Enter routes here..."></textarea>
+                    <textarea class="form-control mb-3" name="routeSearch" id="routeSearch" rows="16" placeholder="<?= __('route.page.enterRoutes') ?>"></textarea>
 
                     <!-- Primary action buttons - all on one line -->
                     <div class="route-btn-group mb-3">
-                        <button class="btn btn-sm btn-success" id="plot_r" title="Plot routes on map">
-                            <i class="fas fa-pencil-alt mr-1"></i><span class="btn-text">Plot</span>
+                        <button class="btn btn-sm btn-success" id="plot_r" title="<?= __('route.page.plotDesc') ?>">
+                            <i class="fas fa-pencil-alt mr-1"></i><span class="btn-text"><?= __('route.page.plot') ?></span>
                         </button>
-                        <button class="btn btn-sm btn-info" id="plot_c" title="Copy routes to clipboard">
-                            <i class="far fa-copy mr-1"></i><span class="btn-text">Copy</span>
+                        <button class="btn btn-sm btn-info" id="plot_c" title="<?= __('route.page.copyDesc') ?>">
+                            <i class="far fa-copy mr-1"></i><span class="btn-text"><?= __('route.page.copy') ?></span>
                         </button>
-                        <button class="btn btn-sm btn-secondary" id="toggle_labels" type="button" onclick="toggleAllLabels();" title="Toggle fix labels">
-                            <i class="fas fa-tags mr-1"></i><span class="btn-text">Labels</span>
+                        <button class="btn btn-sm btn-secondary" id="toggle_labels" type="button" onclick="toggleAllLabels();" title="<?= __('route.page.labelsDesc') ?>">
+                            <i class="fas fa-tags mr-1"></i><span class="btn-text"><?= __('route.page.labels') ?></span>
                         </button>
-                        <button class="btn btn-sm btn-outline-danger" id="clear_routes" type="button" title="Clear all routes">
-                            <i class="fas fa-trash-alt mr-1"></i><span class="btn-text">Clear</span>
+                        <button class="btn btn-sm btn-outline-danger" id="clear_routes" type="button" title="<?= __('route.page.clearRoutes') ?>">
+                            <i class="fas fa-trash-alt mr-1"></i><span class="btn-text"><?= __('route.page.clearRoutes') ?></span>
                         </button>
                     </div>
 
@@ -1604,7 +1606,7 @@ ROUTE2</pre>
 
                     <!-- Export buttons -->
                     <div class="route-export-group">
-                        <span class="section-label mr-2 align-self-center">Export:</span>
+                        <span class="section-label mr-2 align-self-center"><?= __('route.page.export') ?></span>
                         <div class="btn-group btn-group-sm" role="group">
                             <button class="btn btn-outline-primary" id="export_geojson" title="Export to GeoJSON format">
                                 <i class="fas fa-file-code"></i> <span class="d-none d-sm-inline">GeoJSON</span>
@@ -1622,7 +1624,7 @@ ROUTE2</pre>
                     <div class="mt-2">
                         <button class="btn btn-sm btn-warning" id="adv_draft_tmi"
                                 title="Open TMI Publisher with plotted routes for coordination workflow">
-                            <i class="fas fa-paper-plane mr-1"></i>Draft TMI Reroute
+                            <i class="fas fa-paper-plane mr-1"></i><?= __('route.page.draftTmiReroute') ?>
                         </button>
                     </div>
                 </div>
@@ -1634,9 +1636,9 @@ ROUTE2</pre>
                 <div class="map-toolbar d-flex align-items-center flex-wrap" style="gap: 0.75rem;">
                     <!-- Filter Airways -->
                     <div class="d-flex align-items-center" style="gap: 0.5rem;">
-                        <span class="section-label">Filter:</span>
+                        <span class="section-label"><?= __('route.page.filterLabel') ?></span>
                         <div class="input-group" style="width: auto; min-width: 160px; max-width: 220px;">
-                            <input type="text" name="filter" id="filter" class="form-control form-control-sm" placeholder="Airways..." style="min-width: 100px;">
+                            <input type="text" name="filter" id="filter" class="form-control form-control-sm" placeholder="<?= __('route.page.airwaysPlaceholder') ?>" style="min-width: 100px;">
                             <div class="input-group-append">
                                 <button class="btn btn-outline-danger btn-sm" type="button" id="filter_c" title="Clear filter">
                                     <i class="fas fa-times"></i>
@@ -1652,7 +1654,7 @@ ROUTE2</pre>
                     
                     <!-- Playbook/CDR Search Button -->
                     <button class="btn btn-sm btn-outline-secondary" id="pbcdr_search_toggle" title="Search Playbooks &amp; CDRs">
-                        <i class="fas fa-search"></i> <span class="d-none d-md-inline">Routes</span>
+                        <i class="fas fa-search"></i> <span class="d-none d-md-inline"><?= __('route.page.routes') ?></span>
                     </button>
                     
                     <!-- Separator -->
@@ -1664,7 +1666,7 @@ ROUTE2</pre>
                             <input type="checkbox" class="custom-control-input" id="adl_toggle">
                             <label class="custom-control-label" for="adl_toggle">
                                 <span class="badge badge-dark" id="adl_status_badge">
-                                    <i class="fas fa-plane mr-1"></i> Live
+                                    <i class="fas fa-plane mr-1"></i> <?= __('route.page.live') ?>
                                 </span>
                             </label>
                         </div>
@@ -1683,7 +1685,7 @@ ROUTE2</pre>
                             <input type="checkbox" class="custom-control-input" id="public_routes_toggle">
                             <label class="custom-control-label" for="public_routes_toggle">
                                 <span class="badge badge-secondary" id="public_routes_badge">
-                                    <i class="fas fa-globe mr-1"></i> Routes
+                                    <i class="fas fa-globe mr-1"></i> <?= __('route.page.routes') ?>
                                 </span>
                             </label>
                         </div>
@@ -1692,7 +1694,7 @@ ROUTE2</pre>
                         </button>
                         <span class="d-none align-items-center" id="public_routes_indicator">
                             <i class="fas fa-broadcast-tower mr-1"></i>
-                            <span class="badge badge-light">0</span> active
+                            <span class="badge badge-light">0</span> <?= __('route.page.active') ?>
                         </span>
                     </div>
                 </div>
@@ -1707,47 +1709,47 @@ ROUTE2</pre>
                             <div class="card-body p-2">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="small text-uppercase font-weight-bold" style="letter-spacing: 1px; color: #239BCD;">
-                                        <i class="fas fa-filter mr-1"></i> Flight Filters
+                                        <i class="fas fa-filter mr-1"></i> <?= __('route.page.flightFilters') ?>
                                     </span>
                                     <button type="button" class="close" id="adl_filter_close" style="font-size: 1rem;">
                                         <span>&times;</span>
                                     </button>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="small mb-1 text-uppercase">Color By</label>
+                                    <label class="small mb-1 text-uppercase"><?= __('route.page.colorBy') ?></label>
                                     <select class="form-control form-control-sm" id="adl_color_by" style="width: 100%;">
-                                        <optgroup label="Aircraft">
-                                            <option value="weight_class" selected>Weight Class</option>
-                                            <option value="aircraft_category">Aircraft Category</option>
-                                            <option value="aircraft_type">Aircraft Type (Manufacturer)</option>
-                                            <option value="aircraft_config">Aircraft Configuration</option>
-                                            <option value="wake_category">Wake Turbulence Category</option>
+                                        <optgroup label="<?= __('route.page.aircraft') ?>">
+                                            <option value="weight_class" selected><?= __('route.page.weightClass') ?></option>
+                                            <option value="aircraft_category"><?= __('route.page.aircraftCategory') ?></option>
+                                            <option value="aircraft_type"><?= __('route.page.aircraftTypeManuf') ?></option>
+                                            <option value="aircraft_config"><?= __('route.page.aircraftConfig') ?></option>
+                                            <option value="wake_category"><?= __('route.page.wakeTurbulence') ?></option>
                                         </optgroup>
-                                        <optgroup label="Operator">
-                                            <option value="carrier">Carrier</option>
-                                            <option value="operator_group">Operator Group</option>
+                                        <optgroup label="<?= __('route.page.operator') ?>">
+                                            <option value="carrier"><?= __('route.page.carrier') ?></option>
+                                            <option value="operator_group"><?= __('route.page.operatorGroup') ?></option>
                                         </optgroup>
-                                        <optgroup label="Airspace">
-                                            <option value="dcc_region">DCC Region</option>
-                                            <option value="dep_center">Departure ARTCC</option>
-                                            <option value="arr_center">Arrival ARTCC</option>
-                                            <option value="dep_tracon">Departure TRACON</option>
-                                            <option value="arr_tracon">Arrival TRACON</option>
+                                        <optgroup label="<?= __('route.page.airspace') ?>">
+                                            <option value="dcc_region"><?= __('route.page.dccRegion') ?></option>
+                                            <option value="dep_center"><?= __('route.page.depCenter') ?></option>
+                                            <option value="arr_center"><?= __('route.page.arrCenter') ?></option>
+                                            <option value="dep_tracon"><?= __('route.page.depTracon') ?></option>
+                                            <option value="arr_tracon"><?= __('route.page.arrTracon') ?></option>
                                         </optgroup>
-                                        <optgroup label="Airport">
-                                            <option value="dep_airport">Departure Airport Tier</option>
-                                            <option value="arr_airport">Arrival Airport Tier</option>
+                                        <optgroup label="<?= __('route.page.airport') ?>">
+                                            <option value="dep_airport"><?= __('route.page.depAirportTier') ?></option>
+                                            <option value="arr_airport"><?= __('route.page.arrAirportTier') ?></option>
                                         </optgroup>
-                                        <optgroup label="Flight Data">
-                                            <option value="altitude">Altitude Block</option>
-                                            <option value="speed">Speed (±250kts)</option>
-                                            <option value="arr_dep">Arrival / Departure</option>
-                                            <option value="status">Flight Phase</option>
-                                            <option value="eta_relative">ETA (Relative)</option>
-                                            <option value="eta_hour">ETA (Hour)</option>
+                                        <optgroup label="<?= __('route.page.flightData') ?>">
+                                            <option value="altitude"><?= __('route.page.altitudeBlock') ?></option>
+                                            <option value="speed"><?= __('route.page.speed') ?></option>
+                                            <option value="arr_dep"><?= __('route.page.arrDep') ?></option>
+                                            <option value="status"><?= __('route.page.flightPhase') ?></option>
+                                            <option value="eta_relative"><?= __('route.page.etaRelative') ?></option>
+                                            <option value="eta_hour"><?= __('route.page.etaHour') ?></option>
                                         </optgroup>
-                                        <optgroup label="Traffic Management">
-                                            <option value="reroute_match">Public Reroute Match</option>
+                                        <optgroup label="<?= __('route.page.trafficManagement') ?>">
+                                            <option value="reroute_match"><?= __('route.page.publicRerouteMatch') ?></option>
                                         </optgroup>
                                     </select>
                                 </div>
@@ -1755,46 +1757,46 @@ ROUTE2</pre>
                                     <div id="adl_color_legend" class="d-flex flex-wrap small" style="gap: 6px;"></div>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="small mb-1 text-uppercase">Aircraft Type</label>
+                                    <label class="small mb-1 text-uppercase"><?= __('route.page.aircraftType') ?></label>
                                     <div class="d-flex flex-wrap">
                                         <div class="custom-control custom-checkbox mr-3">
                                             <input type="checkbox" class="custom-control-input adl-weight-filter" id="adl_wc_super" value="SUPER" checked>
                                             <label class="custom-control-label small" for="adl_wc_super">
-                                                <span class="adl-icon-jumbo"></span> Jumbo
+                                                <span class="adl-icon-jumbo"></span> <?= __('route.page.jumbo') ?>
                                             </label>
                                         </div>
                                         <div class="custom-control custom-checkbox mr-3">
                                             <input type="checkbox" class="custom-control-input adl-weight-filter" id="adl_wc_heavy" value="HEAVY" checked>
                                             <label class="custom-control-label small" for="adl_wc_heavy">
-                                                <span class="adl-icon-heavy"></span> Heavy
+                                                <span class="adl-icon-heavy"></span> <?= __('route.page.heavy') ?>
                                             </label>
                                         </div>
                                         <div class="custom-control custom-checkbox mr-3">
                                             <input type="checkbox" class="custom-control-input adl-weight-filter" id="adl_wc_large" value="LARGE" checked>
                                             <label class="custom-control-label small" for="adl_wc_large">
-                                                <span class="adl-icon-jet"></span> Jet
+                                                <span class="adl-icon-jet"></span> <?= __('route.page.jet') ?>
                                             </label>
                                         </div>
                                         <div class="custom-control custom-checkbox">
                                             <input type="checkbox" class="custom-control-input adl-weight-filter" id="adl_wc_small" value="SMALL" checked>
                                             <label class="custom-control-label small" for="adl_wc_small">
-                                                <span class="adl-icon-prop"></span> Prop
+                                                <span class="adl-icon-prop"></span> <?= __('route.page.prop') ?>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="small mb-1 text-uppercase">Origin / Destination</label>
+                                    <label class="small mb-1 text-uppercase"><?= __('route.page.originDest') ?></label>
                                     <div class="d-flex">
-                                        <input type="text" class="form-control form-control-sm adl-filter-input mr-2" id="adl_origin" placeholder="Origin" title="ARTCC (ZNY) or Airport (KJFK)" style="width: 100px;">
+                                        <input type="text" class="form-control form-control-sm adl-filter-input mr-2" id="adl_origin" placeholder="<?= __('route.page.origin') ?>" title="ARTCC (ZNY) or Airport (KJFK)" style="width: 100px;">
                                         <span class="text-muted align-self-center mx-1">→</span>
-                                        <input type="text" class="form-control form-control-sm adl-filter-input" id="adl_dest" placeholder="Dest" title="ARTCC (ZMA) or Airport (KMIA)" style="width: 100px;">
+                                        <input type="text" class="form-control form-control-sm adl-filter-input" id="adl_dest" placeholder="<?= __('route.page.dest') ?>" title="ARTCC (ZMA) or Airport (KMIA)" style="width: 100px;">
                                     </div>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="small mb-1 text-uppercase">Carrier / Altitude</label>
+                                    <label class="small mb-1 text-uppercase"><?= __('route.page.carrierAltitude') ?></label>
                                     <div class="d-flex align-items-center">
-                                        <input type="text" class="form-control form-control-sm adl-filter-input mr-2" id="adl_carrier" placeholder="Carrier" title="e.g., AAL, UAL" style="width: 70px;">
+                                        <input type="text" class="form-control form-control-sm adl-filter-input mr-2" id="adl_carrier" placeholder="<?= __('route.page.carrier') ?>" title="e.g., AAL, UAL" style="width: 70px;">
                                         <span class="text-muted small mr-1">FL</span>
                                         <input type="number" class="form-control form-control-sm adl-filter-input mr-1" id="adl_alt_min" placeholder="Min" style="width: 55px;">
                                         <span class="text-muted">-</span>
@@ -1802,13 +1804,13 @@ ROUTE2</pre>
                                     </div>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="small mb-1 text-uppercase">Routes</label>
+                                    <label class="small mb-1 text-uppercase"><?= __('route.page.routesLabel') ?></label>
                                     <div class="d-flex align-items-center">
                                         <button class="btn btn-sm btn-outline-info mr-2" id="adl_routes_show_all" title="Show routes for all filtered flights">
-                                            <i class="fas fa-route"></i> Show All
+                                            <i class="fas fa-route"></i> <?= __('route.page.showAll') ?>
                                         </button>
                                         <button class="btn btn-sm btn-outline-secondary mr-2" id="adl_routes_clear" title="Clear all routes">
-                                            <i class="fas fa-times"></i> Clear
+                                            <i class="fas fa-times"></i> <?= __('route.page.clear') ?>
                                         </button>
                                         <div class="custom-control custom-checkbox">
                                             <input type="checkbox" class="custom-control-input" id="adl_routes_filter_only">
@@ -1818,15 +1820,15 @@ ROUTE2</pre>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                                     <small class="text-muted">
-                                        <span id="adl_stats_display"><strong>0</strong> shown</span> / 
-                                        <span id="adl_stats_total"><strong>0</strong> total</span>
+                                        <span id="adl_stats_display"><strong>0</strong> <?= __('route.page.shown') ?></span> /
+                                        <span id="adl_stats_total"><strong>0</strong> <?= __('route.page.total') ?></span>
                                     </small>
                                     <div>
                                         <button class="btn btn-sm btn-outline-secondary mr-1" id="adl_filter_clear" title="Clear all filters">
                                             <i class="fas fa-eraser"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-info" id="adl_filter_apply" title="Apply filters">
-                                            <i class="fas fa-check"></i> Apply
+                                        <button class="btn btn-sm btn-info" id="adl_filter_apply" title="<?= __('route.page.apply') ?>">
+                                            <i class="fas fa-check"></i> <?= __('route.page.apply') ?>
                                         </button>
                                     </div>
                                 </div>
@@ -1838,7 +1840,7 @@ ROUTE2</pre>
                             <div class="card-body p-0">
                                 <div class="d-flex justify-content-between align-items-center p-2" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; border-radius: 8px 8px 0 0;">
                                     <span class="small text-uppercase font-weight-bold" style="letter-spacing: 1px;">
-                                        <i class="fas fa-globe mr-1"></i> Public Routes
+                                        <i class="fas fa-globe mr-1"></i> <?= __('route.page.publicRoutes') ?>
                                     </span>
                                     <div>
                                         <button type="button" class="btn btn-sm btn-outline-light mr-1" id="public_routes_refresh" title="Refresh routes">
@@ -1852,12 +1854,12 @@ ROUTE2</pre>
                                 <div class="p-2 border-bottom">
                                     <div class="custom-control custom-checkbox">
                                         <input type="checkbox" class="custom-control-input" id="public_routes_layer_toggle" checked>
-                                        <label class="custom-control-label small" for="public_routes_layer_toggle">Show routes on map</label>
+                                        <label class="custom-control-label small" for="public_routes_layer_toggle"><?= __('route.page.showRoutesOnMap') ?></label>
                                     </div>
                                 </div>
                                 <div id="public_routes_list" style="max-height: 400px; overflow-y: auto;">
                                     <div class="text-muted text-center py-3">
-                                        <i class="fas fa-route mr-2"></i>No active public routes
+                                        <i class="fas fa-route mr-2"></i><?= __('route.page.noActivePublicRoutes') ?>
                                     </div>
                                 </div>
                             </div>
@@ -1866,7 +1868,7 @@ ROUTE2</pre>
                         <!-- Playbook/CDR Search Panel (floats over map) -->
                         <div id="pbcdr_search_panel">
                             <div class="pbcdr-panel-header">
-                                <h6><i class="fas fa-book mr-2"></i>Playbook &amp; CDR Search</h6>
+                                <h6><i class="fas fa-book mr-2"></i><?= __('route.page.playbookCdrSearch') ?></h6>
                                 <div class="d-flex align-items-center">
                                     <button type="button" class="pbcdr-collapse-btn" id="pbcdr_collapse_btn" title="Collapse/Expand">
                                         <i class="fas fa-chevron-up"></i>
@@ -1880,13 +1882,13 @@ ROUTE2</pre>
                             <!-- Tabs -->
                             <div class="pbcdr-tabs">
                                 <button class="pbcdr-tab active" data-tab="playbook">
-                                    <i class="fas fa-book mr-1"></i> Playbooks
+                                    <i class="fas fa-book mr-1"></i> <?= __('route.page.playbooks') ?>
                                 </button>
                                 <button class="pbcdr-tab" data-tab="cdr">
-                                    <i class="fas fa-road mr-1"></i> CDRs
+                                    <i class="fas fa-road mr-1"></i> <?= __('route.page.cdrsTab') ?>
                                 </button>
                                 <button class="pbcdr-tab" data-tab="all">
-                                    <i class="fas fa-search mr-1"></i> All
+                                    <i class="fas fa-search mr-1"></i> <?= __('route.page.allTab') ?>
                                 </button>
                             </div>
                             
@@ -1895,11 +1897,11 @@ ROUTE2</pre>
                                 <!-- Play/CDR Name -->
                                 <div class="pbcdr-filter-row">
                                     <div class="pbcdr-filter-group" style="flex: 2;">
-                                        <label><span id="pbcdr_name_label">Play Name</span></label>
+                                        <label><span id="pbcdr_name_label"><?= __('route.page.playName') ?></span></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_name" placeholder="e.g., SERMN, ABI, NORTHEAST..." autocomplete="off">
                                     </div>
                                     <div class="pbcdr-filter-group" style="flex: 1;">
-                                        <label>Route Contains</label>
+                                        <label><?= __('route.page.routeContains') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_route_text" placeholder="e.g., J60, BETTE" autocomplete="off">
                                     </div>
                                 </div>
@@ -1907,15 +1909,15 @@ ROUTE2</pre>
                                 <!-- Origin filters -->
                                 <div class="pbcdr-filter-row">
                                     <div class="pbcdr-filter-group">
-                                        <label>Origin Airport</label>
+                                        <label><?= __('route.page.originAirport') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_orig_apt" placeholder="KJFK, KLGA..." autocomplete="off">
                                     </div>
                                     <div class="pbcdr-filter-group">
-                                        <label>Origin TRACON</label>
+                                        <label><?= __('route.page.originTracon') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_orig_tracon" placeholder="N90, A80..." autocomplete="off">
                                     </div>
                                     <div class="pbcdr-filter-group">
-                                        <label>Origin ARTCC</label>
+                                        <label><?= __('route.page.originArtcc') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_orig_artcc" placeholder="ZNY, ZDC..." autocomplete="off">
                                     </div>
                                 </div>
@@ -1923,15 +1925,15 @@ ROUTE2</pre>
                                 <!-- Destination filters -->
                                 <div class="pbcdr-filter-row">
                                     <div class="pbcdr-filter-group">
-                                        <label>Dest Airport</label>
+                                        <label><?= __('route.page.destAirport') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_dest_apt" placeholder="KMIA, KFLL..." autocomplete="off">
                                     </div>
                                     <div class="pbcdr-filter-group">
-                                        <label>Dest TRACON</label>
+                                        <label><?= __('route.page.destTracon') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_dest_tracon" placeholder="M98, P50..." autocomplete="off">
                                     </div>
                                     <div class="pbcdr-filter-group">
-                                        <label>Dest ARTCC</label>
+                                        <label><?= __('route.page.destArtcc') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="pbcdr_dest_artcc" placeholder="ZMA, ZTL..." autocomplete="off">
                                     </div>
                                 </div>
@@ -1939,10 +1941,10 @@ ROUTE2</pre>
                                 <!-- Search buttons -->
                                 <div class="d-flex justify-content-between align-items-center mt-2">
                                     <button class="btn btn-sm btn-outline-secondary" id="pbcdr_clear_filters">
-                                        <i class="fas fa-eraser mr-1"></i> Clear
+                                        <i class="fas fa-eraser mr-1"></i> <?= __('route.page.clear') ?>
                                     </button>
                                     <button class="btn btn-sm btn-primary" id="pbcdr_search_btn">
-                                        <i class="fas fa-search mr-1"></i> Search
+                                        <i class="fas fa-search mr-1"></i> <?= __('route.page.search') ?>
                                     </button>
                                 </div>
                             </div>
@@ -1950,14 +1952,14 @@ ROUTE2</pre>
                             <!-- Results Header -->
                             <div class="pbcdr-results-header">
                                 <span class="pbcdr-results-count">
-                                    <strong id="pbcdr_results_shown">0</strong> results
+                                    <strong id="pbcdr_results_shown">0</strong> <?= __('route.page.results') ?>
                                     <span id="pbcdr_results_limited" style="display: none;" class="text-warning">
                                         (limited to <span id="pbcdr_results_limit">100</span>)
                                     </span>
                                 </span>
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary btn-sm" id="pbcdr_add_selected" title="Add selected to textarea" disabled>
-                                        <i class="fas fa-plus"></i> Add
+                                        <i class="fas fa-plus"></i> <?= __('route.page.add') ?>
                                     </button>
                                     <button class="btn btn-outline-success btn-sm" id="pbcdr_plot_selected" title="Plot selected routes" disabled>
                                         <i class="fas fa-pencil-alt"></i> Plot
@@ -1969,7 +1971,7 @@ ROUTE2</pre>
                             <div class="pbcdr-results-list" id="pbcdr_results_list">
                                 <div class="pbcdr-no-results">
                                     <i class="fas fa-search d-block"></i>
-                                    <p class="mb-0">Enter search criteria above</p>
+                                    <p class="mb-0"><?= __('route.page.enterSearchCriteria') ?></p>
                                 </div>
                             </div>
                             
@@ -1977,7 +1979,7 @@ ROUTE2</pre>
                             <div class="pbcdr-bulk-actions">
                                 <div class="pbcdr-select-all">
                                     <input type="checkbox" id="pbcdr_select_all">
-                                    <label for="pbcdr_select_all" class="mb-0" style="cursor: pointer;">Select All</label>
+                                    <label for="pbcdr_select_all" class="mb-0" style="cursor: pointer;"><?= __('route.page.selectAll') ?></label>
                                 </div>
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-danger btn-sm" id="pbcdr_clear_routes" title="Clear routes textarea">
@@ -1993,7 +1995,7 @@ ROUTE2</pre>
                         <!-- Route Symbology Panel (floats over map, bottom-left) -->
                         <div id="route-symbology-panel">
                             <div class="symb-panel-header">
-                                <h6><i class="fas fa-paint-brush mr-2"></i>Route Symbology</h6>
+                                <h6><i class="fas fa-paint-brush mr-2"></i><?= __('route.page.routeSymbology') ?></h6>
                                 <button type="button" class="close text-white" id="route-symbology-close" style="font-size: 1rem;">
                                     <span>&times;</span>
                                 </button>
@@ -2002,7 +2004,7 @@ ROUTE2</pre>
                                 <!-- Solid Segments Section -->
                                 <div class="symb-section expanded" data-type="solid">
                                     <div class="symb-section-header">
-                                        <span class="symb-section-title">Mandatory (Solid)</span>
+                                        <span class="symb-section-title"><?= __('route.page.mandatorySolid') ?></span>
                                         <div class="symb-section-preview">
                                             <div class="symb-line-preview solid"></div>
                                             <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
@@ -2010,36 +2012,36 @@ ROUTE2</pre>
                                     </div>
                                     <div class="symb-section-body">
                                         <div class="symb-row">
-                                            <span class="symb-label">Width</span>
+                                            <span class="symb-label"><?= __('route.page.width') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-solid-width" min="0.5" max="8" step="0.5" value="3">
                                                 <span class="symb-value" id="symb-solid-width-val">3.0</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Opacity</span>
+                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-solid-opacity" min="0.1" max="1" step="0.1" value="1">
                                                 <span class="symb-value" id="symb-solid-opacity-val">100%</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-solid-color-enable" title="Override route color">
                                                 <input type="color" id="symb-solid-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override</span>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Style</span>
+                                            <span class="symb-label"><?= __('route.page.style') ?></span>
                                             <div class="symb-control">
                                                 <select id="symb-solid-dash" class="form-control form-control-sm">
-                                                    <option value="solid" selected>Solid</option>
-                                                    <option value="dashed">Dashed (- - -)</option>
-                                                    <option value="dotted">Dotted (···)</option>
-                                                    <option value="dash-dot">Dash-Dot (-·-)</option>
-                                                    <option value="long-dash">Long Dash (— —)</option>
+                                                    <option value="solid" selected><?= __('route.page.solid') ?></option>
+                                                    <option value="dashed"><?= __('route.page.dashed') ?></option>
+                                                    <option value="dotted"><?= __('route.page.dotted') ?></option>
+                                                    <option value="dash-dot"><?= __('route.page.dashDot') ?></option>
+                                                    <option value="long-dash"><?= __('route.page.longDash') ?></option>
                                                 </select>
                                             </div>
                                         </div>
@@ -2049,7 +2051,7 @@ ROUTE2</pre>
                                 <!-- Dashed Segments Section -->
                                 <div class="symb-section" data-type="dashed">
                                     <div class="symb-section-header">
-                                        <span class="symb-section-title">Non-Mandatory (Dashed)</span>
+                                        <span class="symb-section-title"><?= __('route.page.nonMandatoryDashed') ?></span>
                                         <div class="symb-section-preview">
                                             <div class="symb-line-preview dashed"></div>
                                             <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
@@ -2057,36 +2059,36 @@ ROUTE2</pre>
                                     </div>
                                     <div class="symb-section-body">
                                         <div class="symb-row">
-                                            <span class="symb-label">Width</span>
+                                            <span class="symb-label"><?= __('route.page.width') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-dashed-width" min="0.5" max="8" step="0.5" value="3">
                                                 <span class="symb-value" id="symb-dashed-width-val">3.0</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Opacity</span>
+                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-dashed-opacity" min="0.1" max="1" step="0.1" value="1">
                                                 <span class="symb-value" id="symb-dashed-opacity-val">100%</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-dashed-color-enable" title="Override route color">
                                                 <input type="color" id="symb-dashed-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override</span>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Style</span>
+                                            <span class="symb-label"><?= __('route.page.style') ?></span>
                                             <div class="symb-control">
                                                 <select id="symb-dashed-dash" class="form-control form-control-sm">
-                                                    <option value="solid">Solid</option>
-                                                    <option value="dashed" selected>Dashed (- - -)</option>
-                                                    <option value="dotted">Dotted (···)</option>
-                                                    <option value="dash-dot">Dash-Dot (-·-)</option>
-                                                    <option value="long-dash">Long Dash (— —)</option>
+                                                    <option value="solid"><?= __('route.page.solid') ?></option>
+                                                    <option value="dashed" selected><?= __('route.page.dashed') ?></option>
+                                                    <option value="dotted"><?= __('route.page.dotted') ?></option>
+                                                    <option value="dash-dot"><?= __('route.page.dashDot') ?></option>
+                                                    <option value="long-dash"><?= __('route.page.longDash') ?></option>
                                                 </select>
                                             </div>
                                         </div>
@@ -2096,7 +2098,7 @@ ROUTE2</pre>
                                 <!-- Fan Segments Section -->
                                 <div class="symb-section" data-type="fan">
                                     <div class="symb-section-header">
-                                        <span class="symb-section-title">Fan / Radial</span>
+                                        <span class="symb-section-title"><?= __('route.page.fanRadial') ?></span>
                                         <div class="symb-section-preview">
                                             <div class="symb-line-preview fan"></div>
                                             <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
@@ -2104,36 +2106,36 @@ ROUTE2</pre>
                                     </div>
                                     <div class="symb-section-body">
                                         <div class="symb-row">
-                                            <span class="symb-label">Width</span>
+                                            <span class="symb-label"><?= __('route.page.width') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fan-width" min="0.5" max="8" step="0.5" value="1.5">
                                                 <span class="symb-value" id="symb-fan-width-val">1.5</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Opacity</span>
+                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fan-opacity" min="0.1" max="1" step="0.1" value="0.8">
                                                 <span class="symb-value" id="symb-fan-opacity-val">80%</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-fan-color-enable" title="Override route color">
                                                 <input type="color" id="symb-fan-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override</span>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Style</span>
+                                            <span class="symb-label"><?= __('route.page.style') ?></span>
                                             <div class="symb-control">
                                                 <select id="symb-fan-dash" class="form-control form-control-sm">
-                                                    <option value="solid">Solid</option>
-                                                    <option value="dashed">Dashed (- - -)</option>
-                                                    <option value="dotted" selected>Dotted (···)</option>
-                                                    <option value="dash-dot">Dash-Dot (-·-)</option>
-                                                    <option value="dense-dot">Dense Dot</option>
+                                                    <option value="solid"><?= __('route.page.solid') ?></option>
+                                                    <option value="dashed"><?= __('route.page.dashed') ?></option>
+                                                    <option value="dotted" selected><?= __('route.page.dotted') ?></option>
+                                                    <option value="dash-dot"><?= __('route.page.dashDot') ?></option>
+                                                    <option value="dense-dot"><?= __('route.page.denseDot') ?></option>
                                                 </select>
                                             </div>
                                         </div>
@@ -2143,34 +2145,34 @@ ROUTE2</pre>
                                 <!-- Global Overrides Section -->
                                 <div class="symb-section" data-type="global">
                                     <div class="symb-section-header">
-                                        <span class="symb-section-title">Global Overrides</span>
+                                        <span class="symb-section-title"><?= __('route.page.globalOverrides') ?></span>
                                         <div class="symb-section-preview">
                                             <i class="fas fa-globe" style="color: #6c757d;"></i>
                                             <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
                                         </div>
                                     </div>
                                     <div class="symb-section-body">
-                                        <p class="small text-muted mb-2">Apply to all segment types</p>
+                                        <p class="small text-muted mb-2"><?= __('route.page.applyToAll') ?></p>
                                         <div class="symb-row">
-                                            <span class="symb-label">Width</span>
+                                            <span class="symb-label"><?= __('route.page.width') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-global-width" min="0.5" max="8" step="0.5" value="">
-                                                <span class="symb-value" id="symb-global-width-val">Default</span>
+                                                <span class="symb-value" id="symb-global-width-val"><?= __('route.page.default') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Opacity</span>
+                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-global-opacity" min="0.1" max="1" step="0.1" value="">
-                                                <span class="symb-value" id="symb-global-opacity-val">Default</span>
+                                                <span class="symb-value" id="symb-global-opacity-val"><?= __('route.page.default') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-global-color-enable" title="Override all colors">
                                                 <input type="color" id="symb-global-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override All</span>
+                                                <span class="small text-muted"><?= __('route.page.overrideAll') ?></span>
                                             </div>
                                         </div>
                                     </div>
@@ -2179,7 +2181,7 @@ ROUTE2</pre>
                                 <!-- Fixes / Waypoints Section -->
                                 <div class="symb-section" data-type="fixes">
                                     <div class="symb-section-header">
-                                        <span class="symb-section-title">Fixes / Waypoints</span>
+                                        <span class="symb-section-title"><?= __('route.page.fixesWaypoints') ?></span>
                                         <div class="symb-section-preview">
                                             <i class="fas fa-map-marker-alt" style="color: #6c757d;"></i>
                                             <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
@@ -2190,43 +2192,43 @@ ROUTE2</pre>
                                         <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                                             <div class="custom-control custom-switch">
                                                 <input type="checkbox" class="custom-control-input" id="symb-fixes-visible" checked>
-                                                <label class="custom-control-label small" for="symb-fixes-visible">Show Fixes</label>
+                                                <label class="custom-control-label small" for="symb-fixes-visible"><?= __('route.page.showFixes') ?></label>
                                             </div>
                                             <button class="btn btn-xs btn-outline-secondary" id="symb-toggle-all-fixes" style="font-size: 0.7rem; padding: 2px 6px;">
-                                                <i class="fas fa-eye-slash"></i> Hide All
+                                                <i class="fas fa-eye-slash"></i> <?= __('route.page.hideAll') ?>
                                             </button>
                                         </div>
                                         <div class="custom-control custom-switch mb-2">
                                             <input type="checkbox" class="custom-control-input" id="symb-fixes-labels-visible" checked>
-                                            <label class="custom-control-label small" for="symb-fixes-labels-visible">Show Labels</label>
+                                            <label class="custom-control-label small" for="symb-fixes-labels-visible"><?= __('route.page.showLabels') ?></label>
                                         </div>
                                         
                                         <!-- Circle settings -->
-                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;">CIRCLES</p>
+                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;"><?= __('route.page.circles') ?></p>
                                         <div class="symb-row">
-                                            <span class="symb-label">Radius</span>
+                                            <span class="symb-label"><?= __('route.page.radius') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fixes-radius" min="1" max="10" step="0.5" value="4">
                                                 <span class="symb-value" id="symb-fixes-radius-val">4.0</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Opacity</span>
+                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fixes-opacity" min="0.1" max="1" step="0.1" value="1">
                                                 <span class="symb-value" id="symb-fixes-opacity-val">100%</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-fixes-color-enable" title="Override route color">
                                                 <input type="color" id="symb-fixes-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override</span>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Stroke</span>
+                                            <span class="symb-label"><?= __('route.page.stroke') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fixes-stroke-width" min="0" max="3" step="0.5" value="1">
                                                 <span class="symb-value" id="symb-fixes-stroke-width-val">1.0</span>
@@ -2235,24 +2237,24 @@ ROUTE2</pre>
                                         </div>
                                         
                                         <!-- Label settings -->
-                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;">LABELS</p>
+                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;"><?= __('route.page.labelsSection') ?></p>
                                         <div class="symb-row">
-                                            <span class="symb-label">Size</span>
+                                            <span class="symb-label"><?= __('route.page.size') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fixes-label-size" min="6" max="16" step="1" value="10">
                                                 <span class="symb-value" id="symb-fixes-label-size-val">10</span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Color</span>
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
                                             <div class="symb-control">
                                                 <input type="checkbox" id="symb-fixes-label-color-enable" title="Override route color">
                                                 <input type="color" id="symb-fixes-label-color" value="#C70039" disabled>
-                                                <span class="small text-muted">Override</span>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
                                             </div>
                                         </div>
                                         <div class="symb-row">
-                                            <span class="symb-label">Halo</span>
+                                            <span class="symb-label"><?= __('route.page.halo') ?></span>
                                             <div class="symb-control">
                                                 <input type="range" id="symb-fixes-halo-width" min="0" max="5" step="0.5" value="3">
                                                 <span class="symb-value" id="symb-fixes-halo-width-val">3.0</span>

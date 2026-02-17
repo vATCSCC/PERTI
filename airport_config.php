@@ -390,9 +390,9 @@ include('load/nav.php');
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 
             <center>
-                <h1>Field Configuration Data</h1>
+                <h1><?= __('airportConfig.page.title') ?></h1>
                 <h4 class="text-white hvr-bob pl-1">
-                    <a href="#configs" style="text-decoration: none; color: white;"><i class="fas fa-chevron-down text-danger"></i> Search for Configs</a>
+                    <a href="#configs" style="text-decoration: none; color: white;"><i class="fas fa-chevron-down text-danger"></i> <?= __('airportConfig.page.subtitle') ?></a>
                 </h4>
             </center>
 
@@ -411,7 +411,7 @@ include('load/nav.php');
                 </div>
                 <div class="col-md-2 stat-item">
                     <div class="stat-value" id="stat-airports">-</div>
-                    <div class="stat-label">Airports</div>
+                    <div class="stat-label"><?= __('eventAar.page.airport') ?></div>
                 </div>
                 <div class="col-md-2 stat-item">
                     <div class="stat-value" id="stat-with-vatsim">-</div>
@@ -494,9 +494,9 @@ include('load/nav.php');
             </div>
             <div class="col-md-3 text-right">
                 <?php if ($perm == true) { ?>
-                    <button class="btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> Add Config</button>
+                    <button class="btn btn-success btn-sm" data-target="#addconfigModal" data-toggle="modal"><i class="fas fa-plus"></i> <?= __('airportConfig.page.addConfig') ?></button>
                 <?php } ?>
-                <button class="btn btn-secondary btn-sm" id="exportBtn" data-toggle="tooltip" title="Export to CSV"><i class="fas fa-download"></i> Export</button>
+                <button class="btn btn-secondary btn-sm" id="exportBtn" data-toggle="tooltip" title="Export to CSV"><i class="fas fa-download"></i> <?= __('airportConfig.page.export') ?></button>
             </div>
         </div>
 
@@ -504,10 +504,10 @@ include('load/nav.php');
         <!-- Bulk Actions Bar -->
         <div class="bulk-actions" id="bulkActions">
             <span id="bulkCount">0</span> configs selected:
-            <button class="btn btn-sm btn-warning ml-2" id="bulkActivate"><i class="fas fa-check"></i> Activate</button>
-            <button class="btn btn-sm btn-secondary ml-1" id="bulkDeactivate"><i class="fas fa-ban"></i> Deactivate</button>
-            <button class="btn btn-sm btn-danger ml-1" id="bulkDelete"><i class="fas fa-trash"></i> Delete</button>
-            <button class="btn btn-sm btn-outline-dark ml-2" id="bulkClear"><i class="fas fa-times"></i> Clear Selection</button>
+            <button class="btn btn-sm btn-warning ml-2" id="bulkActivate"><i class="fas fa-check"></i> <?= __('airportConfig.page.activate') ?></button>
+            <button class="btn btn-sm btn-secondary ml-1" id="bulkDeactivate"><i class="fas fa-ban"></i> <?= __('airportConfig.page.deactivate') ?></button>
+            <button class="btn btn-sm btn-danger ml-1" id="bulkDelete"><i class="fas fa-trash"></i> <?= __('common.delete') ?></button>
+            <button class="btn btn-sm btn-outline-dark ml-2" id="bulkClear"><i class="fas fa-times"></i> <?= __('airportConfig.page.clearSelection') ?></button>
         </div>
         <?php } ?>
 
@@ -589,7 +589,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addconfigModalLabel">Add Configuration</h5>
+                <h5 class="modal-title" id="addconfigModalLabel"><?= __('airportConfig.page.addConfiguration') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -601,23 +601,23 @@ include('load/nav.php');
 
                     <div class="row">
                         <div class="col-md-4">
-                            <label>Airport (FAA):</label>
+                            <label><?= __('airportConfig.page.airportFaa') ?></label>
                             <input type="text" class="form-control" name="airport_faa" id="add_airport_faa" maxlength="4" placeholder="DTW" required>
                         </div>
                         <div class="col-md-4">
-                            <label>Airport (ICAO):</label>
+                            <label><?= __('airportConfig.page.airportIcao') ?></label>
                             <input type="text" class="form-control" name="airport_icao" id="add_airport_icao" maxlength="4" placeholder="KDTW">
                             <small class="text-muted">Auto-filled, edit if needed</small>
                         </div>
                         <div class="col-md-4">
-                            <label>Config Code:</label>
+                            <label><?= __('airportConfig.page.configCode') ?></label>
                             <input type="text" class="form-control" name="config_code" maxlength="16" placeholder="SF">
                         </div>
                     </div>
 
                     <div class="row mt-2">
                         <div class="col-md-12">
-                            <label>Config Name:</label>
+                            <label><?= __('airportConfig.page.configName') ?></label>
                             <input type="text" class="form-control" name="config_name" maxlength="32" placeholder="South Flow" required>
                         </div>
                     </div>
@@ -626,12 +626,12 @@ include('load/nav.php');
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label>Arrival Runways:</label>
+                            <label><?= __('airportConfig.page.arrivalRunways') ?></label>
                             <input type="text" class="form-control" name="arr_runways" maxlength="32" placeholder="21L/22R" required>
                             <small class="text-muted">Separate with / in priority order</small>
                         </div>
                         <div class="col-md-6">
-                            <label>Departure Runways:</label>
+                            <label><?= __('airportConfig.page.departureRunways') ?></label>
                             <input type="text" class="form-control" name="dep_runways" maxlength="32" placeholder="22L/21R" required>
                             <small class="text-muted">Separate with / in priority order</small>
                         </div>
@@ -641,7 +641,7 @@ include('load/nav.php');
 
                     <!-- VATSIM Rates -->
                     <div class="rate-section">
-                        <h6><i class="fas fa-plane"></i> VATSIM Rates</h6>
+                        <h6><i class="fas fa-plane"></i> <?= __('airportConfig.page.vatsimRates') ?></h6>
                         <table class="table table-sm rate-grid mb-0">
                             <thead>
                                 <tr>
@@ -717,8 +717,8 @@ include('load/nav.php');
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-success" value="Add Config">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-success" value="<?= __('airportConfig.page.addConfig') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('common.close') ?></button>
                 </div>
         </div>
 
@@ -733,7 +733,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="updateconfigModalLabel">Update Configuration</h5>
+                <h5 class="modal-title" id="updateconfigModalLabel"><?= __('airportConfig.page.updateConfiguration') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -747,23 +747,23 @@ include('load/nav.php');
 
                     <div class="row">
                         <div class="col-md-4">
-                            <label>Airport (FAA):</label>
+                            <label><?= __('airportConfig.page.airportFaa') ?></label>
                             <input type="text" class="form-control" name="airport_faa" id="airport_faa" maxlength="4" placeholder="DTW" required>
                         </div>
                         <div class="col-md-4">
-                            <label>Airport (ICAO):</label>
+                            <label><?= __('airportConfig.page.airportIcao') ?></label>
                             <input type="text" class="form-control" name="airport_icao" id="airport_icao" maxlength="4" placeholder="KDTW">
                             <small class="text-muted">Auto-filled, edit if needed</small>
                         </div>
                         <div class="col-md-4">
-                            <label>Config Code:</label>
+                            <label><?= __('airportConfig.page.configCode') ?></label>
                             <input type="text" class="form-control" name="config_code" id="config_code" maxlength="16" placeholder="SF">
                         </div>
                     </div>
 
                     <div class="row mt-2">
                         <div class="col-md-12">
-                            <label>Config Name:</label>
+                            <label><?= __('airportConfig.page.configName') ?></label>
                             <input type="text" class="form-control" name="config_name" id="config_name" maxlength="32" placeholder="South Flow" required>
                         </div>
                     </div>
@@ -772,12 +772,12 @@ include('load/nav.php');
 
                     <div class="row">
                         <div class="col-md-6">
-                            <label>Arrival Runways:</label>
+                            <label><?= __('airportConfig.page.arrivalRunways') ?></label>
                             <input type="text" class="form-control" name="arr_runways" id="arr_runways" maxlength="32" placeholder="21L/22R" required>
                             <small class="text-muted">Separate with / in priority order</small>
                         </div>
                         <div class="col-md-6">
-                            <label>Departure Runways:</label>
+                            <label><?= __('airportConfig.page.departureRunways') ?></label>
                             <input type="text" class="form-control" name="dep_runways" id="dep_runways" maxlength="32" placeholder="22L/21R" required>
                             <small class="text-muted">Separate with / in priority order</small>
                         </div>
@@ -787,7 +787,7 @@ include('load/nav.php');
 
                     <!-- VATSIM Rates -->
                     <div class="rate-section">
-                        <h6><i class="fas fa-plane"></i> VATSIM Rates</h6>
+                        <h6><i class="fas fa-plane"></i> <?= __('airportConfig.page.vatsimRates') ?></h6>
                         <table class="table table-sm rate-grid mb-0">
                             <thead>
                                 <tr>
@@ -863,8 +863,8 @@ include('load/nav.php');
 
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-sm btn-warning" value="Update">
-                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-sm btn-warning" value="<?= __('common.update') ?>">
+                    <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal"><?= __('common.close') ?></button>
                 </div>
         </div>
 
@@ -878,7 +878,7 @@ include('load/nav.php');
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="historyModalLabel">Rate Change History</h5>
+                <h5 class="modal-title" id="historyModalLabel"><?= __('airportConfig.page.rateHistory') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -886,7 +886,7 @@ include('load/nav.php');
             <div class="modal-body">
                 <div id="historyLoading" class="text-center py-4">
                     <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p class="mt-2">Loading history...</p>
+                    <p class="mt-2"><?= __('airportConfig.page.loadingHistory') ?></p>
                 </div>
                 <div id="historyContent" style="display: none;">
                     <div class="alert alert-info" id="historyInfo"></div>
@@ -894,12 +894,12 @@ include('load/nav.php');
                         <table class="table table-sm table-striped history-table">
                             <thead>
                                 <tr>
-                                    <th>Date/Time</th>
-                                    <th>Source</th>
-                                    <th>Weather</th>
-                                    <th>Type</th>
-                                    <th>Change</th>
-                                    <th>User</th>
+                                    <th><?= __('airportConfig.page.dateTime') ?></th>
+                                    <th><?= __('airportConfig.page.source') ?></th>
+                                    <th><?= __('airportConfig.page.weather') ?></th>
+                                    <th><?= __('airportConfig.page.type') ?></th>
+                                    <th><?= __('airportConfig.page.change') ?></th>
+                                    <th><?= __('airportConfig.page.user') ?></th>
                                 </tr>
                             </thead>
                             <tbody id="historyTableBody"></tbody>
@@ -907,7 +907,7 @@ include('load/nav.php');
                     </div>
                     <div id="historyEmpty" class="text-center text-muted py-4" style="display: none;">
                         <i class="fas fa-history fa-2x"></i>
-                        <p class="mt-2">No rate changes recorded in the last 30 days.</p>
+                        <p class="mt-2"><?= __('airportConfig.page.noHistory') ?></p>
                     </div>
                 </div>
             </div>

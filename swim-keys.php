@@ -342,11 +342,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-key mr-2"></i>SWIM API Keys</h1>
+            <h1><i class="fas fa-key mr-2"></i><?= __('swim.keys.title') ?></h1>
             <h4 class="text-white hvr-bob pl-1">
                 <a href="#keys_section" style="text-decoration: none; color: #fff;">
                     <i class="fas fa-chevron-down text-danger"></i>
-                    Manage Your API Credentials
+                    <?= __('swim.keys.subtitle') ?>
                 </a>
             </h4>
         </center>
@@ -356,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <div class="container-fluid mt-3 mb-5" id="keys_section">
     <div class="row mb-3">
         <div class="col-12">
-            <p class="text-muted mb-0">Manage your API credentials for accessing the VATSWIM (System Wide Information Management) data feed.</p>
+            <p class="text-muted mb-0"><?= __('swim.keys.pageDesc') ?></p>
         </div>
     </div>
 
@@ -366,12 +366,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="col-12 col-lg-8 offset-lg-2">
             <div class="card shadow-sm">
                 <div class="card-header tbfm-card-header">
-                    <span class="card-title"><i class="fas fa-sign-in-alt mr-2"></i>Login Required</span>
+                    <span class="card-title"><i class="fas fa-sign-in-alt mr-2"></i><?= __('swim.keys.loginRequired') ?></span>
                 </div>
                 <div class="card-body text-center py-5">
                     <i class="fas fa-user-lock fa-4x mb-4" style="color: #5dade2;"></i>
-                    <p class="lead mb-4">You must be logged in with your VATSIM account to create and manage SWIM API keys.</p>
-                    <a href="login" class="btn btn-primary btn-lg"><i class="fas fa-user mr-2"></i>Login with VATSIM</a>
+                    <p class="lead mb-4"><?= __('swim.keys.loginMessage') ?></p>
+                    <a href="login" class="btn btn-primary btn-lg"><i class="fas fa-user mr-2"></i><?= __('swim.keys.loginWithVatsim') ?></a>
                 </div>
             </div>
         </div>
@@ -385,21 +385,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             <!-- Create new key -->
             <div class="card mb-4 shadow-sm">
                 <div class="card-header tbfm-card-header">
-                    <span class="card-title"><i class="fas fa-plus-circle mr-2"></i>Create New API Key</span>
+                    <span class="card-title"><i class="fas fa-plus-circle mr-2"></i><?= __('swim.keys.createNewKey') ?></span>
                 </div>
                 <div class="card-body swim-form">
                     <form id="createKeyForm">
                         <div class="row align-items-end">
                             <div class="col-md-4 mb-3 mb-md-0">
-                                <label for="keyTier">Access Tier</label>
+                                <label for="keyTier"><?= __('swim.keys.accessTier') ?></label>
                                 <select class="form-control" id="keyTier" name="tier">
                                     <option value="public">Public (30 req/min)</option>
                                     <option value="developer">Developer (100 req/min)</option>
                                 </select>
-                                <small class="form-text text-muted">Partner/System tiers require approval.</small>
+                                <small class="form-text text-muted"><?= __('swim.keys.tierApproval') ?></small>
                             </div>
                             <div class="col-md-5 mb-3 mb-md-0">
-                                <label for="keyDescription">Description <span class="text-muted">(optional)</span></label>
+                                <label for="keyDescription"><?= __('swim.keys.descriptionLabel') ?> <span class="text-muted">(<?= __('swim.keys.descriptionOptional') ?>)</span></label>
                                 <input type="text" class="form-control" id="keyDescription" name="description"
                                        placeholder="e.g., My flight tracker app" maxlength="128">
                             </div>
@@ -416,15 +416,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             <!-- New key display (hidden by default) -->
             <div class="card mb-4 d-none shadow-sm" id="newKeyCard">
                 <div class="card-header bg-success text-white">
-                    <i class="fas fa-check-circle mr-2"></i> API Key Created Successfully
+                    <i class="fas fa-check-circle mr-2"></i> <?= __('swim.keys.keyCreatedTitle') ?>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning mb-3">
-                        <i class="fas fa-exclamation-triangle mr-1"></i> <strong>Important:</strong> Copy this key now. For security reasons, it will not be displayed again.
+                        <i class="fas fa-exclamation-triangle mr-1"></i> <strong><?= __('swim.keys.important') ?></strong> <?= __('swim.keys.keyCreatedWarning') ?>
                     </div>
                     <div class="api-key-display" id="newKeyDisplay"></div>
                     <button class="btn btn-outline-light btn-sm mt-3" onclick="copyToClipboard()">
-                        <i class="fas fa-copy mr-1"></i> Copy to Clipboard
+                        <i class="fas fa-copy mr-1"></i> <?= __('swim.keys.copyToClipboard') ?>
                     </button>
                 </div>
             </div>
@@ -432,20 +432,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             <!-- Existing keys -->
             <div class="card shadow-sm">
                 <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
-                    <span class="card-title"><i class="fas fa-list mr-2"></i>Your API Keys</span>
+                    <span class="card-title"><i class="fas fa-list mr-2"></i><?= __('swim.keys.yourApiKeys') ?></span>
                     <?php if ($perm): ?>
-                        <span class="badge badge-warning">Admin View - All Keys</span>
+                        <span class="badge badge-warning"><?= __('swim.keys.adminViewAll') ?></span>
                     <?php endif; ?>
                 </div>
                 <div class="card-body p-0 keys-container">
                     <div id="keysLoading" class="text-center py-4">
                         <i class="fas fa-spinner fa-spin fa-2x text-info"></i>
-                        <p class="mt-2 text-muted">Loading your keys...</p>
+                        <p class="mt-2 text-muted"><?= __('swim.keys.loadingKeys') ?></p>
                     </div>
                     <div id="keysContainer" class="d-none"></div>
                     <div id="noKeysMessage" class="text-center py-4 d-none">
                         <i class="fas fa-key fa-3x mb-3" style="color: #444;"></i>
-                        <p class="text-muted">You don't have any API keys yet. Create one above to get started.</p>
+                        <p class="text-muted"><?= __('swim.keys.noKeys') ?></p>
                     </div>
                 </div>
             </div>
@@ -454,24 +454,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <!-- Right column: Information -->
         <div class="col-12 col-lg-4">
             <div class="info-card">
-                <h5><i class="fas fa-info-circle mr-2"></i>About SWIM API</h5>
-                <p class="mb-3">VATSWIM provides real-time flight data, positions, and traffic management information across the VATSIM network.</p>
+                <h5><i class="fas fa-info-circle mr-2"></i><?= __('swim.keys.aboutSwimApi') ?></h5>
+                <p class="mb-3"><?= __('swim.keys.aboutSwimApiDesc') ?></p>
                 <a href="api-docs/" target="_blank" class="btn btn-light">
-                    <i class="fas fa-book mr-1"></i> View API Documentation
+                    <i class="fas fa-book mr-1"></i> <?= __('swim.keys.viewApiDocs') ?>
                 </a>
             </div>
 
             <div class="card mb-4 shadow-sm">
                 <div class="card-header tbfm-card-header">
-                    <span class="card-title"><i class="fas fa-layer-group mr-2"></i>Access Tiers</span>
+                    <span class="card-title"><i class="fas fa-layer-group mr-2"></i><?= __('swim.keys.accessTiers') ?></span>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-sm tier-info-table">
                         <thead>
                             <tr>
-                                <th>Tier</th>
-                                <th>Rate Limit</th>
-                                <th>WebSocket</th>
+                                <th><?= __('swim.keys.tier') ?></th>
+                                <th><?= __('swim.keys.rateLimitCol') ?></th>
+                                <th><?= __('swim.keys.webSocketCol') ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -499,20 +499,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     </table>
                 </div>
                 <div class="card-footer text-muted small">
-                    Partner and System tiers require approval. Contact us for access.
+                    <?= __('swim.keys.tierFooter') ?>
                 </div>
             </div>
 
             <div class="card shadow-sm">
                 <div class="card-header tbfm-card-header">
-                    <span class="card-title"><i class="fas fa-code mr-2"></i>Quick Start</span>
+                    <span class="card-title"><i class="fas fa-code mr-2"></i><?= __('swim.keys.quickStart') ?></span>
                 </div>
                 <div class="card-body">
-                    <p class="small mb-2">Include your API key in the Authorization header:</p>
+                    <p class="small mb-2"><?= __('swim.keys.authHeader') ?></p>
                     <div class="quick-start-code mb-3">
                         <code>Authorization: Bearer YOUR_API_KEY</code>
                     </div>
-                    <p class="small mb-2">Example request:</p>
+                    <p class="small mb-2"><?= __('swim.keys.exampleRequest') ?></p>
                     <div class="quick-start-code" style="font-size: 11px;">
                         <code>curl -H "Authorization: Bearer swim_pub_xxx" \<br>
   https://perti.vatcscc.org/api/swim/v1/flights</code>

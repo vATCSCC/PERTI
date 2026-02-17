@@ -21,6 +21,47 @@
     "exemption": {
       "origArtccs": "Origin FIRs",
       "destArtccs": "Destination FIRs"
+    },
+    "flight": {
+      "center": "Centre"
+    },
+    "chart": {
+      "titleDestArtcc": "Data Graph - Dest FIR",
+      "titleOrigArtcc": "Data Graph - Origin FIR"
+    }
+  },
+  "nav": {
+    "configs": "Configurations"
+  },
+  "demand": {
+    "page": {
+      "artcc": "FIR",
+      "allArtccs": "All FIRs",
+      "topOriginArtccs": "Top Origin FIRs"
+    },
+    "filter": {
+      "allArtccs": "All FIRs"
+    },
+    "breakdown": {
+      "byDestArtcc": "{direction} by Dest FIR",
+      "byOriginArtcc": "{direction} by Origin FIR",
+      "originArtcc": "Origin FIR"
+    },
+    "flightDetail": {
+      "col": {
+        "destArtcc": "Dest FIR",
+        "originArtcc": "Origin FIR"
+      }
+    }
+  },
+  "plan": {
+    "tabs": {
+      "configs": "Field Configurations"
+    }
+  },
+  "swim": {
+    "page": {
+      "license": "Licence"
     }
   }
 }

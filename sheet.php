@@ -76,8 +76,8 @@ include('load/nav.php');
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
 
             <center>
-                <h1><b><span class="text-success"><?= $plan_info['event_name']; ?></span> Planning Sheet</b></h1>
-                <h5><a class="text-light" href="plan?<?= $plan_info['id']; ?>"><i class="fas fa-eye text-danger"></i> View Full PERTI Plan</a></h5>
+                <h1><b><span class="text-success"><?= $plan_info['event_name']; ?></span> <?= __('sheet.page.planningSheet') ?></b></h1>
+                <h5><a class="text-light" href="plan?<?= $plan_info['id']; ?>"><i class="fas fa-eye text-danger"></i> <?= __('sheet.page.viewFullPlan') ?></a></h5>
             </center>
 
         </div>       
@@ -87,12 +87,12 @@ include('load/nav.php');
         <div class="row">
             <div class="col-2">
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
-                    <li><a class="nav-link active rounded" data-toggle="tab" href="#overview">Overview</a></li>
+                    <li><a class="nav-link active rounded" data-toggle="tab" href="#overview"><?= __('sheet.page.overview') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing">DCC Staffing</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing"><?= __('sheet.page.dccStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing"><?= __('sheet.page.terminalStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#configs"><?= __('sheet.page.fieldConfigurations') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing"><?= __('sheet.page.enrouteStaffing') ?></a></li>
                 </ul>
             </div>
             <div class="col-10">
@@ -105,7 +105,7 @@ include('load/nav.php');
 
                                 <hr>
 
-                                <h4><b>Operational Goals</b></h4>
+                                <h4><b><?= __('sheet.page.operationalGoals') ?></b></h4>
 
 
                                 <table class="table table-bordered">
@@ -114,35 +114,35 @@ include('load/nav.php');
                             </div>
 
                             <div class="col-6">
-                                <h4><b>Event Information</b></h4>
+                                <h4><b><?= __('sheet.page.eventInformation') ?></b></h4>
                                 <table class="table table-striped table-bordered">
                                     <tbody>
                                         <tr>
-                                            <td><b>Event Name</b></td>
+                                            <td><b><?= __('sheet.page.eventName') ?></b></td>
                                             <td><?= $plan_info['event_name']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Date</b></td>
+                                            <td><b><?= __('sheet.page.eventDate') ?></b></td>
                                             <td><?= $plan_info['event_date']; ?></td>
                                         </tr>
                                         <tr>
-                                            <td><b>Event Start</b></td>
+                                            <td><b><?= __('sheet.page.eventStart') ?></b></td>
                                             <td><?= $plan_info['event_start']; ?>Z</td>
                                         </tr>
                                         <tr>
-                                            <td><b>TMU OpLevel</b></td>
+                                            <td><b><?= __('sheet.page.tmuOpLevel') ?></b></td>
                                             <?php
                                                 if ($plan_info['oplevel'] == 1) {
-                                                    echo '<td class="text-dark">'.$plan_info['oplevel'].' - Steady State</td>';
+                                                    echo '<td class="text-dark">'.$plan_info['oplevel'].' - '.__('sheet.page.opLevel1').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 2) {
-                                                    echo '<td class="text-success">'.$plan_info['oplevel'].' - Localized Impact</td>';
+                                                    echo '<td class="text-success">'.$plan_info['oplevel'].' - '.__('sheet.page.opLevel2').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 3) {
-                                                    echo '<td class="text-warning">'.$plan_info['oplevel'].' - Regional Impact</td>';
+                                                    echo '<td class="text-warning">'.$plan_info['oplevel'].' - '.__('sheet.page.opLevel3').'</td>';
                                                 }
                                                 elseif ($plan_info['oplevel'] == 4) {
-                                                    echo '<td class="text-danger">'.$plan_info['oplevel'].' - NAS-Wide Impact/td>';
+                                                    echo '<td class="text-danger">'.$plan_info['oplevel'].' - '.__('sheet.page.opLevel4').'</td>';
                                                 }
                                             ?>
                                         </tr>
@@ -151,7 +151,7 @@ include('load/nav.php');
 
                                 <hr>
 
-                                <h4><b>Resources</b></h4>
+                                <h4><b><?= __('sheet.page.resources') ?></b></h4>
                                 <ul>
                                     <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
                                     <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
@@ -194,9 +194,9 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="dcc_staffing">
                         <center><table class="table table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility</b></th>
-                                <th class="text-center"><b>OIs</b></th>
-                                <th><b>Personnel Name</b></th>
+                                <th class="text-center"><b><?= __('sheet.page.facilityCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.oisCol') ?></b></th>
+                                <th><b><?= __('sheet.page.personnelNameCol') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="dcc_staffing_table"></tbody>
@@ -207,10 +207,10 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="t_staffing">
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('sheet.page.facilityNameCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.statusCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.quantityCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.commentsCol') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="term_staffing_table"></tbody>
@@ -221,13 +221,13 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="configs">
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Field</b></th>
-                                <th class="text-center"><b>Conditions</b></th>
-                                <th class="text-center"><b>Arriving</b></th>
-                                <th class="text-center"><b>Departing</b></th>
+                                <th class="text-center"><b><?= __('sheet.page.fieldCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.conditionsCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.arrivingCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.departingCol') ?></b></th>
                                 <th class="text-center"><b>AAR</b></th>
                                 <th class="text-center"><b>ADR</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('sheet.page.commentsCol') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="configs_table"></tbody>
@@ -238,10 +238,10 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="e_staffing">                         
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center"><b><?= __('sheet.page.facilityNameCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.statusCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.quantityCol') ?></b></th>
+                                <th class="text-center"><b><?= __('sheet.page.commentsCol') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="enroute_staffing_table"></tbody>
@@ -261,7 +261,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Personnel</h5>
+                <h5 class="modal-title"><?= __('sheet.page.editPersonnel') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -273,16 +273,16 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility:
+                    <?= __('sheet.page.facilityCol') ?>:
                     <input type="text" class="form-control" name="position_facility" id="position_facility" readonly required>
 
                     <hr>
 
-                    Personnel Name:
-                    <input type="text" class="form-control" name="personnel_name" id="personnel_name" maxlength="128" placeholder="Leave Blank for Vacancy">
+                    <?= __('sheet.page.personnelName') ?>
+                    <input type="text" class="form-control" name="personnel_name" id="personnel_name" maxlength="128" placeholder="<?= __('sheet.page.leaveBlankVacancy') ?>">
 
-                    Personnel OIs:
-                    <input type="text" class="form-control" name="personnel_ois" id="personnel_ois" maxlength="2" placeholder="Leave Blank for Vacancy">
+                    <?= __('sheet.page.personnelOis') ?>
+                    <input type="text" class="form-control" name="personnel_ois" id="personnel_ois" maxlength="2" placeholder="<?= __('sheet.page.leaveBlankVacancy') ?>">
 
                 </div>
                 <div class="modal-footer">
@@ -301,7 +301,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Terminal Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('sheet.page.editTermStaffing') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -313,22 +313,22 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('sheet.page.facilityName') ?>
                     <input type="text" class="form-control" name="facility_name" id="facility_name" placeholder="SCT - SoCal TRACON" readonly required>
 
-                    Staffing Status:
+                    <?= __('sheet.page.staffingStatus') ?>
                     <select class="form-control" name="staffing_status" id="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="3">Understaffed</option>
-                        <option value="1">Top Down</option>
-                        <option value="2">Yes</option>
-                        <option value="4">No</option>
+                        <option value="0"><?= __('sheet.page.statusUnknown') ?></option>
+                        <option value="3"><?= __('sheet.page.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('sheet.page.statusTopDown') ?></option>
+                        <option value="2"><?= __('sheet.page.statusYes') ?></option>
+                        <option value="4"><?= __('sheet.page.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('sheet.page.staffingQuantity') ?>
                     <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('sheet.page.commentsCol') ?>:
                     <input type="text" class="form-control" name="comments" id="comments">
 
                 </div>
@@ -348,7 +348,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Config Entry</h5>
+                <h5 class="modal-title"><?= __('sheet.page.editConfigEntry') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -364,37 +364,37 @@ include('load/nav.php');
                     <div class="form-group">
                         <div class="custom-control custom-checkbox mb-2">
                             <input type="checkbox" class="custom-control-input" id="sheet_editconfig_use_adl">
-                            <label class="custom-control-label" for="sheet_editconfig_use_adl">Load from ADL Config</label>
+                            <label class="custom-control-label" for="sheet_editconfig_use_adl"><?= __('sheet.page.loadFromAdl') ?></label>
                         </div>
                         <div id="sheet_editconfig_picker" style="display: none;">
                             <select class="form-control mb-2" id="sheet_editconfig_select" disabled>
-                                <option value="">-- Select configuration --</option>
+                                <option value=""><?= __('sheet.page.selectConfiguration') ?></option>
                             </select>
-                            <small class="text-muted">Select a configuration to load runway info</small>
+                            <small class="text-muted"><?= __('sheet.page.selectConfigHint') ?></small>
                         </div>
                     </div>
 
                     <hr class="my-2">
 
-                    Field:
+                    <?= __('sheet.page.fieldCol') ?>:
                     <input type="text" class="form-control" name="airport" id="sheet_editconfig_airport" placeholder="BWI" maxlength="4" readonly required>
 
-                    Meteorological Condition:
+                    <?= __('sheet.page.meteorologicalCondition') ?>
                     <select class="form-control" name="weather" id="sheet_editconfig_weather">
-                        <option value="0">Unknown</option>
+                        <option value="0"><?= __('sheet.page.statusUnknown') ?></option>
                         <option value="1">VMC</option>
                         <option value="2">LVMC</option>
                         <option value="3">IMC</option>
                         <option value="4">LIMC</option>
                     </select>
 
-                    Arrival Runways:
+                    <?= __('sheet.page.arrivalRunways') ?>
                     <input type="text" class="form-control" name="arrive" id="sheet_editconfig_arrive" placeholder="33L/33R">
 
-                    Departure Runways:
+                    <?= __('sheet.page.departureRunways') ?>
                     <input type="text" class="form-control" name="depart" id="sheet_editconfig_depart" placeholder="33R/28">
 
-                    Comments:
+                    <?= __('sheet.page.commentsCol') ?>:
                     <input type="text" class="form-control" name="comments" id="sheet_editconfig_comments">
 
                 </div>
@@ -414,7 +414,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Enroute Staffing Entry</h5>
+                <h5 class="modal-title"><?= __('sheet.page.editEnrouteStaffing') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -426,21 +426,21 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    Facility Name:
+                    <?= __('sheet.page.facilityName') ?>
                     <input type="text" class="form-control" name="facility_name" id="facility_name" readonly required>
 
-                    Staffing Status:
+                    <?= __('sheet.page.staffingStatus') ?>
                     <select class="form-control" name="staffing_status" id="staffing_status">
-                        <option value="0">Unknown</option>
-                        <option value="2">Understaffed</option>
-                        <option value="1">Yes</option>
-                        <option value="3">No</option>
+                        <option value="0"><?= __('sheet.page.statusUnknown') ?></option>
+                        <option value="2"><?= __('sheet.page.statusUnderstaffed') ?></option>
+                        <option value="1"><?= __('sheet.page.statusYes') ?></option>
+                        <option value="3"><?= __('sheet.page.statusNo') ?></option>
                     </select>
 
-                    Staffing Quantity:
+                    <?= __('sheet.page.staffingQuantity') ?>
                     <input type="text" class="form-control" name="staffing_quantity" id="staffing_quantity" maxlength="2" required>
 
-                    Comments:
+                    <?= __('sheet.page.commentsCol') ?>:
                     <input type="text" class="form-control" name="comments" id="comments">
 
                 </div>

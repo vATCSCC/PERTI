@@ -17,6 +17,7 @@
  * Session state is read by nav_public.php for login display
  */
 include("load/config.php");
+include("load/i18n.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -377,32 +378,32 @@ include("load/config.php");
     <!-- Control Panel -->
     <div class="sim-panel">
         <div class="sim-panel-header">
-            <h5><i class="fas fa-plane"></i> ATFM Training Simulator</h5>
+            <h5><i class="fas fa-plane"></i> <?= __('simulator.page.title') ?></h5>
         </div>
         
         <!-- Tabs -->
         <div class="sim-tabs">
-            <button class="sim-tab active" data-tab="simulation">Simulation</button>
-            <button class="sim-tab" data-tab="tmi">TMI<span class="gs-badge" id="gs-count-badge" style="display:none;">0</span></button>
-            <button class="sim-tab" data-tab="traffic">Traffic</button>
+            <button class="sim-tab active" data-tab="simulation"><?= __('simulator.page.simulationTab') ?></button>
+            <button class="sim-tab" data-tab="tmi"><?= __('simulator.page.tmiTab') ?><span class="gs-badge" id="gs-count-badge" style="display:none;">0</span></button>
+            <button class="sim-tab" data-tab="traffic"><?= __('simulator.page.trafficTab') ?></button>
         </div>
         
         <!-- Simulation Tab -->
         <div class="sim-tab-content active" id="tab-simulation">
             <!-- Simulation Status -->
             <div class="sim-section">
-                <h6><i class="fas fa-info-circle"></i> Simulation Status</h6>
+                <h6><i class="fas fa-info-circle"></i> <?= __('simulator.page.simulationStatus') ?></h6>
                 <div class="sim-time" id="sim-time">--:--:--Z</div>
                 <div class="sim-status">
-                    <span class="sim-status-label">Status:</span>
+                    <span class="sim-status-label"><?= __('simulator.page.statusLabel') ?></span>
                     <span class="sim-status-value" id="sim-status">Not Started</span>
                 </div>
                 <div class="sim-status">
-                    <span class="sim-status-label">Simulation ID:</span>
+                    <span class="sim-status-label"><?= __('simulator.page.simulationId') ?></span>
                     <span class="sim-status-value" id="sim-id">-</span>
                 </div>
                 <div class="sim-status">
-                    <span class="sim-status-label">Aircraft:</span>
+                    <span class="sim-status-label"><?= __('simulator.page.aircraftLabel') ?></span>
                     <span class="sim-status-value" id="sim-aircraft-count">0</span>
                 </div>
                 <div class="sim-status">
@@ -413,7 +414,7 @@ include("load/config.php");
             
             <!-- Simulation Controls -->
             <div class="sim-section">
-                <h6><i class="fas fa-play-circle"></i> Simulation Controls</h6>
+                <h6><i class="fas fa-play-circle"></i> <?= __('simulator.page.simulationControls') ?></h6>
                 <div class="mb-2">
                     <button class="sim-btn sim-btn-success" id="btn-create" onclick="createSimulation()">
                         <i class="fas fa-plus"></i> New Simulation
@@ -426,7 +427,7 @@ include("load/config.php");
                     </button>
                 </div>
                 <div class="mb-2">
-                    <label class="text-muted" style="font-size: 0.8rem;">Speed:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.speed') ?></label>
                     <select class="sim-select" id="sim-speed" style="width: 100px;">
                         <option value="1">1x</option>
                         <option value="5">5x</option>
@@ -439,7 +440,7 @@ include("load/config.php");
             
             <!-- Spawn Aircraft -->
             <div class="sim-section">
-                <h6><i class="fas fa-plane-departure"></i> Spawn Aircraft</h6>
+                <h6><i class="fas fa-plane-departure"></i> <?= __('simulator.page.spawnAircraft') ?></h6>
                 <div class="row mb-2">
                     <div class="col-6">
                         <input type="text" class="sim-input w-100" id="spawn-callsign" placeholder="Callsign (DAL123)">
@@ -463,7 +464,7 @@ include("load/config.php");
             
             <!-- Log -->
             <div class="sim-section">
-                <h6><i class="fas fa-terminal"></i> Log</h6>
+                <h6><i class="fas fa-terminal"></i> <?= __('simulator.page.log') ?></h6>
                 <div class="sim-log" id="sim-log"></div>
             </div>
         </div>
@@ -475,13 +476,13 @@ include("load/config.php");
             
             <!-- Issue Ground Stop -->
             <div class="sim-section">
-                <h6><i class="fas fa-hand-paper"></i> Issue Ground Stop</h6>
+                <h6><i class="fas fa-hand-paper"></i> <?= __('simulator.page.issueGroundStop') ?></h6>
                 <div class="mb-2">
-                    <label class="text-muted" style="font-size: 0.8rem;">Airport:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.airportLabel') ?></label>
                     <input type="text" class="sim-input w-100" id="gs-airport" placeholder="KJFK">
                 </div>
                 <div class="mb-2">
-                    <label class="text-muted" style="font-size: 0.8rem;">Duration:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.durationLabel') ?></label>
                     <select class="sim-select w-100" id="gs-duration">
                         <option value="60">1 hour</option>
                         <option value="90">1.5 hours</option>
@@ -491,7 +492,7 @@ include("load/config.php");
                     </select>
                 </div>
                 <div class="mb-2">
-                    <label class="text-muted" style="font-size: 0.8rem;">Reason:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.reasonLabel') ?></label>
                     <select class="sim-select w-100" id="gs-reason">
                         <option value="WEATHER">Weather</option>
                         <option value="VOLUME">Volume</option>
@@ -502,7 +503,7 @@ include("load/config.php");
                     </select>
                 </div>
                 <div class="mb-2">
-                    <label class="text-muted" style="font-size: 0.8rem;">Scope:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.scopeLabel') ?></label>
                     <select class="sim-select w-100" id="gs-scope" onchange="updateScopeDisplay()">
                         <option value="INTERNAL">Internal (Controlling Center Only)</option>
                         <option value="TIER1" selected>Tier 1 (Adjacent Centers)</option>
@@ -511,7 +512,7 @@ include("load/config.php");
                     </select>
                 </div>
                 <div class="mb-2" id="scope-centers-container">
-                    <label class="text-muted" style="font-size: 0.8rem;">Included Centers:</label>
+                    <label class="text-muted" style="font-size: 0.8rem;"><?= __('simulator.page.includedCenters') ?></label>
                     <div class="scope-grid" id="scope-centers"></div>
                 </div>
                 <button class="sim-btn sim-btn-danger w-100" id="btn-issue-gs" onclick="issueGroundStop()" disabled>
@@ -521,7 +522,7 @@ include("load/config.php");
             
             <!-- Held Flights -->
             <div class="sim-section">
-                <h6><i class="fas fa-clock"></i> Held Flights (<span id="held-count">0</span>)</h6>
+                <h6><i class="fas fa-clock"></i> <?= __('simulator.page.heldFlights') ?> (<span id="held-count">0</span>)</h6>
                 <div class="aircraft-list" id="held-flights-list">
                     <div class="text-muted text-center" style="font-size: 0.85rem;">No held flights</div>
                 </div>
@@ -532,7 +533,7 @@ include("load/config.php");
         <div class="sim-tab-content" id="tab-traffic">
             <!-- Load Scenario -->
             <div class="sim-section">
-                <h6><i class="fas fa-folder-open"></i> Load Scenario</h6>
+                <h6><i class="fas fa-folder-open"></i> <?= __('simulator.page.loadScenario') ?></h6>
                 <div class="mb-2">
                     <select class="sim-select w-100" id="scenario-select" onchange="updateScenarioInfo()">
                         <option value="">-- Select a scenario --</option>
@@ -546,7 +547,7 @@ include("load/config.php");
             
             <!-- Custom Generation -->
             <div class="sim-section">
-                <h6><i class="fas fa-magic"></i> Generate Traffic</h6>
+                <h6><i class="fas fa-magic"></i> <?= __('simulator.page.generateTraffic') ?></h6>
                 <div class="row mb-2">
                     <div class="col-6">
                         <input type="text" class="sim-input w-100" id="gen-dest" placeholder="Destination (KJFK)">
@@ -579,7 +580,7 @@ include("load/config.php");
             
             <!-- Historical Replay -->
             <div class="sim-section">
-                <h6><i class="fas fa-history"></i> Historical Replay</h6>
+                <h6><i class="fas fa-history"></i> <?= __('simulator.page.historicalReplay') ?></h6>
                 <div class="row mb-2">
                     <div class="col-6">
                         <input type="text" class="sim-input w-100" id="hist-dest" placeholder="Destination">
@@ -595,7 +596,7 @@ include("load/config.php");
             
             <!-- Clear & Aircraft List -->
             <div class="sim-section">
-                <h6><i class="fas fa-list"></i> Aircraft (<span id="aircraft-list-count">0</span>)
+                <h6><i class="fas fa-list"></i> <?= __('simulator.page.aircraftList') ?> (<span id="aircraft-list-count">0</span>)
                     <button class="sim-btn sim-btn-danger float-right" style="padding: 2px 8px; font-size: 0.7rem;" onclick="clearAllAircraft()">
                         <i class="fas fa-trash"></i> Clear
                     </button>

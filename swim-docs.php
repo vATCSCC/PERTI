@@ -15,6 +15,7 @@
  * Login state is handled by nav_public.php (cheap session read)
  */
 include("load/config.php");
+include("load/i18n.php");
 ?>
 
 <!DOCTYPE html>
@@ -190,9 +191,9 @@ include("load/config.php");
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-book-open mr-2"></i>SWIM Technical Documentation</h1>
-            <h4 class="text-white pl-1">Architecture, Standards & Reference Materials</h4>
-            <p class="text-muted mb-3">Version 1.0.0</p>
+            <h1><i class="fas fa-book-open mr-2"></i><?= __('swim.docs.title') ?></h1>
+            <h4 class="text-white pl-1"><?= __('swim.docs.subtitle') ?></h4>
+            <p class="text-muted mb-3"><?= __('swim.page.version') ?></p>
         </center>
     </div>
 </section>
@@ -202,50 +203,50 @@ include("load/config.php");
 
     <!-- Quick Links -->
     <div class="quick-links">
-        <h4><i class="fas fa-bolt mr-2"></i>Quick Access</h4>
+        <h4><i class="fas fa-bolt mr-2"></i><?= __('swim.docs.quickAccess') ?></h4>
         <a href="docs/swim/" class="quick-link-btn" target="_blank">
-            <i class="fas fa-play-circle"></i>Interactive API Docs
+            <i class="fas fa-play-circle"></i><?= __('swim.docs.interactiveDocs') ?>
         </a>
         <a href="docs/swim/openapi.yaml" class="quick-link-btn" target="_blank">
-            <i class="fas fa-file-code"></i>OpenAPI Spec
+            <i class="fas fa-file-code"></i><?= __('swim.docs.openApiSpec') ?>
         </a>
         <a href="swim-keys" class="quick-link-btn">
-            <i class="fas fa-key"></i>Get API Key
+            <i class="fas fa-key"></i><?= __('swim.docs.getApiKey') ?>
         </a>
         <a href="swim" class="quick-link-btn">
-            <i class="fas fa-home"></i>SWIM Overview
+            <i class="fas fa-home"></i><?= __('swim.docs.swimOverview') ?>
         </a>
         <a href="https://vats.im/CommandCenter" class="quick-link-btn" target="_blank">
-            <i class="fab fa-discord"></i>Discord Support
+            <i class="fab fa-discord"></i><?= __('swim.docs.discordSupport') ?>
         </a>
     </div>
 
     <!-- API Reference Section -->
     <div class="doc-section">
         <div class="doc-section-header">
-            <h2><i class="fas fa-code mr-2"></i>API Reference</h2>
-            <p>Primary API documentation and specifications</p>
+            <h2><i class="fas fa-code mr-2"></i><?= __('swim.docs.apiReference') ?></h2>
+            <p><?= __('swim.docs.apiReferenceDesc') ?></p>
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="docs/swim/" class="doc-card" target="_blank">
-                    <h5><i class="fas fa-play-circle"></i>Interactive API Docs <span class="doc-badge badge-primary">Primary</span></h5>
-                    <p>Swagger UI with "Try It Out" functionality. Test endpoints directly in your browser.</p>
-                    <div class="doc-meta"><i class="fas fa-external-link-alt"></i> Opens in new tab</div>
+                    <h5><i class="fas fa-play-circle"></i><?= __('swim.docs.interactiveDocsCard') ?> <span class="doc-badge badge-primary">Primary</span></h5>
+                    <p><?= __('swim.docs.interactiveDocsCardDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-external-link-alt"></i> <?= __('swim.docs.opensNewTab') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="docs/swim/openapi.yaml" class="doc-card" target="_blank">
-                    <h5><i class="fas fa-file-code"></i>OpenAPI 3.0 Specification <span class="doc-badge badge-spec">YAML</span></h5>
-                    <p>Machine-readable API definition. Import into Postman, Insomnia, or code generators.</p>
-                    <div class="doc-meta"><i class="fas fa-download"></i> Download YAML</div>
+                    <h5><i class="fas fa-file-code"></i><?= __('swim.docs.openApiSpecCard') ?> <span class="doc-badge badge-spec">YAML</span></h5>
+                    <p><?= __('swim.docs.openApiSpecCardDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-download"></i> <?= __('swim.docs.downloadYaml') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=README" class="doc-card">
-                    <h5><i class="fas fa-list-alt"></i>Quick Reference</h5>
-                    <p>Condensed endpoint table, rate limits, and SDK links. Good for quick lookups.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-list-alt"></i><?= __('swim.docs.quickReference') ?></h5>
+                    <p><?= __('swim.docs.quickReferenceDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
         </div>
@@ -254,8 +255,8 @@ include("load/config.php");
     <!-- Architecture & Design Section -->
     <div class="doc-section">
         <div class="doc-section-header">
-            <h2><i class="fas fa-sitemap mr-2"></i>Architecture & Design</h2>
-            <p>System architecture, design decisions, and integration patterns</p>
+            <h2><i class="fas fa-sitemap mr-2"></i><?= __('swim.docs.architectureDesign') ?></h2>
+            <p><?= __('swim.docs.architectureDesignDesc') ?></p>
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
@@ -285,8 +286,8 @@ include("load/config.php");
     <!-- Schema & Standards Section -->
     <div class="doc-section">
         <div class="doc-section-header">
-            <h2><i class="fas fa-ruler-combined mr-2"></i>Schema & Standards Reference</h2>
-            <p>Field mappings, data standards alignment, and schema documentation</p>
+            <h2><i class="fas fa-ruler-combined mr-2"></i><?= __('swim.docs.schemaStandards') ?></h2>
+            <p><?= __('swim.docs.schemaStandardsDesc') ?></p>
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
@@ -330,19 +331,19 @@ include("load/config.php");
     <!-- Rate Limits Quick Reference -->
     <div class="doc-section">
         <div class="doc-section-header">
-            <h2><i class="fas fa-tachometer-alt mr-2"></i>Rate Limits Quick Reference</h2>
-            <p>API access tiers and their limits</p>
+            <h2><i class="fas fa-tachometer-alt mr-2"></i><?= __('swim.docs.rateLimitsRef') ?></h2>
+            <p><?= __('swim.docs.rateLimitsRefDesc') ?></p>
         </div>
         <div class="table-responsive">
             <table class="standards-table">
                 <thead>
                     <tr>
-                        <th>Tier</th>
-                        <th>Prefix</th>
-                        <th>Rate Limit</th>
-                        <th>WebSocket</th>
-                        <th>Write Access</th>
-                        <th>Self-Service</th>
+                        <th><?= __('swim.keys.tier') ?></th>
+                        <th><?= __('swim.docs.prefix') ?></th>
+                        <th><?= __('swim.docs.rateLimit') ?></th>
+                        <th><?= __('swim.docs.webSocket') ?></th>
+                        <th><?= __('swim.docs.writeAccess') ?></th>
+                        <th><?= __('swim.docs.selfService') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -386,8 +387,8 @@ include("load/config.php");
     <!-- Announcements & Guides Section -->
     <div class="doc-section">
         <div class="doc-section-header">
-            <h2><i class="fas fa-bullhorn mr-2"></i>Announcements & Guides</h2>
-            <p>Getting started guides and public announcements</p>
+            <h2><i class="fas fa-bullhorn mr-2"></i><?= __('swim.docs.announcements') ?></h2>
+            <p><?= __('swim.docs.announcementsDesc') ?></p>
         </div>
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
@@ -404,12 +405,12 @@ include("load/config.php");
     <div class="doc-section">
         <div class="doc-section-header">
             <h2>
-                <i class="fas fa-tools mr-2"></i>Development Notes
+                <i class="fas fa-tools mr-2"></i><?= __('swim.docs.devNotes') ?>
                 <button class="btn btn-sm btn-outline-secondary ml-3" type="button" data-toggle="collapse" data-target="#devDocs" aria-expanded="false">
                     <i class="fas fa-chevron-down"></i> Show/Hide
                 </button>
             </h2>
-            <p>Internal development documentation and session transition notes</p>
+            <p><?= __('swim.docs.devNotesDesc') ?></p>
         </div>
         <div class="collapse" id="devDocs">
             <div class="row">
@@ -432,7 +433,7 @@ include("load/config.php");
                     </a>
                 </div>
             </div>
-            <p class="text-muted mt-3"><small><i class="fas fa-info-circle mr-1"></i> Session transition documents (SWIM_Session_Transition_*.md) are available in the docs/swim/ directory for detailed development history.</small></p>
+            <p class="text-muted mt-3"><small><i class="fas fa-info-circle mr-1"></i> <?= __('swim.docs.sessionTransitionNote') ?></small></p>
         </div>
     </div>
 
@@ -440,8 +441,8 @@ include("load/config.php");
     <div class="alert alert-info mt-4">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <h5 class="mb-1"><i class="fas fa-question-circle mr-2"></i>Need Help?</h5>
-                <p class="mb-0">Questions about the API or documentation? Reach out to us.</p>
+                <h5 class="mb-1"><i class="fas fa-question-circle mr-2"></i><?= __('swim.docs.needHelp') ?></h5>
+                <p class="mb-0"><?= __('swim.docs.needHelpDesc') ?></p>
             </div>
             <div class="col-md-4 text-md-right mt-3 mt-md-0">
                 <a href="mailto:dev@vatcscc.org" class="btn btn-outline-primary btn-sm mr-2">
