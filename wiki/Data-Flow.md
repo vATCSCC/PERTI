@@ -37,11 +37,19 @@ VATSIM Data API (every 15s)
 vatsim_adl_daemon.php
        |
        v
-sp_Adl_RefreshFromVatsim_Normalized
+sp_Adl_RefreshFromVatsim_Staged (V9.2.0, @defer_expensive=1)
        |
        |-->  adl_flight_core + 7 related tables (normalized)
+       |-->  adl_flight_trajectory (position points - always captured)
        |-->  adl_flight_changelog (field-level changes)
        '-->  adl_parse_queue (routes to parse)
+       |
+       v
+Deferred ETA processing (if time budget remains)
+       |
+       |-->  sp_ProcessTrajectoryBatch (basic ETA)
+       |-->  sp_CalculateETABatch (wind-adjusted ETA, every N cycles)
+       '-->  sp_CapturePhaseSnapshot (phase counts)
 ```
 
 The normalized 8-table architecture splits flight data across purpose-specific tables:
@@ -74,6 +82,12 @@ PostGIS spatial route parsing
 Route parsing uses PostGIS for spatial fix matching and airway expansion. Flights are parsed in tiered priority order based on phase and proximity.
 
 ### 3. ETA & Trajectory Processing
+
+Trajectory points are captured in two places:
+- **Step 8 of the SP** (always runs): Tiered position logging based on flight priority
+- **Deferred ETA** (time-budget permitting): Basic and wind-adjusted ETA calculations
+
+Additional waypoint-level ETAs are calculated by a separate daemon:
 
 ```
 adl_flight_core + adl_flight_waypoints

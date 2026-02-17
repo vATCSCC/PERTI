@@ -5,8 +5,12 @@
  * 
  * Location: wwwroot/scripts/vatsim_adl_daemon.php
  * 
- * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim.
+ * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim_Staged.
  * Optimized for 3,000-6,000 flights per cycle.
+ *
+ * V9.2.0: When defer_expensive=true, trajectory capture always runs in the SP
+ * but ETA/snapshot steps are deferred to a time-budget system after the SP returns.
+ * This ensures data ingestion completes within the 15s VATSIM API window.
  * 
  * Usage:
  *   php scripts/vatsim_adl_daemon.php                # Run in foreground
