@@ -61,24 +61,24 @@
     "unknown": "Inconnu"
   },
   "tmi": {
-    "gdp": "Programme d'attente au sol",
-    "gdpShort": "PAS",
+    "gdp": "Programme de retard au sol",
+    "gdpShort": "GDP",
     "gs": "Arrêt au sol",
-    "gsShort": "AS",
+    "gsShort": "GS",
     "edct": "EDCT",
-    "reroute": "Déroutement",
+    "reroute": "Réacheminement",
     "exempt": "Exempté",
     "uncontrolled": "Non contrôlé",
     "actualGdp": "GDP (EDCT)",
     "actualGs": "GS (EDCT)",
-    "afp": "Programme de flux d'espace aerien",
+    "afp": "Programme de flux d'espace aérien",
     "ctop": "CTOP",
-    "minit": "Minutes en route",
+    "minit": "Minutes en route séquencées",
     "mit": "MIT",
-    "proposedGdp": "GDP (Propose)",
-    "proposedGs": "GS (Propose)",
-    "simulatedGdp": "GDP (Simule)",
-    "simulatedGs": "GS (Simule)"
+    "proposedGdp": "GDP (Proposé)",
+    "proposedGs": "GS (Proposé)",
+    "simulatedGdp": "GDP (Simulé)",
+    "simulatedGs": "GS (Simulé)"
   },
   "phase": {
     "arrived": "Arrivé",
@@ -97,34 +97,34 @@
     "saving": "Enregistrement...",
     "processing": "Traitement...",
     "confirm": {
-      "title": "Etes-vous sur?"
+      "title": "Êtes-vous sûr ?"
     },
     "confirmCancel": {
-      "text": "Etes-vous sur de vouloir annuler?",
-      "title": "Annuler?"
+      "text": "Êtes-vous sûr de vouloir annuler ?",
+      "title": "Annuler ?"
     },
     "confirmClear": {
-      "text": "Etes-vous sur de vouloir tout effacer?",
-      "title": "Effacer?"
+      "text": "Êtes-vous sûr de vouloir tout effacer ?",
+      "title": "Effacer ?"
     },
     "confirmDelete": {
-      "text": "Cette action ne peut pas etre annulee.",
-      "title": "Supprimer?"
+      "text": "Cette action ne peut pas être annulée.",
+      "title": "Confirmer la suppression"
     },
     "error": {
-      "generic": "An error occurred",
-      "network": "Network error",
-      "notFound": "Not found",
-      "unauthorized": "Unauthorized",
-      "validation": "Validation error"
+      "generic": "Une erreur est survenue",
+      "network": "Erreur réseau",
+      "notFound": "Introuvable",
+      "unauthorized": "Non autorisé",
+      "validation": "Erreur de validation"
     },
     "success": {
-      "copied": "Copied!",
-      "deleted": "Supprime avec succes.",
-      "published": "Publie!",
-      "saved": "Enregistre avec succes.",
-      "submitted": "Submitted!",
-      "updated": "Mis a jour!"
+      "copied": "Copié !",
+      "deleted": "Supprimé avec succès.",
+      "published": "Publié !",
+      "saved": "Enregistré avec succès.",
+      "submitted": "Soumis !",
+      "updated": "Mis à jour !"
     }
   },
   "error": {
@@ -133,15 +133,15 @@
     "networkError": "Erreur réseau : {message}",
     "connectionFailed": "Échec de connexion au serveur",
     "invalidInput": "Entrée invalide",
-    "deleteFailed": "Echec de la suppression de {resource}",
+    "deleteFailed": "Échec de la suppression de {resource}",
     "fetchFailed": "Echec de la recuperation de {resource}",
     "invalidFormat": "Format invalide",
     "notFound": "{resource} introuvable",
     "requiredField": "Ce champ est obligatoire",
     "serverError": "Erreur serveur",
-    "submitFailed": "Failed to submit {resource}",
-    "timeout": "Delai d'attente depasse",
-    "unauthorized": "Non autorise",
+    "submitFailed": "Échec de la soumission de {resource}",
+    "timeout": "Délai d'attente dépassé",
+    "unauthorized": "Non autorisé",
     "updateFailed": "Echec de la mise a jour de {resource}"
   },
   "flight": {
@@ -160,30 +160,30 @@
   "tmr": {
     "trigger": {
       "dccInitiated": "IGC initialisée par le {commandCenter}",
-      "delays30": "Depart delays in excess of 30 minutes",
-      "equipment": "Equipment",
-      "gdp": "Programme d'attente au sol",
-      "groundStop": "Ground stop",
-      "holding15": "Airborne holding in excess of 15 minutes",
-      "noNoticeHolding": "No notice airborne holding",
+      "delays30": "Retards au départ excédant 30 minutes",
+      "equipment": "Équipement",
+      "gdp": "Programme de retard au sol",
+      "groundStop": "Arrêt au sol",
+      "holding15": "Attente en vol excédant 15 minutes",
+      "noNoticeHolding": "Attente en vol sans préavis",
       "other": "Autre (specify)",
-      "otherPlaceholder": "Describe the trigger...",
+      "otherPlaceholder": "Décrire le déclencheur...",
       "reroutes": "Reacheminements"
     },
     "staffing": {
       "dcc": "{commandCenter}",
-      "actual": "Actual",
-      "adequate": "Adequate",
+      "actual": "Réel",
+      "adequate": "Adéquat",
       "comments": "Commentaires",
-      "enroute": "Enroute",
+      "enroute": "En route",
       "facility": "Installation",
-      "loadPlanned": "Load Planned Staffing",
-      "loading": "Chargement staffing data...",
-      "noData": "No staffing data found for this plan.",
-      "overstaffed": "Overstaffed",
-      "planned": "Planned",
-      "quantity": "Quantity",
-      "short": "Short",
+      "loadPlanned": "Charger la dotation planifiée",
+      "loading": "Chargement des données de dotation...",
+      "noData": "Aucune donnée de dotation trouvée pour ce plan.",
+      "overstaffed": "Surdoté",
+      "planned": "Planifié",
+      "quantity": "Quantité",
+      "short": "Insuffisant",
       "status": "Statut",
       "terminal": "Terminal"
     },
@@ -192,77 +192,77 @@
       "noMatchFilter": "Aucune IGC ne correspond au filtre actuel.",
       "tmisSelected": "{count} IGC sélectionnée(s)",
       "addedEntries": {
-        "one": "{count} entry added",
-        "other": "{count} entries added"
+        "one": "{count} entrée ajoutée",
+        "other": "{count} entrées ajoutées"
       },
-      "batchAssess": "Batch Assess",
+      "batchAssess": "Évaluer en lot",
       "category": {
         "advisory": "Avis",
-        "manual": "Manual",
+        "manual": "Manuel",
         "ntml": "NTML",
         "program": "Programme",
         "reroute": "Reacheminement"
       },
       "deselectAll": "Deselect Tous",
-      "emptyHint": "Click \"Load TMIs from Database\" or add entries manually.",
-      "errorPrefix": "Erreur: {message}",
+      "emptyHint": "Cliquez sur « Charger les IGC depuis la base de données » ou ajoutez des entrées manuellement.",
+      "errorPrefix": "Erreur : {message}",
       "foundCount": "{count} TMI(s) found for event window",
       "importCompliance": "Import from Conformite Analysis",
       "loadFailed": "Echec du chargement de TMIs",
-      "loadFromDb": "Load TMIs from Database",
-      "missingInfo": "Missing Info",
-      "missingInfoText": "Enter at least an element or detail.",
-      "noSelection": "No Selection",
-      "noSelectionText": "Selectionner TMIs using the checkboxes first.",
-      "nothingToParse": "Nothing to parse",
-      "nothingToParseText": "Paste NTML entries first.",
+      "loadFromDb": "Charger les IGC depuis la base de données",
+      "missingInfo": "Information manquante",
+      "missingInfoText": "Entrez au moins un élément ou un détail.",
+      "noSelection": "Aucune sélection",
+      "noSelectionText": "Sélectionnez d'abord les IGC à l'aide des cases à cocher.",
+      "nothingToParse": "Rien à analyser",
+      "nothingToParseText": "Collez d'abord les entrées NTML.",
       "queryingDb": "Querying TMI database...",
       "removeSelected": "Retirer Selected",
       "searchPlaceholder": "Rechercher TMIs...",
       "selectAll": "Selectionner Tous",
       "source": {
         "db": "DB",
-        "manual": "Manual",
+        "manual": "Manuel",
         "saved": "Enregistre"
       }
     },
     "assessment": {
-      "complied": "Complied",
-      "effective": "Effective",
+      "complied": "Conforme",
+      "effective": "Efficace",
       "na": "N/A",
       "no": "N",
-      "notes": "Assessment Notes",
-      "timely": "Timely",
-      "yes": "Y"
+      "notes": "Notes d'évaluation",
+      "timely": "Opportun",
+      "yes": "O"
     },
     "export": {
-      "button": "Export to Discord",
-      "characters": "{count} characters",
-      "copiedToClipboard": "Copied to Clipboard",
+      "button": "Exporter vers Discord",
+      "characters": "{count} caractères",
+      "copiedToClipboard": "Copié dans le presse-papiers",
       "done": "Termine",
-      "failed": "Export Failed",
-      "failedNetwork": "Network error",
-      "failedText": "Inconnu error"
+      "failed": "Export Échoué",
+      "failedNetwork": "Erreur réseau",
+      "failedText": "Erreur inconnue"
     },
     "opsPlan": {
-      "assessment": "Assessment",
-      "goal": "Goal",
+      "assessment": "Évaluation",
+      "goal": "Objectif",
       "initiatives": "Initiatives",
-      "loadGoals": "Load Plan Goals",
-      "loading": "Chargement plan data...",
-      "met": "Met",
-      "noGoals": "No operational goals found for this plan.",
-      "noInitiatives": "No initiatives found for this plan.",
-      "notMet": "Not Met",
-      "partial": "Partial"
+      "loadGoals": "Charger les objectifs du plan",
+      "loading": "Chargement des données du plan...",
+      "met": "Atteint",
+      "noGoals": "Aucun objectif opérationnel trouvé pour ce plan.",
+      "noInitiatives": "Aucune initiative trouvée pour ce plan.",
+      "notMet": "Non atteint",
+      "partial": "Partiel"
     },
     "status": {
-      "draft": "Draft",
-      "generating": "Generating...",
-      "loadFailed": "Load failed",
+      "draft": "Brouillon",
+      "generating": "Génération...",
+      "loadFailed": "Échec du chargement",
       "loading": "Chargement...",
-      "newReport": "New report",
-      "saveFailed": "Enregistrer failed",
+      "newReport": "Nouveau rapport",
+      "saveFailed": "Échec de l'enregistrement",
       "saved": "Enregistre",
       "saving": "Enregistrement..."
     },
@@ -273,12 +273,12 @@
         "mvfr": "MVFR",
         "vfr": "VFR"
       },
-      "dominantCategory": "Dominant category: {category}",
+      "dominantCategory": "Dominant category : {category}",
       "fetchFailed": "Echec de la recuperation de METARs",
-      "fetchMetars": "Fetch METARs",
-      "fetching": "Fetching METARs...",
-      "metarTimeline": "METAR Timeline",
-      "noMetars": "No METARs found for this time window."
+      "fetchMetars": "Récupérer les METAR",
+      "fetching": "Récupération des METAR...",
+      "metarTimeline": "Chronologie METAR",
+      "noMetars": "Aucun METAR trouvé pour cette fenêtre temporelle."
     }
   },
   "nav": {
@@ -290,7 +290,7 @@
     "data": "Données",
     "tools": "Outils",
     "eventAar": "TAA événement",
-    "tmiPublisher": "Publieur IGC",
+    "tmiPublisher": "Éditeur IGC",
     "status": "État",
     "admin": "Administration",
     "schedule": "Horaire",
@@ -552,7 +552,7 @@
     "advisory": {
       "cardTitle": "Générateur d’avis vATCSCC (Discord)",
       "advisoryNumber": "Numéro d’avis",
-      "advisoryNumberHint": "Numérique; sera rempli de zéros jusqu’à 3 chiffres.",
+      "advisoryNumberHint": "Numérique ; sera rempli de zéros jusqu’à 3 chiffres.",
       "facilityOptional": "Installation (facultatif)",
       "advisoryDateUtc": "Date de l’avis (UTC, mm/jj/aaaa)",
       "advisoryTypeName": "Type/Nom de l’avis",
@@ -561,7 +561,7 @@
       "validTo": "Valide jusqu’à (jjhhmm)",
       "validHint": "Si les deux sont remplis, une ligne <code>VALID FOR jjhhmm THRU jjhhmm</code> sera ajoutée.",
       "advisoryText": "Texte de l’avis",
-      "advisoryTextHint": "Texte libre; les lignes sont coupées à 68 caractères par ligne.",
+      "advisoryTextHint": "Texte libre ; les lignes sont coupées à 68 caractères par ligne.",
       "effectiveFrom": "En vigueur à partir de (jjhhmm)",
       "effectiveTo": "En vigueur jusqu’à (jjhhmm)",
       "effectiveHint": "Crée la ligne <code>jjhhmm-jjhhmm</code> pour la période de couverture de l’avis.",
@@ -795,8 +795,8 @@
       "ctlElement": "CTL ELEMENT",
       "elementType": "Type d’élément",
       "advNumber": "Avis no",
-      "gsStartUtc": "Début AS (UTC)",
-      "gsEndUtc": "Fin AS (UTC)",
+      "gsStartUtc": "Début GS (UTC)",
+      "gsEndUtc": "Fin GS (UTC)",
       "arrivalAirports": "Aéroports d’arrivée",
       "arrivalAirportsHelp": "Les vols atterrissant à l’un de ces aéroports seront considérés pour l’arrêt au sol.",
       "originCentersScope": "Centres d’origine (Portée)",
@@ -837,7 +837,7 @@
       "previewImpactedFlights": "Aperçu des vols impactés",
       "advisoryPreviewTitle": "Aperçu de l’avis",
       "copy": "Copier",
-      "flightsMatchingGsFilters": "Vols correspondant aux filtres AS",
+      "flightsMatchingGsFilters": "Vols correspondant aux filtres GS",
       "preview": "Aperçu",
       "simulate": "Simuler",
       "submitToTmi": "Soumettre à l’IGC",
@@ -847,7 +847,7 @@
       "purgeLocal": "Purger local",
       "purgeAll": "Purger tout",
       "timeFilterBasis": "Base du filtre temporel",
-      "gsDepBased": "AS : basé sur le départ",
+      "gsDepBased": "GS : basé sur le départ",
       "noTimeFilter": "Aucun filtre temporel",
       "departureEtd": "Départ ETD",
       "departureEdctCtd": "Départ EDCT/CTD",
@@ -875,7 +875,7 @@
       "destAirports": "Aéroports de destination",
       "carriers": "Transporteurs",
       "dataSource": "Données provenant de",
-      "modelGsPowerRun": "Modèle AS - Analyse Power Run",
+      "modelGsPowerRun": "Modèle GS - Analyse Power Run",
       "close": "Fermer",
       "chartView": "Vue graphique",
       "byHourUtc": "Par heure (UTC)",
@@ -916,7 +916,7 @@
       "within60min": "Dans 60 min :",
       "within30min": "Dans 30 min :",
       "within15min": "Dans 15 min :",
-      "gsProgram": "Programme AS :",
+      "gsProgram": "Programme GS :",
       "start": "Début :",
       "end": "Fin :",
       "origVsControlledTimes": "Comparaison des temps originaux et contrôlés",
@@ -967,13 +967,13 @@
       "applyModel": "Appliquer le modèle",
       "sendRequest": "Envoyer la demande",
       "cancel": "Annuler",
-      "gsFlightListTitle": "Liste des vols AS - Vols affectés",
-      "gsProgramInfo": "Information du programme AS",
+      "gsFlightListTitle": "Liste des vols GS - Vols affectés",
+      "gsProgramInfo": "Information du programme GS",
       "ctlElementLabel": "CTL Element :",
-      "gsStartLabel": "Début AS :",
+      "gsStartLabel": "Début GS :",
       "programLabel": "Programme :",
       "groundStop": "Arrêt au sol",
-      "gsEndLabel": "Fin AS :",
+      "gsEndLabel": "Fin GS :",
       "delayStatistics": "Statistiques de retard",
       "totalFlightsLabel": "Total des vols :",
       "affectedFlightsLabel": "Vols affectés :",
@@ -999,7 +999,7 @@
       "origAZ": "Origine (A-Z)",
       "destAZ": "Dest. (A-Z)",
       "dataGraph": "Graphique :",
-      "openModelGsSection": "Ouvrir la section modèle AS",
+      "openModelGsSection": "Ouvrir la section modèle GS",
       "dataGraphFsmRef": "pour l’analyse détaillée Power Run et les graphiques de distribution des retards (chapitre 19 du FSM).",
       "flightListCoordination": "Liste de vols pour la coordination ATC",
       "csv": "CSV",
@@ -1028,32 +1028,32 @@
       "delayCapMinutes": "Plafond de retard (minutes)",
       "impactingConditionLabel": "Condition d’impact",
       "revisionComments": "Commentaires de révision",
-      "gsToGdpTransition": "Transition AS → PAS",
-      "phasePropose": "PHASE 1 : PROPOSER",
-      "phaseHelp": "Créer un PAS proposé pendant que l’arrêt au sol reste actif.",
+      "gsToGdpTransition": "Transition GS → GDP",
+      "phasePropose": "PHASE 1: PROPOSER",
+      "phaseHelp": "Créer un GDP proposé pendant que l’arrêt au sol reste actif.",
       "parentGroundStop": "Arrêt au sol parent",
-      "proposedGdpReady": "Un PAS proposé est prêt.",
-      "activateWillCancel": "L’activation annulera l’AS et rendra le PAS actif.",
-      "gdpType": "Type de PAS",
+      "proposedGdpReady": "Un GDP proposé est prêt.",
+      "activateWillCancel": "L’activation annulera l’GS et rendra le GDP actif.",
+      "gdpType": "Type de GDP",
       "reserveRate": "Taux de réserve",
-      "gdpEndTimeUtc": "Heure de fin du PAS (UTC)",
+      "gdpEndTimeUtc": "Heure de fin du GDP (UTC)",
       "cumulativeProgramPeriod": "Période cumulative du programme",
-      "proposeGdp": "Proposer le PAS",
-      "activateGdpCancelGs": "Activer le PAS et annuler l’AS"
+      "proposeGdp": "Proposer le GDP",
+      "activateGdpCancelGs": "Activer le GDP et annuler l’GS"
     },
     "adl": {
       "applyingGsToAdl": "Applying GS to ADL...",
       "ctdUpdated": "{count} CTD(s) updated",
-      "errorApplyingGs": "Erreur applying GS to ADL",
-      "gsApplied": "GS applied: {count} vols updated",
+      "errorApplyingGs": "Erreur lors de l'application du GS à l'ADL",
+      "gsApplied": "GS appliqué : {count} vols mis à jour",
       "loading": "Chargement ADL data...",
-      "noFlightsToApply": "No vols to apply",
-      "refreshError": "ADL refresh failed: {error}",
-      "updated": "ADL updated: {time}"
+      "noFlightsToApply": "Aucun vol à appliquer",
+      "refreshError": "ADL refresh échoué : {error}",
+      "updated": "ADL updated : {time}"
     },
     "advisoryPreview": {
-      "empty": "Avis preview is empty.",
-      "notFound": "Avis preview not found."
+      "empty": "L'aperçu de l'avis est vide.",
+      "notFound": "Aperçu de l'avis introuvable."
     },
     "badge": {
       "adlGs": "ADL-GS",
@@ -1065,12 +1065,12 @@
       "axisDelayMin": "Retard (min)",
       "axisFlights": "# Vols",
       "axisHourUtc": "Hour (UTC)",
-      "comparisonTitle": "Vol Distribution: Original ETD vs Controle CTD by Hour",
+      "comparisonTitle": "Distribution des vols : ETD original vs CTD contrôlé par heure",
       "controlledCtd": "Controle (CTD)",
       "dataGraph": "Graphique de donnees",
       "maxDelay": "Max Retard",
-      "noData": "Aucune donnee disponible for selected view.",
-      "noFlightData": "No vol data available for chart.",
+      "noData": "Aucune donnée disponible pour la vue sélectionnée.",
+      "noFlightData": "Aucune donnée de vol disponible pour le graphique.",
       "originalEtd": "Original (ETD)",
       "other": "Autre",
       "prefixDataGraph": "Graphique de donnees -",
@@ -1078,7 +1078,7 @@
       "titleDestAp": "Graphique de donnees - Dest Aeroport",
       "titleDestArtcc": "Graphique de donnees - ARTCC de destination",
       "titleDestTracon": "Graphique de donnees - Dest TRACON",
-      "titleHourly": "Graphique de donnees - Hourly Distribution",
+      "titleHourly": "Graphique de données — Distribution horaire",
       "titleOrigAp": "Graphique de donnees - Origine Aeroport",
       "titleOrigArtcc": "Graphique de donnees - ARTCC d'origine",
       "titleOrigTracon": "Graphique de donnees - Origine TRACON",
@@ -1094,12 +1094,12 @@
       "flightPlanRoute": "Plan de vol Route"
     },
     "copy": {
-      "advisoryCopied": "Avis copied to clipboard!",
+      "advisoryCopied": "Avis copied to clipboard !",
       "failed": "Failed to copy advisory. Please select and copy manually."
     },
     "dataSource": {
       "gsProgramMode": "GS Programme Mode",
-      "label": "{mode} | {programInfo} | Cache: {cache}",
+      "label": "{mode} | {programInfo} | Cache : {cache}",
       "liveAdl": "Live ADL",
       "notLoaded": "Not loaded"
     },
@@ -1115,13 +1115,13 @@
     "ecr": {
       "accepted": "Accepted",
       "acidRequired": "ACID Requis",
-      "couldNotFindFlight": "Could not find vol: {acid}",
-      "earliestEdctRequired": "Earliest EDCT is required.",
-      "enterAcid": "Please enter an ACID (callsign) for the ECR.",
-      "enterEarliestEdct": "Please enter the earliest acceptable EDCT.",
+      "couldNotFindFlight": "Could not find vol : {acid}",
+      "earliestEdctRequired": "Earliest EDCT est requis.",
+      "enterAcid": "Veuillez entrer un ACID (indicatif) pour l'ECR.",
+      "enterEarliestEdct": "Veuillez entrer the earliest acceptable EDCT.",
       "flightNotFound": "Vol Not Found",
-      "getFlightAndApplyFirst": "Get vol data and apply GS first before submitting ECR.",
-      "getFlightFirst": "Get vol data first before submitting ECR.",
+      "getFlightAndApplyFirst": "Get données de vol and apply GS first before submitting ECR.",
+      "getFlightFirst": "Get données de vol first before submitting ECR.",
       "method": "Method",
       "noFlight": "No Vol",
       "requestProcessed": "ECR Request Processed",
@@ -1132,7 +1132,7 @@
     "edct": {
       "acid": "ACID",
       "check": "EDCT Check for {callsign}",
-      "checkNote": "This is a query-only check. No changes are made to the vol.",
+      "checkNote": "Il s'agit d'une vérification en lecture seule. Aucune modification n'est apportée au vol.",
       "cta": "CTA",
       "ctd": "CTD",
       "ctdEdct": "CTD / EDCT",
@@ -1140,7 +1140,7 @@
       "currentStatus": "Actuel Statut",
       "delay": "Retard",
       "enterNewEdct": "Enter new EDCT in HHmm format (UTC)",
-      "enterNewEdctValidation": "Please enter a valid EDCT time in HHmm format.",
+      "enterNewEdctValidation": "Veuillez entrer a valid EDCT time in HHmm format.",
       "newEdctLabel": "New EDCT",
       "newEdctUtc": "New EDCT (UTC)",
       "queryStatus": "EDCT status for {callsign}",
@@ -1149,14 +1149,14 @@
       "simulationDisclaimer": "(In simulation mode, EDCT updates are not applied to live data.)",
       "update": "EDCT Update for {callsign}",
       "updateFor": "Update EDCT for {callsign}",
-      "updateNote": "This will update the vol's EDCT. Verify the time before submitting.",
+      "updateNote": "Ceci va update the vol's EDCT. Verify the time before submitting.",
       "updateSimulated": "EDCT Update Simulated"
     },
     "edit": {
       "editingProgram": "Editing {type} program {id} ({status})",
       "loadFailed": "Echec du chargement de program",
       "loadingProgram": "Chargement program {id} for editing...",
-      "programNotFound": "Programme not found"
+      "programNotFound": "Programme introuvable"
     },
     "exempt": {
       "airborne": "Airborne",
@@ -1168,19 +1168,19 @@
     },
     "exemption": {
       "aboveFl": "Above FL{fl}",
-      "activeOnly": "Actif vols only",
-      "aircraftJet": "Exempte: Jet aircraft",
-      "aircraftProp": "Exempte: Prop aircraft",
-      "aircraftTurboprop": "Exempte: Turboprop aircraft",
+      "activeOnly": "Vols actifs seulement",
+      "aircraftJet": "Exempté : aéronef à réaction",
+      "aircraftProp": "Exempté : aéronef à hélice",
+      "aircraftTurboprop": "Exempté : aéronef turbopropulseur",
       "belowFl": "Below FL{fl}",
       "departWithin": "Departing within {minutes} min",
-      "destApts": "Dest Aeroports",
+      "destApts": "Aéroports de destination",
       "destArtccs": "ARTCC de destinations",
       "destTracons": "Dest TRACONs",
       "flights": "Vols",
-      "hasEdct": "Exempte: Has EDCT",
+      "hasEdct": "Exempté : possède un EDCT",
       "noRules": "No exemption rules defined",
-      "origApts": "Orig Aeroports",
+      "origApts": "Aéroports d'origine",
       "origArtccs": "Orig ARTCCs",
       "origTracons": "Orig TRACONs",
       "ruleCount": "{count} exemption rule(s)"
@@ -1205,7 +1205,7 @@
       "dest": "Dest",
       "detail": "Vol Detail",
       "detailFor": "Vol Detail for {callsign}",
-      "detailTitle": "Vol Detail: {callsign}",
+      "detailTitle": "Vol Detail : {callsign}",
       "edctCtd": "EDCT / CTD",
       "edctLabel": "EDCT",
       "eta": "ETA",
@@ -1218,7 +1218,7 @@
       "flightLabel": "Vol",
       "flightPlanRoute": "Plan de vol Route",
       "gsPeriod": "GS Period",
-      "infoTitle": "Vol Info: {callsign}",
+      "infoTitle": "Vol Info : {callsign}",
       "infoTitleGeneric": "Vol Info",
       "mft": "MFT",
       "noRoute": "(No route in plan de vol)",
@@ -1235,17 +1235,17 @@
       "vertexTime": "Vertex Time"
     },
     "flightList": {
-      "adlTime": "ADL Time:",
+      "adlTime": "ADL Time :",
       "all": "Tous",
-      "avgDelayLabel": "Avg Retard:",
-      "copied": "Copied!",
-      "copiedToClipboard": "Vol list copied to clipboard!",
+      "avgDelayLabel": "Avg Retard :",
+      "copied": "Copied !",
+      "copiedToClipboard": "Vol list copied to clipboard !",
       "countBadge": "{count} vols",
       "fetchFailed": "Echec de la recuperation de vol list.",
       "fetchFailedDetail": "Echec de la recuperation de GS vol list.",
       "fetching": "Fetching GS vol list...",
-      "loaded": "Vol list loaded: {count} GS vols.",
-      "maxDelayLabel": "Max Retard:",
+      "loaded": "Vol list loaded : {count} GS vols.",
+      "maxDelayLabel": "Max Retard :",
       "noDataAvailable": "No vol list data available.",
       "noFlightListText": "Run 'Simulate' first to generate a GS vol list, or 'Send Actual' to view applied GS vols.",
       "noFlightListTitle": "No Vol List",
@@ -1253,19 +1253,19 @@
       "noGsFlightsText": "No vols are currently under GS control. Run 'Simulate' to preview GS impacts.",
       "noGsFlightsTitle": "No GS Vols",
       "others": "Others",
-      "snapshotTime": "Snapshot Time:",
-      "tableNotFound": "Vol list table not found.",
-      "totalDelayLabel": "Total Retard:",
-      "totalFlightsLabel": "Total Vols:",
+      "snapshotTime": "Snapshot Time :",
+      "tableNotFound": "Vol list table introuvable.",
+      "totalDelayLabel": "Total Retard :",
+      "totalFlightsLabel": "Total Vols :",
       "unableToCopy": "Unable to copy. Please copy manually."
     },
     "gs": {
       "activateAndPublish": "Activer & Publier",
-      "activateConfirmation": "This will activate the Arret au sol and publish to all channels.",
-      "activateFailed": "GS activation failed",
-      "activateTitle": "Activer Arret au sol?",
+      "activateConfirmation": "Ceci activera l'arrêt au sol et publiera dans tous les canaux.",
+      "activateFailed": "GS activation échoué",
+      "activateTitle": "Activer Arret au sol ?",
       "activatingProgram": "Activating program {id}...",
-      "activeStatus": "ACTIVE: Programme {programId} | {controlled} controlled vols",
+      "activeStatus": "ACTIVE : Programme {programId} | {controlled} controlled vols",
       "advisoryText": "Avis Text",
       "advisoryToPublish": "Avis to Publier",
       "affectedFlights": "Affected Vols ({count})",
@@ -1281,33 +1281,33 @@
       "gsActivated": "Arret au sol Activated",
       "gsActiveDisabled": "GS is active - no further activation needed",
       "gsIssued": "Arret au sol Issued",
-      "handoffFailed": "TMI handoff failed",
-      "handoffFailedText": "Failed to hand off GS to TMI system: {message}",
-      "handoffFailedTitle": "TMI Handoff Failed",
+      "handoffFailed": "TMI handoff échoué",
+      "handoffFailedText": "Failed to hand off GS to TMI system : {message}",
+      "handoffFailedTitle": "TMI Handoff Échoué",
       "maxDelay": "Max Retard",
-      "maxDelayLabel": "Max Retard: {delay} min",
+      "maxDelayLabel": "Max Retard : {delay} min",
       "maxDelayMin": "Max Retard (min)",
       "modelingProgram": "Modeling program {id}...",
       "noFlightsInSimulation": "No vols affected in simulation.",
       "noProgramCreatingPreview": "No program - creating preview...",
-      "noProgramToActivate": "No program to activate. Creer a program first.",
+      "noProgramToActivate": "Aucun programme à activer. Créez d'abord un programme.",
       "noProgramToSubmit": "No program to submit. Creer a program first.",
       "period": "Period",
       "powerRunResults": "Power Run Results",
-      "previewFailed": "Preview failed",
-      "previewFailedShort": "Preview failed",
-      "previewStatus": "Preview: {vols} vols | {controlled} controlled | {exempt} exempt",
+      "previewFailed": "Preview échoué",
+      "previewFailedShort": "Preview échoué",
+      "previewStatus": "Preview : {vols} vols | {controlled} controlled | {exempt} exempt",
       "program": "Programme",
-      "programCreated": "Programme created: {id}",
+      "programCreated": "Programme created : {id}",
       "publishedToSwim": "Publie to SWIM",
       "redirectingToTmi": "Redirecting to TMI...",
       "runSimulateFirst": "Run Simulate first",
       "runSimulateFirstTmi": "Run Simulate first before submitting to TMI",
-      "simulateFailed": "Simulation failed",
-      "simulateFailedShort": "Simulation failed",
+      "simulateFailed": "Simulation échoué",
+      "simulateFailedShort": "Simulation échoué",
       "simulateFirstTooltip": "Run Simulate first to enable",
       "simulateToFinalize": "Run Simulate to finalize",
-      "simulatedStatus": "Simulated: {vols} vols | Max delay: {maxDelay} min | Programme {programId}",
+      "simulatedStatus": "Simulated : {vols} vols | Max delay : {maxDelay} min | Programme {programId}",
       "simulationFailedRetry": "Simulation failed - retry required",
       "simulationRequired": "Simulation Requis",
       "simulationRequiredText": "Please run 'Simulate' before sending actual GS to verify impacts.",
@@ -1317,34 +1317,34 @@
       "viewFlightList": "Voir Vol List"
     },
     "print": {
-      "avgDelay": "Avg Retard:",
-      "ctlElement": "CTL Element:",
-      "generated": "Generated:",
+      "avgDelay": "Avg Retard :",
+      "ctlElement": "CTL Element :",
+      "generated": "Generated :",
       "heading": "GS FLIGHT LIST",
-      "maxDelay": "Max Retard:",
+      "maxDelay": "Max Retard :",
       "reference": "TFMS/FSM Vol List Reference (Ch 6 & 19)",
       "subheading": "Arret au sol - Affected Vols for ATC Coordination",
       "title": "GS Vol List",
-      "total": "Total:"
+      "total": "Total :"
     },
     "purge": {
       "allPurged": "Tous GS programs have been purged.",
       "allPurgedCreateNew": "Tous GS programs purged. Creer a new program to begin.",
       "fetchProgramListFailed": "Echec de la recuperation de program list",
       "fetchingPrograms": "Fetching active GS programs...",
-      "noCurrentProgram": "No current GS program to purge.",
-      "noProgramsToPurge": "No active GS programs to purge.",
+      "noCurrentProgram": "No current GS program à purger.",
+      "noProgramsToPurge": "No active GS programs à purger.",
       "programPurged": "GS program has been purged.",
       "programPurgedCreateNew": "Programme purged. Creer a new program to begin.",
       "programPurgedStatus": "Programme {id} purged.",
       "purgeAllBtn": "Purger Tous",
-      "purgeAllFailed": "Purger all failed",
-      "purgeAllText": "This will purge ALL active and proposed GS programs. This ne peut pas etre annule.",
-      "purgeAllTitle": "Purger Tous GS Programmes?",
-      "purgeFailed": "Purger failed",
-      "purgeGsProgramFailed": "Failed to purge GS program",
+      "purgeAllFailed": "Purger all échoué",
+      "purgeAllText": "Ceci purgera TOUS les programmes GS actifs et proposés. Cette action ne peut pas être annulée.",
+      "purgeAllTitle": "Purger Tous GS Programmes ?",
+      "purgeFailed": "Purger échoué",
+      "purgeGsProgramFailed": "Failed à purger GS program",
       "purgeLocalBtn": "Purger Programme",
-      "purgeLocalText": "This will purge this GS program. This ne peut pas etre annule.",
+      "purgeLocalText": "Ceci purgera ce programme GS. Cette action ne peut pas être annulée.",
       "purgeLocalTitle": "Purger Programme {id}?",
       "purgedCount": "{count} program(s) purged",
       "purgingProgram": "Purging GS program {id}...",
@@ -1357,16 +1357,16 @@
     },
     "status": {
       "createNewProgram": "Creer a new program to begin.",
-      "errorLoadingFlights": "Erreur loading VATSIM data.",
-      "loadingFlights": "Chargement vols from VATSIM...",
+      "errorLoadingFlights": "Erreur de chargement des données VATSIM.",
+      "loadingFlights": "Chargement des vols depuis VATSIM...",
       "updated": "Mis a jour"
     },
     "table": {
-      "eligibleCount": "Eligible: {count}",
+      "eligibleCount": "Eligible : {count}",
       "eligibleFlights": " eligible vols",
       "exempt": "EXEMPT",
-      "exemptCount": "Exempte: {count}",
-      "exemptTooltip": "Exemption reason: vols not subject to GS hold",
+      "exemptCount": "Exempte : {count}",
+      "exemptTooltip": "Exemption reason : vols not subject to GS hold",
       "noFlightsLoaded": "No vols loaded.",
       "noFlightsMatching": "No vols matching current filter criteria."
     },
@@ -1378,7 +1378,7 @@
       "enterAirportsFirst": "Enter arrival airports first.",
       "enterArrivalAirports": "Enter arrival airports to begin.",
       "enterStartEndTimes": "Enter start and end times.",
-      "scopeRequired": "Scope is required. Selectionner facilities or airports."
+      "scopeRequired": "La portée est requise. Sélectionnez des installations ou des aéroports."
     }
   },
   "nod": {
@@ -1504,7 +1504,7 @@
       "badgeTooltip": "{type} ATIS - Info {code} ({age} ago)",
       "departureRunways": "Pistes de depart",
       "noAtisAvailable": "No ATIS Disponible",
-      "noAtisText": "No ATIS data is currently available for this airport.",
+      "noAtisText": "No ATIS data is currently available pour ce airport.",
       "noAtisTextAvailable": "No ATIS text available",
       "runwayDetails": "Piste Details",
       "sourceArrOnly": "Arrivee ATIS Only",
@@ -1540,7 +1540,7 @@
       "yAxisLabel": "Demand"
     },
     "config": {
-      "arrDepFormat": "ARR: {arr} | DEP: {dep}",
+      "arrDepFormat": "ARR : {arr} | DEP : {dep}",
       "selectPreset": "Selectionner Preset"
     },
     "direction": {
@@ -1601,8 +1601,8 @@
       "departure": "Depart",
       "loadFailed": "Echec du chargement de vol details.",
       "loading": "Chargement vols...",
-      "noFlights": "Aucun vol trouve for this time period.",
-      "title": "Vols: {start} - {end}"
+      "noFlights": "Aucun vol trouve pour ce time period.",
+      "title": "Vols : {start} - {end}"
     },
     "legend": {
       "hide": "Masquer Legend",
@@ -1641,13 +1641,13 @@
       "selectAirport": "Selectionner an airport"
     },
     "rate": {
-      "aarType": "AAR Type: {type}",
-      "override": "Override: {reason}",
+      "aarType": "AAR Type : {type}",
+      "override": "Override : {reason}",
       "overrideActiveUntil": "Override active until {time}",
-      "publishedBy": "Publie by: {name}",
+      "publishedBy": "Publie by : {name}",
       "tmiPublishedConfig": "TMI Publie Config",
-      "validFrom": "Valide from: {time}",
-      "validUntil": "Valide until: {time}"
+      "validFrom": "Valide from : {time}",
+      "validUntil": "Valide until : {time}"
     },
     "setConfig": {
       "aar": "AAR",
@@ -1668,19 +1668,19 @@
       },
       "postedLabel": "Posted",
       "publish": "Publier",
-      "publishFailed": "Publier Failed",
+      "publishFailed": "Publier Échoué",
       "publishedMsg": "{airport} configuration published to NTML",
       "publishedTitle": "Config Publie",
       "publishing": "Publication...",
       "statusLabel": "Statut",
-      "title": "Set Config: {airport}",
+      "title": "Set Config : {airport}",
       "updateAndPublish": "Update & Publier",
       "validFromUtc": "Valide From (UTC)",
       "validUntilUtc": "Valide Until (UTC)",
       "validation": {
         "aarAdrRequired": "AAR and ADR are required",
-        "adjustmentRequired": "AAR Adjustment reason is required when AAR differs from default",
-        "nameRequired": "Your name is required",
+        "adjustmentRequired": "AAR Adjustment reason est requis when AAR differs from default",
+        "nameRequired": "Your name est requis",
         "validTimesRequired": "Valide From and Valide Until are required"
       },
       "weather": "Meteo",
@@ -1688,8 +1688,8 @@
       "yourName": "Your Nom"
     },
     "status": {
-      "adlTime": "ADL: {time}",
-      "refreshed": "Refreshed: {time}"
+      "adlTime": "ADL : {time}",
+      "refreshed": "Refreshed : {time}"
     },
     "table": {
       "noData": "No data"
@@ -1718,8 +1718,8 @@
       "productionWarningText": "Les entrées seront publiées directement dans les canaux Discord EN DIRECT",
       "tabNtml": "Entrée NTML",
       "tabAdvisory": "Avis",
-      "tabReroute": "Déroutement",
-      "tabGsGdp": "AS/PAS",
+      "tabReroute": "Réacheminement",
+      "tabGsGdp": "GS/GDP",
       "tabQueue": "File d’attente",
       "tabActiveTmis": "IGC actives",
       "tabCoordination": "Coordination",
@@ -1762,7 +1762,7 @@
       "planDetails": "Détails du plan",
       "advisoryPreview": "Aperçu de l’avis",
       "selectAdvisoryType": "Sélectionnez un type d’avis pour commencer...",
-      "rerouteDetails": "Détails de l’avis de déroutement",
+      "rerouteDetails": "Détails de l’avis de réacheminement",
       "routeName": "Nom de la route",
       "type": "Type",
       "compliance": "Conformité",
@@ -1786,7 +1786,7 @@
       "addRoute": "Ajouter une route",
       "noRoutesLoaded": "Aucune route chargée. Utilisez le Route Plotter ou ajoutez manuellement.",
       "facilitiesCoord": "Installations pour la coordination",
-      "selectFacilitiesHint": "Sélectionnez les installations devant approuver cet avis de déroutement.",
+      "selectFacilitiesHint": "Sélectionnez les installations devant approuver cet avis de réacheminement.",
       "intlOrgsHint": "Organisations internationales cochées automatiquement selon la couverture de la route.",
       "format": "Format",
       "fullFormat": "Complet (ORIG/DEST/ROUTE)",
@@ -1799,7 +1799,7 @@
       "loadingDrafts": "Chargement des brouillons...",
       "routesLoadedFromPlotter": "Routes chargées depuis le Route Plotter",
       "noProgramData": "Aucune donnée de programme",
-      "noProgramDataText": "Utilisez la page GDT pour modéliser un AS ou PAS, puis cliquez sur « Soumettre à l’IGC » pour continuer ici.",
+      "noProgramDataText": "Utilisez la page GDT pour modéliser un GS ou GDP, puis cliquez sur « Soumettre à l’IGC » pour continuer ici.",
       "goToGdt": "Aller au GDT",
       "programDetails": "Détails du programme",
       "startTimeUtc": "Heure de début (UTC)",
@@ -1873,7 +1873,7 @@
       "demandDecrease": "Diminution de la demande",
       "facilityRestored": "Installation/équipement restauré",
       "transitionToAfp": "Transition vers AFP",
-      "transitionToGdp": "Transition vers PAS",
+      "transitionToGdp": "Transition vers GDP",
       "operationalNeed": "Besoin opérationnel",
       "userRequest": "Demande de l’utilisateur",
       "edctInstruction": "Instruction EDCT",
@@ -1923,7 +1923,7 @@
     },
     "submit": {
       "failed": "Échec de la soumission",
-      "allFailed": "Tous Submissions Failed",
+      "allFailed": "Tous Submissions Échoué",
       "complete": "Submission Complete",
       "connectionError": "Connection Erreur",
       "results": "Submission Results",
@@ -1932,14 +1932,14 @@
     },
     "publish": {
       "publishFailed": "Échec de la publication",
-      "batchComplete": "Batch Publier Complete!",
-      "batchFailed": "Batch Publier Failed",
+      "batchComplete": "Batch Publier Complete !",
+      "batchFailed": "Batch Publier Échoué",
       "noCoordRequired": "This entry type does not require coordination and will be published directly.",
       "partialSuccess": "Partial Succes",
       "publishBtn": "Publier",
-      "publishNow": "Publier Now?",
-      "publishToDiscord": "Publier to Discord?",
-      "published": "Publie!",
+      "publishNow": "Publier Now ?",
+      "publishToDiscord": "Publier to Discord ?",
+      "published": "Publie !",
       "publishedToDiscord": "Entry published to Discord successfully.",
       "publishing": "Publication...",
       "title": "Publier Entry"
@@ -1951,23 +1951,23 @@
     "coordinating": "Coordination...",
     "deadline": {
       "extend": "Extend Deadline",
-      "extendFailed": "Extension Failed",
+      "extendFailed": "Extension Échoué",
       "extended": "Deadline Extended",
       "extending": "Extending..."
     },
-    "deadlineHint": "Set deadline for facility approvals:",
+    "deadlineHint": "Set deadline for facility approvals :",
     "duplicateConfig": {
       "createNewAnyway": "Creer New Anyway",
       "existingText": "An active CONFIG already exists for {airport}:",
       "title": "Duplicate CONFIG",
       "updateExisting": "Update Existing",
-      "whatToDo": "What would you like to do?"
+      "whatToDo": "What would you like to do ?"
     },
     "enableProdMode": {
       "confirm": "Activer Production",
-      "html": "<p class=\"text-danger\"><strong>Avertissement:</strong> Entries will post directly to LIVE Discord channels!</p>",
-      "text": "Entries will post directly to LIVE Discord channels!",
-      "title": "Activer Production Mode?"
+      "html": "<p class=\"text-danger\"><strong>Avertissement :</strong> Entries will post directly to LIVE Discord channels !</p>",
+      "text": "Entries will post directly to LIVE Discord channels !",
+      "title": "Activer Production Mode ?"
     },
     "fieldsAutoFilled": "Fields Auto-Filled",
     "hotline": {
@@ -1979,11 +1979,11 @@
       "selectToAction": "Selectionner Hotline to {action}"
     },
     "importPlan": {
-      "importFailed": "Import Failed",
+      "importFailed": "Import Échoué",
       "importFailedText": "Echec de la recuperation de PERTI Plan data.",
       "multiplePlans": "Multiple Plans Found",
       "noPlanFound": "No Plan Found",
-      "noPlanFoundText": "No PERTI Plan was found for the specified criteria.",
+      "noPlanFoundText": "No PERTI Plan was found pour le specified criteria.",
       "noPlansLoaded": "-- No plans loaded --",
       "planImported": "Plan Imported",
       "planImportedText": "PERTI Plan data has been imported into the Ops Plan.",
@@ -2002,33 +2002,33 @@
       "setup": "Set Up Profile"
     },
     "promote": {
-      "failed": "Promotion Failed",
-      "promoted": "Promoted!",
-      "title": "Promote to Production?"
+      "failed": "Promotion Échoué",
+      "promoted": "Promoted !",
+      "title": "Promote to Production ?"
     },
     "proposal": {
       "actionDesc": "Etes-vous sur you want to {action} Proposal #{id}?",
-      "actionFailed": "Action Failed",
+      "actionFailed": "Action Échoué",
       "approvalsCleared": "Tous facility approvals have been cleared and coordination has restarted.",
-      "approveConfirm": "Approve Proposal?",
+      "approveConfirm": "Approve Proposal ?",
       "approved": "Proposal Approuve",
       "cancelled": "Proposal Annule",
       "dccOverride": "This is a DCC override action.",
       "denied": "Proposal Refuse",
-      "denyConfirm": "Deny Proposal?",
+      "denyConfirm": "Deny Proposal ?",
       "updated": "Proposal Mis a jour",
       "updatedText": "Proposal #{id} has been updated."
     },
     "queue": {
       "addedToQueue": "Ajoute to Queue",
-      "clearQueue": "Clear Queue?",
-      "clearQueueText": "Retirer all entries from the queue?"
+      "clearQueue": "Clear Queue ?",
+      "clearQueueText": "Retirer all entries from the queue ?"
     },
     "quickSubmit": "Quick Submit - Same Installations",
     "reopen": {
       "reopened": "Proposal Reopened",
       "reopening": "Reopening...",
-      "title": "Reopen Proposal?"
+      "title": "Reopen Proposal ?"
     },
     "saving": "Enregistrement...",
     "submitComplete": "Submit Complete",
@@ -2068,7 +2068,7 @@
       "labels": "Étiquettes",
       "clearRoutes": "Effacer",
       "export": "Exporter :",
-      "draftTmiReroute": "Ébauche de déroutement TMI",
+      "draftTmiReroute": "Ébauche de réacheminement TMI",
       "filterLabel": "Filtrer :",
       "airwaysPlaceholder": "Voies aériennes...",
       "live": "En direct",
@@ -2101,7 +2101,7 @@
       "etaRelative": "ETA (relatif)",
       "etaHour": "ETA (heure)",
       "trafficManagement": "Gestion du trafic",
-      "publicRerouteMatch": "Correspondance de déroutement public",
+      "publicRerouteMatch": "Correspondance de réacheminement public",
       "aircraftType": "Type d’aéronef",
       "jumbo": "Gros-porteur",
       "heavy": "Lourd",
@@ -2170,12 +2170,12 @@
       "advisoryConfigDesc": "Configure validity times, included facilities, and traffic filters",
       "advisoryExpandDesc": "Expand panel below map to generate VATCSCC reroute advisories",
       "cdrsDesc": "Just type the code (e.g., <code>ACKMKEN0</code>)",
-      "clickFlight": "Cliquer sur le vol:",
+      "clickFlight": "Cliquer sur le vol :",
       "clickFlightDesc": "Voir callsign, route, altitude, speed",
-      "clickRoute": "Click route:",
+      "clickRoute": "Click route :",
       "clickRouteDesc": "Voir segment info, style options, label toggle",
       "colorsDesc": "Ajouter <code>;color</code> or <code>;#hex</code> at end (e.g., <code>FIX1 J60 FIX2;red</code>)",
-      "dblClickRoute": "Double-click route:",
+      "dblClickRoute": "Double-click route :",
       "dblClickRouteDesc": "Quick-open style editor",
       "dpStarsDesc": "Use <code>FIX.PROC#</code> syntax (e.g., <code>KJFK SKORR5.YNKEE</code> or <code>ALB.PARCH# KJFK</code>)",
       "exportDesc": "GeoJSON, KML (Google Earth), GPKG bundle - includes route metadata, groups, playbook/CDR info, DP/STAR, symbology",
@@ -2184,7 +2184,7 @@
       "layerPanel": "Layer panel (top-right):",
       "layerPanelDesc": "Toggle boundaries, sectors, weather radar, SUA",
       "liveDesc": "Toggle real-time VATSIM vol display",
-      "mandatoryDesc": "Wrap in <code>&gt;&lt;</code> (e.g., <code>&gt;FIX1 J60 FIX2&lt;</code>)",
+      "mandatoryDesc": "Wrap in <code>&gt ;&lt ;</code> (e.g., <code>&gt ;FIX1 J60 FIX2&lt ;</code>)",
       "multiOriginDestDesc": "Space-separated airports (e.g., <code>KJFK KLGA route KDCA KIAD</code>)",
       "playbookDesc": "<code>PB.play_name.origins.destinations</code> (e.g., <code>PB.SERMN SOUTH.KJFK KLGA.KDCA</code>)",
       "symbologyDesc": "Configure line styles, colors, opacity, dash patterns, and fix/waypoint display"
@@ -2734,8 +2734,8 @@
       "allArtccs": "Tous les ARTCC",
       "allBtn": "Tous",
       "deleteConfirm": {
-        "text": "Etes-vous sur you want to delete this area? This ne peut pas etre annule.",
-        "title": "Supprimer Zone?"
+        "text": "Etes-vous sur you want to delete this area ? Ceci ne peut pas etre annule.",
+        "title": "Supprimer Zone ?"
       },
       "error": {
         "deleteFailed": "Echec de la suppression de area.",
@@ -2745,8 +2745,8 @@
       "hideAll": "Masquer all {artcc} areas",
       "noAreasDefined": "Aucune zone defined.",
       "noAreasDefinedYet": "Aucune zone defined yet.",
-      "noAreasForArtcc": "Aucune zone defined for this ARTCC",
-      "noSectorsFound": "Aucun secteur found for this ARTCC.",
+      "noAreasForArtcc": "Aucune zone defined pour ce ARTCC",
+      "noSectorsFound": "Aucun secteur found pour ce ARTCC.",
       "noneBtn": "Aucun",
       "noneSelected": "Aucun selected",
       "quickSelectArea": "Quick Selectionner Zone",
@@ -2768,16 +2768,16 @@
     "config": {
       "activate": "Activer",
       "deleteConfirm": {
-        "text": "Etes-vous sur you want to delete this configuration? This ne peut pas etre annule.",
-        "textNamed": "Etes-vous sur you want to delete \"{name}\"? This ne peut pas etre annule.",
-        "title": "Supprimer Configuration?"
+        "text": "Etes-vous sur you want to delete this configuration ? Ceci ne peut pas etre annule.",
+        "textNamed": "Etes-vous sur you want to delete \"{name}\"? Ceci ne peut pas etre annule.",
+        "title": "Supprimer Configuration ?"
       },
-      "editConfig": "Modifier Configuration: {name}",
+      "editConfig": "Modifier Configuration : {name}",
       "editConfigTitle": "Modifier Configuration",
       "error": {
         "deleteFailed": "Echec de la suppression de configuration.",
         "loadFailed": "Echec du chargement de configuration.",
-        "notFound": "Configuration not found.",
+        "notFound": "Configuration introuvable.",
         "saveFailed": "Echec de l'enregistrement de configuration.",
         "title": "Erreur"
       },
@@ -2834,7 +2834,7 @@
       "areaMode": "Selecting sectors for area",
       "clickToSelect": "Click sectors on the map to select/deselect",
       "done": "Termine",
-      "sectorAssignedElsewhere": "Secteur assigned to another position!",
+      "sectorAssignedElsewhere": "Secteur assigned to another position !",
       "selected": "{count} selected",
       "selectingFor": "Selecting sectors for"
     },
@@ -2868,23 +2868,23 @@
       "addNewPosition": "Ajouter New Position",
       "addPosition": "Ajouter Position",
       "deleteConfirm": {
-        "text": "Etes-vous sur you want to delete this position?",
-        "title": "Supprimer Position?"
+        "text": "Etes-vous sur you want to delete this position ?",
+        "title": "Supprimer Position ?"
       },
       "editPosition": "Modifier Position",
       "noPositionsDefined": "No positions defined",
       "noPositionsYet": "No positions added yet.",
       "savePosition": "Enregistrer Position",
       "validation": {
-        "enterName": "Please enter a position name.",
+        "enterName": "Veuillez entrer a position name.",
         "selectPositionFirst": "Please select a position first.",
         "title": "Missing Information"
       }
     },
     "presets": {
       "deleteConfirm": {
-        "text": "Etes-vous sur you want to delete this preset? This ne peut pas etre annule.",
-        "title": "Supprimer Preset?"
+        "text": "Etes-vous sur you want to delete this preset ? Ceci ne peut pas etre annule.",
+        "title": "Supprimer Preset ?"
       },
       "deleted": {
         "text": "Preset has been deleted.",
@@ -2916,15 +2916,15 @@
     },
     "scheduled": {
       "activateConfirm": {
-        "text": "Etes-vous sur you want to activate this configuration immediately?",
-        "title": "Activer Now?"
+        "text": "Etes-vous sur you want à activer this configuration immediately ?",
+        "title": "Activer Now ?"
       },
       "error": {
-        "activateFailed": "Failed to activate configuration."
+        "activateFailed": "Failed à activer configuration."
       },
-      "inDaysHours": "in {days}d {heures}h",
-      "inHoursMinutes": "in {heures}h {minutes}m",
-      "inMinutes": "in {minutes}m",
+      "inDaysHours": "dans {days}j {heures}h",
+      "inHoursMinutes": "dans {heures}h {minutes}m",
+      "inMinutes": "dans {minutes}m",
       "noScheduled": "No scheduled configurations.",
       "notSet": "Not set",
       "startingSoon": "Starting soon"
@@ -2933,7 +2933,7 @@
       "deselectAll": "Deselect Tous",
       "noSectors": "Aucun secteur",
       "noSectorsCheckFilters": "Aucun secteur found (check strata filters)",
-      "noSectorsFound": "Aucun secteur found for this ARTCC.",
+      "noSectorsFound": "Aucun secteur found pour ce ARTCC.",
       "selectAll": "Selectionner Tous"
     }
   },
@@ -3060,10 +3060,10 @@
     "cancelActivation": {
       "confirm": "Yes, cancel it",
       "text": "Etes-vous sur you want to cancel \"{name}\"?",
-      "title": "Annuler Activation?"
+      "title": "Annuler Activation ?"
     },
     "drawInstructions": "Click on the map to draw points. Double-cliquez pour finish.",
-    "errorLoadingSuas": "Erreur loading SUAs",
+    "errorLoadingSuas": "Erreur chargement SUAs",
     "failedToCancelActivation": "Failed to cancel activation",
     "failedToCreateAltrv": "Echec de la creation de ALTRV",
     "failedToCreateTfr": "Echec de la creation de TFR",
@@ -3073,7 +3073,7 @@
     "lineDrawnWithPoints": "Line drawn with <strong>{count} points</strong>",
     "loadFailed": "Echec du chargement de SUA data",
     "mapNotReady": "Map Not Ready",
-    "mapNotReadyText": "Veuillez patienter for the map to load before drawing.",
+    "mapNotReadyText": "Veuillez patienter pour le map to load before drawing.",
     "noGeometry": "No Geometry",
     "noGeometryClickToDraw": "No geometry drawn. Click on the map to start drawing.",
     "noGeometryDrawn": "No geometry drawn",
@@ -3099,7 +3099,7 @@
       "setProfile": "Définir le profil",
       "classificationBanner": "INFORMATION SENSIBLE NON CLASSIFIÉE // POUR SIMULATION UNIQUEMENT",
       "opsLevel1": "Niveau op. 1 - État stable",
-      "opsLevel2": "Niveau op. 2 - Escalé",
+      "opsLevel2": "Niveau op. 2 — En escalade",
       "opsLevel3": "Niveau op. 3 - Événement majeur",
       "potus": "POTUS",
       "space": "ESPACE",
@@ -3268,7 +3268,7 @@
     },
     "error": {
       "apiError": "API error",
-      "generic": "Erreur: {message}"
+      "generic": "Erreur : {message}"
     },
     "events": {
       "event": "Event",
@@ -3278,16 +3278,16 @@
       "today": "Today"
     },
     "incidents": {
-      "closeOutConfirm": "Fermer out?",
-      "closeOutThisConfirm": "Fermer out this incident?",
-      "deleteConfirm": "Supprimer?",
+      "closeOutConfirm": "Fermer out ?",
+      "closeOutThisConfirm": "Fermer out this incident ?",
+      "deleteConfirm": "Supprimer ?",
       "editFacility": "Modifier {facility}",
-      "errorLoading": "Erreur loading",
+      "errorLoading": "Erreur chargement",
       "fillRequired": "Fill required fields",
       "hide": "Masquer",
       "incidentClosedOut": "Incident closed out",
       "incidentReopened": "Incident reopened",
-      "markPagedConfirm": "Mark paged?",
+      "markPagedConfirm": "Mark paged ?",
       "newIncident": "New Incident",
       "noIncidents": "Aucun incident found",
       "noRemarks": "No remarks",
@@ -3295,7 +3295,7 @@
       "pagedNo": "No",
       "pagedYes": "YES",
       "personnelPaged": "Personnel paged",
-      "reopenConfirm": "Reopen this incident?",
+      "reopenConfirm": "Reopen this incident ?",
       "show": "Afficher",
       "viewReport": "Voir Rapport"
     },
@@ -3309,26 +3309,26 @@
       "layers": "Layers"
     },
     "opsLevel": {
-      "changeConfirm": "Change Niveau operationnel to {level}? This will log to all active incidents.",
+      "changeConfirm": "Change Niveau operationnel to {level}? Ceci va log to all active incidents.",
       "changeSuccess": "Niveau operationnel changed and logged to all active incidents."
     },
     "profile": {
-      "clearConfirm": "Clear your profile?",
+      "clearConfirm": "Clear your profile ?",
       "requiredAlert": "You must set your User Profile before {action}.\nClick the profile button in the top right.",
       "selectPlaceholder": "Selectionner...",
       "setProfile": "Set Profile",
       "validation": {
-        "customCodeRequired": "Custom facility code is required",
-        "facilityTypeRequired": "Installation type is required",
-        "nameRequired": "Nom is required",
+        "customCodeRequired": "Custom facility code est requis",
+        "facilityTypeRequired": "Installation type est requis",
+        "nameRequired": "Nom est requis",
         "oisFormat": "OIs must be 2 characters (A-Z, 0-9)",
-        "roleRequired": "Role is required"
+        "roleRequired": "Role est requis"
       }
     },
     "report": {
-      "alreadyHas": "Already has: {number}",
-      "generateConfirm": "Generate report number?",
-      "generated": "Rapport: {number}",
+      "alreadyHas": "Already has : {number}",
+      "generateConfirm": "Generate report number ?",
+      "generated": "Rapport : {number}",
       "notGenerated": "No report generated yet"
     },
     "retrieve": {
@@ -3374,7 +3374,7 @@
       "productionReady": "Production",
       "getApiKey": "Obtenir une clé API",
       "documentation": "Documentation",
-      "whatIsSwim": "Qu'est-ce que VATSWIM?",
+      "whatIsSwim": "Qu'est-ce que VATSWIM ?",
       "whatIsSwimDesc": "Un hub centralisé d'échange de données en temps réel pour l'information de vol sur le réseau VATSIM.",
       "restApi": "API REST",
       "restApiDesc": "Interrogez les vols, positions et données TMI avec filtrage et pagination.",
@@ -3473,7 +3473,7 @@
       "discordCommunity": "Communauté Discord",
       "discordCommunityDesc": "Obtenez de l'aide et partagez vos projets",
       "contactSupport": "Contacter le support",
-      "ctaTitle": "Prêt à développer avec SWIM?",
+      "ctaTitle": "Prêt à développer avec SWIM ?",
       "ctaDesc": "Créez votre clé API en quelques secondes et commencez à intégrer les données de vol VATSIM en temps réel dès aujourd'hui.",
       "getYourApiKey": "Obtenez votre clé API",
       "readTheDocs": "Lire la documentation"
@@ -3573,13 +3573,13 @@
       "showHide": "Afficher/Masquer",
       "todoList": "Liste de tâches",
       "todoListDesc": "Éléments en suspens et fonctionnalités prévues.",
-      "phase2Design": "Phase 2 : Conception temps réel",
+      "phase2Design": "Phase 2: Conception temps réel",
       "phase2DesignDesc": "Architecture WebSocket et conception de diffusion en temps réel.",
       "phase23Transition": "Transition Phase 2/3",
       "phase23TransitionDesc": "Planification de transition de phase et notes d'implémentation.",
       "sessionTransitionNote": "Les documents de transition de session (SWIM_Session_Transition_*.md) sont disponibles dans le répertoire docs/swim/ pour l'historique détaillé du développement.",
-      "needHelp": "Besoin d'aide?",
-      "needHelpDesc": "Des questions sur l'API ou la documentation? Contactez-nous.",
+      "needHelp": "Besoin d'aide ?",
+      "needHelpDesc": "Des questions sur l'API ou la documentation ? Contactez-nous.",
       "email": "Courriel",
       "discord": "Discord"
     },
@@ -3713,7 +3713,7 @@
       "arrivals": "Arrivées",
       "departures": "Départs",
       "hourly": "Horaire",
-      "allComplete": "Tous les événements ont des données AAR/ADR!"
+      "allComplete": "Tous les événements ont des données AAR/ADR !"
     }
   },
   "transparency": {
@@ -3909,8 +3909,8 @@
       "tbm": "Régulation temporelle",
       "config": "Configuration",
       "delay": "Avis de retard",
-      "gdp": "Programme d'attente au sol",
-      "reroute": "Déroutement"
+      "gdp": "Programme de retard au sol",
+      "reroute": "Réacheminement"
     },
     "placeholder": {
       "allFacilities": "Toutes les installations",
@@ -3964,7 +3964,7 @@
       "notFound": "Impossible de trouver les données de l'entrée IGC",
       "advisoryNotFound": "Impossible de trouver les données de l'avis",
       "programNotFound": "Impossible de trouver les données du programme",
-      "rerouteNotFound": "Impossible de trouver les données du déroutement",
+      "rerouteNotFound": "Impossible de trouver les données du réacheminement",
       "advisoryNum": "Avis #",
       "controlElement": "Control Element",
       "exclusions": "Exclusions",
@@ -4001,33 +4001,33 @@
       "title": "Annuler {count} Avis(ies)?"
     },
     "detail": {
-      "avoidFixes": "Avoid Fixes:",
-      "cancelled": "Annule:",
-      "comments": "Commentaires:",
-      "complianceRate": "Conformite:",
-      "controlElement": "Control Element:",
-      "created": "Cree:",
-      "delayLimit": "Retard Limit:",
-      "exclusions": "Exclusions:",
-      "flights": "Vols:",
-      "impacting": "Impacting:",
-      "program": "Programme:",
-      "protectedSegment": "Protected Segment:",
-      "providing": "Providing:",
-      "qualifiers": "Qualifiers:",
-      "rate": "Taux:",
-      "rawText": "Raw Text:",
-      "reason": "Reason:",
-      "requesting": "Requesting:",
-      "route": "Route:",
-      "scope": "Scope:",
-      "status": "Statut:",
-      "type": "Type:",
-      "valid": "Valide:",
-      "validFrom": "Valide From:",
-      "validUntil": "Valide Until:",
-      "value": "Value:",
-      "viaCondition": "Via/Condition:"
+      "avoidFixes": "Avoid Fixes :",
+      "cancelled": "Annule :",
+      "comments": "Commentaires :",
+      "complianceRate": "Conformite :",
+      "controlElement": "Control Element :",
+      "created": "Cree :",
+      "delayLimit": "Retard Limit :",
+      "exclusions": "Exclusions :",
+      "flights": "Vols :",
+      "impacting": "Impacting :",
+      "program": "Programme :",
+      "protectedSegment": "Protected Segment :",
+      "providing": "Providing :",
+      "qualifiers": "Qualifiers :",
+      "rate": "Taux :",
+      "rawText": "Raw Text :",
+      "reason": "Reason :",
+      "requesting": "Requesting :",
+      "route": "Route :",
+      "scope": "Scope :",
+      "status": "Statut :",
+      "type": "Type :",
+      "valid": "Valide :",
+      "validFrom": "Valide From :",
+      "validUntil": "Valide Until :",
+      "value": "Value :",
+      "viaCondition": "Via/Condition :"
     },
     "optgroup": {
       "artccsOther": "ARTCCs - Autre",
@@ -4038,7 +4038,7 @@
     },
     "row": {
       "cancel": "Annuler",
-      "created": "Cree:",
+      "created": "Cree :",
       "edit": "Modifier"
     }
   },
@@ -4071,7 +4071,7 @@
     "other": "{count} aeronefs"
   },
   "deeplink": {
-    "copied": "Copie!",
+    "copied": "Copie !",
     "copyLink": "Copier le lien",
     "linkCopied": "Lien copie"
   },
@@ -4159,12 +4159,12 @@
     "timeSources": {
       "firstSeen": "{count} first-seen",
       "gateTaxi": "{count} gate+taxi",
-      "label": "Time sources:",
+      "label": "Time sources :",
       "wheelsOff": "{count} wheels-off"
     },
     "tooltips": {
-      "gsDelay": "Median: {median} | Max: {max} | Total: {total} | Based on {count} vols with OOOI data",
-      "holdTime": "Min: {min} | Median: {median} | Max: {max}"
+      "gsDelay": "Median : {median} | Max : {max} | Total : {total} | Based on {count} vols with OOOI data",
+      "holdTime": "Min : {min} | Median : {median} | Max : {max}"
     }
   },
   "org": {
@@ -4187,15 +4187,15 @@
     "taxiing": "au roulage"
   },
   "reroute": {
-    "activated": "Activated! {count} vols assigned",
+    "activated": "Activated ! {count} vols assigned",
     "addedFlights": "Ajoute {count} vol(s)",
-    "adlCount": "ADL: {count}",
+    "adlCount": "ADL : {count}",
     "allRoutesUnique": "Tous routes have unique route strings.",
     "appliedMandatory": "Applied mandatory markers to {count} route(s).",
     "cannotAutoDetect": "Cannot Auto-Detect",
     "clickPreview": "Click \"Preview\"",
-    "confirmActivate": "Activer and assign vols?",
-    "confirmDeactivate": "Move to Monitoring?",
+    "confirmActivate": "Activer and assign vols ?",
+    "confirmDeactivate": "Move to Monitoring ?",
     "confirmRemoveFlights": "Retirer {count} vol(s)?",
     "consolidated": "Consolidated {from} routes into {to} groups.",
     "flightDetail": {
@@ -4210,15 +4210,15 @@
       "status": "Statut"
     },
     "foundFlights": "Found {count} vols",
-    "genericError": "Erreur: {message}",
+    "genericError": "Erreur : {message}",
     "hierarchyNotAvailable": "Installation hierarchy data not available.",
     "history": {
       "status": "Statut",
       "time": "Time",
-      "title": "Historique: {callsign}"
+      "title": "Historique : {callsign}"
     },
     "invalidStatus": "Invalide status",
-    "loadError": "Load error: {message}",
+    "loadError": "Load error : {message}",
     "movedToMonitoring": "Moved to Monitoring",
     "nameRequired": "Nom required",
     "needTwoRoutes": "Need at least 2 routes to group.",
@@ -4229,19 +4229,19 @@
     "noReroutes": "No reroutes",
     "noRoutesSelected": "No Routes Selected",
     "notEnoughRoutes": "Not Enough Routes",
-    "notFound": "Not found",
+    "notFound": "Introuvable",
     "nothingToGroup": "Nothing to Group",
     "preview": "Preview",
-    "promptFlightKey": "Vol key or callsign:",
+    "promptFlightKey": "Vol key or callsign :",
     "promptOverrideStatus": "Override {callsign}:\nCOMPLIANT, PARTIAL, NON_COMPLIANT, EXEMPT",
-    "promptReason": "Reason:",
+    "promptReason": "Reason :",
     "reasonRequired": "Reason required",
-    "refreshAgo": "Actualiser: {secondes}s ago",
+    "refreshAgo": "Actualiser : {secondes}s ago",
     "removedFlights": "Removed {count} vol(s)",
     "rerouteSaved": "Reacheminement {action}",
     "routesGrouped": "Routes Grouped",
     "routesMadeMandatory": "Routes Made Mandatory",
-    "saveError": "Enregistrer error: {message}",
+    "saveError": "Enregistrer error : {message}",
     "saveFirst": "Enregistrer first",
     "selectRoutesMandatory": "Please select one or more routes to make mandatory.",
     "specifyOriginOrDest": "Specify origin or destination",
@@ -4279,10 +4279,10 @@
   },
   "validation": {
     "cidRequired": "CID Requis",
-    "enterAirportOrFix": "Please enter an airport or fix",
-    "enterCid": "Please enter your VATSIM CID.",
-    "enterFacilities": "Please enter requesting and providing facilities",
-    "enterName": "Please enter your name.",
+    "enterAirportOrFix": "Veuillez entrer an airport or fix",
+    "enterCid": "Veuillez entrer your VATSIM CID.",
+    "enterFacilities": "Veuillez entrer requesting and providing facilities",
+    "enterName": "Veuillez entrer your name.",
     "facilityCoordRequired": "Selectionner at least one facility for coordination.",
     "facilityRequired": "Installation Requis",
     "invalidEmail": "Invalide email address",
@@ -4300,8 +4300,8 @@
     "noApprovedProposals": "No Approuve Proposals",
     "noApprovedProposalsText": "There are no approved proposals to publish.",
     "oiLength": "Operating initials must be 2-3 characters",
-    "required": "This field is required",
-    "routeRequired": "At least one route is required.",
+    "required": "This field est requis",
+    "routeRequired": "At least one route est requis.",
     "selectFacility": "Please select your home facility."
   },
   "weightClass": {
