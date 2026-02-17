@@ -128,11 +128,12 @@ foreach ($plans as &$p) {
 }
 unset($p);
 
-// Sort within sections
-usort($sections['live'],     fn($a, $b) => ($a['_start_ts'] ?? 0) - ($b['_start_ts'] ?? 0));
-usort($sections['week'],     fn($a, $b) => ($a['_start_ts'] ?? 0) - ($b['_start_ts'] ?? 0));
-usort($sections['upcoming'], fn($a, $b) => ($a['_start_ts'] ?? 0) - ($b['_start_ts'] ?? 0));
-usort($sections['past'],     fn($a, $b) => ($b['_start_ts'] ?? 0) - ($a['_start_ts'] ?? 0));
+// Sort within sections (all descending by start time)
+$sort_desc = fn($a, $b) => ($b['_start_ts'] ?? 0) - ($a['_start_ts'] ?? 0);
+usort($sections['live'],     $sort_desc);
+usort($sections['week'],     $sort_desc);
+usort($sections['upcoming'], $sort_desc);
+usort($sections['past'],     $sort_desc);
 
 // -----------------------------------------------------------------------
 // Overlap detection (non-past plans only)
