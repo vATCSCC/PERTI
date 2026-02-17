@@ -211,6 +211,106 @@ def compute_traffic_sector(crossings: List, trajectory_cache: dict,
     }
 
 
+def cluster_crossings_by_bearing(crossings: List, gap_threshold_deg: float = 30.0) -> Dict[int, List]:
+    """
+    Cluster crossings into traffic streams based on bearing gaps.
+
+    Uses circular gap detection: bearings are sorted around the circle (0-360),
+    and gaps larger than gap_threshold_deg are used to split into streams.
+    This naturally handles the 0/360 wrap-around.
+
+    Args:
+        crossings: List of CrossingResult with bearing field
+        gap_threshold_deg: Minimum angular gap to split streams (default 30 degrees)
+
+    Returns:
+        Dict mapping stream_id (0-based) to list of CrossingResult.
+        Stream -1 contains crossings without bearing data.
+    """
+    with_bearing = [(c, c.bearing) for c in crossings if c.bearing is not None]
+    without_bearing = [c for c in crossings if c.bearing is None]
+
+    if not with_bearing:
+        # No bearing data — all unassigned
+        return {-1: crossings} if crossings else {}
+
+    # Sort by bearing (circular)
+    with_bearing.sort(key=lambda x: x[1])
+
+    # Find gaps > threshold in the circular arrangement
+    bearings = [b for _, b in with_bearing]
+    n = len(bearings)
+    gaps = []
+
+    for i in range(n):
+        next_i = (i + 1) % n
+        if next_i == 0:
+            # Wrap-around gap: from last bearing to first + 360
+            gap = (bearings[0] + 360) - bearings[-1]
+        else:
+            gap = bearings[next_i] - bearings[i]
+        if gap >= gap_threshold_deg:
+            gaps.append(i)  # Gap AFTER index i
+
+    if not gaps:
+        # All bearings within one cluster
+        result = {0: [c for c, _ in with_bearing]}
+        if without_bearing:
+            result[-1] = without_bearing
+        return result
+
+    # Split into streams at the gaps
+    # Start from the first element AFTER the largest gap (most natural break)
+    # This ensures streams don't get split at arbitrary points
+    result = {}
+    stream_id = 0
+
+    # Rotate so we start right after the first gap
+    start_after = gaps[0] + 1
+    ordered_indices = [(start_after + j) % n for j in range(n)]
+
+    current_stream = []
+    gap_set = set(gaps)
+
+    for j, idx in enumerate(ordered_indices):
+        current_stream.append(with_bearing[idx][0])
+        # Check if there's a gap AFTER this index
+        if idx in gap_set and j < n - 1:
+            result[stream_id] = current_stream
+            current_stream = []
+            stream_id += 1
+
+    if current_stream:
+        result[stream_id] = current_stream
+
+    if without_bearing:
+        result[-1] = without_bearing
+
+    return result
+
+
+def compute_stream_metadata(stream_crossings: List) -> dict:
+    """Compute metadata for a stream of crossings (circular mean bearing, spread, count)."""
+    bearings = [c.bearing for c in stream_crossings if c.bearing is not None]
+    if not bearings:
+        return {'mean_bearing': None, 'bearing_spread': 0, 'count': len(stream_crossings)}
+
+    # Circular mean
+    sin_sum = sum(math.sin(math.radians(b)) for b in bearings)
+    cos_sum = sum(math.cos(math.radians(b)) for b in bearings)
+    mean_bearing = math.degrees(math.atan2(sin_sum, cos_sum)) % 360
+
+    # Angular spread (circular std dev approximation)
+    R = math.sqrt(sin_sum**2 + cos_sum**2) / len(bearings)
+    spread = math.degrees(math.acos(min(1.0, R))) if R < 1.0 else 0
+
+    return {
+        'mean_bearing': round(mean_bearing, 1),
+        'bearing_spread': round(spread, 1),
+        'count': len(stream_crossings)
+    }
+
+
 def classify_facility(code: str) -> str:
     """
     Classify a facility code as ARTCC, TRACON, or AIRPORT.
@@ -1398,6 +1498,8 @@ class TMIComplianceAnalyzer:
             metadata = self._trajectory_metadata.get(callsign, {})
             best_dist = float('inf')
             best_result = None
+            best_p1 = None
+            best_p2 = None
 
             for i in range(len(trajectory) - 1):
                 p1 = trajectory[i]
@@ -1430,6 +1532,8 @@ class TMIComplianceAnalyzer:
                     continue
 
                 best_dist = min_dist
+                best_p1 = p1
+                best_p2 = p2
                 gs1 = p1['gs'] if p1['gs_valid'] else 250
                 gs2 = p2['gs'] if p2['gs_valid'] else 250
 
@@ -1447,6 +1551,11 @@ class TMIComplianceAnalyzer:
                 )
 
             if best_result and best_dist <= CROSSING_RADIUS_NM:
+                if best_p1 and best_p2:
+                    best_result.bearing = calculate_bearing(
+                        best_p1['lat'], best_p1['lon'],
+                        best_p2['lat'], best_p2['lon']
+                    )
                 crossings.append(best_result)
 
         logger.info(f"  Fix crossings ({fix_name}): {len(crossings)} detected "
@@ -1522,12 +1631,14 @@ class TMIComplianceAnalyzer:
         for callsign, pos_list in flight_positions.items():
             closest_dist = float('inf')
             closest_pos = None
-            for pos in pos_list:
+            closest_idx = -1
+            for idx, pos in enumerate(pos_list):
                 cs, fuid, ts, lat, lon, gs, alt, dept, dest = pos
                 lat, lon = float(lat), float(lon)
                 dist = haversine_nm(lat, lon, fix_lat, fix_lon)
                 if dist < closest_dist:
                     closest_dist = dist
+                    closest_idx = idx
                     closest_pos = CrossingResult(
                         callsign=callsign, flight_uid=fuid,
                         crossing_time=normalize_datetime(ts), distance_nm=dist,
@@ -1537,6 +1648,18 @@ class TMIComplianceAnalyzer:
                         dept=dept or 'UNK', dest=dest or 'UNK'
                     )
             if closest_pos and closest_dist <= CROSSING_RADIUS_NM:
+                # Compute bearing from adjacent trajectory points
+                if len(pos_list) >= 2:
+                    if closest_idx > 0:
+                        p_prev = pos_list[closest_idx - 1]
+                        p_next = pos_list[closest_idx]
+                    else:
+                        p_prev = pos_list[closest_idx]
+                        p_next = pos_list[closest_idx + 1]
+                    closest_pos.bearing = calculate_bearing(
+                        float(p_prev[3]), float(p_prev[4]),
+                        float(p_next[3]), float(p_next[4])
+                    )
                 crossings.append(closest_pos)
 
         return crossings
@@ -1709,7 +1832,7 @@ class TMIComplianceAnalyzer:
 
                 if is_provider_match and is_requestor_match:
                     # Found exact provider->requestor handoff
-                    crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
+                    crossing_time, crossing_gs, crossing_alt, crossing_bearing = self._interpolate_crossing_time(
                         trajectory, cfrac
                     )
 
@@ -1728,7 +1851,8 @@ class TMIComplianceAnalyzer:
                             dept=meta.get('dept', 'UNK'),
                             dest=meta.get('dest', 'UNK'),
                             distance_from_origin_nm=cfrac * self._estimate_route_length(trajectory),
-                            crossing_type='ENTRY'
+                            crossing_type='ENTRY',
+                            bearing=crossing_bearing
                         )
                         crossings.append(crossing)
                         found = True
@@ -1748,7 +1872,7 @@ class TMIComplianceAnalyzer:
             # The provider ARTCC exit IS the TRACON entry (shared boundary edge).
             if not found and last_provider_crossing and use_provider_exit_fallback:
                 lpc = last_provider_crossing
-                crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
+                crossing_time, crossing_gs, crossing_alt, crossing_bearing = self._interpolate_crossing_time(
                     trajectory, lpc['fraction']
                 )
                 if crossing_time:
@@ -1766,7 +1890,8 @@ class TMIComplianceAnalyzer:
                         dept=meta.get('dept', 'UNK'),
                         dest=meta.get('dest', 'UNK'),
                         distance_from_origin_nm=lpc['fraction'] * self._estimate_route_length(trajectory),
-                        crossing_type='ENTRY'
+                        crossing_type='ENTRY',
+                        bearing=crossing_bearing
                     )
                     crossings.append(crossing)
 
@@ -1881,10 +2006,10 @@ class TMIComplianceAnalyzer:
             fraction: Position along route (0.0 to 1.0)
 
         Returns:
-            Tuple of (crossing_time, groundspeed, altitude) or (None, 0, 0) if interpolation fails
+            Tuple of (crossing_time, groundspeed, altitude, bearing) or (None, 0, 0, None)
         """
         if not trajectory or len(trajectory) < 2:
-            return None, 0, 0
+            return None, 0, 0, None
 
         # Calculate cumulative distances
         cumulative_dist = [0.0]
@@ -1896,7 +2021,7 @@ class TMIComplianceAnalyzer:
 
         total_dist = cumulative_dist[-1]
         if total_dist <= 0:
-            return None, 0, 0
+            return None, 0, 0, None
 
         # Find target distance
         target_dist = fraction * total_dist
@@ -1922,18 +2047,22 @@ class TMIComplianceAnalyzer:
                 crossing_time = prev_time + timedelta(seconds=time_diff * seg_frac)
 
                 # Interpolate GS and altitude
-                # Use raw gs values, but fallback to 250 if invalid (for spacing calculation)
                 prev_gs = prev['gs'] if prev['gs_valid'] else 250
                 curr_gs = curr['gs'] if curr['gs_valid'] else 250
                 crossing_gs = prev_gs + (curr_gs - prev_gs) * seg_frac
                 crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
 
-                return crossing_time, crossing_gs, crossing_alt
+                # Compute bearing from the segment
+                bearing = calculate_bearing(
+                    prev['lat'], prev['lon'], curr['lat'], curr['lon']
+                )
+
+                return crossing_time, crossing_gs, crossing_alt, bearing
 
         # Default to last point
         last = trajectory[-1]
         last_gs = last['gs'] if last['gs_valid'] else 250
-        return last['timestamp'], last_gs, last['alt']
+        return last['timestamp'], last_gs, last['alt'], None
 
     def _estimate_route_length(self, trajectory: List[dict]) -> float:
         """Estimate total route length in nm from trajectory points"""
@@ -2353,7 +2482,8 @@ class TMIComplianceAnalyzer:
                     groundspeed=bc.groundspeed,
                     altitude=bc.altitude,
                     dept=bc.dept,
-                    dest=bc.dest
+                    dest=bc.dest,
+                    bearing=bc.bearing
                 )
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
@@ -2470,81 +2600,143 @@ class TMIComplianceAnalyzer:
         # Determine if we're using boundary-based or fix-based measurement
         is_boundary_based = measurement_type in (MeasurementType.BOUNDARY, MeasurementType.BOUNDARY_FALLBACK_FIX)
 
-        # Analyze consecutive pairs with stream validation
+        # Stream-aware grouping: cluster crossings by bearing to avoid
+        # pairing flights from different traffic corridors
+        modifier = tmi.modifier
+        if modifier in (MITModifier.AS_ONE, MITModifier.SINGLE_STREAM):
+            # Explicit single-stream: treat all crossings as one group
+            stream_groups = {0: sorted_crossings}
+            logger.info(f"  Stream grouping: AS_ONE (modifier={modifier.value})")
+        elif modifier == MITModifier.PER_AIRPORT:
+            # Group by departure airport instead of bearing
+            stream_groups = {}
+            for c in sorted_crossings:
+                dept = c.dept or 'UNK'
+                if dept not in stream_groups:
+                    stream_groups[dept] = []
+                stream_groups[dept].append(c)
+            logger.info(f"  Stream grouping: PER_AIRPORT ({len(stream_groups)} groups)")
+        else:
+            # Default: cluster by bearing (gap-based)
+            stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
+            logger.info(f"  Stream grouping: bearing-based ({len(stream_groups)} streams)")
+            for sid, sc in stream_groups.items():
+                meta = compute_stream_metadata(sc)
+                logger.info(f"    Stream {sid}: {len(sc)} crossings, "
+                           f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
+
+        # Pair within each stream
         pairs = []
         skipped_pairs = []
+        per_stream_results = {}
         required = tmi.value
 
-        for i in range(1, len(sorted_crossings)):
-            prev = sorted_crossings[i-1]
-            curr = sorted_crossings[i]
-
-            time_diff_sec = (curr.crossing_time - prev.crossing_time).total_seconds()
-            time_diff_min = time_diff_sec / 60
-
-            if time_diff_sec <= 0:
+        for stream_id, stream_crossings in stream_groups.items():
+            if stream_id == -1:
+                # Unassigned crossings (no bearing) — skip pairing
+                logger.info(f"  Stream -1: {len(stream_crossings)} unassigned crossings (no bearing data)")
                 continue
 
-            # STREAM VALIDATION: Check that both crossings are at similar locations
-            # Only applies to FIX-based measurements - boundary crossings can span entire boundary
-            crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
-            if not is_boundary_based and crossing_separation > MAX_CROSSING_SEPARATION_NM_FIX:
-                skipped_pairs.append({
-                    'prev': prev.callsign,
-                    'curr': curr.callsign,
-                    'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM_FIX}nm'
-                })
-                logger.debug(f"  Skipping pair {prev.callsign}->{curr.callsign}: crossing points {crossing_separation:.1f}nm apart")
-                continue
+            # Sort this stream by time
+            stream_sorted = sorted(stream_crossings, key=lambda c: c.crossing_time)
+            stream_pairs = []
 
-            # Calculate spacing based on TMI type
-            if tmi.tmi_type == TMIType.MINIT:
-                actual = time_diff_min
+            for i in range(1, len(stream_sorted)):
+                prev = stream_sorted[i-1]
+                curr = stream_sorted[i]
+
+                time_diff_sec = (curr.crossing_time - prev.crossing_time).total_seconds()
+                time_diff_min = time_diff_sec / 60
+
+                if time_diff_sec <= 0:
+                    continue
+
+                # Crossing separation check (additional safeguard)
+                crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
+                if not is_boundary_based and crossing_separation > MAX_CROSSING_SEPARATION_NM_FIX:
+                    skipped_pairs.append({
+                        'prev': prev.callsign,
+                        'curr': curr.callsign,
+                        'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM_FIX}nm'
+                    })
+                    continue
+
+                # Calculate spacing based on TMI type
+                if tmi.tmi_type == TMIType.MINIT:
+                    actual = time_diff_min
+                else:
+                    avg_gs = (prev.groundspeed + curr.groundspeed) / 2 if prev.groundspeed > 0 else curr.groundspeed
+                    actual = (time_diff_min * avg_gs) / 60
+
+                spacing_cat = categorize_spacing(actual, required)
+
+                if spacing_cat == SpacingCategory.UNDER:
+                    compliance = Compliance.NON_COMPLIANT
+                    shortfall_pct = calculate_shortfall_pct(actual, required)
+                else:
+                    compliance = Compliance.COMPLIANT
+                    shortfall_pct = 0
+
+                margin_pct = ((actual - required) / required * 100) if required > 0 else 0
+
+                pair = {
+                    'prev_callsign': prev.callsign,
+                    'curr_callsign': curr.callsign,
+                    'prev_time': prev.crossing_time.strftime('%H:%M:%SZ'),
+                    'curr_time': curr.crossing_time.strftime('%H:%M:%SZ'),
+                    'time_min': round(time_diff_min, 1),
+                    'spacing': round(actual, 1),
+                    'required': required,
+                    'margin_pct': round(margin_pct, 1),
+                    'spacing_category': spacing_cat.value,
+                    'compliance': compliance.value,
+                    'shortfall_pct': shortfall_pct,
+                    'gs': curr.groundspeed,
+                    'prev_crossing_lat': round(prev.lat, 4),
+                    'prev_crossing_lon': round(prev.lon, 4),
+                    'curr_crossing_lat': round(curr.lat, 4),
+                    'curr_crossing_lon': round(curr.lon, 4),
+                    'crossing_separation_nm': round(crossing_separation, 1),
+                    'stream_id': stream_id,
+                    'prev_bearing': round(prev.bearing, 1) if prev.bearing is not None else None,
+                    'curr_bearing': round(curr.bearing, 1) if curr.bearing is not None else None,
+                }
+                stream_pairs.append(pair)
+
+            # Per-stream stats
+            stream_meta = compute_stream_metadata(stream_crossings)
+            if stream_pairs:
+                stream_under = sum(1 for p in stream_pairs if p['spacing_category'] == SpacingCategory.UNDER.value)
+                stream_compliant = len(stream_pairs) - stream_under
+                per_stream_results[stream_id] = {
+                    'crossings': len(stream_crossings),
+                    'pairs': len(stream_pairs),
+                    'compliant': stream_compliant,
+                    'violations': stream_under,
+                    'compliance_pct': round(100 * stream_compliant / len(stream_pairs), 1),
+                    'mean_bearing': stream_meta['mean_bearing'],
+                    'bearing_spread': stream_meta['bearing_spread'],
+                }
             else:
-                # Use average of both groundspeeds for better accuracy
-                avg_gs = (prev.groundspeed + curr.groundspeed) / 2 if prev.groundspeed > 0 else curr.groundspeed
-                actual = (time_diff_min * avg_gs) / 60
+                per_stream_results[stream_id] = {
+                    'crossings': len(stream_crossings),
+                    'pairs': 0,
+                    'compliant': 0,
+                    'violations': 0,
+                    'compliance_pct': 100.0,
+                    'mean_bearing': stream_meta['mean_bearing'],
+                    'bearing_spread': stream_meta['bearing_spread'],
+                }
 
-            spacing_cat = categorize_spacing(actual, required)
-
-            if spacing_cat == SpacingCategory.UNDER:
-                compliance = Compliance.NON_COMPLIANT
-                shortfall_pct = calculate_shortfall_pct(actual, required)
-            else:
-                compliance = Compliance.COMPLIANT
-                shortfall_pct = 0
-
-            margin_pct = ((actual - required) / required * 100) if required > 0 else 0
-
-            pair = {
-                'prev_callsign': prev.callsign,
-                'curr_callsign': curr.callsign,
-                'prev_time': prev.crossing_time.strftime('%H:%M:%SZ'),
-                'curr_time': curr.crossing_time.strftime('%H:%M:%SZ'),
-                'time_min': round(time_diff_min, 1),
-                'spacing': round(actual, 1),
-                'required': required,
-                'margin_pct': round(margin_pct, 1),
-                'spacing_category': spacing_cat.value,
-                'compliance': compliance.value,
-                'shortfall_pct': shortfall_pct,
-                'gs': curr.groundspeed,
-                # Include crossing location data for verification
-                'prev_crossing_lat': round(prev.lat, 4),
-                'prev_crossing_lon': round(prev.lon, 4),
-                'curr_crossing_lat': round(curr.lat, 4),
-                'curr_crossing_lon': round(curr.lon, 4),
-                'crossing_separation_nm': round(crossing_separation, 1)
-            }
-            pairs.append(pair)
+            pairs.extend(stream_pairs)
 
         if skipped_pairs:
-            logger.info(f"  Skipped {len(skipped_pairs)} pairs due to stream validation")
+            logger.info(f"  Skipped {len(skipped_pairs)} pairs due to stream/separation validation")
 
         if not pairs:
             return None
 
-        # Calculate statistics
+        # Calculate aggregate statistics across all streams
         spacings = [p['spacing'] for p in pairs]
 
         under_count = sum(1 for p in pairs if p['spacing_category'] == SpacingCategory.UNDER.value)
@@ -2616,6 +2808,10 @@ class TMIComplianceAnalyzer:
             # Fix coordinates from navdata (for map rendering anchor point)
             'fix_info': {'lat': self.fix_coords[fix]['lat'], 'lon': self.fix_coords[fix]['lon']}
                 if fix and fix in self.fix_coords else None,
+            # Stream-aware pairing metadata
+            'stream_aware': True,
+            'stream_count': len([s for s in stream_groups if s != -1]),
+            'streams': per_stream_results,
         }
 
         # Add trajectory data for flights that crossed (for map rendering)

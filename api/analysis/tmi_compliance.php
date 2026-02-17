@@ -476,7 +476,11 @@ function format_results($results) {
                 // Traffic flow sector data (for flow cone visualization)
                 'traffic_sector' => $r['traffic_sector'] ?? null,
                 // Fix coordinate data (for measurement point marker)
-                'fix_info' => $r['fix_info'] ?? null
+                'fix_info' => $r['fix_info'] ?? null,
+                // Stream-aware pairing metadata
+                'stream_aware' => $r['stream_aware'] ?? false,
+                'stream_count' => $r['stream_count'] ?? 0,
+                'streams' => $r['streams'] ?? []
             ];
         }
     }

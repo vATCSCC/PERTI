@@ -788,6 +788,7 @@ class CrossingResult:
     altitude: float
     dept: str
     dest: str
+    bearing: float = None  # Track heading at crossing (0-360 degrees)
 
 
 @dataclass
@@ -811,6 +812,7 @@ class BoundaryCrossing:
     dest: str
     distance_from_origin_nm: float = 0  # Distance from route start to crossing
     crossing_type: str = 'ENTRY'        # ENTRY or EXIT relative to to_artcc
+    bearing: float = None  # Track heading at crossing (0-360 degrees)
 
 
 @dataclass
