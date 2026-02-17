@@ -91,7 +91,7 @@ include('load/nav.php');
 
             <hr>
 
-            <h5>System Personnel     <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#addpersonnelModal"><i class="fas fa-plus"></i> Add</button></h5>
+            <h5><?= __('schedule.page.systemPersonnel') ?>     <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#addpersonnelModal"><i class="fas fa-plus"></i> <?= __('common.add') ?></button></h5>
             <table class="table w-75">
                 <tbody id="personnel"></tbody>
             </table>
@@ -107,7 +107,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Assigned Personnel</h5>
+                <h5 class="modal-title"><?= __('schedule.page.editAssignedPersonnel') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -119,9 +119,9 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    <b class="text-danger">P</b>lan Personnel:
+                    <b class="text-danger">P</b><?= __('schedule.page.planPersonnel') ?>
                     <select class="form-control" name="p_cid" id="p_cid" required>
-                        <option value='0'>No Personnel Assigned</option>
+                        <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
                             foreach($users as &$user) {
                                 echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
@@ -129,9 +129,9 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">E</b>xecute Personnel:
+                    <b class="text-danger">E</b><?= __('schedule.page.executePersonnel') ?>
                     <select class="form-control" name="e_cid" id="e_cid" required>
-                        <option value='0'>No Personnel Assigned</option>
+                        <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
                             foreach($users as &$user) {
                                 echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
@@ -139,9 +139,9 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">R</b>eview Personnel:
+                    <b class="text-danger">R</b><?= __('schedule.page.reviewPersonnel') ?>
                     <select class="form-control" name="t_cid" id="t_cid" required>
-                        <option value='0'>No Personnel Assigned</option>
+                        <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
                             foreach($users as &$user) {
                                 echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
@@ -149,9 +149,9 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">T</b>rain Personnel:
+                    <b class="text-danger">T</b><?= __('schedule.page.trainPersonnel') ?>
                     <select class="form-control" name="r_cid" id="r_cid" required>
-                        <option value='0'>No Personnel Assigned</option>
+                        <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
                             foreach($users as &$user) {
                                 echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
@@ -159,9 +159,9 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">I</b>mprove Personnel:
+                    <b class="text-danger">I</b><?= __('schedule.page.improvePersonnel') ?>
                     <select class="form-control" name="i_cid" id="i_cid" required>
-                        <option value='0'>No Personnel Assigned</option>
+                        <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
                             foreach($users as &$user) {
                                 echo '<option value="'.$user['cid'].'">'.$user['first_name'].' '.$user['last_name'].'</option>';                                
@@ -187,7 +187,7 @@ include('load/nav.php');
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Personnel</h5>
+                <h5 class="modal-title"><?= __('schedule.page.addPersonnel') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -197,13 +197,13 @@ include('load/nav.php');
 
                 <div class="modal-body">
 
-                    VATSIM CID:
+                    <?= __('schedule.page.vatsimCid') ?>
                     <input type="text" name="cid" class="form-control" id="cid" maxlength="8"><hr>
 
-                    First Name:
+                    <?= __('schedule.page.firstName') ?>
                     <input type="text" name="first_name" class="form-control" id="first_name">
 
-                    Last Name:
+                    <?= __('schedule.page.lastName') ?>
                     <input type="text" name="last_name" class="form-control" id="last_name">
 
                 </div>
