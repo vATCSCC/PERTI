@@ -1280,6 +1280,14 @@ class TMIComplianceAnalyzer:
             if total > 0:
                 logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}")
 
+        # When requestor is a TRACON or airport (not ARTCC), PostGIS may not
+        # reliably detect the TRACON entry due to sparse trajectory data.
+        # Interpret the facility pair: e.g., ZJX:TPA means ZJX ARTCC -> TPA TRACON.
+        # The handoff occurs where the flight exits the provider ARTCC, which shares
+        # a boundary edge with the requestor TRACON. So "exit provider ARTCC" is a
+        # valid proxy for "enter requestor TRACON".
+        use_provider_exit_fallback = requestor_type in ('TRACON', 'AIRPORT')
+
         # Process each flight using CACHED boundary crossings
         for callsign in callsigns:
             trajectory = flight_trajectories.get(callsign, [])
@@ -1287,8 +1295,6 @@ class TMIComplianceAnalyzer:
                 continue
 
             # Validate trajectory quality for flights not already validated during caching
-            # If flight was in cache, it was already validated (and would be in _low_quality_flights if invalid)
-            # If flight was loaded on-demand, we need to validate it now
             if callsign not in self._trajectory_cache:
                 is_valid, reason = self._validate_trajectory_quality(callsign, trajectory)
                 if not is_valid:
@@ -1299,7 +1305,6 @@ class TMIComplianceAnalyzer:
             if callsign in self._crossing_cache:
                 boundary_crossings_data = self._crossing_cache[callsign]
             elif self.gis_conn:
-                # Compute on-demand (slow path)
                 boundary_crossings_data = self._compute_boundary_crossings_for_flight(callsign, trajectory)
             else:
                 continue
@@ -1308,7 +1313,10 @@ class TMIComplianceAnalyzer:
                 continue
 
             # Find the provider->requestor boundary crossing
+            found = False
             prev_facility = None
+            last_provider_crossing = None  # Track last point in provider ARTCC
+
             for crossing_data in boundary_crossings_data:
                 facility_code = crossing_data['facility_code']
                 clat = crossing_data['lat']
@@ -1328,7 +1336,7 @@ class TMIComplianceAnalyzer:
                 )
 
                 if is_provider_match and is_requestor_match:
-                    # Found the handoff point!
+                    # Found exact provider->requestor handoff
                     crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
                         trajectory, cfrac
                     )
@@ -1351,9 +1359,44 @@ class TMIComplianceAnalyzer:
                             crossing_type='ENTRY'
                         )
                         crossings.append(crossing)
-                        break  # Only count first crossing
+                        found = True
+                        break
+
+                # Track when the flight leaves the provider ARTCC (for fallback)
+                if is_provider_match and use_provider_exit_fallback:
+                    last_provider_crossing = {
+                        'lat': clat, 'lon': clon, 'fraction': cfrac,
+                        'prev_facility': prev_facility, 'next_facility': facility_code
+                    }
 
                 prev_facility = facility_code
+
+            # Fallback: if requestor is TRACON/airport but PostGIS didn't detect
+            # the TRACON entry, use the provider ARTCC exit point instead.
+            # The provider ARTCC exit IS the TRACON entry (shared boundary edge).
+            if not found and last_provider_crossing and use_provider_exit_fallback:
+                lpc = last_provider_crossing
+                crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
+                    trajectory, lpc['fraction']
+                )
+                if crossing_time:
+                    meta = flight_metadata.get(callsign, {})
+                    crossing = BoundaryCrossing(
+                        callsign=callsign,
+                        flight_uid=meta.get('flight_uid', ''),
+                        crossing_time=crossing_time,
+                        crossing_lat=float(lpc['lat']),
+                        crossing_lon=float(lpc['lon']),
+                        from_artcc=lpc['prev_facility'] or provider,
+                        to_artcc=requestor,
+                        groundspeed=crossing_gs,
+                        altitude=crossing_alt,
+                        dept=meta.get('dept', 'UNK'),
+                        dest=meta.get('dest', 'UNK'),
+                        distance_from_origin_nm=lpc['fraction'] * self._estimate_route_length(trajectory),
+                        crossing_type='ENTRY'
+                    )
+                    crossings.append(crossing)
 
         logger.info(f"  Boundary crossings ({provider}->{requestor}): {len(crossings)}")
         return crossings
@@ -1603,12 +1646,10 @@ class TMIComplianceAnalyzer:
 
         # 3. For each flight, select the appropriate crossing point
         # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
-        # For ARTCC->ARTCC MITs, ONLY use boundary crossings (strict handoff measurement).
-        # For ARTCC->Airport/TRACON MITs, allow fix crossing fallback since airport/TRACON
-        # boundaries are often unreliable in PostGIS (sparse trajectory data misses small areas).
+        # For facility-specific MITs (with provider:requestor), ONLY use boundary crossings.
+        # The fix identifies the stream but the MIT applies at the handoff point.
+        # Flights that don't cross the provider->requestor boundary aren't subject to this MIT.
         has_facility_pair = bool(tmi.provider and tmi.requestor)
-        requestor_type = classify_facility(tmi.requestor) if tmi.requestor else 'UNKNOWN'
-        strict_boundary = has_facility_pair and requestor_type == 'ARTCC'
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
 
@@ -1620,10 +1661,9 @@ class TMIComplianceAnalyzer:
                 # Boundary crossing found - always use it
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
-            elif fix_cx and not strict_boundary:
-                # Fix fallback allowed when:
-                # - No facility pair specified, OR
-                # - Requestor is an airport/TRACON (boundary detection unreliable)
+            elif fix_cx and not has_facility_pair:
+                # Fix fallback ONLY for TMIs without a facility pair
+                # (facility-specific MITs require boundary crossing)
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
 
