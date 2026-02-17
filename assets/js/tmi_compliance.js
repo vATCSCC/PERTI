@@ -6584,9 +6584,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         return `<span class="badge badge-warning ml-2"
-                      title="Data gap during TMI window: ${overlap.summary} (${overlap.totalHours}h missing). Traffic counts may be incomplete."
+                      title="${PERTII18n.t('tmiCompliance.dataGapTitle')}"
                       style="cursor: help;">
-                    Data Gap
+                    ${PERTII18n.t('tmiCompliance.dataGapBadge')}
                 </span>`;
     },
 
@@ -6710,7 +6710,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         $('#tmi_results_container').html(`
             <div class="text-center py-4 text-muted">
                 <i class="fas fa-database fa-2x mb-2"></i>
-                <div>No TMI compliance data available for this event.</div>
+                <div>${PERTII18n.t('tmiCompliance.noComplianceData')}</div>
                 <div class="small">Run the analysis script to generate results.</div>
             </div>
         `);
@@ -6851,23 +6851,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // NTML Entries summary
         let ntmlLines = '';
         if (mitCount > 0) {
-            ntmlLines += `<div class="tmi-summary-line"><strong>MIT/MINIT:</strong> ${mitPairs} pairs analyzed, ${mitNonCompliant} non-compliant</div>`;
+            ntmlLines += `<div class="tmi-summary-line"><strong>${PERTII18n.t('tmiCompliance.summaryMitMinit')}</strong> ${PERTII18n.t('tmiCompliance.pairsAnalyzedNonCompliant', { pairs: mitPairs, nonCompliant: mitNonCompliant })}</div>`;
         }
         if (apreqCount > 0) {
-            ntmlLines += `<div class="tmi-summary-line"><strong>APREQ/CFR:</strong> ${apreqCount} tracked</div>`;
+            ntmlLines += `<div class="tmi-summary-line"><strong>${PERTII18n.t('tmiCompliance.summaryApreqCfr')}</strong> ${PERTII18n.t('tmiCompliance.tracked', { count: apreqCount })}</div>`;
         }
         if (gsCount > 0) {
-            ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
+            ntmlLines += `<div class="tmi-summary-line"><strong>${PERTII18n.t('tmiCompliance.summaryStop')}</strong> ${PERTII18n.t('tmiCompliance.stopsSummary', { count: gsCount, violations: stopViolations })}</div>`;
         }
 
         // Advisories summary (GS and reroutes as advisory context)
         let advisoryLines = '';
         if (gsCount > 0) {
-            advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
+            advisoryLines += `<div class="tmi-summary-line"><strong>${PERTII18n.t('tmiCompliance.summaryGs')}</strong> ${PERTII18n.t('tmiCompliance.programsSummary', { count: gsCount })}</div>`;
         }
         if (rerouteCount > 0) {
             const avgFiledPct = rerouteArray.reduce((sum, rr) => sum + (rr.filed_compliance_pct || 0), 0) / rerouteCount;
-            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, filed ${avgFiledPct.toFixed(0)}% compliant</div>`;
+            advisoryLines += `<div class="tmi-summary-line"><strong>${PERTII18n.t('tmiCompliance.summaryReroutes')}</strong> ${PERTII18n.t('tmiCompliance.reroutesSummary', { count: rerouteCount, mandatory: mandatoryReroutes, flights: rerouteFlights, pct: avgFiledPct.toFixed(0) })}</div>`;
         }
 
         // Data gap information
@@ -6878,34 +6878,34 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const end = (g.end_hour + 1).toString().padStart(2, '0') + ':00Z';
                 return `${start}–${end}`;
             }).join(', ');
-            gapInfo = ` | <span class="gap-warning">Gaps: ${gapTimes}</span>`;
+            gapInfo = ` | <span class="gap-warning">${PERTII18n.t('tmiCompliance.gapsLabel', { times: gapTimes })}</span>`;
         }
 
         return `
             <div class="tmi-summary-header">
-                <div class="event-identity">Plan ${r.plan_id || this.planId || '?'} — TMI Analysis</div>
+                <div class="event-identity">${PERTII18n.t('tmiCompliance.planTmiAnalysis', { planId: r.plan_id || this.planId || '?' })}</div>
                 <div class="event-window">${eventWindow}</div>
 
                 <div class="tmi-summary-entries">
                     <div class="tmi-summary-group">
-                        <h4>NTML Entries</h4>
-                        ${ntmlLines || '<div class="tmi-summary-line text-muted">None configured</div>'}
+                        <h4>${PERTII18n.t('tmiCompliance.ntmlEntriesLabel')}</h4>
+                        ${ntmlLines || '<div class="tmi-summary-line text-muted">' + PERTII18n.t('tmiCompliance.noneConfigured') + '</div>'}
                     </div>
                     ${advisoryLines ? `
                     <div class="tmi-summary-group">
-                        <h4>Advisories</h4>
+                        <h4>${PERTII18n.t('tmiCompliance.advisoriesLabel')}</h4>
                         ${advisoryLines}
                     </div>
                     ` : ''}
                 </div>
 
                 <div class="tmi-discord-copy mt-2">
-                    ${mitCount > 0 ? '<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="Copy NTML summary for Discord"><i class="fas fa-copy"></i> Copy NTML for Discord</button>' : ''}
-                    ${gsCount > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="Copy GS summary for Discord"><i class="fas fa-copy"></i> Copy GS for Discord</button>' : ''}
+                    ${mitCount > 0 ? '<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="' + PERTII18n.t('tmiCompliance.copyNtmlForDiscord') + '"><i class="fas fa-copy"></i> ' + PERTII18n.t('tmiCompliance.copyNtmlForDiscord') + '</button>' : ''}
+                    ${gsCount > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="' + PERTII18n.t('tmiCompliance.copyGsForDiscord') + '"><i class="fas fa-copy"></i> ' + PERTII18n.t('tmiCompliance.copyGsForDiscord') + '</button>' : ''}
                 </div>
 
                 <div class="tmi-data-quality">
-                    Data: ${trajCoverage}% trajectory coverage${gapInfo}
+                    ${PERTII18n.t('tmiCompliance.dataCoverage', { pct: trajCoverage })}${gapInfo}
                 </div>
             </div>
         `;
@@ -7499,10 +7499,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <th onclick="TMICompliance.sortTable('${catalogTblId}',2,false)" style="cursor:pointer;">Carrier</th>
                         <th onclick="TMICompliance.sortTable('${catalogTblId}',3,false)" style="cursor:pointer;">Origin</th>
                         <th onclick="TMICompliance.sortTable('${catalogTblId}',4,false)" style="cursor:pointer;">Dept Time</th>
-                        <th>Into GS / Hold</th>
-                        ${hasAnyGsDelay ? '<th>GS Delay</th>' : ''}
-                        ${hasAnyPhase ? '<th>Phase</th>' : ''}
-                        <th>Source</th>
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.intoGsHold')}</th>
+                        ${hasAnyGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.tableHeader.gsDelay') + '</th>' : ''}
+                        ${hasAnyPhase ? '<th>' + PERTII18n.t('tmiCompliance.tableHeader.phase') + '</th>' : ''}
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.source')}</th>
                     </tr></thead><tbody>`;
 
                 allFlights.forEach((f, idx) => {
@@ -7876,10 +7876,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <table class="tmi-pairs-table">
                 <thead>
                     <tr>
-                        <th>Lead</th>
-                        <th>Trail</th>
-                        <th>Gap (mm:ss)</th>
-                        <th>Spacing</th>
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.lead')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.trail')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.gapMmSs')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.tableHeader.spacing')}</th>
                         <th class="spacing-bar-cell">
                             <span class="visual-header">
                                 <span class="required-label">${required}${unitLabel} req</span>
@@ -8640,8 +8640,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="fa-row fa-row-filter">
                     <i class="fas fa-filter fa-row-icon"></i>
-                    <span class="fa-row-label">${flowFilterStats.matched} of ${flowFilterStats.total} flights</span>
-                    <span class="fa-filter-badge" title="Filtered by ${flowFilterStats.matchField} matching ${airports}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
+                    <span class="fa-row-label">${PERTII18n.t('tmiCompliance.flowFilterLabel', { matched: flowFilterStats.matched, total: flowFilterStats.total })}</span>
+                    <span class="fa-filter-badge" title="${PERTII18n.t('tmiCompliance.flowFilterTitle', { field: flowFilterStats.matchField, airports })}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
                 </div>`;
         }
 
@@ -8657,14 +8657,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="fa-row fa-row-streams">
                     <i class="fas fa-water fa-row-icon"></i>
-                    <span class="fa-row-label">${streams.length} stream${streams.length !== 1 ? 's' : ''}</span>
+                    <span class="fa-row-label">${PERTII18n.t(streams.length !== 1 ? 'tmiCompliance.streamCountPlural' : 'tmiCompliance.streamCount', { count: streams.length })}</span>
                     <span class="fa-stream-badges">${badges}</span>
                 </div>`;
         }
 
         // ── Branches row ──
         if (branchData?.error) {
-            const errMsg = branchData.timeout ? 'Branch analysis timed out' : 'Branch analysis unavailable';
+            const errMsg = branchData.timeout ? PERTII18n.t('tmiCompliance.branchTimedOut') : PERTII18n.t('tmiCompliance.branchUnavailable');
             html += `
                 <div class="fa-row fa-row-branches">
                     <i class="fas fa-code-branch fa-row-icon"></i>
@@ -8678,15 +8678,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const ungrouped = branchData.ungrouped_flights || 0;
 
             // Summary stats
-            let statsText = `${branchCount} branch${branchCount !== 1 ? 'es' : ''}`;
+            let statsText = PERTII18n.t(branchCount !== 1 ? 'tmiCompliance.branchCountPlural' : 'tmiCompliance.branchCount', { count: branchCount });
             if (phase1 && phase1 !== branchCount) statsText += ` from ${phase1} corridor${phase1 !== 1 ? 's' : ''}`;
             statsText += `, ${totalFlights} flights`;
-            if (ungrouped > 0) statsText += ` (${ungrouped} ungrouped)`;
+            if (ungrouped > 0) statsText += ` ${PERTII18n.t('tmiCompliance.ungroupedCount', { count: ungrouped })}`;
 
             // Filter badge
             let filterBadge = '';
             if (bf && bf.rejected > 0) {
-                filterBadge = `<span class="fa-filter-badge" title="Bearing filter: ±${bf.filter_deg}° from ${bf.median_bearing}° median"><i class="fas fa-filter"></i> ${bf.rejected} filtered</span>`;
+                filterBadge = `<span class="fa-filter-badge" title="${PERTII18n.t('tmiCompliance.bearingFilterTitle', { deg: bf.filter_deg, median: bf.median_bearing })}"><i class="fas fa-filter"></i> ${PERTII18n.t('tmiCompliance.bearingFiltered', { count: bf.rejected })}</span>`;
             }
 
             // Determine if branch list is expanded (Branches button active)
@@ -8763,7 +8763,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Initialized but no corridors found
                 const skipNote = branchState.skippedSingle > 0 ? ` (${branchState.skippedSingle} single-flight)` : '';
                 html += `
-                    <span style="color:#6b7280; font-size:0.85em; margin-left:4px;">No distinct corridors detected${skipNote}</span>
+                    <span style="color:#6b7280; font-size:0.85em; margin-left:4px;">${PERTII18n.t('tmiCompliance.noCorridorsDetected')}${skipNote}</span>
                 </div>`;
             } else {
                 html += '</div>';

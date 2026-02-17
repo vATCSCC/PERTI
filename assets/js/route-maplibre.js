@@ -1785,7 +1785,7 @@ $(document).ready(function() {
                     background: white; border: none; padding: 6px 10px; border-radius: 4px;
                     box-shadow: 0 1px 5px rgba(0,0,0,0.4); cursor: pointer;
                     font-size: 12px; font-weight: bold;
-                " title="Toggle Overlays">
+                " title="${PERTII18n.t('route.map.toggleOverlays')}">
                     <i class="fas fa-layer-group"></i> Overlays
                 </button>
                 <div id="layer-control-panel" style="
@@ -2748,7 +2748,7 @@ $(document).ready(function() {
                 <div class="flight-route-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; color: ${props.color || '#fff'};">${props.callsign}</div>
                     <div style="color: var(--dark-text-subtle); margin-top: 4px;">
-                        ${isAhead ? 'Route Ahead' : 'Route Behind'}
+                        ${isAhead ? PERTII18n.t('route.map.routeAhead') : PERTII18n.t('route.map.routeBehind')}
                     </div>
                 </div>
             `;
@@ -3621,16 +3621,16 @@ $(document).ready(function() {
 
             let html = `
                 <div class="color-rules-header d-flex justify-content-between align-items-center mb-2">
-                    <small class="text-muted">Custom Color Rules (evaluated in order)</small>
+                    <small class="text-muted">${PERTII18n.t('route.colorRules.customRulesHeader')}</small>
                     <button type="button" class="btn btn-sm btn-outline-success" id="adl_add_color_rule">
-                        <i class="fas fa-plus"></i> Add
+                        <i class="fas fa-plus"></i> ${PERTII18n.t('route.page.add')}
                     </button>
                 </div>
                 <div class="color-rules-list" id="adl_color_rules_list">
             `;
 
             if (state.colorRules.length === 0) {
-                html += '<div class="text-muted small">No custom rules defined</div>';
+                html += '<div class="text-muted small">' + PERTII18n.t('route.colorRules.noCustomRules') + '</div>';
             } else {
                 state.colorRules.forEach((rule, idx) => {
                     const color = parseColor(rule.color) || '#6c757d';
@@ -3640,9 +3640,9 @@ $(document).ready(function() {
                             <span class="rule-text flex-grow-1 small text-truncate" title="${rule.field}: ${rule.values.join(' ')}">
                                 <strong>${rule.field}</strong>: ${rule.values.join(', ')}
                             </span>
-                            <button type="button" class="btn btn-xs btn-link text-info p-0 mx-1 rule-edit" data-idx="${idx}" title="Edit"><i class="fas fa-edit"></i></button>
-                            <button type="button" class="btn btn-xs btn-link text-warning p-0 mx-1 rule-toggle" data-idx="${idx}" title="Toggle"><i class="fas fa-${rule.enabled === false ? 'eye-slash' : 'eye'}"></i></button>
-                            <button type="button" class="btn btn-xs btn-link text-danger p-0 rule-delete" data-idx="${idx}" title="Delete"><i class="fas fa-times"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-info p-0 mx-1 rule-edit" data-idx="${idx}" title="${PERTII18n.t('route.colorRules.editTitle')}"><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-warning p-0 mx-1 rule-toggle" data-idx="${idx}" title="${PERTII18n.t('route.colorRules.toggleTitle')}"><i class="fas fa-${rule.enabled === false ? 'eye-slash' : 'eye'}"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-danger p-0 rule-delete" data-idx="${idx}" title="${PERTII18n.t('route.colorRules.deleteTitle')}"><i class="fas fa-times"></i></button>
                         </div>
                     `;
                 });
@@ -3743,7 +3743,7 @@ $(document).ready(function() {
                 const color = $('#rule_color').val().trim();
 
                 if (!valuesStr || !color) {
-                    alert('Please enter values and a color');
+                    alert(PERTII18n.t('route.colorRules.enterValuesAndColor'));
                     return;
                 }
 
@@ -3775,7 +3775,7 @@ $(document).ready(function() {
         }
 
         function deleteColorRule(idx) {
-            if (confirm('Delete this color rule?')) {
+            if (confirm(PERTII18n.t('route.colorRules.deleteConfirm'))) {
                 state.colorRules.splice(idx, 1);
                 saveColorRules();
                 renderColorRulesUI();
@@ -4283,7 +4283,7 @@ $(document).ready(function() {
                         color: route.color || '#17a2b8',
                         label: route.name || 'Route',
                     }));
-                    items.push({ color: '#666666', label: 'No Match' });
+                    items.push({ color: '#666666', label: PERTII18n.t('route.colorRules.noMatch') });
                     break;
                 }
                 case 'status': {
@@ -4938,7 +4938,7 @@ $(document).ready(function() {
                         </div>
                     </div>
                     ` : ''}
-                    <div class="text-muted text-center mt-1" style="font-size:0.7rem">Click aircraft to toggle route</div>
+                    <div class="text-muted text-center mt-1" style="font-size:0.7rem">${PERTII18n.t('route.map.clickAircraftToggle')}</div>
                 </div>
             `;
 
@@ -5061,7 +5061,7 @@ $(document).ready(function() {
 
             if (!graphic_map) {
                 console.warn('[ADL-ML] Map not initialized yet.');
-                alert('Please wait for the map to initialize.');
+                alert(PERTII18n.t('route.map.pleaseWaitInit'));
                 $('#adl_toggle').prop('checked', false);
                 return;
             }
@@ -5173,7 +5173,7 @@ $(document).ready(function() {
 
             // Add 'Custom Rules' option to color dropdown if not present
             if ($('#adl_color_by option[value="custom"]').length === 0) {
-                $('#adl_color_by').append('<option value="custom">Custom Rules</option>');
+                $('#adl_color_by').append('<option value="custom">' + PERTII18n.t('route.colorRules.customRulesOption') + '</option>');
             }
 
             // Inject color rules container if not present
@@ -6149,7 +6149,7 @@ $(document).ready(function() {
         const usedProcedures = collectResult.procedures || [];
 
         if (!routeStrings.length) {
-            alert('No routes found to build an advisory.');
+            alert(PERTII18n.t('route.advisory.noRoutesForAdvisory'));
             return;
         }
 
@@ -6517,7 +6517,7 @@ $(document).ready(function() {
         console.log('[ADV-ML] Expanded routes:', routes);
 
         if (!routes || routes.length === 0) {
-            alert('No routes plotted. Plot routes first, then click the magic wand.');
+            alert(PERTII18n.t('route.advisory.noRoutesPlotted'));
             return;
         }
 
@@ -6574,7 +6574,7 @@ $(document).ready(function() {
 
         } catch (err) {
             console.error('[ADV-ML] Error calculating facilities:', err);
-            alert('Error calculating facilities: ' + err.message);
+            alert(PERTII18n.t('route.advisory.errorCalcFacilities', { error: err.message }));
         } finally {
             $btn.html(originalHtml).prop('disabled', false);
         }
@@ -6666,8 +6666,8 @@ $(document).ready(function() {
         if (!routeStrings.length) {
             Swal.fire({
                 icon: 'warning',
-                title: 'No Routes Plotted',
-                text: 'Plot some routes first before drafting a TMI reroute advisory.',
+                title: PERTII18n.t('route.advisory.noRoutesPlottedTitle'),
+                text: PERTII18n.t('route.advisory.noRoutesPlottedText'),
                 confirmButtonText: 'OK',
             });
             return;
@@ -6676,7 +6676,7 @@ $(document).ready(function() {
         // Show loading indicator
         const $btn = $('#adv_draft_tmi');
         const originalHtml = $btn.html();
-        $btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Preparing...').prop('disabled', true);
+        $btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('route.advisory.preparing')).prop('disabled', true);
 
         try {
             // Collect comprehensive route data
@@ -6762,8 +6762,8 @@ $(document).ready(function() {
                 console.error('[DRAFT-TMI] Failed to store in sessionStorage:', e);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Storage Error',
-                    text: 'Failed to prepare reroute data. Please try again.',
+                    title: PERTII18n.t('route.advisory.storageErrorTitle'),
+                    text: PERTII18n.t('route.advisory.storageErrorText'),
                 });
                 return;
             }
@@ -6775,8 +6775,8 @@ $(document).ready(function() {
             console.error('[DRAFT-TMI] Error preparing draft:', err);
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: 'Failed to prepare reroute draft: ' + err.message,
+                title: PERTII18n.t('route.advisory.errorTitle'),
+                text: PERTII18n.t('route.advisory.errorText', { error: err.message }),
             });
         } finally {
             $btn.html(originalHtml).prop('disabled', false);
@@ -7556,8 +7556,8 @@ $(document).ready(function() {
         let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
-    <name>PERTI Routes Export</name>
-    <description>Exported from PERTI Route Visualization - ${data.timestamp}</description>
+    <name>${PERTII18n.t('route.export.kmlName')}</name>
+    <description>${PERTII18n.t('route.export.kmlDescription')} - ${data.timestamp}</description>
 `;
 
         // Define styles for each color
@@ -7672,7 +7672,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         const exportBundle = {
             format: 'PERTI_GPKG_Bundle',
             version: '1.0',
-            description: 'Import this GeoJSON into QGIS/ArcGIS and export as GeoPackage, or use ogr2ogr',
+            description: PERTII18n.t('route.export.gpkgDescription'),
             timestamp: data.timestamp,
             layers: {
                 route_segments: {
@@ -7851,7 +7851,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
         const allRoutes = window.PublicRoutes.getRoutes();
         if (!allRoutes || allRoutes.length === 0) {
             console.warn('[RegenerateGeoJSON] No public routes loaded');
-            return { success: false, error: 'No public routes loaded' };
+            return { success: false, error: PERTII18n.t('route.publicRoutes.noPublicRoutesLoaded') };
         }
 
         // Filter routes if specific IDs provided
@@ -7861,7 +7861,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             routesToProcess = allRoutes.filter(r => idsArray.includes(r.id));
             if (routesToProcess.length === 0) {
                 console.warn('[RegenerateGeoJSON] No matching routes found for IDs:', idsArray);
-                return { success: false, error: 'No matching routes found' };
+                return { success: false, error: PERTII18n.t('route.publicRoutes.noMatchingRoutesFound') };
             }
         }
 
@@ -7874,7 +7874,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             const routeString = route.route_string;
             if (!routeString) {
                 console.warn('[RegenerateGeoJSON] Route', route.id, '(' + route.name + ') has no route_string, skipping');
-                skipped.push({ id: route.id, name: route.name, reason: 'No route_string' });
+                skipped.push({ id: route.id, name: route.name, reason: PERTII18n.t('route.publicRoutes.noRouteString') });
                 return;
             }
 
@@ -7883,7 +7883,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
 
             if (geojson.features.length === 0) {
                 console.warn('[RegenerateGeoJSON] Route', route.id, '(' + route.name + ') generated 0 features, skipping');
-                skipped.push({ id: route.id, name: route.name, reason: 'Generated 0 features' });
+                skipped.push({ id: route.id, name: route.name, reason: PERTII18n.t('route.publicRoutes.generatedZeroFeatures') });
                 return;
             }
 
@@ -7897,7 +7897,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
 
         if (updates.length === 0) {
             console.warn('[RegenerateGeoJSON] No routes to update');
-            return { success: false, error: 'No routes to update', skipped: skipped };
+            return { success: false, error: PERTII18n.t('route.publicRoutes.noRoutesToUpdate'), skipped: skipped };
         }
 
         // POST to API
@@ -8370,17 +8370,17 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
             return '<div style="font-size: 12px; min-width: 200px;">' +
                 '<div style="font-weight: bold; margin-bottom: 6px; display: flex; align-items: center;">' +
                 '<span style="display: inline-block; width: 12px; height: 12px; background: ' + (props.color || '#e74c3c') + '; border-radius: 2px; margin-right: 6px;"></span>' +
-                (props.name || 'Unnamed Route') +
+                (props.name || PERTII18n.t('route.publicRoutes.unnamedRoute')) +
                 '</div>' +
                 '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
-                '<span><strong>Valid:</strong> ' + validStart + ' - ' + validEnd + '</span>' +
+                '<span><strong>' + PERTII18n.t('route.publicRoutes.validLabel') + '</strong> ' + validStart + ' - ' + validEnd + '</span>' +
                 '</div>' +
                 '<div style="display: flex; align-items: center; margin-bottom: 4px;">' +
-                '<span style="color: ' + expColor + '; font-weight: bold;"><i class="fas fa-hourglass-half" style="margin-right: 4px;"></i>' + expText + ' remaining</span>' +
+                '<span style="color: ' + expColor + '; font-weight: bold;"><i class="fas fa-hourglass-half" style="margin-right: 4px;"></i>' + expText + ' ' + PERTII18n.t('route.publicRoutes.remainingLabel') + '</span>' +
                 '</div>' +
-                (props.constrained_area ? '<div style="margin-bottom: 2px;"><strong>Area:</strong> ' + props.constrained_area + '</div>' : '') +
-                (props.reason ? '<div style="margin-bottom: 2px;"><strong>Reason:</strong> ' + props.reason + '</div>' : '') +
-                (props.fromFix && props.toFix ? '<div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid #ddd; font-size: 11px;"><strong>Segment:</strong> ' + props.fromFix + ' → ' + props.toFix + (props.distance ? ' (' + props.distance + ' nm)' : '') + '</div>' : '') +
+                (props.constrained_area ? '<div style="margin-bottom: 2px;"><strong>' + PERTII18n.t('route.publicRoutes.areaLabel') + '</strong> ' + props.constrained_area + '</div>' : '') +
+                (props.reason ? '<div style="margin-bottom: 2px;"><strong>' + PERTII18n.t('route.publicRoutes.reasonLabel') + '</strong> ' + props.reason + '</div>' : '') +
+                (props.fromFix && props.toFix ? '<div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid #ddd; font-size: 11px;"><strong>' + PERTII18n.t('route.publicRoutes.segmentLabel') + '</strong> ' + props.fromFix + ' → ' + props.toFix + (props.distance ? ' (' + props.distance + ' nm)' : '') + '</div>' : '') +
                 '</div>';
         }
 

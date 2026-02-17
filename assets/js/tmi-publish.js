@@ -3304,7 +3304,7 @@
             'tmiPublish.queue.clearQueue',
             'tmiPublish.queue.clearQueueText',
             { count: state.queue.length },
-            { confirmButtonColor: '#dc3545', confirmButtonText: 'Clear All' },
+            { confirmButtonColor: '#dc3545', confirmButtonText: PERTII18n.t('tmiPublish.clearAllBtn') },
         ).then((result) => {
             if (result.isConfirmed) {
                 state.queue = [];
@@ -3394,7 +3394,7 @@
 
                 PERTIDialog.success('tmiPublish.publish.published', 'tmiPublish.publish.publishedToDiscord');
             } else {
-                const errorMsg = response.error || response.results?.[0]?.error || PERTII18n.t('common.unknown');
+                const errorMsg = response.error || response.results?.[0]?.error || PERTII18n.t('common.unknownError');
                 PERTIDialog.error('tmiPublish.publish.publishFailed', null, {}, { html: `<p>${errorMsg}</p>` });
             }
         } catch (error) {
@@ -3579,7 +3579,7 @@
             },
             error: function(xhr) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: PERTII18n.t('tmiPublish.cancelTmi.failed') + ': ' + (xhr.responseJSON?.error || PERTII18n.t('common.unknown')) });
+                PERTIDialog.error('common.error', null, {}, { text: PERTII18n.t('tmiPublish.cancelTmi.failed') + ': ' + (xhr.responseJSON?.error || PERTII18n.t('common.unknownError')) });
             },
         });
     }
@@ -3659,8 +3659,8 @@
             PERTIDialog.confirm(
                 'tmiPublish.publish.publishNow', null, {},
                 {
-                    html: `<p>Post <strong>${state.queue.length}</strong> entry(ies) directly to Discord.</p>
-                           <p class="small text-muted">${typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.publish.noCoordRequired') : 'These entry types do not require facility coordination.'}</p>`,
+                    html: `<p>${PERTII18n.t('tmiPublish.postDirectlyHtml', { count: state.queue.length })}</p>
+                           <p class="small text-muted">${PERTII18n.t('tmiPublish.publish.noCoordRequired')}</p>`,
                     confirmButtonColor: '#28a745',
                     confirmKey: 'tmiPublish.publish.publishBtn',
                 },
@@ -3679,11 +3679,11 @@
         }
 
         // Multiple entries - ask user how they want to proceed
-        let message = `<p><strong>${entriesRequiringCoord.length}</strong> entries require coordination.</p>`;
+        let message = `<p>${PERTII18n.t('tmiPublish.entriesRequireCoord', { count: entriesRequiringCoord.length })}</p>`;
         if (entriesNotRequiringCoord.length > 0) {
-            message += `<p class="small text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</p>`;
+            message += `<p class="small text-muted">${PERTII18n.t('tmiPublish.otherPublishDirect', { count: entriesNotRequiringCoord.length })}</p>`;
         }
-        message += `<p>How would you like to proceed?</p>`;
+        message += `<p>${PERTII18n.t('tmiPublish.howToProceed')}</p>`;
 
         PERTIDialog.show({
             titleKey: 'tmiPublish.submit.title',
@@ -3694,8 +3694,8 @@
             confirmButtonColor: '#007bff',
             denyButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Verify Each Entry',
-            denyButtonText: typeof PERTII18n !== 'undefined' ? PERTII18n.t('tmiPublish.quickSubmit') : 'Quick Submit (Same Facilities)',
+            confirmButtonText: PERTII18n.t('tmiPublish.verifyEachEntry'),
+            denyButtonText: PERTII18n.t('tmiPublish.quickSubmit'),
             cancelKey: 'common.cancel',
             width: '500px',
         }).then((result) => {
@@ -3729,7 +3729,7 @@
         }
 
         Swal.fire({
-            title: 'Submit for Coordination',
+            title: PERTII18n.t('tmiPublish.coordination.submitForCoord'),
             html: `
                 <div class="text-left">
                     ${entryDetailHtml}
@@ -3739,25 +3739,25 @@
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_coordinate" name="coordOption" class="custom-control-input" value="coordinate" checked>
                             <label class="custom-control-label" for="coordOption_coordinate">
-                                <strong>Submit for Coordination</strong>
+                                <strong>${PERTII18n.t('tmiPublish.coordination.submitForCoord')}</strong>
                             </label>
                         </div>
                         <div class="custom-control custom-radio mb-2">
                             <input type="radio" id="coordOption_precoordinated" name="coordOption" class="custom-control-input" value="precoordinated">
                             <label class="custom-control-label" for="coordOption_precoordinated">
-                                <strong>Already Coordinated</strong>
+                                <strong>${PERTII18n.t('tmiPublish.coordination.alreadyCoordinated')}</strong>
                             </label>
                         </div>
                     </div>
 
                     <div id="coordinationOptions" class="mt-3 p-3 bg-light rounded">
                         <div class="form-group mb-3">
-                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes" class="row">
                                 ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
                             </div>
@@ -3768,7 +3768,7 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Submit',
+            confirmButtonText: PERTII18n.t('tmiPublish.coordination.submit'),
             width: '550px',
             didOpen: () => {
                 document.querySelectorAll('input[name="coordOption"]').forEach(radio => {
@@ -3783,7 +3783,7 @@
                 if (mode === 'coordinate') {
                     const deadline = document.getElementById('coordDeadline').value;
                     if (!deadline) {
-                        Swal.showValidationMessage('Please set an approval deadline');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                         return false;
                     }
                     const facilities = [];
@@ -3791,7 +3791,7 @@
                         facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                     });
                     if (facilities.length === 0) {
-                        Swal.showValidationMessage('Please select at least one facility');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                         return false;
                     }
                     return { mode: 'coordinate', deadline, facilities };
@@ -3834,22 +3834,22 @@
             const entryDetailHtml = buildEntryDetailHtml(entry);
 
             const result = await Swal.fire({
-                title: `Entry ${i + 1} of ${totalEntries}`,
+                title: PERTII18n.t('tmiPublish.coordination.entryNofM', { current: i + 1, total: totalEntries }),
                 html: `
                     <div class="text-left">
                         ${entryDetailHtml}
 
                         <div class="form-group mb-3">
-                            <label for="coordDeadline_${i}"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline_${i}"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline_${i}" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes_${i}" class="row">
                                 ${buildFacilityCheckboxesForEntry(entry, suggestedFacilities)}
                             </div>
-                            <small class="text-muted">Auto-detected from entry. Modify as needed.</small>
+                            <small class="text-muted">${PERTII18n.t('tmiPublish.coordination.autoDetectedHint')}</small>
                         </div>
                     </div>
                 `,
@@ -3858,15 +3858,15 @@
                 showDenyButton: i > 0,
                 confirmButtonColor: i === totalEntries - 1 ? '#dc3545' : '#007bff',
                 denyButtonColor: '#6c757d',
-                confirmButtonText: i === totalEntries - 1 ? 'Submit All' : 'Next Entry →',
-                denyButtonText: '← Back',
-                cancelButtonText: 'Cancel All',
+                confirmButtonText: i === totalEntries - 1 ? PERTII18n.t('tmiPublish.coordination.submitAll') : PERTII18n.t('tmiPublish.coordination.nextEntry'),
+                denyButtonText: PERTII18n.t('tmiPublish.coordination.back'),
+                cancelButtonText: PERTII18n.t('tmiPublish.coordination.cancelAll'),
                 width: '550px',
                 allowOutsideClick: false,
                 preConfirm: () => {
                     const deadline = document.getElementById(`coordDeadline_${i}`).value;
                     if (!deadline) {
-                        Swal.showValidationMessage('Please set an approval deadline');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                         return false;
                     }
                     const facilities = [];
@@ -3874,7 +3874,7 @@
                         facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                     });
                     if (facilities.length === 0) {
-                        Swal.showValidationMessage('Please select at least one facility');
+                        Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                         return false;
                     }
                     return { deadline, facilities };
@@ -3915,26 +3915,26 @@
         const deadline = calculateEntryDeadline(entriesRequiringCoord[0]);
         const deadlineStr = deadline.toISOString().slice(0, 16);
 
-        let coordMessage = `Post <strong>${entriesRequiringCoord.length}</strong> entry(ies) to <span class="text-danger font-weight-bold">PRODUCTION</span>`;
+        let coordMessage = PERTII18n.t('tmiPublish.coordination.productionPost', { count: entriesRequiringCoord.length });
         if (entriesNotRequiringCoord.length > 0) {
-            coordMessage += `<br><small class="text-muted">(${entriesNotRequiringCoord.length} other entries will publish directly)</small>`;
+            coordMessage += `<br><small class="text-muted">${PERTII18n.t('tmiPublish.coordination.otherEntriesDirect', { count: entriesNotRequiringCoord.length })}</small>`;
         }
 
         Swal.fire({
-            title: 'Quick Submit - Same Facilities',
+            title: PERTII18n.t('tmiPublish.quickSubmit'),
             html: `
                 <div class="text-left">
                     <p class="mb-3">${coordMessage}</p>
-                    <p class="small text-warning"><strong>Note:</strong> All entries will use the same facilities and deadline.</p>
+                    <p class="small text-warning">${PERTII18n.t('tmiPublish.coordination.sameDeadlineNote')}</p>
 
                     <div class="p-3 bg-light rounded">
                         <div class="form-group mb-3">
-                            <label for="coordDeadline"><strong>Approval Deadline (UTC):</strong></label>
+                            <label for="coordDeadline"><strong>${PERTII18n.t('tmiPublish.coordination.approvalDeadlineUtc')}</strong></label>
                             <input type="datetime-local" class="form-control" id="coordDeadline" value="${deadlineStr}">
                         </div>
 
                         <div class="form-group mb-0">
-                            <label><strong>Facilities Required to Approve:</strong></label>
+                            <label><strong>${PERTII18n.t('tmiPublish.coordination.facilitiesRequired')}</strong></label>
                             <div id="facilityCheckboxes" class="row">
                                 ${buildFacilityCheckboxes()}
                             </div>
@@ -3945,12 +3945,12 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Submit All',
+            confirmButtonText: PERTII18n.t('tmiPublish.coordination.submitAll'),
             width: '550px',
             preConfirm: () => {
                 const deadline = document.getElementById('coordDeadline').value;
                 if (!deadline) {
-                    Swal.showValidationMessage('Please set an approval deadline');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSetDeadline'));
                     return false;
                 }
                 const facilities = [];
@@ -3958,7 +3958,7 @@
                     facilities.push({ code: cb.value, emoji: cb.dataset.emoji || null });
                 });
                 if (facilities.length === 0) {
-                    Swal.showValidationMessage('Please select at least one facility');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.coordination.pleaseSelectFacility'));
                     return false;
                 }
                 return { deadline, facilities };
@@ -4256,7 +4256,7 @@
                         });
                     }
                 } else {
-                    results.failed.push({ entry, error: response.error || 'Unknown error' });
+                    results.failed.push({ entry, error: response.error || PERTII18n.t('common.unknownError') });
                 }
             } catch (error) {
                 console.error(`Coordination submit error for entry ${i + 1}:`, error);
@@ -4432,7 +4432,7 @@
                 } else {
                     results.failed.push({
                         entry: entry,
-                        error: response.error || 'Unknown error',
+                        error: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             } catch (error) {
@@ -4627,7 +4627,7 @@
                 if (response.success) {
                     displayActiveTmis(response);
                 } else {
-                    showActiveTmiError('Failed to load TMIs: ' + (response.error || 'Unknown error'));
+                    showActiveTmiError(PERTII18n.t('tmiActive.failedToLoadTmis', { error: response.error || PERTII18n.t('common.unknownError') }));
                 }
             },
             error: function(xhr, status, error) {
@@ -4747,14 +4747,14 @@
         PERTIDialog.confirm(
             'tmiPublish.cancelTmi.title', null, {},
             {
-                text: `This will cancel ${(entityType || 'entry').toLowerCase()} #${id}`,
+                text: PERTII18n.t('tmiPublish.cancelTmi.text', { entityType: (entityType || 'entry').toLowerCase(), id: id }),
                 confirmButtonColor: '#dc3545',
-                confirmButtonText: 'Cancel TMI',
+                confirmButtonText: PERTII18n.t('tmiPublish.cancelTmi.confirm'),
             },
         ).then((result) => {
             if (result.isConfirmed) {
                 PERTIDialog.info('tmiPublish.comingSoon', null, {}, {
-                    text: 'Cancel functionality will be implemented shortly',
+                    text: PERTII18n.t('tmiPublish.cancelTmi.comingSoonText'),
                 });
             }
         });
@@ -4822,10 +4822,9 @@
         PERTIDialog.confirm(
             'tmiPublish.promote.title', null, {},
             {
-                html: `<p>Publish this ${(entityType || 'entry').toLowerCase()} to production channels?</p>
-                       <p class="text-danger">This will post to LIVE channels.</p>`,
+                html: PERTII18n.t('tmiPublish.promote.confirmHtml', { type: (entityType || 'entry').toLowerCase() }),
                 confirmButtonColor: '#28a745',
-                confirmButtonText: 'Promote',
+                confirmButtonText: PERTII18n.t('tmiPublish.promote.promoteBtn'),
             },
         ).then((result) => {
             if (result.isConfirmed) {
@@ -4849,13 +4848,13 @@
             success: function(response) {
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.promote.promoted', null, {}, {
-                        text: 'Entry published to production channels.',
+                        text: PERTII18n.t('tmiPublish.promote.promotedText'),
                         timer: 2000,
                     });
                     loadStagedEntries();
                 } else {
                     PERTIDialog.error('tmiPublish.promote.failed', null, {}, {
-                        text: response.results?.[0]?.error || response.error || 'Unknown error',
+                        text: response.results?.[0]?.error || response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             },
@@ -5854,25 +5853,25 @@
 
     function handleCancelProposal(proposalId, entryType, ctlElement) {
         PERTIDialog.show({
-            title: '<i class="fas fa-trash text-danger"></i> Cancel Proposal?',
+            title: `<i class="fas fa-trash text-danger"></i> ${PERTII18n.t('tmiPublish.proposal.cancelTitle')}`,
             html: `
                 <div class="text-left">
-                    <p>Cancel <strong>${escapeHtml(entryType)} ${escapeHtml(ctlElement)}</strong> proposal?</p>
+                    <p>${PERTII18n.t('tmiPublish.proposal.cancelText', { entryType: escapeHtml(entryType), ctlElement: escapeHtml(ctlElement) })}</p>
                     <div class="alert alert-warning small py-2">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        This will permanently cancel the proposal. It cannot be undone.
+                        ${PERTII18n.t('tmiPublish.proposal.cancelWarning')}
                     </div>
                     <div class="form-group mt-3">
-                        <label class="small">Reason (optional):</label>
-                        <input type="text" id="cancel_reason" class="form-control form-control-sm" placeholder="e.g., No longer needed">
+                        <label class="small">${PERTII18n.t('tmiPublish.proposal.cancelReasonLabel')}</label>
+                        <input type="text" id="cancel_reason" class="form-control form-control-sm" placeholder="${PERTII18n.t('tmiPublish.proposal.cancelReasonPlaceholder')}">
                     </div>
                 </div>
             `,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: '<i class="fas fa-trash mr-1"></i> Cancel Proposal',
-            cancelButtonText: 'Keep',
+            confirmButtonText: `<i class="fas fa-trash mr-1"></i> ${PERTII18n.t('tmiPublish.proposal.cancelConfirmBtn')}`,
+            cancelButtonText: PERTII18n.t('tmiPublish.proposal.keepBtn'),
         }).then((result) => {
             if (result.isConfirmed) {
                 const reason = $('#cancel_reason').val();
@@ -5961,80 +5960,80 @@
         };
 
         Swal.fire({
-            title: `<i class="fas fa-edit text-info"></i> Edit Proposal #${proposal.proposal_id}`,
+            title: `<i class="fas fa-edit text-info"></i> ${PERTII18n.t('tmiPublish.proposal.editTitle', { id: proposal.proposal_id })}`,
             html: `
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="alert alert-warning small py-2">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <strong>Warning:</strong> Editing will clear all facility approvals and restart coordination.
+                        ${PERTII18n.t('tmiPublish.proposal.editWarning')}
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Type</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.typeLabel')}</label>
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(proposal.entry_type || 'TMI')}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Control Element</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.ctlElementLabel')}</label>
                             <input type="text" id="editPropCtlElement" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.ctl_element || entryData.ctl_element || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Requesting Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.reqFacilityLabel')}</label>
                             <input type="text" id="editPropReqFac" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.requesting_facility || entryData.requesting_facility || '')}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Providing Facility</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.provFacilityLabel')}</label>
                             <input type="text" id="editPropProvFac" class="form-control form-control-sm text-uppercase"
                                    value="${escapeHtml(proposal.providing_facility || entryData.providing_facility || '')}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid From (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.validFromLabel')}</label>
                             <input type="datetime-local" id="editPropValidFrom" class="form-control form-control-sm"
                                    value="${formatForInput(proposal.valid_from || entryData.valid_from)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Valid Until (UTC)</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.validUntilLabel')}</label>
                             <input type="datetime-local" id="editPropValidUntil" class="form-control form-control-sm"
                                    value="${formatForInput(proposal.valid_until || entryData.valid_until)}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">Restriction Value</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.restrictionValueLabel')}</label>
                             <input type="number" id="editPropValue" class="form-control form-control-sm"
                                    value="${entryData.restriction_value || entryData.value || ''}" placeholder="e.g., 20">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">Unit</label>
+                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.unitLabel')}</label>
                             <select id="editPropUnit" class="form-control form-control-sm">
-                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>MIT (miles)</option>
-                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>MINIT (minutes)</option>
+                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.proposal.mitOption')}</option>
+                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.proposal.minitOption')}</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Restriction Text</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.restrictionTextLabel')}</label>
                         <textarea id="editPropRawText" class="form-control form-control-sm" rows="4"
                                   style="font-family: monospace; font-size: 11px;">${escapeHtml(proposal.raw_text || '')}</textarea>
-                        <small class="text-muted">This is the NTML text that facilities will see</small>
+                        <small class="text-muted">${PERTII18n.t('tmiPublish.proposal.ntmlTextHint')}</small>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">Edit Reason</label>
+                        <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.proposal.editReasonLabel')}</label>
                         <input type="text" id="editPropReason" class="form-control form-control-sm"
-                               placeholder="Why is this proposal being edited?" required>
+                               placeholder="${PERTII18n.t('tmiPublish.proposal.editReasonPlaceholder')}" required>
                     </div>
                 </div>
             `,
             width: 650,
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-save"></i> Save & Restart Coordination',
+            confirmButtonText: `<i class="fas fa-save"></i> ${PERTII18n.t('tmiPublish.proposal.saveRestartBtn')}`,
             confirmButtonColor: '#17a2b8',
-            cancelButtonText: 'Cancel',
+            cancelButtonText: PERTII18n.t('common.cancel'),
             didOpen: () => {
                 // Auto-update raw_text when restriction value or unit changes
                 const valueInput = document.getElementById('editPropValue');
@@ -6069,7 +6068,7 @@
             preConfirm: () => {
                 const reason = document.getElementById('editPropReason').value.trim();
                 if (!reason) {
-                    Swal.showValidationMessage('Please provide a reason for the edit');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.proposal.provideReasonValidation'));
                     return false;
                 }
                 return {
@@ -6445,23 +6444,23 @@
         const deadlineStr = defaultDeadline.toISOString().slice(0, 16);
 
         Swal.fire({
-            title: 'Extend Deadline',
+            title: PERTII18n.t('tmiPublish.deadline.extend'),
             html: `
                 <div class="text-left">
-                    <p>Extend approval deadline for Proposal #${proposalId}</p>
+                    <p>${PERTII18n.t('tmiPublish.deadline.extendText', { id: proposalId })}</p>
                     <div class="form-group">
-                        <label for="newDeadline"><strong>New Deadline (UTC):</strong></label>
+                        <label for="newDeadline"><strong>${PERTII18n.t('tmiPublish.deadline.newDeadlineLabel')}</strong></label>
                         <input type="datetime-local" class="form-control" id="newDeadline" value="${deadlineStr}">
                     </div>
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: 'Extend',
+            confirmButtonText: PERTII18n.t('tmiPublish.deadline.extendBtn'),
             confirmButtonColor: '#007bff',
             preConfirm: () => {
                 const newDeadline = document.getElementById('newDeadline').value;
                 if (!newDeadline) {
-                    Swal.showValidationMessage('Please enter a new deadline');
+                    Swal.showValidationMessage(PERTII18n.t('tmiPublish.deadline.pleaseEnterDeadline'));
                     return false;
                 }
                 return newDeadline;
@@ -6490,13 +6489,13 @@
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.deadline.extended', null, {}, {
-                        text: `New deadline: ${formatDateTime(response.new_deadline)}`,
+                        text: PERTII18n.t('tmiPublish.deadline.newDeadline', { deadline: formatDateTime(response.new_deadline) }),
                         timer: 3000,
                     });
                     loadProposals(); // Refresh the list
                 } else {
                     PERTIDialog.error('tmiPublish.deadline.extendFailed', null, {}, {
-                        text: response.error || 'Unknown error',
+                        text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             },
@@ -6554,7 +6553,7 @@
                     loadProposals();
                 } else {
                     PERTIDialog.error('tmiPublish.proposal.actionFailed', null, {}, {
-                        text: response.error || 'Unknown error',
+                        text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             },
@@ -7242,16 +7241,16 @@
             if (filterCount > 0) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Filters Detected',
-                    text: `Applied ${filterCount} automatic filter(s) to overlapping routes.`,
+                    title: PERTII18n.t('reroute.handler.filtersDetected'),
+                    text: PERTII18n.t('reroute.handler.filtersApplied', { count: filterCount }),
                     timer: 2500,
                     showConfirmButton: false,
                 });
             } else {
                 Swal.fire({
                     icon: 'info',
-                    title: 'No Filters Needed',
-                    text: 'No overlapping ARTCC/airport routes detected.',
+                    title: PERTII18n.t('reroute.handler.noFiltersNeeded'),
+                    text: PERTII18n.t('reroute.handler.noFiltersText'),
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -8244,8 +8243,8 @@
             if (routes.length < 2) {
                 Swal.fire({
                     icon: 'info',
-                    title: 'Need More Routes',
-                    text: 'Need at least 2 routes to detect common segments.',
+                    title: PERTII18n.t('reroute.handler.needMoreRoutes'),
+                    text: PERTII18n.t('reroute.handler.needMoreRoutesText'),
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -8373,19 +8372,19 @@
 
                 Swal.fire({
                     icon: 'success',
-                    title: `${usedPivots.length} Pivot Waypoint${usedPivots.length > 1 ? 's' : ''} Detected`,
+                    title: PERTII18n.t('reroute.handler.pivotDetected', { count: usedPivots.length }),
                     html: `
-                        <p>Found ${usedPivots.length} pivot waypoint${usedPivots.length > 1 ? 's' : ''} across ${routes.length} routes.</p>
-                        ${unmatchedCount > 0 ? `<p class="small text-warning">${unmatchedCount} routes don't match any pivot.</p>` : ''}
+                        <p>${PERTII18n.t('reroute.handler.pivotFound', { pivotCount: usedPivots.length, routeCount: routes.length })}</p>
+                        ${unmatchedCount > 0 ? `<p class="small text-warning">${PERTII18n.t('reroute.handler.unmatchedRoutes', { count: unmatchedCount })}</p>` : ''}
                         <table class="table table-sm mt-3" style="font-size: 0.85rem;">
-                            <thead><tr><th>Pivot</th><th>Routes</th><th>Avg Position</th></tr></thead>
+                            <thead><tr><th>${PERTII18n.t('reroute.handler.pivotHeader')}</th><th>${PERTII18n.t('reroute.handler.routesHeader')}</th><th>${PERTII18n.t('reroute.handler.avgPositionHeader')}</th></tr></thead>
                             <tbody>${candidatesHtml}</tbody>
                         </table>
-                        <p class="small text-muted mt-2">Each route is assigned to its best matching pivot based on centrality scoring.</p>
+                        <p class="small text-muted mt-2">${PERTII18n.t('reroute.handler.pivotHint')}</p>
                     `,
-                    confirmButtonText: 'Use Split Format',
+                    confirmButtonText: PERTII18n.t('reroute.handler.useSplitFormat'),
                     showCancelButton: true,
-                    cancelButtonText: 'Close',
+                    cancelButtonText: PERTII18n.t('common.close'),
                     width: 500,
                 }).then(result => {
                     if (result.isConfirmed) {
@@ -8396,11 +8395,8 @@
             } else {
                 Swal.fire({
                     icon: 'info',
-                    title: 'No Pivot Waypoints Found',
-                    html: `
-                        <p>No waypoint found in at least 3 routes (or 30% of ${routes.length} routes).</p>
-                        <p class="small text-muted">Routes will be displayed grouped by origin and destination.</p>
-                    `,
+                    title: PERTII18n.t('reroute.handler.noPivotWaypoints'),
+                    html: PERTII18n.t('reroute.handler.noPivotWaypointsHtml', { count: routes.length }),
                     timer: 3000,
                     showConfirmButton: false,
                 });
@@ -8493,18 +8489,18 @@
                 if (result.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Draft Saved',
-                        text: `Draft saved successfully (ID: ${result.draft_id})`,
+                        title: PERTII18n.t('tmiPublish.drafts.saved'),
+                        text: PERTII18n.t('tmiPublish.drafts.savedText', { id: result.draft_id }),
                         timer: 2000,
                         showConfirmButton: false,
                     });
                     this.loadDraftsList();
                 } else {
-                    throw new Error(result.error || 'Unknown error');
+                    throw new Error(result.error || PERTII18n.t('tmiPublish.drafts.unknownError'));
                 }
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to save draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.saveFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8515,7 +8511,7 @@
             const $list = $('#rr_drafts_list');
 
             if (!this.userCid) {
-                $list.html('<div class="list-group-item text-center text-muted small">Sign in to save drafts</div>');
+                $list.html(`<div class="list-group-item text-center text-muted small">${PERTII18n.t('tmiPublish.drafts.signInToSave')}</div>`);
                 return;
             }
 
@@ -8524,7 +8520,7 @@
                 const result = await response.json();
 
                 if (!result.success || !result.drafts.length) {
-                    $list.html('<div class="list-group-item text-center text-muted small">No saved drafts</div>');
+                    $list.html(`<div class="list-group-item text-center text-muted small">${PERTII18n.t('tmiPublish.drafts.noSavedDrafts')}</div>`);
                     return;
                 }
 
@@ -8551,7 +8547,7 @@
 
             } catch (e) {
                 console.error('[REROUTE] Failed to load drafts:', e);
-                $list.html('<div class="list-group-item text-center text-danger small">Failed to load drafts</div>');
+                $list.html(`<div class="list-group-item text-center text-danger small">${PERTII18n.t('tmiPublish.drafts.loadFailed')}</div>`);
             }
         },
 
@@ -8572,13 +8568,13 @@
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Draft Loaded',
+                    title: PERTII18n.t('tmiPublish.drafts.loaded'),
                     timer: 1500,
                     showConfirmButton: false,
                 });
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to load draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.loadError', { error: e.message }), 'error');
             }
         },
 
@@ -8587,12 +8583,12 @@
          */
         deleteDraft: async function(draftId) {
             const confirm = await Swal.fire({
-                title: 'Delete Draft?',
-                text: 'This cannot be undone.',
+                title: PERTII18n.t('tmiPublish.drafts.deleteConfirm'),
+                text: PERTII18n.t('tmiPublish.drafts.cannotUndo'),
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
-                confirmButtonText: 'Delete',
+                confirmButtonText: PERTII18n.t('tmiPublish.drafts.deleteBtn'),
             });
 
             if (!confirm.isConfirmed) {return;}
@@ -8606,11 +8602,11 @@
                 if (result.success) {
                     this.loadDraftsList();
                 } else {
-                    throw new Error(result.error || 'Unknown error');
+                    throw new Error(result.error || PERTII18n.t('tmiPublish.drafts.unknownError'));
                 }
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to delete draft: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.drafts.deleteFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8667,9 +8663,9 @@
 
             // Show deadline dialog
             const { value: deadline } = await Swal.fire({
-                title: 'Coordination Deadline',
+                title: PERTII18n.t('tmiPublish.coordDeadline'),
                 html: `
-                    <p class="mb-2">Set deadline for facility approvals:</p>
+                    <p class="mb-2">${PERTII18n.t('tmiPublish.deadlineHint')}</p>
                     <input type="datetime-local" id="swal-deadline" class="swal2-input"
                            style="width: 100%;">
                     <p class="small text-muted mt-2">
@@ -8686,16 +8682,16 @@
                     return document.getElementById('swal-deadline').value;
                 },
                 showCancelButton: true,
-                confirmButtonText: 'Submit',
-                cancelButtonText: 'Cancel',
+                confirmButtonText: PERTII18n.t('tmiPublish.coordination.submit'),
+                cancelButtonText: PERTII18n.t('common.cancel'),
             });
 
             if (!deadline) {return;}
 
             // Submit to coordination API
             Swal.fire({
-                title: 'Submitting...',
-                text: 'Creating coordination proposal',
+                title: PERTII18n.t('tmiPublish.submitting'),
+                text: PERTII18n.t('tmiPublish.creatingProposal'),
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading(),
             });
@@ -8719,15 +8715,15 @@
                 if (result.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Submitted for Coordination',
+                        title: PERTII18n.t('tmiPublish.submittedForCoord'),
                         html: `
-                            <p>Proposal ID: <strong>${result.proposal_id}</strong></p>
+                            <p>${PERTII18n.t('tmiPublish.proposalId', { id: result.proposal_id })}</p>
                             ${result.auto_approved ?
-        '<p class="text-success">Auto-approved (internal TMI)</p>' :
-        '<p>Awaiting facility approvals on Discord.</p>'
+        `<p class="text-success">${PERTII18n.t('tmiPublish.autoApproved')}</p>` :
+        `<p>${PERTII18n.t('tmiPublish.awaitingApprovals')}</p>`
     }
                         `,
-                        confirmButtonText: 'View in Coordination Tab',
+                        confirmButtonText: PERTII18n.t('tmiPublish.viewInCoordTab'),
                     }).then(() => {
                         // Switch to coordination tab
                         $('#coordination-tab').tab('show');
@@ -8737,11 +8733,11 @@
                         }
                     });
                 } else {
-                    throw new Error(result.error || 'Unknown error');
+                    throw new Error(result.error || PERTII18n.t('tmiPublish.drafts.unknownError'));
                 }
 
             } catch (e) {
-                Swal.fire('Error', 'Failed to submit: ' + e.message, 'error');
+                Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiPublish.submitFailed', { error: e.message }), 'error');
             }
         },
 
@@ -8826,8 +8822,8 @@
                 if (!previewText || previewText === 'Generate preview to see advisory text...') {
                     Swal.fire({
                         icon: 'warning',
-                        title: 'No Preview',
-                        text: 'Generate a preview first before copying.',
+                        title: PERTII18n.t('reroute.handler.noPreview'),
+                        text: PERTII18n.t('reroute.handler.noPreviewText'),
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -8846,8 +8842,8 @@
                     console.error('Failed to copy:', err);
                     Swal.fire({
                         icon: 'error',
-                        title: 'Copy Failed',
-                        text: 'Could not copy to clipboard. Please select and copy manually.',
+                        title: PERTII18n.t('reroute.handler.copyFailed'),
+                        text: PERTII18n.t('reroute.handler.copyFailedText'),
                         timer: 3000,
                         showConfirmButton: false,
                     });
@@ -8873,7 +8869,7 @@
                     $('#rr_routes_body').html(`
                         <tr class="rr-empty-row">
                             <td colspan="7" class="text-center text-muted py-3">
-                                No routes loaded.
+                                ${PERTII18n.t('reroute.handler.noRoutesLoaded')}
                             </td>
                         </tr>
                     `);
@@ -8888,11 +8884,11 @@
 
             $('#rr_reset').on('click', () => {
                 Swal.fire({
-                    title: 'Reset Form?',
-                    text: 'This will clear all fields.',
+                    title: PERTII18n.t('reroute.handler.resetForm'),
+                    text: PERTII18n.t('reroute.handler.resetFormText'),
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Reset',
+                    confirmButtonText: PERTII18n.t('reroute.handler.resetConfirm'),
                 }).then((result) => {
                     if (result.isConfirmed) {
                         self.resetForm();
