@@ -978,10 +978,16 @@ class TMIComplianceAnalyzer:
         # CRITICAL: Filter by route fix to ensure flights are actually routed via the TMI fix
         # This prevents including flights on parallel routes that happen to pass near the fix
         if tmi.fix:
-            # Check both fp_route_expanded (space-delimited fixes) and afix (arrival fix)
-            # Use space-bounded search to avoid partial matches (e.g., "FLCHR" not matching "FLCHRS")
-            route_filter = f"AND (p.fp_route_expanded LIKE '% {tmi.fix} %' OR p.fp_route_expanded LIKE '{tmi.fix} %' OR p.fp_route_expanded LIKE '% {tmi.fix}' OR p.afix = '{tmi.fix}')"
-            logger.info(f"Route filter: flights via {tmi.fix}")
+            # Check: 1) fix in expanded route (space-bounded), 2) arrival fix, 3) STAR named after fix
+            # STARs are named {FIX}{version} e.g. DADES2, MAATY5 — flights on these STARs cross the fix
+            route_filter = f"""AND (
+                p.fp_route_expanded LIKE '% {tmi.fix} %'
+                OR p.fp_route_expanded LIKE '{tmi.fix} %'
+                OR p.fp_route_expanded LIKE '% {tmi.fix}'
+                OR p.afix = '{tmi.fix}'
+                OR p.star_name LIKE '{tmi.fix}%'
+            )"""
+            logger.info(f"Route filter: flights via {tmi.fix} (route/afix/STAR)")
 
         # Use WIDEST window
         tmi_start = tmi.start_utc
