@@ -60,6 +60,8 @@ const TMICompliance = {
     listGrouping: 'type',        // 'type', 'chronological', 'volume', 'noncompliant'
     listOrdering: 'chronological', // 'chronological', 'volume', 'alpha'
     expandedSections: {},        // Track which detail sections are expanded
+    holdingData: null,               // Holding detection results from Python
+    _selectedHoldingFix: null,       // Currently selected holding fix index
 
     init: function() {
         // Get plan ID from URL
@@ -191,6 +193,10 @@ const TMICompliance = {
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Store holding results
+                    if (this.results && this.results.holding) {
+                        this.holdingData = this.results.holding;
+                    }
                     // Start trajectory fetch in parallel (maps will await it)
                     if (response.data.trajectories_url) {
                         this.loadTrajectories(this.planId, response.data.trajectories_url);
@@ -472,6 +478,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (response.success && response.data) {
             this.results = response.data;
+            // Store holding results
+            if (this.results && this.results.holding) {
+                this.holdingData = this.results.holding;
+            }
             if (response.data.trajectories_url) {
                 this.loadTrajectories(this.planId, response.data.trajectories_url);
             }
@@ -6978,6 +6988,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
+        // Holding patterns section
+        if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
+            const hs = this.holdingData.summary;
+            html += '<div class="tmi-list-section-label">Holding Patterns</div>';
+            (hs.hold_fixes || []).forEach((fix, idx) => {
+                const fixLabel = fix.fix_name || 'Unknown Fix';
+                const isSelected = this._selectedHoldingFix === idx;
+                const durMin = Math.round(fix.avg_duration_sec / 60);
+                html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
+                    <div class="tmi-list-item-identity">
+                        <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
+                    </div>
+                    <div class="tmi-list-item-meta">
+                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                    </div>
+                </div>`;
+            });
+        }
+
         return html;
     },
 
@@ -7701,6 +7730,110 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Select a holding fix in the list panel
+     */
+    selectHoldingFix: function(fixIdx) {
+        this._selectedHoldingFix = fixIdx;
+        this.selectedTmiId = null; // Deselect any TMI
+
+        // Remove selected class from TMI list items, add to holding item
+        $('.tmi-list-item').removeClass('selected');
+        $(`.tmi-list-item`).eq(-1).addClass('selected'); // Will be updated by re-render
+
+        this.renderHoldingDetail(fixIdx);
+    },
+
+    /**
+     * Render holding fix detail panel
+     */
+    renderHoldingDetail: function(fixIdx) {
+        const holding = this.holdingData;
+        if (!holding || !holding.summary) return;
+
+        const fix = holding.summary.hold_fixes[fixIdx];
+        if (!fix) return;
+
+        const events = holding.events.filter(e => {
+            return (fix.fix_name && e.matched_fix === fix.fix_name) ||
+                   (!fix.fix_name && Math.abs(e.center_lat - fix.center[1]) < 0.01);
+        });
+
+        let html = '';
+
+        // Back link for mobile
+        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 Back to list</a>';
+
+        // Header
+        html += `<div class="tmi-detail-header">
+            <div class="tmi-identity"><span class="tmi-type-badge holding">HPT</span> Holding at ${fix.fix_name || 'Unknown'}</div>
+            <div class="tmi-standardized">${fix.flight_count} flights, ${fix.total_orbits} total orbits</div>
+        </div>`;
+
+        // Overview stats
+        const durMin = Math.round(fix.avg_duration_sec / 60);
+        html += `<div class="tmi-detail-overview">
+            <div class="stat"><div class="stat-value">${fix.flight_count}</div><div class="stat-label">Flights</div></div>
+            <div class="stat"><div class="stat-value">${fix.total_orbits}</div><div class="stat-label">Total Orbits</div></div>
+            <div class="stat"><div class="stat-value">${durMin}m</div><div class="stat-label">Avg Duration</div></div>
+            <div class="stat"><div class="stat-value">${fix.peak_concurrent}</div><div class="stat-label">Peak Concurrent</div></div>
+        </div>`;
+
+        // NTML badge
+        if (fix.ntml_corroborated) {
+            html += '<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i> NTML Corroborated</div>';
+        }
+
+        // Flight list expandable section
+        html += this.renderExpandableSectionV2('holding-flights-' + fixIdx, 'Flights', events.length, () => {
+            let tableHtml = '<table class="tmi-pairs-table"><thead><tr>';
+            tableHtml += '<th>Callsign</th><th>Dep</th><th>Dest</th><th>Start</th><th>Duration</th><th>Orbits</th><th>Fix Source</th><th>Dir</th>';
+            tableHtml += '</tr></thead><tbody>';
+            events.forEach(e => {
+                const startTime = e.hold_start_utc ? e.hold_start_utc.substring(11, 16) : '-';
+                const durMin = Math.round(e.duration_sec / 60);
+                const sourceLabel = e.fix_match_source === 'route' ? 'Route'
+                    : e.fix_match_source === 'star' ? 'STAR'
+                    : e.fix_match_source === 'navfix' ? 'Nearby' : '-';
+                tableHtml += `<tr>
+                    <td><strong>${e.callsign}</strong></td>
+                    <td>${e.dept || '-'}</td>
+                    <td>${e.dest || '-'}</td>
+                    <td>${startTime}Z</td>
+                    <td>${durMin}min</td>
+                    <td>${e.orbit_count}</td>
+                    <td>${sourceLabel}</td>
+                    <td>${e.turn_direction || '-'}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+            return tableHtml;
+        });
+
+        // Delay attribution expandable section
+        const attr = holding.summary.delay_attribution;
+        if (attr && attr.total_hold_delay_sec > 0) {
+            html += this.renderExpandableSectionV2('holding-delay-' + fixIdx, 'Delay Attribution', '', () => {
+                const totalMin = Math.round(attr.total_hold_delay_sec / 60);
+                let dhtml = '<div class="holding-delay-summary">';
+                dhtml += `<div class="stat"><div class="stat-value">${totalMin}m</div><div class="stat-label">Total Hold Delay</div></div>`;
+                if (attr.attributed.gs && attr.attributed.gs.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.gs.flights}</div><div class="stat-label">GS-Attributed</div></div>`;
+                }
+                if (attr.attributed.mit && attr.attributed.mit.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.mit.flights}</div><div class="stat-label">MIT-Attributed</div></div>`;
+                }
+                if (attr.unattributed && attr.unattributed.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.unattributed.flights}</div><div class="stat-label">Unattributed</div></div>`;
+                }
+                dhtml += '</div>';
+                return dhtml;
+            });
+        }
+
+        $('#tmi-detail-panel').html(html);
+    },
+
+    /**
      * Toggle spacing diagram scale mode and re-render
      */
     toggleSpacingDiagramScale: function() {
@@ -7993,6 +8126,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += '<div class="tmi-list-section-label">Advisories</div>';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Holding patterns section
+        if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
+            const hs = this.holdingData.summary;
+            html += '<div class="tmi-list-section-label">Holding Patterns</div>';
+            (hs.hold_fixes || []).forEach((fix, idx) => {
+                const fixLabel = fix.fix_name || 'Unknown Fix';
+                const isSelected = this._selectedHoldingFix === idx;
+                const durMin = Math.round(fix.avg_duration_sec / 60);
+                html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
+                    <div class="tmi-list-item-identity">
+                        <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
+                    </div>
+                    <div class="tmi-list-item-meta">
+                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                    </div>
+                </div>`;
             });
         }
 
