@@ -2057,5 +2057,42 @@
     "facilityTypePlural": "ARTCCs",
     "switchOrg": "Switch Organization",
     "currentOrg": "Current: {org}"
+  },
+  "nav": {
+    "planning": "Planning",
+    "plans": "Plans",
+    "configs": "Configs",
+    "routes": "Routes",
+    "simulator": "Simulator",
+    "data": "Data",
+    "nod": "NOD",
+    "gdt": "GDT",
+    "demand": "Demand",
+    "splits": "Splits",
+    "tools": "Tools",
+    "jatoc": "JATOC",
+    "eventAar": "Event AAR",
+    "tmiPublisher": "TMI Publisher",
+    "status": "Status",
+    "admin": "Admin",
+    "schedule": "Schedule",
+    "sua": "SUA",
+    "crossings": "Crossings",
+    "swim": "SWIM",
+    "overview": "Overview",
+    "apiKeys": "API Keys",
+    "apiDocs": "API Docs",
+    "technicalDocs": "Technical Docs",
+    "about": "About",
+    "infrastructure": "Infrastructure",
+    "privacyPolicy": "Privacy Policy",
+    "login": "Login",
+    "logout": "Logout",
+    "menu": "Menu"
+  },
+  "footer": {
+    "copyright": "Copyright \u00a9 {year} vATCSCC - All Rights Reserved.",
+    "disclaimer": "For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network.",
+    "privacyPolicy": "Privacy Policy"
   }
 }

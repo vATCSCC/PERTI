@@ -49,60 +49,60 @@ $filepath = "";
 $nav_config = [
     // Dropdown: Planning Tools
     'planning' => [
-        'label' => 'Planning',
+        'label' => __('nav.planning'),
         'items' => [
-            ['label' => 'Plans', 'path' => './'],
-            ['label' => 'Configs', 'path' => './airport_config'],
-            ['label' => 'Routes', 'path' => './route'],
-            ['label' => 'Simulator', 'path' => './simulator'],
+            ['label' => __('nav.plans'), 'path' => './'],
+            ['label' => __('nav.configs'), 'path' => './airport_config'],
+            ['label' => __('nav.routes'), 'path' => './route'],
+            ['label' => __('nav.simulator'), 'path' => './simulator'],
         ]
     ],
     // Dropdown: Data & Analysis
     'data' => [
-        'label' => 'Data',
+        'label' => __('nav.data'),
         'items' => [
-            ['label' => 'NOD', 'path' => './nod'],
-            ['label' => 'GDT', 'path' => './gdt'],
-            ['label' => 'Demand', 'path' => './demand'],
-            ['label' => 'Splits', 'path' => './splits'],
+            ['label' => __('nav.nod'), 'path' => './nod'],
+            ['label' => __('nav.gdt'), 'path' => './gdt'],
+            ['label' => __('nav.demand'), 'path' => './demand'],
+            ['label' => __('nav.splits'), 'path' => './splits'],
         ]
     ],
     // Dropdown: Tools
     'tools' => [
-        'label' => 'Tools',
+        'label' => __('nav.tools'),
         'items' => [
-            ['label' => 'JATOC', 'path' => './jatoc'],
-            ['label' => 'Event AAR', 'path' => './event-aar'],
-            ['label' => 'TMI Publisher', 'path' => './tmi-publish', 'perm' => true],
-            ['label' => 'Status', 'path' => './status'],
+            ['label' => __('nav.jatoc'), 'path' => './jatoc'],
+            ['label' => __('nav.eventAar'), 'path' => './event-aar'],
+            ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish', 'perm' => true],
+            ['label' => __('nav.status'), 'path' => './status'],
         ]
     ],
     // Dropdown: Admin (permission-gated)
     'admin' => [
-        'label' => 'Admin',
+        'label' => __('nav.admin'),
         'perm' => true,
         'items' => [
-            ['label' => 'Schedule', 'path' => './schedule'],
-            ['label' => 'SUA', 'path' => './sua'],
-            ['label' => 'Crossings', 'path' => './airspace-elements'],
+            ['label' => __('nav.schedule'), 'path' => './schedule'],
+            ['label' => __('nav.sua'), 'path' => './sua'],
+            ['label' => __('nav.crossings'), 'path' => './airspace-elements'],
         ]
     ],
     // Dropdown: SWIM API
     'swim' => [
-        'label' => 'SWIM',
+        'label' => __('nav.swim'),
         'items' => [
-            ['label' => 'Overview', 'path' => './swim'],
-            ['label' => 'API Keys', 'path' => './swim-keys'],
-            ['label' => 'API Docs', 'path' => './docs/swim/', 'external' => true],
-            ['label' => 'Technical Docs', 'path' => './swim-docs'],
+            ['label' => __('nav.overview'), 'path' => './swim'],
+            ['label' => __('nav.apiKeys'), 'path' => './swim-keys'],
+            ['label' => __('nav.apiDocs'), 'path' => './docs/swim/', 'external' => true],
+            ['label' => __('nav.technicalDocs'), 'path' => './swim-docs'],
         ]
     ],
     // Dropdown: About
     'about' => [
-        'label' => 'About',
+        'label' => __('nav.about'),
         'items' => [
-            ['label' => 'Infrastructure', 'path' => './transparency'],
-            ['label' => 'Privacy Policy', 'path' => './privacy'],
+            ['label' => __('nav.infrastructure'), 'path' => './transparency'],
+            ['label' => __('nav.privacyPolicy'), 'path' => './privacy'],
         ]
     ],
 ];
@@ -234,7 +234,7 @@ if (!function_exists('render_dropdown')) {
             </ul>
         <?php else: ?>
             <a class="btn btn-sm btn-danger" href="<?= $filepath; ?>login" rel="noopener">
-                <i class="fas fa-user font-size-lg mr-2"></i>Login
+                <i class="fas fa-user font-size-lg mr-2"></i><?= __('nav.login') ?>
             </a>
         <?php endif; ?>
     </div>
@@ -245,7 +245,7 @@ if (!function_exists('render_dropdown')) {
 <!-- Mobile Offcanvas Menu -->
 <div class="offcanvas-mobile" id="primaryMenu">
     <div class="offcanvas-header">
-        <span class="offcanvas-title">Menu</span>
+        <span class="offcanvas-title"><?= __('nav.menu') ?></span>
         <button type="button" class="offcanvas-close" aria-label="Close menu">
             <i class="fas fa-times"></i>
         </button>
@@ -289,13 +289,13 @@ if (!function_exists('render_dropdown')) {
             <?php if ($perm): ?>
                 <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
                     <a class="mobile-nav-link" href="<?= $filepath ?>logout">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout (<?= $_SESSION['VATSIM_FIRST_NAME'] ?>)
+                        <i class="fas fa-sign-out-alt mr-2"></i><?= __('nav.logout') ?> (<?= $_SESSION['VATSIM_FIRST_NAME'] ?>)
                     </a>
                 </li>
             <?php else: ?>
                 <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
                     <a class="mobile-nav-link" href="<?= $filepath ?>login">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                        <i class="fas fa-sign-in-alt mr-2"></i><?= __('nav.login') ?>
                     </a>
                 </li>
             <?php endif; ?>

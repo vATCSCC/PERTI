@@ -112,5 +112,35 @@
     "staffing": {
       "dcc": "{commandCenter}"
     }
+  },
+  "nav": {
+    "planning": "Planification",
+    "plans": "Plans",
+    "configs": "Configurations",
+    "routes": "Routes",
+    "simulator": "Simulateur",
+    "data": "Donn\u00e9es",
+    "tools": "Outils",
+    "eventAar": "TAA \u00e9v\u00e9nement",
+    "tmiPublisher": "Publieur IGC",
+    "status": "\u00c9tat",
+    "admin": "Administration",
+    "schedule": "Horaire",
+    "crossings": "Croisements",
+    "overview": "Aper\u00e7u",
+    "apiKeys": "Cl\u00e9s API",
+    "apiDocs": "Docs API",
+    "technicalDocs": "Docs techniques",
+    "about": "\u00c0 propos",
+    "infrastructure": "Infrastructure",
+    "privacyPolicy": "Politique de confidentialit\u00e9",
+    "login": "Connexion",
+    "logout": "D\u00e9connexion",
+    "menu": "Menu"
+  },
+  "footer": {
+    "copyright": "Copyright \u00a9 {year} vATCSCC - Tous droits r\u00e9serv\u00e9s.",
+    "disclaimer": "Pour usage en simulation de vol uniquement. Ce site n'est pas destin\u00e9 \u00e0 la navigation r\u00e9elle et n'est affili\u00e9 \u00e0 aucun organisme de r\u00e9glementation a\u00e9ronautique. Tout le contenu est approuv\u00e9 uniquement pour utilisation sur le r\u00e9seau VATSIM.",
+    "privacyPolicy": "Politique de confidentialit\u00e9"
   }
 }
