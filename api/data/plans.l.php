@@ -89,7 +89,7 @@ function plan_build_utc_ts(string $date_str, string $time_str): ?int {
 // Classify each plan: live | week | upcoming | past
 // -----------------------------------------------------------------------
 $sections = ['live' => [], 'week' => [], 'upcoming' => [], 'past' => []];
-$background_plan_pattern = '/^advanced\s+perti\s+plan$/i';
+$background_plan_pattern = '/^advanced(\s+perti\s+plan)?$/i';
 
 foreach ($plans as &$p) {
     $start_ts = plan_build_utc_ts($p['event_date'] ?? '', $p['event_start'] ?? '');
