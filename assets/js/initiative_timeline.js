@@ -139,7 +139,7 @@ class InitiativeTimeline {
                             <div class="dcccp-filter-header">
                                 <span class="dcccp-filter-label">${PERTII18n.t('initiative.filteredOut')}:</span>
                                 <div class="dcccp-filter-buttons">
-                                    <button class="dcccp-filter-clear" title="Clear filters">&times;</button>
+                                    <button class="dcccp-filter-clear" title="${PERTII18n.t('initiative.clearFilters')}">&times;</button>
                                     <button class="dcccp-filter-toggle">&#9662;</button>
                                 </div>
                             </div>
@@ -264,7 +264,7 @@ class InitiativeTimeline {
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.tmiType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-tmi-type">
-                                                ${this.tmiTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                                ${this.tmiTypes.map(t => `<option value="${t}">${PERTII18n.t('initiative.tmiTypeLabel.' + t, {}, t)}</option>`).join('')}
                                             </select>
                                         </div>
                                     </div>
@@ -295,7 +295,7 @@ class InitiativeTimeline {
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.movementType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-vip-type">
-                                                ${this.vipTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                                ${this.vipTypes.map(t => `<option value="${t}">${PERTII18n.t('initiative.vipTypeLabel.' + t, {}, t)}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-6 mb-3">
@@ -326,7 +326,7 @@ class InitiativeTimeline {
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.operationType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-space-type">
-                                                ${this.spaceTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                                ${this.spaceTypes.map(t => `<option value="${t}">${PERTII18n.t('initiative.spaceTypeLabel.' + t, {}, t)}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-6 mb-3">
@@ -365,7 +365,7 @@ class InitiativeTimeline {
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.shift')}</label>
                                             <select class="form-control" id="${this.modalId}-staff-shift">
-                                                ${this.shifts.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                                ${this.shifts.map(s => `<option value="${s}">${PERTII18n.t('initiative.shiftLabel.' + s, {}, s)}</option>`).join('')}
                                             </select>
                                         </div>
                                     </div>
@@ -447,7 +447,7 @@ class InitiativeTimeline {
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.cause')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-constraint-type">
-                                                ${this.constraintTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                                ${this.constraintTypes.map(t => `<option value="${t}">${PERTII18n.t('initiative.constraintTypeLabel.' + t, {}, t)}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-4 mb-3" id="${this.modalId}-constraint-other-wrap" style="display:none;">

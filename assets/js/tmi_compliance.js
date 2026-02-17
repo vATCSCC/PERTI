@@ -257,7 +257,7 @@ const TMICompliance = {
                 title: 'No NTML Configuration',
                 html: `
                     <div class="text-left">
-                        <p>Please enter NTML entries in the configuration section above and click <strong>Save Config</strong> before running analysis.</p>
+                        <p>${PERTII18n.t('tmiCompliance.noNtmlConfigInstruction')}</p>
                         <p class="small text-muted">Example NTML format:</p>
                         <pre class="small">LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
 LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
@@ -482,7 +482,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
             this.checkDataGaps(() => {
                 const gapWarning = this.dataGaps?.has_gaps
-                    ? `<div class="mt-2 small text-warning"><i class="fas fa-exclamation-triangle"></i> Data gaps detected - some flights may be missing</div>`
+                    ? `<div class="mt-2 small text-warning"><i class="fas fa-exclamation-triangle"></i> ${PERTII18n.t('tmiCompliance.dataGapsWarning')}</div>`
                     : '';
 
                 Swal.fire({
@@ -490,11 +490,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     title: 'Analysis Complete',
                     html: `
                         <div class="text-center">
-                            <p>TMI compliance analysis completed in <strong>${elapsed}s</strong></p>
+                            <p>${PERTII18n.t('tmiCompliance.analysisCompletedIn', { elapsed })}</p>
                             <div class="mt-3 small" style="color: var(--dark-text-subtle);">
-                                <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${mitCount} MIT/MINIT restriction${mitCount !== 1 ? 's' : ''}</div>
-                                <div><i class="fas fa-plane-slash text-warning mr-2"></i>${gsCount} ground stop${gsCount !== 1 ? 's' : ''}</div>
-                                <div><i class="fas fa-clipboard-check text-success mr-2"></i>${apreqCount} APREQ/CFR${apreqCount !== 1 ? 's' : ''}</div>
+                                <div><i class="fas fa-ruler-horizontal text-info mr-2"></i>${PERTII18n.t(mitCount !== 1 ? 'tmiCompliance.mitMinitRestrictionsPlural' : 'tmiCompliance.mitMinitRestrictions', { count: mitCount })}</div>
+                                <div><i class="fas fa-plane-slash text-warning mr-2"></i>${PERTII18n.t(gsCount !== 1 ? 'tmiCompliance.groundStopCountPlural' : 'tmiCompliance.groundStopCount', { count: gsCount })}</div>
+                                <div><i class="fas fa-clipboard-check text-success mr-2"></i>${PERTII18n.t(apreqCount !== 1 ? 'tmiCompliance.apreqCfrCountPlural' : 'tmiCompliance.apreqCfrCount', { count: apreqCount })}</div>
                             </div>
                             ${gapWarning}
                         </div>
@@ -557,19 +557,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="summary-stats">
                     <div class="summary-stat">
                         <div class="summary-stat-value ${this.getComplianceClass(mitCompliance)}">${mitCompliance.toFixed(1)}%</div>
-                        <div class="tmi-stat-label">MIT/MINIT Compliance</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.mitMinitCompliance')}</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${gsCompliance !== null ? this.getComplianceClass(gsCompliance) : 'text-muted'}">${gsCompliance !== null ? gsCompliance.toFixed(1) + '%' : 'N/A'}</div>
-                        <div class="tmi-stat-label">Ground Stop Compliance</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.groundStopCompliance')}</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${rrCompliance !== null ? this.getComplianceClass(rrCompliance) : 'text-muted'}">${rrCompliance !== null ? rrCompliance.toFixed(1) + '%' : 'N/A'}</div>
-                        <div class="tmi-stat-label">Reroute Compliance</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.rerouteCompliance')}</div>
                     </div>
                     <div class="summary-stat">
                         <div class="summary-stat-value ${this.getComplianceClass(overall)}">${overall.toFixed(1)}%</div>
-                        <div class="tmi-stat-label">Overall Score</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.overallScore')}</div>
                     </div>
                 </div>
                 ${summary.mit ? `
@@ -1609,9 +1609,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const measurementPoint = r.measurement_point || r.fix || '';
         const isBoundary = measurementType === 'BOUNDARY';
         const measurementBadge = isBoundary
-            ? `<span class="badge badge-info ml-2" title="Measured at ARTCC handoff point"><i class="fas fa-border-all"></i> Boundary</span>`
+            ? `<span class="badge badge-info ml-2" title="${PERTII18n.t('tmiCompliance.measuredAtBoundaryTitle')}"><i class="fas fa-border-all"></i> Boundary</span>`
             : measurementType === 'BOUNDARY_FALLBACK_FIX'
-                ? `<span class="badge badge-secondary ml-2" title="Boundary unavailable, measured at fix"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
+                ? `<span class="badge badge-secondary ml-2" title="${PERTII18n.t('tmiCompliance.boundaryUnavailableTitle')}"><i class="fas fa-map-marker-alt"></i> Fix (fallback)</span>`
                 : '';
 
         // Determine display name: use fix if real, otherwise use destination(s)
@@ -1638,24 +1638,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <!-- Standardized TMI Notation -->
                 <div class="standardized-tmi mb-2">
                     <code class="small">${standardizedTMI}</code>
-                    ${isBoundary ? `<span class="small text-info ml-2"><i class="fas fa-ruler"></i> Measured at: ${measurementPoint}</span>` : ''}
+                    ${isBoundary ? `<span class="small text-info ml-2"><i class="fas fa-ruler"></i> ${PERTII18n.t('tmiCompliance.measuredAt', { point: measurementPoint })}</span>` : ''}
                 </div>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.crossings || r.total_crossings || 0}</div>
-                        <div class="tmi-stat-label">Crossings</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.crossings')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.pairs || 0}</div>
-                        <div class="tmi-stat-label">Pairs Analyzed</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.pairsAnalyzed')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${(r.spacing_stats?.avg || r.avg_spacing || 0).toFixed(1)}${unitLabel}</div>
-                        <div class="tmi-stat-label">Avg Spacing</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.avgSpacing')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${(r.spacing_stats?.min || r.min_spacing || 0).toFixed(1)}${unitLabel}</div>
-                        <div class="tmi-stat-label">Min Spacing</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.minSpacing')}</div>
                     </div>
                 </div>
                 ${r.distribution ? this.renderDistribution(r.distribution) : ''}
@@ -1663,8 +1663,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <!-- Good compliance metrics -->
                 ${streaks.longestGood > 0 ? `
                 <div class="mt-2 small text-success d-flex align-items-center">
-                    <span class="mr-3"><i class="fas fa-trophy"></i> Longest compliant streak: <strong>${streaks.longestGood}</strong> pairs</span>
-                    ${streaks.goodPeriods.length > 0 ? `<span class="text-muted">| ${streaks.goodPeriods.length} compliant periods</span>` : ''}
+                    <span class="mr-3"><i class="fas fa-trophy"></i> ${PERTII18n.t('tmiCompliance.longestStreak', { count: streaks.longestGood })}</span>
+                    ${streaks.goodPeriods.length > 0 ? `<span class="text-muted">| ${PERTII18n.t('tmiCompliance.compliantPeriods', { count: streaks.goodPeriods.length })}</span>` : ''}
                 </div>
                 ` : ''}
 
@@ -1679,10 +1679,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="mt-2 small text-danger d-flex justify-content-between align-items-center">
                     <span>
                         <i class="fas fa-exclamation-triangle"></i>
-                        <code>${violations.length}</code> violations | Max difference: <code>-${maxDiff}%</code>
+                        <code>${PERTII18n.t('tmiCompliance.violationCount', { count: violations.length })}</code> | ${PERTII18n.t('tmiCompliance.maxDifference', { value: '-' + maxDiff + '%' })}
                     </span>
                     <button class="btn btn-sm btn-outline-danger" type="button" data-toggle="collapse" data-target="#${violationId}">
-                        <i class="fas fa-eye"></i> Show Violations
+                        <i class="fas fa-eye"></i> ${PERTII18n.t('tmiCompliance.showViolations')}
                     </button>
                 </div>
                 <div class="collapse mt-2" id="${violationId}">
@@ -1690,12 +1690,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <table class="table table-sm table-striped tmi-detail-table">
                             <thead class="thead-dark">
                                 <tr>
-                                    <th>Lead Aircraft</th>
-                                    <th>Trail Aircraft</th>
-                                    <th>Gap (mm:ss)</th>
-                                    <th style="min-width: 180px;">Spacing <span class="badge badge-light ml-1">${required}${unitLabel} req</span></th>
-                                    <th>Required</th>
-                                    <th>Difference</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.leadAircraft')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.trailAircraft')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.gapMmSs')}</th>
+                                    <th style="min-width: 180px;">${PERTII18n.t('tmiCompliance.tableHeader.spacing')} <span class="badge badge-light ml-1">${required}${unitLabel} req</span></th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.required')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.difference')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1733,12 +1733,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <table class="table table-sm table-striped tmi-detail-table">
                             <thead class="thead-light sticky-top">
                                 <tr>
-                                    <th>Lead</th>
-                                    <th>Trail</th>
-                                    <th>Gap (mm:ss)</th>
-                                    <th style="min-width: 180px;">Spacing <span class="badge badge-secondary ml-1">${required}${unitLabel} req</span></th>
-                                    <th>Margin</th>
-                                    <th>Status</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.lead')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.trail')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.gapMmSs')}</th>
+                                    <th style="min-width: 180px;">${PERTII18n.t('tmiCompliance.tableHeader.spacing')} <span class="badge badge-secondary ml-1">${required}${unitLabel} req</span></th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.margin')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.status')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1839,7 +1839,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <span class="tmi-fix-name">${isRealFix ? fix : (destinations || 'Unknown')}</span>
                         <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
                         <span class="text-muted ml-2">| ${tmiStart} - ${tmiEnd}</span>
-                        <span class="badge badge-info ml-2" title="Multi-facility TMI analyzed at ${members.length} boundaries"><i class="fas fa-layer-group"></i> ${members.length} boundaries</span>
+                        <span class="badge badge-info ml-2" title="${PERTII18n.t('tmiCompliance.multiFacilityTitle', { count: members.length })}"><i class="fas fa-layer-group"></i> ${members.length} ${PERTII18n.t('tmiCompliance.statLabel.boundaries').toLowerCase()}</span>
                     </div>
                     <div class="compliance-badge ${aggCompClass}">${aggCompPct.toFixed(1)}%</div>
                 </div>
@@ -1850,30 +1850,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${totalCrossings}</div>
-                        <div class="tmi-stat-label">Total Crossings</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalCrossings')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${totalPairs}</div>
-                        <div class="tmi-stat-label">Total Pairs</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalPairs')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${avgSpacing.toFixed(1)}${unitLabel}</div>
-                        <div class="tmi-stat-label">Avg Spacing</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.avgSpacing')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${members.length}</div>
-                        <div class="tmi-stat-label">Boundaries</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.boundaries')}</div>
                     </div>
                 </div>
                 <!-- Per-boundary summary table -->
                 <div class="mt-2 mb-2">
                     <table class="table table-sm table-striped mb-0" style="font-size:0.85rem;">
                         <thead><tr>
-                            <th>Boundary</th>
-                            <th class="text-center">Crossings</th>
-                            <th class="text-center">Pairs</th>
-                            <th class="text-center">Compliance</th>
-                            <th class="text-center">Avg Spacing</th>
+                            <th>${PERTII18n.t('tmiCompliance.tableHeader.boundary')}</th>
+                            <th class="text-center">${PERTII18n.t('tmiCompliance.statLabel.crossings')}</th>
+                            <th class="text-center">${PERTII18n.t('tmiCompliance.statLabel.pairsAnalyzed')}</th>
+                            <th class="text-center">${PERTII18n.t('tmiCompliance.statLabel.compliant')}</th>
+                            <th class="text-center">${PERTII18n.t('tmiCompliance.statLabel.avgSpacing')}</th>
                         </tr></thead>
                         <tbody>`;
 
@@ -2012,19 +2012,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.total_flights || 0}</div>
-                        <div class="tmi-stat-label">Total Flights</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalFlights')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-info">${exemptCount}</div>
-                        <div class="tmi-stat-label">Exempt</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.exempt')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-success">${compliantCount}</div>
-                        <div class="tmi-stat-label">Compliant</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.compliant')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-danger">${nonCompliantCount}</div>
-                        <div class="tmi-stat-label">Violations</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.violations')}</div>
                     </div>
         `;
 
@@ -2033,7 +2033,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-muted">${notInScopeCount}</div>
-                        <div class="tmi-stat-label">Not In Scope</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.notInScope')}</div>
                     </div>
             `;
         }
@@ -2041,11 +2041,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Avg hold time with min/max/median tooltip
         if (r.avg_hold_time_min && r.avg_hold_time_min > 0) {
             const stats = r.hold_time_stats || {};
-            const tooltip = stats.min ? `Min: ${this.formatDuration(stats.min)} | Median: ${this.formatDuration(stats.median)} | Max: ${this.formatDuration(stats.max)}` : '';
+            const tooltip = stats.min ? PERTII18n.t('tmiCompliance.holdTimeTooltip', { min: this.formatDuration(stats.min), median: this.formatDuration(stats.median), max: this.formatDuration(stats.max) }) : '';
             html += `
                     <div class="tmi-stat" ${tooltip ? `title="${tooltip}"` : ''}>
                         <div class="tmi-stat-value">${this.formatDuration(r.avg_hold_time_min)}</div>
-                        <div class="tmi-stat-label">Avg Hold</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.avgHold')}</div>
                     </div>
             `;
         }
@@ -2053,11 +2053,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // GS delay stat (from OOOI taxi time analysis)
         const gsDelay = r.gs_delay_stats || {};
         if (gsDelay.flights_with_delay_data > 0) {
-            const delayTooltip = `Median: ${this.formatDuration(gsDelay.median_delay_min)} | Max: ${this.formatDuration(gsDelay.max_delay_min)} | Total: ${this.formatDuration(gsDelay.total_delay_min)} | Based on ${gsDelay.flights_with_delay_data} flights with OOOI data`;
+            const delayTooltip = PERTII18n.t('tmiCompliance.gsDelayTooltip', { median: this.formatDuration(gsDelay.median_delay_min), max: this.formatDuration(gsDelay.max_delay_min), total: this.formatDuration(gsDelay.total_delay_min), count: gsDelay.flights_with_delay_data });
             html += `
                     <div class="tmi-stat" title="${delayTooltip}">
                         <div class="tmi-stat-value">${this.formatDuration(gsDelay.avg_delay_min)}</div>
-                        <div class="tmi-stat-label">Avg GS Delay</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.avgGsDelay')}</div>
                     </div>
             `;
         }
@@ -2087,7 +2087,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="mt-2">
                     <button class="btn btn-sm btn-outline-info" type="button" data-toggle="collapse" data-target="#${originId}">
-                        <i class="fas fa-map-marker-alt"></i> Per-Origin Breakdown (${perOrigin.length})
+                        <i class="fas fa-map-marker-alt"></i> ${PERTII18n.t('tmiCompliance.perOriginBreakdown')} (${perOrigin.length})
                     </button>
                 </div>
                 <div class="collapse mt-2 gs-per-origin" id="${originId}">
@@ -2152,11 +2152,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const hasGsDelay = nonCompliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
+                        <h6 class="text-danger"><i class="fas fa-times-circle"></i> ${PERTII18n.t('tmiCompliance.statLabel.violations')} (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}${hasGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.intoGs')}</th>${hasPhase ? '<th>' + PERTII18n.t('tmiCompliance.tableHeader.phase') + '</th>' : ''}${hasGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.tableHeader.gsDelay') + '</th>' : ''}<th>${PERTII18n.t('tmiCompliance.tableHeader.source')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -2181,11 +2181,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (exemptFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> ${PERTII18n.t('tmiCompliance.statLabel.exempt')} (${exemptFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.reason')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -2208,11 +2208,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const hasCompGsDelay = compliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-success"><i class="fas fa-check"></i> Compliant (${compliantFlights.length})</h6>
+                        <h6 class="text-success"><i class="fas fa-check"></i> ${PERTII18n.t('tmiCompliance.statLabel.compliant')} (${compliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${hasCompGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.hold')}</th>${hasCompGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.tableHeader.gsDelay') + '</th>' : ''}<th>${PERTII18n.t('tmiCompliance.tableHeader.source')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${compliantFlights.map(f => `
@@ -2518,19 +2518,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${totalFlights}</div>
-                        <div class="tmi-stat-label">Total Flights</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalFlights')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-success">${filedCompliant.length}</div>
-                        <div class="tmi-stat-label">Filed Compliant</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.filedCompliant')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-success">${flownCompliant.length}</div>
-                        <div class="tmi-stat-label">Flown Compliant</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.flownCompliant')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-danger">${filedNonCompliant.length + flownNonCompliant.length}</div>
-                        <div class="tmi-stat-label">Non-Compliant</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.nonCompliant')}</div>
                     </div>
                 </div>
         `;
@@ -2541,11 +2541,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         html += `
                 <div class="compliance-split">
                     <div class="filed">
-                        <div class="small text-muted">Filed</div>
+                        <div class="small text-muted">${PERTII18n.t('tmiCompliance.filedLabel')}</div>
                         <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
                     </div>
                     <div class="flown">
-                        <div class="small text-muted">Flown</div>
+                        <div class="small text-muted">${PERTII18n.t('tmiCompliance.flownLabel')}</div>
                         <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
                         ${r.no_trajectory_count ? `<div class="small text-muted">(${r.no_trajectory_count} no trajectory)</div>` : ''}
                     </div>
@@ -2568,10 +2568,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
                             <span>${h.type || ''}</span>
                             ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
-                            <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
-                            ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                            <span class="text-muted small">${PERTII18n.t('tmiCompliance.issuedLabel')} ${h.issued || 'N/A'}</span>
+                            ${h.replaces ? `<span class="text-muted small">(${PERTII18n.t('tmiCompliance.replacesAdvzy', { number: h.replaces })})</span>` : ''}
                             ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
-                            ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                            ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} ${PERTII18n.t('tmiCompliance.routeCountLabel')}</div>` : ''}
                             ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
                         </div>
                     `).join('')}
@@ -2592,7 +2592,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped route-table">
                             <thead class="thead-dark">
-                                <tr><th>Origin</th><th>Dest</th><th>Route</th></tr>
+                                <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.dest')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.route')}</th></tr>
                             </thead>
                             <tbody>
                                 ${requiredRoutes.map(rt => {
@@ -2632,12 +2632,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             <thead class="thead-dark sticky-top">
                                 <tr>
                                     <th style="width:20px;"></th>
-                                    <th>Callsign</th>
-                                    <th>Origin</th>
-                                    <th>Dest</th>
-                                    <th>Filed %</th>
-                                    <th>Flown %</th>
-                                    <th>Status</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.dest')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.filedPct')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.flownPct')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.tableHeader.status')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2718,19 +2718,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${totalFlights}</div>
-                    <div class="stat-label">Flights Tracked</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalFlights')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${filedCompliant.length}</div>
-                    <div class="stat-label">Filed Compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.statLabel.filedCompliant')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${flownCompliant.length}</div>
-                    <div class="stat-label">Flown Compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.statLabel.flownCompliant')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${filedNonCompliant.length + flownNonCompliant.length}</div>
-                    <div class="stat-label">Non-Compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.statLabel.nonCompliant')}</div>
                 </div>
             </div>
         `;
@@ -2747,11 +2747,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         html += `
             <div class="compliance-split mt-2">
                 <div class="filed">
-                    <div class="small text-muted">Filed Compliance</div>
+                    <div class="small text-muted">${PERTII18n.t('tmiCompliance.filedComplianceLabel')}</div>
                     <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
                 </div>
                 <div class="flown">
-                    <div class="small text-muted">Flown Compliance</div>
+                    <div class="small text-muted">${PERTII18n.t('tmiCompliance.flownComplianceLabel')}</div>
                     <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
                     ${data.no_trajectory_count ? `<div class="small text-muted">(${data.no_trajectory_count} no trajectory)</div>` : ''}
                 </div>
@@ -2768,10 +2768,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         ${h.action ? `<span class="action-badge badge ${this.getActionBadgeClass(h.action)}">${h.action}</span>` : ''}
                         <span>${h.type || ''}</span>
                         ${h.start ? `<span class="text-muted">${h.start} - ${h.end || '?'}</span>` : ''}
-                        <span class="text-muted small">Issued: ${h.issued || 'N/A'}</span>
-                        ${h.replaces ? `<span class="text-muted small">(replaces ADVZY ${h.replaces})</span>` : ''}
+                        <span class="text-muted small">${PERTII18n.t('tmiCompliance.issuedLabel')} ${h.issued || 'N/A'}</span>
+                        ${h.replaces ? `<span class="text-muted small">(${PERTII18n.t('tmiCompliance.replacesAdvzy', { number: h.replaces })})</span>` : ''}
                         ${h.modifications ? `<div class="w-100 advisory-meta small text-warning"><i class="fas fa-edit"></i> ${this.escapeHtml(h.modifications)}</div>` : ''}
-                        ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} route(s)</div>` : ''}
+                        ${h.routes && h.routes.length ? `<div class="w-100 advisory-meta small"><i class="fas fa-route"></i> ${h.routes.length} ${PERTII18n.t('tmiCompliance.routeCountLabel')}</div>` : ''}
                         ${h.comments ? `<div class="w-100 advisory-meta small"><i class="fas fa-comment"></i> ${this.escapeHtml(h.comments)}</div>` : ''}
                     </div>
                 `).join('')}</div>`;
@@ -2783,7 +2783,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (requiredRoutes.length > 0) {
             html += this.renderExpandableSectionV2('reroute-routes', 'Required Routes', `(${requiredRoutes.length})`, () => {
                 let tbl = `<div class="table-responsive"><table class="table table-sm table-striped route-table">
-                    <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
+                    <thead><tr><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.dest')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.route')}</th></tr></thead><tbody>`;
                 requiredRoutes.forEach(rt => {
                     let routeStr = rt.route || '';
                     const reqFixes = data.required_fixes || [];
@@ -2810,7 +2810,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 let tbl = `<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-sm table-striped" id="${v2FlightTblId}">
                         <thead class="thead-dark sticky-top">
-                            <tr><th style="width:20px;"></th><th>Callsign</th><th>Origin</th><th>Dest</th><th>Filed %</th><th>Flown %</th><th>Status</th></tr>
+                            <tr><th style="width:20px;"></th><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.dest')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.filedPct')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.flownPct')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.status')}</th></tr>
                         </thead><tbody>`;
                 allFlights.forEach((f, idx) => {
                     const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
@@ -2883,7 +2883,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
                         ${gapBadge}
                     </div>
-                    <span class="badge badge-secondary">TRACKING ONLY</span>
+                    <span class="badge badge-secondary">${PERTII18n.t('tmiCompliance.trackingOnlyBadge')}</span>
                 </div>
                 <!-- Standardized TMI Notation -->
                 <div class="standardized-tmi mb-2">
@@ -2892,24 +2892,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${r.total_flights || 0}</div>
-                        <div class="tmi-stat-label">Total Flights</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalFlights')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-info">${exemptCount}</div>
-                        <div class="tmi-stat-label">Exempt</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.exempt')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-warning">${affectedCount}</div>
-                        <div class="tmi-stat-label">Need Release</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.needRelease')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-muted">${postTmiCount}</div>
-                        <div class="tmi-stat-label">Post TMI</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.postTmi')}</div>
                     </div>
                 </div>
                 <div class="alert alert-info mb-0 small mt-2">
                     <i class="fas fa-info-circle"></i>
-                    ${r.note || 'APREQ/CFR requires coordination verification - these flights would need release'}
+                    ${r.note || PERTII18n.t('tmiCompliance.apreqDefaultNote')}
                 </div>
         `;
 
@@ -2931,11 +2931,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (affectedFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-warning"><i class="fas fa-phone"></i> Need Release (${affectedFlights.length})</h6>
+                        <h6 class="text-warning"><i class="fas fa-phone"></i> ${PERTII18n.t('tmiCompliance.needReleaseHeading', { count: affectedFlights.length })}</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dest</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.dest')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${affectedFlights.map(f => `
@@ -2957,11 +2957,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (exemptFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> ${PERTII18n.t('tmiCompliance.exemptHeading', { count: exemptFlights.length })}</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -2982,11 +2982,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (postTmiFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-muted"><i class="fas fa-hourglass-end"></i> Post TMI (${postTmiFlights.length})</h6>
+                        <h6 class="text-muted"><i class="fas fa-hourglass-end"></i> ${PERTII18n.t('tmiCompliance.postTmiHeading', { count: postTmiFlights.length })}</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.tableHeader.callsign')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.origin')}</th><th>${PERTII18n.t('tmiCompliance.tableHeader.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${postTmiFlights.map(f => `
@@ -3042,21 +3042,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">Delay Overview</span>
-                        <span class="text-muted ml-2">| ${delays.length} entries across ${airports.length} airport(s)</span>
+                        <span class="text-muted ml-2">| ${PERTII18n.t('tmiCompliance.entriesAcrossAirports', { entries: delays.length, airports: airports.length })}</span>
                     </div>
                 </div>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${delays.length}</div>
-                        <div class="tmi-stat-label">Total Updates</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.totalUpdates')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-warning">${holdingEntries.length}</div>
-                        <div class="tmi-stat-label">Holding Events</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.holdingEvents')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${airports.length}</div>
-                        <div class="tmi-stat-label">Airports</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.statLabel.airports')}</div>
                     </div>
                 </div>
             </div>

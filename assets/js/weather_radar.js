@@ -167,10 +167,10 @@ const WeatherRadar = (function() {
             description: 'Dark monochrome suitable for TSD display overlay',
             filter: 'saturate(0) brightness(0.5) contrast(1.5)',
             legendColors: [
-                { dbz: 20, color: '#333', label: 'Light' },
-                { dbz: 35, color: '#666', label: 'Moderate' },
-                { dbz: 50, color: '#999', label: 'Heavy' },
-                { dbz: 65, color: '#ccc', label: 'Extreme' },
+                { dbz: 20, color: '#333', get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('weatherSeverity.light') : 'Light'; } },
+                { dbz: 35, color: '#666', get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('weatherSeverity.moderate') : 'Moderate'; } },
+                { dbz: 50, color: '#999', get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('weatherSeverity.heavy') : 'Heavy'; } },
+                { dbz: 65, color: '#ccc', get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('weatherSeverity.extreme') : 'Extreme'; } },
             ],
         },
         'HIGH_CONTRAST': {

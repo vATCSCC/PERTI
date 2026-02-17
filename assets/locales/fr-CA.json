@@ -256,6 +256,13 @@
       "notMet": "Not Met",
       "partial": "Partial"
     },
+    "parseType": {
+      "other": "Autre",
+      "reroute": "Déroutement",
+      "config": "Configuration"
+    },
+    "removeEntry": "Supprimer",
+    "clickToToggle": "Cliquer pour basculer",
     "status": {
       "draft": "Draft",
       "generating": "Generating...",
@@ -1232,7 +1239,13 @@
       "status": "Statut",
       "tmaRt": "TMA Rt",
       "type": "Type",
-      "vertexTime": "Vertex Time"
+      "vertexTime": "Vertex Time",
+      "statusExempt": "Exempté",
+      "statusDelayed": "Retardé",
+      "statusUncontrolled": "Non contrôlé",
+      "statusAssigned": "Assigné",
+      "statusOpen": "Ouvert",
+      "showingFlights": "Affichage de {count} vols"
     },
     "flightList": {
       "adlTime": "ADL Time:",
@@ -1395,7 +1408,14 @@
       "colCallsign": "Indicatif",
       "colRoute": "Route",
       "colType": "Type",
-      "colEta": "HEA"
+      "colEta": "HEA",
+      "fallbackFix": "Point",
+      "fallbackRoute": "Route",
+      "fallbackAirway": "Voie aérienne",
+      "fallbackAirwaySegment": "Segment de voie aérienne",
+      "fallbackViaFix": "Via point",
+      "clickToSeeFlights": "Cliquer pour voir les vols",
+      "removeMonitor": "Supprimer le moniteur"
     }
   },
   "demand": {
@@ -3897,7 +3917,57 @@
     "elementUpdated": "Élément mis à jour",
     "elementAdded": "Élément ajouté",
     "confirmDelete": "Supprimer cet élément ? Cette action est irréversible.",
-    "elementDeleted": "Élément supprimé"
+    "elementDeleted": "Élément supprimé",
+    "clearFilters": "Effacer les filtres",
+    "tmiTypeLabel": {
+      "GS": "GS",
+      "GDP": "GDP",
+      "MIT": "MIT",
+      "MINIT": "MINIT",
+      "CFR": "CFR",
+      "APREQ": "APREQ",
+      "Reroute": "Déroutement",
+      "AFP": "AFP",
+      "FEA": "FEA",
+      "FCA": "FCA",
+      "CTOP": "CTOP",
+      "ICR": "ICR",
+      "TBO": "TBO",
+      "Metering": "Régulation",
+      "TBM": "TBM",
+      "TBFM": "TBFM",
+      "Other": "Autre"
+    },
+    "constraintTypeLabel": {
+      "Weather": "Météo",
+      "Volume": "Volume",
+      "Runway": "Piste",
+      "Equipment": "Équipement",
+      "Construction": "Construction",
+      "Staffing": "Dotation",
+      "Military": "Militaire",
+      "TFR": "TFR",
+      "Airspace": "Espace aérien",
+      "Other": "Autre"
+    },
+    "vipTypeLabel": {
+      "VIP Arrival": "Arrivée VIP",
+      "VIP Departure": "Départ VIP",
+      "VIP Overflight": "Survol VIP",
+      "TFR": "TFR"
+    },
+    "spaceTypeLabel": {
+      "Rocket Launch": "Lancement de fusée",
+      "Reentry": "Rentrée",
+      "Launch Window": "Fenêtre de lancement",
+      "Hazard Area": "Zone dangereuse"
+    },
+    "shiftLabel": {
+      "Day": "Jour",
+      "Mid": "Nuit",
+      "Swing": "Soir",
+      "All": "Tous"
+    }
   },
   "tmiActive": {
     "entryType": {
@@ -4064,7 +4134,29 @@
     "routeExpired": "La route a expire",
     "scope": "Portee :",
     "startsInFuture": "La route commence dans le futur",
-    "timeUntilExpiration": "Time until expiration"
+    "timeUntilExpiration": "Time until expiration",
+    "noApiKey": "Pas de clé API"
+  },
+  "fir": {
+    "domestic": "National",
+    "domesticTitle": "National (niveaux ARTCC US/Canada)",
+    "international": "International",
+    "internationalTitle": "International (portée basée sur les FIR)",
+    "failedToLoadTiers": "Échec du chargement des niveaux FIR"
+  },
+  "adlUtils": {
+    "noDataAvailable": "Aucune donnée disponible",
+    "noFlightsFound": "Aucun vol trouvé"
+  },
+  "advisoryConfig": {
+    "usDcc": "DCC américain",
+    "canadianNoc": "NOC canadien"
+  },
+  "weatherSeverity": {
+    "light": "Léger",
+    "moderate": "Modéré",
+    "heavy": "Fort",
+    "extreme": "Extrême"
   },
   "aircraft": {
     "one": "{count} aeronef",
@@ -4245,7 +4337,11 @@
     "saveFirst": "Enregistrer first",
     "selectRoutesMandatory": "Please select one or more routes to make mandatory.",
     "specifyOriginOrDest": "Specify origin or destination",
-    "updatedToStatus": "Mis a jour to {status}"
+    "updatedToStatus": "Mis a jour to {status}",
+    "action": {
+      "override": "Remplacer",
+      "history": "Historique"
+    }
   },
   "spacingDiagram": {
     "equalDesc": "Segments a largeur egale",

@@ -697,7 +697,7 @@
                 '<td>' + cetE + '</td>' +
                 '<td>' + cetT + '</td>' +
                 '<td><span class="badge badge-' + (t._source === 'db' ? 'info' : 'secondary') + '">' + sourceLabel + '</span></td>' +
-                '<td><button class="btn btn-sm btn-link text-danger p-0 tmi-remove-btn" data-key="' + t._key + '" title="Remove"><i class="fas fa-times"></i></button></td>' +
+                '<td><button class="btn btn-sm btn-link text-danger p-0 tmi-remove-btn" data-key="' + t._key + '" title="' + PERTII18n.t('tmr.removeEntry') + '"><i class="fas fa-times"></i></button></td>' +
                 '</tr>';
 
             tbody.append(row);
@@ -707,7 +707,7 @@
     function buildCetPill(key, field, value) {
         var val = value || 'N/A';
         var cls = val === 'Y' ? 'cet-y' : (val === 'N' ? 'cet-n' : 'cet-na');
-        return '<span class="cet-pill ' + cls + '" data-key="' + key + '" data-field="' + field + '" title="Click to toggle">' + val + '</span>';
+        return '<span class="cet-pill ' + cls + '" data-key="' + key + '" data-field="' + field + '" title="' + PERTII18n.t('tmr.clickToToggle') + '">' + val + '</span>';
     }
 
     function buildComplianceBadge(tmi) {

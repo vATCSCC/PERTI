@@ -30,7 +30,7 @@
 
         return fetch('assets/data/fir_tiers.json', { cache: 'default' })
             .then(function(res) {
-                if (!res.ok) {throw new Error('Failed to load FIR tiers');}
+                if (!res.ok) {throw new Error((typeof PERTII18n !== 'undefined') ? PERTII18n.t('fir.failedToLoadTiers') : 'Failed to load FIR tiers');}
                 return res.json();
             })
             .then(function(data) {
@@ -76,14 +76,15 @@
         const toggleContainer = document.createElement('div');
         toggleContainer.className = 'btn-group btn-group-sm ms-2';
         toggleContainer.style.cssText = 'display: inline-flex; margin-left: 10px;';
+        const _t = (typeof PERTII18n !== 'undefined') ? function(k) { return PERTII18n.t(k); } : function(k) { return { 'fir.domestic': 'Domestic', 'fir.domesticTitle': 'Domestic (US/Canada ARTCC tiers)', 'fir.international': 'International', 'fir.internationalTitle': 'International (FIR-based scope)' }[k] || k; };
         toggleContainer.innerHTML = `
-            <button type="button" id="gs_scope_mode_domestic" class="btn btn-primary btn-sm active" 
-                    title="Domestic (US/Canada ARTCC tiers)">
-                <i class="fas fa-flag-usa me-1"></i>Domestic
+            <button type="button" id="gs_scope_mode_domestic" class="btn btn-primary btn-sm active"
+                    title="${_t('fir.domesticTitle')}">
+                <i class="fas fa-flag-usa me-1"></i>${_t('fir.domestic')}
             </button>
-            <button type="button" id="gs_scope_mode_intl" class="btn btn-outline-primary btn-sm" 
-                    title="International (FIR-based scope)">
-                <i class="fas fa-globe me-1"></i>International
+            <button type="button" id="gs_scope_mode_intl" class="btn btn-outline-primary btn-sm"
+                    title="${_t('fir.internationalTitle')}">
+                <i class="fas fa-globe me-1"></i>${_t('fir.international')}
             </button>
         `;
 

@@ -105,7 +105,7 @@
 
         if (originCentersField) {
             // Store human-readable scope description
-            originCentersField.value = scopeLabels.join(', ') || 'International';
+            originCentersField.value = scopeLabels.join(', ') || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('fir.international') : 'International');
         }
 
         if (depFacilitiesField) {

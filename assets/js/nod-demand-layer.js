@@ -1757,19 +1757,19 @@ const NODDemandLayer = (function() {
     function getMonitorLabel(monitor) {
         switch (monitor.type) {
             case 'fix':
-                return monitor.fix || monitor.id || 'Fix';
+                return monitor.fix || monitor.id || PERTII18n.t('nod.demand.fallbackFix');
             case 'segment':
                 return (monitor.from && monitor.to)
                     ? `${monitor.from} → ${monitor.to}`
-                    : (monitor.route_string || monitor.id || 'Route');
+                    : (monitor.route_string || monitor.id || PERTII18n.t('nod.demand.fallbackRoute'));
             case 'airway':
-                return monitor.airway || monitor.id || 'Airway';
+                return monitor.airway || monitor.id || PERTII18n.t('nod.demand.fallbackAirway');
             case 'airway_segment':
                 return (monitor.from && monitor.airway && monitor.to)
                     ? `${monitor.from} ${monitor.airway} ${monitor.to}`
-                    : (monitor.id || 'Airway Segment');
+                    : (monitor.id || PERTII18n.t('nod.demand.fallbackAirwaySegment'));
             case 'via_fix': {
-                if (!monitor.filter || !monitor.via) return monitor.id || 'Via Fix';
+                if (!monitor.filter || !monitor.via) return monitor.id || PERTII18n.t('nod.demand.fallbackViaFix');
                 const dir = monitor.filter.direction === 'arr' ? '↓' :
                     monitor.filter.direction === 'dep' ? '↑' : '↕';
                 return `${monitor.filter.code}${dir} via ${monitor.via}`;
@@ -1824,14 +1824,14 @@ const NODDemandLayer = (function() {
                 <div class="demand-monitor-item d-flex align-items-center justify-content-between py-1 px-2 mb-1"
                      style="background: rgba(255,255,255,0.05); border-radius: 3px; font-size: 11px; cursor: pointer;"
                      onclick="NODDemandLayer.showMonitorFlights(${idx})"
-                     title="Click to see flights">
+                     title="${PERTII18n.t('nod.demand.clickToSeeFlights')}">
                     <span>
                         <i class="fas ${typeIcon} text-info mr-2" style="width: 14px;"></i>
                         ${label}${countBadge}
                     </span>
                     <button class="btn btn-sm btn-link text-danger p-0"
                             onclick="event.stopPropagation(); NODDemandLayer.removeMonitor('${id}')"
-                            title="Remove monitor">
+                            title="${PERTII18n.t('nod.demand.removeMonitor')}">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>

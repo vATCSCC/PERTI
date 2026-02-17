@@ -167,7 +167,7 @@ const ADLRefreshUtils = (function() {
         }
 
         const {
-            emptyMessage = 'No data available',
+            emptyMessage = (typeof PERTII18n !== 'undefined') ? PERTII18n.t('adlUtils.noDataAvailable') : 'No data available',
             colspan = 1,
             preserveOnEmpty = true,
         } = options;

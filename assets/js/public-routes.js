@@ -280,7 +280,7 @@ window.PublicRoutes = (function() {
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
             alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
-            return $.Deferred().reject('No API key');
+            return $.Deferred().reject(PERTII18n.t('publicRoutes.noApiKey'));
         }
 
         return $.ajax({
@@ -354,7 +354,7 @@ window.PublicRoutes = (function() {
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
             alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
-            return $.Deferred().reject('No API key');
+            return $.Deferred().reject(PERTII18n.t('publicRoutes.noApiKey'));
         }
 
         console.log('[PublicRoutes] Deleting route:', routeId);
@@ -2011,7 +2011,7 @@ window.PublicRoutes = (function() {
         if (!apiKey) {
             console.error('[PublicRoutes] No API key configured for write operations');
             alert(PERTII18n.t('publicRoutes.apiKeyNotConfigured'));
-            return $.Deferred().reject('No API key');
+            return $.Deferred().reject(PERTII18n.t('publicRoutes.noApiKey'));
         }
 
         return $.ajax({

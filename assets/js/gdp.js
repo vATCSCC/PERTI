@@ -368,7 +368,8 @@ const GDP = (function() {
             const delay = parseInt(f.program_delay_min, 10) || 0;
             const isExempt = f.ctl_exempt === 1 || f.ctl_exempt === '1';
             const statusClass = isExempt ? 'text-success' : (delay > 0 ? 'text-warning' : '');
-            const statusText = isExempt ? 'Exempt' : (delay > 0 ? 'Delayed' : 'Uncontrolled');
+            const statusKey = isExempt ? 'exempt' : (delay > 0 ? 'delayed' : 'uncontrolled');
+            const statusText = PERTII18n.t('gdt.flight.status' + statusKey.charAt(0).toUpperCase() + statusKey.slice(1));
 
             if (delay > 0) {delayed++;}
             if (isExempt) {exempt++;}
@@ -383,7 +384,7 @@ const GDP = (function() {
                 <td>${formatUtcTime(f.cta_utc)}</td>
                 <td>${formatUtcTime(f.ctd_utc)}</td>
                 <td class="${getDelayClass(delay)}">${formatDelay(delay)}</td>
-                <td>${statusText}</td>
+                <td data-status="${statusKey}">${statusText}</td>
             </tr>`;
         });
 
@@ -393,7 +394,7 @@ const GDP = (function() {
         document.getElementById('gdp_fl_count_all').textContent = flights.length;
         document.getElementById('gdp_fl_count_delayed').textContent = delayed;
         document.getElementById('gdp_fl_count_exempt').textContent = exempt;
-        document.getElementById('gdp_fl_status').textContent = `Showing ${flights.length} flights`;
+        document.getElementById('gdp_fl_status').textContent = PERTII18n.t('gdt.flight.showingFlights', { count: flights.length });
     }
 
     function renderSlotsListModal() {
@@ -414,7 +415,8 @@ const GDP = (function() {
             const isAssigned = s.callsign && s.callsign !== '';
             if (isAssigned) {assigned++;} else {open++;}
 
-            const statusText = isAssigned ? 'Assigned' : 'Open';
+            const statusKey = isAssigned ? 'assigned' : 'open';
+            const statusText = PERTII18n.t('gdt.flight.status' + statusKey.charAt(0).toUpperCase() + statusKey.slice(1));
             const statusClass = isAssigned ? 'text-primary' : 'text-secondary';
 
             html += `<tr>
@@ -425,7 +427,7 @@ const GDP = (function() {
                 <td>${formatUtcTime(s.ctd_utc)}</td>
                 <td class="${getDelayClass(s.delay_min)}">${formatDelay(s.delay_min)}</td>
                 <td>${s.slot_type || 'PRG'}</td>
-                <td class="${statusClass}">${statusText}</td>
+                <td class="${statusClass}" data-status="${statusKey}">${statusText}</td>
             </tr>`;
         });
 
@@ -435,7 +437,7 @@ const GDP = (function() {
         document.getElementById('gdp_sl_count_all').textContent = slots.length;
         document.getElementById('gdp_sl_count_assigned').textContent = assigned;
         document.getElementById('gdp_sl_count_open').textContent = open;
-        document.getElementById('gdp_sl_status').textContent = `Showing ${slots.length} slots`;
+        document.getElementById('gdp_sl_status').textContent = PERTII18n.t('gdt.flight.showingFlights', { count: slots.length });
     }
 
     // =========================================================================
@@ -1515,30 +1517,30 @@ const GDP = (function() {
                     btn.classList.remove('btn-outline-secondary');
                     btn.classList.add(filter === 'delayed' ? 'btn-outline-warning' : filter === 'exempt' ? 'btn-outline-success' : 'btn-info');
 
-                    // Filter rows by status text in last column
+                    // Filter rows by data-status attribute in last column
                     var rows = document.querySelectorAll('#gdp_flight_list_tbody tr');
                     var visibleCount = 0;
                     rows.forEach(function(row) {
                         var cells = row.querySelectorAll('td');
                         var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
-                        var statusText = statusCell ? statusCell.textContent.trim() : '';
+                        var statusVal = statusCell ? (statusCell.getAttribute('data-status') || '') : '';
 
                         if (filter === 'all') {
                             row.style.display = '';
                             visibleCount++;
                         } else if (filter === 'delayed') {
-                            var show = statusText === 'Delayed';
+                            var show = statusVal === 'delayed';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         } else if (filter === 'exempt') {
-                            var show = statusText === 'Exempt';
+                            var show = statusVal === 'exempt';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         }
                     });
 
                     var statusEl = document.getElementById('gdp_fl_status');
-                    if (statusEl) statusEl.textContent = 'Showing ' + visibleCount + ' flights';
+                    if (statusEl) statusEl.textContent = PERTII18n.t('gdt.flight.showingFlights', { count: visibleCount });
                 });
             }
         });
@@ -1562,24 +1564,24 @@ const GDP = (function() {
                     rows.forEach(function(row) {
                         var cells = row.querySelectorAll('td');
                         var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
-                        var statusText = statusCell ? statusCell.textContent.trim() : '';
+                        var statusVal = statusCell ? (statusCell.getAttribute('data-status') || '') : '';
 
                         if (filter === 'all') {
                             row.style.display = '';
                             visibleCount++;
                         } else if (filter === 'assigned') {
-                            var show = statusText === 'Assigned';
+                            var show = statusVal === 'assigned';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         } else if (filter === 'open') {
-                            var show = statusText === 'Open';
+                            var show = statusVal === 'open';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         }
                     });
 
                     var statusEl = document.getElementById('gdp_sl_status');
-                    if (statusEl) statusEl.textContent = 'Showing ' + visibleCount + ' slots';
+                    if (statusEl) statusEl.textContent = PERTII18n.t('gdt.flight.showingFlights', { count: visibleCount });
                 });
             }
         });

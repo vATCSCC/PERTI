@@ -7,8 +7,8 @@ window.AdvisoryConfig = (function() {
 
     const STORAGE_KEY = 'perti_advisory_org';
     const ORG_TYPES = {
-        DCC: { prefix: 'vATCSCC', facility: 'DCC', name: 'US DCC' },
-        NOC: { prefix: 'vNAVCAN', facility: 'NOC', name: 'Canadian NOC' },
+        DCC: { prefix: 'vATCSCC', facility: 'DCC', get name() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('advisoryConfig.usDcc') : 'US DCC'; } },
+        NOC: { prefix: 'vNAVCAN', facility: 'NOC', get name() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('advisoryConfig.canadianNoc') : 'Canadian NOC'; } },
     };
     const DEFAULT_ORG = 'DCC';
 
