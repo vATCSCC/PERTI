@@ -35,16 +35,16 @@
 
     // TFR subtypes
     $tfr_subtypes = [
-        'HAZARD' => 'Hazard/Disaster (91.137)',
-        'VIP' => 'VIP Movement (91.141)',
-        'SECURITY' => 'Security (99.7)',
-        'HAWAII' => 'Hawaii Disaster (91.138)',
-        'EMERGENCY' => 'Emergency (91.139)',
-        'EVENT' => 'Event/Airshow (91.145)',
-        'PRESSURE' => 'High Pressure (91.144)',
-        'SPACE' => 'Space Operations',
-        'MASS_GATHERING' => 'Mass Gathering',
-        'OTHER' => 'Other'
+        'HAZARD' => __('sua.page.tfrSubtypeHazard'),
+        'VIP' => __('sua.page.tfrSubtypeVip'),
+        'SECURITY' => __('sua.page.tfrSubtypeSecurity'),
+        'HAWAII' => __('sua.page.tfrSubtypeHawaii'),
+        'EMERGENCY' => __('sua.page.tfrSubtypeEmergency'),
+        'EVENT' => __('sua.page.tfrSubtypeEvent'),
+        'PRESSURE' => __('sua.page.tfrSubtypePressure'),
+        'SPACE' => __('sua.page.tfrSubtypeSpace'),
+        'MASS_GATHERING' => __('sua.page.tfrSubtypeMassGathering'),
+        'OTHER' => __('sua.page.tfrSubtypeOther')
     ];
 
 ?>
@@ -122,8 +122,8 @@
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
         <center>
-            <h2>SUA/TFR Management</h2>
-            <p class="text-muted">Schedule Special Use Airspace activations and create Temporary Flight Restrictions</p>
+            <h2><?= __('sua.page.title') ?></h2>
+            <p class="text-muted"><?= __('sua.page.subtitle') ?></p>
         </center>
     </div>
 </section>
@@ -134,28 +134,28 @@
         <!-- Action Buttons -->
         <div class="mb-4">
             <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#scheduleModal">
-                <i class="fas fa-calendar-plus"></i> Schedule SUA Activation
+                <i class="fas fa-calendar-plus"></i> <?= __('sua.page.scheduleSuaActivation') ?>
             </button>
             <button class="btn btn-warning btn-sm" data-toggle="modal" data-target="#tfrModal">
-                <i class="fas fa-exclamation-triangle"></i> Create TFR
+                <i class="fas fa-exclamation-triangle"></i> <?= __('sua.page.createTfr') ?>
             </button>
             <button class="btn btn-info btn-sm" onclick="startAltrvDrawing()">
-                <i class="fas fa-draw-polygon"></i> Draw ALTRV
+                <i class="fas fa-draw-polygon"></i> <?= __('sua.page.drawAltrv') ?>
             </button>
         </div>
 
         <!-- Activations Table -->
         <div class="card mb-4" style="max-width: 1400px;">
             <div class="card-header bg-dark text-light">
-                <strong>Scheduled Activations</strong>
+                <strong><?= __('sua.page.scheduledActivations') ?></strong>
                 <div class="float-right">
                     <select id="statusFilter" class="form-control form-control-sm d-inline-block" style="width: auto;">
-                        <option value="">Active & Scheduled</option>
-                        <option value="ALL">All</option>
-                        <option value="ACTIVE">Active Only</option>
-                        <option value="SCHEDULED">Scheduled Only</option>
-                        <option value="EXPIRED">Expired</option>
-                        <option value="CANCELLED">Cancelled</option>
+                        <option value=""><?= __('sua.page.activeAndScheduled') ?></option>
+                        <option value="ALL"><?= __('common.all') ?></option>
+                        <option value="ACTIVE"><?= __('sua.page.activeOnly') ?></option>
+                        <option value="SCHEDULED"><?= __('sua.page.scheduledOnly') ?></option>
+                        <option value="EXPIRED"><?= __('sua.page.expired') ?></option>
+                        <option value="CANCELLED"><?= __('sua.page.cancelled') ?></option>
                     </select>
                     <button class="btn btn-sm btn-outline-light ml-2" onclick="loadActivations()">
                         <i class="fas fa-sync"></i>
@@ -166,14 +166,14 @@
                 <table class="table table-sm table-striped table-bordered mb-0">
                     <thead class="table-dark text-light">
                         <tr>
-                            <th style="width: 10%;">Type</th>
-                            <th style="width: 25%;">Name</th>
-                            <th style="width: 8%;">ARTCC</th>
-                            <th style="width: 12%;">Start (UTC)</th>
-                            <th style="width: 12%;">End (UTC)</th>
-                            <th style="width: 12%;">Altitude</th>
-                            <th style="width: 10%;">Status</th>
-                            <th style="width: 11%;">Actions</th>
+                            <th style="width: 10%;"><?= __('sua.page.colType') ?></th>
+                            <th style="width: 25%;"><?= __('sua.page.colName') ?></th>
+                            <th style="width: 8%;"><?= __('sua.page.colArtcc') ?></th>
+                            <th style="width: 12%;"><?= __('sua.page.colStartUtc') ?></th>
+                            <th style="width: 12%;"><?= __('sua.page.colEndUtc') ?></th>
+                            <th style="width: 12%;"><?= __('sua.page.colAltitude') ?></th>
+                            <th style="width: 10%;"><?= __('sua.page.colStatus') ?></th>
+                            <th style="width: 11%;"><?= __('sua.page.colActions') ?></th>
                         </tr>
                     </thead>
                     <tbody id="activations_table"></tbody>
@@ -184,15 +184,15 @@
         <!-- SUA Browser -->
         <div class="card" style="max-width: 1400px;">
             <div class="card-header bg-dark text-light">
-                <strong>SUA Browser</strong>
+                <strong><?= __('sua.page.suaBrowser') ?></strong>
                 <span class="badge badge-light ml-2" id="sua_count">0</span>
                 <div class="float-right">
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-outline-light active" id="viewMapBtn" onclick="toggleView('map')">
-                            <i class="fas fa-map"></i> Map
+                            <i class="fas fa-map"></i> <?= __('sua.page.map') ?>
                         </button>
                         <button type="button" class="btn btn-outline-light" id="viewTableBtn" onclick="toggleView('table')">
-                            <i class="fas fa-table"></i> Table
+                            <i class="fas fa-table"></i> <?= __('sua.page.table') ?>
                         </button>
                     </div>
                 </div>
@@ -202,41 +202,41 @@
                 <div class="filter-row">
                     <div class="row">
                         <div class="col-md-4">
-                            <input type="text" class="form-control form-control-sm" id="suaSearch" placeholder="Search by name or designator...">
+                            <input type="text" class="form-control form-control-sm" id="suaSearch" placeholder="<?= __('sua.page.searchPlaceholder') ?>">
                         </div>
                         <div class="col-md-3">
                             <select class="form-control form-control-sm" id="suaTypeFilter">
-                                <option value="">All Types</option>
-                                <optgroup label="Airspace Areas">
-                                    <option value="PROHIBITED">Prohibited</option>
-                                    <option value="RESTRICTED">Restricted</option>
-                                    <option value="WARNING">Warning</option>
-                                    <option value="ALERT">Alert</option>
+                                <option value=""><?= __('sua.page.allTypes') ?></option>
+                                <optgroup label="<?= __('sua.page.airspaceAreas') ?>">
+                                    <option value="PROHIBITED"><?= __('sua.page.prohibited') ?></option>
+                                    <option value="RESTRICTED"><?= __('sua.page.restricted') ?></option>
+                                    <option value="WARNING"><?= __('sua.page.warning') ?></option>
+                                    <option value="ALERT"><?= __('sua.page.alert') ?></option>
                                     <option value="MOA">MOA</option>
                                     <option value="NSA">NSA</option>
                                     <option value="TFR">TFR</option>
                                     <option value="ADIZ">ADIZ</option>
                                     <option value="FRZ">FRZ</option>
                                 </optgroup>
-                                <optgroup label="Military Areas">
-                                    <option value="USN">USN (Navy)</option>
+                                <optgroup label="<?= __('sua.page.militaryAreas') ?>">
+                                    <option value="USN"><?= __('sua.page.usnNavy') ?></option>
                                     <option value="USAF">USAF</option>
-                                    <option value="USArmy">US Army</option>
-                                    <option value="ANG">Air National Guard</option>
-                                    <option value="OPAREA">Operating Area</option>
-                                    <option value="DZ">Drop Zone</option>
-                                    <option value="LASER">Laser</option>
-                                    <option value="NUCLEAR">Nuclear</option>
+                                    <option value="USArmy"><?= __('sua.page.usArmy') ?></option>
+                                    <option value="ANG"><?= __('sua.page.airNationalGuard') ?></option>
+                                    <option value="OPAREA"><?= __('sua.page.operatingArea') ?></option>
+                                    <option value="DZ"><?= __('sua.page.dropZone') ?></option>
+                                    <option value="LASER"><?= __('sua.page.laser') ?></option>
+                                    <option value="NUCLEAR"><?= __('sua.page.nuclear') ?></option>
                                 </optgroup>
-                                <optgroup label="Routes/Tracks">
-                                    <option value="AR">Air Refueling (AR)</option>
+                                <optgroup label="<?= __('sua.page.routesTracks') ?>">
+                                    <option value="AR"><?= __('sua.page.airRefueling') ?></option>
                                     <option value="ALTRV">ALTRV</option>
                                     <option value="OSARA">OSARA</option>
-                                    <option value="SS">Supersonic</option>
+                                    <option value="SS"><?= __('sua.page.supersonic') ?></option>
                                 </optgroup>
-                                <optgroup label="Special">
-                                    <option value="AW">AWACS Orbit</option>
-                                    <option value="WSRP">Weather Radar</option>
+                                <optgroup label="<?= __('sua.page.special') ?>">
+                                    <option value="AW"><?= __('sua.page.awacsOrbit') ?></option>
+                                    <option value="WSRP"><?= __('sua.page.weatherRadar') ?></option>
                                     <option value="NORAD">NORAD</option>
                                     <option value="NASA">NASA</option>
                                     <option value="NOAA">NOAA</option>
@@ -245,7 +245,7 @@
                         </div>
                         <div class="col-md-3">
                             <select class="form-control form-control-sm" id="suaArtccFilter">
-                                <option value="">All ARTCCs</option>
+                                <option value=""><?= __('sua.page.allArtccs') ?></option>
                                 <?php foreach ($artccs as $artcc): ?>
                                     <option value="<?= $artcc ?>"><?= $artcc ?></option>
                                 <?php endforeach; ?>
@@ -253,7 +253,7 @@
                         </div>
                         <div class="col-md-2">
                             <button class="btn btn-sm btn-primary btn-block" onclick="loadSuaBrowser()">
-                                <i class="fas fa-search"></i> Search
+                                <i class="fas fa-search"></i> <?= __('sua.page.searchBtn') ?>
                             </button>
                         </div>
                     </div>
@@ -265,15 +265,15 @@
                     <!-- Layer Controls -->
                     <div class="mt-2 p-2 bg-light border rounded">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong class="text-dark">Map Layers</strong>
+                            <strong class="text-dark"><?= __('sua.page.mapLayers') ?></strong>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(true)">All On</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(false)">All Off</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(true)"><?= __('sua.page.allOn') ?></button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllLayers(false)"><?= __('sua.page.allOff') ?></button>
                             </div>
                         </div>
                         <!-- Regulatory Airspace -->
                         <div class="mb-2">
-                            <small class="text-muted d-block mb-1"><strong>Regulatory</strong></small>
+                            <small class="text-muted d-block mb-1"><strong><?= __('sua.page.regulatory') ?></strong></small>
                             <div class="d-flex flex-wrap">
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input layer-toggle" id="layer-PROHIBITED" value="PROHIBITED" checked>
@@ -299,7 +299,7 @@
                         </div>
                         <!-- Military -->
                         <div class="mb-2">
-                            <small class="text-muted d-block mb-1"><strong>Military</strong></small>
+                            <small class="text-muted d-block mb-1"><strong><?= __('sua.page.military') ?></strong></small>
                             <div class="d-flex flex-wrap">
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input layer-toggle" id="layer-MOA" value="MOA" checked>
@@ -329,7 +329,7 @@
                         </div>
                         <!-- Routes & Special -->
                         <div class="mb-2">
-                            <small class="text-muted d-block mb-1"><strong>Routes & Special</strong></small>
+                            <small class="text-muted d-block mb-1"><strong><?= __('sua.page.routesAndSpecial') ?></strong></small>
                             <div class="d-flex flex-wrap">
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input layer-toggle" id="layer-AR" value="AR" checked>
@@ -359,7 +359,7 @@
                         </div>
                         <!-- Boundaries -->
                         <div class="mb-2">
-                            <small class="text-muted d-block mb-1"><strong>Boundaries</strong></small>
+                            <small class="text-muted d-block mb-1"><strong><?= __('sua.page.boundaries') ?></strong></small>
                             <div class="d-flex flex-wrap">
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-artcc" value="artcc" checked>
@@ -367,7 +367,7 @@
                                 </div>
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-superhigh" value="superhigh">
-                                    <label class="custom-control-label" for="boundary-superhigh"><span class="badge" style="background-color: #303030; color: #fff;">Superhigh</span></label>
+                                    <label class="custom-control-label" for="boundary-superhigh"><span class="badge" style="background-color: #303030; color: #fff;"><?= __('sua.page.superhigh') ?></span></label>
                                 </div>
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-high" value="high">
@@ -391,13 +391,13 @@
                     <table class="table table-sm table-striped table-bordered">
                         <thead class="table-dark text-light">
                             <tr>
-                                <th style="width: 8%;">Type</th>
-                                <th style="width: 10%;">Designator</th>
-                                <th style="width: 30%;">Name</th>
-                                <th style="width: 8%;">ARTCC</th>
-                                <th style="width: 15%;">Altitude</th>
-                                <th style="width: 15%;">Schedule</th>
-                                <th style="width: 14%;">Action</th>
+                                <th style="width: 8%;"><?= __('sua.page.colType') ?></th>
+                                <th style="width: 10%;"><?= __('sua.page.colDesignator') ?></th>
+                                <th style="width: 30%;"><?= __('sua.page.colName') ?></th>
+                                <th style="width: 8%;"><?= __('sua.page.colArtcc') ?></th>
+                                <th style="width: 15%;"><?= __('sua.page.colAltitude') ?></th>
+                                <th style="width: 15%;"><?= __('sua.page.colSchedule') ?></th>
+                                <th style="width: 14%;"><?= __('sua.page.colAction') ?></th>
                             </tr>
                         </thead>
                         <tbody id="sua_browser_table"></tbody>
@@ -414,7 +414,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-success text-light">
-                <h5 class="modal-title"><i class="fas fa-calendar-plus"></i> Schedule SUA Activation</h5>
+                <h5 class="modal-title"><i class="fas fa-calendar-plus"></i> <?= __('sua.page.scheduleModalTitle') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -427,31 +427,31 @@
                     <div class="row">
                         <div class="col-md-5">
                             <div class="form-group">
-                                <label>SUA Name</label>
+                                <label><?= __('sua.page.suaName') ?></label>
                                 <input type="text" class="form-control" name="name" id="schedule_name" required>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>SUA Type</label>
+                                <label><?= __('sua.page.suaType') ?></label>
                                 <select class="form-control" name="sua_type" id="schedule_sua_type" required>
-                                    <option value="">Select Type</option>
-                                    <option value="P">Prohibited (P)</option>
-                                    <option value="R">Restricted (R)</option>
-                                    <option value="W">Warning (W)</option>
-                                    <option value="A">Alert (A)</option>
+                                    <option value=""><?= __('sua.page.selectType') ?></option>
+                                    <option value="P"><?= __('sua.page.prohibitedP') ?></option>
+                                    <option value="R"><?= __('sua.page.restrictedR') ?></option>
+                                    <option value="W"><?= __('sua.page.warningW') ?></option>
+                                    <option value="A"><?= __('sua.page.alertA') ?></option>
                                     <option value="MOA">MOA</option>
                                     <option value="NSA">NSA</option>
                                     <option value="ATCAA">ATCAA</option>
-                                    <option value="OTHER">Other</option>
+                                    <option value="OTHER"><?= __('common.other') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label>ARTCC</label>
+                                <label><?= __('sua.page.colArtcc') ?></label>
                                 <select class="form-control" name="artcc" id="schedule_artcc">
-                                    <option value="">Select ARTCC</option>
+                                    <option value=""><?= __('sua.page.selectArtcc') ?></option>
                                     <?php foreach ($artccs as $artcc): ?>
                                         <option value="<?= $artcc ?>"><?= $artcc ?></option>
                                     <?php endforeach; ?>
@@ -463,13 +463,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Time (UTC)</label>
+                                <label><?= __('sua.page.startTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="start_utc" id="schedule_start" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Time (UTC)</label>
+                                <label><?= __('sua.page.endTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="end_utc" id="schedule_end" required>
                             </div>
                         </div>
@@ -478,26 +478,26 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Lower Altitude</label>
-                                <input type="text" class="form-control" name="lower_alt" id="schedule_lower_alt" placeholder="e.g., GND, FL180">
+                                <label><?= __('sua.page.lowerAltitude') ?></label>
+                                <input type="text" class="form-control" name="lower_alt" id="schedule_lower_alt" placeholder="<?= __('sua.page.lowerAltPlaceholder') ?>">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Upper Altitude</label>
-                                <input type="text" class="form-control" name="upper_alt" id="schedule_upper_alt" placeholder="e.g., FL350, UNLTD">
+                                <label><?= __('sua.page.upperAltitude') ?></label>
+                                <input type="text" class="form-control" name="upper_alt" id="schedule_upper_alt" placeholder="<?= __('sua.page.upperAltPlaceholder') ?>">
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Remarks</label>
+                        <label><?= __('sua.page.remarksLabel') ?></label>
                         <textarea class="form-control" name="remarks" id="schedule_remarks" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-success" value="Schedule Activation">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <input type="submit" class="btn btn-success" value="<?= __('sua.page.scheduleActivationBtn') ?>">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('sua.page.cancel') ?></button>
                 </div>
             </form>
         </div>
@@ -509,7 +509,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Create Temporary Flight Restriction</h5>
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> <?= __('sua.page.createTfrTitle') ?></h5>
                 <button type="button" class="close text-dark" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -520,7 +520,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>TFR Type</label>
+                                <label><?= __('sua.page.tfrType') ?></label>
                                 <select class="form-control" name="tfr_subtype" id="tfr_subtype" required>
                                     <?php foreach ($tfr_subtypes as $key => $label): ?>
                                         <option value="<?= $key ?>"><?= $label ?></option>
@@ -530,9 +530,9 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>ARTCC</label>
+                                <label><?= __('sua.page.colArtcc') ?></label>
                                 <select class="form-control" name="artcc" id="tfr_artcc">
-                                    <option value="">Select ARTCC</option>
+                                    <option value=""><?= __('sua.page.selectArtcc') ?></option>
                                     <?php foreach ($artccs as $artcc): ?>
                                         <option value="<?= $artcc ?>"><?= $artcc ?></option>
                                     <?php endforeach; ?>
@@ -542,20 +542,20 @@
                     </div>
 
                     <div class="form-group">
-                        <label>TFR Name/Description</label>
-                        <input type="text" class="form-control" name="name" id="tfr_name" required placeholder="e.g., VIP Movement - KJFK">
+                        <label><?= __('sua.page.tfrName') ?></label>
+                        <input type="text" class="form-control" name="name" id="tfr_name" required placeholder="<?= __('sua.page.tfrNamePlaceholder') ?>">
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Time (UTC)</label>
+                                <label><?= __('sua.page.startTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="start_utc" id="tfr_start" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Time (UTC)</label>
+                                <label><?= __('sua.page.endTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="end_utc" id="tfr_end" required>
                             </div>
                         </div>
@@ -564,48 +564,48 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>Lower Altitude</label>
+                                <label><?= __('sua.page.lowerAltitude') ?></label>
                                 <input type="text" class="form-control" name="lower_alt" id="tfr_lower_alt" value="GND">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>Upper Altitude</label>
+                                <label><?= __('sua.page.upperAltitude') ?></label>
                                 <input type="text" class="form-control" name="upper_alt" id="tfr_upper_alt" value="FL180">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>NOTAM Number</label>
-                                <input type="text" class="form-control" name="notam_number" id="tfr_notam" placeholder="Optional">
+                                <label><?= __('sua.page.notamNumber') ?></label>
+                                <input type="text" class="form-control" name="notam_number" id="tfr_notam" placeholder="<?= __('sua.page.optional') ?>">
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Center Point (for circular TFR)</label>
+                        <label><?= __('sua.page.centerPoint') ?></label>
                         <div class="row">
                             <div class="col-md-4">
-                                <input type="text" class="form-control" id="tfr_lat" placeholder="Latitude (e.g., 40.6413)">
+                                <input type="text" class="form-control" id="tfr_lat" placeholder="<?= __('sua.page.latPlaceholder') ?>">
                             </div>
                             <div class="col-md-4">
-                                <input type="text" class="form-control" id="tfr_lon" placeholder="Longitude (e.g., -73.7781)">
+                                <input type="text" class="form-control" id="tfr_lon" placeholder="<?= __('sua.page.lonPlaceholder') ?>">
                             </div>
                             <div class="col-md-4">
-                                <input type="text" class="form-control" id="tfr_radius" placeholder="Radius NM (e.g., 3)">
+                                <input type="text" class="form-control" id="tfr_radius" placeholder="<?= __('sua.page.radiusPlaceholder') ?>">
                             </div>
                         </div>
-                        <small class="text-muted">Enter center coordinates and radius to generate circular TFR geometry</small>
+                        <small class="text-muted"><?= __('sua.page.circularTfrHint') ?></small>
                     </div>
 
                     <div class="form-group">
-                        <label>Remarks</label>
+                        <label><?= __('sua.page.remarksLabel') ?></label>
                         <textarea class="form-control" name="remarks" id="tfr_remarks" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-warning" value="Create TFR">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <input type="submit" class="btn btn-warning" value="<?= __('sua.page.createTfrBtn') ?>">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('sua.page.cancel') ?></button>
                 </div>
             </form>
         </div>
@@ -617,7 +617,7 @@
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title"><i class="fas fa-edit"></i> Edit Activation</h5>
+                <h5 class="modal-title"><i class="fas fa-edit"></i> <?= __('sua.page.editActivationTitle') ?></h5>
                 <button type="button" class="close text-dark" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -628,20 +628,20 @@
                     <input type="hidden" name="id" id="edit_id">
 
                     <div class="form-group">
-                        <label>Name</label>
+                        <label><?= __('sua.page.name') ?></label>
                         <input type="text" class="form-control" id="edit_name" readonly>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Time (UTC)</label>
+                                <label><?= __('sua.page.startTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="start_utc" id="edit_start">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Time (UTC)</label>
+                                <label><?= __('sua.page.endTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="end_utc" id="edit_end">
                             </div>
                         </div>
@@ -650,36 +650,36 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Lower Altitude</label>
+                                <label><?= __('sua.page.lowerAltitude') ?></label>
                                 <input type="text" class="form-control" name="lower_alt" id="edit_lower_alt">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Upper Altitude</label>
+                                <label><?= __('sua.page.upperAltitude') ?></label>
                                 <input type="text" class="form-control" name="upper_alt" id="edit_upper_alt">
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Status</label>
+                        <label><?= __('sua.page.status') ?></label>
                         <select class="form-control" name="status" id="edit_status">
-                            <option value="SCHEDULED">Scheduled</option>
-                            <option value="ACTIVE">Active</option>
-                            <option value="EXPIRED">Expired</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value="SCHEDULED"><?= __('sua.page.scheduled') ?></option>
+                            <option value="ACTIVE"><?= __('sua.page.active') ?></option>
+                            <option value="EXPIRED"><?= __('sua.page.expired') ?></option>
+                            <option value="CANCELLED"><?= __('sua.page.cancelled') ?></option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label>Remarks</label>
+                        <label><?= __('sua.page.remarksLabel') ?></label>
                         <textarea class="form-control" name="remarks" id="edit_remarks" rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <input type="submit" class="btn btn-warning" value="Update">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <input type="submit" class="btn btn-warning" value="<?= __('sua.page.updateBtn') ?>">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('sua.page.cancel') ?></button>
                 </div>
             </form>
         </div>
@@ -691,7 +691,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-info text-light">
-                <h5 class="modal-title"><i class="fas fa-draw-polygon"></i> Create ALTRV</h5>
+                <h5 class="modal-title"><i class="fas fa-draw-polygon"></i> <?= __('sua.page.createAltrvTitle') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -704,15 +704,15 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>ALTRV Name/Designator</label>
-                                <input type="text" class="form-control" name="name" id="altrv_name" placeholder="e.g., AR-123" required>
+                                <label><?= __('sua.page.altrvName') ?></label>
+                                <input type="text" class="form-control" name="name" id="altrv_name" placeholder="<?= __('sua.page.altrvNamePlaceholder') ?>" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>ARTCC</label>
+                                <label><?= __('sua.page.colArtcc') ?></label>
                                 <select class="form-control" name="artcc" id="altrv_artcc">
-                                    <option value="">Select ARTCC</option>
+                                    <option value=""><?= __('sua.page.selectArtcc') ?></option>
                                     <?php foreach ($artccs as $artcc): ?>
                                         <option value="<?= $artcc ?>"><?= $artcc ?></option>
                                     <?php endforeach; ?>
@@ -724,13 +724,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Time (UTC)</label>
+                                <label><?= __('sua.page.startTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="start_utc" id="altrv_start" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Time (UTC)</label>
+                                <label><?= __('sua.page.endTimeUtc') ?></label>
                                 <input type="datetime-local" class="form-control" name="end_utc" id="altrv_end" required>
                             </div>
                         </div>
@@ -739,33 +739,33 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Lower Altitude</label>
-                                <input type="text" class="form-control" name="lower_alt" id="altrv_lower" placeholder="e.g., FL180 or 18000">
+                                <label><?= __('sua.page.lowerAltitude') ?></label>
+                                <input type="text" class="form-control" name="lower_alt" id="altrv_lower" placeholder="<?= __('sua.page.lowerAltPlaceholder') ?>">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Upper Altitude</label>
-                                <input type="text" class="form-control" name="upper_alt" id="altrv_upper" placeholder="e.g., FL350 or 35000">
+                                <label><?= __('sua.page.upperAltitude') ?></label>
+                                <input type="text" class="form-control" name="upper_alt" id="altrv_upper" placeholder="<?= __('sua.page.upperAltPlaceholder') ?>">
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Route/Description</label>
-                        <textarea class="form-control" name="description" id="altrv_description" rows="2" placeholder="Route description or remarks"></textarea>
+                        <label><?= __('sua.page.routeDescription') ?></label>
+                        <textarea class="form-control" name="description" id="altrv_description" rows="2" placeholder="<?= __('sua.page.routeDescPlaceholder') ?>"></textarea>
                     </div>
 
                     <div class="alert alert-info" id="altrv_geometry_info">
-                        <i class="fas fa-info-circle"></i> <span id="altrv_point_count">No geometry drawn</span>
+                        <i class="fas fa-info-circle"></i> <span id="altrv_point_count"><?= __('sua.page.noGeometryDrawn') ?></span>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="clearAltrvDrawing()">
-                        <i class="fas fa-eraser"></i> Clear Drawing
+                        <i class="fas fa-eraser"></i> <?= __('sua.page.clearDrawing') ?>
                     </button>
-                    <input type="submit" class="btn btn-info" value="Create ALTRV">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="cancelAltrvDrawing()">Cancel</button>
+                    <input type="submit" class="btn btn-info" value="<?= __('sua.page.createAltrvBtn') ?>">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="cancelAltrvDrawing()"><?= __('sua.page.cancel') ?></button>
                 </div>
             </form>
         </div>
