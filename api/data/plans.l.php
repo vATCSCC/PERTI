@@ -89,6 +89,7 @@ function plan_build_utc_ts(string $date_str, string $time_str): ?int {
 // Classify each plan: live | week | upcoming | past
 // -----------------------------------------------------------------------
 $sections = ['live' => [], 'week' => [], 'upcoming' => [], 'past' => []];
+$background_plan_pattern = '/^advanced\s+perti\s+plan$/i';
 
 foreach ($plans as &$p) {
     $start_ts = plan_build_utc_ts($p['event_date'] ?? '', $p['event_start'] ?? '');
@@ -106,7 +107,9 @@ foreach ($plans as &$p) {
     $p['_start_ts'] = $start_ts;
     $p['_end_ts']   = $end_ts;
 
-    if ($start_ts && $end_ts && $now >= $start_ts && $now <= $end_ts) {
+    $is_background = preg_match($background_plan_pattern, trim($p['event_name']));
+
+    if (!$is_background && $start_ts && $end_ts && $now >= $start_ts && $now <= $end_ts) {
         $p['_status'] = 'live';
         $sections['live'][] = &$p;
     } elseif ($end_ts && $now > $end_ts) {
@@ -140,6 +143,9 @@ for ($i = 0, $n = count($non_past); $i < $n; $i++) {
     for ($j = $i + 1; $j < $n; $j++) {
         $a = $non_past[$i];
         $b = $non_past[$j];
+        if (preg_match($background_plan_pattern, trim($a['event_name'])) || preg_match($background_plan_pattern, trim($b['event_name']))) {
+            continue;
+        }
         if ($a['_start_ts'] && $a['_end_ts'] && $b['_start_ts'] && $b['_end_ts']
             && $a['_start_ts'] < $b['_end_ts'] && $b['_start_ts'] < $a['_end_ts']) {
             $b_label = htmlspecialchars($b['event_name']) . ' (' . gmdate('Hi', $b['_start_ts']) . 'Z-' . gmdate('Hi', $b['_end_ts']) . 'Z)';
