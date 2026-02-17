@@ -21,7 +21,7 @@
     const DEFAULT_LOCALE = 'en-US';
 
     // Supported locales
-    const SUPPORTED_LOCALES = ['en-US', 'en-CA', 'fr-CA'];
+    const SUPPORTED_LOCALES = ['en-US', 'en-CA', 'en-EU', 'fr-CA'];
 
     /**
      * Detect user's preferred locale
@@ -80,7 +80,7 @@
     function loadLocaleSync(locale) {
         // Inline English locale for synchronous loading
         // This avoids async issues during page initialization
-        if (locale === 'en-US' || locale === 'en-CA') {
+        if (locale === 'en-US' || locale === 'en-CA' || locale === 'en-EU') {
             return {
                 "common": {
                     "ok": "OK",
