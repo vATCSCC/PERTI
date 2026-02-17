@@ -21,7 +21,7 @@ from .models import (
     REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
     HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
     HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_GAP_RESET_SEC,
-    HOLD_LOW_CONFIDENCE_INTERVAL_SEC
+    HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -1790,6 +1790,128 @@ class TMIComplianceAnalyzer:
             total += haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
 
         return total
+
+    # ------------------------------------------------------------------
+    # Holding pattern: fix matching
+    # ------------------------------------------------------------------
+
+    def _load_flight_waypoints(self, flight_uids: list) -> dict:
+        """Load route waypoints for a batch of flights.
+        Returns dict: {flight_uid: [{fix_name, lat, lon, sequence_num}, ...]}
+        """
+        if not flight_uids:
+            return {}
+
+        placeholders = ','.join(['%s'] * len(flight_uids))
+        query = self.adl.format_query(
+            f"""SELECT flight_uid, fix_name, lat, lon, sequence_num
+                FROM dbo.adl_flight_waypoints
+                WHERE flight_uid IN ({placeholders})
+                AND fix_name IS NOT NULL AND lat IS NOT NULL
+                ORDER BY flight_uid, sequence_num"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, tuple(flight_uids))
+
+        waypoints = {}
+        for row in cursor.fetchall():
+            uid = row[0]
+            if uid not in waypoints:
+                waypoints[uid] = []
+            waypoints[uid].append({
+                'fix_name': row[1],
+                'lat': float(row[2]),
+                'lon': float(row[3]),
+                'sequence_num': row[4]
+            })
+        return waypoints
+
+    def _load_star_fixes(self, dest_icao: str) -> list:
+        """Load all fixes on published STARs for a destination airport.
+        Returns list of {fix_name, lat, lon}.
+        """
+        query = self.adl.format_query(
+            """SELECT DISTINCT nf.fix_name, nf.lat, nf.lon
+               FROM dbo.nav_procedure_legs npl
+               JOIN dbo.nav_procedures np ON npl.procedure_id = np.procedure_id
+               JOIN dbo.nav_fixes nf ON npl.fix_name = nf.fix_name
+               WHERE np.airport_icao = %s AND np.procedure_type = 'STAR'
+               AND nf.lat IS NOT NULL"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (dest_icao,))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
+
+    def _match_holding_fix(self, event: dict, flight_uid: int, dest_icao: str,
+                           flight_waypoints: dict, star_cache: dict) -> dict:
+        """Match a holding event's center to the best fix.
+        Priority: route waypoints > STAR fixes > any nav_fix.
+        Modifies event dict in place.
+        """
+        center_lat = event['center_lat']
+        center_lon = event['center_lon']
+        best_fix = None
+        best_dist = HOLD_FIX_MATCH_RADIUS_NM
+        best_source = None
+
+        # Priority 1: Flight's own route waypoints
+        wps = flight_waypoints.get(flight_uid, [])
+        for wp in wps:
+            d = haversine_nm(center_lat, center_lon, wp['lat'], wp['lon'])
+            if d < best_dist:
+                best_fix = wp['fix_name']
+                best_dist = d
+                best_source = 'route'
+
+        # Priority 2: STAR fixes for destination (only if no route match within 3nm)
+        if best_source != 'route' or best_dist > 3.0:
+            if dest_icao and dest_icao not in star_cache:
+                star_cache[dest_icao] = self._load_star_fixes(dest_icao)
+            for sf in star_cache.get(dest_icao, []):
+                d = haversine_nm(center_lat, center_lon, sf['lat'], sf['lon'])
+                if d < best_dist:
+                    best_fix = sf['fix_name']
+                    best_dist = d
+                    best_source = 'star'
+
+        # Priority 3: Any nav_fix (from preloaded fix_coords)
+        if best_source is None:
+            for fix_name, coords in self.fix_coords.items():
+                d = haversine_nm(center_lat, center_lon, coords['lat'], coords['lon'])
+                if d < best_dist:
+                    best_fix = fix_name
+                    best_dist = d
+                    best_source = 'navfix'
+
+            # If fix_coords doesn't cover the area, do a targeted query
+            if best_source is None:
+                nearby = self._query_nearby_fixes(center_lat, center_lon, HOLD_FIX_MATCH_RADIUS_NM)
+                for nf in nearby:
+                    d = haversine_nm(center_lat, center_lon, nf['lat'], nf['lon'])
+                    if d < best_dist:
+                        best_fix = nf['fix_name']
+                        best_dist = d
+                        best_source = 'navfix'
+
+        event['matched_fix'] = best_fix
+        event['fix_match_source'] = best_source
+        event['fix_distance_nm'] = round(best_dist, 2) if best_fix else 0
+        event['fix_on_route'] = (best_source == 'route')
+        return event
+
+    def _query_nearby_fixes(self, lat: float, lon: float, radius_nm: float) -> list:
+        """Query nav_fixes within a bounding box around a point."""
+        deg_offset = radius_nm / 60.0
+        query = self.adl.format_query(
+            """SELECT fix_name, lat, lon FROM dbo.nav_fixes
+               WHERE lat BETWEEN %s AND %s AND lon BETWEEN %s AND %s"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (lat - deg_offset, lat + deg_offset,
+                               lon - deg_offset, lon + deg_offset))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
 
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
