@@ -7834,6 +7834,130 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Render holding orbit highlights on the map
+     * Draws purple LineStrings for the holding segments of trajectories
+     */
+    _renderHoldingOrbits: function(map, mapId, events, allTrajectories) {
+        const sourceId = 'holding-orbits-' + mapId;
+        const layerId = 'holding-orbits-layer-' + mapId;
+        const glowId = 'holding-orbits-glow-' + mapId;
+
+        const features = [];
+        events.forEach(evt => {
+            const traj = allTrajectories[evt.callsign];
+            if (!traj || !traj.coordinates) return;
+
+            const startEpoch = new Date(evt.hold_start_utc).getTime() / 1000;
+            const endEpoch = new Date(evt.hold_end_utc).getTime() / 1000;
+            const holdCoords = traj.coordinates.filter(c => c[2] >= startEpoch && c[2] <= endEpoch);
+
+            if (holdCoords.length < 2) return;
+
+            features.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: holdCoords.map(c => [c[0], c[1]])
+                },
+                properties: {
+                    callsign: evt.callsign,
+                    duration_min: Math.round(evt.duration_sec / 60),
+                    orbits: evt.orbit_count,
+                    fix: evt.matched_fix || 'Unknown',
+                    direction: evt.turn_direction
+                }
+            });
+        });
+
+        const geojson = { type: 'FeatureCollection', features: features };
+
+        // Remove existing layers
+        if (map.getSource(sourceId)) {
+            if (map.getLayer(glowId)) map.removeLayer(glowId);
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            map.removeSource(sourceId);
+        }
+
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+        map.addLayer({
+            id: glowId, type: 'line', source: sourceId,
+            paint: { 'line-color': '#c050e0', 'line-width': 7, 'line-opacity': 0.25, 'line-blur': 3 }
+        });
+
+        map.addLayer({
+            id: layerId, type: 'line', source: sourceId,
+            paint: { 'line-color': '#a020d0', 'line-width': 3, 'line-opacity': 0.85 }
+        });
+    },
+
+    /**
+     * Render holding zone markers on the map
+     * Draws scaled circles at hold fix locations with labels and click popups
+     */
+    _renderHoldingZones: function(map, mapId, holdFixes) {
+        const sourceId = 'holding-zones-' + mapId;
+        const circleLayerId = 'holding-zones-circle-' + mapId;
+        const labelLayerId = 'holding-zones-label-' + mapId;
+
+        const features = holdFixes.map(fix => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: fix.center },
+            properties: {
+                fix_name: fix.fix_name || 'Unknown',
+                flight_count: fix.flight_count,
+                total_orbits: fix.total_orbits,
+                avg_duration_min: Math.round(fix.avg_duration_sec / 60),
+                peak_concurrent: fix.peak_concurrent,
+                ntml: fix.ntml_corroborated || false
+            }
+        }));
+
+        const geojson = { type: 'FeatureCollection', features: features };
+
+        if (map.getSource(sourceId)) {
+            if (map.getLayer(labelLayerId)) map.removeLayer(labelLayerId);
+            if (map.getLayer(circleLayerId)) map.removeLayer(circleLayerId);
+            map.removeSource(sourceId);
+        }
+
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+        map.addLayer({
+            id: circleLayerId, type: 'circle', source: sourceId,
+            paint: {
+                'circle-radius': ['interpolate', ['linear'], ['get', 'flight_count'], 1, 10, 5, 18, 10, 26, 20, 35],
+                'circle-color': '#a020d0',
+                'circle-opacity': ['interpolate', ['linear'], ['get', 'flight_count'], 1, 0.3, 10, 0.6],
+                'circle-stroke-color': '#7010a0',
+                'circle-stroke-width': 2
+            }
+        });
+
+        map.addLayer({
+            id: labelLayerId, type: 'symbol', source: sourceId,
+            layout: {
+                'text-field': ['concat', ['get', 'fix_name'], '\n', ['to-string', ['get', 'flight_count']], ' flt'],
+                'text-size': 11,
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': true
+            },
+            paint: { 'text-color': '#ffffff', 'text-halo-color': '#4a0070', 'text-halo-width': 1.5 }
+        });
+
+        // Click popup
+        map.on('click', circleLayerId, function(e) {
+            const props = e.features[0].properties;
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`<div class="holding-zone-popup"><strong>${props.fix_name}</strong><br>${props.flight_count} flights held<br>${props.total_orbits} total orbits<br>${props.avg_duration_min}min avg duration<br>Peak concurrent: ${props.peak_concurrent}${props.ntml ? '<br><em>NTML corroborated</em>' : ''}</div>`)
+                .addTo(map);
+        });
+        map.on('mouseenter', circleLayerId, function() { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', circleLayerId, function() { map.getCanvas().style.cursor = ''; });
+    },
+
+    /**
      * Toggle spacing diagram scale mode and re-render
      */
     toggleSpacingDiagramScale: function() {
