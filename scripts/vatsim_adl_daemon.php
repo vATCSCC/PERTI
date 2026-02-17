@@ -143,10 +143,13 @@ $config = [
     'wind_timeout'        => 90,     // SP timeout in seconds (increased from 30 to handle large flight counts)
 
     // SWIM API sync (syncs flight data to SWIM_API database for public API)
-    // SWIM_API is Azure SQL Basic ($5/mo) - dedicated for API queries to avoid
-    // Serverless costs on VATSIM_ADL. Runs after each ADL refresh cycle.
-    'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
-    'swim_interval'       => 8,      // Run every N cycles (8 = every 2 minutes)
+    // Primary path is swim_sync_daemon.php; inline SWIM is fallback only.
+    'swim_enabled'               => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
+    'swim_interval'              => 8,      // Run every N cycles (8 = every 2 minutes)
+    'swim_inline_enabled'        => getenv('ADL_SWIM_INLINE') === '1',  // Force inline SWIM in ADL loop
+    'swim_inline_fallback_enabled' => true, // Run inline only if daemon heartbeat is stale/missing
+    'swim_daemon_heartbeat_file' => sys_get_temp_dir() . '/swim_sync_daemon.heartbeat',
+    'swim_daemon_stale_sec'      => 300,    // Consider daemon unhealthy after 5 min without heartbeat
 
     // Zone Detection (OOOI detection at airports)
     // Set to true when zone_daemon.php is running separately
@@ -1718,6 +1721,52 @@ function getSwimConnection() {
     return $conn !== false ? $conn : null;
 }
 
+function getSwimDaemonHeartbeatAge(array $config): ?int {
+    $heartbeatFile = $config['swim_daemon_heartbeat_file'] ?? '';
+    if ($heartbeatFile === '') {
+        return null;
+    }
+
+    clearstatcache(true, $heartbeatFile);
+    if (!is_file($heartbeatFile)) {
+        return null;
+    }
+
+    $mtime = @filemtime($heartbeatFile);
+    if ($mtime === false) {
+        return null;
+    }
+
+    $age = time() - $mtime;
+    return $age < 0 ? 0 : $age;
+}
+
+function shouldRunInlineSwim(array $config, int $run, ?int &$heartbeatAge = null): bool {
+    $heartbeatAge = null;
+    if (empty($config['swim_enabled'])) {
+        return false;
+    }
+    if ($run % $config['swim_interval'] !== 0) {
+        return false;
+    }
+
+    if (!empty($config['swim_inline_enabled'])) {
+        return true;
+    }
+
+    if (empty($config['swim_inline_fallback_enabled'])) {
+        return false;
+    }
+
+    $heartbeatAge = getSwimDaemonHeartbeatAge($config);
+    if ($heartbeatAge === null) {
+        return true;
+    }
+
+    $staleSec = (int)($config['swim_daemon_stale_sec'] ?? 300);
+    return $heartbeatAge > $staleSec;
+}
+
 function executeSwimSync($conn_adl, $conn_swim): ?array {
     static $syncScriptLoaded = false;
 
@@ -1743,7 +1792,7 @@ function executeSwimSync($conn_adl, $conn_swim): ?array {
 
     if ($result['success']) {
         return [
-            'flights_synced' => $result['stats']['flights_fetched'] ?? 0,
+            'flights_synced' => $result['stats']['flights_changed'] ?? ($result['stats']['flights_fetched'] ?? 0),
             'inserted'       => $result['stats']['inserted'] ?? 0,
             'updated'        => $result['stats']['updated'] ?? 0,
             'deleted'        => $result['stats']['deleted'] ?? 0,
@@ -1875,14 +1924,25 @@ function runDaemon(array $config): void {
         exit(1);
     }
     
-    // Establish SWIM_API connection (if configured)
+    // Establish SWIM_API connection (inline mode only).
+    // Daemon-first mode keeps SWIM out of the ADL critical path.
     $conn_swim = null;
     if ($config['swim_enabled']) {
-        $conn_swim = getSwimConnection();
-        if ($conn_swim) {
-            logInfo("SWIM_API database connected", ['database' => SWIM_SQL_DATABASE]);
+        if ($config['swim_inline_enabled']) {
+            $conn_swim = getSwimConnection();
+            if ($conn_swim) {
+                logInfo("SWIM_API database connected", [
+                    'database' => SWIM_SQL_DATABASE,
+                    'mode' => 'inline',
+                ]);
+            } else {
+                logWarn("SWIM_API connection failed - inline sync disabled");
+            }
         } else {
-            logWarn("SWIM_API connection failed - sync disabled");
+            logInfo("SWIM sync delegated to swim_sync_daemon", [
+                'heartbeat_file' => $config['swim_daemon_heartbeat_file'],
+                'stale_sec' => $config['swim_daemon_stale_sec'],
+            ]);
         }
     }
 
@@ -2192,13 +2252,59 @@ function runDaemon(array $config): void {
 
             // 5e. SWIM API sync (every 2 minutes)
             $swimResult = null;
-            if ($config['swim_enabled'] && $conn_swim !== null && $stats['runs'] % $config['swim_interval'] === 0) {
-                $swimResult = executeSwimSync($conn, $conn_swim);
-                if ($swimResult !== null) {
-                    $stats['swim_runs']++;
-                    $stats['swim_synced'] += $swimResult['flights_synced'];
-                    $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
+            $swimMode = null;
+            $swimHeartbeatAge = null;
+            $swimTick = $config['swim_enabled'] && ($stats['runs'] % $config['swim_interval'] === 0);
+            static $lastSwimMode = null;
+
+            if ($swimTick) {
+                if (shouldRunInlineSwim($config, $stats['runs'], $swimHeartbeatAge)) {
+                    $swimMode = $config['swim_inline_enabled'] ? 'inline' : 'fallback';
+
+                    if ($conn_swim === null) {
+                        $conn_swim = getSwimConnection();
+                        if ($conn_swim) {
+                            logInfo("SWIM_API database connected", [
+                                'database' => SWIM_SQL_DATABASE,
+                                'mode' => $swimMode,
+                            ]);
+                        } else {
+                            logWarn("SWIM_API connection failed - inline sync unavailable", [
+                                'mode' => $swimMode,
+                            ]);
+                        }
+                    }
+
+                    if ($conn_swim !== null) {
+                        $swimResult = executeSwimSync($conn, $conn_swim);
+                        if ($swimResult !== null) {
+                            $stats['swim_runs']++;
+                            $stats['swim_synced'] += $swimResult['flights_synced'];
+                            $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
+                        }
+                    }
+                } else {
+                    $swimMode = 'daemon';
+                    $swimHeartbeatAge = getSwimDaemonHeartbeatAge($config);
+                    // Release fallback connection now that daemon is healthy
+                    if ($conn_swim !== null && empty($config['swim_inline_enabled'])) {
+                        @sqlsrv_close($conn_swim);
+                        $conn_swim = null;
+                    }
                 }
+            }
+
+            if ($swimMode !== null && $swimMode !== $lastSwimMode) {
+                if ($swimMode === 'daemon') {
+                    logInfo("SWIM mode active: daemon", ['heartbeat_age_s' => $swimHeartbeatAge]);
+                } elseif ($swimMode === 'fallback') {
+                    logWarn("SWIM mode active: fallback inline (daemon heartbeat stale/missing)", [
+                        'heartbeat_age_s' => $swimHeartbeatAge,
+                    ]);
+                } else {
+                    logWarn("SWIM mode active: forced inline");
+                }
+                $lastSwimMode = $swimMode;
             }
 
             // 5f. WebSocket real-time events
@@ -2295,6 +2401,13 @@ function runDaemon(array $config): void {
                 }
                 if ($boundaryResult['crossings_calculated'] > 0) {
                     $logContext['crossings'] = $boundaryResult['crossings_calculated'];
+                }
+            }
+
+            if ($swimMode !== null) {
+                $logContext['swim_mode'] = $swimMode;
+                if ($swimHeartbeatAge !== null) {
+                    $logContext['swim_hb_s'] = $swimHeartbeatAge;
                 }
             }
 
