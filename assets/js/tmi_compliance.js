@@ -3081,7 +3081,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="tmi-header">
                     <div>
                         <span class="tmi-fix-name">${airport}</span>
-                        <span class="text-muted ml-2">| ${delays.length} delay update(s)</span>
+                        <span class="text-muted ml-2">| ${PERTII18n.t('tmiCompliance.delayUpdates', { count: delays.length })}</span>
                     </div>
                 </div>
                 <div class="delay-timeline">
@@ -3090,7 +3090,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Departure delays (D/D)
         if (departures.length > 0) {
             html += `<div class="delay-type-section mb-2">
-                <div class="small text-muted mb-1"><i class="fas fa-plane-departure"></i> Departure Delays (D/D)</div>
+                <div class="small text-muted mb-1"><i class="fas fa-plane-departure"></i> ${PERTII18n.t('tmiCompliance.departureDelays')}</div>
                 <div class="delay-entries">`;
             for (const d of departures) {
                 html += this.renderDelayEntry(d);
@@ -3101,7 +3101,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // En-route delays (E/D)
         if (enroute.length > 0) {
             html += `<div class="delay-type-section mb-2">
-                <div class="small text-muted mb-1"><i class="fas fa-plane"></i> En-Route Delays (E/D)</div>
+                <div class="small text-muted mb-1"><i class="fas fa-plane"></i> ${PERTII18n.t('tmiCompliance.enRouteDelays')}</div>
                 <div class="delay-entries">`;
             for (const d of enroute) {
                 html += this.renderDelayEntry(d);
@@ -3112,7 +3112,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Arrival delays (A/D)
         if (arrivals.length > 0) {
             html += `<div class="delay-type-section mb-2">
-                <div class="small text-muted mb-1"><i class="fas fa-plane-arrival"></i> Arrival Delays (A/D)</div>
+                <div class="small text-muted mb-1"><i class="fas fa-plane-arrival"></i> ${PERTII18n.t('tmiCompliance.arrivalDelays')}</div>
                 <div class="delay-entries">`;
             for (const d of arrivals) {
                 html += this.renderDelayEntry(d);
@@ -3131,10 +3131,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     : '';
 
         const holdingBadge = d.holding_status === 'HOLDING'
-            ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> Holding${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
+            ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> ${PERTII18n.t('tmiCompliance.holdingLabel')}${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
             : '';
 
-        const delayDisplay = d.delay_minutes > 0 ? `+${d.delay_minutes}min` : (d.holding_status === 'HOLDING' ? 'Holding' : '-');
+        const delayDisplay = d.delay_minutes > 0 ? `+${d.delay_minutes}min` : (d.holding_status === 'HOLDING' ? PERTII18n.t('tmiCompliance.holdingLabel') : '-');
 
         return `
             <div class="delay-entry d-flex align-items-center py-1 border-bottom" style="font-size: 0.85rem;">
@@ -4135,7 +4135,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const hasData = mapData.facilities?.length || mapData.fixes?.length ||
                         mapData.airports?.length || this.trajectoryCache[mapId];
         if (!hasData) {
-            container.innerHTML = '<div class="text-center text-muted py-4">No boundary data available</div>';
+            container.innerHTML = '<div class="text-center text-muted py-4">' + PERTII18n.t('tmiCompliance.noBoundaryData') + '</div>';
             return;
         }
 
@@ -6938,7 +6938,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const allTmis = this.getAllTmisForList();
 
         if (allTmis.length === 0) {
-            return `<div class="tmi-list-empty">No TMIs to display</div>`;
+            return `<div class="tmi-list-empty">${PERTII18n.t('tmiCompliance.noTmisToDisplay')}</div>`;
         }
 
         // Group by type
@@ -6948,11 +6948,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let html = `
             <div class="tmi-list-header">
                 <div class="tmi-list-controls">
-                    <select id="tmi-list-ordering" title="Sort order">
-                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>Chronological</option>
-                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>By Volume</option>
-                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>Non-compliant First</option>
-                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>Alphabetical</option>
+                    <select id="tmi-list-ordering" title="${PERTII18n.t('tmiCompliance.sortTitle')}">
+                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sortChronological')}</option>
+                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sortByVolume')}</option>
+                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sortNonCompliantFirst')}</option>
+                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sortAlphabetical')}</option>
                     </select>
                 </div>
             </div>
@@ -6964,7 +6964,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // NTML Entries section
         if (sortedNtml.length > 0) {
-            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.ntmlEntriesLabel') + '</div>';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
@@ -6972,7 +6972,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Advisories section
         if (sortedAdvisories.length > 0) {
-            html += '<div class="tmi-list-section-label">Advisories</div>';
+            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.advisoriesLabel') + '</div>';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
@@ -7982,7 +7982,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // NTML Entries section
         if (sortedNtml.length > 0) {
-            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.ntmlEntriesLabel') + '</div>';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
@@ -7990,7 +7990,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // Advisories section
         if (sortedAdvisories.length > 0) {
-            html += '<div class="tmi-list-section-label">Advisories</div>';
+            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.advisoriesLabel') + '</div>';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
