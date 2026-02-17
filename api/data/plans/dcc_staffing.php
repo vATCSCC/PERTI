@@ -40,17 +40,17 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
 }
 
 if (isset($_GET['position_facility'])) {
-    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility='DCC' OR position_facility='VATCAN' OR position_facility='ECFMP'")->fetch_assoc();
+    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility IN ('DCC','VATCAN','ECFMP')")->fetch_assoc();
 } else {
-    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility!='DCC' AND position_facility!='VATCAN' AND position_facility!='ECFMP'")->fetch_assoc();
+    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','VATCAN','ECFMP')")->fetch_assoc();
 }
 
 
 if ($c_q['total'] > 0) {
     if (isset($_GET['position_facility'])) {
-        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility='DCC' OR position_facility='VATCAN' OR position_facility='ECFMP'");
+        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility IN ('DCC','VATCAN','ECFMP')");
     } else {
-        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility!='DCC' AND position_facility!='VATCAN' AND position_facility!='ECFMP'");
+        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','VATCAN','ECFMP')");
     }
 
     while ($data = mysqli_fetch_array($query)) {
