@@ -1603,10 +1603,12 @@ class TMIComplianceAnalyzer:
 
         # 3. For each flight, select the appropriate crossing point
         # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
-        # For facility-specific MITs (with provider:requestor), ONLY use boundary crossings.
-        # The fix identifies the stream but the MIT applies at the handoff point.
-        # Flights that don't cross the provider->requestor boundary aren't subject to this MIT.
+        # For ARTCC->ARTCC MITs, ONLY use boundary crossings (strict handoff measurement).
+        # For ARTCC->Airport/TRACON MITs, allow fix crossing fallback since airport/TRACON
+        # boundaries are often unreliable in PostGIS (sparse trajectory data misses small areas).
         has_facility_pair = bool(tmi.provider and tmi.requestor)
+        requestor_type = classify_facility(tmi.requestor) if tmi.requestor else 'UNKNOWN'
+        strict_boundary = has_facility_pair and requestor_type == 'ARTCC'
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
 
@@ -1618,9 +1620,10 @@ class TMIComplianceAnalyzer:
                 # Boundary crossing found - always use it
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
-            elif fix_cx and not has_facility_pair:
-                # Fix fallback ONLY for TMIs without a facility pair
-                # (facility-specific MITs require boundary crossing)
+            elif fix_cx and not strict_boundary:
+                # Fix fallback allowed when:
+                # - No facility pair specified, OR
+                # - Requestor is an airport/TRACON (boundary detection unreliable)
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
 
