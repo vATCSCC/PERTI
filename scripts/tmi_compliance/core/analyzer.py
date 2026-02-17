@@ -18,7 +18,10 @@ from .models import (
     normalize_datetime, normalize_icao_list, CROSSING_RADIUS_NM, MITModifier,
     TrafficDirection, TrafficFilter,
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
-    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD
+    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
+    HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
+    HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_GAP_RESET_SEC,
+    HOLD_LOW_CONFIDENCE_INTERVAL_SEC
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -221,6 +224,218 @@ def classify_facility(code: str) -> str:
 
     # Default: assume airport for short codes
     return 'AIRPORT'
+
+
+# ---------------------------------------------------------------------------
+# Holding pattern detection helpers (module-level pure functions)
+# ---------------------------------------------------------------------------
+
+def _heading_delta(h1: float, h2: float) -> float:
+    """Signed heading change from h1 to h2, handling 360-degree wrap.
+    Positive = clockwise (right turn), Negative = counter-clockwise (left turn).
+    Returns value in range (-180, 180]."""
+    d = (h2 - h1) % 360
+    if d > 180:
+        d -= 360
+    return d
+
+
+def detect_flight_holding(trajectory: List[Dict[str, Any]],
+                          dest_lat: float, dest_lon: float) -> List[Dict[str, Any]]:
+    """
+    Detect holding patterns in a single flight's trajectory.
+
+    Scans the trajectory for sustained turning (cumulative heading change
+    exceeding one orbit) and groups consecutive orbits into hold events.
+
+    Args:
+        trajectory: List of dicts with keys:
+            timestamp (datetime), lat (float), lon (float),
+            gs (float), gs_valid (bool), alt (float)
+        dest_lat: Destination airport latitude (for circling approach filter)
+        dest_lon: Destination airport longitude (for circling approach filter)
+
+    Returns:
+        List of hold event dicts (see _finalize_hold for structure).
+    """
+    if len(trajectory) < 4:
+        return []
+
+    # Step 1: Build bearing series from consecutive trajectory points
+    # Each entry is the bearing from point[i] to point[i+1]
+    bearings = []
+    for i in range(len(trajectory) - 1):
+        p1 = trajectory[i]
+        p2 = trajectory[i + 1]
+        brg = calculate_bearing(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+        bearings.append(brg)
+
+    if len(bearings) < 2:
+        return []
+
+    # Step 2: Scan bearing deltas to find orbits
+    holding_events = []
+    cumulative_heading = 0.0
+    orbit_count = 0
+    turn_sign_sum = 0.0
+    hold_start_idx = 0      # Index into bearings where current candidate began
+    in_candidate = False
+
+    for i in range(1, len(bearings)):
+        # Check for time gaps in the trajectory segments contributing to
+        # bearings[i-1] and bearings[i].  A large gap means data dropout;
+        # reset the accumulator to avoid false detections across the gap.
+        gap_sec = (trajectory[i]['timestamp'] - trajectory[i - 1]['timestamp']).total_seconds()
+        if (i + 1) < len(trajectory):
+            gap_sec = max(gap_sec,
+                          (trajectory[i + 1]['timestamp'] - trajectory[i]['timestamp']).total_seconds())
+
+        if gap_sec > HOLD_GAP_RESET_SEC:
+            # Finalize any pending hold before resetting
+            if in_candidate and orbit_count >= 1:
+                _finalize_hold(trajectory, bearings, hold_start_idx, i - 1,
+                               orbit_count, turn_sign_sum, holding_events,
+                               dest_lat, dest_lon)
+            # Reset accumulator
+            cumulative_heading = 0.0
+            orbit_count = 0
+            turn_sign_sum = 0.0
+            in_candidate = False
+            hold_start_idx = i
+            continue
+
+        # Compute heading delta between consecutive bearings
+        delta = _heading_delta(bearings[i - 1], bearings[i])
+        cumulative_heading += delta
+        turn_sign_sum += delta
+
+        if not in_candidate:
+            # Start tracking when we see meaningful turning
+            if abs(cumulative_heading) >= 45:
+                in_candidate = True
+                hold_start_idx = max(0, i - 1)
+            else:
+                # Keep resetting start point until candidate begins
+                hold_start_idx = i
+                continue
+
+        # Check if we've completed an orbit
+        if abs(cumulative_heading) >= HOLD_MIN_HEADING_CHANGE_DEG:
+            orbit_count += 1
+            # Subtract one orbit's worth of heading, preserving sign
+            if cumulative_heading > 0:
+                cumulative_heading -= 360.0
+            else:
+                cumulative_heading += 360.0
+
+    # Finalize any remaining candidate at trajectory end
+    if in_candidate and orbit_count >= 1:
+        _finalize_hold(trajectory, bearings, hold_start_idx, len(bearings) - 1,
+                       orbit_count, turn_sign_sum, holding_events,
+                       dest_lat, dest_lon)
+
+    return holding_events
+
+
+def _finalize_hold(trajectory: List[Dict[str, Any]],
+                   bearings: List[float],
+                   start_idx: int, end_idx: int,
+                   orbit_count: int, turn_sign_sum: float,
+                   holding_events: List[Dict[str, Any]],
+                   dest_lat: float, dest_lon: float) -> None:
+    """
+    Validate and finalize a candidate holding event.
+
+    Maps bearing indices back to trajectory indices, applies duration,
+    spatial containment, and circling approach filters, then appends
+    a validated event dict to holding_events.
+
+    Args:
+        trajectory: Full trajectory point list
+        bearings: Bearing series (one per consecutive trajectory pair)
+        start_idx: Start index in bearings array
+        end_idx: End index in bearings array
+        orbit_count: Number of detected orbits
+        turn_sign_sum: Sum of all heading deltas (sign indicates direction)
+        holding_events: Output list to append validated events to
+        dest_lat: Destination latitude (for circling filter)
+        dest_lon: Destination longitude (for circling filter)
+    """
+    # Map bearing indices to trajectory indices.
+    # bearings[i] is derived from trajectory[i] -> trajectory[i+1],
+    # so the trajectory span is [start_idx, end_idx + 1].
+    traj_start = start_idx
+    traj_end = min(end_idx + 1, len(trajectory) - 1)
+
+    if traj_start >= traj_end:
+        return
+
+    # 1. Duration check
+    t_start = trajectory[traj_start]['timestamp']
+    t_end = trajectory[traj_end]['timestamp']
+    duration_sec = int((t_end - t_start).total_seconds())
+
+    if duration_sec < HOLD_MIN_DURATION_SEC:
+        return
+
+    # 2. Spatial containment: compute centroid and check radius
+    hold_points = trajectory[traj_start:traj_end + 1]
+    n_pts = len(hold_points)
+
+    center_lat = sum(p['lat'] for p in hold_points) / n_pts
+    center_lon = sum(p['lon'] for p in hold_points) / n_pts
+
+    max_dist = 0.0
+    dist_sum = 0.0
+    for p in hold_points:
+        d = haversine_nm(center_lat, center_lon, p['lat'], p['lon'])
+        dist_sum += d
+        if d > max_dist:
+            max_dist = d
+
+    if max_dist > HOLD_MAX_RADIUS_NM:
+        return
+
+    avg_radius = dist_sum / n_pts if n_pts > 0 else 0.0
+
+    # 3. Circling approach filter: skip if close to destination and low altitude
+    dist_to_dest = haversine_nm(center_lat, center_lon, dest_lat, dest_lon)
+    avg_alt = sum(p['alt'] for p in hold_points) / n_pts if n_pts > 0 else 0.0
+
+    if dist_to_dest < HOLD_CIRCLING_DIST_NM and avg_alt < HOLD_CIRCLING_ALT_AGL_FT:
+        return
+
+    # 4. Compute metrics
+    gs_values = [p['gs'] for p in hold_points if p.get('gs_valid', True) and p['gs'] > 0]
+    avg_gs = sum(gs_values) / len(gs_values) if gs_values else 0.0
+
+    turn_direction = 'R' if turn_sign_sum >= 0 else 'L'
+
+    # 5. Data resolution / low-confidence check
+    # Average interval between points; flag if sparser than threshold
+    low_confidence = False
+    if n_pts >= 2:
+        avg_interval = duration_sec / (n_pts - 1)
+        if avg_interval > HOLD_LOW_CONFIDENCE_INTERVAL_SEC:
+            low_confidence = True
+    else:
+        low_confidence = True
+
+    # 6. Append validated event
+    holding_events.append({
+        'hold_start_utc': t_start,
+        'hold_end_utc': t_end,
+        'duration_sec': duration_sec,
+        'orbit_count': orbit_count,
+        'center_lat': round(center_lat, 6),
+        'center_lon': round(center_lon, 6),
+        'avg_radius_nm': round(avg_radius, 2),
+        'avg_altitude_ft': round(avg_alt, 0),
+        'avg_groundspeed_kts': round(avg_gs, 1),
+        'turn_direction': turn_direction,
+        'low_confidence': low_confidence,
+        'point_indices': (traj_start, traj_end),
+    })
 
 
 class TMIComplianceAnalyzer:
