@@ -30,7 +30,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-require_once(dirname(__DIR__) . '/load/org_context.php');
+require_once(dirname(__DIR__, 2) . '/load/org_context.php');
 $org = get_org_code();
 $stmt = mysqli_prepare($conn_sqli, "SELECT * FROM p_plans WHERE org_code = ? ORDER BY event_date DESC");
 mysqli_stmt_bind_param($stmt, "s", $org);
