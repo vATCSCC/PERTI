@@ -1,14 +1,4 @@
 {
-  "org": {
-    "name": "CANTMU",
-    "displayName": "NOC",
-    "airspace": "Espace a\u00e9rien canadien",
-    "commandCenter": "UGC canadienne",
-    "facilityType": "FIR",
-    "facilityTypePlural": "FIR",
-    "switchOrg": "Changer d'organisation",
-    "currentOrg": "Actuel\u00a0: {org}"
-  },
   "common": {
     "ok": "OK",
     "cancel": "Annuler",
@@ -115,27 +105,12 @@
     "canadaEast": "Est du Canada",
     "canadaWest": "Ouest du Canada"
   },
-  "jatoc": {
-    "auth": {
-      "dccOnly": "Seuls les utilisateurs du NOC peuvent {action}."
-    }
-  },
   "tmr": {
     "trigger": {
-      "dccInitiated": "IGC initialis\u00e9e par le NOC"
+      "dccInitiated": "IGC initialis\u00e9e par le {commandCenter}"
     },
     "staffing": {
-      "dcc": "NOC"
-    }
-  },
-  "nod": {
-    "colorMode": {
-      "dccRegion": "R\u00e9gion NOC"
-    }
-  },
-  "splits": {
-    "popup": {
-      "dccRegion": "R\u00e9gion NOC"
+      "dcc": "{commandCenter}"
     }
   }
 }

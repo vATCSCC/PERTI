@@ -258,6 +258,34 @@
             console.warn('[LocaleLoader] Could not load full locale file:', e.message);
         }
 
+        // Inject org-aware overrides from PERTI_ORG
+        // These must come AFTER locale loading so org context wins over locale files.
+        // Resolves {commandCenter} placeholders in locale strings (e.g. "DCC" or "NOC").
+        if (typeof window !== 'undefined' && window.PERTI_ORG) {
+            var orgInfo = window.PERTI_ORG.orgInfo || {};
+            var displayName = orgInfo.display_name || 'DCC';
+            var orgOverrides = {
+                'org.displayName': displayName
+            };
+            if (orgInfo.org_name) orgOverrides['org.name'] = orgInfo.org_name;
+            PERTII18n.loadStrings(orgOverrides);
+
+            // Pre-resolve {commandCenter} in all loaded strings so callers
+            // don't need to pass it explicitly every time
+            var allKeys = PERTII18n.getKeys();
+            var resolved = {};
+            for (var k = 0; k < allKeys.length; k++) {
+                var val = PERTII18n.t(allKeys[k]);
+                if (typeof val === 'string' && val.indexOf('{commandCenter}') !== -1) {
+                    resolved[allKeys[k]] = val.replace(/\{commandCenter\}/g, displayName);
+                }
+            }
+            if (Object.keys(resolved).length > 0) {
+                PERTII18n.loadStrings(resolved);
+                console.log('[LocaleLoader] Resolved {commandCenter} in', Object.keys(resolved).length, 'keys as:', displayName);
+            }
+        }
+
         // Store detected locale
         if (typeof localStorage !== 'undefined') {
             try {

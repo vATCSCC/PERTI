@@ -1895,7 +1895,7 @@
       "groundStop": "Ground stop",
       "gdp": "Ground Delay Program",
       "equipment": "Equipment",
-      "dccInitiated": "DCC-initiated TMR",
+      "dccInitiated": "{commandCenter}-initiated TMR",
       "other": "Other (specify)",
       "otherPlaceholder": "Describe the trigger..."
     },
@@ -1928,7 +1928,7 @@
       "comments": "Comments",
       "terminal": "Terminal",
       "enroute": "Enroute",
-      "dcc": "DCC"
+      "dcc": "{commandCenter}"
     },
     "opsPlan": {
       "loadGoals": "Load Plan Goals",
