@@ -93,6 +93,16 @@ include('load/nav.php');
 
             <h5><?= __('schedule.page.systemPersonnel') ?>     <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#addpersonnelModal"><i class="fas fa-plus"></i> <?= __('common.add') ?></button></h5>
             <table class="table w-75">
+                <thead>
+                    <tr>
+                        <th class="text-center">CID</th>
+                        <th class="text-center">First Name</th>
+                        <th class="text-center">Last Name</th>
+                        <th class="text-center">Organization</th>
+                        <th class="text-center">Last Updated</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
                 <tbody id="personnel"></tbody>
             </table>
 
