@@ -20,8 +20,8 @@ from .models import (
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
     REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
     HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
-    HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_GAP_RESET_SEC,
-    HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
+    HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
+    HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -397,17 +397,22 @@ def _finalize_hold(trajectory: List[Dict[str, Any]],
         return
 
     avg_radius = dist_sum / n_pts if n_pts > 0 else 0.0
-
-    # 3. Circling approach filter: skip if close to destination and low altitude
-    dist_to_dest = haversine_nm(center_lat, center_lon, dest_lat, dest_lon)
     avg_alt = sum(p['alt'] for p in hold_points) / n_pts if n_pts > 0 else 0.0
 
-    if dist_to_dest < HOLD_CIRCLING_DIST_NM and avg_alt < HOLD_CIRCLING_ALT_AGL_FT:
-        return
+    # 3. Circling approach filter: skip if close to destination and low altitude
+    if dest_lat is not None and dest_lon is not None:
+        dist_to_dest = haversine_nm(center_lat, center_lon, dest_lat, dest_lon)
+
+        if dist_to_dest < HOLD_CIRCLING_DIST_NM and avg_alt < HOLD_CIRCLING_ALT_AGL_FT:
+            return
 
     # 4. Compute metrics
     gs_values = [p['gs'] for p in hold_points if p.get('gs_valid', True) and p['gs'] > 0]
     avg_gs = sum(gs_values) / len(gs_values) if gs_values else 0.0
+
+    # Groundspeed filter: exclude ground operations (taxi, pushback, parking)
+    if avg_gs < HOLD_MIN_GROUNDSPEED_KTS:
+        return
 
     turn_direction = 'R' if turn_sign_sum >= 0 else 'L'
 
@@ -1969,8 +1974,8 @@ class TMIComplianceAnalyzer:
                     continue
                 gs_dest = gs.airport
                 if dest and dest.upper().endswith(gs_dest.upper()):
-                    gs_start = gs.advisories[0].start_utc if gs.advisories else None
-                    gs_end = gs.advisories[-1].end_utc if gs.advisories else None
+                    gs_start = gs.effective_start
+                    gs_end = gs.effective_end
                     if gs_start and gs_end and hold_start <= gs_end and hold_end >= gs_start:
                         hold['tmi_attribution'] = 'gs'
                         hold['tmi_program_id'] = f"GS_{gs_dest}"
