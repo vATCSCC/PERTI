@@ -60,6 +60,8 @@ const TMICompliance = {
     listGrouping: 'type',        // 'type', 'chronological', 'volume', 'noncompliant'
     listOrdering: 'chronological', // 'chronological', 'volume', 'alpha'
     expandedSections: {},        // Track which detail sections are expanded
+    holdingData: null,               // Holding detection results from Python
+    _selectedHoldingFix: null,       // Currently selected holding fix index
 
     init: function() {
         // Get plan ID from URL
@@ -191,6 +193,10 @@ const TMICompliance = {
 
                 if (response.success && response.data) {
                     this.results = response.data;
+                    // Store holding results
+                    if (this.results && this.results.holding) {
+                        this.holdingData = this.results.holding;
+                    }
                     // Start trajectory fetch in parallel (maps will await it)
                     if (response.data.trajectories_url) {
                         this.loadTrajectories(this.planId, response.data.trajectories_url);
@@ -472,6 +478,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (response.success && response.data) {
             this.results = response.data;
+            // Store holding results
+            if (this.results && this.results.holding) {
+                this.holdingData = this.results.holding;
+            }
             if (response.data.trajectories_url) {
                 this.loadTrajectories(this.planId, response.data.trajectories_url);
             }
@@ -6978,6 +6988,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
         }
 
+        // Holding patterns section
+        if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
+            const hs = this.holdingData.summary;
+            html += '<div class="tmi-list-section-label">Holding Patterns</div>';
+            (hs.hold_fixes || []).forEach((fix, idx) => {
+                const fixLabel = fix.fix_name || 'Unknown Fix';
+                const isSelected = this._selectedHoldingFix === idx;
+                const durMin = Math.round(fix.avg_duration_sec / 60);
+                html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
+                    <div class="tmi-list-item-identity">
+                        <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
+                    </div>
+                    <div class="tmi-list-item-meta">
+                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                    </div>
+                </div>`;
+            });
+        }
+
         return html;
     },
 
@@ -7701,6 +7730,234 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     },
 
     /**
+     * Select a holding fix in the list panel
+     */
+    selectHoldingFix: function(fixIdx) {
+        this._selectedHoldingFix = fixIdx;
+        this.selectedTmiId = null; // Deselect any TMI
+
+        // Remove selected class from TMI list items, add to holding item
+        $('.tmi-list-item').removeClass('selected');
+        $(`.tmi-list-item`).eq(-1).addClass('selected'); // Will be updated by re-render
+
+        this.renderHoldingDetail(fixIdx);
+    },
+
+    /**
+     * Render holding fix detail panel
+     */
+    renderHoldingDetail: function(fixIdx) {
+        const holding = this.holdingData;
+        if (!holding || !holding.summary) return;
+
+        const fix = holding.summary.hold_fixes[fixIdx];
+        if (!fix) return;
+
+        const events = holding.events.filter(e => {
+            return (fix.fix_name && e.matched_fix === fix.fix_name) ||
+                   (!fix.fix_name && Math.abs(e.center_lat - fix.center[1]) < 0.01);
+        });
+
+        let html = '';
+
+        // Back link for mobile
+        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 Back to list</a>';
+
+        // Header
+        html += `<div class="tmi-detail-header">
+            <div class="tmi-identity"><span class="tmi-type-badge holding">HPT</span> Holding at ${fix.fix_name || 'Unknown'}</div>
+            <div class="tmi-standardized">${fix.flight_count} flights, ${fix.total_orbits} total orbits</div>
+        </div>`;
+
+        // Overview stats
+        const durMin = Math.round(fix.avg_duration_sec / 60);
+        html += `<div class="tmi-detail-overview">
+            <div class="stat"><div class="stat-value">${fix.flight_count}</div><div class="stat-label">Flights</div></div>
+            <div class="stat"><div class="stat-value">${fix.total_orbits}</div><div class="stat-label">Total Orbits</div></div>
+            <div class="stat"><div class="stat-value">${durMin}m</div><div class="stat-label">Avg Duration</div></div>
+            <div class="stat"><div class="stat-value">${fix.peak_concurrent}</div><div class="stat-label">Peak Concurrent</div></div>
+        </div>`;
+
+        // NTML badge
+        if (fix.ntml_corroborated) {
+            html += '<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i> NTML Corroborated</div>';
+        }
+
+        // Flight list expandable section
+        html += this.renderExpandableSectionV2('holding-flights-' + fixIdx, 'Flights', events.length, () => {
+            let tableHtml = '<table class="tmi-pairs-table"><thead><tr>';
+            tableHtml += '<th>Callsign</th><th>Dep</th><th>Dest</th><th>Start</th><th>Duration</th><th>Orbits</th><th>Fix Source</th><th>Dir</th>';
+            tableHtml += '</tr></thead><tbody>';
+            events.forEach(e => {
+                const startTime = e.hold_start_utc ? e.hold_start_utc.substring(11, 16) : '-';
+                const durMin = Math.round(e.duration_sec / 60);
+                const sourceLabel = e.fix_match_source === 'route' ? 'Route'
+                    : e.fix_match_source === 'star' ? 'STAR'
+                    : e.fix_match_source === 'navfix' ? 'Nearby' : '-';
+                tableHtml += `<tr>
+                    <td><strong>${e.callsign}</strong></td>
+                    <td>${e.dept || '-'}</td>
+                    <td>${e.dest || '-'}</td>
+                    <td>${startTime}Z</td>
+                    <td>${durMin}min</td>
+                    <td>${e.orbit_count}</td>
+                    <td>${sourceLabel}</td>
+                    <td>${e.turn_direction || '-'}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+            return tableHtml;
+        });
+
+        // Delay attribution expandable section
+        const attr = holding.summary.delay_attribution;
+        if (attr && attr.total_hold_delay_sec > 0) {
+            html += this.renderExpandableSectionV2('holding-delay-' + fixIdx, 'Delay Attribution', '', () => {
+                const totalMin = Math.round(attr.total_hold_delay_sec / 60);
+                let dhtml = '<div class="holding-delay-summary">';
+                dhtml += `<div class="stat"><div class="stat-value">${totalMin}m</div><div class="stat-label">Total Hold Delay</div></div>`;
+                if (attr.attributed.gs && attr.attributed.gs.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.gs.flights}</div><div class="stat-label">GS-Attributed</div></div>`;
+                }
+                if (attr.attributed.mit && attr.attributed.mit.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.mit.flights}</div><div class="stat-label">MIT-Attributed</div></div>`;
+                }
+                if (attr.unattributed && attr.unattributed.flights > 0) {
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.unattributed.flights}</div><div class="stat-label">Unattributed</div></div>`;
+                }
+                dhtml += '</div>';
+                return dhtml;
+            });
+        }
+
+        $('#tmi-detail-panel').html(html);
+    },
+
+    /**
+     * Render holding orbit highlights on the map
+     * Draws purple LineStrings for the holding segments of trajectories
+     */
+    _renderHoldingOrbits: function(map, mapId, events, allTrajectories) {
+        const sourceId = 'holding-orbits-' + mapId;
+        const layerId = 'holding-orbits-layer-' + mapId;
+        const glowId = 'holding-orbits-glow-' + mapId;
+
+        const features = [];
+        events.forEach(evt => {
+            const traj = allTrajectories[evt.callsign];
+            if (!traj || !traj.coordinates) return;
+
+            const startEpoch = new Date(evt.hold_start_utc).getTime() / 1000;
+            const endEpoch = new Date(evt.hold_end_utc).getTime() / 1000;
+            const holdCoords = traj.coordinates.filter(c => c[2] >= startEpoch && c[2] <= endEpoch);
+
+            if (holdCoords.length < 2) return;
+
+            features.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: holdCoords.map(c => [c[0], c[1]])
+                },
+                properties: {
+                    callsign: evt.callsign,
+                    duration_min: Math.round(evt.duration_sec / 60),
+                    orbits: evt.orbit_count,
+                    fix: evt.matched_fix || 'Unknown',
+                    direction: evt.turn_direction
+                }
+            });
+        });
+
+        const geojson = { type: 'FeatureCollection', features: features };
+
+        // Remove existing layers
+        if (map.getSource(sourceId)) {
+            if (map.getLayer(glowId)) map.removeLayer(glowId);
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            map.removeSource(sourceId);
+        }
+
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+        map.addLayer({
+            id: glowId, type: 'line', source: sourceId,
+            paint: { 'line-color': '#c050e0', 'line-width': 7, 'line-opacity': 0.25, 'line-blur': 3 }
+        });
+
+        map.addLayer({
+            id: layerId, type: 'line', source: sourceId,
+            paint: { 'line-color': '#a020d0', 'line-width': 3, 'line-opacity': 0.85 }
+        });
+    },
+
+    /**
+     * Render holding zone markers on the map
+     * Draws scaled circles at hold fix locations with labels and click popups
+     */
+    _renderHoldingZones: function(map, mapId, holdFixes) {
+        const sourceId = 'holding-zones-' + mapId;
+        const circleLayerId = 'holding-zones-circle-' + mapId;
+        const labelLayerId = 'holding-zones-label-' + mapId;
+
+        const features = holdFixes.map(fix => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: fix.center },
+            properties: {
+                fix_name: fix.fix_name || 'Unknown',
+                flight_count: fix.flight_count,
+                total_orbits: fix.total_orbits,
+                avg_duration_min: Math.round(fix.avg_duration_sec / 60),
+                peak_concurrent: fix.peak_concurrent,
+                ntml: fix.ntml_corroborated || false
+            }
+        }));
+
+        const geojson = { type: 'FeatureCollection', features: features };
+
+        if (map.getSource(sourceId)) {
+            if (map.getLayer(labelLayerId)) map.removeLayer(labelLayerId);
+            if (map.getLayer(circleLayerId)) map.removeLayer(circleLayerId);
+            map.removeSource(sourceId);
+        }
+
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+        map.addLayer({
+            id: circleLayerId, type: 'circle', source: sourceId,
+            paint: {
+                'circle-radius': ['interpolate', ['linear'], ['get', 'flight_count'], 1, 10, 5, 18, 10, 26, 20, 35],
+                'circle-color': '#a020d0',
+                'circle-opacity': ['interpolate', ['linear'], ['get', 'flight_count'], 1, 0.3, 10, 0.6],
+                'circle-stroke-color': '#7010a0',
+                'circle-stroke-width': 2
+            }
+        });
+
+        map.addLayer({
+            id: labelLayerId, type: 'symbol', source: sourceId,
+            layout: {
+                'text-field': ['concat', ['get', 'fix_name'], '\n', ['to-string', ['get', 'flight_count']], ' flt'],
+                'text-size': 11,
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': true
+            },
+            paint: { 'text-color': '#ffffff', 'text-halo-color': '#4a0070', 'text-halo-width': 1.5 }
+        });
+
+        // Click popup
+        map.on('click', circleLayerId, function(e) {
+            const props = e.features[0].properties;
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`<div class="holding-zone-popup"><strong>${props.fix_name}</strong><br>${props.flight_count} flights held<br>${props.total_orbits} total orbits<br>${props.avg_duration_min}min avg duration<br>Peak concurrent: ${props.peak_concurrent}${props.ntml ? '<br><em>NTML corroborated</em>' : ''}</div>`)
+                .addTo(map);
+        });
+        map.on('mouseenter', circleLayerId, function() { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', circleLayerId, function() { map.getCanvas().style.cursor = ''; });
+    },
+
+    /**
      * Toggle spacing diagram scale mode and re-render
      */
     toggleSpacingDiagramScale: function() {
@@ -7993,6 +8250,25 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += '<div class="tmi-list-section-label">Advisories</div>';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
+            });
+        }
+
+        // Holding patterns section
+        if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
+            const hs = this.holdingData.summary;
+            html += '<div class="tmi-list-section-label">Holding Patterns</div>';
+            (hs.hold_fixes || []).forEach((fix, idx) => {
+                const fixLabel = fix.fix_name || 'Unknown Fix';
+                const isSelected = this._selectedHoldingFix === idx;
+                const durMin = Math.round(fix.avg_duration_sec / 60);
+                html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
+                    <div class="tmi-list-item-identity">
+                        <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
+                    </div>
+                    <div class="tmi-list-item-meta">
+                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                    </div>
+                </div>`;
             });
         }
 

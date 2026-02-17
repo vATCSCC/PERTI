@@ -18,7 +18,10 @@ from .models import (
     normalize_datetime, normalize_icao_list, CROSSING_RADIUS_NM, MITModifier,
     TrafficDirection, TrafficFilter,
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
-    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD
+    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
+    HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
+    HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
+    HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -223,6 +226,223 @@ def classify_facility(code: str) -> str:
     return 'AIRPORT'
 
 
+# ---------------------------------------------------------------------------
+# Holding pattern detection helpers (module-level pure functions)
+# ---------------------------------------------------------------------------
+
+def _heading_delta(h1: float, h2: float) -> float:
+    """Signed heading change from h1 to h2, handling 360-degree wrap.
+    Positive = clockwise (right turn), Negative = counter-clockwise (left turn).
+    Returns value in range (-180, 180]."""
+    d = (h2 - h1) % 360
+    if d > 180:
+        d -= 360
+    return d
+
+
+def detect_flight_holding(trajectory: List[Dict[str, Any]],
+                          dest_lat: float, dest_lon: float) -> List[Dict[str, Any]]:
+    """
+    Detect holding patterns in a single flight's trajectory.
+
+    Scans the trajectory for sustained turning (cumulative heading change
+    exceeding one orbit) and groups consecutive orbits into hold events.
+
+    Args:
+        trajectory: List of dicts with keys:
+            timestamp (datetime), lat (float), lon (float),
+            gs (float), gs_valid (bool), alt (float)
+        dest_lat: Destination airport latitude (for circling approach filter)
+        dest_lon: Destination airport longitude (for circling approach filter)
+
+    Returns:
+        List of hold event dicts (see _finalize_hold for structure).
+    """
+    if len(trajectory) < 4:
+        return []
+
+    # Step 1: Build bearing series from consecutive trajectory points
+    # Each entry is the bearing from point[i] to point[i+1]
+    bearings = []
+    for i in range(len(trajectory) - 1):
+        p1 = trajectory[i]
+        p2 = trajectory[i + 1]
+        brg = calculate_bearing(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+        bearings.append(brg)
+
+    if len(bearings) < 2:
+        return []
+
+    # Step 2: Scan bearing deltas to find orbits
+    holding_events = []
+    cumulative_heading = 0.0
+    orbit_count = 0
+    turn_sign_sum = 0.0
+    hold_start_idx = 0      # Index into bearings where current candidate began
+    in_candidate = False
+
+    for i in range(1, len(bearings)):
+        # Check for time gaps in the trajectory segments contributing to
+        # bearings[i-1] and bearings[i].  A large gap means data dropout;
+        # reset the accumulator to avoid false detections across the gap.
+        gap_sec = (trajectory[i]['timestamp'] - trajectory[i - 1]['timestamp']).total_seconds()
+        if (i + 1) < len(trajectory):
+            gap_sec = max(gap_sec,
+                          (trajectory[i + 1]['timestamp'] - trajectory[i]['timestamp']).total_seconds())
+
+        if gap_sec > HOLD_GAP_RESET_SEC:
+            # Finalize any pending hold before resetting
+            if in_candidate and orbit_count >= 1:
+                _finalize_hold(trajectory, bearings, hold_start_idx, i - 1,
+                               orbit_count, turn_sign_sum, holding_events,
+                               dest_lat, dest_lon)
+            # Reset accumulator
+            cumulative_heading = 0.0
+            orbit_count = 0
+            turn_sign_sum = 0.0
+            in_candidate = False
+            hold_start_idx = i
+            continue
+
+        # Compute heading delta between consecutive bearings
+        delta = _heading_delta(bearings[i - 1], bearings[i])
+        cumulative_heading += delta
+        turn_sign_sum += delta
+
+        if not in_candidate:
+            # Start tracking when we see meaningful turning
+            if abs(cumulative_heading) >= 45:
+                in_candidate = True
+                hold_start_idx = max(0, i - 1)
+            else:
+                # Keep resetting start point until candidate begins
+                hold_start_idx = i
+                continue
+
+        # Check if we've completed an orbit
+        if abs(cumulative_heading) >= HOLD_MIN_HEADING_CHANGE_DEG:
+            orbit_count += 1
+            # Subtract one orbit's worth of heading, preserving sign
+            if cumulative_heading > 0:
+                cumulative_heading -= 360.0
+            else:
+                cumulative_heading += 360.0
+
+    # Finalize any remaining candidate at trajectory end
+    if in_candidate and orbit_count >= 1:
+        _finalize_hold(trajectory, bearings, hold_start_idx, len(bearings) - 1,
+                       orbit_count, turn_sign_sum, holding_events,
+                       dest_lat, dest_lon)
+
+    return holding_events
+
+
+def _finalize_hold(trajectory: List[Dict[str, Any]],
+                   bearings: List[float],
+                   start_idx: int, end_idx: int,
+                   orbit_count: int, turn_sign_sum: float,
+                   holding_events: List[Dict[str, Any]],
+                   dest_lat: float, dest_lon: float) -> None:
+    """
+    Validate and finalize a candidate holding event.
+
+    Maps bearing indices back to trajectory indices, applies duration,
+    spatial containment, and circling approach filters, then appends
+    a validated event dict to holding_events.
+
+    Args:
+        trajectory: Full trajectory point list
+        bearings: Bearing series (one per consecutive trajectory pair)
+        start_idx: Start index in bearings array
+        end_idx: End index in bearings array
+        orbit_count: Number of detected orbits
+        turn_sign_sum: Sum of all heading deltas (sign indicates direction)
+        holding_events: Output list to append validated events to
+        dest_lat: Destination latitude (for circling filter)
+        dest_lon: Destination longitude (for circling filter)
+    """
+    # Map bearing indices to trajectory indices.
+    # bearings[i] is derived from trajectory[i] -> trajectory[i+1],
+    # so the trajectory span is [start_idx, end_idx + 1].
+    traj_start = start_idx
+    traj_end = min(end_idx + 1, len(trajectory) - 1)
+
+    if traj_start >= traj_end:
+        return
+
+    # 1. Duration check
+    t_start = trajectory[traj_start]['timestamp']
+    t_end = trajectory[traj_end]['timestamp']
+    duration_sec = int((t_end - t_start).total_seconds())
+
+    if duration_sec < HOLD_MIN_DURATION_SEC:
+        return
+
+    # 2. Spatial containment: compute centroid and check radius
+    hold_points = trajectory[traj_start:traj_end + 1]
+    n_pts = len(hold_points)
+
+    center_lat = sum(p['lat'] for p in hold_points) / n_pts
+    center_lon = sum(p['lon'] for p in hold_points) / n_pts
+
+    max_dist = 0.0
+    dist_sum = 0.0
+    for p in hold_points:
+        d = haversine_nm(center_lat, center_lon, p['lat'], p['lon'])
+        dist_sum += d
+        if d > max_dist:
+            max_dist = d
+
+    if max_dist > HOLD_MAX_RADIUS_NM:
+        return
+
+    avg_radius = dist_sum / n_pts if n_pts > 0 else 0.0
+    avg_alt = sum(p['alt'] for p in hold_points) / n_pts if n_pts > 0 else 0.0
+
+    # 3. Circling approach filter: skip if close to destination and low altitude
+    if dest_lat is not None and dest_lon is not None:
+        dist_to_dest = haversine_nm(center_lat, center_lon, dest_lat, dest_lon)
+
+        if dist_to_dest < HOLD_CIRCLING_DIST_NM and avg_alt < HOLD_CIRCLING_ALT_AGL_FT:
+            return
+
+    # 4. Compute metrics
+    gs_values = [p['gs'] for p in hold_points if p.get('gs_valid', True) and p['gs'] > 0]
+    avg_gs = sum(gs_values) / len(gs_values) if gs_values else 0.0
+
+    # Groundspeed filter: exclude ground operations (taxi, pushback, parking)
+    if avg_gs < HOLD_MIN_GROUNDSPEED_KTS:
+        return
+
+    turn_direction = 'R' if turn_sign_sum >= 0 else 'L'
+
+    # 5. Data resolution / low-confidence check
+    # Average interval between points; flag if sparser than threshold
+    low_confidence = False
+    if n_pts >= 2:
+        avg_interval = duration_sec / (n_pts - 1)
+        if avg_interval > HOLD_LOW_CONFIDENCE_INTERVAL_SEC:
+            low_confidence = True
+    else:
+        low_confidence = True
+
+    # 6. Append validated event
+    holding_events.append({
+        'hold_start_utc': t_start,
+        'hold_end_utc': t_end,
+        'duration_sec': duration_sec,
+        'orbit_count': orbit_count,
+        'center_lat': round(center_lat, 6),
+        'center_lon': round(center_lon, 6),
+        'avg_radius_nm': round(avg_radius, 2),
+        'avg_altitude_ft': round(avg_alt, 0),
+        'avg_groundspeed_kts': round(avg_gs, 1),
+        'turn_direction': turn_direction,
+        'low_confidence': low_confidence,
+        'point_indices': (traj_start, traj_end),
+    })
+
+
 class TMIComplianceAnalyzer:
     """Main analyzer class for TMI compliance"""
 
@@ -241,6 +461,9 @@ class TMIComplianceAnalyzer:
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
         self._mit_trajectories = {}  # key -> {callsign -> trajectory} for split output
         self._taxi_references = {}  # airport_icao -> unimpeded_taxi_sec
+        self._holding_events = []           # List of holding event dicts
+        self._flight_waypoints_cache = {}   # {flight_uid: [waypoints]}
+        self._star_fixes_cache = {}         # {dest_icao: [fixes]}
 
     # Trajectory quality thresholds
     MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 50 (enroute, not ground)
@@ -544,6 +767,7 @@ class TMIComplianceAnalyzer:
             'gs_results': {},
             'reroute_results': {},
             'apreq_results': {},
+            'holding': {},
             'delay_results': [],
             'skipped_lines': [],  # Lines parser could not handle (for user override)
             'user_defined_tmis': []  # User overrides that were applied
@@ -594,6 +818,9 @@ class TMIComplianceAnalyzer:
 
                 # Load airport→ARTCC mapping for GS facility scope filtering
                 self._load_airport_facility_map()
+
+                # Holding pattern detection (event-wide)
+                self._holding_events = self._detect_all_holding_patterns()
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -667,6 +894,16 @@ class TMIComplianceAnalyzer:
         except Exception as e:
             logger.exception("Analysis failed")
             raise
+
+        # NTML correlation for holding events
+        if self.event.delays:
+            self._correlate_ntml_holding(self._holding_events, self.event.delays)
+
+        # TMI delay attribution
+        self._attribute_holding_to_tmi(self._holding_events, self.event)
+
+        # Build holding results
+        results['holding'] = self._build_holding_summary(self._holding_events)
 
         # Calculate summary
         results['summary'] = self._calculate_summary(results)
@@ -1575,6 +1812,347 @@ class TMIComplianceAnalyzer:
             total += haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
 
         return total
+
+    # ------------------------------------------------------------------
+    # Holding pattern: fix matching
+    # ------------------------------------------------------------------
+
+    def _load_flight_waypoints(self, flight_uids: list) -> dict:
+        """Load route waypoints for a batch of flights.
+        Returns dict: {flight_uid: [{fix_name, lat, lon, sequence_num}, ...]}
+        """
+        if not flight_uids:
+            return {}
+
+        placeholders = ','.join(['%s'] * len(flight_uids))
+        query = self.adl.format_query(
+            f"""SELECT flight_uid, fix_name, lat, lon, sequence_num
+                FROM dbo.adl_flight_waypoints
+                WHERE flight_uid IN ({placeholders})
+                AND fix_name IS NOT NULL AND lat IS NOT NULL
+                ORDER BY flight_uid, sequence_num"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, tuple(flight_uids))
+
+        waypoints = {}
+        for row in cursor.fetchall():
+            uid = row[0]
+            if uid not in waypoints:
+                waypoints[uid] = []
+            waypoints[uid].append({
+                'fix_name': row[1],
+                'lat': float(row[2]),
+                'lon': float(row[3]),
+                'sequence_num': row[4]
+            })
+        return waypoints
+
+    def _load_star_fixes(self, dest_icao: str) -> list:
+        """Load all fixes on published STARs for a destination airport.
+        Returns list of {fix_name, lat, lon}.
+        """
+        query = self.adl.format_query(
+            """SELECT DISTINCT nf.fix_name, nf.lat, nf.lon
+               FROM dbo.nav_procedure_legs npl
+               JOIN dbo.nav_procedures np ON npl.procedure_id = np.procedure_id
+               JOIN dbo.nav_fixes nf ON npl.fix_name = nf.fix_name
+               WHERE np.airport_icao = %s AND np.procedure_type = 'STAR'
+               AND nf.lat IS NOT NULL"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (dest_icao,))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
+
+    def _match_holding_fix(self, event: dict, flight_uid: int, dest_icao: str,
+                           flight_waypoints: dict, star_cache: dict) -> dict:
+        """Match a holding event's center to the best fix.
+        Priority: route waypoints > STAR fixes > any nav_fix.
+        Modifies event dict in place.
+        """
+        center_lat = event['center_lat']
+        center_lon = event['center_lon']
+        best_fix = None
+        best_dist = HOLD_FIX_MATCH_RADIUS_NM
+        best_source = None
+
+        # Priority 1: Flight's own route waypoints
+        wps = flight_waypoints.get(flight_uid, [])
+        for wp in wps:
+            d = haversine_nm(center_lat, center_lon, wp['lat'], wp['lon'])
+            if d < best_dist:
+                best_fix = wp['fix_name']
+                best_dist = d
+                best_source = 'route'
+
+        # Priority 2: STAR fixes for destination (only if no route match within 3nm)
+        if best_source != 'route' or best_dist > 3.0:
+            if dest_icao and dest_icao not in star_cache:
+                star_cache[dest_icao] = self._load_star_fixes(dest_icao)
+            for sf in star_cache.get(dest_icao, []):
+                d = haversine_nm(center_lat, center_lon, sf['lat'], sf['lon'])
+                if d < best_dist:
+                    best_fix = sf['fix_name']
+                    best_dist = d
+                    best_source = 'star'
+
+        # Priority 3: Any nav_fix (from preloaded fix_coords)
+        if best_source is None:
+            for fix_name, coords in self.fix_coords.items():
+                d = haversine_nm(center_lat, center_lon, coords['lat'], coords['lon'])
+                if d < best_dist:
+                    best_fix = fix_name
+                    best_dist = d
+                    best_source = 'navfix'
+
+            # If fix_coords doesn't cover the area, do a targeted query
+            if best_source is None:
+                nearby = self._query_nearby_fixes(center_lat, center_lon, HOLD_FIX_MATCH_RADIUS_NM)
+                for nf in nearby:
+                    d = haversine_nm(center_lat, center_lon, nf['lat'], nf['lon'])
+                    if d < best_dist:
+                        best_fix = nf['fix_name']
+                        best_dist = d
+                        best_source = 'navfix'
+
+        event['matched_fix'] = best_fix
+        event['fix_match_source'] = best_source
+        event['fix_distance_nm'] = round(best_dist, 2) if best_fix else 0
+        event['fix_on_route'] = (best_source == 'route')
+        return event
+
+    def _query_nearby_fixes(self, lat: float, lon: float, radius_nm: float) -> list:
+        """Query nav_fixes within a bounding box around a point."""
+        deg_offset = radius_nm / 60.0
+        query = self.adl.format_query(
+            """SELECT fix_name, lat, lon FROM dbo.nav_fixes
+               WHERE lat BETWEEN %s AND %s AND lon BETWEEN %s AND %s"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (lat - deg_offset, lat + deg_offset,
+                               lon - deg_offset, lon + deg_offset))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Holding pattern: NTML correlation & TMI delay attribution
+    # ------------------------------------------------------------------
+
+    def _correlate_ntml_holding(self, holding_events: list, delay_entries: list) -> None:
+        """Cross-reference detected holds with NTML +Holding entries.
+        Modifies holding_events in place, setting ntml_corroborated=True when matched.
+        """
+        from .models import HoldingStatus
+
+        ntml_holds = [d for d in delay_entries
+                      if d.holding_status == HoldingStatus.HOLDING and d.holding_fix]
+
+        if not ntml_holds:
+            return
+
+        for event in holding_events:
+            if not event.get('matched_fix'):
+                continue
+            for ntml in ntml_holds:
+                if ntml.holding_fix.upper() == event['matched_fix'].upper():
+                    event['ntml_corroborated'] = True
+                    break
+
+    def _attribute_holding_to_tmi(self, holding_events: list, event_config) -> None:
+        """Attribute each holding event to the most likely TMI program.
+        Priority: GS > MIT (based on likelihood of causing holds).
+        """
+        for hold in holding_events:
+            hold_start = hold['hold_start_utc']
+            hold_end = hold['hold_end_utc']
+            dest = hold.get('dest', '')
+
+            # Check Ground Stops first (strongest signal for causing holding)
+            for gs in getattr(event_config, 'gs_programs', []):
+                if not gs.advisories:
+                    continue
+                gs_dest = gs.airport
+                if dest and dest.upper().endswith(gs_dest.upper()):
+                    gs_start = gs.effective_start
+                    gs_end = gs.effective_end
+                    if gs_start and gs_end and hold_start <= gs_end and hold_end >= gs_start:
+                        hold['tmi_attribution'] = 'gs'
+                        hold['tmi_program_id'] = f"GS_{gs_dest}"
+                        break
+
+            if hold.get('tmi_attribution'):
+                continue
+
+            # Check MIT programs (hold near measurement fix)
+            for tmi in getattr(event_config, 'tmis', []):
+                if not hasattr(tmi, 'tmi_type') or tmi.tmi_type.name not in ('MIT', 'MINIT'):
+                    continue
+                fix_name = getattr(tmi, 'fix', None) or getattr(tmi, 'measurement_point', None)
+                if hold.get('matched_fix') and fix_name:
+                    if hold['matched_fix'].upper() == fix_name.upper():
+                        if (tmi.start_utc and tmi.end_utc and
+                                hold_start <= tmi.end_utc and hold_end >= tmi.start_utc):
+                            hold['tmi_attribution'] = 'mit'
+                            hold['tmi_program_id'] = f"MIT_{fix_name}"
+                            break
+
+    def _detect_all_holding_patterns(self) -> list:
+        """Scan all flights in trajectory cache for holding patterns.
+        Called once after _preload_trajectories(), before TMI-specific analysis.
+        """
+        all_events = []
+        flights_with_holds = 0
+
+        # Load waypoints for all flights that have trajectories
+        flight_uids = [meta['flight_uid'] for meta in self._trajectory_metadata.values()
+                       if meta.get('flight_uid')]
+        self._flight_waypoints_cache = self._load_flight_waypoints(flight_uids)
+
+        for callsign, trajectory in self._trajectory_cache.items():
+            if callsign in self._low_quality_flights:
+                continue
+            if len(trajectory) < 4:
+                continue
+
+            meta = self._trajectory_metadata.get(callsign, {})
+            dest = meta.get('dest', '')
+
+            # Get destination coords for circling approach filter
+            dest_lat = dest_lon = None
+            if dest and dest in self.fix_coords:
+                dest_lat = self.fix_coords[dest]['lat']
+                dest_lon = self.fix_coords[dest]['lon']
+
+            raw_events = detect_flight_holding(trajectory, dest_lat, dest_lon)
+
+            if raw_events:
+                flights_with_holds += 1
+                flight_uid = meta.get('flight_uid', 0)
+                dept = meta.get('dept', '')
+
+                for evt in raw_events:
+                    evt['callsign'] = callsign
+                    evt['flight_uid'] = flight_uid
+                    evt['dept'] = dept
+                    evt['dest'] = dest
+
+                    # Fix matching
+                    self._match_holding_fix(evt, flight_uid, dest,
+                                            self._flight_waypoints_cache,
+                                            self._star_fixes_cache)
+
+                    all_events.append(evt)
+
+        logger.info(f"Holding detection: {len(all_events)} events across "
+                    f"{flights_with_holds} flights (scanned {len(self._trajectory_cache)})")
+
+        return all_events
+
+    def _build_holding_summary(self, events: list) -> dict:
+        """Build aggregate holding summary grouped by fix."""
+        from collections import defaultdict
+
+        if not events:
+            return {
+                'summary': {
+                    'total_flights_holding': 0,
+                    'total_hold_events': 0,
+                    'total_hold_duration_sec': 0,
+                    'avg_hold_duration_sec': 0,
+                    'hold_fixes': [],
+                    'delay_attribution': {
+                        'total_hold_delay_sec': 0,
+                        'attributed': {
+                            'gs': {'flights': 0, 'total_sec': 0},
+                            'gdp': {'flights': 0, 'total_sec': 0},
+                            'mit': {'flights': 0, 'total_sec': 0},
+                        },
+                        'unattributed': {'flights': 0, 'total_sec': 0},
+                    },
+                },
+                'events': [],
+            }
+
+        # Group by matched fix
+        fix_groups = defaultdict(list)
+        for evt in events:
+            key = evt.get('matched_fix') or f"{evt['center_lat']:.3f},{evt['center_lon']:.3f}"
+            fix_groups[key].append(evt)
+
+        hold_fixes = []
+        for fix_key, group in fix_groups.items():
+            # Peak concurrent: sweep line algorithm
+            time_events = []
+            for evt in group:
+                time_events.append((evt['hold_start_utc'], 1))
+                time_events.append((evt['hold_end_utc'], -1))
+            time_events.sort(key=lambda x: x[0])
+            concurrent = 0
+            peak = 0
+            for _, delta in time_events:
+                concurrent += delta
+                peak = max(peak, concurrent)
+
+            hold_fixes.append({
+                'fix_name': group[0].get('matched_fix'),
+                'center': [group[0]['center_lon'], group[0]['center_lat']],
+                'flight_count': len(set(e['callsign'] for e in group)),
+                'total_orbits': sum(e['orbit_count'] for e in group),
+                'avg_duration_sec': sum(e['duration_sec'] for e in group) / len(group),
+                'peak_concurrent': peak,
+                'ntml_corroborated': any(e.get('ntml_corroborated') for e in group),
+                'time_range': [
+                    min(e['hold_start_utc'] for e in group).isoformat() + 'Z',
+                    max(e['hold_end_utc'] for e in group).isoformat() + 'Z',
+                ],
+            })
+
+        # Delay attribution totals
+        attr = {'gs': {'flights': set(), 'total_sec': 0},
+                'gdp': {'flights': set(), 'total_sec': 0},
+                'mit': {'flights': set(), 'total_sec': 0}}
+        unattr_flights = set()
+        unattr_sec = 0
+        for evt in events:
+            a = evt.get('tmi_attribution')
+            if a and a in attr:
+                attr[a]['flights'].add(evt['callsign'])
+                attr[a]['total_sec'] += evt['duration_sec']
+            else:
+                unattr_flights.add(evt['callsign'])
+                unattr_sec += evt['duration_sec']
+
+        unique_flights = set(e['callsign'] for e in events)
+        total_dur = sum(e['duration_sec'] for e in events)
+
+        # Serialize events for JSON
+        serialized_events = []
+        for evt in events:
+            se = dict(evt)
+            se['hold_start_utc'] = evt['hold_start_utc'].isoformat() + 'Z'
+            se['hold_end_utc'] = evt['hold_end_utc'].isoformat() + 'Z'
+            se.pop('point_indices', None)
+            serialized_events.append(se)
+
+        return {
+            'summary': {
+                'total_flights_holding': len(unique_flights),
+                'total_hold_events': len(events),
+                'total_hold_duration_sec': total_dur,
+                'avg_hold_duration_sec': round(total_dur / len(events), 1),
+                'hold_fixes': sorted(hold_fixes, key=lambda x: x['flight_count'], reverse=True),
+                'delay_attribution': {
+                    'total_hold_delay_sec': total_dur,
+                    'attributed': {
+                        k: {'flights': len(v['flights']), 'total_sec': v['total_sec']}
+                        for k, v in attr.items()
+                    },
+                    'unattributed': {'flights': len(unattr_flights), 'total_sec': unattr_sec},
+                },
+            },
+            'events': serialized_events,
+        }
 
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
@@ -3311,6 +3889,15 @@ class TMIComplianceAnalyzer:
             if action in action_counts:
                 action_counts[action] += 1
         summary['reroute']['action_breakdown'] = action_counts
+
+        # Holding summary
+        holding = results.get('holding', {}).get('summary', {})
+        summary['holding'] = {
+            'total_flights_holding': holding.get('total_flights_holding', 0),
+            'total_hold_events': holding.get('total_hold_events', 0),
+            'total_hold_duration_min': round(holding.get('total_hold_duration_sec', 0) / 60, 1),
+            'avg_hold_duration_min': round(holding.get('avg_hold_duration_sec', 0) / 60, 1),
+        }
 
         # Overall (including mandatory reroutes - use flown compliance for reroutes)
         # For reroutes, flown compliance is the more accurate measure of what actually happened

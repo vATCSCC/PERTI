@@ -428,7 +428,8 @@ function format_results($results) {
         'mit_results' => [],
         'gs_results' => [],
         'apreq_results' => [],
-        'reroute_results' => []
+        'reroute_results' => [],
+        'holding' => null
     ];
 
     // Process MIT results
@@ -580,6 +581,11 @@ function format_results($results) {
                 'reroute_key' => $key
             ];
         }
+    }
+
+    // Holding pattern results
+    if (isset($results['holding']) && !empty($results['holding'])) {
+        $formatted['holding'] = $results['holding'];
     }
 
     return $formatted;
