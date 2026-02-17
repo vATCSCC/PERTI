@@ -221,7 +221,18 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     echo '<td>' . $scope_badge . $icon_prefix . htmlspecialchars($data['event_name']) . ' <span class="badge badge-secondary" data-toggle="tooltip" title="' . htmlspecialchars($hotline) . ' Hotline">' . $hotline_badge . '</span>' . $status_badge;
 
     if (!empty($overlaps[$data['id']])) {
-        echo '<br><small class="text-warning"><i class="fas fa-exclamation-triangle"></i> ' . __('home.overlap.overlapsWith', ['plans' => implode(', ', $overlaps[$data['id']])]) . '</small>';
+        $ov_count = count($overlaps[$data['id']]);
+        $ov_id = 'ov-' . $data['id'];
+        echo '<br><small class="text-warning"><i class="fas fa-exclamation-triangle"></i> ';
+        echo '<a href="javascript:void(0)" onclick="$(\'#' . $ov_id . '\').toggle()" style="color:inherit;text-decoration:underline dotted">';
+        echo __('home.overlap.overlapsWith', ['plans' => $ov_count . ' ' . ($ov_count === 1 ? 'plan' : 'plans')]);
+        echo '</a>';
+        echo '<ul id="' . $ov_id . '" style="display:none;margin:4px 0 0 16px;padding:0;list-style:none">';
+        foreach ($overlaps[$data['id']] as $ov_label) {
+            echo '<li style="margin:2px 0"><i class="fas fa-caret-right fa-sm"></i> ' . $ov_label . '</li>';
+        }
+        echo '</ul>';
+        echo '</small>';
     }
     if (!empty($duplicates[$data['id']])) {
         foreach ($duplicates[$data['id']] as $dup) {
@@ -270,9 +281,9 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
 // Render all sections
 // -----------------------------------------------------------------------
 $section_config = [
-    'live'     => ['key' => 'home.section.happeningNow', 'css' => 'section-live'],
-    'week'     => ['key' => 'home.section.thisWeek',     'css' => 'section-week'],
     'upcoming' => ['key' => 'home.section.upcoming',     'css' => 'section-upcoming'],
+    'week'     => ['key' => 'home.section.thisWeek',     'css' => 'section-week'],
+    'live'     => ['key' => 'home.section.happeningNow', 'css' => 'section-live'],
     'past'     => ['key' => 'home.section.pastEvents',   'css' => 'section-past'],
 ];
 $past_visible_limit = 15;
