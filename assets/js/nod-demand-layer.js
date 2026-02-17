@@ -1079,10 +1079,10 @@ const NODDemandLayer = (function() {
         const status = document.getElementById('demand-click-status');
         if (status) {
             if (mode === 'fix') {
-                status.textContent = 'Click on map to add fix monitor';
+                status.textContent = PERTII18n.t('nod.demand.clickToAddFix');
                 status.style.display = 'block';
             } else if (mode === 'segment') {
-                status.textContent = 'Click first fix for segment';
+                status.textContent = PERTII18n.t('nod.demand.clickFirstFix');
                 status.style.display = 'block';
             } else {
                 status.style.display = 'none';
@@ -1118,7 +1118,7 @@ const NODDemandLayer = (function() {
                 state.segmentFirstClick = fix;
                 const status = document.getElementById('demand-click-status');
                 if (status) {
-                    status.textContent = `From: ${fix.name} - Click second fix`;
+                    status.textContent = PERTII18n.t('nod.demand.clickSecondFix', { fix: fix.name });
                 }
             } else {
                 // Second click - create segment
@@ -1141,7 +1141,7 @@ const NODDemandLayer = (function() {
             const response = await fetch(`api/simulator/navdata.php?action=nearest_fix&lat=${lat}&lon=${lng}&radius=50`);
             if (!response.ok) {
                 // Fallback: prompt user for fix name
-                const fixName = prompt('Enter fix name:');
+                const fixName = prompt(PERTII18n.t('nod.demand.enterFixName'));
                 return fixName ? { name: fixName.toUpperCase() } : null;
             }
             const data = await response.json();
@@ -1153,7 +1153,7 @@ const NODDemandLayer = (function() {
         }
 
         // Fallback: prompt
-        const fixName = prompt('Enter fix name:');
+        const fixName = prompt(PERTII18n.t('nod.demand.enterFixName'));
         return fixName ? { name: fixName.toUpperCase() } : null;
     }
 
@@ -1723,7 +1723,7 @@ const NODDemandLayer = (function() {
 
         if (!parsed) {
             console.warn('[DemandLayer] Could not parse input:', input);
-            showParseError('Invalid input format');
+            showParseError(PERTII18n.t('nod.demand.invalidInputFormat'));
             return false;
         }
 
@@ -1793,7 +1793,7 @@ const NODDemandLayer = (function() {
         if (clearBtn) clearBtn.style.display = state.monitors.length > 1 ? '' : 'none';
 
         if (state.monitors.length === 0) {
-            container.innerHTML = '<div class="text-muted small text-center py-2">No monitors active</div>';
+            container.innerHTML = '<div class="text-muted small text-center py-2">' + PERTII18n.t('nod.demand.noMonitorsActive') + '</div>';
             return;
         }
 
@@ -1873,7 +1873,7 @@ const NODDemandLayer = (function() {
                 </button>
             </div>
             <div class="text-center py-3">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
+                <i class="fas fa-spinner fa-spin"></i> ${PERTII18n.t('common.loading')}
             </div>
         `;
         container.style.display = 'block';
@@ -1889,7 +1889,7 @@ const NODDemandLayer = (function() {
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="text-danger text-center py-3">Failed to load flights</div>
+                <div class="text-danger text-center py-3">${PERTII18n.t('nod.demand.failedToLoadFlights')}</div>
             `;
         }
     }
@@ -1906,7 +1906,7 @@ const NODDemandLayer = (function() {
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="text-muted text-center py-3">No flights in time window</div>
+                <div class="text-muted text-center py-3">${PERTII18n.t('nod.demand.noFlightsInWindow')}</div>
             `;
             return;
         }
@@ -1935,10 +1935,10 @@ const NODDemandLayer = (function() {
                 <table class="table table-sm table-dark mb-0" style="font-size: 11px;">
                     <thead>
                         <tr>
-                            <th>Callsign</th>
-                            <th>Route</th>
-                            <th>Type</th>
-                            <th class="text-right">ETA</th>
+                            <th>${PERTII18n.t('nod.demand.colCallsign')}</th>
+                            <th>${PERTII18n.t('nod.demand.colRoute')}</th>
+                            <th>${PERTII18n.t('nod.demand.colType')}</th>
+                            <th class="text-right">${PERTII18n.t('nod.demand.colEta')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2013,7 +2013,7 @@ const NODDemandLayer = (function() {
             showFlightDetailsPopup(e.lngLat, monitor, flights, false);
         } catch (error) {
             console.error('[DemandLayer] Failed to fetch flight details:', error);
-            showFlightDetailsPopup(e.lngLat, monitor, [], false, 'Failed to load flights');
+            showFlightDetailsPopup(e.lngLat, monitor, [], false, PERTII18n.t('nod.demand.failedToLoadFlights'));
         }
     }
 
@@ -2103,7 +2103,7 @@ const NODDemandLayer = (function() {
                 <div class="demand-details-popup">
                     <div class="popup-header">${label}</div>
                     <div class="popup-loading">
-                        <i class="fas fa-spinner fa-spin"></i> Loading flights...
+                        <i class="fas fa-spinner fa-spin"></i> ${PERTII18n.t('nod.demand.loadingFlights')}
                     </div>
                 </div>
             `;
@@ -2118,7 +2118,7 @@ const NODDemandLayer = (function() {
             content = `
                 <div class="demand-details-popup">
                     <div class="popup-header">${label}</div>
-                    <div class="popup-empty text-muted">No flights in time window</div>
+                    <div class="popup-empty text-muted">${PERTII18n.t('nod.demand.noFlightsInWindow')}</div>
                 </div>
             `;
         } else {
@@ -2145,10 +2145,10 @@ const NODDemandLayer = (function() {
                     <table class="popup-flights">
                         <thead>
                             <tr>
-                                <th>Callsign</th>
-                                <th>Route</th>
-                                <th>Type</th>
-                                <th>ETA</th>
+                                <th>${PERTII18n.t('nod.demand.colCallsign')}</th>
+                                <th>${PERTII18n.t('nod.demand.colRoute')}</th>
+                                <th>${PERTII18n.t('nod.demand.colType')}</th>
+                                <th>${PERTII18n.t('nod.demand.colEta')}</th>
                             </tr>
                         </thead>
                         <tbody>

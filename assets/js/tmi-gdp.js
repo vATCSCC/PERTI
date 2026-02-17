@@ -154,13 +154,13 @@
 
         if (state.handoffType === 'GS') {
             typeBadge.className = 'badge badge-lg badge-danger';
-            typeBadge.textContent = 'GROUND STOP';
-            programTitle.textContent = 'Ground Stop Details';
+            typeBadge.textContent = PERTII18n.t('tmiPublish.page.groundStop');
+            programTitle.textContent = PERTII18n.t('tmiPublish.gsDetails');
             headerEl.className = 'card-header d-flex justify-content-between align-items-center bg-danger text-white';
         } else {
             typeBadge.className = 'badge badge-lg badge-warning';
             typeBadge.textContent = data.program_type || 'GDP';
-            programTitle.textContent = 'Ground Delay Program Details';
+            programTitle.textContent = PERTII18n.t('tmiPublish.gdpDetails');
             headerEl.className = 'card-header d-flex justify-content-between align-items-center bg-warning';
         }
 
@@ -175,7 +175,7 @@
             document.getElementById('gsgdpGdpFields').style.display = 'none';
 
             // 'APT' is the canonical DB value; 'AIRPORT' exists in legacy records from coordinate.php bug
-            const scope = (data.element_type === 'APT' || data.element_type === 'AIRPORT') ? 'Single Airport' :
+            const scope = (data.element_type === 'APT' || data.element_type === 'AIRPORT') ? PERTII18n.t('tmiPublish.singleAirport') :
                 (data.airports || data.ctl_element);
             document.getElementById('gsgdpScope').textContent = scope;
             document.getElementById('gsgdpAffectedFlights').textContent =
@@ -214,7 +214,7 @@
         countEl.textContent = flights.length;
 
         if (!flights || flights.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No flights</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">' + PERTII18n.t('tmiPublish.page.noFlights') + '</td></tr>';
             return;
         }
 
@@ -239,7 +239,7 @@
 
         if (flights.length > maxDisplay) {
             html += '<tr><td colspan="7" class="text-center text-muted py-2">' +
-                    '... and ' + (flights.length - maxDisplay) + ' more flights</td></tr>';
+                    PERTII18n.t('tmiPublish.andMoreFlights', { count: flights.length - maxDisplay }) + '</td></tr>';
         }
 
         tbody.innerHTML = html;
@@ -486,8 +486,8 @@
                 state.flightsVisible = !state.flightsVisible;
                 container.style.display = state.flightsVisible ? '' : 'none';
                 this.innerHTML = state.flightsVisible ?
-                    '<i class="fas fa-chevron-up"></i> Hide' :
-                    '<i class="fas fa-chevron-down"></i> Show';
+                    '<i class="fas fa-chevron-up"></i> ' + PERTII18n.t('tmiPublish.hide') :
+                    '<i class="fas fa-chevron-down"></i> ' + PERTII18n.t('tmiPublish.show');
             });
         }
 
@@ -497,7 +497,7 @@
             copyBtn.addEventListener('click', function() {
                 const text = document.getElementById('gsgdpAdvisoryPreview').textContent;
                 navigator.clipboard.writeText(text).then(function() {
-                    showToast('Copied to clipboard', 'success');
+                    showToast(PERTII18n.t('common.copied'), 'success');
                 });
             });
         }
@@ -514,7 +514,7 @@
         const discardBtn = document.getElementById('gsgdpDiscard');
         if (discardBtn) {
             discardBtn.addEventListener('click', function() {
-                if (confirm('Discard this program handoff? You will need to re-submit from GDT.')) {
+                if (confirm(PERTII18n.t('tmiPublish.discardHandoff'))) {
                     sessionStorage.removeItem('tmi_gs_handoff');
                     sessionStorage.removeItem('tmi_gdp_handoff');
                     state.handoffData = null;
@@ -558,7 +558,7 @@
      */
     async function handleRefreshFlightList() {
         if (!state.programId) {
-            showToast('No program loaded', 'warning');
+            showToast(PERTII18n.t('tmiPublish.noProgramLoaded'), 'warning');
             return;
         }
 
@@ -606,13 +606,13 @@
                 // Regenerate preview
                 generateAdvisoryPreview();
 
-                showToast('Flight list refreshed: ' + flights.length + ' flights', 'success');
+                showToast(PERTII18n.t('tmiPublish.flightListRefreshed', { count: flights.length }), 'success');
             } else {
-                showToast(result.message || 'Failed to refresh flight list', 'error');
+                showToast(result.message || PERTII18n.t('tmiPublish.refreshFailed'), 'error');
             }
         } catch (err) {
             console.error('GSGDP: Refresh flight list error:', err);
-            showToast('Network error refreshing flight list', 'error');
+            showToast(PERTII18n.t('tmiPublish.networkError'), 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
@@ -624,7 +624,7 @@
      */
     async function handleSubmitCoordination() {
         if (!state.handoffData || !state.programId) {
-            showToast('No program data to submit', 'error');
+            showToast(PERTII18n.t('tmiPublish.noProgramToSubmit'), 'error');
             return;
         }
 
@@ -635,7 +635,7 @@
         });
 
         if (facilities.length === 0) {
-            showToast('Select at least one facility for coordination', 'warning');
+            showToast(PERTII18n.t('tmiPublish.selectFacility'), 'warning');
             return;
         }
 
@@ -662,7 +662,7 @@
 
         const btn = document.getElementById('gsgdpSubmitCoord');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('dialog.submitting');
 
         try {
             const response = await fetch(API.submitCoordination, {
@@ -674,7 +674,7 @@
             const result = await response.json();
 
             if (result.status === 'ok') {
-                showToast('Submitted for coordination - ' + (result.data?.advisory_number || ''), 'success');
+                showToast(PERTII18n.t('tmiPublish.submittedForCoord') + ' - ' + (result.data?.advisory_number || ''), 'success');
 
                 // Clear handoff data
                 sessionStorage.removeItem('tmi_gs_handoff');
@@ -686,14 +686,14 @@
                     if (coordTab) {coordTab.click();}
                 }, 500);
             } else {
-                showToast(result.message || 'Submission failed', 'error');
+                showToast(result.message || PERTII18n.t('tmiPublish.submit.failed'), 'error');
             }
         } catch (err) {
             console.error('GSGDP: Coordination submission error:', err);
-            showToast('Network error', 'error');
+            showToast(PERTII18n.t('tmiPublish.networkError'), 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-handshake mr-1"></i> Submit for Coordination';
+            btn.innerHTML = '<i class="fas fa-handshake mr-1"></i> ' + PERTII18n.t('tmiPublish.page.submitForCoordination');
         }
     }
 
@@ -702,13 +702,12 @@
      */
     async function handlePublishDirect() {
         if (!state.handoffData || !state.programId) {
-            showToast('No program data to publish', 'error');
+            showToast(PERTII18n.t('tmiPublish.noProgramToPublish'), 'error');
             return;
         }
 
         // Confirm DCC override
-        if (!confirm('PUBLISH DIRECT: This will bypass facility coordination and publish the ' +
-                     state.handoffType + ' immediately. Continue?')) {
+        if (!confirm(PERTII18n.t('tmiPublish.publishDirectConfirm', { type: state.handoffType }))) {
             return;
         }
 
@@ -745,7 +744,7 @@
 
         const btn = document.getElementById('gsgdpPublishDirect');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Publishing...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('dialog.publishing');
 
         try {
             const response = await fetch(API.publishDirect, {
@@ -757,7 +756,7 @@
             const result = await response.json();
 
             if (result.status === 'ok') {
-                showToast(state.handoffType + ' published successfully', 'success');
+                showToast(PERTII18n.t('tmiPublish.publishedSuccessfully', { type: state.handoffType }), 'success');
 
                 // Clear handoff data
                 sessionStorage.removeItem('tmi_gs_handoff');
@@ -769,14 +768,14 @@
                     if (activeTab) {activeTab.click();}
                 }, 500);
             } else {
-                showToast(result.message || 'Publish failed', 'error');
+                showToast(result.message || PERTII18n.t('tmiPublish.publish.publishFailed'), 'error');
             }
         } catch (err) {
             console.error('GSGDP: Publish error:', err);
-            showToast('Network error', 'error');
+            showToast(PERTII18n.t('tmiPublish.networkError'), 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i> Publish Direct';
+            btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i> ' + PERTII18n.t('tmiPublish.page.publishDirect');
         }
     }
 
@@ -1008,7 +1007,7 @@
     async function handleConfirmCancel() {
         const reason = document.getElementById('cancelReason')?.value;
         if (!reason) {
-            showToast('Please select a cancellation reason', 'warning');
+            showToast(PERTII18n.t('tmiPublish.selectCancelReason'), 'warning');
             return;
         }
 
@@ -1017,7 +1016,7 @@
         if (edctAction === 'DISREGARD_AFTER') {
             edctActionTime = document.getElementById('edctAfterTime')?.value;
             if (!edctActionTime) {
-                showToast('Please specify the DISREGARD AFTER time', 'warning');
+                showToast(PERTII18n.t('tmiPublish.specifyDisregardTime'), 'warning');
                 return;
             }
         }
@@ -1036,7 +1035,7 @@
 
         const btn = document.getElementById('confirmCancelBtn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Cancelling...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('tmiPublish.cancelTmi.cancelling');
 
         try {
             const response = await fetch(API.cancelProgram, {
@@ -1048,7 +1047,7 @@
             const result = await response.json();
 
             if (result.status === 'ok') {
-                showToast('Program cancelled - ' + (result.data?.advisory_number || ''), 'success');
+                showToast(PERTII18n.t('tmiPublish.programCancelled') + ' - ' + (result.data?.advisory_number || ''), 'success');
                 $('#gsgdpCancelModal').modal('hide');
 
                 // Refresh active TMIs if function exists
@@ -1063,14 +1062,14 @@
                     showNoHandoffWarning();
                 }
             } else {
-                showToast(result.message || 'Cancellation failed', 'error');
+                showToast(result.message || PERTII18n.t('tmiPublish.cancelTmi.failed'), 'error');
             }
         } catch (err) {
             console.error('GSGDP: Cancel error:', err);
-            showToast('Network error', 'error');
+            showToast(PERTII18n.t('tmiPublish.networkError'), 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-times-circle mr-1"></i> Cancel Program';
+            btn.innerHTML = '<i class="fas fa-times-circle mr-1"></i> ' + PERTII18n.t('tmiPublish.page.cancelProgram');
         }
     }
 

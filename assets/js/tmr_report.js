@@ -429,7 +429,7 @@
                     selectedKeys.forEach(function(k) { delete tmiSelected[k]; });
                     renderTMITable();
                     immediateFieldSave();
-                    Swal.fire({ icon: 'success', title: selectedKeys.length + ' TMI(s) removed', timer: 1500, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: PERTII18n.t('tmr.tmi.tmisRemoved', { count: selectedKeys.length }), timer: 1500, showConfirmButton: false });
                 }
             });
         });
@@ -666,7 +666,7 @@
         $('#tmr_tmi_toolbar').toggle(tmiList.length > 0);
 
         if (visibleTmis.length === 0) {
-            var msg = tmiList.length > 0 ? 'No TMIs match the current filter.' : PERTII18n.t('tmr.tmi.emptyHint');
+            var msg = tmiList.length > 0 ? PERTII18n.t('tmr.tmi.noMatchFilter') : PERTII18n.t('tmr.tmi.emptyHint');
             tbody.html('<tr><td colspan="11" class="text-center text-muted py-3">' + escapeHtml(msg) + '</td></tr>');
             return;
         }
@@ -745,7 +745,7 @@
         tmiList.forEach(function(t) { if (tmiSelected[t._key] && !t._hidden) selectedCount++; });
 
         if (selectedCount === 0) {
-            Swal.fire({ icon: 'info', text: 'No TMIs selected.', timer: 2000, showConfirmButton: false });
+            Swal.fire({ icon: 'info', text: PERTII18n.t('tmr.tmi.noSelectionText'), timer: 2000, showConfirmButton: false });
             return;
         }
 
@@ -753,7 +753,7 @@
             title: PERTII18n.t('tmr.tmi.batchAssess'),
             html:
                 '<div class="text-left">' +
-                '<p class="small text-muted">' + selectedCount + ' TMI(s) selected</p>' +
+                '<p class="small text-muted">' + PERTII18n.t('tmr.tmi.tmisSelected', { count: selectedCount }) + '</p>' +
                 '<div class="form-group"><label class="small">' + PERTII18n.t('tmr.assessment.complied') + '</label>' +
                 '<select class="form-control form-control-sm" id="swal_batch_c"><option value="">--</option><option value="Y">Y</option><option value="N">N</option><option value="N/A">N/A</option></select></div>' +
                 '<div class="form-group"><label class="small">' + PERTII18n.t('tmr.assessment.effective') + '</label>' +

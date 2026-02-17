@@ -113,6 +113,11 @@
     },
     "staffing": {
       "dcc": "{commandCenter}"
+    },
+    "tmi": {
+      "tmisRemoved": "{count} IGC supprim\u00e9e(s)",
+      "noMatchFilter": "Aucune IGC ne correspond au filtre actuel.",
+      "tmisSelected": "{count} IGC s\u00e9lectionn\u00e9e(s)"
     }
   },
   "nav": {
@@ -1206,6 +1211,7 @@
       "duration": "Dur\u00e9e",
       "flightList": "Liste des vols",
       "noFlights": "Aucun vol",
+      "groundStop": "ARR\u00caT AU SOL",
       "coordination": "Coordination",
       "selectFacilitiesNotify": "S\u00e9lectionnez les installations \u00e0 notifier/coordonner\u00a0:",
       "coordDeadline": "D\u00e9lai de coordination (min)",
@@ -1287,7 +1293,95 @@
       "clickToEditProfile": "Cliquer pour modifier le profil",
       "programDataFromGdt": "Donn\u00e9es de programme re\u00e7ues du GDT",
       "noProgramDataLoaded": "Aucune donn\u00e9e de programme charg\u00e9e..."
+    },
+    "gsDetails": "D\u00e9tails de l\u2019arr\u00eat au sol",
+    "gdpDetails": "D\u00e9tails du programme de retard au sol",
+    "singleAirport": "A\u00e9roport unique",
+    "andMoreFlights": "... et {count} vols suppl\u00e9mentaires",
+    "hide": "Masquer",
+    "show": "Afficher",
+    "discardHandoff": "Abandonner ce transfert et retourner au GDT\u00a0?",
+    "noProgramLoaded": "Aucun programme charg\u00e9",
+    "flightListRefreshed": "Liste des vols actualis\u00e9e\u00a0: {count} vols",
+    "refreshFailed": "\u00c9chec de l\u2019actualisation de la liste des vols",
+    "networkError": "Erreur r\u00e9seau",
+    "noProgramToSubmit": "Aucune donn\u00e9e de programme \u00e0 soumettre",
+    "selectFacility": "S\u00e9lectionnez au moins une installation pour la coordination",
+    "noProgramToPublish": "Aucune donn\u00e9e de programme \u00e0 publier",
+    "publishDirectConfirm": "Publier ce {type} directement sur Discord\u00a0?",
+    "publishedSuccessfully": "{type} publi\u00e9 avec succ\u00e8s",
+    "programCancelled": "Programme annul\u00e9",
+    "selectCancelReason": "Veuillez s\u00e9lectionner une raison d\u2019annulation",
+    "specifyDisregardTime": "Veuillez sp\u00e9cifier l\u2019heure de NON-CONSID\u00c9RATION",
+    "tmiDetails": "D\u00e9tails de l\u2019IGC",
+    "submittedForCoord": "Soumis pour coordination",
+    "cancelTmi": {
+      "title": "Annuler l\u2019IGC\u00a0?",
+      "cancelling": "Annulation...",
+      "failed": "\u00c9chec de l\u2019annulation"
+    },
+    "submit": {
+      "failed": "\u00c9chec de la soumission"
+    },
+    "publish": {
+      "publishFailed": "\u00c9chec de la publication"
     }
+  },
+  "route": {
+    "playbook": "Playbook",
+    "cdr": "CDR",
+    "enterSearchCriterion": "Entrez au moins un crit\u00e8re de recherche",
+    "enterSearchCriteria": "Entrez les crit\u00e8res de recherche ci-dessus",
+    "noMatchingRoutes": "Aucune route correspondante trouv\u00e9e",
+    "originAirports": "A\u00e9roports d\u2019origine",
+    "originArtccs": "ARTCC d\u2019origine",
+    "destAirports": "A\u00e9roports de destination",
+    "destArtccs": "ARTCC de destination",
+    "addToTextarea": "Ajouter au champ texte",
+    "plotRoute": "Tracer la route",
+    "allRoutesInTextarea": "Toutes les routes sont d\u00e9j\u00e0 dans le champ texte",
+    "addedRoutes": "{count} route(s) ajout\u00e9e(s)",
+    "duplicatesSkipped": "{count} doublon(s) ignor\u00e9(s)",
+    "plottingRoutes": "Tra\u00e7age de {count} route(s)",
+    "routesAlreadyPlotted": "Routes d\u00e9j\u00e0 trac\u00e9es",
+    "copiedRoutes": "{count} route(s) copi\u00e9e(s) dans le presse-papiers",
+    "addedRoute": "Ajout\u00e9e\u00a0: {name}",
+    "alreadyInTextarea": "D\u00e9j\u00e0 dans le champ texte\u00a0: {name}",
+    "plottingRoute": "Tra\u00e7age\u00a0: {name}",
+    "routesCleared": "Routes effac\u00e9es"
+  },
+  "weather": {
+    "noImpacts": "Aucun impact m\u00e9t\u00e9o",
+    "flightsAffected": "Vols affect\u00e9s",
+    "direct": "Direct",
+    "near": "Proximit\u00e9",
+    "activeAlerts": "Alertes actives",
+    "noFlightsAffected": "Aucun vol actuellement affect\u00e9",
+    "moreFlights": "+{count} de plus",
+    "popupId": "ID",
+    "popupValid": "Valide",
+    "popupAltitude": "Altitude",
+    "popupExpires": "Expire",
+    "radar": "Radar m\u00e9t\u00e9o",
+    "product": "Produit\u00a0:",
+    "colors": "Couleurs\u00a0:",
+    "opacity": "Opacit\u00e9\u00a0:",
+    "previousFrame": "Image pr\u00e9c\u00e9dente",
+    "playPause": "Lecture/Pause",
+    "nextFrame": "Image suivante"
+  },
+  "airspace": {
+    "popupName": "Nom",
+    "popupAltitude": "Altitude",
+    "popupSchedule": "Horaire",
+    "popupArtcc": "ARTCC",
+    "popupFacility": "Installation",
+    "popupState": "\u00c9tat",
+    "popupEffective": "En vigueur",
+    "popupExpires": "Expire",
+    "viewOnFaaTfr": "Voir sur FAA TFR",
+    "surface": "Surface",
+    "unlimited": "Illimit\u00e9"
   },
   "schedule": {
     "page": {
@@ -2562,5 +2656,177 @@
       "historicalReplay": "Rejeu historique",
       "aircraftList": "A\u00e9ronefs"
     }
+  },
+  "initiative": {
+    "addElement": "Ajouter un \u00e9l\u00e9ment",
+    "editElement": "Modifier l'\u00e9l\u00e9ment",
+    "elementType": "Type d'\u00e9l\u00e9ment",
+    "optgroup": {
+      "trafficManagement": "Gestion du trafic",
+      "constraints": "Contraintes",
+      "specialOperations": "Op\u00e9rations sp\u00e9ciales",
+      "eventsDecisionWindows": "\u00c9v\u00e9nements et fen\u00eatres de d\u00e9cision",
+      "other": "Autre"
+    },
+    "section": {
+      "tmi": "D\u00e9tails IGC",
+      "vip": "D\u00e9tails VIP/D\u00e9placement",
+      "space": "D\u00e9tails op\u00e9rations spatiales",
+      "staffing": "D\u00e9tails de dotation",
+      "cdw": "D\u00e9tails fen\u00eatre de d\u00e9cision critique",
+      "event": "D\u00e9tails de l'\u00e9v\u00e9nement",
+      "misc": "D\u00e9tails divers",
+      "constraint": "D\u00e9tails de la contrainte",
+      "timePeriod": "P\u00e9riode"
+    },
+    "label": {
+      "facility": "Installation",
+      "area": "Zone",
+      "tmiType": "Type d'IGC",
+      "otherType": "Autre type",
+      "cause": "Cause",
+      "advzyNumber": "Num\u00e9ro ADVZY",
+      "movementType": "Type de d\u00e9placement",
+      "callsignId": "Indicatif/ID",
+      "origin": "Origine",
+      "destination": "Destination",
+      "operationType": "Type d'op\u00e9ration",
+      "missionName": "Nom de mission",
+      "launchSite": "Site de lancement",
+      "affectedAreas": "Zones affect\u00e9es",
+      "shift": "Quart de travail",
+      "triggerDescription": "Description du d\u00e9clencheur",
+      "decisionPoint": "Point de d\u00e9cision",
+      "affectedFacility": "Installation affect\u00e9e",
+      "eventName": "Nom de l'\u00e9v\u00e9nement",
+      "description": "Description",
+      "location": "Emplacement",
+      "otherCause": "Autre/Cause",
+      "impactDescription": "Description de l'impact",
+      "startTime": "Heure de d\u00e9but",
+      "endTime": "Heure de fin",
+      "global": "Global",
+      "showOnAllPlans": "Afficher sur tous les plans",
+      "notes": "Notes",
+      "staffingPrefix": "Dotation\u00a0:",
+      "callsign": "Indicatif"
+    },
+    "tooltip": {
+      "siteArtcc": "Site/ARTCC",
+      "affected": "Affect\u00e9",
+      "mission": "Mission",
+      "level": "Niveau"
+    },
+    "error": {
+      "facilityRequired": "L'installation est requise",
+      "timesRequired": "Les heures de d\u00e9but et de fin sont requises",
+      "saveFailed": "\u00c9chec de l'enregistrement de l'\u00e9l\u00e9ment",
+      "deleteFailed": "\u00c9chec de la suppression de l'\u00e9l\u00e9ment"
+    },
+    "elementUpdated": "\u00c9l\u00e9ment mis \u00e0 jour",
+    "elementAdded": "\u00c9l\u00e9ment ajout\u00e9",
+    "confirmDelete": "Supprimer cet \u00e9l\u00e9ment\u00a0? Cette action est irr\u00e9versible.",
+    "elementDeleted": "\u00c9l\u00e9ment supprim\u00e9"
+  },
+  "nod": {
+    "demand": {
+      "clickToAddFix": "Cliquer sur la carte pour ajouter un moniteur de point",
+      "clickFirstFix": "Cliquer sur le premier point du segment",
+      "clickSecondFix": "De\u00a0: {fix} - Cliquer sur le second point",
+      "enterFixName": "Entrer le nom du point\u00a0:",
+      "noMonitorsActive": "Aucun moniteur actif",
+      "invalidInputFormat": "Format de saisie invalide",
+      "loadingFlights": "Chargement des vols...",
+      "failedToLoadFlights": "\u00c9chec du chargement des vols",
+      "noFlightsInWindow": "Aucun vol dans la fen\u00eatre temporelle",
+      "colCallsign": "Indicatif",
+      "colRoute": "Route",
+      "colType": "Type",
+      "colEta": "HEA"
+    }
+  },
+  "tmiActive": {
+    "entryType": {
+      "all": "Tous les types",
+      "mit": "Espacement en milles",
+      "minit": "Espacement en minutes",
+      "stop": "Arr\u00eat au sol",
+      "apreq": "APREQ/CFR",
+      "tbm": "R\u00e9gulation temporelle",
+      "config": "Configuration",
+      "delay": "Avis de retard",
+      "gdp": "Programme d'attente au sol",
+      "reroute": "D\u00e9routement"
+    },
+    "placeholder": {
+      "allFacilities": "Toutes les installations",
+      "allTypes": "Tous les types",
+      "allStatus": "Tous les statuts",
+      "allSources": "Toutes les sources"
+    },
+    "loading": {
+      "restrictions": "Chargement des restrictions...",
+      "advisories": "Chargement des avis..."
+    },
+    "noActiveRestrictions": "Aucune restriction active",
+    "noAdvisories": "Aucun avis",
+    "noRouteDetails": "Aucun d\u00e9tail de route disponible.",
+    "noDetails": "Aucun d\u00e9tail disponible.",
+    "failedToLoadTmis": "\u00c9chec du chargement des IGC\u00a0: {error}",
+    "connectionError": "Erreur de connexion. La base de donn\u00e9es n'est peut-\u00eatre pas configur\u00e9e.",
+    "batchCancel": {
+      "title": "Annuler {count} IGC\u00a0?",
+      "text": "Vous \u00eates sur le point d'annuler <strong>{count}</strong> IGC.",
+      "cannotUndo": "Cette action est irr\u00e9versible.",
+      "postCancelAdvisories": "Publier les avis d'annulation",
+      "confirmBtn": "Annuler toute la s\u00e9lection",
+      "nevermind": "Annuler"
+    },
+    "cancel": {
+      "title": "Annuler l'IGC\u00a0?",
+      "text": "\u00cates-vous s\u00fbr de vouloir annuler cette IGC\u00a0?",
+      "reasonLabel": "Raison de l'annulation (facultatif)\u00a0:",
+      "confirmBtn": "Oui, annuler l'IGC",
+      "cancelling": "Annulation...",
+      "cancelled": "IGC annul\u00e9e",
+      "cancelledText": "L'IGC a \u00e9t\u00e9 annul\u00e9e avec succ\u00e8s.",
+      "failed": "\u00c9chec de l'annulation",
+      "serverError": "\u00c9chec de connexion au serveur\u00a0: {error}"
+    },
+    "edit": {
+      "tmiEntry": "Modifier l'entr\u00e9e IGC",
+      "advisory": "Modifier l'avis",
+      "saveChanges": "Enregistrer les modifications",
+      "notFound": "Impossible de trouver les donn\u00e9es de l'entr\u00e9e IGC",
+      "advisoryNotFound": "Impossible de trouver les donn\u00e9es de l'avis",
+      "programNotFound": "Impossible de trouver les donn\u00e9es du programme",
+      "rerouteNotFound": "Impossible de trouver les donn\u00e9es du d\u00e9routement"
+    },
+    "save": {
+      "saving": "Enregistrement...",
+      "saved": "Modifications enregistr\u00e9es",
+      "savedText": "L'IGC a \u00e9t\u00e9 mise \u00e0 jour avec succ\u00e8s.",
+      "failed": "\u00c9chec de la mise \u00e0 jour",
+      "serverError": "\u00c9chec de connexion au serveur\u00a0: {error}"
+    }
+  },
+  "publicRoutes": {
+    "unnamedRoute": "Route sans nom",
+    "apiKeyNotConfigured": "Cl\u00e9 API non configur\u00e9e. Contactez l'administrateur.",
+    "routePublished": "Route publi\u00e9e\u00a0!",
+    "routeUpdated": "Route mise \u00e0 jour\u00a0!",
+    "failedToSaveRoute": "\u00c9chec de l'enregistrement de la route\u00a0: {error}",
+    "failedToDeleteRoute": "\u00c9chec de la suppression de la route\u00a0: {error}",
+    "confirmDelete": "\u00cates-vous s\u00fbr de vouloir supprimer d\u00e9finitivement cette route\u00a0?",
+    "confirmDeactivate": "\u00cates-vous s\u00fbr de vouloir d\u00e9sactiver cette route\u00a0?",
+    "noPublicRoutes": "Aucune route publique",
+    "plotRoutesFirst": "Veuillez d'abord tracer les routes avec le bouton \u00ab\u00a0Tracer les routes\u00a0\u00bb.",
+    "enterValidTimes": "Veuillez entrer des heures de d\u00e9but et de fin valides (format JJHHMM).",
+    "invalidTimeFormat": "Format d'heure invalide. Utilisez JJHHMM (ex.\u00a0: 251430).",
+    "expired": "Expir\u00e9",
+    "notFound": "Introuvable",
+    "notFoundText": "La route demand\u00e9e est introuvable.",
+    "noPublicRoutes": "Aucune route publique",
+    "hiddenByFilters": "route(s) masqu\u00e9e(s) par les filtres de cat\u00e9gorie"
   }
 }

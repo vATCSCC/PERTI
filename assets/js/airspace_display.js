@@ -520,6 +520,7 @@ const AirspaceDisplay = (function() {
         const style = SUA_STYLES[props.sua_type] || {};
 
         // Build popup content
+        const t = PERTII18n.t;
         const html = `
             <div class="airspace-popup sua-popup">
                 <div class="popup-header" style="background: ${style.color}">
@@ -528,20 +529,20 @@ const AirspaceDisplay = (function() {
                 </div>
                 <div class="popup-body">
                     <div class="popup-row">
-                        <span class="popup-label">Name:</span>
+                        <span class="popup-label">${t('airspace.popupName')}:</span>
                         <span>${props.name || props.designator}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">Altitude:</span>
+                        <span class="popup-label">${t('airspace.popupAltitude')}:</span>
                         <span>${formatAltitude(props.lower_limit)} - ${formatAltitude(props.upper_limit)}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">Schedule:</span>
-                        <span>${props.schedule_desc || props.schedule || 'Unknown'}</span>
+                        <span class="popup-label">${t('airspace.popupSchedule')}:</span>
+                        <span>${props.schedule_desc || props.schedule || t('common.unknown')}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">ARTCC:</span>
-                        <span>${props.artcc || 'Unknown'}</span>
+                        <span class="popup-label">${t('airspace.popupArtcc')}:</span>
+                        <span>${props.artcc || t('common.unknown')}</span>
                     </div>
                 </div>
             </div>
@@ -563,6 +564,7 @@ const AirspaceDisplay = (function() {
         const style = TFR_STYLES[props.type] || TFR_STYLES.OTHER;
 
         // Build popup content
+        const t = PERTII18n.t;
         const html = `
             <div class="airspace-popup tfr-popup">
                 <div class="popup-header" style="background: ${props.color || style.color}">
@@ -571,20 +573,20 @@ const AirspaceDisplay = (function() {
                 </div>
                 <div class="popup-body">
                     <div class="popup-row">
-                        <span class="popup-label">Facility:</span>
-                        <span>${props.facility || 'N/A'}</span>
+                        <span class="popup-label">${t('airspace.popupFacility')}:</span>
+                        <span>${props.facility || t('common.na')}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">State:</span>
-                        <span>${props.state || 'N/A'}</span>
+                        <span class="popup-label">${t('airspace.popupState')}:</span>
+                        <span>${props.state || t('common.na')}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">Effective:</span>
-                        <span>${props.effective || 'N/A'}</span>
+                        <span class="popup-label">${t('airspace.popupEffective')}:</span>
+                        <span>${props.effective || t('common.na')}</span>
                     </div>
                     <div class="popup-row">
-                        <span class="popup-label">Expires:</span>
-                        <span>${props.expire || 'N/A'}</span>
+                        <span class="popup-label">${t('airspace.popupExpires')}:</span>
+                        <span>${props.expire || t('common.na')}</span>
                     </div>
                     ${props.description ? `
                     <div class="popup-desc">
@@ -592,7 +594,7 @@ const AirspaceDisplay = (function() {
                     </div>
                     ` : ''}
                     <div class="popup-link">
-                        <a href="https://tfr.faa.gov/tfr2/list.html" target="_blank">View on FAA TFR</a>
+                        <a href="https://tfr.faa.gov/tfr2/list.html" target="_blank">${t('airspace.viewOnFaaTfr')}</a>
                     </div>
                 </div>
             </div>
@@ -624,8 +626,8 @@ const AirspaceDisplay = (function() {
      * Format altitude for display
      */
     function formatAltitude(alt) {
-        if (alt === 'GND' || alt === 'SFC' || alt === 0) {return 'Surface';}
-        if (alt === 'UNL' || alt === 'UNLIM') {return 'Unlimited';}
+        if (alt === 'GND' || alt === 'SFC' || alt === 0) {return PERTII18n.t('airspace.surface');}
+        if (alt === 'UNL' || alt === 'UNLIM') {return PERTII18n.t('airspace.unlimited');}
         if (typeof alt === 'number') {
             if (alt >= 18000) {
                 return `FL${Math.round(alt / 100)}`;

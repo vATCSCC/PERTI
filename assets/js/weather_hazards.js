@@ -284,6 +284,7 @@ const WeatherHazards = (function() {
         const props = e.features[0].properties;
 
         // Build popup content
+        const t = PERTII18n.t;
         const content = `
             <div class="weather-hazard-popup">
                 <div class="hazard-header ${props.hazard.toLowerCase()}">
@@ -291,10 +292,10 @@ const WeatherHazards = (function() {
                     ${props.severity ? `<span class="severity">${props.severity}</span>` : ''}
                 </div>
                 <div class="hazard-details">
-                    <div><strong>ID:</strong> ${props.source_id}</div>
-                    <div><strong>Valid:</strong> ${formatTime(props.valid_from)} - ${formatTime(props.valid_to)}</div>
-                    <div><strong>Altitude:</strong> FL${props.floor_fl || '000'} - FL${props.ceiling_fl || '---'}</div>
-                    <div><strong>Expires:</strong> ${props.minutes_remaining} min</div>
+                    <div><strong>${t('weather.popupId')}:</strong> ${props.source_id}</div>
+                    <div><strong>${t('weather.popupValid')}:</strong> ${formatTime(props.valid_from)} - ${formatTime(props.valid_to)}</div>
+                    <div><strong>${t('weather.popupAltitude')}:</strong> FL${props.floor_fl || '000'} - FL${props.ceiling_fl || '---'}</div>
+                    <div><strong>${t('weather.popupExpires')}:</strong> ${props.minutes_remaining} min</div>
                 </div>
                 ${props.raw_text ? `<div class="hazard-raw"><pre>${escapeHtml(props.raw_text)}</pre></div>` : ''}
             </div>
