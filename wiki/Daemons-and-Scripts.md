@@ -29,14 +29,14 @@ Background processes that keep PERTI data current. All 14 daemons are started at
 
 ### vatsim_adl_daemon.php
 
-Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_RefreshFromVatsim_Staged` (V9.2.0) with optional deferred processing.
+Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_RefreshFromVatsim_Staged` (V9.3.0) with delta detection and optional deferred processing.
 
 | Setting | Value |
 |---------|-------|
 | Location | `scripts/vatsim_adl_daemon.php` |
 | Interval | ~15 seconds |
 | Language | PHP |
-| SP Version | V9.2.0 |
+| SP Version | V9.3.0 |
 
 **Key config options:**
 
@@ -45,6 +45,8 @@ Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_Refr
 | `defer_expensive` | `true` | Defer ETA/snapshot steps, always capture trajectory |
 | `deferred_eta_interval` | `2` | Run wind-adjusted batch ETA every N cycles when budget allows |
 | `zone_daemon_enabled` | `false` | Skip zone detection in SP (use separate zone_daemon.php) |
+
+**Delta detection (V9.3.0):** Each cycle, the daemon compares pilot data against the previous cycle in memory via `computeChangeFlags()`. Unchanged flights get `change_flags=0` (heartbeat), which tells the SP to skip geography, position, plan, and aircraft processing — only timestamps are updated. This reduces SP time by ~30-40%. The `hb=N` value in log output shows how many heartbeat flights were detected.
 
 When `defer_expensive` is enabled, the SP captures trajectory points on every cycle but defers ETA calculations. After the SP returns, the daemon checks remaining time budget and runs deferred ETA steps if time permits (with a 2s safety margin). This ensures data ingestion always completes within the 15s VATSIM API window.
 

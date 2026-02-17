@@ -57,6 +57,11 @@ CREATE TABLE dbo.adl_staging_pilots (
     route_hash VARBINARY(32) NULL,
     airline_icao CHAR(3) NULL,
 
+    -- Delta detection (V9.3.0)
+    -- Bitmask: 0=heartbeat, 1=POSITION_CHANGED, 2=PLAN_CHANGED, 4=NEW_FLIGHT
+    -- Default 15 = full processing (backward-compatible for old daemon code)
+    change_flags TINYINT NOT NULL DEFAULT 15,
+
     -- Batch tracking
     batch_id UNIQUEIDENTIFIER NOT NULL,
     inserted_utc DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),

@@ -196,10 +196,13 @@ Session variables set:
        ▼
 2. vatsim_adl_daemon.php
        │
+       ├──▶ Delta detection: set change_flags per flight (V9.3.0)
+       │
        ├──▶ sp_Adl_RefreshFromVatsim_Staged (@defer_expensive=1)
        │           │
        │           ├──▶ INSERT/UPDATE normalized 8-table flight data
-       │           ├──▶ INSERT trajectory points (always, even when deferred)
+       │           │    (heartbeat flights: timestamps only; changed: full processing)
+       │           ├──▶ INSERT trajectory points (always, not filtered by change_flags)
        │           └──▶ Queue routes for parsing
        │
        ├──▶ Deferred ETA processing (time-budget permitting)

@@ -1,8 +1,8 @@
 # ADL Daemon Setup
 
-## Current Architecture (V9.2.0)
+## Current Architecture (V9.3.0)
 
-The daemon uses `sp_Adl_RefreshFromVatsim_Staged` with two key parameters:
+The daemon uses `sp_Adl_RefreshFromVatsim_Staged` with delta detection and deferred processing:
 
 ```php
 // scripts/vatsim_adl_daemon.php - executeStagedRefreshSP()
@@ -13,6 +13,20 @@ $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_d
 |-----------|---------|---------|
 | `@skip_zone_detection` | 0 | Set to 1 when zone_daemon.php handles zone detection |
 | `@defer_expensive` | 0 | Set to 1 to defer ETA/snapshot steps (trajectory always captured) |
+
+### Delta Detection (V9.3.0)
+
+Before inserting pilots into the staging table, the daemon compares each pilot against the previous cycle in memory via `computeChangeFlags()` and sets a `change_flags` bitmask:
+
+| Value | Flag | Meaning |
+|-------|------|---------|
+| 0 | Heartbeat | Everything identical — SP skips geography, position, plan, aircraft |
+| 1 | POSITION_CHANGED | lat, lon, altitude, groundspeed, or heading changed |
+| 2 | PLAN_CHANGED | route_hash, altitude, TAS, rule, aircraft, or remarks changed |
+| 4 | NEW_FLIGHT | flight_key not seen in previous cycle |
+| 15 | Full (default) | Backward-compatible fallback for old daemon code |
+
+The `change_flags` column in `adl_staging_pilots` defaults to 15, so old daemon code without delta detection triggers full processing automatically.
 
 When `@defer_expensive = 1`, the daemon runs deferred ETA processing after the SP returns, using a time-budget system with a 2s safety margin to ensure cycles stay within 15s.
 

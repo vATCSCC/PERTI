@@ -36,11 +36,15 @@ VATSIM Data API (every 15s)
        v
 vatsim_adl_daemon.php
        |
+       ├──▶ Delta detection: compare pilots vs previous cycle (V9.3.0)
+       │    Set change_flags bitmask per flight (0=heartbeat, 1=pos, 2=plan, 4=new)
+       |
        v
-sp_Adl_RefreshFromVatsim_Staged (V9.2.0, @defer_expensive=1)
+sp_Adl_RefreshFromVatsim_Staged (V9.3.0, @defer_expensive=1)
        |
        |-->  adl_flight_core + 7 related tables (normalized)
-       |-->  adl_flight_trajectory (position points - always captured)
+       |     (heartbeat flights: timestamps only; changed flights: full processing)
+       |-->  adl_flight_trajectory (position points - always captured, not filtered)
        |-->  adl_flight_changelog (field-level changes)
        '-->  adl_parse_queue (routes to parse)
        |
