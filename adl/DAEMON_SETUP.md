@@ -1,20 +1,24 @@
-# ADL Daemon Setup for Normalized Schema
+# ADL Daemon Setup
 
-## Option 1: Modify Existing Daemon (Recommended)
+## Current Architecture (V9.2.0)
 
-Edit `scripts/vatsim_adl_daemon.php` and change line ~178:
+The daemon uses `sp_Adl_RefreshFromVatsim_Staged` with two key parameters:
 
-**Before:**
 ```php
-$sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim] @Json = ?";
+// scripts/vatsim_adl_daemon.php - executeStagedRefreshSP()
+$sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?, @defer_expensive = ?";
 ```
 
-**After:**
-```php
-$sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Normalized] @Json = ?";
-```
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `@skip_zone_detection` | 0 | Set to 1 when zone_daemon.php handles zone detection |
+| `@defer_expensive` | 0 | Set to 1 to defer ETA/snapshot steps (trajectory always captured) |
 
-That's it! The daemon will now populate the normalized tables.
+When `@defer_expensive = 1`, the daemon runs deferred ETA processing after the SP returns, using a time-budget system with a 2s safety margin to ensure cycles stay within 15s.
+
+## Legacy Setup (Historical Reference)
+
+Previously used `sp_Adl_RefreshFromVatsim_Normalized` with a JSON payload. The staged SP replaced this approach.
 
 ---
 

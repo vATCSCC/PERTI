@@ -805,7 +805,7 @@ All daemons are started at App Service boot via `scripts/startup.sh` and run con
 
 | Daemon | Script | Interval | Purpose |
 |--------|--------|----------|---------|
-| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS processing |
+| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS + deferred ETA processing |
 | Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
 | Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
 | Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |

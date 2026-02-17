@@ -3,7 +3,7 @@
  * Deploy SP Optimizations to VATSIM_ADL
  *
  * Deploys the following changes:
- *   1. sp_Adl_RefreshFromVatsim_Staged V9.1.0 (position skip-unchanged)
+ *   1. sp_Adl_RefreshFromVatsim_Staged V9.2.0 (position skip-unchanged, @defer_expensive)
  *   2. Delta sync indexes (005_delta_sync_indexes.sql)
  *   3. sp_ProcessZoneDetectionBatch_Tiered (tiered zone detection)
  *
@@ -108,8 +108,8 @@ $deployments = [
     ],
     'sp_refresh' => [
         'file' => __DIR__ . '/../adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql',
-        'name' => 'sp_Adl_RefreshFromVatsim_Staged V9.1.0',
-        'description' => 'Position skip-unchanged optimization, @skip_zone_detection parameter',
+        'name' => 'sp_Adl_RefreshFromVatsim_Staged V9.2.0',
+        'description' => 'Position skip-unchanged, @skip_zone_detection, @defer_expensive parameters',
     ],
     'sp_zone_tiered' => [
         'file' => __DIR__ . '/../adl/procedures/sp_ProcessZoneDetectionBatch_Tiered.sql',
@@ -222,7 +222,9 @@ if ($errorCount > 0) {
 echo "\nNext steps:\n";
 echo "1. Enable zone_daemon in vatsim_adl_daemon.php:\n";
 echo "   'zone_daemon_enabled' => true,\n";
-echo "2. Start the zone daemon:\n";
+echo "2. Enable deferred processing in vatsim_adl_daemon.php:\n";
+echo "   'defer_expensive' => true,\n";
+echo "3. Start the zone daemon:\n";
 echo "   php scripts/zone_daemon.php\n";
 echo "\n";
 
