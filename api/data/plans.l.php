@@ -30,7 +30,12 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-$query = $conn_sqli->query("SELECT * FROM p_plans ORDER BY event_date DESC");
+require_once(dirname(__DIR__, 2) . '/load/org_context.php');
+$org = get_org_code();
+$stmt_plans = $conn_sqli->prepare("SELECT * FROM p_plans WHERE org_code = ? ORDER BY event_date DESC");
+$stmt_plans->bind_param("s", $org);
+$stmt_plans->execute();
+$query = $stmt_plans->get_result();
 
 // Hotline badge abbreviations
 $hotline_badges = [

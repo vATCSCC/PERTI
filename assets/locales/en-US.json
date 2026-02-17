@@ -4840,7 +4840,13 @@
     "facilityType": "ARTCC",
     "facilityTypePlural": "ARTCCs",
     "switchOrg": "Switch Organization",
-    "currentOrg": "Current: {org}"
+    "currentOrg": "Current: {org}",
+    "mismatch": {
+      "title": "Organization Mismatch",
+      "planBelongsTo": "This plan belongs to {org}.",
+      "currentlyViewing": "You are currently viewing as {org}.",
+      "switchTo": "Switch to {org}"
+    }
   },
   "nav": {
     "planning": "Planning",

@@ -41,6 +41,10 @@ include("sessions/handler.php");
     }
 
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
+
+    require_once('load/org_context.php');
+    $plan_org_code = $plan_info['org_code'] ?? 'vatcscc';
+    $org_mismatch = ($plan_org_code !== get_org_code());
 ?>
 
 <!DOCTYPE html>
@@ -69,7 +73,27 @@ include("sessions/handler.php");
 
 <?php
 include('load/nav.php');
+
+if ($org_mismatch):
+    $stmt = $conn_sqli->prepare("SELECT display_name FROM organizations WHERE org_code = ?");
+    $stmt->bind_param("s", $plan_org_code);
+    $stmt->execute();
+    $plan_org_display = $stmt->get_result()->fetch_assoc()['display_name'] ?? strtoupper($plan_org_code);
+    $current_org_display = get_org_info($conn_sqli)['display_name'];
 ?>
+    <div class="container mt-5 text-center">
+        <div class="alert alert-warning py-4" role="alert">
+            <h5 class="mb-3"><i class="fas fa-exchange-alt mr-2"></i> <?= __('org.mismatch.title') ?></h5>
+            <p><?= __('org.mismatch.planBelongsTo', ['org' => htmlspecialchars($plan_org_display)]) ?>
+               <?= __('org.mismatch.currentlyViewing', ['org' => htmlspecialchars($current_org_display)]) ?></p>
+            <button class="btn btn-primary" onclick="switchOrg('<?= htmlspecialchars($plan_org_code) ?>')">
+                <i class="fas fa-sync-alt mr-1"></i> <?= __('org.mismatch.switchTo', ['org' => htmlspecialchars($plan_org_display)]) ?>
+            </button>
+        </div>
+    </div>
+<?php include('load/footer.php'); ?>
+</body></html>
+<?php exit; endif; ?>
 
     <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">
         <div class="container-fluid pt-2 pb-5 py-lg-6">

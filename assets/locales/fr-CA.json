@@ -5207,7 +5207,13 @@
     "facilityType": "ACC",
     "facilityTypePlural": "ACC",
     "switchOrg": "Changer d'organisation",
-    "currentOrg": "Actuel : {org}"
+    "currentOrg": "Actuel : {org}",
+    "mismatch": {
+      "title": "Organisation incompatible",
+      "planBelongsTo": "Ce plan appartient \u00e0 {org}.",
+      "currentlyViewing": "Vous consultez actuellement en tant que {org}.",
+      "switchTo": "Passer \u00e0 {org}"
+    }
   },
   "nav": {
     "planning": "Planification",
