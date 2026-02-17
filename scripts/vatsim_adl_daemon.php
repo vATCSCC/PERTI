@@ -1802,12 +1802,37 @@ function isConnectionAlive($conn): bool {
         return false;
     }
 
-    $stmt = @sqlsrv_query($conn, "SELECT 1");
+    try {
+        $stmt = @sqlsrv_query($conn, "SELECT 1");
+    } catch (Throwable $e) {
+        return false;
+    }
+
     if ($stmt === false) {
         return false;
     }
-    sqlsrv_free_stmt($stmt);
+    @sqlsrv_free_stmt($stmt);
     return true;
+}
+
+/**
+ * Best-effort SQLSRV connection close.
+ * Some SQLSRV failure states can leave an invalid handle that throws TypeError
+ * on sqlsrv_close(), so we treat close as optional and always null the handle.
+ */
+function safeCloseConnection(&$conn): void {
+    if ($conn === null || $conn === false) {
+        $conn = null;
+        return;
+    }
+
+    try {
+        @sqlsrv_close($conn);
+    } catch (Throwable $e) {
+        // Ignore invalid/terminated handles during recovery.
+    }
+
+    $conn = null;
 }
 
 // ============================================================================
@@ -1836,7 +1861,7 @@ function runDaemon(array $config): void {
         try {
             $conn = getConnection($config);
             logInfo("Database connected");
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $reconnectAttempts++;
             logError("Connection attempt {$reconnectAttempts} failed", ['error' => $e->getMessage()]);
             if ($reconnectAttempts < $maxReconnectAttempts) {
@@ -1932,7 +1957,7 @@ function runDaemon(array $config): void {
             // 1. Check connection health (fast check)
             if (!isConnectionAlive($conn)) {
                 logWarn("Connection lost, reconnecting...");
-                @sqlsrv_close($conn);
+                safeCloseConnection($conn);
                 $conn = getConnection($config);
                 logInfo("Reconnected");
             }
@@ -2320,15 +2345,15 @@ function runDaemon(array $config): void {
                 }
             }
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $stats['failures']++;
             logError("Refresh #{$stats['runs']} FAILED", ['error' => $e->getMessage()]);
             
             try {
-                @sqlsrv_close($conn);
+                safeCloseConnection($conn);
                 $conn = getConnection($config);
                 logInfo("Reconnected after error");
-            } catch (Exception $re) {
+            } catch (Throwable $re) {
                 logError("Reconnection failed", ['error' => $re->getMessage()]);
                 $conn = null;
             }
@@ -2413,7 +2438,7 @@ function runDaemon(array $config): void {
             try {
                 $conn = getConnection($config);
                 logInfo("Connection restored");
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 logError("Still cannot connect", ['error' => $e->getMessage()]);
                 sleep(5);
             }
@@ -2428,7 +2453,7 @@ function runDaemon(array $config): void {
     ]);
     
     if ($conn) {
-        @sqlsrv_close($conn);
+        safeCloseConnection($conn);
     }
 }
 
