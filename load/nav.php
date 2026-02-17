@@ -191,11 +191,15 @@ if (!function_exists('render_dropdown')) {
             $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
             $org_all = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
             $org_display = 'DCC';
+            $org_display_map = [];
             if (isset($conn_sqli) && $conn_sqli) {
                 $oi = get_org_info($conn_sqli);
                 $org_display = $oi['display_name'] ?? 'DCC';
+                $dm_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations");
+                if ($dm_result) { while ($dm_row = $dm_result->fetch_assoc()) { $org_display_map[$dm_row['org_code']] = $dm_row['display_name']; } }
             }
-            $org_color = ($org_code === 'vatcan') ? '#d32f2f' : '#1a73e8';
+            $org_colors = ['vatcscc' => '#1a73e8', 'vatcan' => '#d32f2f', 'ecfmp' => '#7b1fa2'];
+            $org_color = $org_colors[$org_code] ?? '#555';
             $multi_org = count($org_all) > 1;
         ?>
         <?php if ($multi_org): ?>
@@ -205,10 +209,10 @@ if (!function_exists('render_dropdown')) {
                 </button>
                 <div class="dropdown-menu dropdown-menu-right">
                     <?php foreach ($org_all as $oc):
-                        $oc_name = ($oc === 'vatcscc') ? 'DCC' : 'NOC';
+                        $oc_name = $org_display_map[$oc] ?? strtoupper($oc);
                     ?>
                         <a class="dropdown-item <?= $oc === $org_code ? 'active' : '' ?>" href="#" onclick="switchOrg('<?= $oc ?>');return false;">
-                            <?= $oc_name ?>
+                            <?= htmlspecialchars($oc_name) ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
