@@ -1913,6 +1913,68 @@ class TMIComplianceAnalyzer:
         return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
                 for r in cursor.fetchall()]
 
+    # ------------------------------------------------------------------
+    # Holding pattern: NTML correlation & TMI delay attribution
+    # ------------------------------------------------------------------
+
+    def _correlate_ntml_holding(self, holding_events: list, delay_entries: list) -> None:
+        """Cross-reference detected holds with NTML +Holding entries.
+        Modifies holding_events in place, setting ntml_corroborated=True when matched.
+        """
+        from .models import HoldingStatus
+
+        ntml_holds = [d for d in delay_entries
+                      if d.holding_status == HoldingStatus.HOLDING and d.holding_fix]
+
+        if not ntml_holds:
+            return
+
+        for event in holding_events:
+            if not event.get('matched_fix'):
+                continue
+            for ntml in ntml_holds:
+                if ntml.holding_fix.upper() == event['matched_fix'].upper():
+                    event['ntml_corroborated'] = True
+                    break
+
+    def _attribute_holding_to_tmi(self, holding_events: list, event_config) -> None:
+        """Attribute each holding event to the most likely TMI program.
+        Priority: GS > MIT (based on likelihood of causing holds).
+        """
+        for hold in holding_events:
+            hold_start = hold['hold_start_utc']
+            hold_end = hold['hold_end_utc']
+            dest = hold.get('dest', '')
+
+            # Check Ground Stops first (strongest signal for causing holding)
+            for gs in getattr(event_config, 'gs_programs', []):
+                if not gs.advisories:
+                    continue
+                gs_dest = gs.airport
+                if dest and dest.upper().endswith(gs_dest.upper()):
+                    gs_start = gs.advisories[0].start_utc if gs.advisories else None
+                    gs_end = gs.advisories[-1].end_utc if gs.advisories else None
+                    if gs_start and gs_end and hold_start <= gs_end and hold_end >= gs_start:
+                        hold['tmi_attribution'] = 'gs'
+                        hold['tmi_program_id'] = f"GS_{gs_dest}"
+                        break
+
+            if hold.get('tmi_attribution'):
+                continue
+
+            # Check MIT programs (hold near measurement fix)
+            for tmi in getattr(event_config, 'tmis', []):
+                if not hasattr(tmi, 'tmi_type') or tmi.tmi_type.name not in ('MIT', 'MINIT'):
+                    continue
+                fix_name = getattr(tmi, 'fix', None) or getattr(tmi, 'measurement_point', None)
+                if hold.get('matched_fix') and fix_name:
+                    if hold['matched_fix'].upper() == fix_name.upper():
+                        if (tmi.start_utc and tmi.end_utc and
+                                hold_start <= tmi.end_utc and hold_end >= tmi.start_utc):
+                            hold['tmi_attribution'] = 'mit'
+                            hold['tmi_program_id'] = f"MIT_{fix_name}"
+                            break
+
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
         Analyze MIT/MINIT compliance for a TMI.
