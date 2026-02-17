@@ -7157,7 +7157,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      */
     renderDetailPanelV2: function(tmi) {
         if (!tmi) {
-            return '<div class="tmi-detail-empty">Select a TMI from the list</div>';
+            return '<div class="tmi-detail-empty">' + PERTII18n.t('tmiCompliance.selectTmiFromList') + '</div>';
         }
 
         const data = tmi.data;
@@ -7721,7 +7721,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      */
     renderSpacingDiagramV2: function(allPairs, required, unit) {
         if (!allPairs || allPairs.length === 0) {
-            return '<div class="text-muted">No pairs to display</div>';
+            return '<div class="text-muted">' + PERTII18n.t('tmiCompliance.noPairsToDisplay') + '</div>';
         }
 
         const unitLabel = unit === 'min' ? 'min' : 'nm';
@@ -7866,7 +7866,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
      */
     renderPairsTableV2: function(pairs, required, unitLabel) {
         if (!pairs || pairs.length === 0) {
-            return '<div class="text-muted">No pairs to display</div>';
+            return '<div class="text-muted">' + PERTII18n.t('tmiCompliance.noPairsToDisplay') + '</div>';
         }
 
         // Required marker position: at 66.67% since bar represents 150% of required
