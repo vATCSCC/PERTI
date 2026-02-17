@@ -450,9 +450,9 @@ include("sessions/handler.php");
         <div class="container-fluid pt-2 pb-4 py-lg-5">
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
             <center>
-                <h1><b><span class="text-danger"><?= htmlspecialchars($plan_info['event_name']); ?></span> TMR</b></h1>
+                <h1><b><span class="text-danger"><?= htmlspecialchars($plan_info['event_name']); ?></span> <?= __('review.page.tmr') ?></b></h1>
                 <h6>
-                    <a class="text-light" href="plan?<?= $plan_info['id']; ?>"><i class="fas fa-eye text-primary"></i> View PERTI Plan</a>
+                    <a class="text-light" href="plan?<?= $plan_info['id']; ?>"><i class="fas fa-eye text-primary"></i> <?= __('review.page.viewPertiPlan') ?></a>
                     <span class="mx-2">|</span>
                     <span class="text-muted">
                         <?= $plan_info['event_date']; ?>
@@ -489,28 +489,28 @@ include("sessions/handler.php");
             <div class="col-2">
                 <div class="tmr-sidebar" style="position: sticky; top: 80px;">
                     <ul class="nav flex-column nav-pills" aria-orientation="vertical">
-                        <div class="nav-section-label">TMR Report</div>
-                        <li><a class="nav-link active rounded" data-toggle="tab" href="#tmr_triggers"><i class="fas fa-bolt fa-fw"></i> Triggers</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_overview"><i class="fas fa-align-left fa-fw"></i> Overview</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_airport"><i class="fas fa-plane-arrival fa-fw"></i> Airport Conditions</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_weather"><i class="fas fa-cloud-sun fa-fw"></i> Weather</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_events"><i class="fas fa-calendar-alt fa-fw"></i> Special Events</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_tmis"><i class="fas fa-traffic-light fa-fw"></i> TMIs</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_equipment"><i class="fas fa-tools fa-fw"></i> Equipment</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_personnel"><i class="fas fa-users fa-fw"></i> Personnel</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_plan"><i class="fas fa-file-alt fa-fw"></i> Operational Plan</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_findings"><i class="fas fa-search fa-fw"></i> Findings</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_recs"><i class="fas fa-lightbulb fa-fw"></i> Recommendations</a></li>
+                        <div class="nav-section-label"><?= __('review.page.tmrReport') ?></div>
+                        <li><a class="nav-link active rounded" data-toggle="tab" href="#tmr_triggers"><i class="fas fa-bolt fa-fw"></i> <?= __('review.page.triggers') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_overview"><i class="fas fa-align-left fa-fw"></i> <?= __('review.page.overview') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_airport"><i class="fas fa-plane-arrival fa-fw"></i> <?= __('review.page.airportConditions') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_weather"><i class="fas fa-cloud-sun fa-fw"></i> <?= __('review.page.weather') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_events"><i class="fas fa-calendar-alt fa-fw"></i> <?= __('review.page.specialEvents') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_tmis"><i class="fas fa-traffic-light fa-fw"></i> <?= __('review.page.tmis') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_equipment"><i class="fas fa-tools fa-fw"></i> <?= __('review.page.equipment') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_personnel"><i class="fas fa-users fa-fw"></i> <?= __('review.page.personnel') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_plan"><i class="fas fa-file-alt fa-fw"></i> <?= __('review.page.operationalPlan') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_findings"><i class="fas fa-search fa-fw"></i> <?= __('review.page.findings') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmr_recs"><i class="fas fa-lightbulb fa-fw"></i> <?= __('review.page.recommendations') ?></a></li>
                         <hr>
-                        <div class="nav-section-label">Assessment</div>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#scoring"><i class="fas fa-star fa-fw"></i> Scoring</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#event_data"><i class="fas fa-chart-bar fa-fw"></i> Event Data</a></li>
-                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmi_compliance"><i class="fas fa-chart-line fa-fw"></i> TMI Compliance</a></li>
+                        <div class="nav-section-label"><?= __('review.page.assessment') ?></div>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#scoring"><i class="fas fa-star fa-fw"></i> <?= __('review.page.scoring') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#event_data"><i class="fas fa-chart-bar fa-fw"></i> <?= __('review.page.eventData') ?></a></li>
+                        <li><a class="nav-link rounded" data-toggle="tab" href="#tmi_compliance"><i class="fas fa-chart-line fa-fw"></i> <?= __('review.page.tmiCompliance') ?></a></li>
                         <hr>
-                        <li><a class="nav-link rounded text-success" href="javascript:void(0)" id="tmr_export_btn"><i class="fas fa-share-alt fa-fw"></i> Export to Discord</a></li>
+                        <li><a class="nav-link rounded text-success" href="javascript:void(0)" id="tmr_export_btn"><i class="fas fa-share-alt fa-fw"></i> <?= __('review.page.exportToDiscord') ?></a></li>
                         <li>
                             <span class="nav-link text-muted" style="font-size: 0.75rem; padding: 4px 12px;" id="tmr_status_label">
-                                <i class="fas fa-circle text-secondary"></i> Not loaded
+                                <i class="fas fa-circle text-secondary"></i> <?= __('review.page.notLoaded') ?>
                             </span>
                         </li>
                     </ul>
@@ -528,8 +528,8 @@ include("sessions/handler.php");
                     <!-- Tab: Triggers -->
                     <div class="tab-pane fade show active" id="tmr_triggers">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-bolt"></i> TMR Triggers</h5>
-                            <p class="text-muted small mb-3">Select all triggers that apply to this event.</p>
+                            <h5 class="tmr-section-header"><i class="fas fa-bolt"></i> <?= __('review.page.tmrTriggers') ?></h5>
+                            <p class="text-muted small mb-3"><?= __('review.page.selectTriggers') ?></p>
 
                             <div class="trigger-grid" id="tmr_trigger_grid">
                                 <!-- Populated by JS from tmr.trigger.* locale keys -->
@@ -545,7 +545,7 @@ include("sessions/handler.php");
                             <div class="row mt-3">
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        <label class="small text-muted">Host ARTCC</label>
+                                        <label class="small text-muted"><?= __('review.page.hostArtcc') ?></label>
                                         <input type="text" class="form-control form-control-sm tmr-field"
                                                id="tmr_host_artcc" data-field="host_artcc"
                                                placeholder="e.g., ZNY">
@@ -553,7 +553,7 @@ include("sessions/handler.php");
                                 </div>
                                 <div class="col-md-9">
                                     <div class="form-group">
-                                        <label class="small text-muted">Featured Facilities (comma-separated)</label>
+                                        <label class="small text-muted"><?= __('review.page.featuredFacilities') ?></label>
                                         <input type="text" class="form-control form-control-sm tmr-field"
                                                id="tmr_featured_facilities" data-field="featured_facilities"
                                                placeholder="ZNY, N90, KJFK, KLGA, KEWR">
@@ -566,8 +566,8 @@ include("sessions/handler.php");
                     <!-- Tab: Overview -->
                     <div class="tab-pane fade" id="tmr_overview">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-align-left"></i> Overview</h5>
-                            <p class="text-muted small mb-3">Provide a 3-4 sentence summary of the event.</p>
+                            <h5 class="tmr-section-header"><i class="fas fa-align-left"></i> <?= __('review.page.overview') ?></h5>
+                            <p class="text-muted small mb-3"><?= __('review.page.overviewDesc') ?></p>
                             <textarea class="form-control tmr-field" id="tmr_overview" data-field="overview"
                                       rows="6" placeholder="Summarize the event, key decisions made, and overall outcome..."></textarea>
                         </div>
@@ -576,15 +576,15 @@ include("sessions/handler.php");
                     <!-- Tab: Airport Conditions -->
                     <div class="tab-pane fade" id="tmr_airport">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-plane-arrival"></i> Airport Conditions</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-plane-arrival"></i> <?= __('review.page.airportConditions') ?></h5>
                             <p class="text-muted small mb-3">
-                                Format: [FAA Code] | [Landing RWY(s)] | [Departing RWY(s)] | [AAR]/[ADR]
+                                <?= __('review.page.airportConditionsFormat') ?>
                             </p>
                             <textarea class="form-control tmr-field" id="tmr_airport_conditions" data-field="airport_conditions"
                                       rows="4" placeholder="KJFK | 22L,22R | 31L | 40/44&#10;KEWR | 22L | 22R | 30/30"></textarea>
 
                             <div class="form-group mt-3">
-                                <label class="small">Was the airport configuration validated as correct?</label>
+                                <label class="small"><?= __('review.page.configValidated') ?></label>
                                 <div class="yn-toggle btn-group btn-group-sm" data-field="airport_config_correct">
                                     <button class="btn btn-outline-success" data-value="1">Y</button>
                                     <button class="btn btn-outline-danger" data-value="0">N</button>
@@ -595,8 +595,8 @@ include("sessions/handler.php");
 
                         <!-- Demand Charts for plan airports -->
                         <div class="tmr-section">
-                            <h6 class="text-info"><i class="fas fa-chart-area"></i> Demand Data (VATSIM ADL)</h6>
-                            <p class="text-muted small">Historical arrival/departure demand during the event window.</p>
+                            <h6 class="text-info"><i class="fas fa-chart-area"></i> <?= __('review.page.demandData') ?></h6>
+                            <p class="text-muted small"><?= __('review.page.demandDataDesc') ?></p>
                             <div id="tmr_demand_charts">
                                 <?php if (count($plan_configs) > 0): ?>
                                     <?php foreach ($plan_configs as $cfg): ?>
@@ -609,7 +609,7 @@ include("sessions/handler.php");
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     <div class="text-muted text-center py-3">
-                                        <i class="fas fa-info-circle"></i> No airport configurations found for this plan.
+                                        <i class="fas fa-info-circle"></i> <?= __('review.page.noAirportConfigs') ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -619,7 +619,7 @@ include("sessions/handler.php");
                     <!-- Tab: Weather -->
                     <div class="tab-pane fade" id="tmr_weather">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-cloud-sun"></i> Prevailing Weather Conditions</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-cloud-sun"></i> <?= __('review.page.weatherConditions') ?></h5>
 
                             <!-- METAR Auto-Import -->
                             <div class="mb-3">
@@ -633,9 +633,9 @@ include("sessions/handler.php");
                             <div id="tmr_metar_results" style="display: none;" class="mb-3"></div>
 
                             <div class="form-group">
-                                <label class="small">Weather Category</label>
+                                <label class="small"><?= __('review.page.weatherCategory') ?></label>
                                 <select class="form-control form-control-sm tmr-field" id="tmr_weather_category" data-field="weather_category" style="max-width: 200px;">
-                                    <option value="">-- Select --</option>
+                                    <option value=""><?= __('review.page.weatherSelectDefault') ?></option>
                                     <option value="VFR">VFR</option>
                                     <option value="IFR">IFR</option>
                                     <option value="MVFR">MVFR</option>
@@ -644,7 +644,7 @@ include("sessions/handler.php");
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="small">Weather Summary</label>
+                                <label class="small"><?= __('review.page.weatherSummary') ?></label>
                                 <textarea class="form-control tmr-field" id="tmr_weather_summary" data-field="weather_summary"
                                           rows="3" placeholder="Describe weather impact on operations..."></textarea>
                             </div>
@@ -654,7 +654,7 @@ include("sessions/handler.php");
                     <!-- Tab: Special Events -->
                     <div class="tab-pane fade" id="tmr_events">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-calendar-alt"></i> Special Events</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-calendar-alt"></i> <?= __('review.page.specialEvents') ?></h5>
                             <textarea class="form-control tmr-field" id="tmr_special_events" data-field="special_events"
                                       rows="4" placeholder="Describe any special events that affected operations (leave blank if N/A)..."></textarea>
                         </div>
@@ -663,7 +663,7 @@ include("sessions/handler.php");
                     <!-- Tab: TMIs -->
                     <div class="tab-pane fade" id="tmr_tmis">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-traffic-light"></i> Traffic Management Initiatives</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-traffic-light"></i> <?= __('review.page.tmiSection') ?></h5>
 
                             <!-- DB TMI Lookup -->
                             <div class="mb-3">
@@ -671,10 +671,10 @@ include("sessions/handler.php");
                                     <i class="fas fa-database"></i> <span data-i18n="tmr.tmi.loadFromDb">Load TMIs from Database</span>
                                 </button>
                                 <button class="btn btn-sm btn-outline-info" id="tmr_bulk_paste_toggle">
-                                    <i class="fas fa-clipboard-list"></i> Bulk Paste
+                                    <i class="fas fa-clipboard-list"></i> <?= __('review.page.bulkPaste') ?>
                                 </button>
                                 <button class="btn btn-sm btn-outline-success" id="tmr_add_manual_tmi">
-                                    <i class="fas fa-plus"></i> Add Manual Entry
+                                    <i class="fas fa-plus"></i> <?= __('review.page.addManualEntry') ?>
                                 </button>
                                 <button class="btn btn-sm btn-outline-warning" id="tmr_import_compliance" style="display: none;">
                                     <i class="fas fa-file-import"></i> <span data-i18n="tmr.tmi.importCompliance">Import from Compliance</span>
@@ -707,7 +707,7 @@ include("sessions/handler.php");
                             <!-- Bulk paste input (hidden by default) -->
                             <div id="tmr_bulk_paste_form" style="display: none;" class="card mb-3">
                                 <div class="card-body py-2">
-                                    <label class="small">Paste NTML entries (one per line)</label>
+                                    <label class="small"><?= __('review.page.pasteNtmlEntries') ?></label>
                                     <textarea class="form-control form-control-sm" id="tmr_bulk_ntml_input" rows="6"
                                         placeholder="Paste NTML entries here, e.g.:
 LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
@@ -717,7 +717,7 @@ JFK GDP AAR:30 2200Z-0200Z
 BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                     <div class="mt-2">
                                         <button class="btn btn-sm btn-info" id="tmr_parse_bulk_ntml">
-                                            <i class="fas fa-file-import"></i> Parse & Add to Table
+                                            <i class="fas fa-file-import"></i> <?= __('review.page.parseAndAdd') ?>
                                         </button>
                                         <span class="text-muted small ml-2" id="tmr_bulk_parse_status"></span>
                                     </div>
@@ -730,15 +730,15 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                     <thead>
                                         <tr>
                                             <th style="width: 30px;"><input type="checkbox" id="tmr_tmi_select_all" checked></th>
-                                            <th>Type</th>
-                                            <th>Element</th>
-                                            <th>Detail</th>
-                                            <th>Start</th>
-                                            <th>End</th>
+                                            <th><?= __('review.page.tmiTableType') ?></th>
+                                            <th><?= __('review.page.tmiTableElement') ?></th>
+                                            <th><?= __('review.page.tmiTableDetail') ?></th>
+                                            <th><?= __('review.page.tmiTableStart') ?></th>
+                                            <th><?= __('review.page.tmiTableEnd') ?></th>
                                             <th style="width: 30px;" title="Complied">C</th>
                                             <th style="width: 30px;" title="Effective">E</th>
                                             <th style="width: 30px;" title="Timely">T</th>
-                                            <th>Source</th>
+                                            <th><?= __('review.page.tmiTableSource') ?></th>
                                             <th style="width: 25px;"></th>
                                         </tr>
                                     </thead>
@@ -793,10 +793,10 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                             <hr>
 
                             <!-- TMI Assessment -->
-                            <h6 class="text-warning mt-3">TMI Assessment</h6>
+                            <h6 class="text-warning mt-3"><?= __('review.page.tmiAssessment') ?></h6>
                             <div class="row">
                                 <div class="col-md-4">
-                                    <label class="small">Were TMIs complied with?</label>
+                                    <label class="small"><?= __('review.page.tmiComplied') ?></label>
                                     <div class="yn-toggle btn-group btn-group-sm mb-2" data-field="tmi_complied">
                                         <button class="btn btn-outline-success" data-value="1">Y</button>
                                         <button class="btn btn-outline-danger" data-value="0">N</button>
@@ -805,7 +805,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                     <textarea class="form-control form-control-sm tmr-field" data-field="tmi_complied_details" rows="2" placeholder="Details..."></textarea>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small">Were TMIs effective?</label>
+                                    <label class="small"><?= __('review.page.tmiEffective') ?></label>
                                     <div class="yn-toggle btn-group btn-group-sm mb-2" data-field="tmi_effective">
                                         <button class="btn btn-outline-success" data-value="1">Y</button>
                                         <button class="btn btn-outline-danger" data-value="0">N</button>
@@ -814,7 +814,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                     <textarea class="form-control form-control-sm tmr-field" data-field="tmi_effective_details" rows="2" placeholder="Details..."></textarea>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small">Were TMIs timely?</label>
+                                    <label class="small"><?= __('review.page.tmiTimely') ?></label>
                                     <div class="yn-toggle btn-group btn-group-sm mb-2" data-field="tmi_timely">
                                         <button class="btn btn-outline-success" data-value="1">Y</button>
                                         <button class="btn btn-outline-danger" data-value="0">N</button>
@@ -829,7 +829,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: Equipment -->
                     <div class="tab-pane fade" id="tmr_equipment">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-tools"></i> Equipment</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-tools"></i> <?= __('review.page.equipmentSection') ?></h5>
                             <textarea class="form-control tmr-field" id="tmr_equipment" data-field="equipment"
                                       rows="4" placeholder="Describe any equipment issues (leave blank if N/A)..."></textarea>
                         </div>
@@ -838,7 +838,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: Personnel -->
                     <div class="tab-pane fade" id="tmr_personnel">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-users"></i> Personnel / Staffing</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-users"></i> <?= __('review.page.personnelStaffing') ?></h5>
 
                             <!-- Staffing Auto-Import -->
                             <div class="mb-3">
@@ -852,7 +852,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                             <div id="tmr_staffing_table_wrap" style="display: none;" class="mb-3"></div>
 
                             <div class="form-group">
-                                <label class="small">Was the operational area properly staffed?</label>
+                                <label class="small"><?= __('review.page.staffedProperly') ?></label>
                                 <div class="yn-toggle btn-group btn-group-sm" data-field="personnel_adequate">
                                     <button class="btn btn-outline-success" data-value="1">Y</button>
                                     <button class="btn btn-outline-danger" data-value="0">N</button>
@@ -867,9 +867,9 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: Operational Plan -->
                     <div class="tab-pane fade" id="tmr_plan">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-file-alt"></i> Operational Plan</h5>
+                            <h5 class="tmr-section-header"><i class="fas fa-file-alt"></i> <?= __('review.page.operationalPlanSection') ?></h5>
                             <div class="form-group">
-                                <label class="small">Link to vATCSCC ADVZY / Operational Plan</label>
+                                <label class="small"><?= __('review.page.linkToAdvzy') ?></label>
                                 <input type="text" class="form-control tmr-field" id="tmr_operational_plan_link" data-field="operational_plan_link"
                                        placeholder="https://perti.vatcscc.org/plan?...">
                             </div>
@@ -894,8 +894,8 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: Findings -->
                     <div class="tab-pane fade" id="tmr_findings">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-search"></i> Findings</h5>
-                            <p class="text-muted small mb-3">Factual observations from the event. What happened?</p>
+                            <h5 class="tmr-section-header"><i class="fas fa-search"></i> <?= __('review.page.findingsSection') ?></h5>
+                            <p class="text-muted small mb-3"><?= __('review.page.findingsDesc') ?></p>
                             <textarea class="form-control tmr-field" id="tmr_findings" data-field="findings"
                                       rows="8" placeholder="List factual observations about the event..."></textarea>
                         </div>
@@ -904,8 +904,8 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: Recommendations -->
                     <div class="tab-pane fade" id="tmr_recs">
                         <div class="tmr-section">
-                            <h5 class="tmr-section-header"><i class="fas fa-lightbulb"></i> Recommendations & Conclusions</h5>
-                            <p class="text-muted small mb-3">Assessed solutions and areas for improvement.</p>
+                            <h5 class="tmr-section-header"><i class="fas fa-lightbulb"></i> <?= __('review.page.recommendationsSection') ?></h5>
+                            <p class="text-muted small mb-3"><?= __('review.page.recommendationsDesc') ?></p>
                             <textarea class="form-control tmr-field" id="tmr_recommendations" data-field="recommendations"
                                       rows="8" placeholder="Recommendations for future events..."></textarea>
                         </div>
@@ -920,14 +920,14 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                         <div class="row">
                             <div class="col-4">
                                 <?php if ($perm == true) { ?>
-                                    <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addscoreModal"><i class="fas fa-plus"></i> Add Score</button>
+                                    <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addscoreModal"><i class="fas fa-plus"></i> <?= __('review.page.addScore') ?></button>
                                     <hr>
                                 <?php } ?>
 
                                 <table class="table table-bordered">
                                     <thead class="text-center bg-secondary">
-                                        <th>Category</th>
-                                        <th>Score</th>
+                                        <th><?= __('review.page.category') ?></th>
+                                        <th><?= __('review.page.score') ?></th>
                                     </thead>
                                     <tbody id="scores"></tbody>
                                 </table>
@@ -935,14 +935,14 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
 
                             <div class="col-8">
                                 <?php if ($perm == true) { ?>
-                                    <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addcommentModal"><i class="fas fa-plus"></i> Add Comment</button>
+                                    <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addcommentModal"><i class="fas fa-plus"></i> <?= __('review.page.addComment') ?></button>
                                     <hr>
                                 <?php } ?>
 
                                 <table class="table table-bordered">
                                     <thead class="text-center bg-secondary">
-                                        <th>Category</th>
-                                        <th>Comments</th>
+                                        <th><?= __('review.page.category') ?></th>
+                                        <th><?= __('review.page.comments') ?></th>
                                     </thead>
                                     <tbody id="comments"></tbody>
                                 </table>
@@ -954,23 +954,23 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <div class="tab-pane fade" id="event_data">
                         <!-- Statsim Traffic Data Section -->
                         <div class="statsim-section">
-                            <h6><i class="fas fa-chart-bar"></i> STATSIM TRAFFIC DATA</h6>
+                            <h6><i class="fas fa-chart-bar"></i> <?= __('review.page.statsimTrafficData') ?></h6>
                             <div class="statsim-form-row">
                                 <div class="form-group">
-                                    <label>Airports (ICAO)</label>
+                                    <label><?= __('review.page.airportsIcao') ?></label>
                                     <input type="text" class="form-control form-control-sm" id="statsim_airports" placeholder="KJFK, KLAX, KEWR">
                                 </div>
                                 <div class="form-group">
-                                    <label>From (UTC)</label>
+                                    <label><?= __('review.page.fromUtc') ?></label>
                                     <input type="text" class="form-control form-control-sm" id="statsim_from" placeholder="2025-11-28 18:00">
                                 </div>
                                 <div class="form-group">
-                                    <label>To (UTC)</label>
+                                    <label><?= __('review.page.toUtc') ?></label>
                                     <input type="text" class="form-control form-control-sm" id="statsim_to" placeholder="2025-11-29 01:00">
                                 </div>
                                 <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
                                     <button class="btn btn-sm btn-primary" id="statsim_fetch" title="Fetch from Statsim">
-                                        <i class="fas fa-download"></i> Fetch
+                                        <i class="fas fa-download"></i> <?= __('review.page.fetch') ?>
                                     </button>
                                     <button class="btn btn-sm btn-secondary" id="statsim_open_url" title="Open Statsim URL">
                                         <i class="fas fa-external-link-alt"></i>
@@ -982,7 +982,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                             </div>
                             <div class="small text-muted mb-2">
                                 <i class="fas fa-info-circle"></i>
-                                Defaults: T-1hr to max(T+6hr, event end +2hr). Snaps to :00 times.
+                                <?= __('review.page.statsimDefaults') ?>
                             </div>
                             <div id="statsim_url_display" class="statsim-url-display" style="display: none;">
                                 <a href="#" target="_blank" id="statsim_url_link"></a>
@@ -992,18 +992,18 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
 
                         <!-- Hourly Rates Section -->
                         <div class="hourly-rates-section">
-                            <h6><i class="fas fa-tachometer-alt"></i> HOURLY RATES (AAR/ADR)</h6>
+                            <h6><i class="fas fa-tachometer-alt"></i> <?= __('review.page.hourlyRates') ?></h6>
                             <div id="hourly_rates_container">
                                 <div class="text-muted text-center py-3">
-                                    <i class="fas fa-info-circle"></i> Fetch Statsim data to populate airport-specific hourly rate inputs.
+                                    <i class="fas fa-info-circle"></i> <?= __('review.page.fetchStatsimHint') ?>
                                 </div>
                             </div>
                             <div class="rates-actions" id="rates_actions" style="display: none;">
                                 <button class="btn btn-sm btn-success" onclick="HourlyRates.saveRates()">
-                                    <i class="fas fa-save"></i> Save Rates
+                                    <i class="fas fa-save"></i> <?= __('review.page.saveRates') ?>
                                 </button>
                                 <button class="btn btn-sm btn-secondary" onclick="HourlyRates.exportCSV()">
-                                    <i class="fas fa-file-csv"></i> Export CSV
+                                    <i class="fas fa-file-csv"></i> <?= __('review.page.exportCsv') ?>
                                 </button>
                                 <button class="btn btn-sm btn-outline-danger ml-2" onclick="HourlyRates.clearAll()">
                                     <i class="fas fa-eraser"></i> Clear All
@@ -1014,7 +1014,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                         <hr>
 
                         <?php if ($perm == true) { ?>
-                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#adddataModal"><i class="fas fa-plus"></i> Add Data</button>
+                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#adddataModal"><i class="fas fa-plus"></i> <?= __('review.page.addData') ?></button>
                             <hr>
                         <?php } ?>
 
@@ -1024,12 +1024,12 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                     <!-- Tab: TMI Compliance -->
                     <div class="tab-pane fade" id="tmi_compliance">
                         <div class="tmi-compliance-section">
-                            <h5 class="text-warning mb-3"><i class="fas fa-chart-line"></i> TMI Compliance Analysis</h5>
+                            <h5 class="text-warning mb-3"><i class="fas fa-chart-line"></i> <?= __('review.page.tmiComplianceTitle') ?></h5>
 
                             <!-- NTML Input Section -->
                             <div class="card mb-3">
                                 <div class="card-header py-2" data-toggle="collapse" data-target="#ntmlInputSection" style="cursor: pointer;">
-                                    <i class="fas fa-clipboard-list"></i> NTML / Advisory Input
+                                    <i class="fas fa-clipboard-list"></i> <?= __('review.page.ntmlAdvisoryInput') ?>
                                     <i class="fas fa-chevron-down float-right"></i>
                                 </div>
                                 <div class="collapse" id="ntmlInputSection">
@@ -1037,24 +1037,24 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                         <div class="row">
                                             <div class="col-md-4">
                                                 <div class="form-group">
-                                                    <label class="small">Facilities (comma-separated)</label>
+                                                    <label class="small"><?= __('review.page.facilities') ?></label>
                                                     <input type="text" class="form-control form-control-sm" id="tmi_destinations"
                                                            placeholder="ZLA, A80, KLAS">
                                                 </div>
                                                 <div class="form-group">
-                                                    <label class="small">Event Start (UTC)</label>
+                                                    <label class="small"><?= __('review.page.eventStartUtc') ?></label>
                                                     <input type="text" class="form-control form-control-sm" id="tmi_event_start"
                                                            placeholder="2026-01-17 22:00">
                                                 </div>
                                                 <div class="form-group">
-                                                    <label class="small">Event End (UTC)</label>
+                                                    <label class="small"><?= __('review.page.eventEndUtc') ?></label>
                                                     <input type="text" class="form-control form-control-sm" id="tmi_event_end"
                                                            placeholder="2026-01-18 05:00">
                                                 </div>
                                             </div>
                                             <div class="col-md-8">
                                                 <div class="form-group">
-                                                    <label class="small">NTML Entries (paste from Discord)</label>
+                                                    <label class="small"><?= __('review.page.ntmlEntries') ?></label>
                                                     <textarea class="form-control form-control-sm" id="tmi_ntml_input" rows="8"
                                                         placeholder="Paste NTML entries here, e.g.:
 LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
@@ -1065,10 +1065,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
                                         </div>
                                         <div class="mt-2">
                                             <button class="btn btn-sm btn-outline-primary" id="save_ntml_config">
-                                                <i class="fas fa-save"></i> Save Configuration
+                                                <i class="fas fa-save"></i> <?= __('review.page.saveConfiguration') ?>
                                             </button>
                                             <button class="btn btn-sm btn-outline-secondary" id="load_ntml_config">
-                                                <i class="fas fa-folder-open"></i> Load Saved
+                                                <i class="fas fa-folder-open"></i> <?= __('review.page.loadSaved') ?>
                                             </button>
                                             <span class="text-muted small ml-2" id="ntml_save_status"></span>
                                         </div>
@@ -1079,10 +1079,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
                             <!-- Results Section -->
                             <div class="mb-3">
                                 <button class="btn btn-sm btn-primary" id="load_tmi_results">
-                                    <i class="fas fa-download"></i> Load Results
+                                    <i class="fas fa-download"></i> <?= __('review.page.loadResults') ?>
                                 </button>
                                 <button class="btn btn-sm btn-success" id="run_tmi_analysis">
-                                    <i class="fas fa-play"></i> Run Analysis
+                                    <i class="fas fa-play"></i> <?= __('review.page.runAnalysis') ?>
                                 </button>
                                 <span class="text-muted small ml-2" id="tmi_status"></span>
                             </div>
@@ -1090,7 +1090,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
                             <div id="tmi_results_container">
                                 <div class="text-muted text-center py-4">
                                     <i class="fas fa-info-circle"></i>
-                                    Click "Load Results" to view TMI compliance analysis for this event.
+                                    <?= __('review.page.loadResultsHint') ?>
                                 </div>
                             </div>
                         </div>
@@ -1112,7 +1112,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Score</h5>
+                <h5 class="modal-title"><?= __('review.page.addScore') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1120,13 +1120,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="addscore">
                 <div class="modal-body">
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
-                    Staffing: <input type="number" class="form-control" name="staffing" min="1" max="5">
-                    Tactical (Real-Time): <input type="number" class="form-control" name="tactical" min="1" max="5">
-                    Other Coordination: <input type="number" class="form-control" name="other" min="1" max="5">
-                    PERTI Plan: <input type="number" class="form-control" name="perti" min="1" max="5">
-                    NTML/Advisory Usage: <input type="number" class="form-control" name="ntml" min="1" max="5">
-                    TMI: <input type="number" class="form-control" name="tmi" min="1" max="5">
-                    ACE Team Implementation: <input type="number" class="form-control" name="ace" min="1" max="5">
+                    <?= __('review.page.staffing') ?>: <input type="number" class="form-control" name="staffing" min="1" max="5">
+                    <?= __('review.page.tacticalRealTime') ?>: <input type="number" class="form-control" name="tactical" min="1" max="5">
+                    <?= __('review.page.otherCoordination') ?>: <input type="number" class="form-control" name="other" min="1" max="5">
+                    <?= __('review.page.pertiPlan') ?>: <input type="number" class="form-control" name="perti" min="1" max="5">
+                    <?= __('review.page.ntmlAdvisoryUsage') ?>: <input type="number" class="form-control" name="ntml" min="1" max="5">
+                    <?= __('review.page.tmiCategory') ?>: <input type="number" class="form-control" name="tmi" min="1" max="5">
+                    <?= __('review.page.aceTeamImpl') ?>: <input type="number" class="form-control" name="ace" min="1" max="5">
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-success" value="Add">
@@ -1142,7 +1142,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Score</h5>
+                <h5 class="modal-title"><?= __('review.page.editScore') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1150,13 +1150,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="editscore">
                 <div class="modal-body">
                     <input type="hidden" name="id" id="id">
-                    Staffing: <input type="number" class="form-control" name="staffing" id="staffing" min="1" max="5">
-                    Tactical (Real-Time): <input type="number" class="form-control" name="tactical" id="tactical" min="1" max="5">
-                    Other Coordination: <input type="number" class="form-control" name="other" id="other" min="1" max="5">
-                    PERTI Plan: <input type="number" class="form-control" name="perti" id="perti" min="1" max="5">
-                    NTML/Advisory Usage: <input type="number" class="form-control" name="ntml" id="ntml" min="1" max="5">
-                    TMI: <input type="number" class="form-control" name="tmi" id="tmi" min="1" max="5">
-                    ACE Team Implementation: <input type="number" class="form-control" name="ace" id="ace" min="1" max="5">
+                    <?= __('review.page.staffing') ?>: <input type="number" class="form-control" name="staffing" id="staffing" min="1" max="5">
+                    <?= __('review.page.tacticalRealTime') ?>: <input type="number" class="form-control" name="tactical" id="tactical" min="1" max="5">
+                    <?= __('review.page.otherCoordination') ?>: <input type="number" class="form-control" name="other" id="other" min="1" max="5">
+                    <?= __('review.page.pertiPlan') ?>: <input type="number" class="form-control" name="perti" id="perti" min="1" max="5">
+                    <?= __('review.page.ntmlAdvisoryUsage') ?>: <input type="number" class="form-control" name="ntml" id="ntml" min="1" max="5">
+                    <?= __('review.page.tmiCategory') ?>: <input type="number" class="form-control" name="tmi" id="tmi" min="1" max="5">
+                    <?= __('review.page.aceTeamImpl') ?>: <input type="number" class="form-control" name="ace" id="ace" min="1" max="5">
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-warning" value="Edit">
@@ -1172,7 +1172,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Comment</h5>
+                <h5 class="modal-title"><?= __('review.page.addComment') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1180,13 +1180,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="addcomment">
                 <div class="modal-body">
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
-                    Staffing: <textarea class="form-control rounded-0" name="staffing" id="a_staffing" rows="5"></textarea><hr>
-                    Tactical (Real-Time): <textarea class="form-control rounded-0" name="tactical" id="a_tactical" rows="5"></textarea><hr>
-                    Other Coordination: <textarea class="form-control rounded-0" name="other" id="a_other" rows="5"></textarea><hr>
-                    PERTI Plan: <textarea class="form-control rounded-0" name="perti" id="a_perti" rows="5"></textarea><hr>
-                    NTML/Advisory Usage: <textarea class="form-control rounded-0" name="ntml" id="a_ntml" rows="5"></textarea><hr>
-                    TMI: <textarea class="form-control rounded-0" name="tmi" id="a_tmi" rows="5"></textarea><hr>
-                    ACE Team Implementation: <textarea class="form-control rounded-0" name="ace" id="a_ace" rows="5"></textarea>
+                    <?= __('review.page.staffing') ?>: <textarea class="form-control rounded-0" name="staffing" id="a_staffing" rows="5"></textarea><hr>
+                    <?= __('review.page.tacticalRealTime') ?>: <textarea class="form-control rounded-0" name="tactical" id="a_tactical" rows="5"></textarea><hr>
+                    <?= __('review.page.otherCoordination') ?>: <textarea class="form-control rounded-0" name="other" id="a_other" rows="5"></textarea><hr>
+                    <?= __('review.page.pertiPlan') ?>: <textarea class="form-control rounded-0" name="perti" id="a_perti" rows="5"></textarea><hr>
+                    <?= __('review.page.ntmlAdvisoryUsage') ?>: <textarea class="form-control rounded-0" name="ntml" id="a_ntml" rows="5"></textarea><hr>
+                    <?= __('review.page.tmiCategory') ?>: <textarea class="form-control rounded-0" name="tmi" id="a_tmi" rows="5"></textarea><hr>
+                    <?= __('review.page.aceTeamImpl') ?>: <textarea class="form-control rounded-0" name="ace" id="a_ace" rows="5"></textarea>
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-success" value="Add">
@@ -1202,7 +1202,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Comment</h5>
+                <h5 class="modal-title"><?= __('review.page.editComment') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1210,13 +1210,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="editcomment">
                 <div class="modal-body">
                     <input type="hidden" name="id" id="id">
-                    Staffing: <textarea class="form-control rounded-0" name="staffing" id="e_staffing" rows="5"></textarea><hr>
-                    Tactical (Real-Time): <textarea class="form-control rounded-0" name="tactical" id="e_tactical" rows="5"></textarea><hr>
-                    Other Coordination: <textarea class="form-control rounded-0" name="other" id="e_other" rows="5"></textarea><hr>
-                    PERTI Plan: <textarea class="form-control rounded-0" name="perti" id="e_perti" rows="5"></textarea><hr>
-                    NTML/Advisory Usage: <textarea class="form-control rounded-0" name="ntml" id="e_ntml" rows="5"></textarea><hr>
-                    TMI: <textarea class="form-control rounded-0" name="tmi" id="e_tmi" rows="5"></textarea><hr>
-                    ACE Team Implementation: <textarea class="form-control rounded-0" name="ace" id="e_ace" rows="5"></textarea>
+                    <?= __('review.page.staffing') ?>: <textarea class="form-control rounded-0" name="staffing" id="e_staffing" rows="5"></textarea><hr>
+                    <?= __('review.page.tacticalRealTime') ?>: <textarea class="form-control rounded-0" name="tactical" id="e_tactical" rows="5"></textarea><hr>
+                    <?= __('review.page.otherCoordination') ?>: <textarea class="form-control rounded-0" name="other" id="e_other" rows="5"></textarea><hr>
+                    <?= __('review.page.pertiPlan') ?>: <textarea class="form-control rounded-0" name="perti" id="e_perti" rows="5"></textarea><hr>
+                    <?= __('review.page.ntmlAdvisoryUsage') ?>: <textarea class="form-control rounded-0" name="ntml" id="e_ntml" rows="5"></textarea><hr>
+                    <?= __('review.page.tmiCategory') ?>: <textarea class="form-control rounded-0" name="tmi" id="e_tmi" rows="5"></textarea><hr>
+                    <?= __('review.page.aceTeamImpl') ?>: <textarea class="form-control rounded-0" name="ace" id="e_ace" rows="5"></textarea>
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-warning" value="Edit">
@@ -1232,7 +1232,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Event Data</h5>
+                <h5 class="modal-title"><?= __('review.page.addEventData') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1240,10 +1240,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="adddata">
                 <div class="modal-body">
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
-                    Summary: <textarea class="form-control" name="summary" rows="3"></textarea>
+                    <?= __('review.page.summary') ?>: <textarea class="form-control" name="summary" rows="3"></textarea>
                     <hr>
-                    Image (URL): <input type="text" class="form-control" name="image_url">
-                    Source (URL): <input type="text" class="form-control" name="source_url">
+                    <?= __('review.page.imageUrl') ?>: <input type="text" class="form-control" name="image_url">
+                    <?= __('review.page.sourceUrl') ?>: <input type="text" class="form-control" name="source_url">
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-success" value="Add">
@@ -1259,7 +1259,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Event Data</h5>
+                <h5 class="modal-title"><?= __('review.page.editEventData') ?></h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1267,10 +1267,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             <form method="post" id="editdata">
                 <div class="modal-body">
                     <input type="hidden" name="id" id="id">
-                    Summary: <textarea class="form-control" name="summary" id="summary" rows="3"></textarea>
+                    <?= __('review.page.summary') ?>: <textarea class="form-control" name="summary" id="summary" rows="3"></textarea>
                     <hr>
-                    Image (URL): <input type="text" class="form-control" name="image_url" id="image_url">
-                    Source (URL): <input type="text" class="form-control" name="source_url" id="source_url">
+                    <?= __('review.page.imageUrl') ?>: <input type="text" class="form-control" name="image_url" id="image_url">
+                    <?= __('review.page.sourceUrl') ?>: <input type="text" class="form-control" name="source_url" id="source_url">
                 </div>
                 <div class="modal-footer">
                     <input type="submit" class="btn btn-sm btn-warning" value="Edit">

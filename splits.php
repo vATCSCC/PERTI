@@ -1,15 +1,16 @@
 <?php
 /**
  * Airspace Splits Configuration Tool
- * 
+ *
  * Allows users to create, manage, and publish sector split configurations.
  * Configurations define how sectors are grouped into positions for a given time window.
  */
+include("load/i18n.php");
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-<?php $page_title = "vATCSCC Splits"; require_once 'load/header.php'; ?>
+<?php $page_title = "vATCSCC " . __('splits.page.title'); require_once 'load/header.php'; ?>
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
 
 <style>
@@ -2165,8 +2166,8 @@ input[type="datetime-local"] {
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1>Sector Splits</h1>
-            <h4 class="text-white">Configure airspace sector groupings</h4>
+            <h1><?= __('splits.page.title') ?></h1>
+            <h4 class="text-white"><?= __('splits.page.subtitle') ?></h4>
         </center>
     </div>
 </section>
@@ -2178,9 +2179,9 @@ input[type="datetime-local"] {
             <div class="splits-left-column">
             <!-- Title & Help Toggle (above sidebar) -->
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0">Configurations</h5>
+                <h5 class="mb-0"><?= __('splits.page.configurations') ?></h5>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="splits-help-toggle">
-                    Show Help
+                    <?= __('splits.page.showHelp') ?>
                 </button>
             </div>
             
@@ -2189,18 +2190,18 @@ input[type="datetime-local"] {
                 <div class="card">
                     <div class="card-body py-2 px-3">
                         <ul class="pl-3 mb-2">
-                            <li><strong>Presets</strong> are reusable split templates you can create and save for quick access.</li>
-                            <li><strong>Areas</strong> are named sector groupings used to organize split configurations.</li>
-                            <li>Click <strong>+ New Config</strong> to create an active split configuration with positions and sectors.</li>
-                            <li>Use the <strong>Map Layers</strong> panel (top-right of map) to toggle visibility of different layer types.</li>
-                            <li>Click on any sector on the map to see details and assign it to positions.</li>
-                            <li>Use the <strong>"Show on Map"</strong> section to preview presets/areas without activating them.</li>
-                            <li>Active splits appear in the <strong>"Active Now"</strong> tab and on the floating panel.</li>
+                            <li><?= __('splits.page.helpPresets') ?></li>
+                            <li><?= __('splits.page.helpAreas') ?></li>
+                            <li><?= __('splits.page.helpNewConfig') ?></li>
+                            <li><?= __('splits.page.helpMapLayers') ?></li>
+                            <li><?= __('splits.page.helpClickSector') ?></li>
+                            <li><?= __('splits.page.helpShowOnMap') ?></li>
+                            <li><?= __('splits.page.helpActiveNow') ?></li>
                         </ul>
                         <div class="d-flex flex-wrap" style="gap: 12px;">
-                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#228B22;"></span> Low Sectors</span>
-                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#FF6347;"></span> High Sectors</span>
-                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#9932CC;"></span> Super High</span>
+                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#228B22;"></span> <?= __('splits.page.lowSectors') ?></span>
+                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#FF6347;"></span> <?= __('splits.page.highSectors') ?></span>
+                            <span><span class="d-inline-block rounded-circle mr-1" style="width:10px;height:10px;background:#9932CC;"></span> <?= __('splits.page.superHigh') ?></span>
                         </div>
                     </div>
                 </div>
@@ -2210,17 +2211,17 @@ input[type="datetime-local"] {
                 <!-- Header with action buttons -->
                 <div class="sidebar-header" style="justify-content: flex-end;">
                     <div>
-                        <button class="btn btn-sm btn-outline-secondary mr-1" id="manage-areas-btn" title="Manage Areas">Areas</button>
-                        <button class="btn btn-sm btn-outline-primary" id="new-config-btn">+ New Config</button>
+                        <button class="btn btn-sm btn-outline-secondary mr-1" id="manage-areas-btn" title="<?= __('splits.page.manageAreas') ?>"><?= __('splits.page.areas') ?></button>
+                        <button class="btn btn-sm btn-outline-primary" id="new-config-btn"><?= __('splits.page.newConfig') ?></button>
                     </div>
                 </div>
         
         <!-- Mode Tabs -->
         <div class="mode-tabs">
-            <div class="mode-tab active" data-mode="presets">Presets</div>
-            <div class="mode-tab" data-mode="scheduled">Scheduled</div>
-            <div class="mode-tab" data-mode="active">Active Now</div>
-            <div class="mode-tab" data-mode="browse">Areas</div>
+            <div class="mode-tab active" data-mode="presets"><?= __('splits.page.presets') ?></div>
+            <div class="mode-tab" data-mode="scheduled"><?= __('splits.page.scheduled') ?></div>
+            <div class="mode-tab" data-mode="active"><?= __('splits.page.activeNow') ?></div>
+            <div class="mode-tab" data-mode="browse"><?= __('splits.page.areas') ?></div>
         </div>
         
         <!-- Content Area -->
@@ -2228,39 +2229,39 @@ input[type="datetime-local"] {
             <!-- Saved Presets -->
             <div class="mode-content active" id="mode-presets">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="mb-0 text-light" style="font-size: 11px;">Saved Split Templates</label>
-                    <button class="btn btn-xs btn-outline-warning" id="new-preset-btn">+ New Preset</button>
+                    <label class="mb-0 text-light" style="font-size: 11px;"><?= __('splits.page.savedSplitTemplates') ?></label>
+                    <button class="btn btn-xs btn-outline-warning" id="new-preset-btn"><?= __('splits.page.newPreset') ?></button>
                 </div>
                 <div class="form-group mb-2">
                     <select id="presets-artcc-filter" class="form-control form-control-sm">
-                        <option value="">All ARTCCs</option>
+                        <option value=""><?= __('splits.page.allArtccs') ?></option>
                     </select>
                 </div>
                 <div id="presets-list" style="max-height: 200px; overflow-y: auto;">
                     <div class="empty-state">
                         <div class="empty-state-icon">⭐</div>
-                        <div class="empty-state-text">No saved presets yet.<br>Create one from a configuration or click "+ New Preset".</div>
+                        <div class="empty-state-text"><?= __('splits.page.noPresetsEmpty') ?><br><?= __('splits.page.noPresetsEmptyHint') ?></div>
                     </div>
                 </div>
                 
                 <!-- Show on Map Section -->
                 <hr class="my-2" style="border-color: #444;">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="mb-0 text-light" style="font-size: 11px;">Show on Map</label>
+                    <label class="mb-0 text-light" style="font-size: 11px;"><?= __('splits.page.showOnMap') ?></label>
                     <div>
-                        <button class="btn btn-xs btn-outline-secondary" id="presets-show-all-btn">All</button>
-                        <button class="btn btn-xs btn-outline-secondary" id="presets-hide-all-btn">None</button>
+                        <button class="btn btn-xs btn-outline-secondary" id="presets-show-all-btn"><?= __('splits.page.all') ?></button>
+                        <button class="btn btn-xs btn-outline-secondary" id="presets-hide-all-btn"><?= __('splits.page.none') ?></button>
                     </div>
                 </div>
                 <div id="presets-toggle-list" style="max-height: 180px; overflow-y: auto;">
-                    <div class="text-muted text-center py-2" style="font-size: 11px;">Loading presets...</div>
+                    <div class="text-muted text-center py-2" style="font-size: 11px;"><?= __('splits.page.loadingPresets') ?></div>
                 </div>
             </div>
             
             <!-- Scheduled (Upcoming) -->
             <div class="mode-content" id="mode-scheduled">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="mb-0 text-light" style="font-size: 11px;">Upcoming Split Configurations</label>
+                    <label class="mb-0 text-light" style="font-size: 11px;"><?= __('splits.page.upcomingSplitConfigs') ?></label>
                     <button class="btn btn-xs btn-outline-secondary" id="refresh-scheduled-btn" title="Refresh">
                         <i class="fas fa-sync-alt"></i>
                     </button>
@@ -2268,7 +2269,7 @@ input[type="datetime-local"] {
                 <div id="scheduled-configs-list">
                     <div class="empty-state">
                         <div class="empty-state-icon">📅</div>
-                        <div class="empty-state-text">No scheduled configurations.</div>
+                        <div class="empty-state-text"><?= __('splits.page.noScheduledConfigs') ?></div>
                     </div>
                 </div>
             </div>
@@ -2278,7 +2279,7 @@ input[type="datetime-local"] {
                 <div id="active-configs-list">
                     <div class="empty-state">
                         <div class="empty-state-icon">🔴</div>
-                        <div class="empty-state-text">No active configurations.</div>
+                        <div class="empty-state-text"><?= __('splits.page.noActiveConfigs') ?></div>
                     </div>
                 </div>
             </div>
@@ -2286,19 +2287,19 @@ input[type="datetime-local"] {
             <!-- Areas -->
             <div class="mode-content" id="mode-browse">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="mb-0 text-light">Show Areas on Map</label>
+                    <label class="mb-0 text-light"><?= __('splits.page.showAreasOnMap') ?></label>
                     <button class="btn btn-xs btn-outline-primary" id="manage-areas-btn">
-                        <i class="fas fa-cog"></i> Manage
+                        <i class="fas fa-cog"></i> <?= __('splits.page.manage') ?>
                     </button>
                 </div>
                 <div class="form-group mb-2">
                     <select id="areas-artcc-select" class="form-control form-control-sm">
-                        <option value="">All ARTCCs</option>
+                        <option value=""><?= __('splits.page.allArtccs') ?></option>
                     </select>
                 </div>
                 <div class="areas-toggle-actions mb-2">
-                    <button class="btn btn-xs btn-outline-secondary" id="areas-show-all-btn">Show All</button>
-                    <button class="btn btn-xs btn-outline-secondary" id="areas-hide-all-btn">Hide All</button>
+                    <button class="btn btn-xs btn-outline-secondary" id="areas-show-all-btn"><?= __('splits.page.showAll') ?></button>
+                    <button class="btn btn-xs btn-outline-secondary" id="areas-hide-all-btn"><?= __('splits.page.hideAll') ?></button>
                 </div>
                 <div id="areas-toggle-list" style="max-height: 300px; overflow-y: auto;">
                     <div class="text-muted text-center py-3" style="font-size: 11px;">Loading areas...</div>
@@ -2317,7 +2318,7 @@ input[type="datetime-local"] {
         <!-- Map Layer Controls -->
         <div class="map-layer-controls" id="map-layer-controls">
             <div class="layer-controls-header">
-                <span>Map Layers</span>
+                <span><?= __('splits.page.mapLayers') ?></span>
                 <button class="btn btn-xs btn-link text-muted toggle-layers-btn" onclick="document.getElementById('map-layer-controls').classList.toggle('collapsed')">
                     <i class="fas fa-chevron-up"></i>
                 </button>
@@ -2328,39 +2329,39 @@ input[type="datetime-local"] {
                     <span class="layer-color" style="background: #FF00FF;"></span>
                     <label for="layer-artcc">ARTCC</label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn" data-layer="artcc" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="artcc" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="artcc" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn" data-layer="artcc" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="artcc" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="artcc" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="superhigh" id="layer-superhigh">
                     <span class="layer-color" style="background: #9932CC;"></span>
-                    <label for="layer-superhigh">Super High</label>
+                    <label for="layer-superhigh"><?= __('splits.page.superHighLabel') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="superhigh" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="superhigh" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="superhigh" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="superhigh" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="superhigh" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="superhigh" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="high" id="layer-high">
                     <span class="layer-color" style="background: #FF6347;"></span>
-                    <label for="layer-high">High Sectors</label>
+                    <label for="layer-high"><?= __('splits.page.highSectorsLabel') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="high" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="high" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="high" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="high" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="high" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="high" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="low" id="layer-low">
                     <span class="layer-color" style="background: #228B22;"></span>
-                    <label for="layer-low">Low Sectors</label>
+                    <label for="layer-low"><?= __('splits.page.lowSectorsLabel') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="low" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="low" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="low" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="low" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="low" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="low" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
@@ -2368,71 +2369,71 @@ input[type="datetime-local"] {
                     <span class="layer-color" style="background: #4682B4;"></span>
                     <label for="layer-tracon">TRACON</label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="tracon" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="tracon" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="tracon" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="tracon" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="tracon" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="tracon" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="areas" id="layer-areas">
                     <span class="layer-color" style="background: linear-gradient(90deg, #e63946, #f4a261, #2a9d8f);"></span>
-                    <label for="layer-areas">Areas</label>
+                    <label for="layer-areas"><?= __('splits.page.areas') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="areas" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn" data-layer="areas" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="areas" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="areas" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn" data-layer="areas" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="areas" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="presets" id="layer-presets">
                     <span class="layer-color" style="background: linear-gradient(90deg, #f59e0b, #8b5cf6);"></span>
-                    <label for="layer-presets">Presets</label>
+                    <label for="layer-presets"><?= __('splits.page.presets') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="presets" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn active" data-layer="presets" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="presets" min="0" max="100" value="50" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="presets" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="presets" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="presets" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <hr class="my-2" style="border-color: #444;">
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="activeConfigs" id="layer-active" checked>
                     <span class="layer-color" style="background: linear-gradient(90deg, #e63946, #2a9d8f);"></span>
-                    <label for="layer-active">Active Splits</label>
+                    <label for="layer-active"><?= __('splits.page.activeSplits') ?></label>
                     <div class="layer-sub-controls">
-                        <button class="btn btn-xs layer-fill-btn active" data-layer="activeConfigs" title="Fill"><i class="fas fa-square"></i></button>
-                        <button class="btn btn-xs layer-line-btn" data-layer="activeConfigs" title="Outline"><i class="fas fa-border-style"></i></button>
-                        <input type="range" class="layer-opacity" data-layer="activeConfigs" min="0" max="100" value="75" title="Opacity">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="activeConfigs" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn" data-layer="activeConfigs" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="activeConfigs" min="0" max="100" value="75" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
                 <!-- Active Splits Strata Filter -->
                 <div class="layer-toggle-item ml-3" id="active-splits-strata-filters">
-                    <span class="text-muted small mr-2">Strata:</span>
+                    <span class="text-muted small mr-2"><?= __('splits.page.strata') ?></span>
                     <input type="checkbox" id="strata-low" checked onchange="SplitsController.toggleActiveSplitsStrata('low', this.checked)">
                     <span class="layer-color" style="background: #228B22; width: 10px; height: 10px;"></span>
-                    <label for="strata-low" class="small mr-2">Low</label>
+                    <label for="strata-low" class="small mr-2"><?= __('splits.page.low') ?></label>
                     <input type="checkbox" id="strata-high" checked onchange="SplitsController.toggleActiveSplitsStrata('high', this.checked)">
                     <span class="layer-color" style="background: #FF6347; width: 10px; height: 10px;"></span>
-                    <label for="strata-high" class="small mr-2">High</label>
+                    <label for="strata-high" class="small mr-2"><?= __('splits.page.high') ?></label>
                     <input type="checkbox" id="strata-superhigh" checked onchange="SplitsController.toggleActiveSplitsStrata('superhigh', this.checked)">
                     <span class="layer-color" style="background: #e83e8c; width: 10px; height: 10px;"></span>
-                    <label for="strata-superhigh" class="small">Super</label>
+                    <label for="strata-superhigh" class="small"><?= __('splits.page.super') ?></label>
                 </div>
             </div>
         </div>
         
         <!-- Active Splits Toggle Button -->
-        <button class="active-splits-toggle active" id="active-splits-toggle-btn" title="Show Active Splits" style="display: none;">
+        <button class="active-splits-toggle active" id="active-splits-toggle-btn" title="<?= __('splits.page.showActiveSplitsTooltip') ?>" style="display: none;">
             <span class="toggle-icon">📡</span>
-            <span>Active Splits</span>
+            <span><?= __('splits.page.activeSplits') ?></span>
         </button>
         
         <!-- Active Configs Panel (on map) - Draggable -->
         <div class="active-configs-panel" id="active-configs-panel">
             <div class="active-configs-header draggable-handle" id="active-panel-header">
-                <span class="active-configs-title">Active Splits</span>
+                <span class="active-configs-title"><?= __('splits.page.activeSplits') ?></span>
                 <div class="header-buttons">
-                    <button class="btn btn-xs btn-link text-muted minimize-btn" onclick="document.getElementById('active-configs-panel').classList.toggle('minimized')" title="Minimize">−</button>
-                    <button class="btn btn-xs btn-link text-muted close-panel-btn" title="Hide Panel">×</button>
+                    <button class="btn btn-xs btn-link text-muted minimize-btn" onclick="document.getElementById('active-configs-panel').classList.toggle('minimized')" title="<?= __('splits.page.minimize') ?>">−</button>
+                    <button class="btn btn-xs btn-link text-muted close-panel-btn" title="<?= __('splits.page.hidePanel') ?>">×</button>
                 </div>
             </div>
             <div class="active-configs-summary" id="active-panel-summary"></div>
@@ -2443,7 +2444,7 @@ input[type="datetime-local"] {
         <div class="loading-overlay" id="loading-overlay" style="display: none;">
             <div class="text-center">
                 <div class="spinner-border text-primary" role="status"></div>
-                <div class="mt-2 text-light">Loading...</div>
+                <div class="mt-2 text-light"><?= __('splits.page.loading') ?></div>
             </div>
         </div>
     </div>
@@ -2456,18 +2457,18 @@ input[type="datetime-local"] {
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="config-modal-title">New Configuration</h5>
+                <h5 class="modal-title" id="config-modal-title"><?= __('splits.page.newConfiguration') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Step Indicator -->
                 <div class="d-flex justify-content-center mb-4">
                     <div class="step-indicator">
-                        <span class="step active" data-step="1">1. Config Details</span>
+                        <span class="step active" data-step="1"><?= __('splits.page.configDetails') ?></span>
                         <span class="step-arrow">→</span>
-                        <span class="step" data-step="2">2. Add Splits</span>
+                        <span class="step" data-step="2"><?= __('splits.page.addSplits') ?></span>
                         <span class="step-arrow">→</span>
-                        <span class="step" data-step="3">3. Review & Save</span>
+                        <span class="step" data-step="3"><?= __('splits.page.reviewAndSave') ?></span>
                     </div>
                 </div>
                 
@@ -2475,28 +2476,28 @@ input[type="datetime-local"] {
                 <div class="config-step" id="config-step-1">
                     <!-- Load from Preset Section -->
                     <div class="preset-load-section" id="preset-load-section">
-                        <label><i class="fas fa-star mr-1"></i> Quick Start from Preset</label>
+                        <label><i class="fas fa-star mr-1"></i> <?= __('splits.page.quickStartFromPreset') ?></label>
                         <div class="d-flex align-items-center">
                             <select id="load-preset-dropdown" class="form-control form-control-sm preset-dropdown flex-grow-1">
-                                <option value="">Select a saved preset...</option>
+                                <option value=""><?= __('splits.page.selectSavedPreset') ?></option>
                             </select>
-                            <button class="btn btn-sm btn-warning ml-2" id="load-preset-btn" disabled>Load</button>
+                            <button class="btn btn-sm btn-warning ml-2" id="load-preset-btn" disabled><?= __('splits.page.load') ?></button>
                         </div>
-                        <small class="text-muted d-block mt-1">Load positions from a saved preset template, then customize as needed.</small>
+                        <small class="text-muted d-block mt-1"><?= __('splits.page.loadPresetHint') ?></small>
                     </div>
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Configuration Name *</label>
-                                <input type="text" id="config-name" class="form-control" placeholder="e.g., ZNY Event Splits">
+                                <label><?= __('splits.page.configurationName') ?></label>
+                                <input type="text" id="config-name" class="form-control" placeholder="<?= __('splits.page.configNamePlaceholder') ?>">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>ARTCC *</label>
+                                <label><?= __('splits.page.artccRequired') ?></label>
                                 <select id="config-artcc" class="form-control">
-                                    <option value="">Select ARTCC...</option>
+                                    <option value=""><?= __('splits.page.selectArtcc') ?></option>
                                 </select>
                             </div>
                         </div>
@@ -2504,29 +2505,29 @@ input[type="datetime-local"] {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Start Time (UTC) *</label>
+                                <label><?= __('splits.page.startTimeUtc') ?></label>
                                 <input type="datetime-local" id="config-start" class="form-control">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>End Time (UTC) *</label>
+                                <label><?= __('splits.page.endTimeUtc') ?></label>
                                 <input type="datetime-local" id="config-end" class="form-control">
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Sector Type</label>
+                        <label><?= __('splits.page.sectorType') ?></label>
                         <select id="config-sector-type" class="form-control">
-                            <option value="all">All Sectors</option>
-                            <option value="high">High Sectors Only</option>
-                            <option value="low">Low Sectors Only</option>
-                            <option value="superhigh">Super High Sectors Only</option>
+                            <option value="all"><?= __('splits.page.allSectors') ?></option>
+                            <option value="high"><?= __('splits.page.highSectorsOnly') ?></option>
+                            <option value="low"><?= __('splits.page.lowSectorsOnly') ?></option>
+                            <option value="superhigh"><?= __('splits.page.superHighSectorsOnly') ?></option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Description (optional)</label>
-                        <textarea id="config-description" class="form-control" rows="2" placeholder="Brief description of this configuration..."></textarea>
+                        <label><?= __('splits.page.descriptionOptional') ?></label>
+                        <textarea id="config-description" class="form-control" rows="2" placeholder="<?= __('splits.page.descriptionPlaceholder') ?>"></textarea>
                     </div>
                 </div>
                 
@@ -2536,60 +2537,60 @@ input[type="datetime-local"] {
                         <div class="col-md-5">
                             <!-- Split List -->
                             <div class="section-header d-flex justify-content-between align-items-center">
-                                <span>Positions/Splits</span>
-                                <button class="btn btn-xs btn-outline-primary" id="add-split-btn">+ Add Split</button>
+                                <span><?= __('splits.page.positionsSplits') ?></span>
+                                <button class="btn btn-xs btn-outline-primary" id="add-split-btn"><?= __('splits.page.addSplit') ?></button>
                             </div>
                             <div id="config-splits-list" style="max-height: 350px; overflow-y: auto;">
                                 <div class="empty-state py-4">
-                                    <div class="empty-state-text">No splits added yet.</div>
+                                    <div class="empty-state-text"><?= __('splits.page.noSplitsAdded') ?></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-7">
                             <!-- Sector Selection -->
                             <div id="sector-selection-area" style="display: none;">
-                                <div class="section-header">Select Sectors for: <span id="editing-split-name" class="text-primary"></span></div>
+                                <div class="section-header"><?= __('splits.page.selectSectorsFor') ?> <span id="editing-split-name" class="text-primary"></span></div>
                                 
                                 <!-- Quick Actions -->
                                 <div class="sector-selection-header">
                                     <div class="sector-selection-actions">
-                                        <button class="btn btn-outline-info btn-xs" id="select-on-map-btn" title="Click sectors directly on the main map">
-                                            <i class="fas fa-map-marker-alt"></i> Select on Map
+                                        <button class="btn btn-outline-info btn-xs" id="select-on-map-btn" title="<?= __('splits.page.selectOnMap') ?>">
+                                            <i class="fas fa-map-marker-alt"></i> <?= __('splits.page.selectOnMap') ?>
                                         </button>
-                                        <button class="btn btn-outline-secondary btn-xs" id="select-all-sectors">Select All</button>
-                                        <button class="btn btn-outline-secondary btn-xs" id="clear-all-sectors">Clear All</button>
+                                        <button class="btn btn-outline-secondary btn-xs" id="select-all-sectors"><?= __('splits.page.selectAll') ?></button>
+                                        <button class="btn btn-outline-secondary btn-xs" id="clear-all-sectors"><?= __('splits.page.clearAll') ?></button>
                                     </div>
                                 </div>
                                 
                                 <!-- Sector Input -->
                                 <div class="sector-input-row mb-2">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="sector-input" class="form-control form-control-sm" 
-                                               placeholder="e.g., ZDC50,ZDC51 or 50,51,52">
+                                        <input type="text" id="sector-input" class="form-control form-control-sm"
+                                               placeholder="<?= __('splits.page.sectorInputPlaceholder') ?>">
                                         <div class="input-group-append">
-                                            <button class="btn btn-outline-primary btn-sm" id="sector-input-apply-btn" type="button">Apply</button>
+                                            <button class="btn btn-outline-primary btn-sm" id="sector-input-apply-btn" type="button"><?= __('splits.page.apply') ?></button>
                                         </div>
                                     </div>
                                     <small class="text-muted d-block mt-1" style="font-size: 9px;">
-                                        Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ARTCC.
+                                        <?= __('splits.page.sectorInputHint') ?>
                                     </small>
                                 </div>
-                                
+
                                 <!-- Area Groups -->
                                 <div class="area-groups" id="area-groups-container">
-                                    <label class="d-block mb-1 text-light" style="font-size: 10px;">Quick Select Area:</label>
+                                    <label class="d-block mb-1 text-light" style="font-size: 10px;"><?= __('splits.page.quickSelectArea') ?></label>
                                 </div>
                                 
                                 <!-- Sector Grid -->
                                 <div class="sector-grid" id="sector-grid"></div>
                                 
                                 <div class="text-right mt-2">
-                                    <button class="btn btn-sm btn-primary" id="done-selecting-btn">Done Selecting</button>
+                                    <button class="btn btn-sm btn-primary" id="done-selecting-btn"><?= __('splits.page.doneSelecting') ?></button>
                                 </div>
                             </div>
                             
                             <div id="no-split-selected" class="empty-state py-5">
-                                <div class="empty-state-text">Select a split from the left to assign sectors.</div>
+                                <div class="empty-state-text"><?= __('splits.page.selectSplitPrompt') ?></div>
                             </div>
                         </div>
                     </div>
@@ -2599,54 +2600,54 @@ input[type="datetime-local"] {
                 <div class="config-step" id="config-step-3" style="display: none;">
                     <div class="card bg-secondary mb-3">
                         <div class="card-body">
-                            <h6 class="card-title" id="review-config-name">Configuration Name</h6>
+                            <h6 class="card-title" id="review-config-name"><?= __('splits.page.configurationNameTitle') ?></h6>
                             <div class="row">
                                 <div class="col-md-4">
                                     <small class="text-muted">ARTCC</small>
                                     <div id="review-artcc">-</div>
                                 </div>
                                 <div class="col-md-4">
-                                    <small class="text-muted">Start Time</small>
+                                    <small class="text-muted"><?= __('splits.page.startTime') ?></small>
                                     <div id="review-start">-</div>
                                 </div>
                                 <div class="col-md-4">
-                                    <small class="text-muted">End Time</small>
+                                    <small class="text-muted"><?= __('splits.page.endTime') ?></small>
                                     <div id="review-end">-</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="section-header">Positions Summary</div>
+                    <div class="section-header"><?= __('splits.page.positionsSummary') ?></div>
                     <div id="review-splits-list"></div>
                     
                     <div class="form-group mt-3">
                         <div class="custom-control custom-checkbox">
                             <input type="checkbox" class="custom-control-input" id="publish-immediately">
-                            <label class="custom-control-label" for="publish-immediately">Publish to global map immediately</label>
+                            <label class="custom-control-label" for="publish-immediately"><?= __('splits.page.publishImmediately') ?></label>
                         </div>
-                        <small class="text-muted">When published, this configuration will be visible to all users and shown on the active splits map.</small>
+                        <small class="text-muted"><?= __('splits.page.publishHint') ?></small>
                     </div>
                     
                     <!-- Save as Preset Section -->
                     <div class="save-preset-section">
-                        <div class="section-label"><i class="fas fa-star mr-1"></i> Save as Reusable Preset</div>
+                        <div class="section-label"><i class="fas fa-star mr-1"></i> <?= __('splits.page.saveAsPreset') ?></div>
                         <div class="d-flex align-items-center">
                             <input type="text" id="save-preset-name" class="form-control form-control-sm flex-grow-1" 
-                                   placeholder="Enter preset name (optional)">
+                                   placeholder="<?= __('splits.page.enterPresetName') ?>">
                             <button class="btn btn-sm btn-warning ml-2" id="save-as-preset-btn">
-                                <i class="fas fa-save mr-1"></i> Save Preset
+                                <i class="fas fa-save mr-1"></i> <?= __('splits.page.savePreset') ?>
                             </button>
                         </div>
-                        <small class="text-muted d-block mt-1">Save the current positions as a reusable template for future configurations.</small>
+                        <small class="text-muted d-block mt-1"><?= __('splits.page.savePresetHint') ?></small>
                     </div>
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-secondary" id="config-prev-btn" style="display: none;">← Previous</button>
-                <button type="button" class="btn btn-primary" id="config-next-btn">Next →</button>
-                <button type="button" class="btn btn-success" id="config-save-btn" style="display: none;">Save Configuration</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('splits.page.cancel') ?></button>
+                <button type="button" class="btn btn-secondary" id="config-prev-btn" style="display: none;">← <?= __('splits.page.previous') ?></button>
+                <button type="button" class="btn btn-primary" id="config-next-btn"><?= __('splits.page.next') ?> →</button>
+                <button type="button" class="btn btn-success" id="config-save-btn" style="display: none;"><?= __('splits.page.saveConfiguration') ?></button>
             </div>
         </div>
     </div>
@@ -2657,30 +2658,30 @@ input[type="datetime-local"] {
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="split-modal-title">Add New Position</h5>
+                <h5 class="modal-title" id="split-modal-title"><?= __('splits.page.addNewPosition') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="row">
                     <!-- Basic Position Info -->
                     <div class="col-md-4">
-                        <div class="section-header mb-2">Basic Info</div>
+                        <div class="section-header mb-2"><?= __('splits.page.basicInfo') ?></div>
                         <div class="form-group">
-                            <label>Position Name *</label>
-                            <input type="text" id="split-name" class="form-control" placeholder="e.g., HIGH EAST">
+                            <label><?= __('splits.page.positionName') ?></label>
+                            <input type="text" id="split-name" class="form-control" placeholder="<?= __('splits.page.positionNamePlaceholder') ?>">
                         </div>
                         <div class="form-group">
-                            <label>Frequency</label>
-                            <input type="text" id="split-frequency" class="form-control" placeholder="e.g., 132.450" pattern="[0-9]{3}\.[0-9]{2,3}">
-                            <small class="text-muted">Format: 123.456</small>
+                            <label><?= __('splits.page.frequency') ?></label>
+                            <input type="text" id="split-frequency" class="form-control" placeholder="<?= __('splits.page.frequencyPlaceholder') ?>" pattern="[0-9]{3}\.[0-9]{2,3}">
+                            <small class="text-muted"><?= __('splits.page.frequencyFormat') ?></small>
                         </div>
                         <div class="form-group">
-                            <label>Controller OI</label>
-                            <input type="text" id="split-oi" class="form-control" placeholder="e.g., A1" maxlength="2" style="text-transform: uppercase;">
-                            <small class="text-muted">Format: XX (2 chars)</small>
+                            <label><?= __('splits.page.controllerOi') ?></label>
+                            <input type="text" id="split-oi" class="form-control" placeholder="<?= __('splits.page.controllerOiPlaceholder') ?>" maxlength="2" style="text-transform: uppercase;">
+                            <small class="text-muted"><?= __('splits.page.controllerOiFormat') ?></small>
                         </div>
                         <div class="form-group">
-                            <label>Color</label>
+                            <label><?= __('splits.page.color') ?></label>
                             <div class="d-flex flex-wrap" id="split-color-picker">
                                 <!-- Colors populated by JS -->
                             </div>
@@ -2688,13 +2689,13 @@ input[type="datetime-local"] {
                         <div class="row">
                             <div class="col-6">
                                 <div class="form-group">
-                                    <label>Start Time</label>
+                                    <label><?= __('splits.page.startTime') ?></label>
                                     <input type="datetime-local" id="split-start" class="form-control form-control-sm">
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="form-group">
-                                    <label>End Time</label>
+                                    <label><?= __('splits.page.endTime') ?></label>
                                     <input type="datetime-local" id="split-end" class="form-control form-control-sm">
                                 </div>
                             </div>
@@ -2703,12 +2704,12 @@ input[type="datetime-local"] {
                     
                     <!-- Filters -->
                     <div class="col-md-8">
-                        <div class="section-header mb-2">Filters (Optional)</div>
+                        <div class="section-header mb-2"><?= __('splits.page.filtersOptional') ?></div>
                         
                         <!-- Route Filters -->
                         <div class="filter-section">
                             <div class="filter-section-header" data-toggle="collapse" data-target="#route-filters">
-                                <i class="fas fa-route mr-1"></i> Route Filters
+                                <i class="fas fa-route mr-1"></i> <?= __('splits.page.routeFilters') ?>
                                 <i class="fas fa-chevron-down float-right"></i>
                             </div>
                             <div class="collapse" id="route-filters">
@@ -2716,36 +2717,36 @@ input[type="datetime-local"] {
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label class="small">Origin (ORIG)</label>
-                                                <input type="text" id="filter-orig" class="form-control form-control-sm" placeholder="e.g., JFK, LGA, N90, ZNY">
-                                                <small class="text-muted">Airports, TRACONs, or ARTCCs</small>
+                                                <label class="small"><?= __('splits.page.origin') ?></label>
+                                                <input type="text" id="filter-orig" class="form-control form-control-sm" placeholder="<?= __('splits.page.originPlaceholder') ?>">
+                                                <small class="text-muted"><?= __('splits.page.originHint') ?></small>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label class="small">Destination (DEST)</label>
-                                                <input type="text" id="filter-dest" class="form-control form-control-sm" placeholder="e.g., LAX, SFO, ZLA">
-                                                <small class="text-muted">Airports, TRACONs, or ARTCCs</small>
+                                                <label class="small"><?= __('splits.page.destination') ?></label>
+                                                <input type="text" id="filter-dest" class="form-control form-control-sm" placeholder="<?= __('splits.page.destinationPlaceholder') ?>">
+                                                <small class="text-muted"><?= __('splits.page.destinationHint') ?></small>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label class="small">Fix</label>
-                                                <input type="text" id="filter-fix" class="form-control form-control-sm" placeholder="e.g., LENDY, PUCKY">
+                                                <label class="small"><?= __('splits.page.fix') ?></label>
+                                                <input type="text" id="filter-fix" class="form-control form-control-sm" placeholder="<?= __('splits.page.fixPlaceholder') ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label class="small">Gate</label>
-                                                <input type="text" id="filter-gate" class="form-control form-control-sm" placeholder="e.g., North gates">
+                                                <label class="small"><?= __('splits.page.gate') ?></label>
+                                                <input type="text" id="filter-gate" class="form-control form-control-sm" placeholder="<?= __('splits.page.gatePlaceholder') ?>">
                                             </div>
                                         </div>
                                     </div>
                                     <div class="form-group mb-0">
-                                        <label class="small">Other Route Notes</label>
-                                        <input type="text" id="filter-route-other" class="form-control form-control-sm" placeholder="Any other route criteria">
+                                        <label class="small"><?= __('splits.page.otherRouteNotes') ?></label>
+                                        <input type="text" id="filter-route-other" class="form-control form-control-sm" placeholder="<?= __('splits.page.otherRouteNotesPlaceholder') ?>">
                                     </div>
                                 </div>
                             </div>
@@ -2754,7 +2755,7 @@ input[type="datetime-local"] {
                         <!-- Altitude Filters -->
                         <div class="filter-section">
                             <div class="filter-section-header" data-toggle="collapse" data-target="#altitude-filters">
-                                <i class="fas fa-arrows-alt-v mr-1"></i> Altitude Filters
+                                <i class="fas fa-arrows-alt-v mr-1"></i> <?= __('splits.page.altitudeFilters') ?>
                                 <i class="fas fa-chevron-down float-right"></i>
                             </div>
                             <div class="collapse" id="altitude-filters">
@@ -2762,9 +2763,9 @@ input[type="datetime-local"] {
                                     <div class="row">
                                         <div class="col-md-4">
                                             <div class="form-group mb-2">
-                                                <label class="small">Floor (FL)</label>
+                                                <label class="small"><?= __('splits.page.floorFl') ?></label>
                                                 <input type="text" id="filter-floor" class="form-control form-control-sm" placeholder="e.g., 240" maxlength="3" pattern="[0-9]{3}">
-                                                <small class="text-muted">Format: 000</small>
+                                                <small class="text-muted"><?= __('splits.page.flFormat') ?></small>
                                             </div>
                                         </div>
                                         <div class="col-md-4">

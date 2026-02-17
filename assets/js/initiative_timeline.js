@@ -121,13 +121,13 @@ class InitiativeTimeline {
             <div class="dcccp-timeline-wrapper" id="${this.containerId}-wrapper">
                 <div class="dcccp-controls">
                     <div class="dcccp-controls-left">
-                        <span class="dcccp-control-label">Sort:</span>
-                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="chronological"> Chronological</label>
-                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="geographical" checked> Geographical</label>
-                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="alphabetical"> Alphabetical</label>
+                        <span class="dcccp-control-label">${PERTII18n.t('initiative.sort')}:</span>
+                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="chronological"> ${PERTII18n.t('initiative.chronological')}</label>
+                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="geographical" checked> ${PERTII18n.t('initiative.geographical')}</label>
+                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="alphabetical"> ${PERTII18n.t('initiative.alphabetical')}</label>
                     </div>
                     <div class="dcccp-controls-center">
-                        <span class="dcccp-control-label">Range:</span>
+                        <span class="dcccp-control-label">${PERTII18n.t('initiative.range')}:</span>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-range" value="8"> 8h</label>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-range" value="16" checked> 16h</label>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-range" value="24"> 24h</label>
@@ -137,14 +137,14 @@ class InitiativeTimeline {
                     <div class="dcccp-controls-right">
                         <div class="dcccp-filter-box">
                             <div class="dcccp-filter-header">
-                                <span class="dcccp-filter-label">Filtered Out:</span>
+                                <span class="dcccp-filter-label">${PERTII18n.t('initiative.filteredOut')}:</span>
                                 <div class="dcccp-filter-buttons">
                                     <button class="dcccp-filter-clear" title="Clear filters">&times;</button>
                                     <button class="dcccp-filter-toggle">&#9662;</button>
                                 </div>
                             </div>
                             <div class="dcccp-filter-tags" id="${this.containerId}-filter-tags">
-                                <span class="dcccp-filter-tag-none">None</span>
+                                <span class="dcccp-filter-tag-none">${PERTII18n.t('common.none')}</span>
                             </div>
                             <div class="dcccp-filter-dropdown" id="${this.containerId}-filter-dropdown">
                                 <div class="dcccp-filter-grid">
@@ -163,14 +163,14 @@ class InitiativeTimeline {
                 <!-- Time Navigation -->
                 <div class="dcccp-time-nav">
                     <button class="dcccp-nav-btn" id="${this.containerId}-nav-prev" title="Previous period">
-                        <i class="fas fa-chevron-left"></i> Earlier
+                        <i class="fas fa-chevron-left"></i> ${PERTII18n.t('initiative.earlier')}
                     </button>
                     <button class="dcccp-nav-btn" id="${this.containerId}-nav-now" title="Center on current time">
-                        <i class="fas fa-crosshairs"></i> Now
+                        <i class="fas fa-crosshairs"></i> ${PERTII18n.t('initiative.now')}
                     </button>
                     <span class="dcccp-nav-label" id="${this.containerId}-nav-label"></span>
                     <button class="dcccp-nav-btn" id="${this.containerId}-nav-next" title="Next period">
-                        Later <i class="fas fa-chevron-right"></i>
+                        ${PERTII18n.t('initiative.later')} <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
                 
@@ -188,7 +188,7 @@ class InitiativeTimeline {
                 </div>
                 
                 <div class="dcccp-legend">
-                    <span class="dcccp-legend-label">Legend</span>
+                    <span class="dcccp-legend-label">${PERTII18n.t('initiative.legend')}</span>
                     ${activeLevels.map(l => `<span class="dcccp-legend-item level-${l}">${this.levels[l].name}</span>`).join('')}
                 </div>
             </div>
@@ -209,7 +209,7 @@ class InitiativeTimeline {
             <div class="modal-dialog modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white" id="${this.modalId}-header">
-                        <h5 class="modal-title"><i class="fas fa-plus-circle mr-2"></i><span id="${this.modalId}-title">Add Element</span></h5>
+                        <h5 class="modal-title"><i class="fas fa-plus-circle mr-2"></i><span id="${this.modalId}-title">${PERTII18n.t('initiative.addElement')}</span></h5>
                         <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
                     </div>
                     <div class="modal-body">
@@ -218,25 +218,25 @@ class InitiativeTimeline {
                         
                         <!-- Element Type Selector -->
                         <div class="element-type-card">
-                            <label><i class="fas fa-layer-group mr-1"></i> Element Type</label>
+                            <label><i class="fas fa-layer-group mr-1"></i> ${PERTII18n.t('initiative.elementType')}</label>
                             <select class="form-control form-control-lg" id="${this.modalId}-level">
-                                <optgroup label="Traffic Management">
+                                <optgroup label="${PERTII18n.t('initiative.category.trafficManagement')}">
                                     ${activeLevels.filter(l => this.levels[l].category === 'tmi').map(l =>
         `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
-                                <optgroup label="Constraints">
+                                <optgroup label="${PERTII18n.t('initiative.category.constraints')}">
                                     ${activeLevels.filter(l => this.levels[l].category === 'constraint').map(l =>
         `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
-                                <optgroup label="Special Operations">
+                                <optgroup label="${PERTII18n.t('initiative.category.specialOperations')}">
                                     ${activeLevels.filter(l => ['vip', 'space', 'staffing'].includes(this.levels[l].category)).map(l =>
         `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
-                                <optgroup label="Events &amp; Decision Windows">
+                                <optgroup label="${PERTII18n.t('initiative.category.eventsDecisionWindows')}">
                                     ${activeLevels.filter(l => ['cdw', 'event'].includes(this.levels[l].category)).map(l =>
         `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
-                                <optgroup label="Other">
+                                <optgroup label="${PERTII18n.t('initiative.category.other')}">
                                     ${activeLevels.filter(l => this.levels[l].category === 'misc').map(l =>
         `<option value="${l}">${this.levels[l].name}</option>`).join('')}
                                 </optgroup>
@@ -249,20 +249,20 @@ class InitiativeTimeline {
                             <!-- TMI Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-tmi">
                                 <div class="form-section-header section-tmi">
-                                    <i class="fas fa-broadcast-tower"></i> Traffic Management Initiative
+                                    <i class="fas fa-broadcast-tower"></i> ${PERTII18n.t('initiative.section.tmi')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Facility <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-tmi-facility" list="${this.modalId}-facilities" placeholder="ZDC, N90...">
                                         </div>
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Area</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.area')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-tmi-area" placeholder="METRO, AREA 6...">
                                         </div>
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">TMI Type <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.tmiType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-tmi-type">
                                                 ${this.tmiTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
                                             </select>
@@ -270,15 +270,15 @@ class InitiativeTimeline {
                                     </div>
                                     <div class="row compact-row">
                                         <div class="col-md-4 mb-3" id="${this.modalId}-tmi-other-wrap" style="display:none;">
-                                            <label class="form-label">Other Type</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.otherType')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-tmi-other" placeholder="Specify type">
                                         </div>
                                         <div class="col-md-4 mb-3" id="${this.modalId}-tmi-cause-wrap">
-                                            <label class="form-label">Cause</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.cause')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-tmi-cause" placeholder="WEATHER, VOLUME...">
                                         </div>
                                         <div class="col-md-4 mb-3" id="${this.modalId}-advzy-wrap" style="display:none;">
-                                            <label class="form-label">ADVZY Number</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.advzyNumber')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-advzy-number" placeholder="e.g., 001, 042">
                                         </div>
                                     </div>
@@ -288,28 +288,28 @@ class InitiativeTimeline {
                             <!-- VIP Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-vip" style="display:none;">
                                 <div class="form-section-header section-vip">
-                                    <i class="fas fa-user-shield"></i> VIP Movement Details
+                                    <i class="fas fa-user-shield"></i> ${PERTII18n.t('initiative.section.vip')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Movement Type <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.movementType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-vip-type">
                                                 ${this.vipTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Callsign / ID</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.callsignId')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-vip-callsign" placeholder="AF1, SAM 28000...">
                                         </div>
                                     </div>
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Origin <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.origin')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-vip-origin" list="${this.modalId}-facilities" placeholder="KADW, KJBA...">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Destination <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.destination')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-vip-dest" list="${this.modalId}-facilities" placeholder="KLAX, KSFO...">
                                         </div>
                                     </div>
@@ -319,28 +319,28 @@ class InitiativeTimeline {
                             <!-- Space Operation Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-space" style="display:none;">
                                 <div class="form-section-header section-space">
-                                    <i class="fas fa-rocket"></i> Space Operation Details
+                                    <i class="fas fa-rocket"></i> ${PERTII18n.t('initiative.section.space')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Operation Type <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.operationType')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-space-type">
                                                 ${this.spaceTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Mission Name <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.missionName')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-space-mission" placeholder="SpaceX Starlink 6-71">
                                         </div>
                                     </div>
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Launch Site / ARTCC <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.launchSite')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-space-facility" list="${this.modalId}-facilities" placeholder="ZMA, ZJX...">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Affected Areas</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.affectedAreas')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-space-areas" placeholder="ATLANTIC routes...">
                                         </div>
                                     </div>
@@ -350,27 +350,27 @@ class InitiativeTimeline {
                             <!-- Staffing Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-staffing" style="display:none;">
                                 <div class="form-section-header section-staffing">
-                                    <i class="fas fa-users"></i> Staffing Trigger Details
+                                    <i class="fas fa-users"></i> ${PERTII18n.t('initiative.section.staffing')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Facility <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-staff-facility" list="${this.modalId}-facilities" placeholder="ZDC, ZKC...">
                                         </div>
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Area <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.area')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-staff-area" placeholder="AREA 6 METRO">
                                         </div>
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Shift</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.shift')}</label>
                                             <select class="form-control" id="${this.modalId}-staff-shift">
                                                 ${this.shifts.map(s => `<option value="${s}">${s}</option>`).join('')}
                                             </select>
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Trigger Description</label>
+                                        <label class="form-label">${PERTII18n.t('initiative.label.triggerDescription')}</label>
                                         <input type="text" class="form-control" id="${this.modalId}-staff-trigger" placeholder="OTTO RAMAY MIT, Q221 MIT...">
                                     </div>
                                 </div>
@@ -379,16 +379,16 @@ class InitiativeTimeline {
                             <!-- CDW Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-cdw" style="display:none;">
                                 <div class="form-section-header section-cdw">
-                                    <i class="fas fa-clock"></i> Critical Decision Window
+                                    <i class="fas fa-clock"></i> ${PERTII18n.t('initiative.section.cdw')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Facility <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-cdw-facility" list="${this.modalId}-facilities" placeholder="ZMA, ZSU...">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Decision Point</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.decisionPoint')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-cdw-decision" placeholder="Route closure decision...">
                                         </div>
                                     </div>
@@ -398,16 +398,16 @@ class InitiativeTimeline {
                             <!-- Special Event Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-event" style="display:none;">
                                 <div class="form-section-header section-event">
-                                    <i class="fas fa-star"></i> Special Event Details
+                                    <i class="fas fa-star"></i> ${PERTII18n.t('initiative.section.event')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Affected Facility <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.affectedFacility')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-event-facility" list="${this.modalId}-facilities" placeholder="ZDC, NAS...">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Event Name <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.eventName')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-event-name" placeholder="Super Bowl, Inauguration...">
                                         </div>
                                     </div>
@@ -417,16 +417,16 @@ class InitiativeTimeline {
                             <!-- Misc Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-misc" style="display:none;">
                                 <div class="form-section-header section-misc">
-                                    <i class="fas fa-ellipsis-h"></i> Miscellaneous Element
+                                    <i class="fas fa-ellipsis-h"></i> ${PERTII18n.t('initiative.section.misc')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Facility <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-misc-facility" list="${this.modalId}-facilities" placeholder="ZDC, NAS...">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Description <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.description')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-misc-desc" placeholder="Brief description">
                                         </div>
                                     </div>
@@ -436,27 +436,27 @@ class InitiativeTimeline {
                             <!-- Constraint Section -->
                             <div class="form-section-card" id="${this.modalId}-sec-constraint" style="display:none;">
                                 <div class="form-section-header section-constraint">
-                                    <i class="fas fa-exclamation-triangle"></i> Constraint Details
+                                    <i class="fas fa-exclamation-triangle"></i> ${PERTII18n.t('initiative.section.constraint')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Location <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.location')} <span class="required">*</span></label>
                                             <input type="text" class="form-control" id="${this.modalId}-constraint-facility" list="${this.modalId}-facilities" placeholder="ZDC, KATL, METRO...">
                                         </div>
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Cause <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.cause')} <span class="required">*</span></label>
                                             <select class="form-control" id="${this.modalId}-constraint-type">
                                                 ${this.constraintTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="col-md-4 mb-3" id="${this.modalId}-constraint-other-wrap" style="display:none;">
-                                            <label class="form-label">Other Cause</label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.otherCause')}</label>
                                             <input type="text" class="form-control" id="${this.modalId}-constraint-other" placeholder="Specify cause">
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Impact Description <span class="required">*</span></label>
+                                        <label class="form-label">${PERTII18n.t('initiative.label.impactDescription')} <span class="required">*</span></label>
                                         <input type="text" class="form-control" id="${this.modalId}-constraint-impact" placeholder="RWY 27L/R CLSD, REDUCED ARRIVAL RATES...">
                                     </div>
                                 </div>
@@ -465,28 +465,28 @@ class InitiativeTimeline {
                             <!-- Time Section (Always Visible) -->
                             <div class="form-section-card">
                                 <div class="form-section-header section-time">
-                                    <i class="fas fa-calendar-alt"></i> Time Period (UTC)
+                                    <i class="fas fa-calendar-alt"></i> ${PERTII18n.t('initiative.section.timePeriod')}
                                 </div>
                                 <div class="form-section-body">
                                     <div class="row compact-row">
                                         <div class="col-md-5 mb-3">
-                                            <label class="form-label">Start Time <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.startTime')} <span class="required">*</span></label>
                                             <input type="datetime-local" class="form-control" id="${this.modalId}-start">
                                         </div>
                                         <div class="col-md-5 mb-3">
-                                            <label class="form-label">End Time <span class="required">*</span></label>
+                                            <label class="form-label">${PERTII18n.t('initiative.label.endTime')} <span class="required">*</span></label>
                                             <input type="datetime-local" class="form-control" id="${this.modalId}-end">
                                         </div>
                                         <div class="col-md-2 mb-3 d-flex align-items-end">
                                             <div class="custom-control custom-checkbox">
                                                 <input type="checkbox" class="custom-control-input" id="${this.modalId}-global">
-                                                <label class="custom-control-label" for="${this.modalId}-global">Global</label>
-                                                <small class="form-text text-muted d-block">Show on all plans</small>
+                                                <label class="custom-control-label" for="${this.modalId}-global">${PERTII18n.t('initiative.label.global')}</label>
+                                                <small class="form-text text-muted d-block">${PERTII18n.t('initiative.label.showOnAllPlans')}</small>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="mb-0">
-                                        <label class="form-label">Notes</label>
+                                        <label class="form-label">${PERTII18n.t('initiative.label.notes')}</label>
                                         <textarea class="form-control" id="${this.modalId}-notes" rows="2" placeholder="Additional notes..."></textarea>
                                     </div>
                                 </div>
@@ -496,12 +496,12 @@ class InitiativeTimeline {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-delete" id="${this.modalId}-delete" style="display:none;">
-                            <i class="fas fa-trash-alt mr-1"></i> Delete
+                            <i class="fas fa-trash-alt mr-1"></i> ${PERTII18n.t('common.delete')}
                         </button>
                         <div class="ml-auto">
-                            <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">${PERTII18n.t('common.cancel')}</button>
                             <button type="button" class="btn btn-primary" id="${this.modalId}-save">
-                                <i class="fas fa-save mr-1"></i> Save
+                                <i class="fas fa-save mr-1"></i> ${PERTII18n.t('common.save')}
                             </button>
                         </div>
                     </div>
@@ -879,7 +879,7 @@ class InitiativeTimeline {
             }
             case 'vip': return `${item.tmi_type || 'VIP'}: ${item.facility}→${item.area}`;
             case 'space': return `${item.tmi_type}: ${item.cause || ''}`;
-            case 'staffing': return `Staffing: ${item.area || item.facility}`;
+            case 'staffing': return `${PERTII18n.t('initiative.label.staffingPrefix')}: ${item.area || item.facility}`;
             case 'event': return item.cause || 'Special Event';
             case 'cdw': return item.cause || 'CDW';
             case 'misc': return item.cause || 'Misc';
@@ -976,21 +976,21 @@ class InitiativeTimeline {
         if (cat === 'vip') {
             // VIP: facility = origin, area = destination
             locationRows = `
-                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Origin</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
-                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Destination</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
-                ${item.tmi_type_other ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Callsign</span><span class="dcccp-tooltip-value">${item.tmi_type_other}</span></div>` : ''}
+                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.origin')}</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
+                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.destination')}</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
+                ${item.tmi_type_other ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.callsign')}</span><span class="dcccp-tooltip-value">${item.tmi_type_other}</span></div>` : ''}
             `;
         } else if (cat === 'space') {
             locationRows = `
-                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Site/ARTCC</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
-                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Affected</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
-                ${item.cause ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Mission</span><span class="dcccp-tooltip-value">${item.cause}</span></div>` : ''}
+                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.siteArtcc')}</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
+                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.affected')}</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
+                ${item.cause ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.mission')}</span><span class="dcccp-tooltip-value">${item.cause}</span></div>` : ''}
             `;
         } else {
             // Default: Facility/Area
             locationRows = `
-                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Facility</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
-                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Area</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
+                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.facility')}</span><span class="dcccp-tooltip-value">${item.facility}</span></div>
+                ${item.area ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.area')}</span><span class="dcccp-tooltip-value">${item.area}</span></div>` : ''}
             `;
         }
 
@@ -999,12 +999,12 @@ class InitiativeTimeline {
         tip.innerHTML = `
             <div class="dcccp-tooltip-header">
                 <span class="dcccp-tooltip-title">${label}</span>
-                ${this.hasPerm ? `<button class="dcccp-tooltip-edit-btn" data-id="${item.id}">EDIT</button>` : ''}
+                ${this.hasPerm ? `<button class="dcccp-tooltip-edit-btn" data-id="${item.id}">${PERTII18n.t('common.edit')}</button>` : ''}
             </div>
             <div class="dcccp-tooltip-body">
                 ${locationRows}
-                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Level</span><span class="dcccp-tooltip-value">${this.levels[item.level]?.name || item.level}</span></div>
-                ${item.notes ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">Notes</span><span class="dcccp-tooltip-value">${item.notes}</span></div>` : ''}
+                <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.level')}</span><span class="dcccp-tooltip-value">${this.levels[item.level]?.name || item.level}</span></div>
+                ${item.notes ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.notes')}</span><span class="dcccp-tooltip-value">${item.notes}</span></div>` : ''}
                 <div class="dcccp-tooltip-time">${this.formatTooltipTime(item.start_datetime, item.end_datetime)}</div>
             </div>
         `;
@@ -1031,7 +1031,7 @@ class InitiativeTimeline {
         if (!this.hasPerm) {return;}
 
         document.getElementById(`${this.modalId}-id`).value = '';
-        document.getElementById(`${this.modalId}-title`).textContent = 'Add Element';
+        document.getElementById(`${this.modalId}-title`).textContent = PERTII18n.t('initiative.addElement');
         document.getElementById(`${this.modalId}-delete`).style.display = 'none';
 
         this.resetModalFields();
@@ -1050,7 +1050,7 @@ class InitiativeTimeline {
         if (!item) {return;}
 
         document.getElementById(`${this.modalId}-id`).value = item.id;
-        document.getElementById(`${this.modalId}-title`).textContent = 'Edit Element';
+        document.getElementById(`${this.modalId}-title`).textContent = PERTII18n.t('initiative.editElement');
         document.getElementById(`${this.modalId}-delete`).style.display = 'inline-block';
 
         document.getElementById(`${this.modalId}-level`).value = item.level;
@@ -1201,8 +1201,8 @@ class InitiativeTimeline {
             }
         }
 
-        if (!data.facility) { this.alert('error', 'Facility is required'); return; }
-        if (!data.start_datetime || !data.end_datetime) { this.alert('error', 'Start and End times are required'); return; }
+        if (!data.facility) { this.alert('error', PERTII18n.t('initiative.error.facilityRequired')); return; }
+        if (!data.start_datetime || !data.end_datetime) { this.alert('error', PERTII18n.t('initiative.error.timesRequired')); return; }
 
         this.saveItem(data, !!id);
     }
@@ -1218,20 +1218,20 @@ class InitiativeTimeline {
 
             if (result.success) {
                 $(`#${this.modalId}`).modal('hide');
-                this.alert('success', isUpdate ? 'Element updated' : 'Element added');
+                this.alert('success', isUpdate ? PERTII18n.t('initiative.elementUpdated') : PERTII18n.t('initiative.elementAdded'));
                 this.loadData();
             } else {
-                this.alert('error', result.error || 'Failed to save');
+                this.alert('error', result.error || PERTII18n.t('initiative.error.saveFailed'));
             }
         } catch (e) {
-            this.alert('error', 'Network error');
+            this.alert('error', PERTII18n.t('error.network'));
         }
     }
 
     handleDelete() {
         const id = document.getElementById(`${this.modalId}-id`).value;
         if (!id) {return;}
-        if (confirm('Delete this element? This cannot be undone.')) {this.deleteItem(id);}
+        if (confirm(PERTII18n.t('initiative.confirmDelete'))) {this.deleteItem(id);}
     }
 
     async deleteItem(id) {
@@ -1240,19 +1240,19 @@ class InitiativeTimeline {
             const result = await resp.json();
             if (result.success) {
                 $(`#${this.modalId}`).modal('hide');
-                this.alert('success', 'Element deleted');
+                this.alert('success', PERTII18n.t('initiative.elementDeleted'));
                 this.loadData();
             } else {
-                this.alert('error', result.error || 'Failed to delete');
+                this.alert('error', result.error || PERTII18n.t('initiative.error.deleteFailed'));
             }
         } catch (e) {
-            this.alert('error', 'Network error');
+            this.alert('error', PERTII18n.t('error.network'));
         }
     }
 
     alert(type, msg) {
         if (typeof Swal !== 'undefined') {
-            Swal.fire({ icon: type, title: type === 'success' ? 'Success' : 'Error', text: msg, timer: type === 'success' ? 2000 : undefined, showConfirmButton: type !== 'success' });
+            Swal.fire({ icon: type, title: type === 'success' ? PERTII18n.t('common.success') : PERTII18n.t('common.error'), text: msg, timer: type === 'success' ? 2000 : undefined, showConfirmButton: type !== 'success' });
         } else {
             alert(msg);
         }

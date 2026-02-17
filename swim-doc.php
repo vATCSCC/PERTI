@@ -14,6 +14,7 @@
  * OPTIMIZED: Public page - no session handler or DB needed
  */
 include("load/config.php");
+include("load/i18n.php");
 
 // Allowed documentation files (whitelist for security)
 $allowed_files = [
@@ -113,7 +114,7 @@ $file_path = __DIR__ . '/docs/swim/' . $file_param . '.md';
 
 // Check file exists
 if (!file_exists($file_path)) {
-    $error_message = "Documentation file not found.";
+    $error_message = __('swim.doc.docNotFound');
     $markdown_content = "";
 } else {
     $markdown_content = file_get_contents($file_path);
@@ -452,7 +453,7 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
 <div class="container py-4">
 
     <div class="doc-back">
-        <a href="swim-docs"><i class="fas fa-arrow-left"></i> Back to Documentation Index</a>
+        <a href="swim-docs"><i class="fas fa-arrow-left"></i> <?= __('swim.doc.backToIndex') ?></a>
     </div>
 
     <div class="doc-viewer">
@@ -461,13 +462,13 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
             <p><?= htmlspecialchars($file_info['description']) ?></p>
             <div class="doc-actions">
                 <a href="docs/swim/<?= htmlspecialchars($file_param) ?>.md" download>
-                    <i class="fas fa-download"></i> Download Markdown
+                    <i class="fas fa-download"></i> <?= __('swim.doc.downloadMarkdown') ?>
                 </a>
                 <a href="docs/swim/" target="_blank">
-                    <i class="fas fa-play-circle"></i> Interactive API Docs
+                    <i class="fas fa-play-circle"></i> <?= __('swim.doc.interactiveDocs') ?>
                 </a>
                 <a href="swim-docs">
-                    <i class="fas fa-list"></i> All Documentation
+                    <i class="fas fa-list"></i> <?= __('swim.doc.allDocumentation') ?>
                 </a>
             </div>
         </div>

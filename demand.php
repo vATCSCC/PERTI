@@ -3,12 +3,13 @@
  * OPTIMIZED: Public page - no session handler or DB needed
  */
 include("load/config.php");
+include("load/i18n.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 
-    <?php $page_title = "vATCSCC Demand"; include("load/header.php"); ?>
+    <?php $page_title = "vATCSCC " . __('demand.page.title'); include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css">
@@ -540,11 +541,11 @@ include("load/config.php");
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 
         <center>
-            <h1>Demand Visualization</h1>
+            <h1><?= __('demand.page.title') ?></h1>
             <h4 class="text-white hvr-bob pl-1">
                 <a href="#demand_section" style="text-decoration: none; color: #fff;">
                     <i class="fas fa-chevron-down text-danger"></i>
-                    Airport Arrival &amp; Departure Analysis
+                    <?= __('demand.page.subtitle') ?>
                 </a>
             </h4>
         </center>
@@ -560,7 +561,7 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
                     <div class="card-body d-flex justify-content-between align-items-center py-2">
                         <div>
-                            <div class="perti-info-label"><i class="far fa-clock"></i> UTC</div>
+                            <div class="perti-info-label"><i class="far fa-clock"></i> <?= __('demand.page.utc') ?></div>
                             <div id="demand_utc_clock" class="tbfm-clock">--:--:--</div>
                         </div>
                     </div>
@@ -571,10 +572,10 @@ include("load/config.php");
             <div class="col-auto px-0">
                 <div class="card shadow-sm perti-info-card perti-card-global h-100">
                     <div class="card-body py-2">
-                        <div class="perti-info-label"><i class="fas fa-map-marker-alt"></i> Airport</div>
+                        <div class="perti-info-label"><i class="fas fa-map-marker-alt"></i> <?= __('demand.page.airport') ?></div>
                         <div class="d-flex align-items-baseline">
                             <span id="demand_selected_airport" class="perti-stat-value" style="font-size: 1.2rem; color: var(--info-airport-color);">----</span>
-                            <span id="demand_airport_name" class="ml-2 text-muted" style="font-size: 0.65rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Select airport</span>
+                            <span id="demand_airport_name" class="ml-2 text-muted" style="font-size: 0.65rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= __('demand.page.selectAirport') ?></span>
                         </div>
                     </div>
                 </div>
@@ -585,7 +586,7 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-config h-100">
                     <div class="card-body py-2">
                         <div class="perti-info-label">
-                            <i class="fas fa-tachometer-alt"></i> Config
+                            <i class="fas fa-tachometer-alt"></i> <?= __('demand.page.config') ?>
                             <span id="rate_weather_category" class="badge badge-weather-vmc ml-1">--</span>
                             <span id="rate_override_badge" class="badge badge-warning ml-1" style="display: none;">OVR</span>
                         </div>
@@ -603,25 +604,25 @@ include("load/config.php");
                             </div>
                             <!-- Config name -->
                             <div class="perti-stat-item text-left" style="min-width: 50px;">
-                                <div class="perti-stat-category">Config</div>
+                                <div class="perti-stat-category"><?= __('demand.page.config') ?></div>
                                 <div id="rate_config_name" class="perti-stat-value" style="font-size: 0.75rem; cursor: help; color: #334155;" title="">--</div>
                             </div>
                             <!-- AAR/ADR -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">AAR/ADR</div>
+                                <div class="perti-stat-category"><?= __('demand.page.aarAdr') ?></div>
                                 <div class="perti-rate-display">
                                     <span id="rate_display" class="perti-rate-value" style="color: var(--info-config-color);">--/--</span>
                                 </div>
                             </div>
                             <!-- Source -->
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Source</div>
+                                <div class="perti-stat-category"><?= __('demand.page.source') ?></div>
                                 <div id="rate_source" class="perti-stat-value text-muted" style="font-size: 0.7rem;">--</div>
                             </div>
                             <!-- Set Config Button -->
                             <div class="perti-stat-item d-flex align-items-center">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="set_config_btn"
-                                        title="Set airport configuration" style="display: none; padding: 2px 8px; font-size: 0.7rem;">
+                                        title="<?= __('demand.page.setAirportConfig') ?>" style="display: none; padding: 2px 8px; font-size: 0.7rem;">
                                     <i class="fas fa-pencil-alt"></i>
                                 </button>
                             </div>
@@ -635,11 +636,11 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-atis h-100" style="min-width: 200px;">
                     <div class="card-body py-2">
                         <div class="perti-info-label">
-                            <i class="fas fa-broadcast-tower"></i> ATIS
+                            <i class="fas fa-broadcast-tower"></i> <?= __('demand.page.atis') ?>
                             <span id="atis_badges_container" class="d-inline-flex" style="gap: 4px;">
                                 <!-- ATIS badges will be populated dynamically -->
                             </span>
-                            <button type="button" class="btn btn-link btn-sm btn-icon ml-auto p-0" id="atis_details_btn" title="View full ATIS" style="color: var(--info-atis-color);">
+                            <button type="button" class="btn btn-link btn-sm btn-icon ml-auto p-0" id="atis_details_btn" title="<?= __('demand.page.viewFullAtis') ?>" style="color: var(--info-atis-color);">
                                 <i class="fas fa-expand-alt"></i>
                             </button>
                         </div>
@@ -657,7 +658,7 @@ include("load/config.php");
                             </div>
                             <!-- Approach -->
                             <div class="perti-stat-item text-left">
-                                <div class="perti-stat-category">Approach</div>
+                                <div class="perti-stat-category"><?= __('demand.page.approach') ?></div>
                                 <div id="atis_approach" class="perti-stat-value text-muted" style="font-size: 0.75rem; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">--</div>
                             </div>
                         </div>
@@ -670,20 +671,20 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-arrivals h-100">
                     <div class="card-body py-2">
                         <div class="perti-info-label">
-                            <i class="fas fa-plane-arrival"></i> Arrivals
+                            <i class="fas fa-plane-arrival"></i> <?= __('demand.page.arrivals') ?>
                             <span id="demand_arr_total" class="badge badge-success badge-total ml-auto">0</span>
                         </div>
                         <div class="perti-stat-grid">
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Active</div>
+                                <div class="perti-stat-category"><?= __('demand.page.active') ?></div>
                                 <div id="demand_arr_active" class="perti-stat-value" style="color: #dc2626;">0</div>
                             </div>
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Sched</div>
+                                <div class="perti-stat-category"><?= __('demand.page.scheduled') ?></div>
                                 <div id="demand_arr_scheduled" class="perti-stat-value" style="color: var(--info-arr-color);">0</div>
                             </div>
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Prop</div>
+                                <div class="perti-stat-category"><?= __('demand.page.proposed') ?></div>
                                 <div id="demand_arr_proposed" class="perti-stat-value" style="color: #3b82f6;">0</div>
                             </div>
                         </div>
@@ -696,20 +697,20 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-departures h-100">
                     <div class="card-body py-2">
                         <div class="perti-info-label">
-                            <i class="fas fa-plane-departure"></i> Departures
+                            <i class="fas fa-plane-departure"></i> <?= __('demand.page.departures') ?>
                             <span id="demand_dep_total" class="badge badge-warning text-dark badge-total ml-auto">0</span>
                         </div>
                         <div class="perti-stat-grid">
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Active</div>
+                                <div class="perti-stat-category"><?= __('demand.page.active') ?></div>
                                 <div id="demand_dep_active" class="perti-stat-value" style="color: #dc2626;">0</div>
                             </div>
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Sched</div>
+                                <div class="perti-stat-category"><?= __('demand.page.scheduled') ?></div>
                                 <div id="demand_dep_scheduled" class="perti-stat-value" style="color: var(--info-dep-color);">0</div>
                             </div>
                             <div class="perti-stat-item">
-                                <div class="perti-stat-category">Prop</div>
+                                <div class="perti-stat-category"><?= __('demand.page.proposed') ?></div>
                                 <div id="demand_dep_proposed" class="perti-stat-value" style="color: #3b82f6;">0</div>
                             </div>
                         </div>
@@ -722,7 +723,7 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-refresh h-100">
                     <div class="card-body d-flex align-items-center py-2">
                         <div>
-                            <div class="perti-info-label"><i class="fas fa-sync"></i> Refresh</div>
+                            <div class="perti-info-label"><i class="fas fa-sync"></i> <?= __('demand.page.refresh') ?></div>
                             <div class="d-flex align-items-center">
                                 <div class="custom-control custom-switch">
                                     <input type="checkbox" class="custom-control-input" id="demand_auto_refresh" checked>
@@ -731,7 +732,7 @@ include("load/config.php");
                                 <span class="demand-status-indicator demand-status-active ml-2" id="refresh_status">15s</span>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary ml-3" id="demand_refresh_btn" title="Manual Refresh">
+                        <button type="button" class="btn btn-sm btn-outline-secondary ml-3" id="demand_refresh_btn" title="<?= __('demand.page.manualRefresh') ?>">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
@@ -746,24 +747,24 @@ include("load/config.php");
             <div class="card shadow-sm demand-filter-card">
                 <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
-                        <i class="fas fa-filter mr-1"></i> Filters
+                        <i class="fas fa-filter mr-1"></i> <?= __('demand.page.filters') ?>
                     </span>
                 </div>
 
                 <div class="card-body">
                     <!-- Airport Selection -->
                     <div class="form-group">
-                        <label class="demand-label mb-1" for="demand_airport">Airport</label>
+                        <label class="demand-label mb-1" for="demand_airport"><?= __('demand.page.airport') ?></label>
                         <select class="form-control form-control-sm" id="demand_airport">
-                            <option value="">-- Select Airport --</option>
+                            <option value=""><?= __('demand.page.selectAirportOption') ?></option>
                         </select>
                     </div>
 
                     <!-- Category Filter -->
                     <div class="form-group">
-                        <label class="demand-label mb-1" for="demand_category">Category</label>
+                        <label class="demand-label mb-1" for="demand_category"><?= __('demand.page.category') ?></label>
                         <select class="form-control form-control-sm" id="demand_category">
-                            <option value="all">All Airports</option>
+                            <option value="all"><?= __('demand.page.allAirports') ?></option>
                             <option value="core30">Core30</option>
                             <option value="oep35">OEP35</option>
                             <option value="aspm82">ASPM82</option>
@@ -772,17 +773,17 @@ include("load/config.php");
 
                     <!-- ARTCC Filter -->
                     <div class="form-group">
-                        <label class="demand-label mb-1" for="demand_artcc">ARTCC</label>
+                        <label class="demand-label mb-1" for="demand_artcc"><?= __('demand.page.artcc') ?></label>
                         <select class="form-control form-control-sm" id="demand_artcc">
-                            <option value="">All ARTCCs</option>
+                            <option value=""><?= __('demand.page.allArtccs') ?></option>
                         </select>
                     </div>
 
                     <!-- Tier Filter -->
                     <div class="form-group">
-                        <label class="demand-label mb-1" for="demand_tier">Tier</label>
+                        <label class="demand-label mb-1" for="demand_tier"><?= __('demand.page.tier') ?></label>
                         <select class="form-control form-control-sm" id="demand_tier">
-                            <option value="all">All Tiers</option>
+                            <option value="all"><?= __('demand.page.allTiers') ?></option>
                         </select>
                     </div>
 
@@ -790,7 +791,7 @@ include("load/config.php");
 
                     <!-- Time Range -->
                     <div class="form-group">
-                        <label class="demand-label mb-1" for="demand_time_range">Time Range</label>
+                        <label class="demand-label mb-1" for="demand_time_range"><?= __('demand.page.timeRange') ?></label>
                         <select class="form-control form-control-sm" id="demand_time_range">
                             <!-- Populated by JavaScript -->
                         </select>
@@ -798,16 +799,16 @@ include("load/config.php");
 
                     <!-- Custom Time Range Inputs (hidden by default) -->
                     <div class="form-group" id="custom_time_range_container" style="display: none;">
-                        <label class="demand-label mb-1">Start (UTC)</label>
+                        <label class="demand-label mb-1"><?= __('demand.page.startUtc') ?></label>
                         <input type="datetime-local" class="form-control form-control-sm mb-2" id="demand_custom_start">
-                        <label class="demand-label mb-1">End (UTC)</label>
+                        <label class="demand-label mb-1"><?= __('demand.page.endUtc') ?></label>
                         <input type="datetime-local" class="form-control form-control-sm mb-2" id="demand_custom_end">
-                        <button type="button" class="btn btn-primary btn-sm w-100" id="apply_custom_range">Apply Range</button>
+                        <button type="button" class="btn btn-primary btn-sm w-100" id="apply_custom_range"><?= __('demand.page.applyRange') ?></button>
                     </div>
 
                     <!-- Granularity Toggle -->
                     <div class="form-group">
-                        <label class="demand-label mb-1">Granularity</label>
+                        <label class="demand-label mb-1"><?= __('demand.page.granularity') ?></label>
                         <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
                             <label class="btn btn-outline-secondary">
                                 <input type="radio" name="demand_granularity" id="granularity_15min" value="15min" autocomplete="off"> 15
@@ -823,16 +824,16 @@ include("load/config.php");
 
                     <!-- Direction Toggle -->
                     <div class="form-group mb-2">
-                        <label class="demand-label mb-1">Direction</label>
+                        <label class="demand-label mb-1"><?= __('demand.page.direction') ?></label>
                         <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
                             <label class="btn btn-outline-secondary active">
-                                <input type="radio" name="demand_direction" id="direction_both" value="both" autocomplete="off" checked> Both
+                                <input type="radio" name="demand_direction" id="direction_both" value="both" autocomplete="off" checked> <?= __('demand.page.both') ?>
                             </label>
                             <label class="btn btn-outline-secondary">
-                                <input type="radio" name="demand_direction" id="direction_arr" value="arr" autocomplete="off"> Arr
+                                <input type="radio" name="demand_direction" id="direction_arr" value="arr" autocomplete="off"> <?= __('demand.page.arr') ?>
                             </label>
                             <label class="btn btn-outline-secondary">
-                                <input type="radio" name="demand_direction" id="direction_dep" value="dep" autocomplete="off"> Dep
+                                <input type="radio" name="demand_direction" id="direction_dep" value="dep" autocomplete="off"> <?= __('demand.page.dep') ?>
                             </label>
                         </div>
                     </div>
@@ -842,7 +843,7 @@ include("load/config.php");
                     <!-- Flight Status Filter -->
                     <div class="form-group mb-0" id="phase-filter-inline-container">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <label class="demand-label mb-0">Flight Status</label>
+                            <label class="demand-label mb-0"><?= __('demand.page.flightStatus') ?></label>
                             <button type="button" class="phase-filter-popout-btn" id="phase-filter-popout-btn" title="Pop out to floating panel">
                                 <i class="fas fa-external-link-alt"></i>
                             </button>
@@ -852,32 +853,32 @@ include("load/config.php");
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_prefile" checked style="margin-right: 6px;">
                                     <span style="background:#3b82f6;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Prefile
+                                    <?= __('demand.page.prefile') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_departing" checked style="margin-right: 6px;">
                                     <span style="background:#22c55e;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Departing
+                                    <?= __('demand.page.departing') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_active" checked style="margin-right: 6px;">
                                     <span style="background:#dc2626;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Active
+                                    <?= __('demand.page.active') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_arrived" checked style="margin-right: 6px;">
                                     <span style="background:#1a1a1a;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Arrived
+                                    <?= __('demand.page.arrived') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_disconnected" checked style="margin-right: 6px;">
                                     <span style="background:#f97316;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Disconnected
+                                    <?= __('demand.page.disconnected') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center text-muted" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_unknown" style="margin-right: 6px;">
                                     <span style="background:#9333ea;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
-                                    Unknown
+                                    <?= __('demand.page.unknown') ?>
                                 </label>
                             </div>
                         </div>
@@ -889,69 +890,69 @@ include("load/config.php");
             <div class="card shadow-sm mt-3">
                 <div class="card-header tbfm-card-header">
                     <span class="demand-section-title">
-                        <i class="fas fa-palette mr-1"></i> Legend
+                        <i class="fas fa-palette mr-1"></i> <?= __('demand.page.legend') ?>
                     </span>
                 </div>
                 <div class="card-body py-2" id="phase-legend-container">
                     <!-- Airborne Phases -->
                     <div class="legend-group mb-2">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-plane mr-1"></i> Airborne
+                            <i class="fas fa-plane mr-1"></i> <?= __('demand.page.airborne') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f87171;"></span>Departed</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #dc2626;"></span>Enroute</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #991b1b;"></span>Descending</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f87171;"></span><?= __('demand.page.departed') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #dc2626;"></span><?= __('demand.page.enroute') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #991b1b;"></span><?= __('demand.page.descending') ?></div>
                         </div>
                     </div>
                     <!-- Ground Phases -->
                     <div class="legend-group mb-2">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-road mr-1"></i> Ground
+                            <i class="fas fa-road mr-1"></i> <?= __('demand.page.ground') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #3b82f6;"></span>Prefile</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #22c55e;"></span>Taxiing</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #1a1a1a;"></span>Arrived</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #3b82f6;"></span><?= __('demand.page.prefile') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #22c55e;"></span><?= __('demand.page.taxiing') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #1a1a1a;"></span><?= __('demand.page.arrived') ?></div>
                         </div>
                     </div>
                     <!-- Other -->
                     <div class="legend-group mb-2">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-question-circle mr-1"></i> Other
+                            <i class="fas fa-question-circle mr-1"></i> <?= __('demand.page.other') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span>Disconnected</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #6b7280;"></span>Exempt</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #9333ea;"></span>Unknown</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span><?= __('demand.page.disconnected') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #6b7280;"></span><?= __('demand.page.exempt') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #9333ea;"></span><?= __('demand.page.unknown') ?></div>
                         </div>
                     </div>
                     <!-- TMI Statuses -->
                     <div class="legend-group mb-2">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-hand-paper mr-1"></i> Ground Stop
+                            <i class="fas fa-hand-paper mr-1"></i> <?= __('demand.page.groundStop') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span>GS (EDCT)</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #fef08a;"></span>GS (Sim)</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #ca8a04;"></span>GS (Prop)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #eab308;"></span><?= __('demand.page.gsEdct') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #fef08a;"></span><?= __('demand.page.gsSim') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #ca8a04;"></span><?= __('demand.page.gsProp') ?></div>
                         </div>
                     </div>
                     <div class="legend-group">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-clock mr-1"></i> Ground Delay
+                            <i class="fas fa-clock mr-1"></i> <?= __('demand.page.groundDelay') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #92400e;"></span>GDP (EDCT)</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #d4a574;"></span>GDP (Sim)</div>
-                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #78350f;"></span>GDP (Prop)</div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #92400e;"></span><?= __('demand.page.gdpEdct') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #d4a574;"></span><?= __('demand.page.gdpSim') ?></div>
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #78350f;"></span><?= __('demand.page.gdpProp') ?></div>
                         </div>
                     </div>
                     <hr class="my-2">
                     <!-- Rate Lines Toggles -->
                     <div class="legend-group">
                         <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <i class="fas fa-minus mr-1"></i> Rate Lines
+                            <i class="fas fa-minus mr-1"></i> <?= __('demand.page.rateLines') ?>
                         </div>
                         <div class="d-flex flex-column" style="gap: 4px;">
                             <!-- VATSIM Rates -->
@@ -972,12 +973,12 @@ include("load/config.php");
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="rate_rw_aar" checked style="margin-right: 4px;">
                                     <span style="display: inline-block; width: 16px; height: 2px; background: #00FFFF; margin-right: 4px; vertical-align: middle;"></span>
-                                    RW AAR
+                                    <?= __('demand.page.rwAar') ?>
                                 </label>
                                 <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="rate_rw_adr" checked style="margin-right: 4px;">
                                     <span style="display: inline-block; width: 16px; height: 0; border-top: 2px dashed #00FFFF; margin-right: 4px; vertical-align: middle;"></span>
-                                    RW ADR
+                                    <?= __('demand.page.rwAdr') ?>
                                 </label>
                             </div>
                         </div>
@@ -992,55 +993,55 @@ include("load/config.php");
                 <div class="card-header tbfm-card-header">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="demand-section-title">
-                            <i class="fas fa-chart-bar mr-1"></i> Demand Chart
+                            <i class="fas fa-chart-bar mr-1"></i> <?= __('demand.page.demandChart') ?>
                         </span>
                         <div class="demand-header-rates" id="demand_header_rates">
                             <div class="refresh-row" id="demand_last_update">--</div>
                             <div class="rate-row" id="demand_header_aar_row" style="display: none;">
-                                <span class="rate-label">VATSIM AAR</span> <span class="rate-value" id="header_vatsim_aar">--</span>
+                                <span class="rate-label"><?= __('demand.page.vatsimAar') ?></span> <span class="rate-value" id="header_vatsim_aar">--</span>
                                 <span class="rate-separator">|</span>
-                                <span class="rate-label">RW AAR</span> <span class="rate-value rw" id="header_rw_aar">--</span>
+                                <span class="rate-label"><?= __('demand.page.rwAar') ?></span> <span class="rate-value rw" id="header_rw_aar">--</span>
                             </div>
                             <div class="rate-row" id="demand_header_adr_row" style="display: none;">
-                                <span class="rate-label">VATSIM ADR</span> <span class="rate-value" id="header_vatsim_adr">--</span>
+                                <span class="rate-label"><?= __('demand.page.vatsimAdr') ?></span> <span class="rate-value" id="header_vatsim_adr">--</span>
                                 <span class="rate-separator">|</span>
-                                <span class="rate-label">RW ADR</span> <span class="rate-value rw" id="header_rw_adr">--</span>
+                                <span class="rate-label"><?= __('demand.page.rwAdr') ?></span> <span class="rate-value rw" id="header_rw_adr">--</span>
                             </div>
                         </div>
                     </div>
                     <!-- Chart View Toggle - on its own row for space -->
                     <div class="d-flex flex-wrap" style="gap: 4px;">
-                        <label class="btn btn-outline-light btn-sm demand-view-btn active" title="Show by flight status">
-                            <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> Status
+                        <label class="btn btn-outline-light btn-sm demand-view-btn active" title="<?= __('demand.page.showByFlightStatus') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_status" value="status" autocomplete="off" checked> <?= __('demand.page.status') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by origin ARTCC">
-                            <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> Origin
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showArrivalsByOriginArtcc') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_origin" value="origin" autocomplete="off"> <?= __('demand.page.origin') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by destination ARTCC">
-                            <input type="radio" name="demand_chart_view" id="view_dest" value="dest" autocomplete="off"> Dest
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showDeparturesByDestArtcc') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_dest" value="dest" autocomplete="off"> <?= __('demand.page.dest') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by carrier">
-                            <input type="radio" name="demand_chart_view" id="view_carrier" value="carrier" autocomplete="off"> Carrier
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showByCarrier') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_carrier" value="carrier" autocomplete="off"> <?= __('demand.page.carrier') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by weight class">
-                            <input type="radio" name="demand_chart_view" id="view_weight" value="weight" autocomplete="off"> Weight
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showByWeightClass') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_weight" value="weight" autocomplete="off"> <?= __('demand.page.weight') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by aircraft type">
-                            <input type="radio" name="demand_chart_view" id="view_equipment" value="equipment" autocomplete="off"> Equip
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showByAircraftType') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_equipment" value="equipment" autocomplete="off"> <?= __('demand.page.equip') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show by IFR/VFR">
-                            <input type="radio" name="demand_chart_view" id="view_rule" value="rule" autocomplete="off"> Rule
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showByIfrVfr') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_rule" value="rule" autocomplete="off"> <?= __('demand.page.rule') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by departure fix">
-                            <input type="radio" name="demand_chart_view" id="view_dep_fix" value="dep_fix" autocomplete="off"> Dep Fix
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showDeparturesByDepFix') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_dep_fix" value="dep_fix" autocomplete="off"> <?= __('demand.page.depFix') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by arrival fix">
-                            <input type="radio" name="demand_chart_view" id="view_arr_fix" value="arr_fix" autocomplete="off"> Arr Fix
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showArrivalsByArrFix') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_arr_fix" value="arr_fix" autocomplete="off"> <?= __('demand.page.arrFix') ?>
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show departures by SID">
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showDeparturesBySid') ?>">
                             <input type="radio" name="demand_chart_view" id="view_dp" value="dp" autocomplete="off"> DP
                         </label>
-                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="Show arrivals by STAR">
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showArrivalsByStar') ?>">
                             <input type="radio" name="demand_chart_view" id="view_star" value="star" autocomplete="off"> STAR
                         </label>
                     </div>
@@ -1049,8 +1050,8 @@ include("load/config.php");
                     <!-- Empty State (shown when no airport selected) -->
                     <div id="demand_empty_state" class="demand-empty-state">
                         <i class="fas fa-chart-bar"></i>
-                        <h5>No Airport Selected</h5>
-                        <p class="text-muted">Select an airport from the filter panel to view demand data.</p>
+                        <h5><?= __('demand.page.noAirportSelected') ?></h5>
+                        <p class="text-muted"><?= __('demand.page.selectAirportPrompt') ?></p>
                     </div>
 
                     <!-- Chart Container (hidden initially) -->
@@ -1059,7 +1060,7 @@ include("load/config.php");
                         <div class="chart-loading-overlay" id="chart_loading_overlay">
                             <div class="chart-loading-content">
                                 <div class="spinner"></div>
-                                <div class="loading-text">Updating chart...</div>
+                                <div class="loading-text"><?= __('demand.page.updatingChart') ?></div>
                             </div>
                         </div>
                     </div>
@@ -1067,7 +1068,7 @@ include("load/config.php");
                     <!-- Legend Toggle Area -->
                     <div class="demand-legend-toggle-area" id="demand_legend_toggle_area" style="display: none;">
                         <button type="button" class="demand-legend-toggle-btn" id="demand_legend_toggle_btn">
-                            <i class="fas fa-eye-slash"></i> <span id="legend_toggle_text">Hide Legend</span>
+                            <i class="fas fa-eye-slash"></i> <span id="legend_toggle_text"><?= __('demand.page.hideLegend') ?></span>
                         </button>
                     </div>
                 </div>
@@ -1077,8 +1078,8 @@ include("load/config.php");
             <div class="card shadow-sm mt-3 tbfm-chart-card">
                 <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
-                        <i class="fas fa-list mr-1"></i> Flight Summary
-                        <span class="badge badge-light ml-2" id="demand_flight_count" style="color: #2c3e50;">0 flights</span>
+                        <i class="fas fa-list mr-1"></i> <?= __('demand.page.flightSummary') ?>
+                        <span class="badge badge-light ml-2" id="demand_flight_count" style="color: #2c3e50;">0 <?= __('demand.page.flights') ?></span>
                     </span>
                     <button class="btn btn-sm btn-outline-light" id="demand_toggle_flights" type="button" title="Toggle flight details">
                         <i class="fas fa-chevron-down"></i>
@@ -1090,7 +1091,7 @@ include("load/config.php");
                             <div class="card border mb-2" style="border-color: #bdc3c7;">
                                 <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
                                     <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-map-marker-alt mr-1 text-danger"></i> Top Origin ARTCCs
+                                        <i class="fas fa-map-marker-alt mr-1 text-danger"></i> <?= __('demand.page.topOriginArtccs') ?>
                                     </span>
                                 </div>
                                 <div class="card-body p-2">
@@ -1104,7 +1105,7 @@ include("load/config.php");
                             <div class="card border mb-2" style="border-color: #bdc3c7;">
                                 <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
                                     <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-plane mr-1 text-primary"></i> Top Carriers
+                                        <i class="fas fa-plane mr-1 text-primary"></i> <?= __('demand.page.topCarriers') ?>
                                     </span>
                                 </div>
                                 <div class="card-body p-2">
@@ -1205,12 +1206,12 @@ include("load/config.php");
 <!-- Floating Phase Filter Panel -->
 <div class="phase-filter-floating" id="phase-filter-floating">
     <div class="panel-header">
-        <span class="panel-title"><i class="fas fa-filter mr-1"></i> Flight Status</span>
+        <span class="panel-title"><i class="fas fa-filter mr-1"></i> <?= __('demand.page.flightStatus') ?></span>
         <div class="panel-controls">
-            <button type="button" class="panel-btn" id="phase-filter-collapse-btn" title="Collapse">
+            <button type="button" class="panel-btn" id="phase-filter-collapse-btn" title="<?= __('demand.page.collapse') ?>">
                 <i class="fas fa-minus"></i>
             </button>
-            <button type="button" class="panel-btn" id="phase-filter-close-btn" title="Close (return to sidebar)">
+            <button type="button" class="panel-btn" id="phase-filter-close-btn" title="<?= __('demand.page.close') ?>">
                 <i class="fas fa-times"></i>
             </button>
         </div>

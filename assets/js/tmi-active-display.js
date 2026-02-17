@@ -79,16 +79,16 @@
     const getALL_TRACONS = () => _FH() ? _FH().ALL_TRACONS : [];
 
     const ENTRY_TYPES = [
-        { code: 'ALL', label: 'All Types' },
-        { code: 'MIT', label: 'Miles-In-Trail' },
-        { code: 'MINIT', label: 'Minutes-In-Trail' },
-        { code: 'STOP', label: 'Ground Stop' },
-        { code: 'APREQ', label: 'APREQ/CFR' },
-        { code: 'TBM', label: 'Time-Based Metering' },
-        { code: 'CONFIG', label: 'Configuration' },
-        { code: 'DELAY', label: 'Delay Advisory' },
-        { code: 'GDP', label: 'Ground Delay Program' },
-        { code: 'REROUTE', label: 'Reroute' },
+        { code: 'ALL', label: PERTII18n.t('tmiActive.entryType.all') },
+        { code: 'MIT', label: PERTII18n.t('tmiActive.entryType.mit') },
+        { code: 'MINIT', label: PERTII18n.t('tmiActive.entryType.minit') },
+        { code: 'STOP', label: PERTII18n.t('tmiActive.entryType.stop') },
+        { code: 'APREQ', label: PERTII18n.t('tmiActive.entryType.apreq') },
+        { code: 'TBM', label: PERTII18n.t('tmiActive.entryType.tbm') },
+        { code: 'CONFIG', label: PERTII18n.t('tmiActive.entryType.config') },
+        { code: 'DELAY', label: PERTII18n.t('tmiActive.entryType.delay') },
+        { code: 'GDP', label: PERTII18n.t('tmiActive.entryType.gdp') },
+        { code: 'REROUTE', label: PERTII18n.t('tmiActive.entryType.reroute') },
     ];
 
     // ===========================================
@@ -162,14 +162,14 @@
         let optionsHtml = '';
 
         // Quick-select groups (special prefix for identification)
-        optionsHtml += '<optgroup label="Quick Select">';
+        optionsHtml += '<optgroup label="' + PERTII18n.t('tmiActive.optgroup.quickSelect') + '">';
         Object.entries(FACILITY_GROUPS).forEach(([key, group]) => {
             optionsHtml += `<option value="GROUP:${key}" data-group="${key}">${group.name}</option>`;
         });
         optionsHtml += '</optgroup>';
 
         // DCC Regions
-        optionsHtml += '<optgroup label="DCC Regions">';
+        optionsHtml += '<optgroup label="' + PERTII18n.t('tmiActive.optgroup.dccRegions') + '">';
         Object.entries(DCC_REGIONS).forEach(([key, region]) => {
             optionsHtml += `<option value="REGION:${key}" data-region="${key}" style="color: ${region.color}">${region.name}</option>`;
         });
@@ -179,7 +179,7 @@
         Object.entries(DCC_REGIONS).forEach(([regionKey, region]) => {
             const artccsInRegion = region.artccs.filter(a => ARTCCS.includes(a));
             if (artccsInRegion.length > 0) {
-                optionsHtml += `<optgroup label="ARTCCs - ${region.name}" data-region="${regionKey}">`;
+                optionsHtml += `<optgroup label="${PERTII18n.t('tmiActive.optgroup.artccsRegion', { region: region.name })}" data-region="${regionKey}">`;
                 artccsInRegion.forEach(artcc => {
                     optionsHtml += `<option value="${artcc}" data-artcc-region="${regionKey}" style="color: ${region.color}">${artcc}</option>`;
                 });
@@ -190,7 +190,7 @@
         // ARTCCs not in any region
         const otherArtccs = ARTCCS.filter(a => !ARTCC_TO_REGION[a]);
         if (otherArtccs.length > 0) {
-            optionsHtml += '<optgroup label="ARTCCs - Other">';
+            optionsHtml += '<optgroup label="' + PERTII18n.t('tmiActive.optgroup.artccsOther') + '">';
             otherArtccs.forEach(artcc => {
                 optionsHtml += `<option value="${artcc}">${artcc}</option>`;
             });
@@ -204,7 +204,7 @@
             (FACILITY_HIERARCHY[t] && FACILITY_HIERARCHY[t].length >= 3),
         );
         if (commonTracons.length > 0) {
-            optionsHtml += '<optgroup label="Major TRACONs">';
+            optionsHtml += '<optgroup label="' + PERTII18n.t('tmiActive.optgroup.majorTracons') + '">';
             commonTracons.slice(0, 50).forEach(tracon => {
                 const parentArtcc = TRACON_TO_ARTCC[tracon] || '';
                 const region = ARTCC_TO_REGION[parentArtcc];
@@ -220,7 +220,7 @@
 
         // Initialize Select2 with multi-select
         const select2Config = {
-            placeholder: 'All Facilities',
+            placeholder: PERTII18n.t('tmiActive.placeholder.allFacilities'),
             allowClear: true,
             width: '100%',
             closeOnSelect: false,
@@ -243,12 +243,12 @@
                 width: '100%',
                 closeOnSelect: false,
             };
-            $('#filterType').select2({...simpleSelect2Config, placeholder: 'All Types'});
-            $('#filterStatus').select2({...simpleSelect2Config, placeholder: 'All Status'});
+            $('#filterType').select2({...simpleSelect2Config, placeholder: PERTII18n.t('tmiActive.placeholder.allTypes')});
+            $('#filterStatus').select2({...simpleSelect2Config, placeholder: PERTII18n.t('tmiActive.placeholder.allStatus')});
 
             // Initialize Source filter with Select2 (single-select)
             $('#filterSource').select2({
-                placeholder: 'All Sources',
+                placeholder: PERTII18n.t('tmiActive.placeholder.allSources'),
                 allowClear: false,
                 width: '100%',
                 minimumResultsForSearch: Infinity, // Hide search box for simple dropdown
@@ -529,24 +529,24 @@
         );
 
         Swal.fire({
-            title: `Cancel ${selected.length} TMI${selected.length > 1 ? 's' : ''}?`,
-            html: `<p>You are about to cancel <strong>${selected.length}</strong> TMI entr${selected.length > 1 ? 'ies' : 'y'}.</p>
-                   <p class="text-danger">This action cannot be undone.</p>
+            title: PERTII18n.t('tmiActive.batchCancel.title', { count: selected.length }),
+            html: `<p>${PERTII18n.t('tmiActive.batchCancel.text', { count: selected.length })}</p>
+                   <p class="text-danger">${PERTII18n.t('tmiActive.batchCancel.cannotUndo')}</p>
                    ${supportsAdvisory ? `
                    <hr class="my-3">
                    <div class="form-check text-left">
                        <input type="checkbox" class="form-check-input" id="postCancelAdvisory" checked>
                        <label class="form-check-label" for="postCancelAdvisory">
-                           <strong>Post Cancellation Advisories</strong><br>
-                           <small class="text-muted">Auto-generates GS CNX, GDP CNX, Reroute Cancellation, or Hotline Termination advisories</small>
+                           <strong>${PERTII18n.t('tmiActive.batchCancel.postCancelAdvisories')}</strong><br>
+                           <small class="text-muted">${PERTII18n.t('tmiActive.batchCancel.postCancelDesc')}</small>
                        </label>
                    </div>
                    ` : ''}`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: '<i class="fas fa-times-circle"></i> Cancel All Selected',
-            cancelButtonText: 'Nevermind',
+            confirmButtonText: '<i class="fas fa-times-circle"></i> ' + PERTII18n.t('tmiActive.batchCancel.confirmBtn'),
+            cancelButtonText: PERTII18n.t('tmiActive.batchCancel.nevermind'),
             preConfirm: () => {
                 return {
                     postAdvisory: supportsAdvisory && document.getElementById('postCancelAdvisory')?.checked,
@@ -578,13 +578,13 @@
             ">
                 <div style="display: flex; align-items: center; margin-bottom: 10px;">
                     <i class="fas fa-spinner fa-spin text-primary mr-2"></i>
-                    <strong>Batch Cancel</strong>
+                    <strong>${PERTII18n.t('tmiActive.batchCancel.progressTitle')}</strong>
                     <small class="ml-auto text-muted" id="${progressId}_count">0 / ${items.length}</small>
                 </div>
                 <div class="progress" style="height: 6px;">
                     <div id="${progressId}_bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
                 </div>
-                <small class="text-muted d-block mt-2" id="${progressId}_status">Starting...</small>
+                <small class="text-muted d-block mt-2" id="${progressId}_status">${PERTII18n.t('tmiActive.batchCancel.starting')}</small>
             </div>
         `;
         $('body').append(progressHtml);
@@ -601,7 +601,7 @@
             const pct = Math.round(((index + 1) / items.length) * 100);
             $(`#${progressId}_count`).text(`${index + 1} / ${items.length}`);
             $(`#${progressId}_bar`).css('width', pct + '%');
-            $(`#${progressId}_status`).text(`Cancelling item ${index + 1}...`);
+            $(`#${progressId}_status`).text(PERTII18n.t('tmiActive.batchCancel.cancellingItem', { index: index + 1 }));
         };
 
         const processNext = (index) => {
@@ -661,9 +661,9 @@
 
     function showBatchResult(successes, failures, advisoriesPosted = 0) {
         if (failures.length === 0) {
-            let message = `Cancelled ${successes} TMI${successes > 1 ? 's' : ''}.`;
+            let message = PERTII18n.t('tmiActive.batchCancel.cancelled', { count: successes });
             if (advisoriesPosted > 0) {
-                message += ` Posted ${advisoriesPosted} advisor${advisoriesPosted > 1 ? 'ies' : 'y'}.`;
+                message += ' ' + PERTII18n.t('tmiActive.batchCancel.postedAdvisories', { count: advisoriesPosted });
             }
             // Use toast for success (non-blocking)
             Swal.fire({
@@ -680,9 +680,9 @@
             const failureHtml = failures.map(f => `<li>#${f.id}: ${f.error}</li>`).join('');
             Swal.fire({
                 icon: 'warning',
-                title: 'Batch Cancel Partial',
-                html: `<p>Cancelled ${successes} TMI${successes > 1 ? 's' : ''}.</p>
-                       <p class="text-danger">Failed to cancel ${failures.length}:</p>
+                title: PERTII18n.t('tmiActive.batchCancel.partial'),
+                html: `<p>${PERTII18n.t('tmiActive.batchCancel.cancelled', { count: successes })}</p>
+                       <p class="text-danger">${PERTII18n.t('tmiActive.batchCancel.failedToCancel', { count: failures.length })}</p>
                        <ul class="text-left small">${failureHtml}</ul>`,
             });
         }
@@ -717,22 +717,22 @@
         const supportsAdvisory = true;
 
         Swal.fire({
-            title: `Cancel ${selected.length} Advisory${selected.length > 1 ? 's' : ''}?`,
-            html: `<p>You are about to cancel <strong>${selected.length}</strong> advisor${selected.length > 1 ? 'ies' : 'y'}.</p>
-                   <p class="text-danger">This action cannot be undone.</p>
+            title: PERTII18n.t('tmiActive.advisoryBatchCancel.title', { count: selected.length }),
+            html: `<p>${PERTII18n.t('tmiActive.advisoryBatchCancel.text', { count: selected.length })}</p>
+                   <p class="text-danger">${PERTII18n.t('tmiActive.batchCancel.cannotUndo')}</p>
                    <hr class="my-3">
                    <div class="form-check text-left">
                        <input type="checkbox" class="form-check-input" id="postCancelAdvisoryBatch" checked>
                        <label class="form-check-label" for="postCancelAdvisoryBatch">
-                           <strong>Post Cancellation Advisories</strong><br>
-                           <small class="text-muted">Auto-generates cancellation advisories for reroutes and hotlines</small>
+                           <strong>${PERTII18n.t('tmiActive.batchCancel.postCancelAdvisories')}</strong><br>
+                           <small class="text-muted">${PERTII18n.t('tmiActive.advisoryBatchCancel.postCancelDesc')}</small>
                        </label>
                    </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: '<i class="fas fa-times-circle"></i> Cancel All Selected',
-            cancelButtonText: 'Nevermind',
+            confirmButtonText: '<i class="fas fa-times-circle"></i> ' + PERTII18n.t('tmiActive.batchCancel.confirmBtn'),
+            cancelButtonText: PERTII18n.t('tmiActive.batchCancel.nevermind'),
             preConfirm: () => {
                 return {
                     postAdvisory: document.getElementById('postCancelAdvisoryBatch')?.checked,
@@ -757,7 +757,7 @@
             <tr>
                 <td colspan="5" class="text-center py-4">
                     <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-                    <div class="small text-muted mt-2">Loading restrictions...</div>
+                    <div class="small text-muted mt-2">${PERTII18n.t('tmiActive.loading.restrictions')}</div>
                 </td>
             </tr>
         `);
@@ -765,7 +765,7 @@
         $('#advisoriesContainer').html(`
             <div class="text-center py-4">
                 <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-                <div class="small text-muted mt-2">Loading advisories...</div>
+                <div class="small text-muted mt-2">${PERTII18n.t('tmiActive.loading.advisories')}</div>
             </div>
         `);
 
@@ -794,12 +794,12 @@
                     renderDisplay();
                     updateLastRefreshTime();
                 } else {
-                    showError('Failed to load TMIs: ' + (response.error || 'Unknown error'));
+                    showError(PERTII18n.t('tmiActive.failedToLoadTmis', { error: response.error || PERTII18n.t('common.unknownError') }));
                 }
             },
             error: function(xhr, status, error) {
                 console.error('[TMI-Active] API error:', error);
-                showError('Connection error. Database may not be configured.');
+                showError(PERTII18n.t('tmiActive.connectionError'));
             },
         });
     }
@@ -884,7 +884,7 @@
                 <tr>
                     <td colspan="7" class="text-center py-4 text-muted">
                         <i class="fas fa-check-circle fa-2x mb-2"></i>
-                        <div>No active restrictions</div>
+                        <div>${PERTII18n.t('tmiActive.noActiveRestrictions')}</div>
                     </td>
                 </tr>
             `);
@@ -1215,8 +1215,8 @@
 
         // For reroutes, use advisoryText; for advisories use bodyText/rawText
         const bodyText = isReroute
-            ? (item.advisoryText || item.routeString || 'No route details available.')
-            : (item.bodyText || item.rawText || 'No details available.');
+            ? (item.advisoryText || item.routeString || PERTII18n.t('tmiActive.noRouteDetails'))
+            : (item.bodyText || item.rawText || PERTII18n.t('tmiActive.noDetails'));
 
         // Build the header label
         const headerLabel = isReroute
@@ -1602,10 +1602,10 @@
             width: 650,
             showCancelButton: isActive,
             showDenyButton: isActive && editUrl,
-            confirmButtonText: 'Close',
-            denyButtonText: '<i class="fas fa-edit"></i> Edit',
+            confirmButtonText: PERTII18n.t('common.close'),
+            denyButtonText: '<i class="fas fa-edit"></i> ' + PERTII18n.t('common.edit'),
             denyButtonColor: '#007bff',
-            cancelButtonText: '<i class="fas fa-times"></i> Cancel',
+            cancelButtonText: '<i class="fas fa-times"></i> ' + PERTII18n.t('common.cancel'),
             cancelButtonColor: '#dc3545',
         }).then((result) => {
             if (result.isDenied && editUrl) {
@@ -1635,18 +1635,18 @@
 
         // Default cancellation dialog for other TMI types
         Swal.fire({
-            title: 'Cancel TMI?',
-            html: `<p>Are you sure you want to cancel this TMI?</p>
+            title: PERTII18n.t('tmiActive.cancel.title'),
+            html: `<p>${PERTII18n.t('tmiActive.cancel.text')}</p>
                    <div class="form-group">
-                       <label class="small">Cancel Reason (optional):</label>
-                       <input type="text" id="cancelReason" class="form-control" placeholder="e.g., Weather improved">
+                       <label class="small">${PERTII18n.t('tmiActive.cancel.reasonLabel')}</label>
+                       <input type="text" id="cancelReason" class="form-control" placeholder="${PERTII18n.t('tmiActive.cancel.reasonPlaceholder')}">
                    </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Yes, Cancel TMI',
+            confirmButtonText: PERTII18n.t('tmiActive.cancel.confirmBtn'),
             preConfirm: () => {
-                return document.getElementById('cancelReason').value || 'Cancelled via TMI Publisher';
+                return document.getElementById('cancelReason').value || PERTII18n.t('tmiActive.cancel.defaultReason');
             },
         }).then((result) => {
             if (result.isConfirmed) {
@@ -1657,7 +1657,7 @@
 
     function performCancel(id, type, reason, subtype) {
         Swal.fire({
-            title: 'Cancelling...',
+            title: PERTII18n.t('tmiActive.cancel.cancelling'),
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
         });
@@ -1687,8 +1687,8 @@
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'TMI Cancelled',
-                        text: response.message || 'The TMI has been cancelled successfully.',
+                        title: PERTII18n.t('tmiActive.cancel.cancelled'),
+                        text: response.message || PERTII18n.t('tmiActive.cancel.cancelledText'),
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -1698,8 +1698,8 @@
                 } else {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Cancel Failed',
-                        text: response.error || 'Unknown error',
+                        title: PERTII18n.t('tmiActive.cancel.failed'),
+                        text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             },
@@ -1707,8 +1707,8 @@
                 Swal.close();
                 Swal.fire({
                     icon: 'error',
-                    title: 'Cancel Failed',
-                    text: 'Failed to connect to server: ' + error,
+                    title: PERTII18n.t('tmiActive.cancel.failed'),
+                    text: PERTII18n.t('tmiActive.cancel.serverError', { error: error }),
                 });
             },
         });
@@ -1741,7 +1741,7 @@
         const item = allItems.find(i => i.entityId === id && i.entityType === 'ENTRY');
 
         if (!item) {
-            Swal.fire('Error', 'Could not find TMI entry data', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiActive.edit.notFound'), 'error');
             return;
         }
 
@@ -1756,7 +1756,7 @@
         const showValueField = ['MIT', 'MINIT'].includes(entryType);
 
         Swal.fire({
-            title: '<i class="fas fa-edit text-primary"></i> Edit TMI Entry',
+            title: '<i class="fas fa-edit text-primary"></i> ' + PERTII18n.t('tmiActive.edit.tmiEntry'),
             html: `
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
@@ -1878,7 +1878,7 @@
         const item = allItems.find(i => i.entityId === id);
 
         if (!item) {
-            Swal.fire('Error', 'Could not find advisory data', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiActive.edit.advisoryNotFound'), 'error');
             return;
         }
 
@@ -1917,7 +1917,7 @@
         }
 
         Swal.fire({
-            title: `<i class="fas fa-edit text-primary"></i> Edit ${advType === 'HOTLINE' ? 'Hotline' : advType === 'OPS_PLAN' || advType === 'OPSPLAN' ? 'Ops Plan' : 'Advisory'}`,
+            title: `<i class="fas fa-edit text-primary"></i> ${advType === 'HOTLINE' ? PERTII18n.t('tmiActive.edit.hotline') : advType === 'OPS_PLAN' || advType === 'OPSPLAN' ? PERTII18n.t('tmiActive.edit.opsPlan') : PERTII18n.t('tmiActive.edit.advisory')}`,
             html: `
                 <div class="text-left" style="max-height: 65vh; overflow-y: auto;">
                     <div class="row mb-2">
@@ -2265,7 +2265,7 @@
         const item = allItems.find(i => i.entityId === id);
 
         if (!item) {
-            Swal.fire('Error', 'Could not find program data', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiActive.edit.programNotFound'), 'error');
             return;
         }
 
@@ -2279,7 +2279,7 @@
         const isGDP = programType.includes('GDP');
 
         Swal.fire({
-            title: `<i class="fas fa-edit text-primary"></i> Edit ${programType === 'GS' ? 'Ground Stop' : 'GDP'}`,
+            title: `<i class="fas fa-edit text-primary"></i> ${programType === 'GS' ? PERTII18n.t('tmiActive.edit.groundStop') : PERTII18n.t('tmiActive.edit.gdp')}`,
             html: `
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
@@ -2372,7 +2372,7 @@
         const item = allItems.find(i => i.entityId === id);
 
         if (!item) {
-            Swal.fire('Error', 'Could not find reroute data', 'error');
+            Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('tmiActive.edit.rerouteNotFound'), 'error');
             return;
         }
 
@@ -2383,7 +2383,7 @@
         };
 
         Swal.fire({
-            title: '<i class="fas fa-edit text-primary"></i> Edit Reroute',
+            title: '<i class="fas fa-edit text-primary"></i> ' + PERTII18n.t('tmiActive.edit.reroute'),
             html: `
                 <div class="text-left" style="max-height: 60vh; overflow-y: auto;">
                     <div class="row mb-2">
@@ -2473,7 +2473,7 @@
 
     function performEdit(id, type, data) {
         Swal.fire({
-            title: 'Saving...',
+            title: PERTII18n.t('tmiActive.save.saving'),
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
         });
@@ -2501,8 +2501,8 @@
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Changes Saved',
-                        text: response.message || 'The TMI has been updated successfully.',
+                        title: PERTII18n.t('tmiActive.save.saved'),
+                        text: response.message || PERTII18n.t('tmiActive.save.savedText'),
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -2512,8 +2512,8 @@
                 } else {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Update Failed',
-                        text: response.error || 'Unknown error',
+                        title: PERTII18n.t('tmiActive.save.failed'),
+                        text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
             },
@@ -2521,8 +2521,8 @@
                 Swal.close();
                 Swal.fire({
                     icon: 'error',
-                    title: 'Update Failed',
-                    text: 'Failed to connect to server: ' + error,
+                    title: PERTII18n.t('tmiActive.save.failed'),
+                    text: PERTII18n.t('tmiActive.save.serverError', { error: error }),
                 });
             },
         });

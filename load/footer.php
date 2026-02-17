@@ -76,11 +76,11 @@
 <footer class="cs-footer">
     <div class="container-fluid bg-dark pt-5 pb-3">
 
-        <p class="font-size-sm text-center"><span class="text-light opacity-50">Copyright © <?php echo date('Y'); ?> vATCSCC - All Rights Reserved.</span></p>
-        <p class="font-size-sm text-center"><span class="text-light opacity-50">For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network.</span></p>
+        <p class="font-size-sm text-center"><span class="text-light opacity-50"><?= __('footer.copyright', ['year' => date('Y')]) ?></span></p>
+        <p class="font-size-sm text-center"><span class="text-light opacity-50"><?= __('footer.disclaimer') ?></span></p>
 
         <p class="font-size-sm text-center mb-n2">
-            <a href="<?php echo "https://" . SITE_DOMAIN; ?>/privacy" target="_blank" class="text-light opacity-50">Privacy Policy</a>
+            <a href="<?php echo "https://" . SITE_DOMAIN; ?>/privacy" target="_blank" class="text-light opacity-50"><?= __('footer.privacyPolicy') ?></a>
             &nbsp; <i class="fas fa-angle-right text-light opacity-50"></i>&nbsp;
             <a href="https://vatsim.net/"  target="_blank" class="text-light opacity-50">VATSIM</a>
             &nbsp; <i class="fas fa-angle-right text-light opacity-50"></i>&nbsp;
