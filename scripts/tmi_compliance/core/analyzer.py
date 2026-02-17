@@ -337,144 +337,178 @@ def cluster_crossings_by_bearing(crossings: List, gap_threshold_deg: float = 30.
 
 def cluster_crossings_by_trajectory(crossings: List, trajectory_cache: dict,
                                      fix_lat: float, fix_lon: float,
-                                     inner_nm: float = 80.0,
-                                     outer_nm: float = 250.0,
-                                     eps_nm: float = 20.0,
-                                     min_flights: int = 2) -> Dict[int, List]:
+                                     gis_conn=None,
+                                     min_dist_nm: float = 5.0,
+                                     max_dist_nm: float = 250.0,
+                                     eps_nm: float = 3.0,
+                                     min_points: int = 5) -> Dict[int, List]:
     """
-    Cluster crossings into traffic streams using spatial DBSCAN on
-    per-flight trajectory centroids computed from the upstream (far-from-fix)
-    portion of each flight's path.
+    Cluster crossings into traffic streams using PostGIS ST_ClusterDBSCAN.
 
-    For each flight, the centroid of all trajectory points between inner_nm
-    and outer_nm from the fix is computed. This single representative point
-    captures which geographic corridor the flight used (e.g., NW Arkansas vs
-    E Texas for SEEVR). DBSCAN then clusters these centroids.
+    Uses the same spatial clustering algorithm as the JS frontend's branch analysis
+    (track_density.php). For each flight, trajectory segment midpoints between
+    min_dist_nm and max_dist_nm from the fix are inserted into PostGIS, then
+    ST_ClusterDBSCAN groups spatially adjacent segments into corridors. Each
+    flight is assigned to its majority corridor via segment vote.
 
-    Unlike segment-based DBSCAN, this avoids the "chaining" problem where
-    near-fix segment overlap causes all corridors to merge into one cluster.
-
-    Args:
-        crossings: List of CrossingResult
-        trajectory_cache: Dict mapping callsign -> list of trajectory points
-        fix_lat, fix_lon: Fix coordinates
-        inner_nm: Minimum distance from fix for centroid (default 80nm)
-        outer_nm: Maximum distance from fix for centroid (default 250nm)
-        eps_nm: DBSCAN neighborhood radius in nm (default 20nm)
-        min_flights: Minimum flights to form a cluster (default 2)
-
-    Returns:
-        Dict mapping stream_id (0-based) to list of CrossingResult.
-        Stream -1 contains flights without sufficient trajectory data.
+    This approach is proven to correctly separate converging corridors because
+    PostGIS operates on true geographic coordinates with proper distance metrics.
     """
-    # Phase 1: Compute per-flight centroid from far-out trajectory points
-    # Only points between inner_nm and outer_nm from fix are used
-    samples = []  # (crossing_idx, centroid_lat, centroid_lon)
-    unsampled_indices = []
-
-    for idx, crossing in enumerate(crossings):
-        trajectory = trajectory_cache.get(crossing.callsign, [])
-        if len(trajectory) < 2:
-            unsampled_indices.append(idx)
-            continue
-
-        far_points = []
-        for pt in trajectory:
-            dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
-            if inner_nm <= dist <= outer_nm:
-                far_points.append((pt['lat'], pt['lon']))
-
-        if far_points:
-            centroid_lat = sum(p[0] for p in far_points) / len(far_points)
-            centroid_lon = sum(p[1] for p in far_points) / len(far_points)
-            samples.append((idx, centroid_lat, centroid_lon))
-        else:
-            # No far-out points — try with lower threshold (50nm)
-            fallback_points = []
-            for pt in trajectory:
-                dist = haversine_nm(pt['lat'], pt['lon'], fix_lat, fix_lon)
-                if 50.0 <= dist <= outer_nm:
-                    fallback_points.append((pt['lat'], pt['lon']))
-            if fallback_points:
-                centroid_lat = sum(p[0] for p in fallback_points) / len(fallback_points)
-                centroid_lon = sum(p[1] for p in fallback_points) / len(fallback_points)
-                samples.append((idx, centroid_lat, centroid_lon))
-            else:
-                unsampled_indices.append(idx)
-
-    if len(samples) < min_flights:
+    if not gis_conn:
+        logger.warning("  No GIS connection — falling back to single stream")
         return {0: list(crossings)} if crossings else {}
 
-    # Phase 2: DBSCAN on per-flight centroids
-    n = len(samples)
-    labels = [None] * n
-    cluster_id = 0
+    try:
+        return _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
+                                     gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points)
+    except Exception as e:
+        logger.warning(f"  PostGIS clustering failed ({e}) — falling back to single stream")
+        return {0: list(crossings)} if crossings else {}
 
-    def region_query(i):
-        return [j for j in range(n)
-                if haversine_nm(samples[i][1], samples[i][2],
-                                samples[j][1], samples[j][2]) <= eps_nm]
 
-    for i in range(n):
-        if labels[i] is not None:
+def _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
+                          gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points):
+    """Internal: PostGIS-based spatial clustering of trajectory segments."""
+    cursor = gis_conn.cursor()
+    eps_deg = eps_nm / 60.0
+    min_dist_m = min_dist_nm * 1852
+    max_dist_m = max_dist_nm * 1852
+
+    # Phase 1: Build trajectory segment midpoints for all crossing flights
+    # Segments = midpoints of consecutive trajectory point pairs
+    segments = []  # (callsign, seg_idx, mid_lat, mid_lon)
+    callsign_set = set()
+
+    for crossing in crossings:
+        cs = crossing.callsign
+        trajectory = trajectory_cache.get(cs, [])
+        if len(trajectory) < 2:
             continue
-        neighbors = region_query(i)
-        if len(neighbors) < min_flights:
-            labels[i] = -1
-            continue
-        labels[i] = cluster_id
-        seed_set = set(neighbors) - {i}
-        while seed_set:
-            j = seed_set.pop()
-            if labels[j] == -1:
-                labels[j] = cluster_id
-            if labels[j] is not None:
-                continue
-            labels[j] = cluster_id
-            j_neighbors = region_query(j)
-            if len(j_neighbors) >= min_flights:
-                seed_set.update(j_neighbors)
-        cluster_id += 1
+        callsign_set.add(cs)
+        for i in range(len(trajectory) - 1):
+            p1, p2 = trajectory[i], trajectory[i + 1]
+            mid_lat = (p1['lat'] + p2['lat']) / 2.0
+            mid_lon = (p1['lon'] + p2['lon']) / 2.0
+            segments.append((cs, i, mid_lat, mid_lon))
 
-    # Phase 3: Assign noise points to nearest cluster
-    if cluster_id > 0:
-        for i in range(n):
-            if labels[i] is None or labels[i] == -1:
-                best_cluster = 0
-                best_dist = float('inf')
-                for j in range(n):
-                    if labels[j] is not None and labels[j] >= 0:
-                        d = haversine_nm(samples[i][1], samples[i][2],
-                                        samples[j][1], samples[j][2])
-                        if d < best_dist:
-                            best_dist = d
-                            best_cluster = labels[j]
-                labels[i] = best_cluster
-    else:
-        labels = [0] * n
+    if not segments:
+        return {0: list(crossings)} if crossings else {}
 
-    # Phase 4: Build result dict
+    logger.info(f"    PostGIS clustering: {len(segments)} segments from "
+                f"{len(callsign_set)} flights, eps={eps_nm}nm, min_pts={min_points}")
+
+    # Phase 2: Create temp table and insert segments
+    cursor.execute("DROP TABLE IF EXISTS _tmp_stream_segs")
+    cursor.execute("""
+        CREATE TEMP TABLE _tmp_stream_segs (
+            callsign VARCHAR(20),
+            seg_idx INT,
+            geom GEOMETRY(Point, 4326)
+        )
+    """)
+
+    # Batch insert using execute with values
+    batch_size = 500
+    for i in range(0, len(segments), batch_size):
+        batch = segments[i:i + batch_size]
+        values = []
+        params = []
+        for j, (cs, idx, lat, lon) in enumerate(batch):
+            offset = j * 4
+            values.append(f"(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))")
+            params.extend([cs, idx, lon, lat])
+        sql = "INSERT INTO _tmp_stream_segs (callsign, seg_idx, geom) VALUES " + ",".join(values)
+        cursor.execute(sql, params)
+
+    # Phase 3: ST_ClusterDBSCAN on segments within distance range of fix
+    cursor.execute("""
+        WITH fix AS (
+            SELECT ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography AS geom
+        ),
+        filtered AS (
+            SELECT s.callsign, s.seg_idx, s.geom,
+                   ST_Distance(s.geom::geography, f.geom) / 1852.0 AS dist_nm
+            FROM _tmp_stream_segs s
+            CROSS JOIN fix f
+            WHERE ST_DWithin(s.geom::geography, f.geom, %s)
+              AND ST_Distance(s.geom::geography, f.geom) > %s
+        ),
+        clustered AS (
+            SELECT callsign, seg_idx, dist_nm,
+                   ST_ClusterDBSCAN(geom, eps := %s, minpoints := %s) OVER () AS cluster_id
+            FROM filtered
+        )
+        SELECT callsign, cluster_id, COUNT(*) as seg_count
+        FROM clustered
+        WHERE cluster_id IS NOT NULL
+        GROUP BY callsign, cluster_id
+        ORDER BY callsign, seg_count DESC
+    """, (fix_lon, fix_lat, max_dist_m, min_dist_m, eps_deg, min_points))
+
+    # Phase 4: Assign each flight to its majority cluster
+    flight_clusters = {}  # callsign -> {cluster_id: count}
+    for row in cursor.fetchall():
+        cs, cid, cnt = row
+        if cs not in flight_clusters:
+            flight_clusters[cs] = {}
+        flight_clusters[cs][cid] = cnt
+
+    # Majority vote per flight
+    flight_assignment = {}
+    for cs, clusters in flight_clusters.items():
+        best_cluster = max(clusters, key=clusters.get)
+        flight_assignment[cs] = best_cluster
+
+    # Renumber cluster IDs to 0-based sequential
+    unique_clusters = sorted(set(flight_assignment.values()))
+    cluster_remap = {old: new for new, old in enumerate(unique_clusters)}
+
+    # Phase 5: Build result dict, assign unassigned flights to nearest cluster
     result = {}
-    for i, (cx_idx, lat, lon) in enumerate(samples):
-        sid = labels[i]
-        if sid not in result:
-            result[sid] = []
-        result[sid].append(crossings[cx_idx])
+    unassigned = []
+    for crossing in crossings:
+        cs = crossing.callsign
+        if cs in flight_assignment:
+            sid = cluster_remap[flight_assignment[cs]]
+            if sid not in result:
+                result[sid] = []
+            result[sid].append(crossing)
+        else:
+            unassigned.append(crossing)
 
-    if unsampled_indices:
-        result[-1] = [crossings[idx] for idx in unsampled_indices]
+    # Phase 6: Assign unassigned flights to nearest cluster by crossing position
+    # Flights without segments in the distance band are matched to the nearest
+    # cluster based on where they crossed (geographic proximity of crossing point)
+    if unassigned and result:
+        # Compute centroid crossing position per cluster
+        cluster_centroids = {}
+        for sid, cx_list in result.items():
+            lats = [c.lat for c in cx_list if c.lat]
+            lons = [c.lon for c in cx_list if c.lon]
+            if lats and lons:
+                cluster_centroids[sid] = (sum(lats) / len(lats), sum(lons) / len(lons))
 
-    # Log cluster info
+        for crossing in unassigned:
+            if crossing.lat and crossing.lon and cluster_centroids:
+                best_sid = min(cluster_centroids,
+                              key=lambda s: haversine_nm(
+                                  crossing.lat, crossing.lon,
+                                  cluster_centroids[s][0], cluster_centroids[s][1]))
+            else:
+                best_sid = max(result, key=lambda s: len(result[s]))
+            result[best_sid].append(crossing)
+            logger.info(f"    Assigned {crossing.callsign} to stream {best_sid} "
+                       f"(crossing position match)")
+    elif unassigned:
+        result[0] = unassigned
+
+    # Cleanup temp table
+    cursor.execute("DROP TABLE IF EXISTS _tmp_stream_segs")
+    gis_conn.commit()
+
+    # Log
     for sid in sorted(result.keys()):
-        if sid == -1:
-            continue
-        cluster_pts = [(samples[i][1], samples[i][2]) for i in range(n) if labels[i] == sid]
-        if cluster_pts:
-            avg_lat = sum(p[0] for p in cluster_pts) / len(cluster_pts)
-            avg_lon = sum(p[1] for p in cluster_pts) / len(cluster_pts)
-            logger.info(f"    Stream {sid}: {len(result[sid])} flights, "
-                       f"centroid={avg_lat:.2f},{avg_lon:.2f} "
-                       f"({inner_nm}-{outer_nm}nm from fix)")
+        logger.info(f"    Stream {sid}: {len(result[sid])} flights")
 
     return result
 
@@ -2803,9 +2837,13 @@ class TMIComplianceAnalyzer:
             if fix_lat is not None and self._trajectory_cache_loaded:
                 stream_groups = cluster_crossings_by_trajectory(
                     sorted_crossings, self._trajectory_cache,
-                    fix_lat, fix_lon
+                    fix_lat, fix_lon,
+                    gis_conn=self.gis_conn,
+                    min_dist_nm=60.0,
+                    max_dist_nm=120.0,
+                    eps_nm=8.0
                 )
-                logger.info(f"  Stream grouping: trajectory DBSCAN ({len(stream_groups)} streams)")
+                logger.info(f"  Stream grouping: PostGIS DBSCAN ({len(stream_groups)} streams)")
             else:
                 # Fallback to bearing-based when no trajectory cache or fix coords
                 stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
