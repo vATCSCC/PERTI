@@ -39,6 +39,42 @@ def haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.asin(math.sqrt(a))
 
 
+def closest_approach_on_segment(lat1: float, lon1: float, lat2: float, lon2: float,
+                                fix_lat: float, fix_lon: float):
+    """
+    Find the closest approach of the great-circle segment (lat1,lon1)->(lat2,lon2)
+    to the point (fix_lat, fix_lon) using projected interpolation.
+
+    Returns (min_dist_nm, fraction, interp_lat, interp_lon) where:
+    - min_dist_nm: minimum distance from segment to fix
+    - fraction: 0.0-1.0 position along segment of closest approach
+    - interp_lat, interp_lon: interpolated coordinates at closest approach
+
+    For typical trajectory segments (<50nm), uses cos(lat)-corrected linear
+    interpolation which is accurate to within ~0.1nm at mid-latitudes.
+    """
+    d1 = haversine_nm(lat1, lon1, fix_lat, fix_lon)
+    seg_len = haversine_nm(lat1, lon1, lat2, lon2)
+    if seg_len < 0.1:
+        return (d1, 0.0, lat1, lon1)
+
+    cos_lat = math.cos(math.radians((lat1 + lat2) / 2))
+    dlat = lat2 - lat1
+    dlon = (lon2 - lon1) * cos_lat
+    flat = fix_lat - lat1
+    flon = (fix_lon - lon1) * cos_lat
+
+    denom = dlat * dlat + dlon * dlon
+    if denom < 1e-14:
+        return (d1, 0.0, lat1, lon1)
+
+    t = max(0.0, min(1.0, (flat * dlat + flon * dlon) / denom))
+    interp_lat = lat1 + t * (lat2 - lat1)
+    interp_lon = lon1 + t * (lon2 - lon1)
+    min_dist = haversine_nm(interp_lat, interp_lon, fix_lat, fix_lon)
+    return (min_dist, t, interp_lat, interp_lon)
+
+
 def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate initial bearing from point 1 to point 2 in degrees (0-360)"""
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
@@ -987,26 +1023,70 @@ class TMIComplianceAnalyzer:
         logger.info(f"Pre-loading trajectories for {len(callsigns)} flights...")
         logger.info(f"  Trajectory window: {query_start.strftime('%Y-%m-%d %H:%MZ')} to {query_end.strftime('%Y-%m-%d %H:%MZ')}")
 
-        # Load from unified TMI trajectory view (combines high-res TMI + archive)
+        # Load from ALL trajectory sources with priority-based deduplication.
+        # Priority: TMI (full resolution) > Live (not yet archived) > Archive (downsampled)
+        # This ensures the analyzer always uses the highest resolution data available.
         query = self.adl.format_query(f"""
-            SELECT v.callsign, v.flight_uid, v.timestamp_utc,
-                   v.lat, v.lon, v.groundspeed_kts, v.altitude_ft,
-                   p.fp_dept_icao, p.fp_dest_icao,
-                   v.tmi_tier, v.source_table
-            FROM dbo.vw_trajectory_tmi_complete v
-            INNER JOIN dbo.adl_flight_plan p ON v.flight_uid = p.flight_uid
-            WHERE v.timestamp_utc >= %s
-              AND v.timestamp_utc <= %s
-              AND v.callsign IN ({callsign_in})
-            ORDER BY v.callsign, v.timestamp_utc
+            WITH all_trajectory AS (
+                SELECT c.callsign, t.flight_uid, t.timestamp_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       t.tmi_tier, 'TMI' AS source_table,
+                       1 AS source_priority
+                FROM dbo.adl_tmi_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                UNION ALL
+                SELECT c.callsign, t.flight_uid, t.recorded_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       NULL AS tmi_tier, 'LIVE' AS source_table,
+                       2 AS source_priority
+                FROM dbo.adl_flight_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.recorded_utc >= %s AND t.recorded_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                UNION ALL
+                SELECT a.callsign, a.flight_uid, a.timestamp_utc,
+                       a.lat, a.lon, a.groundspeed_kts, a.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       NULL AS tmi_tier, 'ARCHIVE' AS source_table,
+                       3 AS source_priority
+                FROM dbo.adl_trajectory_archive a
+                JOIN dbo.adl_flight_plan p ON a.flight_uid = p.flight_uid
+                WHERE a.timestamp_utc >= %s AND a.timestamp_utc <= %s
+                  AND a.callsign IN ({callsign_in})
+            ),
+            ranked AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY callsign, timestamp_utc
+                    ORDER BY source_priority
+                ) AS rn
+                FROM all_trajectory
+            )
+            SELECT callsign, flight_uid, timestamp_utc,
+                   lat, lon, groundspeed_kts, altitude_ft,
+                   fp_dept_icao, fp_dest_icao,
+                   tmi_tier, source_table
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
+            query_start.strftime('%Y-%m-%d %H:%M:%S'),
+            query_end.strftime('%Y-%m-%d %H:%M:%S'),
+            query_start.strftime('%Y-%m-%d %H:%M:%S'),
+            query_end.strftime('%Y-%m-%d %H:%M:%S'),
             query_start.strftime('%Y-%m-%d %H:%M:%S'),
             query_end.strftime('%Y-%m-%d %H:%M:%S')
         ))
 
-        # Group by callsign and track tier distribution
+        # Group by callsign and track source/tier distribution
         tier_counts = {0: 0, 1: 0, 2: 0, None: 0}
+        source_counts = {'TMI': 0, 'LIVE': 0, 'ARCHIVE': 0}
         for row in cursor.fetchall():
             cs, fuid, ts, lat, lon, gs, alt, dept, dest, tmi_tier, source_table = row
 
@@ -1019,17 +1099,15 @@ class TMIComplianceAnalyzer:
                     'tmi_tier': tmi_tier,
                     'source': source_table
                 }
-                # Count tier distribution (first point per flight)
                 tier_counts[tmi_tier] = tier_counts.get(tmi_tier, 0) + 1
+                source_counts[source_table] = source_counts.get(source_table, 0) + 1
 
             self._trajectory_cache[cs].append({
                 'timestamp': normalize_datetime(ts),
                 'lat': float(lat),
                 'lon': float(lon),
-                # Store RAW groundspeed for validation (0/NULL means no enroute data)
-                # Fallback to 250 only used AFTER validation when calculating spacing
                 'gs': float(gs) if gs else 0,
-                'gs_valid': bool(gs and 100 < gs < 600),  # Flag for validation
+                'gs_valid': bool(gs and 100 < gs < 600),
                 'alt': float(alt) if alt else 0
             })
 
@@ -1038,10 +1116,10 @@ class TMIComplianceAnalyzer:
         tmi_count = tier_counts.get(0, 0) + tier_counts.get(1, 0) + tier_counts.get(2, 0)
         archive_count = tier_counts.get(None, 0)
         logger.info(f"  Cached trajectories for {total} flights")
-        logger.info(f"  Data source priority: TMI T-0 (15s) > T-1 (30s) > T-2 (60s) > Archive")
-        logger.info(f"  Tier distribution: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, Archive={archive_count}")
+        logger.info(f"  Sources: TMI={source_counts.get('TMI', 0)}, Live={source_counts.get('LIVE', 0)}, Archive={source_counts.get('ARCHIVE', 0)}")
+        logger.info(f"  TMI tiers: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, non-TMI={archive_count}")
         if total > 0:
-            logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}/{total} ({archive_count/total*100:.0f}%)")
+            logger.info(f"  Highest-res coverage: {tmi_count + source_counts.get('LIVE', 0)}/{total} flights ({(tmi_count + source_counts.get('LIVE', 0))/total*100:.0f}%)")
 
         # Pre-compute PostGIS boundary crossings for all flights with GIS
         if self.gis_conn and self._trajectory_cache:
@@ -1217,14 +1295,20 @@ class TMIComplianceAnalyzer:
         if tmi.fix:
             # Check: 1) fix in expanded route (space-bounded), 2) arrival fix, 3) STAR named after fix
             # STARs are named {FIX}{version} e.g. DADES2, MAATY5 — flights on these STARs cross the fix
+            # 4) fix in parsed waypoints — catches flights where expanded route is NULL but
+            #    waypoint parser resolved the fix (e.g. via airway/procedure expansion)
             route_filter = f"""AND (
                 p.fp_route_expanded LIKE '% {tmi.fix} %'
                 OR p.fp_route_expanded LIKE '{tmi.fix} %'
                 OR p.fp_route_expanded LIKE '% {tmi.fix}'
                 OR p.afix = '{tmi.fix}'
                 OR p.star_name LIKE '{tmi.fix}%'
+                OR EXISTS (
+                    SELECT 1 FROM dbo.adl_flight_waypoints w
+                    WHERE w.flight_uid = c.flight_uid AND w.fix_name = '{tmi.fix}'
+                )
             )"""
-            logger.info(f"Route filter: flights via {tmi.fix} (route/afix/STAR)")
+            logger.info(f"Route filter: flights via {tmi.fix} (expanded route/afix/STAR/waypoints)")
 
         # Use WIDEST window
         tmi_start = tmi.start_utc
@@ -1269,138 +1353,189 @@ class TMIComplianceAnalyzer:
 
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
                           callsigns: List[str], tmi: TMI) -> List[CrossingResult]:
-        """Detect fix crossings using trajectory data from both live and archive tables"""
-        crossings = []
-        cursor = self.adl_conn.cursor()
+        """
+        Detect fix crossings using trajectory data with segment interpolation.
 
-        # Filter out flights with low-quality trajectory data
+        When the trajectory cache is loaded (normal path), uses full trajectory
+        data without bbox limitations and interpolates between consecutive points
+        to find crossings even when no actual trajectory point falls near the fix.
+
+        This handles the common case of Tier 4 cruise (5-min intervals, ~33nm gaps)
+        where flights cross a fix but have no trajectory point within the bbox.
+
+        Falls back to bbox-filtered SQL queries when cache is not loaded.
+        """
         callsigns = [cs for cs in callsigns if cs not in self._low_quality_flights]
 
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
 
-        # Bounding box filter
-        lat_margin = 0.18  # ~11nm
-        lon_margin = 0.24
+        if self._trajectory_cache_loaded:
+            return self._detect_crossings_interpolated(
+                fix_name, fix_lat, fix_lon, callsigns, tmi_start, tmi_end
+            )
 
+        return self._detect_crossings_bbox(
+            fix_name, fix_lat, fix_lon, callsigns, tmi_start, tmi_end
+        )
+
+    def _detect_crossings_interpolated(self, fix_name: str, fix_lat: float, fix_lon: float,
+                                        callsigns: List[str], tmi_start, tmi_end) -> List[CrossingResult]:
+        """
+        Detect crossings using cached trajectories with segment interpolation.
+
+        For each flight, scans all consecutive trajectory point pairs and computes
+        the closest approach of each segment to the fix. This catches crossings
+        even when trajectory resolution is sparse (Tier 4 = 5 min intervals).
+        """
+        crossings = []
+
+        for callsign in callsigns:
+            trajectory = self._trajectory_cache.get(callsign, [])
+            if len(trajectory) < 2:
+                continue
+
+            metadata = self._trajectory_metadata.get(callsign, {})
+            best_dist = float('inf')
+            best_result = None
+
+            for i in range(len(trajectory) - 1):
+                p1 = trajectory[i]
+                p2 = trajectory[i + 1]
+
+                # Geometry-aware pre-filter: skip segments that can't possibly
+                # pass within CROSSING_RADIUS of the fix. For a segment of length L,
+                # the closest-approach point could be at most L/2 closer than the
+                # nearest endpoint, so skip if min(d1,d2) > L/2 + radius.
+                d1 = haversine_nm(p1['lat'], p1['lon'], fix_lat, fix_lon)
+                d2 = haversine_nm(p2['lat'], p2['lon'], fix_lat, fix_lon)
+                seg_len = haversine_nm(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+                if min(d1, d2) > seg_len / 2.0 + CROSSING_RADIUS_NM:
+                    continue
+
+                min_dist, frac, interp_lat, interp_lon = closest_approach_on_segment(
+                    p1['lat'], p1['lon'], p2['lat'], p2['lon'], fix_lat, fix_lon
+                )
+
+                if min_dist >= best_dist:
+                    continue
+
+                # Interpolate crossing time
+                t1 = p1['timestamp']
+                t2 = p2['timestamp']
+                dt = (t2 - t1).total_seconds()
+                interp_time = t1 + timedelta(seconds=dt * frac)
+
+                if interp_time < tmi_start or interp_time > tmi_end:
+                    continue
+
+                best_dist = min_dist
+                gs1 = p1['gs'] if p1['gs_valid'] else 250
+                gs2 = p2['gs'] if p2['gs_valid'] else 250
+
+                best_result = CrossingResult(
+                    callsign=callsign,
+                    flight_uid=metadata.get('flight_uid', 0),
+                    crossing_time=interp_time,
+                    distance_nm=min_dist,
+                    lat=interp_lat,
+                    lon=interp_lon,
+                    groundspeed=gs1 + frac * (gs2 - gs1),
+                    altitude=p1['alt'] + frac * (p2['alt'] - p1['alt']),
+                    dept=metadata.get('dept', 'UNK'),
+                    dest=metadata.get('dest', 'UNK')
+                )
+
+            if best_result and best_dist <= CROSSING_RADIUS_NM:
+                crossings.append(best_result)
+
+        logger.info(f"  Fix crossings ({fix_name}): {len(crossings)} detected "
+                     f"(segment interpolation, {len(callsigns)} candidates)")
+        return crossings
+
+    def _detect_crossings_bbox(self, fix_name: str, fix_lat: float, fix_lon: float,
+                                callsigns: List[str], tmi_start, tmi_end) -> List[CrossingResult]:
+        """Fallback: detect crossings using bbox-filtered SQL queries (no cache)."""
+        crossings = []
+        cursor = self.adl_conn.cursor()
+        lat_margin = 0.18
+        lon_margin = 0.24
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        # Query TMI trajectory, archive, and live tables with priority-based deduplication
-        # Priority: TMI (15s/30s/60s) > Archive (downsampled) > Live (real-time)
-        # CTE + ROW_NUMBER ensures only the best source per callsign+timestamp is kept
         query = self.adl.format_query(f"""
             WITH trajectory_points AS (
-                -- TMI trajectory table (high-res event data - priority 1)
                 SELECT c.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       1 AS source_priority
+                       p.fp_dept_icao, p.fp_dest_icao, 1 AS source_priority
                 FROM dbo.adl_tmi_trajectory t
-                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.timestamp_utc >= %s
-                  AND t.timestamp_utc <= %s
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
                   AND c.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
-
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
                 UNION ALL
-
-                -- Archive table (older data - priority 2)
+                SELECT c.callsign, t.flight_uid, t.recorded_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao, 2 AS source_priority
+                FROM dbo.adl_flight_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.recorded_utc >= %s AND t.recorded_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
+                UNION ALL
                 SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       2 AS source_priority
+                       p.fp_dept_icao, p.fp_dest_icao, 3 AS source_priority
                 FROM dbo.adl_trajectory_archive t
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.timestamp_utc >= %s
-                  AND t.timestamp_utc <= %s
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
                   AND t.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
-
-                UNION ALL
-
-                -- Live table (recent data - priority 3)
-                SELECT c.callsign, t.flight_uid, t.recorded_utc AS timestamp_utc,
-                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       3 AS source_priority
-                FROM dbo.adl_flight_trajectory t
-                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.recorded_utc >= %s
-                  AND t.recorded_utc <= %s
-                  AND c.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (
-                    PARTITION BY callsign, timestamp_utc
-                    ORDER BY source_priority
-                ) AS rn
-                FROM trajectory_points
+                    PARTITION BY callsign, timestamp_utc ORDER BY source_priority
+                ) AS rn FROM trajectory_points
             )
             SELECT callsign, flight_uid, timestamp_utc, lat, lon,
                    groundspeed_kts, altitude_ft, fp_dept_icao, fp_dest_icao
-            FROM ranked
-            WHERE rn = 1
+            FROM ranked WHERE rn = 1
             ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
-            # TMI trajectory table params
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin,
-            # Archive table params
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin,
-            # Live table params (same values)
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin,
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin,
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin
         ))
-
         positions = cursor.fetchall()
         cursor.close()
-        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (deduplicated, TMI preferred)")
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (bbox fallback)")
 
-        # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
         for pos in positions:
             flight_positions[pos[0]].append(pos)
-        logger.info(f"  Trajectory data for {len(flight_positions)} unique flights")
 
         for callsign, pos_list in flight_positions.items():
             closest_dist = float('inf')
             closest_pos = None
-
             for pos in pos_list:
                 cs, fuid, ts, lat, lon, gs, alt, dept, dest = pos
                 lat, lon = float(lat), float(lon)
-
                 dist = haversine_nm(lat, lon, fix_lat, fix_lon)
-
                 if dist < closest_dist:
                     closest_dist = dist
                     closest_pos = CrossingResult(
-                        callsign=callsign,
-                        flight_uid=fuid,
-                        crossing_time=normalize_datetime(ts),
-                        distance_nm=dist,
-                        lat=lat,
-                        lon=lon,
+                        callsign=callsign, flight_uid=fuid,
+                        crossing_time=normalize_datetime(ts), distance_nm=dist,
+                        lat=lat, lon=lon,
                         groundspeed=float(gs) if gs and 100 < gs < 600 else 250,
                         altitude=float(alt) if alt else 0,
-                        dept=dept or 'UNK',
-                        dest=dest or 'UNK'
+                        dept=dept or 'UNK', dest=dest or 'UNK'
                     )
-
             if closest_pos and closest_dist <= CROSSING_RADIUS_NM:
                 crossings.append(closest_pos)
 
@@ -1788,8 +1923,8 @@ class TMIComplianceAnalyzer:
 
                 # Interpolate GS and altitude
                 # Use raw gs values, but fallback to 250 if invalid (for spacing calculation)
-                prev_gs = prev['gs'] if prev.get('gs_valid', prev['gs'] > 100) else 250
-                curr_gs = curr['gs'] if curr.get('gs_valid', curr['gs'] > 100) else 250
+                prev_gs = prev['gs'] if prev['gs_valid'] else 250
+                curr_gs = curr['gs'] if curr['gs_valid'] else 250
                 crossing_gs = prev_gs + (curr_gs - prev_gs) * seg_frac
                 crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
 
@@ -1797,7 +1932,7 @@ class TMIComplianceAnalyzer:
 
         # Default to last point
         last = trajectory[-1]
-        last_gs = last['gs'] if last.get('gs_valid', last['gs'] > 100) else 250
+        last_gs = last['gs'] if last['gs_valid'] else 250
         return last['timestamp'], last_gs, last['alt']
 
     def _estimate_route_length(self, trajectory: List[dict]) -> float:
