@@ -16,6 +16,7 @@
  * Session state is read by nav_public.php for login display
  */
 include("load/config.php");
+include("load/i18n.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1291,13 +1292,13 @@ include("load/config.php");
             <div class="nod-toolbar-section" id="mapLayerControls">
                 <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('mapLayerControls')">
                     <i class="fas fa-layer-group"></i>
-                    <span>Map Layers</span>
+                    <span><?= __('nod.page.mapLayers') ?></span>
                     <i class="fas fa-caret-down"></i>
                 </button>
                 <div class="nod-toolbar-dropdown">
                     <div class="nod-toolbar-dropdown-content">
                 <!-- Boundaries -->
-                <div class="text-muted small mb-2 mt-1" style="font-size: 10px; text-transform: uppercase;">Boundaries</div>
+                <div class="text-muted small mb-2 mt-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.boundaries') ?></div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-artcc" checked onchange="NOD.toggleLayer('artcc', this.checked)">
                     <span class="nod-layer-color" style="background: #4a9eff;"></span>
@@ -1315,38 +1316,38 @@ include("load/config.php");
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-high" onchange="NOD.toggleLayer('high', this.checked)">
                     <span class="nod-layer-color" style="background: #6f42c1;"></span>
-                    <label for="layer-high">High Sectors</label>
+                    <label for="layer-high"><?= __('nod.page.highSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-high" min="0" max="100" value="50"
                            title="Opacity" onchange="NOD.setLayerOpacity('high', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-low" onchange="NOD.toggleLayer('low', this.checked)">
                     <span class="nod-layer-color" style="background: #20c997;"></span>
-                    <label for="layer-low">Low Sectors</label>
+                    <label for="layer-low"><?= __('nod.page.lowSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-low" min="0" max="100" value="50"
                            title="Opacity" onchange="NOD.setLayerOpacity('low', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-superhigh" onchange="NOD.toggleLayer('superhigh', this.checked)">
                     <span class="nod-layer-color" style="background: #e83e8c;"></span>
-                    <label for="layer-superhigh">Superhigh Sectors</label>
+                    <label for="layer-superhigh"><?= __('nod.page.superhighSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-superhigh" min="0" max="100" value="50"
                            title="Opacity" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
                 </div>
 
                 <!-- Overlays -->
-                <div class="text-muted small mb-2 mt-3" style="font-size: 10px; text-transform: uppercase;">Overlays</div>
+                <div class="text-muted small mb-2 mt-3" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.overlays') ?></div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-traffic" checked onchange="NOD.toggleLayer('traffic', this.checked)">
                     <span class="nod-layer-color" style="background: #fff;"></span>
-                    <label for="layer-traffic">Live Traffic</label>
+                    <label for="layer-traffic"><?= __('nod.page.liveTraffic') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-traffic" min="0" max="100" value="100"
                            title="Opacity" onchange="NOD.setLayerOpacity('traffic', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-demand" onchange="NOD.toggleDemandLayer(this.checked)">
                     <span class="nod-layer-color" style="background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);"></span>
-                    <label for="layer-demand">Traffic Demand</label>
+                    <label for="layer-demand"><?= __('nod.page.trafficDemand') ?></label>
                 </div>
                 <div class="nod-layer-item ml-3" id="demand-add-controls" style="display: none;">
                     <button class="btn btn-sm btn-outline-info py-0 px-1" id="demand-add-fix-btn"
@@ -1366,19 +1367,19 @@ include("load/config.php");
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-public-routes" checked onchange="NOD.toggleLayer('public-routes', this.checked)">
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>
-                    <label for="layer-public-routes">Public Reroutes</label>
+                    <label for="layer-public-routes"><?= __('nod.page.publicReroutes') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-public-routes" min="0" max="100" value="90" 
                            title="Opacity" onchange="NOD.setLayerOpacity('public-routes', this.value/100)">
                 </div>
                 <div class="nod-layer-item ml-3">
                     <input type="checkbox" id="layer-route-labels" checked onchange="NOD.toggleRouteLabels(this.checked)">
                     <span class="nod-layer-color" style="background: transparent; border: 1px solid #666;"><i class="fas fa-tag" style="font-size: 8px; color: #888;"></i></span>
-                    <label for="layer-route-labels">Route Labels</label>
+                    <label for="layer-route-labels"><?= __('nod.page.routeLabels') ?></label>
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-splits" onchange="NOD.toggleLayer('splits', this.checked)">
                     <span class="nod-layer-color" style="background: #fd7e14;"></span>
-                    <label for="layer-splits">Active Splits</label>
+                    <label for="layer-splits"><?= __('nod.page.activeSplits') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-splits" min="0" max="100" value="70" 
                            title="Opacity" onchange="NOD.setLayerOpacity('splits', this.value/100)">
                 </div>
@@ -1397,31 +1398,31 @@ include("load/config.php");
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-incidents" checked onchange="NOD.toggleLayer('incidents', this.checked)">
                     <span class="nod-layer-color" style="background: #dc3545;"></span>
-                    <label for="layer-incidents">JATOC Incidents</label>
+                    <label for="layer-incidents"><?= __('nod.page.jatocIncidents') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-incidents" min="0" max="100" value="80" 
                            title="Opacity" onchange="NOD.setLayerOpacity('incidents', this.value/100)">
                 </div>
                 
                 <!-- Weather -->
-                <div class="text-muted small mb-2 mt-3" style="font-size: 10px; text-transform: uppercase;">Weather</div>
+                <div class="text-muted small mb-2 mt-3" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.weather') ?></div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-radar" onchange="NOD.toggleLayer('radar', this.checked)">
                     <span class="nod-layer-color" style="background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);"></span>
-                    <label for="layer-radar">NEXRAD Radar</label>
+                    <label for="layer-radar"><?= __('nod.page.nexradRadar') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
                            title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div><!-- /nod-layer-item radar -->
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-facility-flows" checked onchange="NOD.toggleLayer('facility-flows', this.checked)">
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>
-                    <label for="layer-facility-flows">Facility Flows</label>
+                    <label for="layer-facility-flows"><?= __('nod.page.facilityFlows') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-facility-flows" min="0" max="100" value="80"
                            title="Opacity" onchange="NOD.setLayerOpacity('facility-flows', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tmi-status" checked onchange="NOD.toggleLayer('tmi-status', this.checked)">
                     <span class="nod-layer-color" style="background: #dc3545;"></span>
-                    <label for="layer-tmi-status">TMI Status</label>
+                    <label for="layer-tmi-status"><?= __('nod.page.tmiStatus') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-tmi-status" min="0" max="100" value="80"
                            title="Opacity" onchange="NOD.setLayerOpacity('tmi-status', this.value/100)">
                 </div>
@@ -1433,7 +1434,7 @@ include("load/config.php");
             <div class="nod-toolbar-section" id="trafficControls">
                 <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('trafficControls')">
                     <i class="fas fa-filter"></i>
-                    <span>Flight Filters</span>
+                    <span><?= __('nod.page.flightFilters') ?></span>
                     <i class="fas fa-caret-down"></i>
                 </button>
                 <div class="nod-toolbar-dropdown" style="min-width: 320px;">
@@ -1442,51 +1443,51 @@ include("load/config.php");
                 <div class="d-flex mb-2 px-2">
                     <div class="custom-control custom-checkbox mr-3">
                         <input type="checkbox" class="custom-control-input" id="traffic-labels" checked onchange="NOD.toggleTrafficLabels(this.checked)">
-                        <label class="custom-control-label small" for="traffic-labels">Labels</label>
+                        <label class="custom-control-label small" for="traffic-labels"><?= __('nod.page.labels') ?></label>
                     </div>
                     <div class="custom-control custom-checkbox">
                         <input type="checkbox" class="custom-control-input" id="traffic-tracks" onchange="NOD.toggleTrafficTracks(this.checked)">
-                        <label class="custom-control-label small" for="traffic-tracks">Tracks</label>
+                        <label class="custom-control-label small" for="traffic-tracks"><?= __('nod.page.tracks') ?></label>
                     </div>
                 </div>
                 
                 <!-- Color By -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">COLOR BY</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.colorBy') ?></label>
                     <select id="nod_color_by" class="form-control form-control-sm bg-dark text-light border-secondary" onchange="NOD.setColorMode(this.value)">
-                        <optgroup label="Aircraft">
-                            <option value="weight_class" selected>Weight Class</option>
-                            <option value="aircraft_category">Aircraft Category</option>
-                            <option value="aircraft_type">Aircraft Type (Manufacturer)</option>
-                            <option value="aircraft_config">Aircraft Configuration</option>
-                            <option value="wake_category">Wake Turbulence Category</option>
+                        <optgroup label="<?= __('nod.page.aircraftType') ?>">
+                            <option value="weight_class" selected><?= __('nod.page.weightClass') ?></option>
+                            <option value="aircraft_category"><?= __('nod.page.aircraftCategory') ?></option>
+                            <option value="aircraft_type"><?= __('nod.page.aircraftTypeManufacturer') ?></option>
+                            <option value="aircraft_config"><?= __('nod.page.aircraftConfiguration') ?></option>
+                            <option value="wake_category"><?= __('nod.page.wakeTurbulenceCategory') ?></option>
                         </optgroup>
-                        <optgroup label="Operator">
-                            <option value="carrier">Carrier</option>
-                            <option value="operator_group">Operator Group</option>
+                        <optgroup label="<?= __('nod.page.carrier') ?>">
+                            <option value="carrier"><?= __('nod.page.carrier') ?></option>
+                            <option value="operator_group"><?= __('nod.page.operatorGroup') ?></option>
                         </optgroup>
                         <optgroup label="Airspace">
-                            <option value="dcc_region">DCC Region</option>
-                            <option value="dep_center">Departure ARTCC</option>
-                            <option value="arr_center">Arrival ARTCC</option>
-                            <option value="dep_tracon">Departure TRACON</option>
-                            <option value="arr_tracon">Arrival TRACON</option>
+                            <option value="dcc_region"><?= __('nod.page.dccRegion') ?></option>
+                            <option value="dep_center"><?= __('nod.page.departureArtcc') ?></option>
+                            <option value="arr_center"><?= __('nod.page.arrivalArtcc') ?></option>
+                            <option value="dep_tracon"><?= __('nod.page.departureTracon') ?></option>
+                            <option value="arr_tracon"><?= __('nod.page.arrivalTracon') ?></option>
                         </optgroup>
                         <optgroup label="Airport">
-                            <option value="dep_airport">Departure Airport Tier</option>
-                            <option value="arr_airport">Arrival Airport Tier</option>
+                            <option value="dep_airport"><?= __('nod.page.departureAirportTier') ?></option>
+                            <option value="arr_airport"><?= __('nod.page.arrivalAirportTier') ?></option>
                         </optgroup>
-                        <optgroup label="Flight Data">
-                            <option value="altitude">Altitude Block</option>
-                            <option value="speed">Speed (±250kts)</option>
-                            <option value="arr_dep">Arrival / Departure</option>
-                            <option value="eta_relative">ETA (Relative)</option>
-                            <option value="eta_hour">ETA (Hour)</option>
-                            <option value="status">Flight Status</option>
+                        <optgroup label="<?= __('nod.page.flightStatus') ?>">
+                            <option value="altitude"><?= __('nod.page.altitudeBlock') ?></option>
+                            <option value="speed"><?= __('nod.page.speed') ?></option>
+                            <option value="arr_dep"><?= __('nod.page.arrivalDeparture') ?></option>
+                            <option value="eta_relative"><?= __('nod.page.etaRelative') ?></option>
+                            <option value="eta_hour"><?= __('nod.page.etaHour') ?></option>
+                            <option value="status"><?= __('nod.page.flightStatus') ?></option>
                         </optgroup>
-                        <optgroup label="Route Matching">
-                            <option value="reroute_match">Public Reroute Match</option>
-                            <option value="fea_match">FEA Match (Demand Monitor)</option>
+                        <optgroup label="<?= __('nod.page.publicRerouteMatch') ?>">
+                            <option value="reroute_match"><?= __('nod.page.publicRerouteMatch') ?></option>
+                            <option value="fea_match"><?= __('nod.page.feaMatch') ?></option>
                         </optgroup>
                     </select>
                 </div>
@@ -1498,7 +1499,7 @@ include("load/config.php");
                 
                 <!-- Weight Class Filter -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">AIRCRAFT TYPE</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.aircraftType') ?></label>
                     <div class="d-flex flex-wrap">
                         <div class="custom-control custom-checkbox mr-2">
                             <input type="checkbox" class="custom-control-input nod-weight-filter" id="nod_wc_super" value="SUPER" checked onchange="NOD.applyFilters()">
@@ -1521,7 +1522,7 @@ include("load/config.php");
                 
                 <!-- Origin / Destination -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">ORIGIN / DESTINATION</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.originDestination') ?></label>
                     <div class="d-flex">
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mr-1" 
                                id="nod_filter_origin" placeholder="Origin" title="ARTCC (ZNY) or Airport (KJFK)" 
@@ -1535,7 +1536,7 @@ include("load/config.php");
                 
                 <!-- Carrier / Altitude -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">CARRIER / ALTITUDE</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.carrierAltitude') ?></label>
                     <div class="d-flex align-items-center">
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mr-2" 
                                id="nod_filter_carrier" placeholder="Carrier" title="e.g., AAL, UAL" style="width: 70px;" 
@@ -1554,8 +1555,8 @@ include("load/config.php");
                 <!-- Stats and Actions -->
                 <div class="d-flex justify-content-between align-items-center pt-2 px-2 border-top border-secondary">
                     <small class="text-muted">
-                        <span id="nod_stats_display"><strong>0</strong> shown</span> / 
-                        <span id="nod_stats_total"><strong>0</strong> total</span>
+                        <span id="nod_stats_display"><strong>0</strong> <?= __('nod.page.shown') ?></span> /
+                        <span id="nod_stats_total"><strong>0</strong> <?= __('nod.page.totalLabel') ?></span>
                     </small>
                     <div>
                         <button class="btn btn-sm btn-outline-info mr-1" onclick="NOD.drawAllFilteredRoutes()" title="Draw routes for all filtered flights">
@@ -1580,14 +1581,14 @@ include("load/config.php");
             <div class="nod-toolbar-section" id="demandControls" style="display: none;">
                 <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('demandControls')">
                     <i class="fas fa-chart-line"></i>
-                    <span>Demand</span>
+                    <span><?= __('nod.page.demand') ?></span>
                     <i class="fas fa-caret-down"></i>
                 </button>
                 <div class="nod-toolbar-dropdown" style="min-width: 320px;">
                     <div class="nod-toolbar-dropdown-content">
                 <!-- Monitor Input -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">ADD MONITOR</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.addMonitor') ?></label>
                     <div class="input-group input-group-sm">
                         <input type="text" class="form-control bg-dark text-light border-secondary"
                                id="demand-monitor-input"
@@ -1612,11 +1613,11 @@ include("load/config.php");
                     <button class="btn btn-sm btn-link text-danger p-0" style="font-size: 10px; display: none;"
                             id="demand-clear-all-btn"
                             onclick="if(confirm('Remove all demand monitors?')) NODDemandLayer.removeAllMonitors()">
-                        Clear All
+                        <?= __('nod.page.clearAll') ?>
                     </button>
                 </div>
                 <div id="demand-monitors-list" class="px-2 mb-2" style="max-height: 100px; overflow-y: auto;">
-                    <div class="text-muted small text-center py-2">No monitors active</div>
+                    <div class="text-muted small text-center py-2"><?= __('nod.page.noMonitorsActive') ?></div>
                 </div>
 
                 <!-- Flight Details Panel (shown when clicking a monitor) -->
@@ -1628,12 +1629,12 @@ include("load/config.php");
 
                 <!-- Threshold Mode -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">MODE</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.mode') ?></label>
                     <div class="btn-group btn-group-sm d-flex">
                         <button class="btn btn-outline-light flex-fill active" data-mode="percentile"
-                                onclick="NODDemandLayer.setThresholdMode('percentile')">Percentile</button>
+                                onclick="NODDemandLayer.setThresholdMode('percentile')"><?= __('nod.page.percentile') ?></button>
                         <button class="btn btn-outline-light flex-fill" data-mode="absolute"
-                                onclick="NODDemandLayer.setThresholdMode('absolute')">Absolute</button>
+                                onclick="NODDemandLayer.setThresholdMode('absolute')"><?= __('nod.page.absolute') ?></button>
                     </div>
                 </div>
 
@@ -1641,7 +1642,7 @@ include("load/config.php");
                 <div id="absolute-threshold-inputs" class="mb-2 px-2" style="display: none;">
                     <div class="d-flex align-items-center mb-1">
                         <span class="nod-layer-color mr-2" style="background: #28a745;"></span>
-                        <span class="small text-muted mr-2" style="width: 50px;">Green:</span>
+                        <span class="small text-muted mr-2" style="width: 50px;"><?= __('nod.page.green') ?></span>
                         <span class="small">0 -</span>
                         <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary mx-1"
                                id="threshold-green" value="5" style="width: 50px;"
@@ -1649,27 +1650,27 @@ include("load/config.php");
                     </div>
                     <div class="d-flex align-items-center mb-1">
                         <span class="nod-layer-color mr-2" style="background: #ffc107;"></span>
-                        <span class="small text-muted mr-2" style="width: 50px;">Yellow:</span>
+                        <span class="small text-muted mr-2" style="width: 50px;"><?= __('nod.page.yellow') ?></span>
                         <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary"
                                id="threshold-yellow" value="10" style="width: 50px;"
                                onchange="NODDemandLayer.setAbsoluteThreshold('yellow', this.value)">
                     </div>
                     <div class="d-flex align-items-center">
                         <span class="nod-layer-color mr-2" style="background: #fd7e14;"></span>
-                        <span class="small text-muted mr-2" style="width: 50px;">Orange:</span>
+                        <span class="small text-muted mr-2" style="width: 50px;"><?= __('nod.page.orange') ?></span>
                         <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary"
                                id="threshold-orange" value="15" style="width: 50px;"
                                onchange="NODDemandLayer.setAbsoluteThreshold('orange', this.value)">
                     </div>
                     <div class="small text-muted mt-1">
                         <span class="nod-layer-color mr-1" style="background: #dc3545; display: inline-block;"></span>
-                        Red: &gt; orange threshold
+                        <?= __('nod.page.redAboveOrange') ?>
                     </div>
                 </div>
 
                 <!-- Percentile Info (shown when mode=percentile) -->
                 <div id="percentile-info" class="mb-2 px-2 small text-muted">
-                    <p class="mb-1">Auto-calculated from data:</p>
+                    <p class="mb-1"><?= __('nod.page.autoCalculated') ?></p>
                     <div class="d-flex justify-content-between" style="font-size: 10px;">
                         <span><span class="nod-layer-color mr-1" style="background: #28a745;"></span>0-50th</span>
                         <span><span class="nod-layer-color mr-1" style="background: #ffc107;"></span>50-75th</span>
@@ -1681,7 +1682,7 @@ include("load/config.php");
 
                 <!-- Horizon Selector -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">PROJECTION HORIZON</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.projectionHorizon') ?></label>
                     <select id="demand-horizon" class="form-control form-control-sm bg-dark text-light border-secondary"
                             onchange="NODDemandLayer.setHorizonHours(parseInt(this.value))">
                         <option value="1">1 hour</option>
@@ -1695,11 +1696,11 @@ include("load/config.php");
 
                 <!-- Time View -->
                 <div class="form-group mb-2 px-2">
-                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">TIME VIEW</label>
+                    <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.timeView') ?></label>
                     <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-2" id="demand-time-now"
                                 onclick="NODDemandLayer.setBucket(null)" title="Show current +60min aggregate">
-                            <i class="fas fa-clock"></i> Now+60m
+                            <i class="fas fa-clock"></i> <?= __('nod.page.nowPlus60m') ?>
                         </button>
                         <span class="small text-light" id="demand-slider-current">Now+60m</span>
                     </div>
@@ -1733,10 +1734,10 @@ include("load/config.php");
         <div class="nod-map-legend" id="mapColorLegend">
             <div class="nod-map-legend-header" id="mapLegendDragHandle">
                 <div>
-                    <span class="nod-map-legend-title">COLOR LEGEND</span>
+                    <span class="nod-map-legend-title"><?= __('nod.page.colorLegend') ?></span>
                     <span class="nod-map-legend-mode" id="mapLegendModeLabel">weight class</span>
                 </div>
-                <button class="nod-map-legend-toggle" onclick="NOD.toggleMapLegend()" title="Hide legend">
+                <button class="nod-map-legend-toggle" onclick="NOD.toggleMapLegend()" title="<?= __('nod.page.hideLegend') ?>">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -1752,18 +1753,18 @@ include("load/config.php");
     <div class="nod-panel" id="nodPanel">
         <!-- Panel Header -->
         <div class="nod-panel-header">
-            <h5><i class="fas fa-tachometer-alt mr-2"></i>NAS OPERATIONS DASHBOARD</h5>
+            <h5><i class="fas fa-tachometer-alt mr-2"></i><?= __('nod.page.nasOpsDashboard') ?></h5>
             <div class="nod-status">
                 <div class="nod-status-item">
-                    <span>TMU OpLevel:</span>
+                    <span><?= __('nod.page.tmuOpLevel') ?></span>
                     <span class="nod-status-badge tmu-none" id="tmuOpsLevelBadge" title="No active event">—</span>
                 </div>
                 <div class="nod-status-item">
-                    <span>JATOC OpLevel:</span>
+                    <span><?= __('nod.page.jatocOpLevel') ?></span>
                     <span class="nod-status-badge ops-1" id="opsLevelBadge">1</span>
                 </div>
                 <div class="nod-status-item">
-                    <span>UPDATED:</span>
+                    <span><?= __('nod.page.updated') ?></span>
                     <span id="lastUpdateTime">--:--</span>
                 </div>
             </div>
@@ -1773,19 +1774,19 @@ include("load/config.php");
         <div class="nod-panel-tabs">
             <div class="nod-panel-tab active" data-tab="tmi" onclick="NOD.switchTab('tmi')">
                 <i class="fas fa-exclamation-triangle"></i>
-                TMIs
+                <?= __('nod.page.tabTmis') ?>
             </div>
             <div class="nod-panel-tab" data-tab="advisories" onclick="NOD.switchTab('advisories')">
                 <i class="fas fa-bullhorn"></i>
-                Advisories
+                <?= __('nod.page.tabAdvisories') ?>
             </div>
             <div class="nod-panel-tab" data-tab="incidents" onclick="NOD.switchTab('incidents')">
                 <i class="fas fa-broadcast-tower"></i>
-                JATOC
+                <?= __('nod.page.tabJatoc') ?>
             </div>
             <div class="nod-panel-tab" data-tab="flows" onclick="NOD.switchTab('flows')">
                 <i class="fas fa-project-diagram"></i>
-                Flows
+                <?= __('nod.page.tabFlows') ?>
             </div>
         </div>
         
@@ -1797,7 +1798,7 @@ include("load/config.php");
                 <!-- Ground Stops Section -->
                 <div class="nod-section" id="section-gs">
                     <div class="nod-section-header" onclick="NOD.toggleSection('gs')">
-                        <span class="nod-section-title"><i class="fas fa-ban mr-2"></i>Ground Stops</span>
+                        <span class="nod-section-title"><i class="fas fa-ban mr-2"></i><?= __('nod.page.groundStops') ?></span>
                         <span class="nod-section-badge" id="gs-count">0</span>
                     </div>
                     <div class="nod-section-body">
@@ -1810,7 +1811,7 @@ include("load/config.php");
                 <!-- GDPs Section -->
                 <div class="nod-section" id="section-gdp">
                     <div class="nod-section-header" onclick="NOD.toggleSection('gdp')">
-                        <span class="nod-section-title"><i class="fas fa-clock mr-2"></i>Ground Delay Programs</span>
+                        <span class="nod-section-title"><i class="fas fa-clock mr-2"></i><?= __('nod.page.groundDelayPrograms') ?></span>
                         <span class="nod-section-badge" id="gdp-count">0</span>
                     </div>
                     <div class="nod-section-body">
@@ -1823,7 +1824,7 @@ include("load/config.php");
                 <!-- Reroutes Section -->
                 <div class="nod-section" id="section-reroutes">
                     <div class="nod-section-header" onclick="NOD.toggleSection('reroutes')">
-                        <span class="nod-section-title"><i class="fas fa-route mr-2"></i>Active Reroutes</span>
+                        <span class="nod-section-title"><i class="fas fa-route mr-2"></i><?= __('nod.page.activeReroutes') ?></span>
                         <span class="nod-section-badge" id="reroutes-count">0</span>
                     </div>
                     <div class="nod-section-body">

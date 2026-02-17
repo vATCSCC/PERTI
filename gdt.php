@@ -1,12 +1,13 @@
 <?php
 include("sessions/handler.php");
 include("load/config.php");
+include("load/i18n.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 
-    <?php $page_title = "vATCSCC Ground Delay Tool"; include("load/header.php"); ?>
+    <?php $page_title = "vATCSCC " . __('gdt.page.title'); include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css">
@@ -413,11 +414,11 @@ include("load/config.php");
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 
         <center>
-            <h1>Ground Delay Tool</h1>
+            <h1><?= __('gdt.page.title') ?></h1>
             <h4 class="text-white hvr-bob pl-1">
                 <a href="#gs_section" style="text-decoration: none; color: #fff;">
                     <i class="fas fa-chevron-down text-danger"></i>
-                    Ground Stop Coordination
+                    <?= __('gdt.page.gsCoordination') ?>
                 </a>
             </h4>
         </center>
@@ -433,7 +434,7 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-utc h-100">
                     <div class="card-body d-flex justify-content-between align-items-center">
                         <div>
-                            <div class="perti-info-label">Current UTC</div>
+                            <div class="perti-info-label"><?= __('gdt.page.currentUtc') ?></div>
                             <div id="tmi_utc_clock" class="perti-clock-display perti-clock-display-lg"></div>
                         </div>
                         <div class="ml-3">
@@ -447,7 +448,7 @@ include("load/config.php");
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-local h-100">
                     <div class="card-body">
-                        <div class="perti-info-label mb-1">US Local Times</div>
+                        <div class="perti-info-label mb-1"><?= __('gdt.page.usLocalTimes') ?></div>
                         <div class="perti-clock-grid">
                             <div class="perti-clock-item">
                                 <div class="perti-clock-tz">GM</div>
@@ -487,7 +488,7 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-global h-100">
                     <div class="card-body">
                         <div class="perti-info-label mb-1">
-                            Global Flights
+                            <?= __('gdt.page.globalFlights') ?>
                             <span id="tmi_stats_global_total" class="badge badge-info badge-total ml-1">-</span>
                         </div>
                         <div class="perti-stat-grid">
@@ -517,13 +518,13 @@ include("load/config.php");
                 <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
                     <div class="card-body">
                         <div class="perti-info-label mb-1">
-                            Domestic Arrivals
+                            <?= __('gdt.page.domesticArrivals') ?>
                             <span id="tmi_stats_domestic_total" class="badge badge-success badge-total ml-1">-</span>
                         </div>
                         <div class="d-flex">
                             <!-- By DCC Region -->
                             <div class="perti-stat-section">
-                                <div class="perti-info-sublabel">DCC Region</div>
+                                <div class="perti-info-sublabel"><?= __('gdt.page.dccRegion') ?></div>
                                 <div class="perti-badge-group">
                                     <span class="badge badge-light" title="Northeast"><strong>NE</strong> <span id="tmi_stats_dcc_ne">-</span></span>
                                     <span class="badge badge-light" title="Southeast"><strong>SE</strong> <span id="tmi_stats_dcc_se">-</span></span>
@@ -534,7 +535,7 @@ include("load/config.php");
                             </div>
                             <!-- By Airport Tier -->
                             <div class="perti-stat-section">
-                                <div class="perti-info-sublabel">Airport Tier</div>
+                                <div class="perti-info-sublabel"><?= __('gdt.page.airportTier') ?></div>
                                 <div class="perti-badge-group">
                                     <span class="badge badge-warning text-dark" title="ASPM 82 Airports"><strong>ASPM82</strong> <span id="tmi_stats_aspm82">-</span></span>
                                     <span class="badge badge-primary" title="OEP 35 Airports"><strong>OEP35</strong> <span id="tmi_stats_oep35">-</span></span>
@@ -568,14 +569,14 @@ include("load/config.php");
             <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center"
                  style="cursor: pointer;" onclick="toggleDashboard();">
                 <span class="tmi-section-title">
-                    <i class="fas fa-tachometer-alt mr-1"></i> Active Programs
+                    <i class="fas fa-tachometer-alt mr-1"></i> <?= __('gdt.page.activePrograms') ?>
                     <span id="gdt_dashboard_count" class="badge badge-light ml-1" style="display: none;">0</span>
                 </span>
                 <div>
                     <button class="btn btn-sm btn-outline-light mr-1" id="gdt_new_program_btn"
                             onclick="event.stopPropagation(); resetAndNewProgram();"
                             data-toggle="tooltip" title="Create a new program">
-                        <i class="fas fa-plus mr-1"></i> New Program
+                        <i class="fas fa-plus mr-1"></i> <?= __('gdt.page.newProgram') ?>
                     </button>
                     <i class="fas fa-chevron-down" id="gdt_dashboard_chevron"></i>
                 </div>
@@ -583,7 +584,7 @@ include("load/config.php");
             <div class="card-body py-2 px-3" id="gdt_dashboard_body">
                 <!-- No programs message -->
                 <div id="gdt_dashboard_empty" class="text-center text-muted py-2" style="display: none;">
-                    <i class="fas fa-check-circle mr-1"></i> No active programs
+                    <i class="fas fa-check-circle mr-1"></i> <?= __('gdt.page.noActivePrograms') ?>
                 </div>
                 <!-- Program cards container -->
                 <div id="gdt_dashboard_cards" class="d-flex flex-wrap" style="gap: 10px;">
@@ -591,12 +592,12 @@ include("load/config.php");
                 <!-- Summary row -->
                 <div id="gdt_dashboard_summary" class="mt-2 pt-2 border-top small text-muted" style="display: none;">
                     <i class="fas fa-plane mr-1"></i>
-                    <span id="gdt_dashboard_total_controlled">0</span> controlled across all programs
+                    <span id="gdt_dashboard_total_controlled">0</span> <?= __('gdt.page.controlledAcrossAll') ?>
                     <span class="mx-2">|</span>
-                    <i class="fas fa-clock mr-1"></i> Last refreshed: <span id="gdt_dashboard_refresh_time">-</span>
+                    <i class="fas fa-clock mr-1"></i> <?= __('gdt.page.lastRefreshed') ?> <span id="gdt_dashboard_refresh_time">-</span>
                     <span class="mx-2">|</span>
                     <a href="#" onclick="event.preventDefault(); toggleTimeline();" class="text-info">
-                        <i class="fas fa-chart-bar mr-1"></i><span id="gdt_timeline_toggle_text">Show Timeline</span>
+                        <i class="fas fa-chart-bar mr-1"></i><span id="gdt_timeline_toggle_text"><?= __('gdt.page.showTimeline') ?></span>
                     </a>
                 </div>
                 <!-- Multi-Program Timeline -->
@@ -615,27 +616,27 @@ include("load/config.php");
         <div class="d-flex align-items-center justify-content-center py-2">
             <div class="gdt-step active" id="gdt_step_1" data-step="configure">
                 <div class="gdt-step-circle">1</div>
-                <div class="gdt-step-label">Configure</div>
+                <div class="gdt-step-label"><?= __('gdt.page.stepConfigure') ?></div>
             </div>
             <div class="gdt-step-line" id="gdt_step_line_1"></div>
             <div class="gdt-step" id="gdt_step_2" data-step="preview">
                 <div class="gdt-step-circle">2</div>
-                <div class="gdt-step-label">Preview</div>
+                <div class="gdt-step-label"><?= __('gdt.page.stepPreview') ?></div>
             </div>
             <div class="gdt-step-line" id="gdt_step_line_2"></div>
             <div class="gdt-step" id="gdt_step_3" data-step="model">
                 <div class="gdt-step-circle">3</div>
-                <div class="gdt-step-label">Model</div>
+                <div class="gdt-step-label"><?= __('gdt.page.stepModel') ?></div>
             </div>
             <div class="gdt-step-line" id="gdt_step_line_3"></div>
             <div class="gdt-step" id="gdt_step_4" data-step="active">
                 <div class="gdt-step-circle">4</div>
-                <div class="gdt-step-label">Active</div>
+                <div class="gdt-step-label"><?= __('gdt.page.stepActive') ?></div>
             </div>
             <!-- What-If badge and discard button (hidden by default) -->
             <span class="badge badge-warning ml-3 d-none" id="gdt_whatif_badge" style="font-size:0.75rem; vertical-align: middle;">WHAT-IF MODE</span>
             <button class="btn btn-sm btn-outline-secondary ml-2 d-none" id="gdt_whatif_discard_btn" onclick="exitWhatIfMode();" style="vertical-align: middle;">
-                <i class="fas fa-undo mr-1"></i> Discard What-If
+                <i class="fas fa-undo mr-1"></i> <?= __('gdt.page.discardWhatIf') ?>
             </button>
         </div>
     </div>
@@ -646,7 +647,7 @@ include("load/config.php");
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title">
-                        <i class="fas fa-ban mr-1 text-danger"></i> Ground Stop Setup
+                        <i class="fas fa-ban mr-1 text-danger"></i> <?= __('gdt.page.gsSetup') ?>
                     </span>
                     <span class="badge badge-secondary tmi-badge-status" id="gs_status_badge">Draft (local)</span>
                 </div>
@@ -656,19 +657,19 @@ include("load/config.php");
                     <!-- Basic metadata (GS Name removed - always "CDM GROUND STOP") -->
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_ctl_element">CTL ELEMENT</label>
+                            <label class="tmi-label mb-0" for="gs_ctl_element"><?= __('gdt.page.ctlElement') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_ctl_element"
                                    placeholder="ATL">
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_element_type">Element Type</label>
+                            <label class="tmi-label mb-0" for="gs_element_type"><?= __('gdt.page.elementType') ?></label>
                             <select class="form-control form-control-sm" id="gs_element_type">
                                 <option value="APT" selected>APT</option>
                                 <option value="CTR">CTR</option>
                             </select>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_adv_number">Adv #</label>
+                            <label class="tmi-label mb-0" for="gs_adv_number"><?= __('gdt.page.advNumber') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_adv_number"
                                    placeholder="001">
                         </div>
@@ -677,37 +678,37 @@ include("load/config.php");
                     <!-- Period (treated as UTC by JS) -->
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0" for="gs_start">GS Start (UTC)</label>
+                            <label class="tmi-label mb-0" for="gs_start"><?= __('gdt.page.gsStartUtc') ?></label>
                             <input type="datetime-local" class="form-control form-control-sm" id="gs_start">
                         </div>
                         <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0" for="gs_end">GS End (UTC)</label>
+                            <label class="tmi-label mb-0" for="gs_end"><?= __('gdt.page.gsEndUtc') ?></label>
                             <input type="datetime-local" class="form-control form-control-sm" id="gs_end">
                         </div>
                     </div>
 
                     <!-- Airports & scope -->
                     <div class="form-group">
-                        <label class="tmi-label mb-0" for="gs_airports">Arrival Airports</label>
+                        <label class="tmi-label mb-0" for="gs_airports"><?= __('gdt.page.arrivalAirports') ?></label>
                         <input type="text" class="form-control form-control-sm tmi-airports-input" id="gs_airports"
                                placeholder="e.g. KATL KBOS KJFK (space-separated list)">
                         <small class="form-text text-muted">
-                            Flights landing at any of these airports will be considered for the GS.
+                            <?= __('gdt.page.arrivalAirportsHelp') ?>
                         </small>
                         <div id="gs_airports_legend" class="mt-1"></div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0" for="gs_scope_select">Origin Centers (Scope)</label>
+                            <label class="tmi-label mb-0" for="gs_scope_select"><?= __('gdt.page.originCentersScope') ?></label>
                             <select multiple class="form-control form-control-sm tmi-scope-select" id="gs_scope_select"></select>
                             <input type="hidden" id="gs_origin_centers">
                             <small class="form-text text-muted tmi-scope-help">
-                                Use Tier presets, named groups (e.g. 12West), and individual ARTCCs. Hold Ctrl/Cmd to select multiple.
+                                <?= __('gdt.page.originCentersHelp') ?>
                             </small>
                         </div>
                         <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0" for="gs_origin_airports">Origin Airports</label>
+                            <label class="tmi-label mb-0" for="gs_origin_airports"><?= __('gdt.page.originAirports') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_origin_airports"
                                    placeholder="optional: origin airport list">
                         </div>
@@ -716,12 +717,12 @@ include("load/config.php");
                     <!-- Flight inclusion -->
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_flt_incl_carrier">FLT INCL Carrier(s)</label>
+                            <label class="tmi-label mb-0" for="gs_flt_incl_carrier"><?= __('gdt.page.fltInclCarrier') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_flt_incl_carrier"
                                    placeholder="e.g. DAL UAL AAL">
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_flt_incl_type">Aircraft Type</label>
+                            <label class="tmi-label mb-0" for="gs_flt_incl_type"><?= __('gdt.page.aircraftType') ?></label>
                             <select class="form-control form-control-sm" id="gs_flt_incl_type">
                                 <option value="ALL" selected>ALL</option>
                                 <option value="JET">JET</option>
@@ -729,7 +730,7 @@ include("load/config.php");
                             </select>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_dep_facilities">DEP FACILITIES INCLUDED</label>
+                            <label class="tmi-label mb-0" for="gs_dep_facilities"><?= __('gdt.page.depFacilitiesIncluded') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_dep_facilities"
                                    placeholder="ALL or ZTL ZJX ZMA">
                         </div>
@@ -738,12 +739,12 @@ include("load/config.php");
                     <!-- Probability / Impacting Condition -->
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_prob_ext">Probability of Extension</label>
+                            <label class="tmi-label mb-0" for="gs_prob_ext"><?= __('gdt.page.probabilityOfExtension') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_prob_ext"
                                    placeholder="Low / Medium / High">
                         </div>
                         <div class="form-group col-md-8">
-                            <label class="tmi-label mb-0" for="gs_impacting_condition">Impacting Condition</label>
+                            <label class="tmi-label mb-0" for="gs_impacting_condition"><?= __('gdt.page.impactingCondition') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_impacting_condition"
                                    placeholder="Primary driver or constraint (WX / EQUIP / VOLUME)">
                         </div>
@@ -754,7 +755,7 @@ include("load/config.php");
                         <div class="card-header py-1 px-2 bg-warning text-dark d-flex justify-content-between align-items-center" 
                              data-toggle="collapse" data-target="#gs_exemptions_body" style="cursor: pointer;">
                             <span class="tmi-label mb-0">
-                                <i class="fas fa-shield-alt mr-1"></i> Flight Exemptions
+                                <i class="fas fa-shield-alt mr-1"></i> <?= __('gdt.page.flightExemptions') ?>
                                 <span class="badge badge-dark ml-2" id="gs_exemption_count_badge">0 rules</span>
                             </span>
                             <i class="fas fa-chevron-down" id="gs_exemptions_toggle_icon"></i>
@@ -762,25 +763,25 @@ include("load/config.php");
                         <div class="collapse" id="gs_exemptions_body">
                             <div class="card-body py-2">
                                 <small class="text-muted d-block mb-2">
-                                    <i class="fas fa-info-circle"></i> Exempted flights receive no departure delay. Based on FSM User Guide exemption criteria.
+                                    <i class="fas fa-info-circle"></i> <?= __('gdt.page.exemptionInfo') ?>
                                 </small>
 
                                 <!-- Origin Exemptions -->
                                 <div class="border rounded p-2 mb-2 bg-light">
-                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane-departure mr-1"></i> Origin Exemptions</div>
+                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane-departure mr-1"></i> <?= __('gdt.page.originExemptions') ?></div>
                                     <div class="form-row">
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt Airports</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptAirports') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_airports"
                                                    placeholder="e.g. KJFK KLGA KEWR">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt TRACONs</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptTracons') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_tracons"
                                                    placeholder="e.g. N90 A80 PCT">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt ARTCCs</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptArtccs') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_artccs"
                                                    placeholder="e.g. ZNY ZDC ZBW">
                                         </div>
@@ -789,20 +790,20 @@ include("load/config.php");
 
                                 <!-- Destination Exemptions -->
                                 <div class="border rounded p-2 mb-2 bg-light">
-                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane-arrival mr-1"></i> Destination Exemptions</div>
+                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane-arrival mr-1"></i> <?= __('gdt.page.destinationExemptions') ?></div>
                                     <div class="form-row">
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt Airports</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptAirports') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_airports"
                                                    placeholder="e.g. KORD KDFW">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt TRACONs</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptTracons') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_tracons"
                                                    placeholder="e.g. C90 D10">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt ARTCCs</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptArtccs') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_artccs"
                                                    placeholder="e.g. ZAU ZFW">
                                         </div>
@@ -811,45 +812,45 @@ include("load/config.php");
 
                                 <!-- Aircraft Type & Status Exemptions -->
                                 <div class="border rounded p-2 mb-2 bg-light">
-                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-fighter-jet mr-1"></i> Aircraft & Status Exemptions</div>
+                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-fighter-jet mr-1"></i> <?= __('gdt.page.aircraftStatusExemptions') ?></div>
                                     <div class="form-row">
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt Aircraft Types</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptAircraftTypes') ?></label>
                                             <div class="d-flex flex-wrap">
                                                 <div class="custom-control custom-checkbox mr-3">
                                                     <input type="checkbox" class="custom-control-input" id="gs_exempt_type_jet">
-                                                    <label class="custom-control-label small" for="gs_exempt_type_jet">Jet</label>
+                                                    <label class="custom-control-label small" for="gs_exempt_type_jet"><?= __('gdt.page.jet') ?></label>
                                                 </div>
                                                 <div class="custom-control custom-checkbox mr-3">
                                                     <input type="checkbox" class="custom-control-input" id="gs_exempt_type_turboprop">
-                                                    <label class="custom-control-label small" for="gs_exempt_type_turboprop">Turboprop</label>
+                                                    <label class="custom-control-label small" for="gs_exempt_type_turboprop"><?= __('gdt.page.turboprop') ?></label>
                                                 </div>
                                                 <div class="custom-control custom-checkbox">
                                                     <input type="checkbox" class="custom-control-input" id="gs_exempt_type_prop">
-                                                    <label class="custom-control-label small" for="gs_exempt_type_prop">Prop</label>
+                                                    <label class="custom-control-label small" for="gs_exempt_type_prop"><?= __('gdt.page.prop') ?></label>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Flight Status Exemptions</label>
+                                            <label class="small mb-0"><?= __('gdt.page.flightStatusExemptions') ?></label>
                                             <div class="d-flex flex-wrap">
                                                 <div class="custom-control custom-checkbox mr-3">
                                                     <input type="checkbox" class="custom-control-input" id="gs_exempt_has_edct">
-                                                    <label class="custom-control-label small" for="gs_exempt_has_edct">Already has EDCT</label>
+                                                    <label class="custom-control-label small" for="gs_exempt_has_edct"><?= __('gdt.page.alreadyHasEdct') ?></label>
                                                 </div>
                                                 <div class="custom-control custom-checkbox">
                                                     <input type="checkbox" class="custom-control-input" id="gs_exempt_active_only">
-                                                    <label class="custom-control-label small" for="gs_exempt_active_only">Active flights only</label>
+                                                    <label class="custom-control-label small" for="gs_exempt_active_only"><?= __('gdt.page.activeFlightsOnly') ?></label>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
-                                            <label class="small mb-0">Exempt Departing Within</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptDepartingWithin') ?></label>
                                             <div class="input-group input-group-sm">
                                                 <input type="number" class="form-control form-control-sm" id="gs_exempt_depart_within" 
                                                        placeholder="0" min="0" max="120" value="">
                                                 <div class="input-group-append">
-                                                    <span class="input-group-text">minutes</span>
+                                                    <span class="input-group-text"><?= __('gdt.page.minutes') ?></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -858,15 +859,15 @@ include("load/config.php");
 
                                 <!-- Altitude Exemptions -->
                                 <div class="border rounded p-2 mb-2 bg-light">
-                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-arrows-alt-v mr-1"></i> Altitude Exemptions</div>
+                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-arrows-alt-v mr-1"></i> <?= __('gdt.page.altitudeExemptions') ?></div>
                                     <div class="form-row">
                                         <div class="form-group col-md-6 mb-1">
-                                            <label class="small mb-0">Exempt Below (FL)</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptBelowFl') ?></label>
                                             <input type="number" class="form-control form-control-sm" id="gs_exempt_alt_below"
                                                    placeholder="e.g. 180 (FL180)" min="0" max="600">
                                         </div>
                                         <div class="form-group col-md-6 mb-1">
-                                            <label class="small mb-0">Exempt Above (FL)</label>
+                                            <label class="small mb-0"><?= __('gdt.page.exemptAboveFl') ?></label>
                                             <input type="number" class="form-control form-control-sm" id="gs_exempt_alt_above"
                                                    placeholder="e.g. 410 (FL410)" min="0" max="600">
                                         </div>
@@ -875,18 +876,18 @@ include("load/config.php");
 
                                 <!-- Individual Flight Exemptions -->
                                 <div class="border rounded p-2 bg-light">
-                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane mr-1"></i> Individual Flight Exemptions</div>
+                                    <div class="tmi-label text-primary mb-1"><i class="fas fa-plane mr-1"></i> <?= __('gdt.page.individualFlightExemptions') ?></div>
                                     <div class="form-group mb-1">
-                                        <label class="small mb-0">Exempt Specific Flights (ACIDs)</label>
+                                        <label class="small mb-0"><?= __('gdt.page.exemptSpecificFlights') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="gs_exempt_flights"
                                                placeholder="e.g. DAL123 UAL456 AAL789 (space-separated)">
-                                        <small class="form-text text-muted">Priority flights to exempt from the GS.</small>
+                                        <small class="form-text text-muted"><?= __('gdt.page.exemptSpecificFlightsHelp') ?></small>
                                     </div>
                                 </div>
 
                                 <!-- Exemption Summary -->
                                 <div class="mt-2 small" id="gs_exemption_summary">
-                                    <span class="text-muted">No exemption rules configured.</span>
+                                    <span class="text-muted"><?= __('gdt.page.noExemptionRules') ?></span>
                                 </div>
                             </div>
                         </div>
@@ -894,7 +895,7 @@ include("load/config.php");
 
                     <!-- Comments -->
                     <div class="form-group">
-                        <label class="tmi-label mb-0" for="gs_comments">Comments</label>
+                        <label class="tmi-label mb-0" for="gs_comments"><?= __('gdt.page.comments') ?></label>
                         <textarea class="form-control form-control-sm" id="gs_comments" rows="2"
                                   placeholder="WX / EQUIP / VOLUME, convective impact area, notes"></textarea>
                     </div>
@@ -902,11 +903,11 @@ include("load/config.php");
                     <!-- Buttons -->
                     <div class="d-flex justify-content-between">
                         <div>
-                            <button class="btn btn-sm btn-outline-secondary" id="gs_reset_btn" type="button">Reset</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="gs_reset_btn" type="button"><?= __('gdt.page.reset') ?></button>
                         </div>
                         <div>
                             <button class="btn btn-sm btn-outline-info" id="gs_preview_flights_btn" type="button">
-                                Preview Impacted Flights
+                                <?= __('gdt.page.previewImpactedFlights') ?>
                             </button>
                         </div>
                     </div>
@@ -917,10 +918,10 @@ include("load/config.php");
             <div class="card mt-3 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title">
-                        <i class="fas fa-file-alt mr-1"></i> Advisory Preview
+                        <i class="fas fa-file-alt mr-1"></i> <?= __('gdt.page.advisoryPreviewTitle') ?>
                     </span>
                     <button class="btn btn-sm btn-outline-secondary" id="gs_copy_advisory_btn" type="button" title="Copy advisory to clipboard for Discord">
-                        <i class="fas fa-copy"></i> Copy
+                        <i class="fas fa-copy"></i> <?= __('gdt.page.copy') ?>
                     </button>
                 </div>
                 <div class="card-body">
@@ -934,7 +935,7 @@ include("load/config.php");
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title">
-                        <i class="fas fa-plane-departure mr-1"></i> Flights Matching GS Filters
+                        <i class="fas fa-plane-departure mr-1"></i> <?= __('gdt.page.flightsMatchingGsFilters') ?>
                         <span class="badge badge-pill badge-info ml-2" id="gs_flight_count_badge">0</span>
                     </span>
                     <div>
@@ -946,13 +947,13 @@ include("load/config.php");
                         <small class="text-muted" id="gs_adl_status"></small>
                         <div class="btn-toolbar" role="toolbar" aria-label="GS workflow controls">
                             <div class="btn-group btn-group-sm mr-1" role="group">
-                                <button class="btn btn-outline-info" id="gs_preview_btn" type="button" title="Preview flights from live ADL">Preview</button>
-                                <button class="btn btn-outline-primary" id="gs_simulate_btn" type="button" title="Simulate GS and calculate EDCTs">Simulate</button>
+                                <button class="btn btn-outline-info" id="gs_preview_btn" type="button" title="Preview flights from live ADL"><?= __('gdt.page.preview') ?></button>
+                                <button class="btn btn-outline-primary" id="gs_simulate_btn" type="button" title="Simulate GS and calculate EDCTs"><?= __('gdt.page.simulate') ?></button>
                                 <button class="btn btn-outline-success" id="gs_submit_tmi_btn" type="button" title="Run 'Simulate' first, then submit to TMI Publishing" disabled>
-                                    <i class="fas fa-paper-plane mr-1"></i>Submit to TMI
+                                    <i class="fas fa-paper-plane mr-1"></i><?= __('gdt.page.submitToTmi') ?>
                                 </button>
                                 <button class="btn btn-success" id="gs_send_actual_btn" type="button" title="Activate GS program immediately" disabled>
-                                    <i class="fas fa-bolt mr-1"></i>Send Actual
+                                    <i class="fas fa-bolt mr-1"></i><?= __('gdt.page.sendActual') ?>
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm mr-1" role="group">
@@ -964,28 +965,28 @@ include("load/config.php");
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-warning" id="gs_purge_local_btn" type="button" title="Clear simulation sandbox">Purge Local</button>
-                                <button class="btn btn-outline-danger" id="gs_purge_all_btn" type="button" title="Clear all GS controls from live ADL">Purge All</button>
+                                <button class="btn btn-outline-warning" id="gs_purge_local_btn" type="button" title="Clear simulation sandbox"><?= __('gdt.page.purgeLocal') ?></button>
+                                <button class="btn btn-outline-danger" id="gs_purge_all_btn" type="button" title="Clear all GS controls from live ADL"><?= __('gdt.page.purgeAll') ?></button>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-row align-items-end mb-2">
                         <div class="form-group col-md-4 mb-1">
-                            <label class="tmi-label mb-0" for="gs_time_basis">Time Filter Basis <small class="text-info">(GS: Departure-based)</small></label>
+                            <label class="tmi-label mb-0" for="gs_time_basis"><?= __('gdt.page.timeFilterBasis') ?> <small class="text-info">(<?= __('gdt.page.gsDepBased') ?>)</small></label>
                             <select class="form-control form-control-sm" id="gs_time_basis">
-                                <option value="NONE" selected>No time filter</option>
-                                <option value="ETD">Departure ETD</option>
-                                <option value="EDCT">Departure EDCT/CTD</option>
-                                <option value="TAKEOFF">Departure Takeoff</option>
+                                <option value="NONE" selected><?= __('gdt.page.noTimeFilter') ?></option>
+                                <option value="ETD"><?= __('gdt.page.departureEtd') ?></option>
+                                <option value="EDCT"><?= __('gdt.page.departureEdctCtd') ?></option>
+                                <option value="TAKEOFF"><?= __('gdt.page.departureTakeoff') ?></option>
                             </select>
                         </div>
                         <div class="form-group col-md-4 mb-1">
-                            <label class="tmi-label mb-0" for="gs_time_start">Time Start (UTC)</label>
+                            <label class="tmi-label mb-0" for="gs_time_start"><?= __('gdt.page.timeStartUtc') ?></label>
                             <input type="datetime-local" class="form-control form-control-sm" id="gs_time_start">
                         </div>
                         <div class="form-group col-md-4 mb-1">
-                            <label class="tmi-label mb-0" for="gs_time_end">Time End (UTC)</label>
+                            <label class="tmi-label mb-0" for="gs_time_end"><?= __('gdt.page.timeEndUtc') ?></label>
                             <input type="datetime-local" class="form-control form-control-sm" id="gs_time_end">
                         </div>
                     </div>
@@ -995,7 +996,7 @@ include("load/config.php");
                         <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="gs_show_all_flights">
                             <label class="custom-control-label small" for="gs_show_all_flights">
-                                Show all flights <span class="text-muted">(including airborne/exempt)</span>
+                                <?= __('gdt.page.showAllFlights') ?> <span class="text-muted"><?= __('gdt.page.includingAirborneExempt') ?></span>
                             </label>
                         </div>
                         <small id="gs_flight_count_label" class="text-muted"></small>
@@ -1024,16 +1025,16 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Delay by Origin Airport</span>
+                                    <span class="tmi-label"><?= __('gdt.page.delayByOriginAirport') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
                                         <thead>
                                             <tr>
-                                                <th>Origin</th>
-                                                <th class="text-right">Total</th>
-                                                <th class="text-right">Max</th>
-                                                <th class="text-right">Avg</th>
+                                                <th><?= __('gdt.page.origin') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.total') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.max') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.avg') ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="gs_delay_origin_ap"></tbody>
@@ -1044,16 +1045,16 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Delay by Origin ARTCC</span>
+                                    <span class="tmi-label"><?= __('gdt.page.delayByOriginArtcc') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
                                         <thead>
                                             <tr>
-                                                <th>Center</th>
-                                                <th class="text-right">Total</th>
-                                                <th class="text-right">Max</th>
-                                                <th class="text-right">Avg</th>
+                                                <th><?= __('gdt.page.center') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.total') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.max') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.avg') ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="gs_delay_origin_center"></tbody>
@@ -1064,16 +1065,16 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Delay by Carrier</span>
+                                    <span class="tmi-label"><?= __('gdt.page.delayByCarrier') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
                                         <thead>
                                             <tr>
-                                                <th>Carrier</th>
-                                                <th class="text-right">Total</th>
-                                                <th class="text-right">Max</th>
-                                                <th class="text-right">Avg</th>
+                                                <th><?= __('gdt.page.carrier') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.total') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.max') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.avg') ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="gs_delay_carrier"></tbody>
@@ -1084,16 +1085,16 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Delay by EDCT Hour (UTC)</span>
+                                    <span class="tmi-label"><?= __('gdt.page.delayByEdctHour') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
                                         <thead>
                                             <tr>
-                                                <th>Hour</th>
-                                                <th class="text-right">Total</th>
-                                                <th class="text-right">Max</th>
-                                                <th class="text-right">Avg</th>
+                                                <th><?= __('gdt.page.hour') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.total') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.max') ?></th>
+                                                <th class="text-right"><?= __('gdt.page.avg') ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="gs_delay_hour_bin"></tbody>
@@ -1103,15 +1104,15 @@ include("load/config.php");
                         </div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-3">
-                        <span class="tmi-label mb-0">Flight Counts Summary</span>
-                        <button class="btn btn-sm btn-outline-secondary" id="gs_toggle_counts_btn" type="button">Hide</button>
+                        <span class="tmi-label mb-0"><?= __('gdt.page.flightCountsSummary') ?></span>
+                        <button class="btn btn-sm btn-outline-secondary" id="gs_toggle_counts_btn" type="button"><?= __('gdt.page.hide') ?></button>
                     </div>
 
                     <div class="row mt-2" id="gs_counts_row">
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Origin Centers (ARTCC)</span>
+                                    <span class="tmi-label"><?= __('gdt.page.originCentersArtcc') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
@@ -1123,7 +1124,7 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Destination Centers (ARTCC)</span>
+                                    <span class="tmi-label"><?= __('gdt.page.destCentersArtcc') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
@@ -1135,7 +1136,7 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Origin Airports</span>
+                                    <span class="tmi-label"><?= __('gdt.page.originAirportsLabel') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
@@ -1147,7 +1148,7 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Destination Airports</span>
+                                    <span class="tmi-label"><?= __('gdt.page.destAirports') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
@@ -1159,7 +1160,7 @@ include("load/config.php");
                         <div class="col-md-6 mb-2">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2">
-                                    <span class="tmi-label">Carriers</span>
+                                    <span class="tmi-label"><?= __('gdt.page.carriers') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <table class="table table-sm table-hover tmi-flight-table mb-0">
@@ -1171,7 +1172,7 @@ include("load/config.php");
                     </div>
 
                     <small class="text-muted">
-                        Data from <code>https://data.vatsim.net/v3/vatsim-data.json</code> (pilots + prefiles).
+                        <?= __('gdt.page.dataSource') ?> <code>https://data.vatsim.net/v3/vatsim-data.json</code> (pilots + prefiles).
                     </small>
                 </div>
             </div>
@@ -1186,53 +1187,53 @@ include("load/config.php");
             <div class="card shadow-sm border-primary">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title">
-                        <i class="fas fa-chart-line mr-1"></i> Model GS - Power Run Analysis
+                        <i class="fas fa-chart-line mr-1"></i> <?= __('gdt.page.modelGsPowerRun') ?>
                     </span>
                     <button type="button" class="btn btn-sm btn-light" id="gs_model_close_btn">
-                        <i class="fas fa-times"></i> Close
+                        <i class="fas fa-times"></i> <?= __('gdt.page.close') ?>
                     </button>
                 </div>
                 <div class="card-body">
                     <!-- Filter Controls Row -->
                     <div class="row mb-3">
                         <div class="col-md-2">
-                            <label class="tmi-label mb-0">Chart View</label>
+                            <label class="tmi-label mb-0"><?= __('gdt.page.chartView') ?></label>
                             <select class="form-control form-control-sm" id="gs_model_chart_view">
-                                <option value="hourly" selected>By Hour (UTC)</option>
-                                <option value="orig_artcc">By Origin ARTCC</option>
-                                <option value="dest_artcc">By Dest ARTCC</option>
-                                <option value="orig_ap">By Origin Airport</option>
-                                <option value="dest_ap">By Dest Airport</option>
-                                <option value="orig_tracon">By Origin TRACON</option>
-                                <option value="dest_tracon">By Dest TRACON</option>
-                                <option value="carrier">By Carrier</option>
-                                <option value="tier">By ARTCC Tier</option>
+                                <option value="hourly" selected><?= __('gdt.page.byHourUtc') ?></option>
+                                <option value="orig_artcc"><?= __('gdt.page.byOriginArtcc') ?></option>
+                                <option value="dest_artcc"><?= __('gdt.page.byDestArtcc') ?></option>
+                                <option value="orig_ap"><?= __('gdt.page.byOriginAirport') ?></option>
+                                <option value="dest_ap"><?= __('gdt.page.byDestAirport') ?></option>
+                                <option value="orig_tracon"><?= __('gdt.page.byOriginTracon') ?></option>
+                                <option value="dest_tracon"><?= __('gdt.page.byDestTracon') ?></option>
+                                <option value="carrier"><?= __('gdt.page.byCarrier') ?></option>
+                                <option value="tier"><?= __('gdt.page.byTier') ?></option>
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="tmi-label mb-0">Time Window</label>
+                            <label class="tmi-label mb-0"><?= __('gdt.page.timeWindow') ?></label>
                             <select class="form-control form-control-sm" id="gs_model_time_window">
-                                <option value="all" selected>All Flights</option>
-                                <option value="60">Next 60 min</option>
-                                <option value="30">Next 30 min</option>
-                                <option value="15">Next 15 min</option>
+                                <option value="all" selected><?= __('gdt.page.allFlights') ?></option>
+                                <option value="60"><?= __('gdt.page.next60min') ?></option>
+                                <option value="30"><?= __('gdt.page.next30min') ?></option>
+                                <option value="15"><?= __('gdt.page.next15min') ?></option>
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="tmi-label mb-0">Time Basis</label>
+                            <label class="tmi-label mb-0"><?= __('gdt.page.timeBasis') ?></label>
                             <select class="form-control form-control-sm" id="gs_model_time_basis">
-                                <option value="ctd" selected>CTD (Controlled)</option>
-                                <option value="etd">ETD (Original)</option>
-                                <option value="cta">CTA (Arr Controlled)</option>
-                                <option value="eta">ETA (Arr Original)</option>
+                                <option value="ctd" selected><?= __('gdt.page.ctdControlled') ?></option>
+                                <option value="etd"><?= __('gdt.page.etdOriginal') ?></option>
+                                <option value="cta"><?= __('gdt.page.ctaArrControlled') ?></option>
+                                <option value="eta"><?= __('gdt.page.etaArrOriginal') ?></option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="tmi-label mb-0">Filter by Origin ARTCC</label>
+                            <label class="tmi-label mb-0"><?= __('gdt.page.filterByOriginArtcc') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_model_filter_artcc" placeholder="e.g., ZTL ZDC ZNY">
                         </div>
                         <div class="col-md-3">
-                            <label class="tmi-label mb-0">Filter by Carrier</label>
+                            <label class="tmi-label mb-0"><?= __('gdt.page.filterByCarrier') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_model_filter_carrier" placeholder="e.g., DAL UAL AAL">
                         </div>
                     </div>
@@ -1270,19 +1271,19 @@ include("load/config.php");
                                     <!-- Rate Info Bar -->
                                     <div class="d-flex justify-content-between align-items-center mb-2 px-2" style="font-size: 0.75rem;">
                                         <div>
-                                            <span class="text-muted mr-2">Config:</span>
+                                            <span class="text-muted mr-2"><?= __('gdt.page.config') ?></span>
                                             <span id="gs_demand_config_name" class="font-weight-bold">--</span>
                                             <span id="gs_demand_weather_badge" class="badge badge-success ml-2">VMC</span>
                                         </div>
                                         <div>
-                                            <span class="text-muted mr-1">Rates:</span>
+                                            <span class="text-muted mr-1"><?= __('gdt.page.rates') ?></span>
                                             <span class="font-weight-bold">AAR <span id="gs_demand_aar" class="text-primary">--</span></span>
                                             <span class="mx-1">/</span>
                                             <span class="font-weight-bold">ADR <span id="gs_demand_adr" class="text-primary">--</span></span>
                                             <span class="text-muted ml-2">(<span id="gs_demand_rate_source">--</span>)</span>
                                         </div>
                                         <div>
-                                            <span class="text-muted mr-1">Last Update:</span>
+                                            <span class="text-muted mr-1"><?= __('gdt.page.lastUpdate') ?></span>
                                             <span id="gs_demand_last_update" class="text-info">--</span>
                                         </div>
                                     </div>
@@ -1314,31 +1315,31 @@ include("load/config.php");
                         <div class="col-md-4">
                             <div class="card border-secondary h-100">
                                 <div class="card-header py-1 px-2 bg-info text-white">
-                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-calculator mr-1"></i> Summary Statistics</small>
+                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-calculator mr-1"></i> <?= __('gdt.page.summaryStatistics') ?></small>
                                 </div>
                                 <div class="card-body p-2">
                                     <table class="table table-sm table-borderless mb-0" style="font-size: 0.8rem;">
                                         <tbody>
-                                            <tr><td><span class="badge badge-danger">&nbsp;</span> Total Flights</td><td class="text-right font-weight-bold" id="gs_model_total_flts">0</td></tr>
-                                            <tr><td><span class="badge badge-info">&nbsp;</span> Affected Flights</td><td class="text-right font-weight-bold" id="gs_model_affected_flts">0</td></tr>
-                                            <tr><td><span class="badge badge-primary">&nbsp;</span> Total Delay</td><td class="text-right font-weight-bold" id="gs_model_total_delay">0 min</td></tr>
-                                            <tr><td><span class="badge badge-dark">&nbsp;</span> Max Delay</td><td class="text-right font-weight-bold" id="gs_model_max_delay">0 min</td></tr>
-                                            <tr><td><span class="badge badge-secondary">&nbsp;</span> Avg Delay</td><td class="text-right font-weight-bold" id="gs_model_avg_delay">0 min</td></tr>
+                                            <tr><td><span class="badge badge-danger">&nbsp;</span> <?= __('gdt.page.totalFlights') ?></td><td class="text-right font-weight-bold" id="gs_model_total_flts">0</td></tr>
+                                            <tr><td><span class="badge badge-info">&nbsp;</span> <?= __('gdt.page.affectedFlights') ?></td><td class="text-right font-weight-bold" id="gs_model_affected_flts">0</td></tr>
+                                            <tr><td><span class="badge badge-primary">&nbsp;</span> <?= __('gdt.page.totalDelay') ?></td><td class="text-right font-weight-bold" id="gs_model_total_delay">0 min</td></tr>
+                                            <tr><td><span class="badge badge-dark">&nbsp;</span> <?= __('gdt.page.maxDelay') ?></td><td class="text-right font-weight-bold" id="gs_model_max_delay">0 min</td></tr>
+                                            <tr><td><span class="badge badge-secondary">&nbsp;</span> <?= __('gdt.page.avgDelay') ?></td><td class="text-right font-weight-bold" id="gs_model_avg_delay">0 min</td></tr>
                                         </tbody>
                                     </table>
                                     <hr class="my-2">
                                     <table class="table table-sm table-borderless mb-0" style="font-size: 0.75rem;">
                                         <tbody>
-                                            <tr><td class="text-muted">Within 60 min:</td><td class="text-right" id="gs_model_horizon_60">0 flts</td></tr>
-                                            <tr><td class="text-muted">Within 30 min:</td><td class="text-right" id="gs_model_horizon_30">0 flts</td></tr>
-                                            <tr><td class="text-muted">Within 15 min:</td><td class="text-right" id="gs_model_horizon_15">0 flts</td></tr>
+                                            <tr><td class="text-muted"><?= __('gdt.page.within60min') ?></td><td class="text-right" id="gs_model_horizon_60">0 flts</td></tr>
+                                            <tr><td class="text-muted"><?= __('gdt.page.within30min') ?></td><td class="text-right" id="gs_model_horizon_30">0 flts</td></tr>
+                                            <tr><td class="text-muted"><?= __('gdt.page.within15min') ?></td><td class="text-right" id="gs_model_horizon_15">0 flts</td></tr>
                                         </tbody>
                                     </table>
                                     <hr class="my-2">
                                     <div class="small">
-                                        <strong>GS Program:</strong> <span id="gs_model_ctl_element" class="text-primary">-</span><br>
-                                        <span class="text-muted">Start:</span> <span id="gs_model_gs_start">-</span><br>
-                                        <span class="text-muted">End:</span> <span id="gs_model_gs_end">-</span>
+                                        <strong><?= __('gdt.page.gsProgram') ?></strong> <span id="gs_model_ctl_element" class="text-primary">-</span><br>
+                                        <span class="text-muted"><?= __('gdt.page.start') ?></span> <span id="gs_model_gs_start">-</span><br>
+                                        <span class="text-muted"><?= __('gdt.page.end') ?></span> <span id="gs_model_gs_end">-</span>
                                     </div>
                                 </div>
                             </div>
@@ -1350,7 +1351,7 @@ include("load/config.php");
                         <div class="col-12">
                             <div class="card border-info">
                                 <div class="card-header py-1 px-2 bg-info text-white">
-                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-exchange-alt mr-1"></i> Original vs Controlled Times Comparison</small>
+                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-exchange-alt mr-1"></i> <?= __('gdt.page.origVsControlledTimes') ?></small>
                                 </div>
                                 <div class="card-body p-2">
                                     <div style="height: 200px; position: relative;">
@@ -1367,12 +1368,12 @@ include("load/config.php");
                         <div class="col-md-6 mb-3">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2 bg-light">
-                                    <span class="tmi-label"><i class="fas fa-plane-departure mr-1"></i> Origin Analysis</span>
+                                    <span class="tmi-label"><i class="fas fa-plane-departure mr-1"></i> <?= __('gdt.page.originAnalysis') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <div class="row">
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By ARTCC</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byArtcc') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>ARTCC</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1381,7 +1382,7 @@ include("load/config.php");
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By Airport</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byAirport') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>Apt</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1392,7 +1393,7 @@ include("load/config.php");
                                     </div>
                                     <div class="row mt-2">
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By TRACON</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTracon') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>TRACON</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1401,7 +1402,7 @@ include("load/config.php");
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By Tier</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTier') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>Tier</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1418,12 +1419,12 @@ include("load/config.php");
                         <div class="col-md-6 mb-3">
                             <div class="card border-light">
                                 <div class="card-header py-1 px-2 bg-light">
-                                    <span class="tmi-label"><i class="fas fa-plane-arrival mr-1"></i> Destination Analysis</span>
+                                    <span class="tmi-label"><i class="fas fa-plane-arrival mr-1"></i> <?= __('gdt.page.destAnalysis') ?></span>
                                 </div>
                                 <div class="card-body p-1">
                                     <div class="row">
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By ARTCC</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byArtcc') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>ARTCC</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1432,7 +1433,7 @@ include("load/config.php");
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By Airport</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byAirport') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>Apt</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1443,7 +1444,7 @@ include("load/config.php");
                                     </div>
                                     <div class="row mt-2">
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By TRACON</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTracon') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>TRACON</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1452,7 +1453,7 @@ include("load/config.php");
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <small class="text-uppercase text-muted font-weight-bold">By Tier</small>
+                                            <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTier') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                                     <thead><tr><th>Tier</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
@@ -1470,7 +1471,7 @@ include("load/config.php");
                     <div class="row">
                         <div class="col-md-4 mb-2">
                             <div class="card border-light">
-                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-building mr-1"></i> By Carrier</span></div>
+                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-building mr-1"></i> <?= __('gdt.page.byCarrier') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                         <thead><tr><th>Carrier</th><th class="text-right">Flts</th><th class="text-right">Total</th><th class="text-right">Avg</th></tr></thead>
@@ -1481,7 +1482,7 @@ include("load/config.php");
                         </div>
                         <div class="col-md-4 mb-2">
                             <div class="card border-light">
-                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-clock mr-1"></i> By Delay Range</span></div>
+                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-clock mr-1"></i> <?= __('gdt.page.byDelayRange') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                         <thead><tr><th>Range</th><th class="text-right">Flts</th><th class="text-right">%</th></tr></thead>
@@ -1492,7 +1493,7 @@ include("load/config.php");
                         </div>
                         <div class="col-md-4 mb-2">
                             <div class="card border-light">
-                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-history mr-1"></i> By Hour (UTC)</span></div>
+                                <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-history mr-1"></i> <?= __('gdt.page.byHourUtc') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                                         <thead><tr><th>Hour</th><th class="text-right">Flts</th><th class="text-right">Total</th><th class="text-right">Avg</th></tr></thead>
@@ -1519,7 +1520,7 @@ include("load/config.php");
         <div class="modal-content">
             <div class="modal-header bg-info text-white py-2">
                 <h5 class="modal-title" id="ecr_modal_label">
-                    <i class="fas fa-clock mr-2"></i>EDCT Change Request (ECR)
+                    <i class="fas fa-clock mr-2"></i><?= __('gdt.page.ecrTitle') ?>
                 </h5>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -1530,39 +1531,39 @@ include("load/config.php");
                 <div class="alert alert-info py-2 mb-3">
                     <small>
                         <i class="fas fa-info-circle mr-1"></i>
-                        <strong>ECR</strong> allows you to change Estimated Departure Clearance Times (EDCTs) for controlled flights.
-                        <span class="text-muted">(FSM User Guide Ch. 14)</span>
+                        <strong>ECR</strong> <?= __('gdt.page.ecrInfo') ?>
+                        <span class="text-muted"><?= __('gdt.page.ecrFsmRef') ?></span>
                     </small>
                 </div>
 
                 <!-- Find Flight Section -->
                 <div class="card border-primary mb-3">
                     <div class="card-header py-1 px-2 bg-primary text-white">
-                        <span class="tmi-label mb-0"><i class="fas fa-search mr-1"></i> Find Flight</span>
+                        <span class="tmi-label mb-0"><i class="fas fa-search mr-1"></i> <?= __('gdt.page.findFlight') ?></span>
                     </div>
                     <div class="card-body py-2">
                         <div class="form-row">
                             <div class="form-group col-md-4 mb-1">
-                                <label class="small mb-0">ACID (Callsign)</label>
+                                <label class="small mb-0"><?= __('gdt.page.acidCallsign') ?></label>
                                 <input type="text" class="form-control form-control-sm" id="ecr_acid" placeholder="e.g. DAL123">
                             </div>
                             <div class="form-group col-md-4 mb-1">
-                                <label class="small mb-0">Origin (ORIG)</label>
+                                <label class="small mb-0"><?= __('gdt.page.originOrig') ?></label>
                                 <input type="text" class="form-control form-control-sm" id="ecr_orig" placeholder="e.g. KATL">
                             </div>
                             <div class="form-group col-md-4 mb-1">
-                                <label class="small mb-0">Destination (DEST)</label>
+                                <label class="small mb-0"><?= __('gdt.page.destinationDest') ?></label>
                                 <input type="text" class="form-control form-control-sm" id="ecr_dest" placeholder="e.g. KJFK">
                             </div>
                         </div>
                         <div class="form-row align-items-end">
                             <div class="form-group col-md-6 mb-1">
-                                <label class="small mb-0">Earliest EDCT (UTC)</label>
+                                <label class="small mb-0"><?= __('gdt.page.earliestEdctUtc') ?></label>
                                 <input type="datetime-local" class="form-control form-control-sm" id="ecr_earliest_edct">
                             </div>
                             <div class="form-group col-md-6 mb-1">
                                 <button class="btn btn-sm btn-primary w-100" id="ecr_get_flight_btn" type="button">
-                                    <i class="fas fa-search mr-1"></i> Get Flight Data
+                                    <i class="fas fa-search mr-1"></i> <?= __('gdt.page.getFlightData') ?>
                                 </button>
                             </div>
                         </div>
@@ -1572,7 +1573,7 @@ include("load/config.php");
                 <!-- Current Flight Data Section -->
                 <div class="card border-secondary mb-3" id="ecr_flight_data_section" style="display: none;">
                     <div class="card-header py-1 px-2 bg-info text-white">
-                        <span class="tmi-label mb-0"><i class="fas fa-plane mr-1"></i> Current Flight Data</span>
+                        <span class="tmi-label mb-0"><i class="fas fa-plane mr-1"></i> <?= __('gdt.page.currentFlightData') ?></span>
                     </div>
                     <div class="card-body py-2">
                         <div class="row">
@@ -1601,8 +1602,8 @@ include("load/config.php");
                         </div>
                         <div class="mt-2 pt-2 border-top">
                             <div class="row small">
-                                <div class="col-6"><strong>Control Type:</strong> <span id="ecr_ctl_type" class="badge badge-info">-</span></div>
-                                <div class="col-6"><strong>Delay Status:</strong> <span id="ecr_delay_status">-</span></div>
+                                <div class="col-6"><strong><?= __('gdt.page.controlType') ?></strong> <span id="ecr_ctl_type" class="badge badge-info">-</span></div>
+                                <div class="col-6"><strong><?= __('gdt.page.delayStatus') ?></strong> <span id="ecr_delay_status">-</span></div>
                             </div>
                         </div>
                     </div>
@@ -1611,36 +1612,36 @@ include("load/config.php");
                 <!-- Update Options Section -->
                 <div class="card border-warning mb-3" id="ecr_update_section" style="display: none;">
                     <div class="card-header py-1 px-2 bg-warning text-dark">
-                        <span class="tmi-label mb-0"><i class="fas fa-edit mr-1"></i> Update Options</span>
+                        <span class="tmi-label mb-0"><i class="fas fa-edit mr-1"></i> <?= __('gdt.page.updateOptions') ?></span>
                     </div>
                     <div class="card-body py-2">
                         <!-- CTA Range Controls -->
                         <div class="form-row mb-2">
                             <div class="form-group col-md-4 mb-1">
-                                <label class="small mb-0">CTA Range (min)</label>
+                                <label class="small mb-0"><?= __('gdt.page.ctaRangeMin') ?></label>
                                 <input type="number" class="form-control form-control-sm" id="ecr_cta_range" value="60" min="30">
                             </div>
                             <div class="form-group col-md-4 mb-1">
-                                <label class="small mb-0">Max Additional Delay</label>
+                                <label class="small mb-0"><?= __('gdt.page.maxAdditionalDelay') ?></label>
                                 <input type="number" class="form-control form-control-sm" id="ecr_max_add_delay" value="60" min="30" readonly>
                             </div>
                             <div class="form-group col-md-4 mb-1 d-flex align-items-end">
                                 <button class="btn btn-sm btn-outline-secondary w-100" id="ecr_default_range_btn" type="button">
-                                    Default Range
+                                    <?= __('gdt.page.defaultRange') ?>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Update Method Selection -->
                         <div class="border rounded p-2 bg-light mb-2">
-                            <div class="tmi-label text-dark mb-2">Select Update Method:</div>
+                            <div class="tmi-label text-dark mb-2"><?= __('gdt.page.selectUpdateMethod') ?></div>
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="custom-control custom-radio">
                                         <input type="radio" id="ecr_method_scs" name="ecr_method" class="custom-control-input" value="SCS" checked>
                                         <label class="custom-control-label" for="ecr_method_scs">
-                                            <strong>SCS</strong>
-                                            <small class="d-block text-muted">Slot Credit Substitution</small>
+                                            <strong><?= __('gdt.page.scs') ?></strong>
+                                            <small class="d-block text-muted"><?= __('gdt.page.slotCreditSubstitution') ?></small>
                                         </label>
                                     </div>
                                 </div>
@@ -1648,8 +1649,8 @@ include("load/config.php");
                                     <div class="custom-control custom-radio">
                                         <input type="radio" id="ecr_method_limited" name="ecr_method" class="custom-control-input" value="LIMITED">
                                         <label class="custom-control-label" for="ecr_method_limited">
-                                            <strong>Limited</strong>
-                                            <small class="d-block text-muted">Within CTA Range</small>
+                                            <strong><?= __('gdt.page.limited') ?></strong>
+                                            <small class="d-block text-muted"><?= __('gdt.page.withinCtaRange') ?></small>
                                         </label>
                                     </div>
                                 </div>
@@ -1657,8 +1658,8 @@ include("load/config.php");
                                     <div class="custom-control custom-radio">
                                         <input type="radio" id="ecr_method_unlimited" name="ecr_method" class="custom-control-input" value="UNLIMITED">
                                         <label class="custom-control-label" for="ecr_method_unlimited">
-                                            <strong>Unlimited</strong>
-                                            <small class="d-block text-muted">Any available slot</small>
+                                            <strong><?= __('gdt.page.unlimited') ?></strong>
+                                            <small class="d-block text-muted"><?= __('gdt.page.anyAvailableSlot') ?></small>
                                         </label>
                                     </div>
                                 </div>
@@ -1666,8 +1667,8 @@ include("load/config.php");
                                     <div class="custom-control custom-radio">
                                         <input type="radio" id="ecr_method_manual" name="ecr_method" class="custom-control-input" value="MANUAL">
                                         <label class="custom-control-label" for="ecr_method_manual">
-                                            <strong>Manual</strong>
-                                            <small class="d-block text-muted">Specify exact time</small>
+                                            <strong><?= __('gdt.page.manual') ?></strong>
+                                            <small class="d-block text-muted"><?= __('gdt.page.specifyExactTime') ?></small>
                                         </label>
                                     </div>
                                 </div>
@@ -1677,22 +1678,22 @@ include("load/config.php");
                         <!-- Manual EDCT Entry (shown only when Manual selected) -->
                         <div class="form-row" id="ecr_manual_section" style="display: none;">
                             <div class="form-group col-md-6 mb-1">
-                                <label class="small mb-0">New EDCT (Manual)</label>
+                                <label class="small mb-0"><?= __('gdt.page.newEdctManual') ?></label>
                                 <input type="datetime-local" class="form-control form-control-sm" id="ecr_manual_edct">
                             </div>
                             <div class="form-group col-md-6 mb-1">
-                                <label class="small mb-0">Calculated CTA</label>
+                                <label class="small mb-0"><?= __('gdt.page.calculatedCta') ?></label>
                                 <input type="text" class="form-control form-control-sm" id="ecr_manual_cta" readonly>
                             </div>
                         </div>
 
                         <!-- Modeled Results -->
                         <div class="border rounded p-2 bg-white" id="ecr_model_results" style="display: none;">
-                            <div class="tmi-label text-success mb-2"><i class="fas fa-calculator mr-1"></i> Modeled Update Results:</div>
+                            <div class="tmi-label text-success mb-2"><i class="fas fa-calculator mr-1"></i> <?= __('gdt.page.modeledUpdateResults') ?></div>
                             <div class="row small">
-                                <div class="col-md-4"><strong>New CTD:</strong> <span id="ecr_new_ctd" class="text-primary font-weight-bold">-</span></div>
-                                <div class="col-md-4"><strong>New CTA:</strong> <span id="ecr_new_cta" class="text-primary font-weight-bold">-</span></div>
-                                <div class="col-md-4"><strong>Delay Change:</strong> <span id="ecr_delay_change">-</span></div>
+                                <div class="col-md-4"><strong><?= __('gdt.page.newCtd') ?></strong> <span id="ecr_new_ctd" class="text-primary font-weight-bold">-</span></div>
+                                <div class="col-md-4"><strong><?= __('gdt.page.newCta') ?></strong> <span id="ecr_new_cta" class="text-primary font-weight-bold">-</span></div>
+                                <div class="col-md-4"><strong><?= __('gdt.page.delayChange') ?></strong> <span id="ecr_delay_change">-</span></div>
                             </div>
                         </div>
 
@@ -1701,7 +1702,7 @@ include("load/config.php");
                             <div class="custom-control custom-checkbox">
                                 <input type="checkbox" class="custom-control-input" id="ecr_update_erta">
                                 <label class="custom-control-label small" for="ecr_update_erta">
-                                    Update ERTA (Earliest Runway Time of Arrival)
+                                    <?= __('gdt.page.updateErta') ?>
                                 </label>
                             </div>
                         </div>
@@ -1710,7 +1711,7 @@ include("load/config.php");
 
                 <!-- ECR Response Section -->
                 <div class="alert alert-success py-2 mb-0" id="ecr_response_section" style="display: none;">
-                    <strong><i class="fas fa-check-circle mr-1"></i> ECR Response:</strong>
+                    <strong><i class="fas fa-check-circle mr-1"></i> <?= __('gdt.page.ecrResponse') ?></strong>
                     <pre id="ecr_response_text" class="mb-0 mt-1" style="font-size: 0.8rem; white-space: pre-wrap;"></pre>
                 </div>
             </div>
@@ -1723,10 +1724,10 @@ include("load/config.php");
                         <span class="badge badge-success">BRG</span> Bridged
                     </small>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="ecr_clear_btn">Clear All</button>
-                <button type="button" class="btn btn-sm btn-info" id="ecr_apply_model_btn">Apply Model</button>
-                <button type="button" class="btn btn-sm btn-success" id="ecr_send_request_btn" disabled>Send Request</button>
-                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="ecr_clear_btn"><?= __('gdt.page.clearAll') ?></button>
+                <button type="button" class="btn btn-sm btn-info" id="ecr_apply_model_btn"><?= __('gdt.page.applyModel') ?></button>
+                <button type="button" class="btn btn-sm btn-success" id="ecr_send_request_btn" disabled><?= __('gdt.page.sendRequest') ?></button>
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal"><?= __('gdt.page.cancel') ?></button>
             </div>
         </div>
     </div>
@@ -1738,7 +1739,7 @@ include("load/config.php");
         <div class="modal-content">
             <div class="modal-header bg-success text-white py-2">
                 <h5 class="modal-title" id="gs_flight_list_modal_label">
-                    <i class="fas fa-list-alt mr-2"></i>GS Flight List - Affected Flights
+                    <i class="fas fa-list-alt mr-2"></i><?= __('gdt.page.gsFlightListTitle') ?>
                 </h5>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -1750,14 +1751,14 @@ include("load/config.php");
                     <div class="col-md-4">
                         <div class="card border-info h-100">
                             <div class="card-header py-1 px-2 bg-info text-white">
-                                <small class="text-uppercase font-weight-bold">GS Program Information</small>
+                                <small class="text-uppercase font-weight-bold"><?= __('gdt.page.gsProgramInfo') ?></small>
                             </div>
                             <div class="card-body py-2 px-3">
                                 <div class="row small">
-                                    <div class="col-6"><strong>CTL Element:</strong> <span id="gs_flt_list_ctl_element">-</span></div>
-                                    <div class="col-6"><strong>GS Start:</strong> <span id="gs_flt_list_start">-</span></div>
-                                    <div class="col-6"><strong>Program:</strong> <span id="gs_flt_list_program">Ground Stop</span></div>
-                                    <div class="col-6"><strong>GS End:</strong> <span id="gs_flt_list_end">-</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.ctlElementLabel') ?></strong> <span id="gs_flt_list_ctl_element">-</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.gsStartLabel') ?></strong> <span id="gs_flt_list_start">-</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.programLabel') ?></strong> <span id="gs_flt_list_program"><?= __('gdt.page.groundStop') ?></span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.gsEndLabel') ?></strong> <span id="gs_flt_list_end">-</span></div>
                                 </div>
                             </div>
                         </div>
@@ -1765,16 +1766,16 @@ include("load/config.php");
                     <div class="col-md-4">
                         <div class="card border-warning h-100">
                             <div class="card-header py-1 px-2 bg-warning text-dark">
-                                <small class="text-uppercase font-weight-bold">Delay Statistics</small>
+                                <small class="text-uppercase font-weight-bold"><?= __('gdt.page.delayStatistics') ?></small>
                             </div>
                             <div class="card-body py-2 px-3">
                                 <div class="row small">
-                                    <div class="col-6"><strong>Total Flights:</strong> <span id="gs_flt_list_total">0</span></div>
-                                    <div class="col-6"><strong>Affected Flights:</strong> <span id="gs_flt_list_affected">0</span></div>
-                                    <div class="col-6"><strong>Max Delay:</strong> <span id="gs_flt_list_max_delay">0</span> min</div>
-                                    <div class="col-6"><strong>Avg Delay:</strong> <span id="gs_flt_list_avg_delay">0</span> min</div>
-                                    <div class="col-6"><strong>Total Delay:</strong> <span id="gs_flt_list_total_delay">0</span> min</div>
-                                    <div class="col-6"><strong>Generated:</strong> <span id="gs_flt_list_timestamp">-</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.totalFlightsLabel') ?></strong> <span id="gs_flt_list_total">0</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.affectedFlightsLabel') ?></strong> <span id="gs_flt_list_affected">0</span></div>
+                                    <div class="col-6"><strong><?= __('gdt.page.maxDelayLabel') ?></strong> <span id="gs_flt_list_max_delay">0</span> min</div>
+                                    <div class="col-6"><strong><?= __('gdt.page.avgDelayLabel') ?></strong> <span id="gs_flt_list_avg_delay">0</span> min</div>
+                                    <div class="col-6"><strong><?= __('gdt.page.totalDelayLabel') ?></strong> <span id="gs_flt_list_total_delay">0</span> min</div>
+                                    <div class="col-6"><strong><?= __('gdt.page.generatedLabel') ?></strong> <span id="gs_flt_list_timestamp">-</span></div>
                                 </div>
                             </div>
                         </div>
@@ -1782,33 +1783,33 @@ include("load/config.php");
                     <div class="col-md-4">
                         <div class="card border-secondary h-100">
                             <div class="card-header py-1 px-2 bg-info text-white">
-                                <small class="text-uppercase font-weight-bold">View Options</small>
+                                <small class="text-uppercase font-weight-bold"><?= __('gdt.page.viewOptions') ?></small>
                             </div>
                             <div class="card-body py-2 px-3">
                                 <div class="row small">
                                     <div class="col-6">
-                                        <label class="tmi-label mb-0">Group By:</label>
+                                        <label class="tmi-label mb-0"><?= __('gdt.page.groupBy') ?></label>
                                         <select class="form-control form-control-sm" id="gs_flt_list_group_by">
-                                            <option value="none">None (Flat List)</option>
-                                            <option value="carrier">Carrier</option>
-                                            <option value="orig_airport">Origin Airport</option>
-                                            <option value="orig_center">Origin Center</option>
-                                            <option value="dest_airport">Dest Airport</option>
-                                            <option value="dest_center">Dest Center</option>
-                                            <option value="delay_bucket">Delay Range</option>
+                                            <option value="none"><?= __('gdt.page.noneFlat') ?></option>
+                                            <option value="carrier"><?= __('gdt.page.carrier') ?></option>
+                                            <option value="orig_airport"><?= __('gdt.page.origAirport') ?></option>
+                                            <option value="orig_center"><?= __('gdt.page.origCenter') ?></option>
+                                            <option value="dest_airport"><?= __('gdt.page.destAirport') ?></option>
+                                            <option value="dest_center"><?= __('gdt.page.destCenter') ?></option>
+                                            <option value="delay_bucket"><?= __('gdt.page.delayRange') ?></option>
                                         </select>
                                     </div>
                                     <div class="col-6">
-                                        <label class="tmi-label mb-0">Sort By:</label>
+                                        <label class="tmi-label mb-0"><?= __('gdt.page.sortBy') ?></label>
                                         <select class="form-control form-control-sm" id="gs_flt_list_sort_by">
-                                            <option value="acid_asc">ACID (A-Z)</option>
-                                            <option value="acid_desc">ACID (Z-A)</option>
-                                            <option value="delay_desc">Delay (High-Low)</option>
-                                            <option value="delay_asc">Delay (Low-High)</option>
-                                            <option value="etd_asc">ETD (Earliest)</option>
-                                            <option value="etd_desc">ETD (Latest)</option>
-                                            <option value="orig_asc">Origin (A-Z)</option>
-                                            <option value="dest_asc">Dest (A-Z)</option>
+                                            <option value="acid_asc"><?= __('gdt.page.acidAZ') ?></option>
+                                            <option value="acid_desc"><?= __('gdt.page.acidZA') ?></option>
+                                            <option value="delay_desc"><?= __('gdt.page.delayHighLow') ?></option>
+                                            <option value="delay_asc"><?= __('gdt.page.delayLowHigh') ?></option>
+                                            <option value="etd_asc"><?= __('gdt.page.etdEarliest') ?></option>
+                                            <option value="etd_desc"><?= __('gdt.page.etdLatest') ?></option>
+                                            <option value="orig_asc"><?= __('gdt.page.origAZ') ?></option>
+                                            <option value="dest_asc"><?= __('gdt.page.destAZ') ?></option>
                                         </select>
                                     </div>
                                 </div>
@@ -1819,25 +1820,25 @@ include("load/config.php");
 
                 <!-- Link to Model GS Section -->
                 <div class="alert alert-info py-2 mb-3">
-                    <i class="fas fa-chart-line mr-1"></i> <strong>Data Graph:</strong> 
-                    <a href="#" id="gs_flt_list_open_model" class="alert-link">Open Model GS Section</a> for detailed Power Run analysis and delay distribution charts (FSM Chapter 19).
+                    <i class="fas fa-chart-line mr-1"></i> <strong><?= __('gdt.page.dataGraph') ?></strong>
+                    <a href="#" id="gs_flt_list_open_model" class="alert-link"><?= __('gdt.page.openModelGsSection') ?></a> <?= __('gdt.page.dataGraphFsmRef') ?>
                 </div>
 
                 <!-- Export & Action Buttons -->
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div>
-                        <span class="tmi-label">Flight List for ATC Facility Coordination</span>
+                        <span class="tmi-label"><?= __('gdt.page.flightListCoordination') ?></span>
                         <span class="badge badge-info ml-2" id="gs_flt_list_count_badge">0 flights</span>
                     </div>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-secondary" id="gs_flt_list_copy_btn" type="button" title="Copy to clipboard">
-                            <i class="fas fa-copy"></i> Copy
+                            <i class="fas fa-copy"></i> <?= __('gdt.page.copy') ?>
                         </button>
                         <button class="btn btn-outline-secondary" id="gs_flt_list_export_csv_btn" type="button" title="Export as CSV">
-                            <i class="fas fa-file-csv"></i> CSV
+                            <i class="fas fa-file-csv"></i> <?= __('gdt.page.csv') ?>
                         </button>
                         <button class="btn btn-outline-secondary" id="gs_flt_list_print_btn" type="button" title="Print flight list">
-                            <i class="fas fa-print"></i> Print
+                            <i class="fas fa-print"></i> <?= __('gdt.page.print') ?>
                         </button>
                     </div>
                 </div>
@@ -1873,11 +1874,11 @@ include("load/config.php");
                     <div class="col-md-3 mb-2">
                         <div class="card border-light">
                             <div class="card-header py-1 px-2">
-                                <span class="tmi-label">By Origin Center</span>
+                                <span class="tmi-label"><?= __('gdt.page.byOriginCenter') ?></span>
                             </div>
                             <div class="card-body p-1" style="max-height: 130px; overflow-y: auto;">
                                 <table class="table table-sm table-hover tmi-flight-table mb-0">
-                                    <thead><tr><th>Center</th><th class="text-right">Count</th></tr></thead>
+                                    <thead><tr><th><?= __('gdt.page.center') ?></th><th class="text-right"><?= __('gdt.page.count') ?></th></tr></thead>
                                     <tbody id="gs_flt_list_by_dcenter"></tbody>
                                 </table>
                             </div>
@@ -1886,11 +1887,11 @@ include("load/config.php");
                     <div class="col-md-3 mb-2">
                         <div class="card border-light">
                             <div class="card-header py-1 px-2">
-                                <span class="tmi-label">By Origin Airport</span>
+                                <span class="tmi-label"><?= __('gdt.page.byOriginAirport2') ?></span>
                             </div>
                             <div class="card-body p-1" style="max-height: 130px; overflow-y: auto;">
                                 <table class="table table-sm table-hover tmi-flight-table mb-0">
-                                    <thead><tr><th>Airport</th><th class="text-right">Count</th></tr></thead>
+                                    <thead><tr><th><?= __('gdt.page.apt') ?></th><th class="text-right"><?= __('gdt.page.count') ?></th></tr></thead>
                                     <tbody id="gs_flt_list_by_orig"></tbody>
                                 </table>
                             </div>
@@ -1899,11 +1900,11 @@ include("load/config.php");
                     <div class="col-md-3 mb-2">
                         <div class="card border-light">
                             <div class="card-header py-1 px-2">
-                                <span class="tmi-label">By Dest Airport</span>
+                                <span class="tmi-label"><?= __('gdt.page.byDestAirport2') ?></span>
                             </div>
                             <div class="card-body p-1" style="max-height: 130px; overflow-y: auto;">
                                 <table class="table table-sm table-hover tmi-flight-table mb-0">
-                                    <thead><tr><th>Airport</th><th class="text-right">Count</th></tr></thead>
+                                    <thead><tr><th><?= __('gdt.page.apt') ?></th><th class="text-right"><?= __('gdt.page.count') ?></th></tr></thead>
                                     <tbody id="gs_flt_list_by_dest"></tbody>
                                 </table>
                             </div>
@@ -1912,11 +1913,11 @@ include("load/config.php");
                     <div class="col-md-3 mb-2">
                         <div class="card border-light">
                             <div class="card-header py-1 px-2">
-                                <span class="tmi-label">By Carrier</span>
+                                <span class="tmi-label"><?= __('gdt.page.byCarrier') ?></span>
                             </div>
                             <div class="card-body p-1" style="max-height: 130px; overflow-y: auto;">
                                 <table class="table table-sm table-hover tmi-flight-table mb-0">
-                                    <thead><tr><th>Carrier</th><th class="text-right">Count</th></tr></thead>
+                                    <thead><tr><th><?= __('gdt.page.carrier') ?></th><th class="text-right"><?= __('gdt.page.count') ?></th></tr></thead>
                                     <tbody id="gs_flt_list_by_carrier"></tbody>
                                 </table>
                             </div>
@@ -1926,7 +1927,7 @@ include("load/config.php");
             </div>
             <div class="modal-footer py-2">
                 <small class="text-muted mr-auto">
-                    <i class="fas fa-info-circle"></i> Use this flight list to coordinate with affected ATC facilities (TFMS/FSM Flight List reference Ch 6 & 19).
+                    <i class="fas fa-info-circle"></i> <?= __('gdt.page.flightListHelp') ?>
                 </small>
                 <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
             </div>
@@ -1955,26 +1956,26 @@ include("load/config.php");
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i>Advisory Organization</h5>
+                <h5 class="modal-title"><i class="fas fa-globe mr-2"></i><?= __('gdt.page.advisoryOrg') ?></h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="advisoryOrg" id="orgDCC" value="DCC">
                     <label class="form-check-label" for="orgDCC">
-                        <strong>US DCC</strong><br><small class="text-muted">vATCSCC ADVZY ... DCC</small>
+                        <strong><?= __('gdt.page.usDcc') ?></strong><br><small class="text-muted"><?= __('gdt.page.usDccHint') ?></small>
                     </label>
                 </div>
                 <div class="form-check mt-3">
                     <input class="form-check-input" type="radio" name="advisoryOrg" id="orgNOC" value="NOC">
                     <label class="form-check-label" for="orgNOC">
-                        <strong>Canadian NOC</strong><br><small class="text-muted">vNAVCAN ADVZY ... NOC</small>
+                        <strong><?= __('gdt.page.canadianNoc') ?></strong><br><small class="text-muted"><?= __('gdt.page.canadianNocHint') ?></small>
                     </label>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()">Save</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('gdt.page.cancel') ?></button>
+                <button type="button" class="btn btn-primary btn-sm" id="advisoryOrgSaveBtn" onclick="AdvisoryConfig.saveOrg()"><?= __('gdt.page.save') ?></button>
             </div>
         </div>
     </div>
@@ -1986,49 +1987,49 @@ include("load/config.php");
         <div class="modal-content">
             <div class="modal-header bg-primary text-white py-2">
                 <h5 class="modal-title" id="gdt_extend_modal_label">
-                    <i class="fas fa-clock mr-1"></i> Extend Program
+                    <i class="fas fa-clock mr-1"></i> <?= __('gdt.page.extendProgram') ?>
                 </h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="font-weight-bold">Program</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.program') ?></label>
                     <div id="gdt_extend_program_info" class="text-muted">-</div>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
-                        <label class="font-weight-bold">Current End Time</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.currentEndTime') ?></label>
                         <input type="text" class="form-control form-control-sm" id="gdt_extend_current_end" readonly>
                     </div>
                     <div class="form-group col-md-6">
-                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.newEndTimeUtc') ?></label>
                         <input type="datetime-local" class="form-control form-control-sm" id="gdt_extend_new_end" required>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="font-weight-bold">Probability of Extension</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.probabilityOfExtension') ?></label>
                     <select class="form-control form-control-sm" id="gdt_extend_prob_ext">
-                        <option value="">-- Select --</option>
+                        <option value=""><?= __('gdt.page.select') ?></option>
                         <option value="LOW">LOW</option>
                         <option value="MODERATE">MODERATE</option>
                         <option value="HIGH">HIGH</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="font-weight-bold">Comments</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.extensionComments') ?></label>
                     <textarea class="form-control form-control-sm" id="gdt_extend_comments" rows="2" placeholder="Extension reason..."></textarea>
                 </div>
                 <!-- Advisory Preview -->
                 <div class="form-group">
-                    <label class="font-weight-bold">Advisory Preview</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.advisoryPreviewLabel') ?></label>
                     <pre id="gdt_extend_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
                 </div>
                 <div id="gdt_extend_error" class="alert alert-danger small py-1 px-2 d-none"></div>
             </div>
             <div class="modal-footer py-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('gdt.page.cancel') ?></button>
                 <button type="button" class="btn btn-primary btn-sm" id="gdt_extend_submit_btn" onclick="submitExtend();">
-                    <i class="fas fa-clock mr-1"></i> Extend Program
+                    <i class="fas fa-clock mr-1"></i> <?= __('gdt.page.extendProgram') ?>
                 </button>
             </div>
         </div>
@@ -2041,32 +2042,32 @@ include("load/config.php");
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark py-2">
                 <h5 class="modal-title" id="gdt_revise_modal_label">
-                    <i class="fas fa-edit mr-1"></i> Revise Program
+                    <i class="fas fa-edit mr-1"></i> <?= __('gdt.page.reviseProgram') ?>
                 </h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="font-weight-bold">Program</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.program') ?></label>
                     <div id="gdt_revise_program_info" class="text-muted">-</div>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-4">
-                        <label class="font-weight-bold">Program Rate (arrivals/hr)</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.programRateArrHr') ?></label>
                         <input type="number" class="form-control form-control-sm" id="gdt_revise_rate" min="1" max="120" placeholder="e.g. 36">
                     </div>
                     <div class="form-group col-md-4">
-                        <label class="font-weight-bold">Delay Cap (minutes)</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.delayCapMinutes') ?></label>
                         <input type="number" class="form-control form-control-sm" id="gdt_revise_delay_cap" min="0" max="600" placeholder="e.g. 300">
                     </div>
                     <div class="form-group col-md-4">
-                        <label class="font-weight-bold">New End Time (UTC)</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.newEndTimeUtc') ?></label>
                         <input type="datetime-local" class="form-control form-control-sm" id="gdt_revise_end_utc">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
-                        <label class="font-weight-bold">Impacting Condition</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.impactingConditionLabel') ?></label>
                         <select class="form-control form-control-sm" id="gdt_revise_impacting">
                             <option value="WEATHER">WEATHER</option>
                             <option value="VOLUME">VOLUME</option>
@@ -2076,9 +2077,9 @@ include("load/config.php");
                         </select>
                     </div>
                     <div class="form-group col-md-6">
-                        <label class="font-weight-bold">Probability of Extension</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.probabilityOfExtension') ?></label>
                         <select class="form-control form-control-sm" id="gdt_revise_prob_ext">
-                            <option value="">-- Select --</option>
+                            <option value=""><?= __('gdt.page.select') ?></option>
                             <option value="LOW">LOW</option>
                             <option value="MODERATE">MODERATE</option>
                             <option value="HIGH">HIGH</option>
@@ -2086,19 +2087,19 @@ include("load/config.php");
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="font-weight-bold">Revision Comments</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.revisionComments') ?></label>
                     <textarea class="form-control form-control-sm" id="gdt_revise_comments" rows="2" placeholder="What changed and why..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="font-weight-bold">Advisory Preview</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.advisoryPreviewLabel') ?></label>
                     <pre id="gdt_revise_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
                 </div>
                 <div id="gdt_revise_error" class="alert alert-danger small py-1 px-2 d-none"></div>
             </div>
             <div class="modal-footer py-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('gdt.page.cancel') ?></button>
                 <button type="button" class="btn btn-warning btn-sm" id="gdt_revise_submit_btn" onclick="submitRevise();">
-                    <i class="fas fa-edit mr-1"></i> Revise Program
+                    <i class="fas fa-edit mr-1"></i> <?= __('gdt.page.reviseProgram') ?>
                 </button>
             </div>
         </div>
@@ -2111,7 +2112,7 @@ include("load/config.php");
         <div class="modal-content">
             <div class="modal-header bg-info text-white py-2">
                 <h5 class="modal-title" id="gdt_transition_modal_label">
-                    <i class="fas fa-exchange-alt mr-1"></i> GS &rarr; GDP Transition
+                    <i class="fas fa-exchange-alt mr-1"></i> <?= __('gdt.page.gsToGdpTransition') ?>
                 </h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
@@ -2126,7 +2127,7 @@ include("load/config.php");
 
                 <!-- Parent GS info -->
                 <div class="form-group">
-                    <label class="font-weight-bold">Parent Ground Stop</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.parentGroundStop') ?></label>
                     <div id="gdt_transition_gs_info" class="text-muted border rounded p-2 bg-light">-</div>
                 </div>
 
@@ -2141,7 +2142,7 @@ include("load/config.php");
                 <div id="gdt_transition_params">
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">GDP Type</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.gdpType') ?></label>
                             <select class="form-control form-control-sm" id="gdt_transition_gdp_type">
                                 <option value="GDP-DAS">GDP-DAS (Default)</option>
                                 <option value="GDP-GAAP">GDP-GAAP</option>
@@ -2149,25 +2150,25 @@ include("load/config.php");
                             </select>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">Program Rate (arr/hr)</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.programRateArrHr') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gdt_transition_rate" min="1" max="120" placeholder="e.g. 36">
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">Reserve Rate</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.reserveRate') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gdt_transition_reserve" min="0" max="30" placeholder="GAAP/UDP only">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">GDP End Time (UTC)</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.gdpEndTimeUtc') ?></label>
                             <input type="datetime-local" class="form-control form-control-sm" id="gdt_transition_end_utc" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">Delay Cap (minutes)</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.delayCapMinutes') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gdt_transition_delay_cap" min="0" max="600" value="180" placeholder="e.g. 300">
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="font-weight-bold">Impacting Condition</label>
+                            <label class="font-weight-bold"><?= __('gdt.page.impactingConditionLabel') ?></label>
                             <select class="form-control form-control-sm" id="gdt_transition_impacting">
                                 <option value="WEATHER">WEATHER</option>
                                 <option value="VOLUME">VOLUME</option>
@@ -2178,31 +2179,31 @@ include("load/config.php");
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="font-weight-bold">Comments</label>
+                        <label class="font-weight-bold"><?= __('gdt.page.extensionComments') ?></label>
                         <textarea class="form-control form-control-sm" id="gdt_transition_comments" rows="2" placeholder="e.g. ARR 4R, DEP 4R."></textarea>
                     </div>
                 </div>
 
                 <!-- Cumulative Period (shown after propose) -->
                 <div class="form-group d-none" id="gdt_transition_cumulative_row">
-                    <label class="font-weight-bold">Cumulative Program Period</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.cumulativeProgramPeriod') ?></label>
                     <div id="gdt_transition_cumulative" class="text-muted">-</div>
                 </div>
 
                 <!-- Advisory Preview -->
                 <div class="form-group">
-                    <label class="font-weight-bold">Advisory Preview</label>
+                    <label class="font-weight-bold"><?= __('gdt.page.advisoryPreviewLabel') ?></label>
                     <pre id="gdt_transition_advisory_preview" class="border bg-light p-2 small" style="max-height:200px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:0.7rem;"></pre>
                 </div>
                 <div id="gdt_transition_error" class="alert alert-danger small py-1 px-2 d-none"></div>
             </div>
             <div class="modal-footer py-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('gdt.page.close') ?></button>
                 <button type="button" class="btn btn-info btn-sm" id="gdt_transition_propose_btn" onclick="submitTransitionPropose();">
-                    <i class="fas fa-file-alt mr-1"></i> Propose GDP
+                    <i class="fas fa-file-alt mr-1"></i> <?= __('gdt.page.proposeGdp') ?>
                 </button>
                 <button type="button" class="btn btn-success btn-sm d-none" id="gdt_transition_activate_btn" onclick="submitTransitionActivate();">
-                    <i class="fas fa-check-circle mr-1"></i> Activate GDP &amp; Cancel GS
+                    <i class="fas fa-check-circle mr-1"></i> <?= __('gdt.page.activateGdpCancelGs') ?>
                 </button>
             </div>
         </div>
