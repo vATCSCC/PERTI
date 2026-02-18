@@ -62,6 +62,7 @@ try {
 
 catch (PDOException $e) {
     $conn_pdo->rollback();
+    error_log("goals/post error: " . $e->getMessage());
     http_response_code(500);
 }
 

@@ -65,6 +65,7 @@ try {
 
 catch (PDOException $e) {
     $conn_pdo->rollback();
+    error_log("terminal_inits/post error: " . $e->getMessage());
     http_response_code(500);
 }
 
