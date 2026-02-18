@@ -37,11 +37,15 @@
             }
         }
 
-        // Check localStorage
+        // Check localStorage — but only honour it if it was set for the current org.
+        // When users switch orgs (e.g. DCC → CANOC), the cached locale from the
+        // previous org should not override the new org's default.
         if (typeof localStorage !== 'undefined') {
             try {
                 const stored = localStorage.getItem('PERTI_LOCALE');
-                if (stored && SUPPORTED_LOCALES.includes(stored)) {
+                const storedOrg = localStorage.getItem('PERTI_LOCALE_ORG');
+                const currentOrg = (typeof window !== 'undefined' && window.PERTI_ORG && window.PERTI_ORG.code) || null;
+                if (stored && SUPPORTED_LOCALES.includes(stored) && (!currentOrg || storedOrg === currentOrg)) {
                     return stored;
                 }
             } catch {
@@ -286,10 +290,14 @@
             }
         }
 
-        // Store detected locale
+        // Store detected locale alongside current org so we can detect org switches
         if (typeof localStorage !== 'undefined') {
             try {
                 localStorage.setItem('PERTI_LOCALE', locale);
+                var currentOrg = (typeof window !== 'undefined' && window.PERTI_ORG && window.PERTI_ORG.code) || null;
+                if (currentOrg) {
+                    localStorage.setItem('PERTI_LOCALE_ORG', currentOrg);
+                }
             } catch {
                 // localStorage may be blocked
             }

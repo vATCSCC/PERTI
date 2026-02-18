@@ -251,8 +251,9 @@
         // Load default forms
         state.selectedNtmlType = 'MIT';
         loadNtmlForm('MIT');
-        state.selectedAdvisoryType = 'OPS_PLAN';
-        loadAdvisoryForm('OPS_PLAN');
+        const defaultAdvType = (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') ? 'GDP' : 'OPS_PLAN';
+        state.selectedAdvisoryType = defaultAdvType;
+        loadAdvisoryForm(defaultAdvType);
 
         loadActiveTmis();
         loadStagedEntries();
@@ -331,10 +332,45 @@
         });
     }
 
+    function getAdvisoryTypesForOrg() {
+        if (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') {
+            return [
+                { type: 'GDP', icon: 'fa-clock', colorClass: 'text-primary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdp'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpDesc') },
+                { type: 'GS', icon: 'fa-hand-paper', colorClass: 'text-danger', label: PERTII18n.t('tmiPublish.advisoryTypes.gs'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsDesc') },
+                { type: 'GDP_CANCEL', icon: 'fa-times-circle', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancelDesc') },
+                { type: 'GS_CANCEL', icon: 'fa-ban', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gsCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsCancelDesc') },
+            ];
+        }
+        return [
+            { type: 'OPS_PLAN', icon: 'fa-calendar-alt', colorClass: 'text-primary', label: 'Ops Plan', desc: 'Operations Plan' },
+            { type: 'FREE_FORM', icon: 'fa-file-alt', colorClass: 'text-secondary', label: 'Free-Form', desc: 'ATCSCC Advisory' },
+            { type: 'HOTLINE', icon: 'fa-phone-volume', colorClass: 'text-danger', label: 'Hotline', desc: 'Activation/Term' },
+            { type: 'SWAP', icon: 'fa-cloud-sun-rain', colorClass: 'text-warning', label: 'SWAP', desc: 'Implementation Plan' },
+        ];
+    }
+
     function initAdvisoryTypeSelector() {
-        $('.advisory-type-card').on('click', function() {
+        const types = getAdvisoryTypesForOrg();
+        const $container = $('#advisoryTypeCards');
+
+        let cardsHtml = '';
+        types.forEach(function(t, idx) {
+            const selectedClass = idx === 0 ? ' selected' : '';
+            cardsHtml += `
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="card advisory-type-card text-center p-2${selectedClass}" data-type="${t.type}">
+                        <div class="advisory-type-icon ${t.colorClass}"><i class="fas ${t.icon}"></i></div>
+                        <div class="small font-weight-bold">${t.label}</div>
+                        <div class="text-muted" style="font-size: 0.65rem;">${t.desc}</div>
+                    </div>
+                </div>
+            `;
+        });
+        $container.html(cardsHtml);
+
+        $container.on('click', '.advisory-type-card', function() {
             const type = $(this).data('type');
-            $('.advisory-type-card').removeClass('selected');
+            $container.find('.advisory-type-card').removeClass('selected');
             $(this).addClass('selected');
             state.selectedAdvisoryType = type;
             loadAdvisoryForm(type);
@@ -473,7 +509,7 @@
         if (showAll) {
             // Aircraft Type
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.type')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.type') + '</span>';
             NTML_QUALIFIERS.aircraft.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="aircraft" title="${q.desc}">${q.label}</button>`;
             });
@@ -481,7 +517,7 @@
 
             // Weight Class
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.weight')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.weight') + '</span>';
             NTML_QUALIFIERS.weight.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="weight" title="${q.desc}">${q.label}</button>`;
             });
@@ -489,7 +525,7 @@
 
             // Spacing Method
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.spacing')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.spacing') + '</span>';
             NTML_QUALIFIERS.spacing.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="spacing" title="${q.desc}">${q.label}</button>`;
             });
@@ -497,7 +533,7 @@
 
             // Equipment/Capability
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.equipment')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.equipment') + '</span>';
             NTML_QUALIFIERS.equipment.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="equipment" title="${q.desc}">${q.label}</button>`;
             });
@@ -505,7 +541,7 @@
 
             // Flow Type
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.flow')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.flow') + '</span>';
             NTML_QUALIFIERS.flow.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="flow" title="${q.desc}">${q.label}</button>`;
             });
@@ -513,7 +549,7 @@
 
             // Operator Category
             html += '<div class="qualifier-group mb-2">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.operator')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.operator') + '</span>';
             NTML_QUALIFIERS.operator.forEach(q => {
                 html += `<button type="button" class="btn btn-outline-secondary btn-sm qualifier-btn mr-1 mb-1" data-qualifier="${q.code}" data-group="operator" title="${q.desc}">${q.label}</button>`;
             });
@@ -521,14 +557,14 @@
 
             // Altitude Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.altitude')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.altitude') + '</span>';
             html += '<input type="text" class="form-control form-control-sm text-uppercase" id="ntml_altitude_filter" placeholder="' + PERTII18n.t('tmiPublish.qualifiers.altitudePlaceholder') + '" style="max-width: 200px;" maxlength="20">';
             html += '<small class="text-muted ml-2">' + PERTII18n.t('tmiPublish.qualifiers.altitudeHint') + '</small>';
             html += '</div>';
 
             // Speed Filter (text input)
             html += '<div class="qualifier-group mb-2 d-flex align-items-center">';
-            html += '<span class="small text-muted mr-2">${PERTII18n.t('tmiPublish.qualifiers.speed')}</span>';
+            html += '<span class="small text-muted mr-2">' + PERTII18n.t('tmiPublish.qualifiers.speed') + '</span>';
             html += '<input type="number" class="form-control form-control-sm" id="ntml_speed_filter" placeholder="' + PERTII18n.t('tmiPublish.qualifiers.speedPlaceholder') + '" style="max-width: 100px;" min="0" max="999">';
             html += '<span class="small text-muted ml-1">KTS</span>';
             html += '</div>';
@@ -1421,6 +1457,18 @@
             case 'SWAP':
                 formHtml = buildSwapForm();
                 break;
+            case 'GDP':
+                formHtml = buildGdpForm();
+                break;
+            case 'GS':
+                formHtml = buildGsForm();
+                break;
+            case 'GDP_CANCEL':
+                formHtml = buildGdpCancelForm();
+                break;
+            case 'GS_CANCEL':
+                formHtml = buildGsCancelForm();
+                break;
             default:
                 formHtml = `<div class="alert alert-warning">${PERTII18n.t('tmiPublish.unknownAdvisoryType')}</div>`;
         }
@@ -1840,6 +1888,552 @@
                 </div>
             </div>
         `;
+    }
+
+    // ========================================
+    // Canadian GDP/GS Form Builders
+    // ========================================
+
+    function getCanadianFirOptions() {
+        const firs = [
+            { code: 'CZEG', name: 'Edmonton FIR' },
+            { code: 'CZQM', name: 'Moncton FIR' },
+            { code: 'CZQX', name: 'Gander FIR' },
+            { code: 'CZVR', name: 'Vancouver FIR' },
+            { code: 'CZWG', name: 'Winnipeg FIR' },
+            { code: 'CZYZ', name: 'Toronto FIR' },
+            { code: 'CZUL', name: 'Montreal FIR' },
+        ];
+        return firs.map(f => `<option value="${f.code}">${f.code} - ${f.name}</option>`).join('');
+    }
+
+    function getImpactingConditionOptions() {
+        return `
+            <option value="WEATHER">WEATHER</option>
+            <option value="VOLUME">VOLUME</option>
+            <option value="RUNWAY">RUNWAY</option>
+            <option value="EQUIPMENT">EQUIPMENT</option>
+            <option value="OTHER">OTHER</option>
+        `;
+    }
+
+    function buildGdpForm() {
+        const advNum = getNextAdvisoryNumber('GDP');
+        const currentDateTime = getCurrentDateTimeForInput();
+        const endDateTime = new Date(Date.now() + (4 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-clock mr-1"></i> ${PERTII18n.t('tmiPublish.gdpForm.title')}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
+                            <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.airport')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_airport" placeholder="${PERTII18n.t('tmiPublish.gdpForm.airportPlaceholder')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.fir')}</label>
+                            <select class="form-control" id="adv_fir">
+                                ${getCanadianFirOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.adlTime')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_adl_time" value="${currentDateTime}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.delayMode')}</label>
+                            <select class="form-control" id="adv_delay_mode">
+                                <option value="DAS">DAS</option>
+                                <option value="GAAP">GAAP</option>
+                                <option value="UDP" selected>UDP</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.arrivalsStart')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_arrivals_start" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.arrivalsEnd')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_arrivals_end" value="${endDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.programRate')}</label>
+                            <input type="text" class="form-control" id="adv_program_rate" placeholder="${PERTII18n.t('tmiPublish.gdpForm.programRatePlaceholder')}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.programStart')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_program_start" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.programEnd')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_program_end" value="${endDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.flightInclusion')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_flight_inclusion" value="${PERTII18n.t('tmiPublish.gdpForm.flightInclusionDefault')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.depScope')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_dep_scope" placeholder="${PERTII18n.t('tmiPublish.gdpForm.depScopePlaceholder')}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.additionalDepFacilities')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_addl_dep" placeholder="Space-separated, e.g. CZYZ CZUL">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.exemptDepFacilities')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_exempt_dep" placeholder="Space-separated, e.g. CZQX">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.maxDelay')}</label>
+                            <input type="number" class="form-control" id="adv_max_delay" min="0" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.avgDelay')}</label>
+                            <input type="number" class="form-control" id="adv_avg_delay" min="0" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.impactingCondition')}</label>
+                            <select class="form-control" id="adv_impacting_condition">
+                                ${getImpactingConditionOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.specificImpact')}</label>
+                            <input type="text" class="form-control" id="adv_impacting_text" placeholder="e.g. LOW CEILINGS AND FOG">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.comments')}</label>
+                        <textarea class="form-control" id="adv_comments" rows="2" placeholder="Additional comments..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function buildGsForm() {
+        const advNum = getNextAdvisoryNumber('GS');
+        const currentDateTime = getCurrentDateTimeForInput();
+        const endDateTime = new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <span class="tmi-section-title"><i class="fas fa-hand-paper mr-1"></i> ${PERTII18n.t('tmiPublish.gsForm.title')}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
+                            <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.airport')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_airport" placeholder="${PERTII18n.t('tmiPublish.gsForm.airportPlaceholder')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.fir')}</label>
+                            <select class="form-control" id="adv_fir">
+                                ${getCanadianFirOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.adlTime')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_adl_time" value="${currentDateTime}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.gsStart')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_gs_start" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.gsEnd')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_gs_end" value="${endDateTime}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.depFacilitiesKeyword')}</label>
+                            <input type="text" class="form-control" id="adv_dep_keyword" placeholder="${PERTII18n.t('tmiPublish.gsForm.depFacilitiesKeywordPlaceholder')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.depFacilities')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_dep_facilities" placeholder="${PERTII18n.t('tmiPublish.gsForm.depFacilitiesPlaceholder')}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.previousDelays')}</label>
+                            <div class="row">
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.totalDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_prev_total" min="0" value="0">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.maxDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_prev_max" min="0" value="0">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.avgDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_prev_avg" min="0" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.newDelays')}</label>
+                            <div class="row">
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.totalDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_new_total" min="0" value="0">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.maxDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_new_max" min="0" value="0">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.avgDelays')}</label>
+                                    <input type="number" class="form-control" id="adv_new_avg" min="0" value="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.probExtension')}</label>
+                            <select class="form-control" id="adv_prob_extension">
+                                <option value="NONE">NONE</option>
+                                <option value="LOW">LOW</option>
+                                <option value="MEDIUM" selected>MEDIUM</option>
+                                <option value="HIGH">HIGH</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.impactingCondition')}</label>
+                            <select class="form-control" id="adv_impacting_condition">
+                                ${getImpactingConditionOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.specificImpact')}</label>
+                            <input type="text" class="form-control" id="adv_impacting_text" placeholder="e.g. THUNDERSTORMS">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.comments')}</label>
+                        <textarea class="form-control" id="adv_comments" rows="2" placeholder="Additional comments..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function buildGdpCancelForm() {
+        const advNum = getNextAdvisoryNumber('GDP_CANCEL');
+        const currentDateTime = getCurrentDateTimeForInput();
+        const endDateTime = new Date(Date.now() + (4 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-times-circle mr-1"></i> ${PERTII18n.t('tmiPublish.advisoryTypes.gdpCancel')}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
+                            <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.airport')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_airport" placeholder="${PERTII18n.t('tmiPublish.gdpForm.airportPlaceholder')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.fir')}</label>
+                            <select class="form-control" id="adv_fir">
+                                ${getCanadianFirOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.adlTime')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_adl_time" value="${currentDateTime}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.cnxStart')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_cnx_start" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.cnxEnd')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_cnx_end" value="${endDateTime}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="adv_active_afp">
+                                <label class="form-check-label small" for="adv_active_afp">${PERTII18n.t('tmiPublish.cancelForm.hasActiveAfp')}</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.comments')}</label>
+                        <textarea class="form-control" id="adv_comments" rows="2" placeholder="Additional comments..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function buildGsCancelForm() {
+        const advNum = getNextAdvisoryNumber('GS_CANCEL');
+        const currentDateTime = getCurrentDateTimeForInput();
+        const endDateTime = new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString().slice(0, 16);
+
+        return `
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <span class="tmi-section-title"><i class="fas fa-ban mr-1"></i> ${PERTII18n.t('tmiPublish.advisoryTypes.gsCancel')}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.advisoryNumber')}</label>
+                            <input type="text" class="form-control" id="adv_number" value="${advNum}" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.airport')}</label>
+                            <input type="text" class="form-control text-uppercase" id="adv_airport" placeholder="${PERTII18n.t('tmiPublish.gsForm.airportPlaceholder')}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.fir')}</label>
+                            <select class="form-control" id="adv_fir">
+                                ${getCanadianFirOptions()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gsForm.adlTime')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_adl_time" value="${currentDateTime}">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.cnxStart')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_cnx_start" value="${currentDateTime}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.cnxEnd')}</label>
+                            <input type="datetime-local" class="form-control" id="adv_cnx_end" value="${endDateTime}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="adv_active_afp">
+                                <label class="form-check-label small" for="adv_active_afp">${PERTII18n.t('tmiPublish.cancelForm.hasActiveAfp')}</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.cancelForm.comments')}</label>
+                        <textarea class="form-control" id="adv_comments" rows="2" placeholder="Additional comments..."></textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ========================================
+    // Canadian GDP/GS Preview Builders
+    // ========================================
+
+    function buildGdpPreview() {
+        const num = $('#adv_number').val() || '001';
+        const airport = ($('#adv_airport').val() || '').toUpperCase();
+        const artcc = $('#adv_fir').val() || '';
+        const adlTimeRaw = $('#adv_adl_time').val() || '';
+        const adlTime = adlTimeRaw ? new Date(adlTimeRaw + 'Z') : new Date();
+        const delayMode = $('#adv_delay_mode').val() || 'UDP';
+
+        const arrivalsStartRaw = $('#adv_arrivals_start').val() || '';
+        const arrivalsEndRaw = $('#adv_arrivals_end').val() || '';
+        const programStartRaw = $('#adv_program_start').val() || '';
+        const programEndRaw = $('#adv_program_end').val() || '';
+
+        const arrivalsStart = arrivalsStartRaw ? new Date(arrivalsStartRaw + 'Z') : new Date();
+        const arrivalsEnd = arrivalsEndRaw ? new Date(arrivalsEndRaw + 'Z') : new Date(Date.now() + 4 * 3600000);
+        const programStart = programStartRaw ? new Date(programStartRaw + 'Z') : new Date();
+        const programEnd = programEndRaw ? new Date(programEndRaw + 'Z') : new Date(Date.now() + 4 * 3600000);
+
+        const programRates = ($('#adv_program_rate').val() || '').split('/').filter(Boolean);
+        const flightInclusion = $('#adv_flight_inclusion').val() || 'ALL CNDN AND CONTIGUOUS US DEP';
+        const depScope = $('#adv_dep_scope').val() || '';
+        const additionalDep = ($('#adv_addl_dep').val() || '').split(/\s+/).filter(Boolean);
+        const exemptDep = ($('#adv_exempt_dep').val() || '').split(/\s+/).filter(Boolean);
+        const maxDelay = parseInt($('#adv_max_delay').val()) || 0;
+        const avgDelay = parseInt($('#adv_avg_delay').val()) || 0;
+        const impactingCondition = $('#adv_impacting_condition').val() || 'WEATHER';
+        const impactingText = $('#adv_impacting_text').val() || '';
+        const comments = $('#adv_comments').val() || '';
+
+        if (typeof AdvisoryTemplates !== 'undefined') {
+            return AdvisoryTemplates.generateGDPAdvisory({
+                advisoryNumber: num,
+                airport: airport,
+                artcc: artcc,
+                issueDate: new Date(),
+                adlTime: adlTime,
+                delayMode: delayMode,
+                arrivalsStart: arrivalsStart,
+                arrivalsEnd: arrivalsEnd,
+                programStart: programStart,
+                programEnd: programEnd,
+                programRates: programRates,
+                flightInclusion: flightInclusion,
+                depScope: depScope,
+                additionalDepFacilities: additionalDep,
+                exemptDepFacilities: exemptDep,
+                maxDelay: maxDelay,
+                avgDelay: avgDelay,
+                impactingCondition: impactingCondition,
+                impactingText: impactingText,
+                comments: comments,
+            });
+        }
+        return '(AdvisoryTemplates not loaded)';
+    }
+
+    function buildGsPreview() {
+        const num = $('#adv_number').val() || '001';
+        const airport = ($('#adv_airport').val() || '').toUpperCase();
+        const artcc = $('#adv_fir').val() || '';
+        const adlTimeRaw = $('#adv_adl_time').val() || '';
+        const adlTime = adlTimeRaw ? new Date(adlTimeRaw + 'Z') : new Date();
+
+        const gsStartRaw = $('#adv_gs_start').val() || '';
+        const gsEndRaw = $('#adv_gs_end').val() || '';
+        const gsStart = gsStartRaw ? new Date(gsStartRaw + 'Z') : new Date();
+        const gsEnd = gsEndRaw ? new Date(gsEndRaw + 'Z') : new Date(Date.now() + 2 * 3600000);
+
+        const depKeyword = $('#adv_dep_keyword').val() || '';
+        const depFacilities = ($('#adv_dep_facilities').val() || '').split(/\s+/).filter(Boolean);
+        const prevTotal = parseInt($('#adv_prev_total').val()) || 0;
+        const prevMax = parseInt($('#adv_prev_max').val()) || 0;
+        const prevAvg = parseInt($('#adv_prev_avg').val()) || 0;
+        const newTotal = parseInt($('#adv_new_total').val()) || 0;
+        const newMax = parseInt($('#adv_new_max').val()) || 0;
+        const newAvg = parseInt($('#adv_new_avg').val()) || 0;
+        const probExtension = $('#adv_prob_extension').val() || 'MEDIUM';
+        const impactingCondition = $('#adv_impacting_condition').val() || 'WEATHER';
+        const impactingText = $('#adv_impacting_text').val() || '';
+        const comments = $('#adv_comments').val() || '';
+
+        if (typeof AdvisoryTemplates !== 'undefined') {
+            return AdvisoryTemplates.generateGroundStopAdvisory({
+                advisoryNumber: num,
+                airport: airport,
+                artcc: artcc,
+                issueDate: new Date(),
+                adlTime: adlTime,
+                gsStart: gsStart,
+                gsEnd: gsEnd,
+                depFacilitiesKeyword: depKeyword || null,
+                depFacilitiesIncluded: depFacilities,
+                previousDelays: { total: prevTotal, max: prevMax, avg: prevAvg },
+                newDelays: { total: newTotal, max: newMax, avg: newAvg },
+                probExtension: probExtension,
+                impactingCondition: impactingCondition,
+                impactingText: impactingText,
+                comments: comments,
+            });
+        }
+        return '(AdvisoryTemplates not loaded)';
+    }
+
+    function buildGdpCancelPreview() {
+        const num = $('#adv_number').val() || '001';
+        const airport = ($('#adv_airport').val() || '').toUpperCase();
+        const artcc = $('#adv_fir').val() || '';
+        const adlTimeRaw = $('#adv_adl_time').val() || '';
+        const adlTime = adlTimeRaw ? new Date(adlTimeRaw + 'Z') : new Date();
+
+        const cnxStartRaw = $('#adv_cnx_start').val() || '';
+        const cnxEndRaw = $('#adv_cnx_end').val() || '';
+        const cnxStart = cnxStartRaw ? new Date(cnxStartRaw + 'Z') : new Date();
+        const cnxEnd = cnxEndRaw ? new Date(cnxEndRaw + 'Z') : new Date(Date.now() + 4 * 3600000);
+
+        const hasActiveAFP = $('#adv_active_afp').is(':checked');
+        const comments = $('#adv_comments').val() || '';
+
+        if (typeof AdvisoryTemplates !== 'undefined') {
+            return AdvisoryTemplates.generateGDPCancelAdvisory({
+                advisoryNumber: num,
+                airport: airport,
+                artcc: artcc,
+                issueDate: new Date(),
+                adlTime: adlTime,
+                cnxStart: cnxStart,
+                cnxEnd: cnxEnd,
+                hasActiveAFP: hasActiveAFP,
+                comments: comments,
+            });
+        }
+        return '(AdvisoryTemplates not loaded)';
+    }
+
+    function buildGsCancelPreview() {
+        const num = $('#adv_number').val() || '001';
+        const airport = ($('#adv_airport').val() || '').toUpperCase();
+        const artcc = $('#adv_fir').val() || '';
+        const adlTimeRaw = $('#adv_adl_time').val() || '';
+        const adlTime = adlTimeRaw ? new Date(adlTimeRaw + 'Z') : new Date();
+
+        const cnxStartRaw = $('#adv_cnx_start').val() || '';
+        const cnxEndRaw = $('#adv_cnx_end').val() || '';
+        const cnxStart = cnxStartRaw ? new Date(cnxStartRaw + 'Z') : new Date();
+        const cnxEnd = cnxEndRaw ? new Date(cnxEndRaw + 'Z') : new Date(Date.now() + 2 * 3600000);
+
+        const hasActiveAFP = $('#adv_active_afp').is(':checked');
+        const comments = $('#adv_comments').val() || '';
+
+        if (typeof AdvisoryTemplates !== 'undefined') {
+            return AdvisoryTemplates.generateGroundStopCancelAdvisory({
+                advisoryNumber: num,
+                airport: airport,
+                artcc: artcc,
+                issueDate: new Date(),
+                adlTime: adlTime,
+                cnxStart: cnxStart,
+                cnxEnd: cnxEnd,
+                hasActiveAFP: hasActiveAFP,
+                comments: comments,
+            });
+        }
+        return '(AdvisoryTemplates not loaded)';
     }
 
     function initAdvisoryFormHandlers(type) {
@@ -2365,6 +2959,18 @@
             case 'SWAP':
                 preview = buildSwapPreview();
                 break;
+            case 'GDP':
+                preview = buildGdpPreview();
+                break;
+            case 'GS':
+                preview = buildGsPreview();
+                break;
+            case 'GDP_CANCEL':
+                preview = buildGdpCancelPreview();
+                break;
+            case 'GS_CANCEL':
+                preview = buildGsCancelPreview();
+                break;
         }
 
         $('#adv_preview').text(preview);
@@ -2832,6 +3438,10 @@
             valid_until: validUntil,
         };
 
+        // Optional traffic flow selector (MIT/MINIT, STOP, APREQ, TBM forms)
+        const trafficFlow = ($('#ntml_traffic_flow').val() || '').trim().toUpperCase();
+        if (trafficFlow) {data.traffic_flow = trafficFlow;}
+
         // Collect active qualifiers
         const qualifiers = [];
         $('.qualifier-btn.active').each(function() {
@@ -3205,7 +3815,7 @@
         };
 
         // Collect all form fields
-        $('#adv_form_container input, #adv_form_container textarea, #adv_form_container select').each(function() {
+        $('#advisoryFormContainer input, #advisoryFormContainer textarea, #advisoryFormContainer select').each(function() {
             const id = $(this).attr('id');
             if (id) {
                 data[id.replace('adv_', '')] = $(this).val() || '';
@@ -3408,11 +4018,7 @@
      * Async version of performSubmit for use in coordination flow
      */
     async function performSubmitAsync() {
-        return new Promise((resolve, reject) => {
-            performSubmit();
-            // performSubmit handles its own UI, just resolve after a delay
-            setTimeout(resolve, 1000);
-        });
+        return performSubmit();
     }
 
     /**
@@ -3625,7 +4231,7 @@
                 },
             ).then((result) => {
                 if (result.isConfirmed) {
-                    performSubmit();
+                    performSubmit().catch(() => {});
                 }
             });
         }
@@ -3665,7 +4271,7 @@
                 },
             ).then((result) => {
                 if (result.isConfirmed) {
-                    performSubmit();
+                    performSubmit().catch(() => {});
                 }
             });
             return;
@@ -3807,7 +4413,7 @@
                         facilities: result.value.facilities,
                     }], entriesToPublishDirect);
                 } else {
-                    performSubmit();
+                    performSubmit().catch(() => {});
                 }
             }
         });
@@ -4041,16 +4647,16 @@
         const data = entry.data || {};
         const entryType = (entry.entryType || data.entry_type || 'TMI').toUpperCase();
         const ctlElement = (data.ctl_element || '').toUpperCase();
-        const restrictionValue = data.restriction_value || '';
-        const restrictionUnit = data.restriction_unit || (entryType === 'MIT' ? 'NM' : 'MIN');
-        const via = data.via || data.condition_text || '';
-        const flowType = data.flow_type || 'arrivals';
+        const restrictionValue = data.restriction_value || data.value || '';
+        const restrictionUnit = data.restriction_unit || data.unit || (entryType === 'MIT' ? 'NM' : (entryType === 'MINIT' ? 'MIN' : ''));
+        const via = data.via || data.condition_text || data.via_fix || '';
+        const flowType = data.flow_type || data.traffic_flow || 'arrivals';
         const qualifiers = data.qualifiers || '';
-        const reasonCode = data.reason_code || '';
-        const reasonDetail = data.reason_detail || '';
+        const reasonCode = data.reason_code || data.reason_category || data.reason || '';
+        const reasonDetail = data.reason_detail || data.reason_cause || '';
         const exclusions = data.exclusions || '';
-        const reqFacility = (data.requesting_facility || data.req_facility_id || '').toUpperCase();
-        const provFacility = (data.providing_facility || data.prov_facility_id || '').toUpperCase();
+        const reqFacility = (data.requesting_facility || data.req_facility_id || data.req_facility || '').toUpperCase();
+        const provFacility = (data.providing_facility || data.prov_facility_id || data.prov_facility || '').toUpperCase();
 
         // Format valid times
         const validFrom = data.valid_from || data.validFrom || '';
@@ -4547,39 +5153,47 @@
             entries: state.queue,
             production: state.productionMode,
             userCid: CONFIG.userCid,
+            userName: CONFIG.userName || 'Unknown',
         };
 
         // Show loading
         PERTIDialog.loading('tmiPublish.submit.submitting', 'Posting entries to Discord');
 
-        $.ajax({
-            url: 'api/mgt/tmi/publish.php',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(payload),
-            success: function(response) {
-                PERTIDialog.close();
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: 'api/mgt/tmi/publish.php',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function(response) {
+                    PERTIDialog.close();
 
-                if (response.success) {
-                    // Clear queue on success
-                    state.queue = [];
-                    saveState();
-                    updateUI();
+                    if (response.success) {
+                        // Clear queue on success
+                        state.queue = [];
+                        saveState();
+                        updateUI();
 
-                    showSubmitResults(response);
-                } else {
+                        showSubmitResults(response);
+                        resolve(response);
+                        return;
+                    }
+
+                    const errorMsg = response.error || 'Unknown error occurred';
                     PERTIDialog.error('tmiPublish.submit.failed', null, {}, {
-                        text: response.error || 'Unknown error occurred',
+                        text: errorMsg,
                     });
-                }
-            },
-            error: function(xhr, status, error) {
-                PERTIDialog.close();
-                console.error('Submit error:', xhr.responseText);
-                PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                    html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`,
-                });
-            },
+                    reject(new Error(errorMsg));
+                },
+                error: function(xhr, status, error) {
+                    PERTIDialog.close();
+                    console.error('Submit error:', xhr.responseText);
+                    PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
+                        html: `<p>Failed to connect to server.</p><p class="small text-muted">${error}</p>`,
+                    });
+                    reject(new Error(xhr.responseText || error || 'Connection error'));
+                },
+            });
         });
     }
 
@@ -4610,6 +5224,12 @@
     // ===========================================
 
     function loadActiveTmis() {
+        // Delegate to dedicated active-display module when available.
+        if (window.TMIActiveDisplay && typeof window.TMIActiveDisplay.refresh === 'function') {
+            window.TMIActiveDisplay.refresh();
+            return;
+        }
+
         $('#activeTmiBody').html(`
             <tr>
                 <td colspan="6" class="text-center text-muted py-4">
@@ -6604,7 +7224,7 @@
 
             // Check for reroute mode from URL
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'reroute') {
+            if (urlParams.get('mode') === 'reroute' || urlParams.get('tab') === 'reroute') {
                 this.loadFromSessionStorage();
             }
 
@@ -6625,8 +7245,8 @@
          */
         loadFromSessionStorage: function() {
             try {
-                const dataStr = sessionStorage.getItem('tmi_reroute_draft');
-                const timestamp = sessionStorage.getItem('tmi_reroute_draft_timestamp');
+                const dataStr = sessionStorage.getItem('tmi_reroute_draft') || localStorage.getItem('tmi_reroute_draft');
+                const timestamp = sessionStorage.getItem('tmi_reroute_draft_timestamp') || localStorage.getItem('tmi_reroute_draft_timestamp');
 
                 if (!dataStr) {
                     console.log('[REROUTE] No draft data found in sessionStorage');
@@ -6638,6 +7258,8 @@
                     console.log('[REROUTE] Draft data is stale, ignoring');
                     sessionStorage.removeItem('tmi_reroute_draft');
                     sessionStorage.removeItem('tmi_reroute_draft_timestamp');
+                    localStorage.removeItem('tmi_reroute_draft');
+                    localStorage.removeItem('tmi_reroute_draft_timestamp');
                     return;
                 }
 
@@ -6659,6 +7281,8 @@
                 // Clean up sessionStorage
                 sessionStorage.removeItem('tmi_reroute_draft');
                 sessionStorage.removeItem('tmi_reroute_draft_timestamp');
+                localStorage.removeItem('tmi_reroute_draft');
+                localStorage.removeItem('tmi_reroute_draft_timestamp');
 
             } catch (e) {
                 console.error('[REROUTE] Failed to load from sessionStorage:', e);

@@ -401,35 +401,8 @@ $perm = true;
                             </span>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2 selected" data-type="OPS_PLAN">
-                                        <div class="advisory-type-icon text-primary"><i class="fas fa-calendar-alt"></i></div>
-                                        <div class="small font-weight-bold">Ops Plan</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Operations Plan</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="FREE_FORM">
-                                        <div class="advisory-type-icon text-secondary"><i class="fas fa-file-alt"></i></div>
-                                        <div class="small font-weight-bold">Free-Form</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">ATCSCC Advisory</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="HOTLINE">
-                                        <div class="advisory-type-icon text-danger"><i class="fas fa-phone-volume"></i></div>
-                                        <div class="small font-weight-bold">Hotline</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Activation/Term</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6 mb-2">
-                                    <div class="card advisory-type-card text-center p-2" data-type="SWAP">
-                                        <div class="advisory-type-icon text-warning"><i class="fas fa-cloud-sun-rain"></i></div>
-                                        <div class="small font-weight-bold">SWAP</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Implementation Plan</div>
-                                    </div>
-                                </div>
+                            <div class="row" id="advisoryTypeCards">
+                                <!-- Dynamically populated by tmi-publish.js based on org -->
                             </div>
                         </div>
                     </div>
@@ -1784,7 +1757,9 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/tmi-publish.js?v=1.9.0"></script>
+<script src="assets/js/advisory-config.js?v=1.0.0"></script>
+<script src="advisory-templates.js?v=1.0.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.10.0"></script>
 <script src="assets/js/tmi-active-display.js?v=1.2.0"></script>
 <script src="assets/js/tmi-gdp.js?v=1.1.0"></script>
 <script>

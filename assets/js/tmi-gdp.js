@@ -104,13 +104,24 @@
             console.error('GSGDP: Error parsing handoff data:', e);
         }
 
-        // Prefer the type specified in URL, otherwise use whichever exists
+        // Prefer the type specified in URL.
+        // If both handoff payloads exist and no preferred type is passed, pick the newest payload.
         if (preferredType === 'gs' && gsData) {
             state.handoffType = 'GS';
             state.handoffData = gsData;
         } else if (preferredType === 'gdp' && gdpData) {
             state.handoffType = 'GDP';
             state.handoffData = gdpData;
+        } else if (gsData && gdpData) {
+            const gsTs = Date.parse(gsData.created_at || 0) || 0;
+            const gdpTs = Date.parse(gdpData.created_at || 0) || 0;
+            if (gdpTs > gsTs) {
+                state.handoffType = 'GDP';
+                state.handoffData = gdpData;
+            } else {
+                state.handoffType = 'GS';
+                state.handoffData = gsData;
+            }
         } else if (gsData) {
             state.handoffType = 'GS';
             state.handoffData = gsData;
@@ -120,7 +131,9 @@
         }
 
         if (state.handoffData) {
-            state.programId = state.handoffData.program_id || null;
+            const params = new URLSearchParams(window.location.search);
+            const programIdFromUrl = params.get('program_id');
+            state.programId = state.handoffData.program_id || programIdFromUrl || null;
             renderHandoffData();
         } else {
             showNoHandoffWarning();
