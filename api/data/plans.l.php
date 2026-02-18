@@ -32,10 +32,16 @@ if (!defined('DEV')) {
 
 require_once(dirname(__DIR__, 2) . '/load/org_context.php');
 $org = get_org_code();
-$stmt_plans = $conn_sqli->prepare("SELECT * FROM p_plans WHERE org_code = ? OR org_code IS NULL ORDER BY event_date DESC");
-$stmt_plans->bind_param("s", $org);
-$stmt_plans->execute();
-$query = $stmt_plans->get_result();
+
+// Global users see all plans; others see their org + global plans
+if (is_org_global()) {
+    $query = $conn_sqli->query("SELECT * FROM p_plans ORDER BY event_date DESC");
+} else {
+    $stmt_plans = $conn_sqli->prepare("SELECT * FROM p_plans WHERE org_code = ? OR org_code IS NULL ORDER BY event_date DESC");
+    $stmt_plans->bind_param("s", $org);
+    $stmt_plans->execute();
+    $query = $stmt_plans->get_result();
+}
 
 // Org display names for scope badges
 $org_display = [];

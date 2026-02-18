@@ -42,6 +42,7 @@ echo json_encode([
     'success' => true,
     'org_code' => get_org_code(),
     'privileged' => is_org_privileged(),
+    'global' => is_org_global(),
     'display_name' => $org_info['display_name'],
     'default_locale' => $org_info['default_locale']
 ]);

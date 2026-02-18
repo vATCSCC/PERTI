@@ -70,7 +70,7 @@ try {
     foreach ($orgs as $org) {
         $org = preg_replace('/[^a-z]/', '', $org);
         $is_primary = $is_first ? 1 : 0;
-        $stmt = mysqli_prepare($conn_sqli, "INSERT IGNORE INTO user_orgs (cid, org_code, is_privileged, is_primary, assigned_by) VALUES (?, ?, 0, ?, ?)");
+        $stmt = mysqli_prepare($conn_sqli, "INSERT IGNORE INTO user_orgs (cid, org_code, is_privileged, is_primary, assigned_by) VALUES (?, ?, 1, ?, ?)");
         mysqli_stmt_bind_param($stmt, "isii", $n_cid, $org, $is_primary, $assigner_cid);
         mysqli_stmt_execute($stmt);
         $is_first = false;

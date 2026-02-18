@@ -54,7 +54,11 @@ if (!validate_plan_org($id, $conn_sqli)) {
 $org = get_org_code();
 
 // Delete plan and all child records (validate_plan_org already checked access)
-$org_clause = "(org_code='$org' OR org_code IS NULL)";
+if (is_org_global()) {
+    $org_clause = "1=1";
+} else {
+    $org_clause = "(org_code='$org' OR org_code IS NULL)";
+}
 $query = $conn_sqli->multi_query("DELETE FROM p_plans WHERE id=$id AND $org_clause;
                                 DELETE FROM p_configs WHERE p_id=$id AND $org_clause;
                                 DELETE FROM p_dcc_staffing WHERE p_id=$id AND $org_clause;

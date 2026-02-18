@@ -65,7 +65,11 @@ $org_code_raw = post_input('org_code');
 $org_code = ($org_code_raw !== '' && $org_code_raw !== null) ? "'" . $conn_sqli->real_escape_string($org_code_raw) . "'" : 'NULL';
 
 // Update Data in Database (validate_plan_org already checked access)
-$query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline', org_code=$org_code WHERE id=$id AND (org_code='$org' OR org_code IS NULL)");
+if (is_org_global()) {
+    $query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline', org_code=$org_code WHERE id=$id");
+} else {
+    $query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline', org_code=$org_code WHERE id=$id AND (org_code='$org' OR org_code IS NULL)");
+}
 
 if ($query) {
     http_response_code('200');

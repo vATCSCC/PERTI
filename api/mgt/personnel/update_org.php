@@ -67,7 +67,7 @@ if (mysqli_num_rows($result) === 0) {
 $assigner_cid = intval($_SESSION['VATSIM_CID'] ?? 0);
 
 if ($action === 'add') {
-    $stmt = mysqli_prepare($conn_sqli, "INSERT IGNORE INTO user_orgs (cid, org_code, is_privileged, is_primary, assigned_by) VALUES (?, ?, 0, 0, ?)");
+    $stmt = mysqli_prepare($conn_sqli, "INSERT IGNORE INTO user_orgs (cid, org_code, is_privileged, is_primary, assigned_by) VALUES (?, ?, 1, 0, ?)");
     mysqli_stmt_bind_param($stmt, "isi", $target_cid, $org_code, $assigner_cid);
     mysqli_stmt_execute($stmt);
     echo json_encode(['success' => true, 'action' => 'added', 'cid' => $target_cid, 'org_code' => $org_code]);
