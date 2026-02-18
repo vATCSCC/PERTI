@@ -2947,6 +2947,31 @@ class TMIComplianceAnalyzer:
                                f"(heading away from {dest_icao}, expected bearing ~{expected_bearing:.0f})")
                     valid_crossings = upstream
 
+        # Verify crossings match TMI scope — belt-and-suspenders check that each
+        # crossing's actual dept/dest matches the TMI's origin/destination constraint.
+        # The flight-level pre-filter already gates this, but crossing-level validation
+        # catches edge cases (ICAO normalization, mid-flight plan changes).
+        scope_mismatch = 0
+        if tmi.destinations or tmi.origins:
+            normalized_dests = set(normalize_icao_list(tmi.destinations)) if tmi.destinations else None
+            normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else None
+            scope_ok = []
+            for c in valid_crossings:
+                dest_ok = (not normalized_dests or
+                           not c.dest or c.dest == 'UNK' or
+                           c.dest in normalized_dests)
+                dept_ok = (not normalized_origs or
+                           not c.dept or c.dept == 'UNK' or
+                           c.dept in normalized_origs)
+                if dest_ok and dept_ok:
+                    scope_ok.append(c)
+                else:
+                    scope_mismatch += 1
+            if scope_mismatch > 0:
+                logger.info(f"  Filtered {scope_mismatch} crossings: flight dept/dest "
+                           f"outside TMI scope (dest={tmi.destinations}, orig={tmi.origins})")
+                valid_crossings = scope_ok
+
         if len(valid_crossings) < 2:
             return {
                 'fix': fix,
