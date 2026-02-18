@@ -70,7 +70,7 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query (prepared statement)
-    $stmt_user = $conn_pdo->prepare("INSERT INTO users (cid, first_name, last_name) VALUES (?, ?, ?)");
+    $stmt_user = $conn_pdo->prepare("INSERT INTO users (cid, first_name, last_name, last_session_ip) VALUES (?, ?, ?, '')");
     $stmt_user->execute([$n_cid, $first_name, $last_name]);
 
     // Create org memberships
@@ -89,8 +89,11 @@ try {
     http_response_code(200);
 }
 
-catch (PDOException $e) {
-    $conn_pdo->rollback();
+catch (\Throwable $e) {
+    if ($conn_pdo->inTransaction()) {
+        $conn_pdo->rollback();
+    }
+    error_log("Personnel POST error: " . $e->getMessage());
     http_response_code(500);
 }
 
