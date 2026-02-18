@@ -2115,16 +2115,19 @@ class TMIComplianceAnalyzer:
                 # PostGIS returns ARTCC codes (KZBW), sector codes (ZBW01, ZBW17),
                 # and TRACON codes (A90, BOS). Match sectors by ARTCC prefix so
                 # ZBW01/ZBW17/etc. are recognized as "in ZBW".
+                # Use startswith() for all facility types — ARTCC sector codes
+                # (ZBW01) naturally match their parent (ZBW), and TRACON codes
+                # (N90, A80) match themselves exactly.
                 is_provider_match = (
                     prev_facility in provider_codes or
                     (prev_facility and any(
-                        prev_facility.startswith(p.rstrip('0123456789') if provider_type == 'TRACON' else p)
+                        prev_facility.startswith(p)
                         for p in provider_codes))
                 )
                 is_requestor_match = (
                     facility_code in requestor_codes or
                     (facility_code and any(
-                        facility_code.startswith(r.rstrip('0123456789') if requestor_type == 'TRACON' else r)
+                        facility_code.startswith(r)
                         for r in requestor_codes))
                 )
 
@@ -2802,13 +2805,17 @@ class TMIComplianceAnalyzer:
         fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
         fix_lon_coord = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
 
-        # Tight proximity for boundary-only fallback (no fix crossing confirmation)
+        # Proximity thresholds for boundary crossing validation
+        # Strict: boundary-only fallback (no fix crossing confirmation)
         proximity_nm = 40.0
+        # Generous: boundary with fix confirmation (just verify correct boundary edge)
+        boundary_range_nm = 80.0
 
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
         skipped_far = 0
         skipped_no_boundary = 0
+        skipped_wrong_edge = 0
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
@@ -2818,15 +2825,25 @@ class TMIComplianceAnalyzer:
                 # Facility-pair MIT: fix crossing gates entry, boundary is measurement
                 has_fix_cx = fix_cx is not None
                 bnd_near_fix = False
+                bnd_in_range = False
                 if bnd_cx and bnd_cx.lat and bnd_cx.lon:
-                    bnd_near_fix = haversine_nm(bnd_cx.lat, bnd_cx.lon,
-                                                fix_lat_coord, fix_lon_coord) <= proximity_nm
+                    bnd_dist = haversine_nm(bnd_cx.lat, bnd_cx.lon,
+                                            fix_lat_coord, fix_lon_coord)
+                    bnd_near_fix = bnd_dist <= proximity_nm
+                    bnd_in_range = bnd_dist <= boundary_range_nm
 
-                if has_fix_cx and bnd_cx:
-                    # Flight confirmed through fix AND has boundary crossing
+                if has_fix_cx and bnd_cx and bnd_in_range:
+                    # Flight confirmed through fix AND boundary is on correct edge
                     # Use boundary (handoff point) as measurement
                     crossings.append(bnd_cx)
                     measurement_stats['boundary'] += 1
+                elif has_fix_cx and bnd_cx and not bnd_in_range:
+                    # Flight passed through fix but boundary crossing is on the
+                    # wrong edge of the provider/requestor boundary (e.g., 180nm
+                    # away at the opposite side of a TRACON). Use fix as fallback.
+                    crossings.append(fix_cx)
+                    measurement_stats['fix'] += 1
+                    skipped_wrong_edge += 1
                 elif has_fix_cx and not bnd_cx:
                     if is_split_mit:
                         # Split MIT: can't determine which provider without boundary.
@@ -2864,6 +2881,9 @@ class TMIComplianceAnalyzer:
         if skipped_no_boundary > 0:
             logger.info(f"  Skipped {skipped_no_boundary} fix-only crossings: split MIT, "
                        f"no {tmi.provider}->{tmi.requestor} boundary detected")
+        if skipped_wrong_edge > 0:
+            logger.info(f"  Replaced {skipped_wrong_edge} boundary crossings with fix: "
+                       f"boundary >{boundary_range_nm}nm from {fix} (wrong edge)")
 
         # Determine overall measurement type based on what was actually used
         if has_facility_pair:
@@ -3098,6 +3118,12 @@ class TMIComplianceAnalyzer:
                     actual = (time_diff_min * avg_gs) / 60
 
                 spacing_cat = categorize_spacing(actual, required)
+
+                # Physical separation safeguard: if the crossing points are
+                # physically farther apart than the MIT requirement, flights
+                # can't be violating it regardless of time-based spacing.
+                if crossing_separation > required and spacing_cat == SpacingCategory.UNDER:
+                    spacing_cat = SpacingCategory.OVER
 
                 if spacing_cat == SpacingCategory.UNDER:
                     compliance = Compliance.NON_COMPLIANT
