@@ -4017,8 +4017,26 @@
     /**
      * Async version of performSubmit for use in coordination flow
      */
-    async function performSubmitAsync() {
-        return performSubmit();
+    async function performSubmitAsync(entries = state.queue) {
+        const payload = {
+            entries: entries,
+            production: state.productionMode,
+            userCid: CONFIG.userCid,
+            userName: CONFIG.userName || 'Unknown',
+        };
+
+        const response = await $.ajax({
+            url: 'api/mgt/tmi/publish.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+        });
+
+        if (!response || !response.success) {
+            throw new Error(response?.error || 'Unknown error occurred');
+        }
+
+        return response;
     }
 
     /**
@@ -4240,7 +4258,7 @@
     // TMI types that require coordination - uses PERTI when available
     const COORDINATION_REQUIRED_TYPES = (typeof PERTI !== 'undefined' && PERTI.ATFM && PERTI.ATFM.COORDINATION_REQUIRED_TYPES)
         ? [...PERTI.ATFM.COORDINATION_REQUIRED_TYPES]
-        : ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
+        : ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP', 'ROUTE', 'REROUTE'];
 
     /**
      * Check if an entry type requires external coordination
@@ -4882,14 +4900,15 @@
             });
 
             try {
-                // Temporarily set queue to just direct entries
-                const originalQueue = state.queue;
-                state.queue = entriesToPublishDirect;
-                await performSubmitAsync();
-                state.queue = originalQueue;
+                await performSubmitAsync(entriesToPublishDirect);
                 results.directPublished = entriesToPublishDirect;
             } catch (error) {
+                const errorMsg = error?.responseText || error?.message || 'Connection error';
                 console.error('Direct publish error:', error);
+                results.failed.push({
+                    entry: { data: { ctl_element: `Direct publish (${totalDirect} entries)` } },
+                    error: errorMsg,
+                });
             }
         }
 
@@ -9340,15 +9359,29 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    const discordPosted = !!(result.discord && result.discord.success);
+                    const discordError = result.discord?.error || result.discord?.last_discord_error || '';
+                    let statusHtml = '';
+                    let statusIcon = 'success';
+
+                    if (result.auto_approved) {
+                        statusHtml = `<p class="text-success">${PERTII18n.t('tmiPublish.autoApproved')}</p>`;
+                    } else if (!discordPosted) {
+                        statusIcon = 'warning';
+                        statusHtml = `<p class="text-warning">${PERTII18n.t('tmiPublish.coordination.proposalsSavedDiscordFailed', { count: 1 })}</p>`;
+                        if (discordError) {
+                            statusHtml += `<p class="small text-muted">${escapeHtml(discordError)}</p>`;
+                        }
+                    } else {
+                        statusHtml = `<p>${PERTII18n.t('tmiPublish.awaitingApprovals')}</p>`;
+                    }
+
                     Swal.fire({
-                        icon: 'success',
+                        icon: statusIcon,
                         title: PERTII18n.t('tmiPublish.submittedForCoord'),
                         html: `
                             <p>Proposal ID: <strong>${result.proposal_id}</strong></p>
-                            ${result.auto_approved ?
-        `<p class="text-success">${PERTII18n.t('tmiPublish.autoApproved')}</p>` :
-        `<p>${PERTII18n.t('tmiPublish.awaitingApprovals')}</p>`
-    }
+                            ${statusHtml}
                         `,
                         confirmButtonText: PERTII18n.t('tmiPublish.viewInCoordTab'),
                     }).then(() => {

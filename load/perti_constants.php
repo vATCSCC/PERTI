@@ -162,7 +162,7 @@ const PERTI_GDP_TYPES = ['GDP-DAS', 'GDP-GAAP', 'GDP-UDP'];
 const PERTI_ENTRY_TYPES = ['MIT', 'MINIT', 'DELAY', 'CONFIG', 'APREQ', 'CONTINGENCY', 'MISC', 'REROUTE'];
 
 /** Entry types that require inter-facility coordination */
-const PERTI_COORDINATED_ENTRY_TYPES = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP'];
+const PERTI_COORDINATED_ENTRY_TYPES = ['MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP', 'ROUTE', 'REROUTE'];
 
 /** Valid coordination modes for proposal submission */
 const PERTI_COORDINATION_MODES = ['STANDARD', 'EXPEDITED', 'IMMEDIATE'];

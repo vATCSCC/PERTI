@@ -216,6 +216,56 @@ $(document).ready(function() {
         return pointData;
     }
 
+    /**
+     * Prefill route input from URL query params.
+     * Supported params:
+     *   - routes: URL-encoded plain text
+     *   - routes_b64: base64url-encoded UTF-8 text
+     */
+    function seedRouteInputFromUrl() {
+        let routeText = '';
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            if (params.has('routes')) {
+                routeText = params.get('routes') || '';
+            } else if (params.has('routes_b64')) {
+                let b64 = params.get('routes_b64') || '';
+                b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+                while (b64.length % 4 !== 0) {
+                    b64 += '=';
+                }
+                const binary = window.atob(b64);
+                // Convert binary string from atob to UTF-8.
+                routeText = decodeURIComponent(binary.split('').map(function(ch) {
+                    return '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+            }
+        } catch (e) {
+            console.warn('[MAPLIBRE] Failed to parse route input from URL params:', e);
+            routeText = '';
+        }
+
+        if (!routeText || !routeText.trim()) {
+            return false;
+        }
+
+        const $routeInput = $('#routeSearch');
+        if (!$routeInput.length) {
+            return false;
+        }
+
+        // Only prefill if the input is currently empty.
+        const existing = ($routeInput.val() || '').toString().trim();
+        if (existing) {
+            console.log('[MAPLIBRE] URL route input detected, existing editor content preserved');
+            return false;
+        }
+
+        $routeInput.val(routeText.replace(/\r\n/g, '\n'));
+        console.log('[MAPLIBRE] Prefilled route input from URL params, length:', routeText.length);
+        return true;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // COORDINATE PARSING (ICAO, NAT, ARINC formats)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -6928,6 +6978,9 @@ $(document).ready(function() {
 
     const USE_MAPLIBRE = localStorage.getItem('useMapLibre') === 'true' ||
                          (typeof window.PERTI_USE_MAPLIBRE !== 'undefined' && window.PERTI_USE_MAPLIBRE);
+
+    // Allow deep links like /route.php?routes=...
+    seedRouteInputFromUrl();
 
     if (USE_MAPLIBRE) {
         console.log('[MAPLIBRE] Feature flag enabled, initializing MapLibre GL JS');

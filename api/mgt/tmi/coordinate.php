@@ -300,6 +300,28 @@ function isArtccParentOf($artcc, $facility) {
 }
 
 /**
+ * Internal auto-approval is opt-in.
+ * Default behavior is to require coordination unless explicitly enabled.
+ */
+function isInternalAutoApproveEnabled() {
+    static $enabled = null;
+
+    if ($enabled !== null) {
+        return $enabled;
+    }
+
+    $raw = getenv('PERTI_INTERNAL_COORD_AUTO_APPROVE');
+    if ($raw === false || $raw === null || trim((string)$raw) === '') {
+        $enabled = false;
+        return $enabled;
+    }
+
+    $value = strtolower(trim((string)$raw));
+    $enabled = in_array($value, ['1', 'true', 'yes', 'on'], true);
+    return $enabled;
+}
+
+/**
  * Get the appropriate emoji for a facility
  * Priority:
  *   1. If facility is an ARTCC/FIR with a mapped emoji, use it
@@ -558,7 +580,7 @@ function handleSubmitForCoordination() {
             $isInternalTmi = $allSameArtcc;
         }
 
-        if ($isInternalTmi) {
+        if ($isInternalTmi && isInternalAutoApproveEnabled()) {
             // Auto-approve all facilities
             $autoApproveSql = "UPDATE dbo.tmi_proposal_facilities SET
                                    approval_status = 'APPROVED',
@@ -603,11 +625,15 @@ function handleSubmitForCoordination() {
         error_log("[TMI_COORD] postProposalToDiscord returned: " . json_encode($discordResult));
 
         if ($discordResult && isset($discordResult['id'])) {
-            // Update proposal with Discord IDs
-            // Use thread_id as channel (Discord treats threads as channels for API calls)
-            // Use thread_message_id as the message (where reactions are added)
-            $channelId = $discordResult['thread_id'] ?? DISCORD_COORDINATION_CHANNEL;
-            $messageId = $discordResult['thread_message_id'] ?? $discordResult['id'];
+            // Update proposal with Discord IDs.
+            // Use thread channel/message pair only when both are present.
+            if (!empty($discordResult['thread_id']) && !empty($discordResult['thread_message_id'])) {
+                $channelId = $discordResult['thread_id'];
+                $messageId = $discordResult['thread_message_id'];
+            } else {
+                $channelId = DISCORD_COORDINATION_CHANNEL;
+                $messageId = $discordResult['id'];
+            }
 
             $updateSql = "UPDATE dbo.tmi_proposals SET
                               discord_channel_id = :channel,
@@ -624,6 +650,9 @@ function handleSubmitForCoordination() {
 
         $conn->commit();
 
+        $discordResult = is_array($discordResult) ? $discordResult : [];
+        $discordPosted = !empty($discordResult['id']);
+
         // Log the submission to coordination log
         logCoordinationActivity($conn, $proposalId, 'SUBMITTED', [
             'entry_type' => $entryType,
@@ -632,25 +661,38 @@ function handleSubmitForCoordination() {
             'created_by_name' => $userName,
             'deadline' => $deadline->format('Y-m-d H:i') . 'Z',
             'facilities' => array_map(fn($f) => is_array($f) ? $f['code'] : $f, $facilities),
-            'discord_posted' => isset($discordResult['id'])
+            'discord_posted' => $discordPosted
         ]);
+
+        $discordChannelId = !empty($discordResult['thread_id']) ? $discordResult['thread_id'] : DISCORD_COORDINATION_CHANNEL;
+        $discordMessageId = !empty($discordResult['thread_message_id'])
+            ? $discordResult['thread_message_id']
+            : ($discordResult['id'] ?? null);
+        $discordError = null;
+
+        if (!$discordPosted) {
+            $discordError = $discordResult['error']
+                ?? $discordResult['last_discord_error']
+                ?? 'Failed to post to Discord';
+        }
 
         echo json_encode([
             'success' => true,
             'proposal_id' => $proposalId,
             'proposal_guid' => $proposalGuid,
-            'discord' => $discordResult ? [
-                'success' => true,
-                'message_id' => $discordResult['id'] ?? null,
-                'channel_id' => DISCORD_COORDINATION_CHANNEL,
+            'discord' => [
+                'success' => $discordPosted,
+                'message_id' => $discordMessageId,
+                'channel_id' => $discordChannelId,
                 'thread_id' => $discordResult['thread_id'] ?? null,
                 'thread_message_id' => $discordResult['thread_message_id'] ?? null,
                 'reactions_added' => $discordResult['reactions_added'] ?? false,
                 'reaction_results' => $discordResult['reaction_results'] ?? null,
                 'reaction_debug' => $discordResult['reaction_debug'] ?? null,
                 'reactions_error' => $discordResult['reactions_error'] ?? null,
-                'last_discord_error' => $discordResult['last_discord_error'] ?? null
-            ] : ['success' => false, 'error' => 'Failed to post to Discord']
+                'last_discord_error' => $discordResult['last_discord_error'] ?? null,
+                'error' => $discordError
+            ]
         ]);
 
     } catch (Exception $e) {
@@ -1785,7 +1827,8 @@ function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $ne
         // Update Discord message
         $discord = new DiscordAPI();
         if ($discord->isConfigured()) {
-            $discord->editMessage(DISCORD_COORDINATION_CHANNEL, $proposal['discord_message_id'], [
+            $discordChannelId = $proposal['discord_channel_id'] ?? DISCORD_COORDINATION_CHANNEL;
+            $discord->editMessage($discordChannelId, $proposal['discord_message_id'], [
                 'content' => $message
             ]);
         }
@@ -2073,7 +2116,8 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
         // Update Discord message
         $discord = new DiscordAPI();
         if ($discord->isConfigured()) {
-            $discord->editMessage(DISCORD_COORDINATION_CHANNEL, $discordMessageId, [
+            $discordChannelId = $proposal['discord_channel_id'] ?? DISCORD_COORDINATION_CHANNEL;
+            $discord->editMessage($discordChannelId, $discordMessageId, [
                 'content' => $newContent
             ]);
         }
@@ -2166,8 +2210,22 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         ]);
 
         if (!$threadMessage || !isset($threadMessage['id'])) {
-            $log("Failed to post to thread: " . ($discord->getLastError() ?? 'unknown error'));
-            return $starterResult;
+            $log("Failed to post detailed thread message: " . ($discord->getLastError() ?? 'unknown error'));
+
+            // Fallback: post a minimal, globally-safe message so reactions still work.
+            $fallbackContent = "**TMI Coordination Request**\n"
+                . "Proposal #{$proposalId}\n"
+                . "Details could not be posted in full; review summary and reactions below.\n"
+                . "Deadline: <t:{$deadline->getTimestamp()}:F> (<t:{$deadline->getTimestamp()}:R>)";
+
+            $threadMessage = $discord->sendMessageToThread($threadId, [
+                'content' => $fallbackContent
+            ]);
+
+            if (!$threadMessage || !isset($threadMessage['id'])) {
+                $log("Fallback thread message also failed: " . ($discord->getLastError() ?? 'unknown error'));
+                return $starterResult;
+            }
         }
 
         $threadMessageId = $threadMessage['id'];
@@ -2281,6 +2339,52 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
             $starterResult['reactions_error'] = $emojiEx->getMessage();
         }
 
+        // Step 5: For ROUTE/REROUTE entries, post a Route Plotter link and full advisory text.
+        $entryTypeUpper = strtoupper($entry['entryType'] ?? '');
+        if ($entryTypeUpper === 'ROUTE' || $entryTypeUpper === 'REROUTE') {
+            $fullAdvisory = trim((string) buildNtmlText($entry));
+
+            try {
+                $plotter = buildRoutePlotterUrl($entry, $fullAdvisory);
+                if (!empty($plotter['url'])) {
+                    $plotterLines = [
+                        "**Route Plotter**",
+                        $plotter['url'],
+                    ];
+
+                    if (!empty($plotter['truncated'])) {
+                        $plotterLines[] = "_Preloaded with first routes due URL length limits. Full advisory is posted below._";
+                    } elseif (!empty($plotter['prefilled'])) {
+                        $plotterLines[] = "_Preloaded from this proposal._";
+                    } else {
+                        $plotterLines[] = "_Open link, then paste the advisory text from the messages below._";
+                    }
+
+                    $plotterPost = $discord->sendMessageToThread($threadId, [
+                        'content' => implode("\n", $plotterLines)
+                    ]);
+
+                    $starterResult['route_plotter_url'] = $plotter['url'];
+                    $starterResult['route_plotter_prefilled'] = (bool)($plotter['prefilled'] ?? false);
+                    $starterResult['route_plotter_posted'] = (bool)($plotterPost && isset($plotterPost['id']));
+                }
+            } catch (Throwable $plotterEx) {
+                $log("Failed posting route plotter link: " . $plotterEx->getMessage());
+                $starterResult['route_plotter_error'] = $plotterEx->getMessage();
+            }
+
+            try {
+                if ($fullAdvisory !== '') {
+                    $fullPost = postLongCodeBlockToThread($discord, $threadId, 'Full Proposed Advisory', $fullAdvisory);
+                    $starterResult['full_advisory_parts'] = $fullPost;
+                    $log("Posted full advisory parts: " . json_encode($fullPost));
+                }
+            } catch (Throwable $fullEx) {
+                $log("Failed posting full advisory parts: " . $fullEx->getMessage());
+                $starterResult['full_advisory_error'] = $fullEx->getMessage();
+            }
+        }
+
         $log("=== Discord post complete for proposal #{$proposalId} ===");
         $starterResult['last_discord_error'] = $discord->getLastError();
         return $starterResult;
@@ -2300,53 +2404,32 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
 function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities) {
     $data = $entry['data'] ?? [];
     $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $dueStr = $deadline->format('Hi') . 'Z';
 
-    // Get requestor (requesting facility)
     $requestor = strtoupper($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC');
-
-    // Get providers (facilities that need to approve)
     $providerCodes = [];
     foreach ($facilities as $fac) {
         $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
-        $providerCodes[] = strtoupper(trim($facCode));
-    }
-    $providers = implode(',', $providerCodes);
-
-    // Get valid period
-    $validFrom = $data['valid_from'] ?? $data['validFrom'] ?? null;
-    $validUntil = $data['valid_until'] ?? $data['validUntil'] ?? null;
-
-    $period = '';
-    if ($validFrom) {
-        try {
-            $fromDt = new DateTime($validFrom);
-            $period = $fromDt->format('Hi') . 'Z';
-            if ($validUntil) {
-                $untilDt = new DateTime($validUntil);
-                $period .= '-' . $untilDt->format('Hi') . 'Z';
-            }
-        } catch (Exception $e) {
-            $period = 'TBD';
+        if ($facCode) {
+            $providerCodes[] = strtoupper(trim($facCode));
         }
+    }
+
+    $providersShort = implode('/', array_slice($providerCodes, 0, 3));
+    if (count($providerCodes) > 3) {
+        $providersShort .= '+';
+    }
+
+    if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
+        $routeName = preg_replace('/\s+/', '_', strtoupper(trim((string)($data['name'] ?? 'UNNAMED'))));
+        $constrainedArea = strtoupper(trim((string)($data['constrained_area'] ?? 'TBD')));
+        $title = "COORD {$entryType} {$routeName} {$constrainedArea} DUE {$dueStr} #{$proposalId}";
     } else {
-        $period = 'TBD';
+        $title = "COORD {$entryType} {$requestor}>{$providersShort} DUE {$dueStr} #{$proposalId}";
     }
 
-    // Get due date/time
-    $dueStr = $deadline->format('Hi') . 'Z';
-
-    // Build title (max 100 characters for Discord thread names)
-    // Format: "TMI Coord | FROM {req} | TO {prov} | {type} | {period} | DUE {due} | #{id}"
-    $title = "TMI Coord | FROM {$requestor} | TO {$providers} | {$entryType} | {$period} | DUE {$dueStr} | #{$proposalId}";
-
-    // Truncate if needed (Discord limit is 100 chars)
     if (strlen($title) > 100) {
-        // Shorten version: "TMI | {req}→{prov} | {type} | DUE {due} | #{id}"
-        $title = "TMI | {$requestor}→{$providers} | {$entryType} | DUE {$dueStr} | #{$proposalId}";
-    }
-    if (strlen($title) > 100) {
-        // Even shorter: "TMI | {type} | #{id}"
-        $title = "TMI Coordination | {$entryType} | #{$proposalId}";
+        $title = "COORD {$entryType} DUE {$dueStr} #{$proposalId}";
     }
 
     return substr($title, 0, 100);
@@ -2356,71 +2439,404 @@ function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilitie
  * Format proposal message for Discord
  */
 function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName) {
-    $entryType = $entry['entryType'] ?? 'TMI';
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
     $data = $entry['data'] ?? [];
 
-    // Get NTML text
-    $ntmlText = buildNtmlText($entry);
-
-    // Format deadline timestamps
+    $ntmlText = trim((string) buildNtmlText($entry));
     $deadlineUnix = $deadline->getTimestamp();
-    $deadlineUtcStr = $deadline->format('Y-m-d H:i') . 'Z';
-    $deadlineDiscordLong = "<t:{$deadlineUnix}:F>";      // Full date/time
-    $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>"; // Relative (in X hours)
+    $deadlineDiscordFull = "<t:{$deadlineUnix}:F>";
+    $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>";
 
-    // Build facility list with both primary and alternate emojis
-    // Track used emojis to ensure uniqueness across facilities in this proposal
+    $requestor = strtoupper(trim((string)($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC')));
+
+    // Build compact facility approval legend.
     $usedEmojis = [];
-    $facilityApprovalList = []; // Detailed list with both emojis
-    $facilityEmojiMap = []; // Track emoji -> facility for this proposal
-
+    $facilityApprovalList = [];
     foreach ($facilities as $fac) {
         $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
         $facCode = strtoupper(trim($facCode));
         $primaryEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
-
-        // Get appropriate alternate emoji (ARTCC, parent ARTCC, or fallback)
         $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
         $altEmoji = $emojiInfo['emoji'];
-
-        // Build detailed facility entry with both emojis
-        if ($emojiInfo['type'] === 'parent' && $emojiInfo['parent']) {
-            // Show parent ARTCC relationship
-            $facilityApprovalList[] = "› **{$facCode}**: {$primaryEmoji} (primary) or {$altEmoji} ({$emojiInfo['parent']})";
-        } else {
-            $facilityApprovalList[] = "› **{$facCode}**: {$primaryEmoji} (primary) or {$altEmoji} (alt)";
-        }
-
-        // Track this mapping for reaction processing
-        $facilityEmojiMap[$altEmoji] = $facCode;
+        $parentSuffix = ($emojiInfo['type'] === 'parent' && !empty($emojiInfo['parent']))
+            ? " ({$emojiInfo['parent']})"
+            : '';
+        $facilityApprovalList[] = "{$facCode}: {$primaryEmoji} / {$altEmoji}{$parentSuffix}";
     }
-    $facilityApprovalStr = implode("\n", $facilityApprovalList);
 
-    // Build message - professional, compact format for Discord threads
     $lines = [
-        "## TMI Coordination Request",
-        "> PROPOSAL ONLY - NOT YET ACTIVE",
+        "ATCSCC COORDINATION TELEX",
+        "STATUS: PROPOSED (NOT ACTIVE)",
+        "ID: #{$proposalId}",
+        "TYPE: {$entryType}",
+        "FROM: {$requestor}",
+        "PROPOSED BY: {$userName}",
+        "DUE UTC: {$deadlineDiscordFull} ({$deadlineDiscordRelative})",
         "",
-        "**Proposed by:** {$userName} | **ID:** #{$proposalId}",
-        "**Deadline:** `{$deadlineUtcStr}` ({$deadlineDiscordRelative})",
-        "",
-        "**Proposed TMI:**",
-        "```",
-        $ntmlText,
-        "```",
-        "",
-        "**Facilities Required to Approve:**",
-        $facilityApprovalStr,
-        "",
-        "**Instructions:**",
-        "- React with facility emoji to approve",
-        "- React with X to deny",
-        "- DCC may override with :DCC:",
-        "",
-        "_Unanimous approval required before deadline._"
     ];
 
-    return implode("\n", $lines);
+    if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
+        $routes = is_array($data['routes'] ?? null) ? $data['routes'] : [];
+        $routeCount = count($routes);
+
+        $origins = [];
+        $dests = [];
+        foreach ($routes as $route) {
+            $origin = strtoupper(trim($route['origin'] ?? ''));
+            $dest = strtoupper(trim($route['destination'] ?? $route['dest'] ?? ''));
+            if ($origin !== '') { $origins[$origin] = true; }
+            if ($dest !== '') { $dests[$dest] = true; }
+        }
+
+        $validFrom = trim((string)($data['valid_from'] ?? ''));
+        $validUntil = trim((string)($data['valid_until'] ?? ''));
+        $validText = 'TBD';
+        try {
+            $fromDiscord = null;
+            $untilDiscord = null;
+            if ($validFrom !== '') {
+                $fromTs = (new DateTime($validFrom, new DateTimeZone('UTC')))->getTimestamp();
+                $fromDiscord = "<t:{$fromTs}:f>";
+            }
+            if ($validUntil !== '') {
+                $untilTs = (new DateTime($validUntil, new DateTimeZone('UTC')))->getTimestamp();
+                $untilDiscord = "<t:{$untilTs}:f>";
+            }
+
+            if ($fromDiscord && $untilDiscord) {
+                $validText = "{$fromDiscord} -> {$untilDiscord}";
+            } elseif ($fromDiscord) {
+                $validText = "{$fromDiscord} -> TBD";
+            }
+        } catch (Exception $e) {
+            if ($validFrom !== '' && $validUntil !== '') {
+                $validText = "{$validFrom} -> {$validUntil}";
+            } elseif ($validFrom !== '') {
+                $validText = "{$validFrom} -> TBD";
+            }
+        }
+
+        $includeTraffic = truncateForDiscord((string)($data['include_traffic'] ?? ''), 120);
+        $remarks = truncateForDiscord((string)($data['remarks'] ?? ''), 100);
+        $routeName = strtoupper(trim((string)($data['name'] ?? 'UNNAMED')));
+        $routeType = strtoupper(trim((string)($data['route_type'] ?? 'ROUTE')));
+        $constrainedArea = strtoupper(trim((string)($data['constrained_area'] ?? 'TBD')));
+        $reason = strtoupper(trim((string)($data['reason'] ?? 'WEATHER')));
+
+        $lines[] = "NAME: {$routeName}";
+        $lines[] = "ROUTE TYPE: {$routeType}";
+        $lines[] = "AREA: {$constrainedArea}";
+        $lines[] = "REASON: {$reason}";
+        $lines[] = "VALID UTC: {$validText}";
+        $lines[] = "ROUTES: {$routeCount} (ORG " . count($origins) . " / DEST " . count($dests) . ")";
+        if ($includeTraffic !== '') {
+            $lines[] = "TRAFFIC: {$includeTraffic}";
+        }
+        if ($remarks !== '') {
+            $lines[] = "REMARKS: {$remarks}";
+        }
+        $lines[] = "MAP: ROUTE PLOTTER LINK POSTED BELOW";
+
+        // Include only a compact header preview (not route tables).
+        $headerOnly = extractAdvisoryHeader($ntmlText);
+        if ($headerOnly !== '') {
+            $headerPreview = truncateForDiscord($headerOnly, 420);
+            $lines[] = "";
+            $lines[] = "HEADER PREVIEW:";
+            foreach (explode("\n", $headerPreview) as $headerLine) {
+                $lines[] = trim($headerLine);
+            }
+        }
+    } else {
+        $ntmlPreview = truncateForDiscord($ntmlText, 500);
+        if ($ntmlPreview !== '') {
+            $lines[] = "TEXT PREVIEW:";
+            foreach (explode("\n", $ntmlPreview) as $previewLine) {
+                $lines[] = trim($previewLine);
+            }
+            $lines[] = "";
+        }
+    }
+
+    $lines[] = "APPROVALS REQUIRED:";
+    foreach ($facilityApprovalList as $approvalLine) {
+        $lines[] = $approvalLine;
+    }
+    $lines[] = "";
+    $lines[] = "ACTIONS:";
+    $lines[] = "APPROVE = FACILITY EMOJI";
+    $lines[] = "DENY = ❌ OR 🚫";
+    $lines[] = "DCC OVERRIDE = :DCC:";
+
+    $body = implode("\n", $lines);
+    $maxBodyLen = 1965; // keep room for fenced code block wrapper
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($body, 'UTF-8') > $maxBodyLen) {
+            $body = mb_substr($body, 0, $maxBodyLen - 3, 'UTF-8') . '...';
+        }
+    } else {
+        if (strlen($body) > $maxBodyLen) {
+            $body = substr($body, 0, $maxBodyLen - 3) . '...';
+        }
+    }
+
+    return "```text\n{$body}\n```";
+}
+
+/**
+ * Split a long text by lines to stay under Discord's message length limits.
+ */
+function splitMessageForDiscord($message, $maxLen = 1990) {
+    $message = str_replace("\r\n", "\n", (string)$message);
+    if (strlen($message) <= $maxLen) {
+        return [$message];
+    }
+
+    $chunks = [];
+    $lines = explode("\n", $message);
+    $current = '';
+
+    foreach ($lines as $line) {
+        $candidate = $current . ($current === '' ? '' : "\n") . $line;
+        if (strlen($candidate) <= $maxLen) {
+            $current = $candidate;
+            continue;
+        }
+
+        if ($current !== '') {
+            $chunks[] = $current;
+        }
+
+        if (strlen($line) > $maxLen) {
+            $lineChunks = str_split($line, $maxLen);
+            $lastIdx = count($lineChunks) - 1;
+            foreach ($lineChunks as $idx => $lineChunk) {
+                if ($idx < $lastIdx) {
+                    $chunks[] = $lineChunk;
+                } else {
+                    $current = $lineChunk;
+                }
+            }
+        } else {
+            $current = $line;
+        }
+    }
+
+    if ($current !== '') {
+        $chunks[] = $current;
+    }
+
+    return $chunks;
+}
+
+/**
+ * Extract advisory header block before the ROUTES section.
+ */
+function extractAdvisoryHeader($ntmlText) {
+    $ntmlText = trim((string)$ntmlText);
+    if ($ntmlText === '') {
+        return '';
+    }
+
+    if (preg_match('/^(.*?)(?=\nROUTES:)/s', $ntmlText, $matches)) {
+        return trim($matches[1]);
+    }
+
+    return $ntmlText;
+}
+
+/**
+ * Truncate text safely for Discord display snippets.
+ */
+function truncateForDiscord($text, $maxLen = 240) {
+    $text = trim((string)$text);
+    if ($text === '' || strlen($text) <= $maxLen) {
+        return $text;
+    }
+    return rtrim(substr($text, 0, $maxLen - 3)) . '...';
+}
+
+/**
+ * Build public base URL for links posted to Discord.
+ */
+function getPublicSiteBaseUrl() {
+    $host = '';
+    if (defined('SITE_DOMAIN') && SITE_DOMAIN) {
+        $host = trim((string) SITE_DOMAIN);
+    }
+    if ($host === '' && !empty($_SERVER['HTTP_HOST'])) {
+        $host = trim((string) $_SERVER['HTTP_HOST']);
+    }
+    if ($host === '') {
+        return '';
+    }
+
+    $scheme = 'http';
+    if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+        $scheme = strtolower(trim(explode(',', (string)$_SERVER['HTTP_X_FORWARDED_PROTO'])[0]));
+    } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $scheme = 'https';
+    }
+
+    if ($scheme !== 'http' && $scheme !== 'https') {
+        $scheme = 'https';
+    }
+
+    return $scheme . '://' . $host;
+}
+
+/**
+ * Build normalized route line for Route Plotter prefill.
+ */
+function normalizeRouteLineForPlotter($origin, $routeBody, $destination) {
+    $origin = strtoupper(trim((string)$origin));
+    $routeBody = strtoupper(trim((string)$routeBody));
+    $destination = strtoupper(trim((string)$destination));
+
+    $parts = [];
+    if ($origin !== '') {
+        $parts[] = $origin;
+    }
+    if ($routeBody !== '') {
+        $parts[] = $routeBody;
+    }
+    if ($destination !== '') {
+        $parts[] = $destination;
+    }
+
+    $line = trim(preg_replace('/\s+/', ' ', implode(' ', $parts)));
+    if ($line === '') {
+        return '';
+    }
+
+    $line = trim($line, " <>");
+    return '>' . $line . '<';
+}
+
+/**
+ * Build route text payload for Route Plotter links.
+ */
+function buildRoutePlotterSeedText($entry, $fallbackAdvisory = '') {
+    $data = $entry['data'] ?? [];
+    $routes = is_array($data['routes'] ?? null) ? $data['routes'] : [];
+    $lines = [];
+    $seen = [];
+
+    foreach ($routes as $route) {
+        if (!is_array($route)) {
+            continue;
+        }
+
+        $originRaw = strtoupper(trim((string)($route['origin'] ?? $route['orig'] ?? '')));
+        $destinationRaw = strtoupper(trim((string)($route['destination'] ?? $route['dest'] ?? '')));
+        $routeBody = $route['route'] ?? $route['route_string'] ?? $route['segment'] ?? '';
+
+        $origins = preg_split('/[\/\s]+/', $originRaw, -1, PREG_SPLIT_NO_EMPTY);
+        $destinations = preg_split('/[\/\s]+/', $destinationRaw, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (empty($origins)) {
+            $origins = [''];
+        }
+        if (empty($destinations)) {
+            $destinations = [''];
+        }
+
+        foreach ($origins as $origin) {
+            foreach ($destinations as $destination) {
+                $line = normalizeRouteLineForPlotter($origin, $routeBody, $destination);
+                if ($line === '') {
+                    continue;
+                }
+
+                if (!isset($seen[$line])) {
+                    $lines[] = $line;
+                    $seen[$line] = true;
+                }
+            }
+        }
+    }
+
+    return !empty($lines) ? implode("\n", $lines) : trim((string)$fallbackAdvisory);
+}
+
+/**
+ * Build Route Plotter URL, including URL-encoded route text when possible.
+ */
+function buildRoutePlotterUrl($entry, $fallbackAdvisory = '') {
+    $base = getPublicSiteBaseUrl();
+    $baseUrl = ($base !== '' ? rtrim($base, '/') : '') . '/route.php';
+
+    $seedText = trim((string) buildRoutePlotterSeedText($entry, $fallbackAdvisory));
+    if ($seedText === '') {
+        return [
+            'url' => $baseUrl,
+            'prefilled' => false,
+            'truncated' => false,
+        ];
+    }
+
+    $buildUrl = function($payload) use ($baseUrl) {
+        return $baseUrl . '?routes=' . rawurlencode($payload);
+    };
+
+    $url = $buildUrl($seedText);
+    if (strlen($url) <= 1850) {
+        return [
+            'url' => $url,
+            'prefilled' => true,
+            'truncated' => false,
+        ];
+    }
+
+    // Fallback: prefill with a capped subset to keep URL workable.
+    $lines = preg_split('/\r\n|\r|\n/', $seedText);
+    $shortSeed = implode("\n", array_slice($lines, 0, 25));
+    $shortUrl = $buildUrl($shortSeed);
+
+    if (strlen($shortUrl) <= 1850 && trim($shortSeed) !== '') {
+        return [
+            'url' => $shortUrl,
+            'prefilled' => true,
+            'truncated' => true,
+        ];
+    }
+
+    return [
+        'url' => $baseUrl,
+        'prefilled' => false,
+        'truncated' => true,
+    ];
+}
+
+/**
+ * Post full advisory text to thread as split code blocks.
+ */
+function postLongCodeBlockToThread($discord, $threadId, $label, $message) {
+    $message = trim((string)$message);
+    if ($message === '') {
+        return ['posted' => 0, 'total' => 0];
+    }
+
+    // Keep chunk size small enough for label + code block wrapper + part marker.
+    $chunks = splitMessageForDiscord($message, 1860);
+    $total = count($chunks);
+    $posted = 0;
+
+    foreach ($chunks as $idx => $chunk) {
+        $part = ($total > 1) ? " (Part " . ($idx + 1) . "/{$total})" : '';
+        $content = "**{$label}{$part}**\n```\n{$chunk}\n```";
+
+        $result = $discord->sendMessageToThread($threadId, ['content' => $content]);
+        if ($result && isset($result['id'])) {
+            $posted++;
+        }
+
+        if ($idx < $total - 1) {
+            usleep(120000);
+        }
+    }
+
+    return ['posted' => $posted, 'total' => $total];
 }
 
 /**
@@ -3401,3 +3817,5 @@ function postToCoordinationLog($message) {
         error_log("Failed to post to coordination log: " . $e->getMessage());
     }
 }
+
+

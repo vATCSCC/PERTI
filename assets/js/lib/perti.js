@@ -89,7 +89,7 @@
 
     // TMI types that require external coordination before publishing
     const COORDINATION_REQUIRED_TYPES = Object.freeze([
-        'MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP',
+        'MIT', 'MINIT', 'APREQ', 'CFR', 'TBM', 'TBFM', 'STOP', 'ROUTE', 'REROUTE',
     ]);
 
     // Constraint types for terminal/enroute initiatives

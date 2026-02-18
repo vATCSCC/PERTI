@@ -687,7 +687,10 @@
             const result = await response.json();
 
             if (result.status === 'ok') {
-                showToast(PERTII18n.t('tmiPublish.submittedForCoord') + ' - ' + (result.data?.advisory_number || ''), 'success');
+                const discordPosted = result.data?.discord_posted !== false;
+                const toastType = discordPosted ? 'success' : 'warning';
+                const toastMessage = (result.message || PERTII18n.t('tmiPublish.submittedForCoord')) + ' - ' + (result.data?.advisory_number || '');
+                showToast(toastMessage, toastType);
 
                 // Clear handoff data
                 sessionStorage.removeItem('tmi_gs_handoff');
