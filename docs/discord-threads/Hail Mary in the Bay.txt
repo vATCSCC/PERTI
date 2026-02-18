@@ -1,0 +1,466 @@
+https://perti.vatcscc.org/plan?233
+Michael B | VATUSA5 — 01/19/2026 00:19
+Hail Mary in the Bay | TMU OpLevel 3 | PERTI Data Request
+Hail Mary in the Bay is from 2026-02-07 2359Z to 2026-02-08 0400Z.
+Start: Saturday, 7 February, 2026 18:59 (5 days ago) in your timezone
+End:   Saturday, 7 February, 2026 23:00 (5 days ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+PERTI NAS Operations Dashboard (NOD)
+PERTI Active Splits
+PERTI Ground Delay Tool (GDT)
+PERTI Route Mapper
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZAB: @Jordan J | ZAB EC 
+ZDV: @Caution Wake Turbulence 
+ZLA: @Brody B | ZLA EC 
+ZLC: @Brayden S | ZLC EC @Cameron N | ZLC ATM 
+ZMP (optional): @Kristofer P | ZMP EC 
+ZOA: @Eiso W | ZOA S2 @Zhenyu M | ZOA S3 
+ZSE: @Hayden | ZSE EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Ford | ZTL C1 — 01/19/2026 00:20
+Copy paste message FAIL
+Daniel E | ZMP FE — 01/19/2026 00:20
+Caught in 4k
+Michael B | VATUSA5 — 01/19/2026 00:20
+rlly?
+what did i do
+Ford | ZTL C1 — 01/19/2026 00:20
+Image
+Michael B | VATUSA5 — 01/19/2026 00:20
+yall tripping
+Eiso W | ZOA S2
+
+ — 01/19/2026 00:20
+Image
+Michael B | VATUSA5 — 01/19/2026 00:20
+Image
+Hayden | ZSE EC — 01/19/2026 00:20
+it looks fine to me lmao
+Ford | ZTL C1 — 01/19/2026 00:21
+welp
+Joshua H | ZTL TA — 01/19/2026 00:21
+Ford is trippin 
+Ford | ZTL C1 — 01/19/2026 00:21
+??
+sorry guys
+Michael B | VATUSA5 — 01/19/2026 00:21
+still riding the high from HTD
+Daniel E | ZMP FE — 01/19/2026 00:21
+Discord moment
+It's fine it shows up for me that way too
+Caution Wake Turbulence — 01/19/2026 00:22
+Image
+Michael B | VATUSA5 — 01/19/2026 00:23
+i blame discord mobile
+Ford | ZTL C1 — 01/19/2026 00:23
+yea cause it still pinged us
+Jeremy P | ZNY C1 — 01/19/2026 04:58
+Hmmmm this is peculiar
+Michael B | VATUSA5 — 01/31/2026 22:42
+Forwarded
+???????
+07/2330   SJC via STUBL 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SJC via SILCN 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SJC via ZINNN 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   SMF via SUUTR 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SMF via SLMMR 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SMF via TUDOR 15 MIT PER STREAM VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   SFO via LOZIT 30 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SFO via ALWYS 30 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SFO via NRRLI 30 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   OAK via OAKES 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   OAK via BOYYS 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   OAK via MYJAW 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   HWD,LVK,MOD,SCK via ALL 10 MIT PER AIRPORT VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+
+
+07/2330   SJC via KNGRY 30 MIT  VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via MDOWS 45 MIT  VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via LLC 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via RUSME 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SJC via SCTRR 30 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SJC via HOMEG,FINER 30 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZSE
+
+07/2330   SMF via NURAY 20 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SMF via KENNO 25 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SMF via ANAHO 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SMF via CRASY 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SMF via LMT 20 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZSE
+
+07/2330   SFO via ENVIE,FINER 40 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZSE
+07/2330   SFO via LEGGS 45 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SFO via OAL 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SFO via KENNO 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SFO via MAKRS,STOKD 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+
+07/2330   OAK via MRLET,RPARK 45 MIT EACH FIX VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   OAK via KENNO 45 MIT EACH FIX VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   OAK via HOMEG 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZSE
+07/2330   OAK via RGOOD 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+
+07/2330   HWD,LVK,MOD,SCK via ALL 25 MIT PER AIRPORT VOLUME:VOLUME 2300-0300 ZOA:ZLA,ZLC,ZSE
+???????
+
+Oakland ARTCC on VATSIM  •  01/31/2026
+Eiso W | ZOA S2
+
+ — 02/06/2026 01:15
+Forwarded
+Image
+Image
+
+Oakland ARTCC on VATSIM  •  02/05/2026
+Michael B | VATUSA5 — 02/06/2026 15:51
+@Hayden | ZSE EC @Brody B | ZLA EC @Brayden S | ZLC EC who’s the TMUs for tmr?
+ZLC if u don’t have one i get it ik ur struggling for staff
+Hayden | ZSE EC — 02/06/2026 15:52
+@Ameya N | ZSE TA will be ours
+Ameya N | ZSE TA — 02/06/2026 15:52
+I can do joint zlc/zse if needed
+Hayden | ZSE EC — 02/06/2026 15:53
+Ameya I also have the dead sector so you can just do ZLC if that’s better 
+Michael B | VATUSA5 — 02/06/2026 15:53
+That’d be nice I have 2 NOMs so there’s room to delegate work
+U need a ZLC discord invite
+Ameya N | ZSE TA — 02/06/2026 15:53
+Nah I visit
+Michael B | VATUSA5 — 02/06/2026 15:53
+Bet
+Ty
+@Dean V | ZHU DATM @Zackaria | ZTL I1 are the 2 DCC people coming
+Ameya N | ZSE TA — 02/06/2026 15:54
+I’m fine with wtvr, we can see tmrw  based on load where I need to be
+Ameya N | ZSE TA — 02/06/2026 15:56
+Is calflow being used?
+Michael B | VATUSA5 — 02/06/2026 15:56
+Yeah
+Brody B | ZLA EC — 02/06/2026 16:07
+i will be, website was down when i tried to input it
+will add myself later
+Hayden | ZSE EC — 02/06/2026 16:13
+@Adam K | S3 no need for T2 but if you have anyone on, please let them know we'd like 50MIT to SFO
+Michael B | VATUSA5 — 02/06/2026 16:20
+U got MIT into LA drafted?
+Hayden | ZSE EC — 02/06/2026 16:20
+ZSE split
+Image
+looking for 15 MIT into SEA
+Michael B | VATUSA5 — 02/06/2026 16:20
+Copy
+Hayden | ZSE EC — 02/06/2026 16:21
+07/2330   SFO via ELMAA 50 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:CZVR
+07/2330   SEA via LMT 15 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:ZOA
+
+07/2330   SJC via HAROB 15 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:SEA
+07/2330   SMF via SUMMA 10 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:SEA
+07/2330   SFO via HAROB 20 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:SEA
+07/2330   OAK via HAROB 20 MIT TYPE:JETS VOLUME:VOLUME 0000-0400 ZSE:SEA
+@Brayden S | ZLC EC got a split?
+Brody B | ZLA EC — 02/06/2026 16:29
+07/2330    LAX via BURGL, REBRG 15 MIT AS ONE 0000-0400 ZLA:ZOA
+07/2330    LAS via TQILA  20 MIT PER STREAM 0000-0400 ZLA:ZOA
+07/2330    SAN via ALL 25 MIT 0000-0400 ZLA:ZOA
+07/2330    ALL EXCL LAX, LAS, SAN via ALL 20 MIT PER STREAM 0000-0400 ZLA:ZOA, ZLC, ZDV, ZAB
+ 
+Michael B | VATUSA5 — 02/06/2026 16:30
+Rog thx I’ll forward these along
+Brody B | ZLA EC — 02/06/2026 16:31
+??can't add anything here
+Image
+cleared my cookies
+Jeremy P | ZNY C1 — 02/06/2026 16:31
+Hold on lemme check
+I'm fixing; give me 10 min. It was a redirect issue
+Jeremy P | ZNY C1 — 02/06/2026 17:08
+Now it should work
+https://perti.vatcscc.org/data?233
+Brody B | ZLA EC — 02/06/2026 17:08
+thanks
+Brody B | ZLA EC — 02/06/2026 17:09
+seems to be buggin out when i try to edit the ZLA DCC staffing
+does nothing
+Jeremy P | ZNY C1 — 02/06/2026 17:10
+Gr hold on
+Jeremy P | ZNY C1 — 02/06/2026 17:27
+Now try
+Brody B | ZLA EC — 02/06/2026 17:28
+v high latency but it works
+Jeremy P | ZNY C1 — 02/06/2026 17:30
+I restarted the web app/container so that's prob why. It just has to warm up & settle down
+Brayden S | ZLC EC — 02/06/2026 18:07
+Cam is our tmu
+Brayden S | ZLC EC — 02/06/2026 18:07
+Ill get one by tonight
+Michael B | VATUSA5 — 02/06/2026 19:29
+Rog
+Brody B | ZLA EC — 02/06/2026 19:29
+Image
+Michael B | VATUSA5 — 02/06/2026 21:27
+Forwarded
+some context, the assumption is most streams are full, there's some space given to decrease mit in certain places due to demand, ex LLC/LEGGS from ZLC is on purpose higher than it needs to be. SF and OAK have been made purposely high to put focus on SJC/SMF, but depending on demand/staffing in the moment, we have the capability to match their mit down to sorta the range of SJ
+Forwarded
+as is the usual with ZOA APREQing for lower than posted MIT for a subset of planes due to extreme circumstances is always avail, id rather do that then see people do 360s at the border
+wanted to forward regarding MIT, gonna adjust some numbers right now
+the below is a backup split in case we need to slide in an extra home controller 
+Image
+Michael B | VATUSA5 — 02/06/2026 21:44
+07/2330   SJC via STUBL 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SJC via SILCN 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SJC via ZINNN 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   SMF via SUUTR 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SMF via SLMMR 10 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SMF via TUDOR 15 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   SFO via LOZIT 30 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SFO via ALWYS 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   SFO via NRRLI 30 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   OAK via OAKES 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   OAK via BOYYS 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+07/2330   OAK via MYJAW 20 MIT AS ONE VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+07/2330   HWD,LVK,MOD,SCK via ALL 10 MIT PER AIRPORT VOLUME:VOLUME 0000-0400 NCT:ZOA
+
+
+
+07/2330   SJC via KNGRY 30 MIT  VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via MDOWS 45 MIT  VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via LLC 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SJC via RUSME 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SJC via SCTRR 30 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SJC via HOMEG,FINER 30 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZSE
+
+07/2330   SMF via NURAY 20 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SMF via KENNO 25 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SMF via ANAHO 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SMF via CRASY 30 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SMF via LMT 20 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZSE
+
+07/2330   SFO via ENVIE,FINER 40 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZSE
+07/2330   SFO via LEGGS 45 MIT NO COMP VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SFO via OAL 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   SFO via KENNO 45 MIT VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   SFO via MAKRS,STOKD 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+
+07/2330   OAK via MRLET,RPARK 45 MIT EACH FIX VOLUME:VOLUME 0000-0400 ZOA:ZLC
+07/2330   OAK via KENNO 45 MIT EACH FIX VOLUME:VOLUME 0000-0400 ZOA:ZLA
+07/2330   OAK via HOMEG 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZSE
+07/2330   OAK via RGOOD 40 MIT AS ONE VOLUME:VOLUME 0000-0400 ZOA:ZLA
+
+07/2330   HWD,LVK,MOD,SCK via ALL 25 MIT PER AIRPORT VOLUME:VOLUME 2300-0300 ZOA:ZLA,ZLC,ZSE
+ 
+Brayden S | ZLC EC — 02/07/2026 00:12
+Image
+Cameron N | ZLC ATM — 02/07/2026 12:10
+NGL
+is the voice server issues continue this evening may need to issue equipment MIT/TMI's.
+Brayden S | ZLC EC — 02/07/2026 12:19
+New ZLC Split
+Image
+Michael B | VATUSA5 — 02/07/2026 12:32
+Noted, we’ll see I had to do a complete restart last event, was not fun
+I don’t have much idea on what to put apart from closing the border to that sector I mean that’s what @Hayden | ZSE EC did at ZSE live
+Cameron N | ZLC ATM — 02/07/2026 14:03
+You do any time you want it is just coded as EQUIPMENT:OUTAGE
+Cameron N | ZLC ATM — 02/07/2026 17:05
+I'm already getting working here.  Asking ZMP to reroute DAL756
+Michael B | VATUSA5 — 02/07/2026 17:09
+rog ty
+@William P | ZMP I1
+Forwarded
+07/2106 PLZ REROUTE DAL756 OCS..TCH..BAM..LEGGS.BDEGA4 VOLUME:VOLUME ZLC:ZMP
+#ntml  •  Saturday
+Cameron N | ZLC ATM — 02/07/2026 17:27
+I need the calflow link again
+Brayden S | ZLC EC — 02/07/2026 17:27
+https://calflow.org/
+CalFLOW
+Web site created using create-react-app
+Cameron N | ZLC ATM — 02/07/2026 17:28
+ty
+Brody B | ZLA EC — 02/07/2026 17:50
+you won't be able to issue EDCTs to any NCT airports since those arent set up
+Brayden S | ZLC EC — 02/07/2026 17:53
+ZLC Revised #2 (sorry for all the changes)
+Image
+Potential
+Cameron N | ZLC ATM — 02/07/2026 17:56
+Will pull that out if needed
+Eiso W | ZOA S2
+
+ — 02/07/2026 17:57
+This still to start
+Cameron N | ZLC ATM — 02/07/2026 17:57
+Yes
+Michael B | VATUSA5 — 02/08/2026 01:12
+@Brayden S | ZLC EC @Cameron N | ZLC ATM @Brody B | ZLA EC @Hayden | ZSE EC thx for tonight appreciate the hard work
+Michael B | VATUSA5 — 02/08/2026 01:30
+https://vatsim-replay.com/2026-02-07-hail-mary-in-the-bay
+Michael B | VATUSA5 — 02/08/2026 01:45
+Image
+Image
+Image
+Brody B | ZLA EC — 02/08/2026 01:49
+Image
+/s
+Thomas V | ZOB DATM — 02/08/2026 07:43
+I was a pilot and I was saying to @Michael B | VATUSA5, that was incredibly smooth compared to the volume of traffic at a low-ish AAR airport. Well done everyone. 
+Ken G | ZOA DATM — 02/08/2026 11:41
+36-40 AAR into SJC for nearly 2 hours, sure why not ??
+Jeremy P | ZNY C1 — 02/08/2026 13:46
+Image
+Image
+Image
+Image
+Image
+Image
+Image
+Michael B | VATUSA5 — 02/08/2026 14:49
+traffic distribution was on point
+Image
+Michael B | VATUSA5 — 02/08/2026 15:00
+https://youtu.be/_fHVAq5STVM
+YouTube
+Michael Bonaga
+Hail Mary in The Bay Timelapse (ZOA)
+Image
+https://www.youtube.com/watch?v=GteoxoEjyYE
+YouTube
+KG ZOA
+Hail Mary in the Bay 2026: ZOA South 16
+Image
+https://www.youtube.com/watch?v=3ahrqgdyaAs
+YouTube
+Maxim Salikhov
+Hail Mary in the Bay - Area A Morgan - Feb 7 2026
+Image
+https://youtu.be/7qSYvH5-C8M
+YouTube
+Jackson Tyler
+Super Bowl Area E
+Image
+Jeremy P | ZNY C1 — 02/09/2026 01:19
+https://perti.vatcscc.org/review?233 > TMI Compliance > Load Results
+PERTI Planning
+PERTI Planning Website
+The site for PERTI operational planning of vATCSCC events on the VATSIM Network.
+Jeremy P | ZNY C1 — 02/11/2026 12:42
+TMI Compliance Analysis — Plan 233
+2026-02-07T23:00:00 to 2026-02-08T05:00:00
+
+GROUND STOP: SJC
+01:07Z - 01:58Z (CNX)
+VOLUME/VOLUME
+Advisories: Adv 002 (INITIAL) ? Adv 003 (CNX)
+
+Flights: 223 total, 29 compliant, 12 non-compliant, 46 exempt
+Compliance: 70.7%
+Avg Hold: 2m (min 2m, median 2m, max 2m)
+Total, Maximum, Average Delays: 1469 / 247 / 47
+Time sources: 3 wheels-off, 28 gate+taxi, 63 first-seen
+
+Per-Origin Breakdown:
+KLAS — 31 flt, 40% comp
+KLAX — 31 flt, 84% comp, hold 2m, delay 43m 06s
+KSAN — 14 flt, 60% comp
+KLGB — 4 flt, 67% comp, delay 19m 36s
+KBUR — 2 flt, 100% comp
+KSNA — 2 flt, 100% comp
+KBVU — 1 flt, 100% comp
+KONT — 1 flt, 100% comp
+KVNY — 1 flt, 100% comp, delay 1h 00m
+
+100% trajectory coverage 
+Ameya N | ZSE TA — Yesterday at 15:49
+Can I see the visualization for KSEA? 38% compliance seems super low.
+We had a nordo pilot (and no supervisors online) who messed up the spacing for a couple planes, but only 8 being compliant is an insane number.
+Jeremy P | ZNY C1 — Yesterday at 15:57
+What do you wanna see exactly?
+Jeremy P | ZNY C1 — Yesterday at 15:57
+You should be able to see the breakdown here
+And scroll all the way down to see the GS breakdown
+Taking a brief look at each TMI, it looked like ZSE did pretty alright with compliance
+TMI Compliance Analysis — Plan 233
+2026-02-07T23:00:00 to 2026-02-08T05:00:00
+
+NTML ENTRIES (39 analyzed, 770 total crossings, 481 pairs, NaN violations)
+SJC via RUSME 30MIT ZOA:ZLA 00:00Z-04:00Z
+77 crossings, 61 pairs | Compliance: 37.7%
+Avg: 26.4nm, Min: 0.9nm
+SJC via SCTRR 30MIT ZOA:ZLA 00:00Z-04:00Z
+77 crossings, 61 pairs | Compliance: 37.7%
+Avg: 26.4nm, Min: 0.9nm
+SJC via RUSME 45MIT ZOA:ZLA 02:00Z-04:00Z
+77 crossings, 32 pairs | Compliance: 18.8%
+Avg: 25.7nm, Min: 1.4nm
+SJC via SCTRR 45MIT ZOA:ZLA 02:00Z-04:00Z
+77 crossings, 32 pairs | Compliance: 18.8%
+Avg: 25.7nm, Min: 1.4nm
+SJC via STUBL 15MIT NCT:ZOA 00:00Z-04:00Z
+28 crossings, 27 pairs | Compliance: 96.3%
+Avg: 54.5nm, Min: 13.8nm
+SJC via SILCN 15MIT NCT:ZOA 00:00Z-04:00Z
+25 crossings, 24 pairs | Compliance: 100.0%
+Avg: 58.1nm, Min: 14.6nm
+SJC via ZINNN 15MIT NCT:ZOA 00:00Z-04:00Z
+23 crossings, 22 pairs | Compliance: 100.0%
+Avg: 58.7nm, Min: 23.5nm
+SJC via MINNE 15MIT ZSE:PDX 00:00Z-04:00Z
+25 crossings, 20 pairs | Compliance: 85.0%
+Avg: 50.6nm, Min: 6.3nm
+SJC via KNGRY 30MIT ZOA:ZLC 00:00Z-04:00Z
+23 crossings, 20 pairs | Compliance: 55.0%
+Avg: 68.9nm, Min: 13.2nm
+SJC via MDOWS 45MIT ZOA:ZLC 00:00Z-04:00Z
+23 crossings, 20 pairs | Compliance: 45.0%
+Avg: 68.9nm, Min: 13.2nm
+SJC via LLC 45MIT ZOA:ZLC 00:00Z-04:00Z
+23 crossings, 20 pairs | Compliance: 45.0%
+Avg: 68.9nm, Min: 13.2nm
+SJC via RUSME 35MIT ZOA:ZLA 02:55Z-04:00Z
+77 crossings, 20 pairs | Compliance: 15.0%
+Avg: 20.7nm, Min: 1.4nm
+SJC via SCTRR 35MIT ZOA:ZLA 02:55Z-04:00Z
+77 crossings, 20 pairs | Compliance: 15.0%
+Avg: 20.7nm, Min: 1.4nm
+SMF via SLMMR 10MIT NCT:ZOA 00:00Z-04:00Z
+16 crossings, 14 pairs | Compliance: 92.9%
+Avg: 72.2nm, Min: 4.5nm
+
+... and 25 more entries (see full report)
+
+100% trajectory coverage
+Jeremy P | ZNY C1 — Yesterday at 16:08
+I see 5 SEA departures that departed during the GS period
+Hayden | ZSE EC — Yesterday at 17:37
+@Ameya N | ZSE TA can confirm but as far as I was aware, this was a ZLA ground stop
+Brody B | ZLA EC — Yesterday at 17:41
+that's correct
+Jeremy P | ZNY C1 — Yesterday at 17:45
+Oh I see that
+I’ll fix the parsing when I get home
+Jeremy P | ZNY C1 — Yesterday at 19:46
+Fixed
+Image
+Image

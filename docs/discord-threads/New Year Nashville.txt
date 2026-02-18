@@ -1,0 +1,121 @@
+https://perti.vatcscc.org/plan?223
+Eric S | ZME EC — 01/01/2026 13:44
+@Meg B | ZTL EC @James D | ZKC EC @Hayden Y | ZID ATM
+Preliminary TMIs
+
+BNA via LENSE 25MIT VOLUME:VOLUME 2359-0400 ZME:ZTL
+BNA via BAMMA 25MIT VOLUME:VOLUME 2359-0400 ZME:ZTL
+BNA via GROAT 25MIT VOLUME:VOLUME 2359-0400 ZME:ZID
+BNA via ULTRA 30MIT AS ONE VOLUME:VOLUME 2359-0400 ZME:ZID
+BNA via RANTS 35MIT VOLUME:VOLUME 2359-0400 ZME:ZKC
+Jeremy P | ZNY C1 — 01/03/2026 07:43
+New Year, Nashville | TMU OpLevel 3 | PERTI Data Request
+New Year, Nashville is from 2026-01-03 2359Z to 2026-01-04 0400Z.
+Start: Saturday, 3 January, 2026 18:59 (a month ago) in your timezone
+End:   Saturday, 3 January, 2026 23:00 (a month ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+PERTI Route Mapper
+PERTI Splits
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZAU: @Kevin H | ZAU EC (optional)
+ZDC: @Carson B | ZDC EC (optional)
+ZFW: @Spencer M | ZFW I1 
+ZHU: @Dean V | ZHU DATM 
+ZID: @Hayden Y | ZID ATM 
+ZJX: @Patrick M | ZJX EC (optional)
+ZKC: @James D | ZKC EC 
+ZME: @Eric S | ZME EC 
+ZTL: @Meg B | ZTL EC 
+
+I added ZDC, ZJX, ZAU only because those are large Southwest hubs. I already added the MIT to the PERTI Plan.
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+--------------------------------------------------------- 
+Hayden Y | ZID ATM — 01/03/2026 07:44
+It won’t let me edit on mobile but Indy will have two centers up, good/normal staffing.
+Jeremy P | ZNY C1 — 01/03/2026 07:44
+I'll change it for you
+Hayden Y | ZID ATM — 01/03/2026 07:44
+Thanks!!
+Jeremy P | ZNY C1 — 01/03/2026 07:44
+What about TRACONs?
+Hayden Y | ZID ATM — 01/03/2026 07:45
+SDF TRACON and underlying cabs staffed
+Jeremy P | ZNY C1 — 01/03/2026 07:45
+K
+Jeremy P | ZNY C1 — 01/03/2026 08:29
+Is BNA doing the runway closure?
+Eric S | ZME EC — 01/03/2026 10:08
+Definitely not, that would end in a disaster
+James D | ZKC EC — 01/03/2026 11:13
+It will not let me edit on mobile either but ZKC will have one center up
+Jeremy P | ZNY C1 — 01/03/2026 11:14
+You have to use the Data page: https://perti.vatcscc.org/data?223
+PERTI Planning
+PERTI Planning Website
+The site for PERTI operational planning of vATCSCC events on the VATSIM Network.
+Eric S | ZME EC — 01/03/2026 13:21
+ZME split can be viewed in the perti split preset: Nashville Focus: 5-way. any questions let me know 
+Hayden Y | ZID ATM — 01/03/2026 15:05
+Our split is up on https://tools.flyindycenter.com/airspace
+
+03/2300    CFR SDF to BNA 0100-0300 ZID:SDF
+03/2300    BNA via CYBIL 40 MIT VOLUME:VOLUME 0000-0400 ZID:ZAU
+@Kevin H | ZAU EC we can start here and work it as it goes? We could even look into some offloads to the PASLY if things get jammed. 
+Kevin H | ZAU EC
+
+ — 01/03/2026 15:06
+Sounds good, I plan to be on
+Hayden Y | ZID ATM — 01/03/2026 15:06
+par-tay
+Ameya N | ZSE TA — 01/03/2026 17:24
+dca to bna group flight fyi 
+at least 10
+Jeremy P | ZNY C1 — 01/03/2026 17:25
+Timing?
+Ameya N | ZSE TA — 01/03/2026 17:25
+theyre on the ground right now
+sorry
+dca
+not iad
+Dean V | ZHU DATM
+
+ — 01/03/2026 17:38
+all to BNA
+Image
+this is that groupflight
+Eric S | ZME EC — 01/03/2026 17:44
+There isn't too much airborn right now so not too concerned, but definitely something to keep an eye on
+Eric S | ZME EC — 01/03/2026 17:53
+Possible initiatives:
+
+High demand from CLT and ATL/FL --> CLT rerouted via PASLY5
+High demand from FL and ATL --> FL rerouted via CHSNE3
+High demand from ZKC and ZID onto RYYMN3 --> rerouted via CHSNE3
+Kevin H | ZAU EC
+
+ — 01/03/2026 19:01
+There are a few people coming from the west via SPI TONES thru KC. You need anything there or does KC take care of that sequence
+Eric S | ZME EC — 01/03/2026 23:01
+thanks everyone for the support tonight
+Martin | ZKC DATM
+
+ — 01/04/2026 14:55
+Anyone have a timelapse of nashville tracon from last night?
+Michael B | VATUSA5 — 01/04/2026 15:21
+Forwarded
+
+Memphis ARTCC  •  01/03/2026
+Closest I can find

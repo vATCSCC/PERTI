@@ -1,0 +1,237 @@
+https://perti.vatcscc.org/plan?222
+Jeremy P | ZNY C1 — 12/23/2025 10:08
+New Year, New York | TMU OpLevel 3 | PERTI Data Request
+New Year, New York is from 2026-01-02 2359Z to 2026-01-03 0400Z.
+Start: Friday, 2 January, 2026 18:59 (a month ago) in your timezone
+End:   Friday, 2 January, 2026 23:00 (a month ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+PERTI Route Mapper
+PERTI Splits
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZBW: @Cameron P | ZBW EC 
+ZDC: @Carson B | ZDC EC 
+ZNY: @Daniel | ZNY EC 
+ZOB: @Jonathan B | ZOB EC 
+ZTL: @Meg B | ZTL EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Cameron P | ZBW EC — 12/25/2025 10:21
+@Daniel G | ZBW I1
+William P | ZDC C1 — 12/30/2025 13:59
+Any MITs for ZDC
+Alex Y | ZNY I1 — 12/30/2025 15:03
+There definitely will be, @Daniel | ZNY EC do you have an ETA for draft TMIs?
+Daniel | ZNY EC — 12/30/2025 15:05
+Working on them once I get home
+Daniel | ZNY EC — 12/30/2025 17:02
+Preliminary in-trails available now: ?No Access
+
+Hoping I'll be able to reduce the JFK numbers once I have a more accurate report as we get closer to Friday. @William P | ZDC C1 @Cameron P | ZBW EC @Jonathan B | ZOB EC
+Cameron P | ZBW EC — 12/30/2025 17:08
+@Daniel G | ZBW I1
+Daniel G | ZBW I1
+
+ — 12/30/2025 17:12
+Will have ZBWs stuff sorted either tomorrow evening/Thursday morning
+William P | ZDC C1 — 12/30/2025 19:54
+Can we do 35 over PANZE into JFK instead of HOGGS. Looking over routing PCT deps into JFK don't go over HOGGS they merge in at PANZE from ACY
+@Meg B | ZTL EC Were looking at doing CFR out of CLT. Thoughts?
+Meg B | ZTL EC — 12/31/2025 10:19
+That makes sense - hopefully we'll have the staffing to do that.
+@Daniel | ZNY EC this event didn't get automatically pulled by the API for us from the vatsim calendar. I'll manually add it so no biggie. But I think there's some missing info on the vatsim event page for this event so it didn't get captured.
+Daniel | ZNY EC — 12/31/2025 10:36
+Ah yeah, I bet it's because we didn't specifically put in any event fields this time (trying not to list particular fields). Sorry about that
+William P | ZDC C1 — 12/31/2025 13:07
+Ok sounds good
+Daniel G | ZBW I1
+
+ — 12/31/2025 17:10
+?No Access
+ZOB passbacks from ZBW to N90 airports( @Jonathan B | ZOB EC )
+
+ZBW is also putting out MIT for our ROBUC# arrivals into BOS to help deal with the high enroute load that will already be acquired from working the NY arrivals (the sector working ROBUCs is also working the PARCHs into JFK). If it becomes an issue for you guys just give us a shout ( @Daniel | ZNY EC )
+Arya C | ZME DATM — 12/31/2025 18:14
+@Matt H | I1 if you have a person on it would be appreciated; we'll have passback for you for the N90 streams
+Matt H | I1 — 12/31/2025 18:27
+I've put out the request, I'd imagine we should have a couple of people around
+Arya C | ZME DATM — 12/31/2025 18:28
+Thanks!
+Hayden Y | ZID ATM — 01/01/2026 14:44
+@Arya C | ZME DATM Any passback?
+Arya C | ZME DATM — 01/01/2026 14:44
+Negative. Y'all can take the evening off ??
+Daniel | ZNY EC — 01/01/2026 18:20
+Sorry for the delay - yes, will update that. Actually reducing the JFK in-trails for ZBW/ZOB since the TAFs seem to be favoring 31s which is our highest capacity config
+William P | ZDC C1 — 01/01/2026 18:21
+ok cool, thank you!
+Daniel | ZNY EC — 01/01/2026 18:22
+Np! Also actually am reducing your in-trails too ??
+William P | ZDC C1 — 01/01/2026 18:23
+Works for me!
+Daniel | ZNY EC — 01/01/2026 18:35
+Updated MITs: ?No Access
+William P | ZDC C1 — 01/02/2026 10:03
+ZDC will be in Standard 3-way Split
+Attachment file type: acrobat
+ZDC Standard 3-Way Depiction.pdf
+27.06 KB
+Daniel G | ZBW I1
+
+ — 01/02/2026 14:17
+ZBW split can be found on https://airspace.bvartcc.com/
+
+The direct link is https://airspace.bvartcc.com/files/2026%20New%20Year%20New%20York%20Split.pdf
+Daniel G | ZBW I1
+
+ — 01/02/2026 14:29
+@Tyler C | C1 Will ZQM be online tonight? Can we pass back MIT to you for the JFK arrivals?
+Braden K | ZBW TA
+
+ — 01/02/2026 16:49
+Lots of oceanic demand into JFK for the start of the event
+Image
+Daniel | ZNY EC — 01/02/2026 16:49
+Do we have any update on an NTMO for tonight?
+Jonathan H | ZBW FE — 01/02/2026 16:50
+Arya C | ZME DATM — 01/02/2026 16:59
+ZOB splits
+Image
+Arya C | ZME DATM — 01/02/2026 17:03
+FYI - is EXTOL a typo for the JFK passback? EXTOL is on the FLOSI# for EWR, the JFK transition is MEMMS 
+Also @Matt H | I1 ?No Access TMIs here for you to view. LMK if it doesn't let you in again and I'll DM you ??
+Matt H | I1 — 01/02/2026 17:06
+can see it, thx
+Daniel G | ZBW I1
+
+ — 01/02/2026 17:08
+yeah sorry
+Arya C | ZME DATM — 01/02/2026 17:09
+no worries ??
+Matt H | I1 — 01/02/2026 17:11
+@Arya C | ZME DATM just so you're aware I'm not sure what our staffing will be like tonight, as I didn't realize there's a team Canada hockey game starting at 0130z.
+Arya C | ZME DATM — 01/02/2026 17:12
+No worries. Any help would be appreciated and if you can't get someone on later I'm sure we'll make do. Enjoy the game!
+Daniel G | ZBW I1
+
+ — 01/02/2026 17:19
+Updated MIT into BOS for ROBUC and JFUND @Daniel | ZNY EC @Arya C | ZME DATM ???? ?No Access
+Braden K | ZBW TA
+
+ — 01/02/2026 17:20
+?? we can reduce these, but with how much demand we have airborne into N90 we can't tube ourselves with extra traffic
+Arya C | ZME DATM — 01/02/2026 17:20
+40 to PONCT is....steep but I'm sure everyone will be flying to JFK so it'll be fine
+Daniel | ZNY EC — 01/02/2026 17:21
+Yeah, and my philosophy is always to start with high MITs and reduce as able
+Better to be proactive than reactive
+Daniel G | ZBW I1
+
+ — 01/02/2026 17:21
+If you have a one off case with 2 aircraft just let us know and we can probably take them in with whatever, but if a stream pops up we will need the mileage
+Arya C | ZME DATM — 01/02/2026 17:21
+of course, understandable
+that should probably be via PONCT 40 MIT AS ONE right?
+or do you want per route
+Daniel G | ZBW I1
+
+ — 01/02/2026 17:25
+Oh yeah. I’ll put that in the actual NTML entry
+Michael B | VATUSA5 — 01/02/2026 18:23
+@NTMO anyone avail?
+Dean V | ZHU DATM
+
+ — 01/02/2026 18:24
+Sorry?? family dinner 
+Timothy M | ZTL I1 — 01/02/2026 18:24
+I’m in Florida
+Alex Y | ZNY I1 — 01/02/2026 18:32
+@William P | ZDC C1 added passback in-trail for BOS to the NTML
+William P | ZDC C1 — 01/02/2026 18:32
+copy
+William P | ZDC C1 — 01/02/2026 19:00
+https://asx.vzdc.org/active-consolidations
+New split ZDC
+Daniel | ZNY EC — 01/02/2026 19:01
+Forgot to mention but @Andreas | ZNY C3 is our TMU tonight
+Michael B | VATUSA5 — 01/02/2026 20:18
+log for later: 
+ZJX-JFK through ZDC holding from 0100 EFC 0130 (currently 2 planes)
+ZBW into JFK holding starting with VIR9 (expected 10 a/c) lasting 30 mins time now 0118z 
+Jonathan B | ZOB EC — 01/02/2026 20:57
+ZOB got slammed by C90, that combined with D21 caused saturation
+As well as the ETG stream from ZID
+Arya C | ZME DATM — 01/02/2026 20:58
+Honestly the issue wasn't that they were difficult to do the passback for 66/77 for, even if they had been sequenced it wouldn't have helped. Just a lot of planes so sector saturation. 
+Jonathan B | ZOB EC — 01/02/2026 20:59
+Right, I wasn't saying C90 screwed us... was just saying that there was a lot of traffic from C90 combined with everything else
+Arya C | ZME DATM — 01/02/2026 21:00
+oh with the sequencing I was referencing ZID
+But yes same thing. MIT or no MIT problem was planes ??
+Michael B | VATUSA5 — 01/02/2026 21:01
+D/D tracking for JFK AAL1348 JFK-CLT taxi 0200z disconnected @ 0138
+QTR15G JFK-OTHH taxied 0120 ish departed 0300 ish will verify with vatsim replay 
+Michael B | VATUSA5 — 01/02/2026 21:36
+vatsim replay was started at 0100z missed the first hour but still got most of the action which was 0115-0200
+Alex Y | ZNY I1 — 01/02/2026 23:48
+https://youtu.be/e1FtjvgtL_E
+YouTube
+AYVTL
+2026-01-01 | ZNY JFK 56 | vZNY New Year, New York!
+Image
+Michael B | VATUSA5 — 01/03/2026 02:56
+Image
+Image
+Image
+Michael B | VATUSA5 — 01/03/2026 03:31
+Forwarded
+03/0017    JFK    VMC    ARR:31L/31R DEP:31L    AAR(Strat):58 ADR:20 $ 01C03B
+#ntml  •  01/02/2026
+Forwarded
+03/0019    LGA    LVMC    ARR:22 DEP:31    AAR(Strat):40 ADR:36 $ 01A05B
+#ntml  •  01/02/2026
+Forwarded
+03/0021    EWR    LVMC    ARR:22L DEP:22R    AAR(Strat):38 ADR:38 $ 01A05B
+#ntml  •  01/02/2026
+Jeremy P | ZNY C1 — 01/03/2026 05:51
+Image
+Image
+Image
+Airport,Relative,DD/HHMM,Date,Time,Statsim Arr,Statsim Dep,VATSIM AAR,VATSIM ADR,RW AAR,RW ADR
+KJFK,H-2,02/2200,01/02/2026,22:00,9,2,58,20,58,24
+KJFK,H-1,02/2300,01/02/2026,23:00,11,3,58,20,58,24
+KJFK,H+0,03/0000,01/03/2026,00:00,25,15,58,20,58,24
+KJFK,H+1,03/0100,01/03/2026,01:00,41,22,58,20,58,24
+KJFK,H+2,03/0200,01/03/2026,02:00,41,25,58,20,58,24
+
+hourly_rates_222.csv
+2 KB
+Andreas | ZNY C3 — 01/03/2026 15:36
+https://youtu.be/5IHQBkmJxHE
+YouTube
+Andreas Tzemenakis
+New Year New York FNO [ZNY + N90 + JFK Timelapse]
+Image
+William P | ZDC C1 — 01/03/2026 17:16
+ZDC AAR
+Attachment file type: acrobat
+After Action Report New Year, New York (2).pdf
+132.58 KB
+Alex Y | ZNY I1 — 01/04/2026 08:48
+https://www.youtube.com/watch?v=q2UhkJMT-7A
+YouTube
+logan waldman
+New Year New York 2026
+Image

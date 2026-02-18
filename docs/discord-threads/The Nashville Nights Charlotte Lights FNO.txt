@@ -1,0 +1,126 @@
+https://perti.vatcscc.org/plan?214
+Michael B | VATUSA5 — 11/11/2025 21:46
+The Nashville Nights, Charlotte Lights FNO | TMU OpLevel 3 | PERTI Data Request
+The Nashville Nights, Charlotte Lights FNO is on November 14 from 2300 to 0300z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+
+ZTL: @Meg B | ZTL EC 
+ZME: @Eric S | ZME EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee  please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+lmk if u want anything else added to the thread
+Timothy M | ZTL I1 — 11/11/2025 21:47
+CC: @Eric S | ZME EC
+Eric S | ZME EC — 11/11/2025 21:47
+ZID would be the only one I would recommend from us
+Michael B | VATUSA5 — 11/11/2025 21:47
+...
+use ur eyes brotha
+Timothy M | ZTL I1 — 11/11/2025 21:47
+Oh oops lol
+HEY MAN
+Michael B | VATUSA5 — 11/11/2025 21:47
+@Hayden Y | ZID ATM
+Timothy M | ZTL I1 — 11/11/2025 21:47
+hope you’re having a great day
+Michael B | VATUSA5 — 11/11/2025 21:47
+u too
+Michael B | VATUSA5 — 11/11/2025 21:48
+actually bout time since i owed u something
+Timothy M | ZTL I1 — 11/11/2025 21:49
+@Carson B | ZDC EC  and ZJX (I can’t find Jackson) You’d be appreciated
+Timothy M | ZTL I1 — 11/11/2025 21:49
+Heyyyy thanks sir !
+Carson B | ZDC EC
+
+ — 11/11/2025 21:50
+I should be on center with @William P | ZDC C1 for the first half
+Simon R | ZJX C1 — 11/11/2025 21:53
+For ZJX would be @Kona and @Patrick M | ZJX EC
+Hayden Y | ZID ATM — 11/11/2025 23:23
+@Michael B | VATUSA5 @Timothy M | ZTL I1 @Eric S | ZME EC updated
+Actually never mind I lied and said that on my way to do it but we aren’t on the staffing data page
+We’ll be there though
+Put us down as 1 and understaffed. I’ll pull up too if I don’t get FAAed for the first half.
+Do I get extra points for doing the event from BNA on an overnight?
+Eric S | ZME EC — 11/11/2025 23:29
+i said this on the other thread but we will be requesting 10 MIT via BAMMA and 10 MIT via LENSE. nothing for the pasly for now. If there is little/no ATL traffic, this would likely drop
+Eric S | ZME EC — 11/13/2025 01:30
+We will be running our standard 3 way with our typical nashville east side only LO. We had some LO sectors changed in that area so I’ll the actual split map later
+Timothy M | ZTL I1 — 11/13/2025 01:36
+We’re not going to request any MIT at event start. The worst it’ll get is 15 if ZID starts giving us guys on the FILPZ as well
+Eric S | ZME EC — 11/14/2025 11:06
+high split
+Image
+lo split - only sector used will be 60 (+40), everything else goes to the high (lmk if more clarification needed)
+Image
+Eric S | ZME EC — 11/14/2025 11:08
+only affects ztl handoffs
+Carson B | ZDC EC
+
+ — 11/14/2025 11:10
+ZDC will only have one center open but we will be open the full event.
+Hayden Y | ZID ATM — 11/14/2025 17:48
+I think @Richard S | ZID C3 will be our hotline tonight. I've a 4 am report time so I'll be sleeping.
+
+https://tools.flyindycenter.com/airspace
+Eric S | ZME EC — 11/14/2025 18:10
+we will actually be running 2 way high
+Image
+Michael B | VATUSA5 — 11/14/2025 18:48
+ZKC will be me by myself as ACE ?? 
+Carson B | ZDC EC
+
+ — 11/14/2025 18:53
+@Timothy M | ZTL I1 What MIT do you want from us to CLT?
+Timothy M | ZTL I1 — 11/14/2025 19:03
+nothing yet
+@Zackaria | ZTL I1 will make that call
+Michael B | VATUSA5 — 11/14/2025 23:22
+Image
+Image
+Nate J | ZAU C3 — 11/15/2025 07:21
+I can see the ADR line, but not an AAR line. Are they coincident?
+Jeremy P | ZNY C1 — 11/15/2025 12:23
+Forwarded
+15/0035   BNA   VMC   AAR: 20L,20R   DEP:20C,20R   AAR:52   ADR:52
+#ntml  •  11/14/2025
+Michael B | VATUSA5 — 11/15/2025 13:12
+Was kinda unlucky in the top graph the AAR is right at 20  but barely visible the second one they’re on top of each other
+Nate J | ZAU C3 — 11/15/2025 13:14
+Gotcha
+William P | ZDC C1 — 11/15/2025 13:17
+Where do you get this?
+Simon R | ZJX C1 — 11/15/2025 13:55
+PERTI page has AAR/DR for most fields
+William P | ZDC C1 — 11/15/2025 14:07
+I know it has that I mean those Grpahs
+I dont see that in the PERTI
+Simon R | ZJX C1 — 11/15/2025 14:14
+Oh my bad. I think it’s made using statsim data? Not 100% on the how
+Alex Y | ZNY I1 — 11/15/2025 14:33
+It's a Google sheets tool I built, I can link it later
+Michael B | VATUSA5 — 11/15/2025 17:10
+Yeah it’s basically a spreadsheet with formulas setup to where u can copy paste statsim data into the sheet and convert it into a graph
+Alex Y | ZNY I1 — 11/15/2025 17:16
+here's the one from the 11/7 IAD event. You can make a copy into your own drive and then edit all the fields as necessary. In the Departures and Arrivals sheets, you delete everything and then copy-paste (with Ctrl+Shift+V to strip the formatting) the data from the Statsim table display and then on the Stats sheet edit cell A2 to the start time (I usually go -1 hour from event start) and edit columns J and L for the Planened AAR and ADR lines
+
+https://docs.google.com/spreadsheets/d/1w-zU33943PNgPDssBunG0NFtqI_3-2rowuQDtaYjJv4/edit?usp=sharing
+cc @Simon R | ZJX C1
+Google Docs
+2025-11-07 Never Dull at Dulles
+William P | ZDC C1 — 11/15/2025 17:35
+Thank you!

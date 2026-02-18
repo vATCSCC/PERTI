@@ -1,0 +1,364 @@
+https://perti.vatcscc.org/plan?215
+Josh | ZAB DATM
+
+ — 09/07/2025 18:01
+Getting the ball rolling early.
+Description: It's the 10th annual Stuff the Albu-Turkey! Open up that online shopping cart, purchase your favorite items, and let's get the holiday season underway! Join us at PHX and ABQ on the 21st of November for a night of food, fun controllers, and good airports.
+Image
+Requesting support from @Brody B | ZLA EC @Blake R | ZSE C3 @Spencer M | ZFW I1 @Dean V | ZHU DATM and @James D | ZKC EC
+Brody B | ZLA EC — 09/07/2025 18:05
+gotchu
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:06
+this may be after DST switches
+most of us go to 2359z-0400z when that happens
+Brody B | ZLA EC — 09/07/2025 18:07
+yeah it is afaik
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:07
+yeah it is. 11/2.
+
+Josh, this event will start an hour sooner than usual, do u wanna keep w/ that?
+Josh | ZAB DATM
+
+ — 09/07/2025 18:08
+Thanks for the heads up, I'll chat with the team and verify!
+Timing might rolex then but otherwise the bones are still good
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:08
+ok, can u ping me when decision made? ill put it up when final call made ??
+Josh | ZAB DATM
+
+ — 09/07/2025 18:09
+Final call, doors are closing after this announcement.
+Yessir
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:09
+also, r u POC or is jordan gonna be involved
+Josh | ZAB DATM
+
+ — 09/07/2025 18:10
+Team effort, I'm just dropping this as a courtesy for all atm
+Jordan J | ZAB EC
+
+ — 09/07/2025 18:10
+thx my guy! ??
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:10
+??
+thanks for the early start guys, we appreciate it ??
+Jordan J | ZAB EC
+
+ — 09/07/2025 18:26
+@Dean V | ZHU DATM We will update the time. 2359z-0400z.
+Dean V | ZHU DATM
+
+ — 09/07/2025 18:27
+great! works better for us too. just need a new banner when able
+Jordan J | ZAB EC
+
+ — 09/07/2025 18:28
+Yessir, In the works!
+James D | ZKC EC — 09/07/2025 18:49
+We'll be there.
+Blake R | ZSE C3 — 09/07/2025 18:57
+We'll be there as well... the Thanksgiving standard! ??
+Jordan J | ZAB EC
+
+ — 09/09/2025 11:18
+This is our new updated banner.
+Image
+Justin L | ZAB C3 — 11/07/2025 10:01
+Howdy all. Just a reminder that this event is coming up quick - 2 weeks from today! I'm planning on reviewing last year's TMIs this weekend and getting the preliminary ones for this year out by next weekend.
+Michael B | VATUSA5 — 11/11/2025 23:31
+Stuff The Albu-Turkey FNO  | TMU OpLevel 3 | PERTI Data Request | Stuff The Albu-Turkey FNO is on November 21 from 2359 to 0400z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZFW: @Spencer M | ZFW I1 
+ZDV: @Blake R | ZSE C3 
+ZAB: @Jordan J | ZAB EC 
+ZKC: @James D | ZKC EC 
+ZLA: @Brody B | ZLA EC 
+ZHU: @Dean V | ZHU DATM 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee    please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Justin L | ZAB C3 — 11/15/2025 17:00
+Here are our planned TMIs for Friday night. 
+
+Plan is to have them take effect 30 mins after event start.
+
+Not requesting anything from ZKC, ZFW, or ZHU to start as demand is usually low, but if the demand is there, expect 30-40 MIT for ABQ. This will mainly affect ZFW as I don't think we get anyone directly from ZHU going to ABQ. We should have enough room to make space for anyone going to PHX.
+
+Winds are looking okay to force east flow at ABQ. If that changes and we need to run west that will slow things down considerably and TMIs will be increased.
+
+Last year we floated the idea of running 30 per stream, 20 "if no comp" for HOGGZ/SCOLE and WOTRO/TENTS but were told it'd be better to run one or the other. We'll just start with 30 per (which is what we did last year) and see how it's going. If we can drop it to 20 we certainly will. Unless ZLA is comfortable running 30 per, 20 if no comp and nobody else has any objections.
+
+Will get splits in here as soon as I know them. 
+PHX via SCOLE, HOGGZ 30 MIT PER STREAM EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+PHX via WOTRO, TENTS 30 MIT PER STREAM EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+ABQ via BRRTO 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+ABQ via GUP 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+
+PHX via GUP 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZDV
+ABQ via DATME 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZDV
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:29
+Good lookin TMIs, Justin. PHX @30 MIT does seem a little high over Gallup, is that for staffing/saturation?
+Justin L | ZAB C3 — 11/15/2025 17:30
+PHX or ABQ?
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:30
+ABQ I understand, but a field with twice the AAR and same TMIs doesn’t make too much sense (hence ur comment abt no comp, which is good)
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:30
+PHX. PHX @30
+Justin L | ZAB C3 — 11/15/2025 17:31
+ZDV -> PHX feeds the same arrival as ABQ -> PHX. We need 15 into the TRACON on that arrival and ABQ -> PHX was the busiest stream last year. 
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:32
+Perfect.
+Justin L | ZAB C3 — 11/15/2025 17:32
+If ZDV-PHX traffic is extremely high we have an offload from ABQ-PHX we can implement and lower that
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:33
+Would it be better to put them on Brusr?
+Denver peeps
+that way you’re not running into space issues from ZLA and a heavy stream from ABQ
+Justin L | ZAB C3 — 11/15/2025 17:33
+LAS-PHX was the second busiest PHX arrival stream last year. BRUSR would add a lot of workload to ZLA I think. It would probably be better to just offload ABQ-PHX to the PINNG1
+I've taken that reroute ABQ-PHX RW and it saved us close to an hour of flow time lol
+https://docs.google.com/document/d/1g1Q_S-ZSvi7JBnwmbUZR1dkcdHQVk0h5LiblUBmk7MI/edit?usp=sharing
+
+Here's the math behind the numbers. Open to suggestions
+Google Docs
+ZAB Albu-Turkey FNO TMI Plan
+ZAB ARTCC Stuff the Albu-Turkey FNO TMI Plan November 21st, 2025 2359z-0400z StatSim for last year’s event: https://statsim.net/events/event/?eventid=9175 Last year’s PHX arrivals by airport Departure Airport Number of Flights KABQ 20 KLAS 16 KLAX 11 KSFO 6 KDEN 5 EAGUL, ...
+Dean V | ZHU DATM
+
+ — 11/15/2025 17:36
+Yeah, logically that makes the most sense. Just keep in mind the impact on final
+Blake R | ZSE C3 — 11/16/2025 11:14
+One potential curveball is lurking.  Weather at KDEN is flirting with snow for Thursday night or Friday.  If weather is bad, you know how weather-induced curveballs can create a cross fire :D.  It hasn't happened a lot historically, but there's always the chance.
+Dean V | ZHU DATM
+
+ — 11/16/2025 12:02
+I have one very easy solution to that??
+Cameron N | ZLC ATM — 11/16/2025 12:32
+Let me looks, but looking at the ensembles, PHX maybe MVFR/IFR.
+Cameron N | ZLC ATM — 11/16/2025 12:39
+Yeah, PHX will be running ILS I think.
+Brody B | ZLA EC — 11/16/2025 12:40
+:concerned:
+Cameron N | ZLC ATM — 11/16/2025 12:44
+We are playing the cutoff low roulette though. Doesn't hurt to look at an IMC plan.
+I think either way someone loses.  EC solution, PHX is IMC. GFS solution Socal is E flow. Pick your poison.
+Cameron N | ZLC ATM — 11/16/2025 12:54
+For reference.  Clusters 1, 2, & 4 are PHX IMC solutions, cluster 3 is LAX E solution.
+Image
+Brody B | ZLA EC — 11/16/2025 13:03
+oh boy
+Jeremy P | ZNY C1 — 11/16/2025 13:05
+How does the GFS perform in these situations
+Cameron N | ZLC ATM — 11/16/2025 13:06
+Poorly.  Everything does because the cutoff is notoriously difficult to predict.
+Jeremy P | ZNY C1 — 11/16/2025 13:07
+5 days out still? I just say wait and see
+I haven’t been watching but it looks like that Canadian maritimes low proves influential and idk if it’s even made it onshore from the Pacific yet into good observation availability coverage
+Cameron N | ZLC ATM — 11/16/2025 13:10
+Thats fair, but nearly every member of the ensemble solution is showing some kind of cutoff.  The question is more less just Where will the surface low be? A majority of members favor this AZ/mexico border idea that will bring CIGs and Precip to AZ, while some are favoring a more westward solution for the surface low, that will hang SE of SXC, bringing LAX, SAN, and SNA E.
+Jeremy P | ZNY C1 — 11/16/2025 13:13
+Exactly, so the devil being in the details means we should wait till we have better resolution of the details. Good to bring to attention, but I doubt it would be very valuable to be making deterministic decisions based on this this far out, given the high uncertainty.
+I fully expect LAX to be a major origin in this event though
+Because of the weather
+Cameron N | ZLC ATM — 11/16/2025 13:17
+Agreed to some extent. Definitely should start thinking about plans for IMC though or IF LAX is east. In my network experience, LAX being east is like the beacon to all pilots to come fly lol.
+Either way, I think wx will play a factor in this event.
+Not even talking about DEN doing DEN things??
+Brody B | ZLA EC — 11/16/2025 13:27
+this exactly, it's been east all weekend and yesterday we had at least 10 departures for 12 hours
+Michael B | VATUSA5 — 11/16/2025 23:20
+@Jordan J | ZAB EC out of curiosty who's gonna be the TMU for yall
+Blake R | ZSE C3 — 11/17/2025 00:00
+#not-it
+Jordan J | ZAB EC
+
+ — 11/17/2025 03:33
+Either @Justin L | ZAB C3 or @Brayden | ZAB I1
+Dean V | ZHU DATM
+
+ — 11/17/2025 09:44
+Aren’t they both on busy control positions?
+Cameron N | ZLC ATM — 11/17/2025 10:10
+NBM will start spitting out info for CIGs tomorrow AM. Trend today is favoring the low being off the Socal coast.
+@Brody B | ZLA EC Ya'll got an historical info on last time LAX was E during a T1 event?
+Brody B | ZLA EC — 11/17/2025 10:34
+unsure, @Nickolas C | ZLA ATM? 
+Michael B | VATUSA5 — 11/17/2025 10:37
+I don’t think it’s ever happened where LAXE happened during an event period
+I can’t think of one time it’s happened
+Brody B | ZLA EC — 11/17/2025 10:46
+considering we had a weekend full of E ops it’ll be interesting
+Jeremy P | ZNY C1 — 11/17/2025 11:23
+Me neither but look in the NTML
+Nickolas C | ZLA ATM — 11/17/2025 11:41
+I can’t remember it happening since I’ve been around. LAX has always been west for primary or T1 events.
+
+But, I do know there’s a video of an east ops event lurking somewhere on YouTube. It’s probably more than 10 years old.
+Jeremy P | ZNY C1 — 11/17/2025 11:50
+I don’t see any NTML entries other than west flow
+Jordan J | ZAB EC
+
+ — 11/17/2025 12:12
+We are moving one of them.
+Nickolas C | ZLA ATM — 11/17/2025 12:48
+It would’ve happened long before NTML was a twinkle in your eye
+Jeremy P | ZNY C1 — 11/17/2025 12:53
+also yells in 12.. ID 
+Blake R | ZSE C3 — 11/17/2025 19:27
+I am that old man
+Dean V | ZHU DATM
+
+ — 11/17/2025 21:07
+I'll be NOMing on Friday
+Brody B | ZLA EC — 11/19/2025 22:41
+20/0333    LAX via ESTWD, GABBL 15 MIT AS ONE 0000-0400 ZLA:ZAB
+20/0333    LAS via HAHAA, ELLDA 20 MIT PER STREAM 0000-0400 ZLA:ZAB
+20/0333    SAN via HOGGZ 25 MIT 0000-0400 ZLA:ZAB
+20/0333    ALL EXCL LAX, LAS, SAN via ALL 20 MIT PER STREAM 0000-0400 ZLA:ZOA, ZLC, ZDV, ZAB                                             
+Image
+planned ZLA stuff, may change
+Cameron N | ZLC ATM — 11/20/2025 00:33
+Pretty decent chance LAX is E
+KLAX...High confidence in TAF through 15Z, moderate confidence
+thereafter. Timing of rain may be off +/- 3 hours. LIFR to IFR
+conds possible with heavier rain. Lower confidence in wind
+direction, but moderate confidence in S-E winds 20/13Z - 21/18Z.
+A long period of strong east winds from around 21/04Z to 21/16Z
+are possible, with low confidence. Moderate confidence in east
+wind component remaining over 8 knots through the aforementioned
+time frame.
+
+From the LOX AFD this evening.
+Jordan J | ZAB EC
+
+ — 11/20/2025 01:07
+We shall have our initial ones out tomorrow morning
+Thank you Brody!
+Brody B | ZLA EC — 11/20/2025 06:36
+we’re planing on it , ty
+Justin L | ZAB C3 — 11/20/2025 08:31
+I’m sorry I bring this up every time but can we please get the ESTWD, GABBL AS ONE switched to like 20 (or whatever you need) PER STREAM. ESTWD and GABBL are worked by 2 different sectors that are gonna be busy with PHX arrivals and it would take a lot of extra coordination between the two. It would be the equivalent of us asking for SCOLE and HOGGZ AS ONE and you having 2 separate sectors working each stream
+Brody B | ZLA EC — 11/20/2025 08:49
+totally gotcha, will write something new up later today
+thanks for lmk
+Brody B | ZLA EC — 11/20/2025 16:09
+20/2108    LAX via ESTWD, GABBL 25 MIT PER STREAM 0000-0400 ZLA:ZAB
+20/2108    LAS via HAHAA, ELLDA 20 MIT PER STREAM 0000-0400 ZLA:ZAB
+20/2108    SAN via HOGGZ 25 MIT 0000-0400 ZLA:ZAB
+20/2108    ALL EXCL LAX, LAS, SAN via ALL 20 MIT PER STREAM 0000-0400 ZLA:ZOA, ZLC, ZDV, ZAB                                             
+
+this should work
+i plan to reduce the MITs on the HLYWD quickly. wanted to have a bit of a buffer for east ops
+Justin L | ZAB C3 — 11/20/2025 16:15
+Looks great thanks
+Brody B | ZLA EC — 11/20/2025 16:16
+ofc
+Justin L | ZAB C3 — 11/20/2025 16:28
+This is our plan for now. Subject to change. Will finalize TMIs sometime tomorrow morning once we have a better idea of what the TAF looks like
+Image
+Brandon | ZFW DATM — 11/21/2025 08:22
+Any specific Route Requests out of ZFW tonight?
+Justin L | ZAB C3 — 11/21/2025 09:00
+No TMIs for ZFW to start as demand is usually low. Will implement something if we need to but it won't be too crazy. Most people out of D10 should be filing over EWM DRRVR PINNG1. If for whatever reason a bunch of people start filing KATZZ2 BRHMA CNX ZUN EAGUL6 and demand from ZDV is high we might have you reroute them back over EWM DRRVR PINNG. But we have internal ABQ-PHX reroutes that can help with that too
+Brandon | ZFW DATM — 11/21/2025 09:01
+Ill let my guys know that all PHX goes EWM DRRVR PINNG1  That way you guys wont have to fuss with us if you get busy out west
+Justin L | ZAB C3 — 11/21/2025 09:02
+Great thanks
+Blake R | ZSE C3 — 11/21/2025 09:55
+ZDV going with the standard 2-way split tonight 
+Image
+Cameron N | ZLC ATM — 11/21/2025 10:43
+ZLA, any pass back on TENTS for ZLC?  We will be staffed. FWIW, ZAB ZLC is basically what I call a T1.5 for PHX.  We were in CFR all summer for PHX
+Justin L | ZAB C3 — 11/21/2025 11:53
+PHX winds/weather look good to force west flow VMC. ABQ east VMC. Previously posted TMIs are the plan for now. Slight changes may be needed closer to event start once we have a better idea of where traffic is coming from. Split still the same as above for now.
+
+PHX via SCOLE, HOGGZ 30 MIT PER STREAM EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+PHX via WOTRO, TENTS 30 MIT PER STREAM EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+ABQ via BRRTO 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+ABQ via GUP 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZLA
+
+PHX via GUP 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZDV
+ABQ via DATME 30 MIT EXCL:PROPS VOLUME:VOLUME 0030-0400 ZAB:ZDV
+Brody B | ZLA EC — 11/21/2025 14:58
+thank you! let’s start with 25 and see where we go from there
+thanks
+Justin L | ZAB C3 — 11/21/2025 15:43
+Anyone who keeps tabs on the popular streamers know if any of them are planning on flying in? I don’t keep track of that at all
+Brody B | ZLA EC — 11/21/2025 15:47
+XP72 is the only one who usually makes a dent and he notifies 30m priorto his stream. nothing yet...
+Jordan J | ZAB EC
+
+ — 11/21/2025 16:55
+I’ll keep a lookout.
+Cameron N | ZLC ATM — 11/21/2025 17:03
+XP is DEN-LAS
+Brody B | ZLA EC — 11/21/2025 17:36
+bruh
+Brody B | ZLA EC — 11/21/2025 17:54
+they're doing ABQ-LAS now
+Justin L | ZAB C3 — 11/21/2025 17:55
+Bruh
+Brody B | ZLA EC — 11/21/2025 17:55
+it's better.. i promise
+you don't want ZDV distracted sequencing 15 planes to ZLA instead of focusing on inbound traffic to ZAB
+Blake R | ZSE C3 — 11/21/2025 18:16
+Ouch... I have to keep reading before I start throwing a fit
+LAX still east
+Brody B | ZLA EC — 11/21/2025 18:18
+yeah, we've planned for it
+Blake R | ZSE C3 — 11/21/2025 18:18
+Ok.  Briefing our delivery to make sure they're issuing ANJLL --> BIGBR
+Brody B | ZLA EC — 11/21/2025 18:19
+thank you! 
+Here's our socal configs for y'alls clearance delivery
+LAX: East
+SAN: West, may turn east halfway through
+SNA: North
+BUR: 8/15
+ONT: East
+ 
+Justin L | ZAB C3 — 11/21/2025 20:39
+Image
+Jordan J | ZAB EC
+
+ — 11/22/2025 00:30
+Thanks for your help tonight, neighbors! ??
+Michael B | VATUSA5 — 11/22/2025 01:08
+Image
+Image
+Forwarded
+21/2320    PHX    VMC    ARR:07R/08 DEP:07L    AAR(Strat):66    ADR:36
+21/2320    ABQ    VMC    ARR:08/03 DEP:08    AAR(Dyn):44 AAR Adjustment:OTHER    ADR:30
+#ntml  •  11/21/2025

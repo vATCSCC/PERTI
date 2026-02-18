@@ -1,0 +1,225 @@
+https://perti.vatcscc.org/plan?226
+Michael B | VATUSA5 — 01/03/2026 14:35
+Escape to the Desert SNO | TMU OpLevel 3 | PERTI Data Request
+Escape to the Desert SNO is from 2026-01-17 2359Z to 2026-01-18 0400Z.
+Start: Saturday, 17 January, 2026 18:59 (a month ago) in your timezone
+End:   Saturday, 17 January, 2026 23:00 (a month ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZAB: @Jordan J | ZAB EC 
+ZDV: @Caution Wake Turbulence 
+ZLA: @Brody B | ZLA EC 
+ZLC: @Emmanuel G | ZOB S3 @Cameron N | ZLC ATM 
+ZOA: @Zhenyu M | ZOA S3 @Eiso W | ZOA S2 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+--------------------------------------------------------- 
+Emmanuel G | ZOB S3
+
+ — 01/03/2026 14:37
+@Adam E | ZLC FE
+Adam E | ZLC FE — 01/03/2026 14:38
+Thanks
+Michael B | VATUSA5
+ changed the channel name: 20260117 Escape to the Desert SNO — 01/03/2026 14:42
+Brody B | ZLA EC — 01/03/2026 15:49
+apparently someone has stolen my job
+Michael B | VATUSA5 — 01/03/2026 15:49
+oh fuck
+Jordan J | ZAB EC
+
+ — 01/03/2026 16:10
+#fired
+welcome to the club
+Brody B | ZLA EC — 01/14/2026 13:12
+how's everyone looking for staffing? @Jordan J | ZAB EC @Caution Wake Turbulence @Cameron N | ZLC ATM @Zhenyu M | ZOA S3 @Eiso W | ZOA S2
+Caution Wake Turbulence — 01/14/2026 13:15
+We got a crap ton of staffing. I ended up opening other positions that are not our usual. Great enroute staffing.
+Brody B | ZLA EC — 01/14/2026 13:17
+great to hear!
+Justin L | ZAB C3 — 01/14/2026 16:20
+ZAB staffing looks pretty good. I was going to put my name in for the ZAB DCC rep but I got assigned a trip that finishes right at event start (if we're not delayed). I'll miss the first hour but I'll see if someone can cover it until I get home. If not I can give one of our centers the TS login info or you can just coordinate directly with them
+Cameron N | ZLC ATM — 01/14/2026 18:22
+ZLC looks good.
+Eiso W | ZOA S2
+
+ — 01/14/2026 21:18
+ZOA looks good
+Brody B | ZLA EC — 01/14/2026 21:20
+LAS via FLCHR 20 MIT ZLA:ZOA
+LAS via ELLDA 20 MIT ZLA:ZAB
+LAS via HAHAA 30 MIT ZLA:ZAB
+LAS via GGAPP, STEWW 20 MIT AS ONE ZLA:ZLC
+LAS via TYEGR 20 MIT ZLA:ZDV
+     
+VGT, HND via ALL 20 MIT PER STREAM ZLA:ZOA, ZLC, ZDV, ZAB
+
+ALL EXCL LAS, VGT, HND via ALL 20 MIT PER STREAM ZLA:ZOA, ZLC, ZDV, ZAB
+
+LAS via ALL 10 MIT PER STREAM L30:ZLA                         
+ 
+prelim tmis
+Image
+Michael B | VATUSA5 — 01/15/2026 12:42
+I’ll make pass back tonight @Hayden | ZSE EC
+Michael B | VATUSA5 — 01/16/2026 15:36
+@Hayden | ZSE EC lets just do 35 MIT per stream (PDX vs SEA), APREQ lower based on demand, fixes seem to vary a bit 
+if BAARB/RUFUS  is used thatd be optimal for a fix but its not the most common routes as of today
+Image
+Image
+maybe use that LKV BAARB route to make em merge easier, but i doubt the juice is worth the squeeze with that one
+Hayden | ZSE EC — 01/16/2026 17:20
+perf
+Brody B | ZLA EC — 01/16/2026 19:36
+do y'all need our split on the perti tool?
+Jeremy P | ZNY C1 — 01/16/2026 19:41
+It's broken rn but once I fix it, you can add it. Just lookout for an "it's fixed" message
+Caution Wake Turbulence — 01/16/2026 20:56
+ZDV HIGH Split Map. ZDV will have a low center, it is combined. Anything AOB FL260 goes to 11 - Junction Low.
+Image
+Adam E | ZLC FE — 01/16/2026 21:58
+Are we using TYEGR at all or all GGAPP? From DEN 
+Jeremy P | ZNY C1 — 01/16/2026 21:59
+Try scheduling your split in the main perti.vatcscc.org/splits site now while it's up & running
+Brody B | ZLA EC — 01/16/2026 22:01
+it's usually never used, right?
+Caution Wake Turbulence — 01/16/2026 22:01
+Brody and I talked about this. Nothing departing DEN to any L30 airport will go through ZLC. Everything is staying ZDV 
+Jeremy P | ZNY C1 — 01/16/2026 22:01
+You can try https://vatcscc-backup.azurewebsites.net/splits if the main site is too slow
+PERTI Planning
+PERTI Planning Website
+The site for PERTI operational planning of vATCSCC events on the VATSIM Network.
+Adam E | ZLC FE — 01/16/2026 22:01
+Okay got it
+Brody B | ZLA EC — 01/16/2026 22:02
+i completely forgot about this -- need to correct TMIs
+message edited
+Justin L | ZAB C3 — 01/16/2026 22:33
+Planned ZAB split. Still no joy on finding someone to cover TMU until I show up (hopefully) about an hour in. If it comes to it I can join the teamspeak on my drive home or if y'all want to just coordinate directly with our centers until then that works too
+Image
+Cameron N | ZLC ATM — 01/16/2026 22:52
+Honestly, If ZLC is slow, I might be able to help NOM or something
+Dean V | ZHU DATM
+
+ — 01/16/2026 23:05
+i may be around too
+idk
+Brayden S | ZLC EC — 01/17/2026 00:41
+ZLC Split
+Image
+Justin L | ZAB C3 — 01/17/2026 10:37
+@Brody B | ZLA EC ZAB will probably start with 15 MIT per stream over TENTS, WOTRO, SCOLE, and HOGGZ. We're having to shift around some positions so we might be a little understaffed for the first hour or two. If we can lower it back to LOA/10MIT later on we will
+Brody B | ZLA EC — 01/17/2026 10:44
+got it
+Elliott B | ZLA C1 — 01/17/2026 14:14
+where can you get this report?
+Michael B | VATUSA5 — 01/17/2026 14:26
+its pulled from flightaware data
+https://www.flightaware.com/analysis/route.rvt?origin=sea&destination=las
+FlightAware
+IFR Route Analyzer ? Seattle-Tacoma Intl - Harry Reid Intl (KSEA-...
+Best Flight Tracker: Live Tracking Maps, Flight Status, and Airport Delays for airline flights, private/GA flights, and airports.
+Image
+zoa has made something that basically copies that data into an ids website for quick look up
+Justin L | ZAB C3 — 01/17/2026 16:12
+ZAB will also be only in a 2-way split for the first hour or so. Our centers will let you know the split when they get on
+Brody B | ZLA EC — 01/17/2026 16:18
+got it
+Michael B | VATUSA5 — 01/17/2026 17:58
+Ah I see…I’ll get on then??
+Image
+Brody B | ZLA EC — 01/17/2026 17:59
+ugh
+Hayden | ZSE EC — 01/17/2026 17:59
+yeah ZSE is cooked rn lmao
+Michael B | VATUSA5 — 01/17/2026 17:59
+What AAR are we expecting
+Brody B | ZLA EC — 01/17/2026 18:00
+shooting for 64
+Michael B | VATUSA5 — 01/17/2026 18:01
+Kk
+Brody B | ZLA EC — 01/17/2026 18:02
+do y'all have a split
+Michael B | VATUSA5 — 01/17/2026 18:06
+oh thought it was already posted mb
+Image
+Brody B | ZLA EC — 01/17/2026 18:08
+no worries
+Michael B | VATUSA5 — 01/17/2026 22:42
+Forwarded
+feel like i did the GS wrong but NCT GS to ZOA 0230-0315 medium chance of extension
+#general  •  01/17/2026
+GS lasted from 0230-0305
+Michael B | VATUSA5 — 01/17/2026 23:11
+Image
+gonna repost a new graph for 04-05 since people are staying on
+but thats pretty good
+64AAR 48ADR
+Brody B | ZLA EC — 01/17/2026 23:16
+sweet thanks
+thanks for being around everyone!
+Caution Wake Turbulence — 01/17/2026 23:22
+Great event! Looked awesome from the ZDV side!
+Jeremy P | ZNY C1 — 01/18/2026 03:09
+Note that these sub-hourly charts' rates aren't pro-rated but I'm trying to quickly fix that now
+Image
+Image
+Image
+Image
+Image
+Ken G | ZOA DATM — 01/18/2026 11:22
+Event replay is up at https://vatsim-replay.com/ now
+Michael B | VATUSA5 — 01/18/2026 14:45
+https://youtu.be/JmD_zoVQMsA
+YouTube
+Michael Bonaga
+Escape the Desert SNO Timelapse
+Image
+https://www.youtube.com/watch?v=j2oBK_0N7z0
+YouTube
+Bryce Hudson
+Escape to the Desert | LAS_Y_APP | VATSIM
+Image
+Michael B | VATUSA5 — 01/20/2026 08:23
+Image
+Dhruv K | ZMP ATM — 01/20/2026 08:39
+Jeremy P | ZNY C1 — 01/31/2026 11:39
+https://perti.vatcscc.org/review?226 > TMI Compliance > Load Results
+PERTI Planning
+PERTI Planning Website
+The site for PERTI operational planning of vATCSCC events on the VATSIM Network.
+Ken G | ZOA DATM — 01/31/2026 12:01
+Interesting — I want to look at the compliance with the Replay as well, because some numbers seem a bit off (e.g. 0.1nm spacing between 2 aircraft to FLCHR) unless something else is going on
+Cameron N | ZLC ATM — 01/31/2026 12:04
+It is missing the ZLC TMI as well. I also noticed that TMI construction plays a part as well.  Ex the ZLC TMI via HHOOD for the PDX event was showing a lot of non complicance because the TMI was vague.
+Jeremy P | ZNY C1 — 01/31/2026 17:05
+Please do & lmk what you find
+Jeremy P | ZNY C1 — 01/31/2026 17:06
+I was working hard on getting parsing better yesterday. I’ll continue working so it catches TMIs better sometime this week
+Ken G | ZOA DATM — 01/31/2026 17:38
+A few things I've observed just from spot checking some of the red pairs and using the rings on https://vatsim-replay.com/2026-01-17-escape-to-the-desert
+
+UAL751 -> DAL1690: Tool reports 9.5nm but the a/c are never within 10nm of each other as merging. When DAL1690 crosses the border to ZLA, it's 15nm between (still fails the MIT compliance, I know :P)
+SWA805 -> DAL305: Tool reports 1.2nm but these two aren't even next to each other in the stream, there's 4 planes in the middle and DAL305 is earlier.
+DAL305 -> UAL1583: Tool reports 0.1nm but like above, these two aren't even next to each other. UAL1583 is ahead of ACA557 who is ahead of DAL305 in the stream.
+UPS75 -> PHX70: I don't even see a PHX70 in the replay data, so I'm not sure what happened here. And UPS75 doesn't cross the border until 0318 but the tool is reporting 0221
+DAL242 -> FDX5397: Tool reports 7.6nm but I'm seeing FDX5397 cross the border with 18-20 MIT
+ITY759 -> TAM1992: I don't see these two in the FLCHR stream at all in the replay data
+Jeremy P | ZNY C1 — 01/31/2026 17:39
+K i'll investigate
+Ken G | ZOA DATM — 01/31/2026 17:39
+All that being said, a) this is very cool, b) I can understand this being quite challenging to do perfectly especially once we start vectoring for sequence and space, c) I think it can be useful even if it's not perfect 
+Also I think it's missing a lot of pairs in general. E.g., the timeline is showing a 212 nm gap in the middle of the event and I can guarantee, having worked the sector that handed off FLCHRs to ZLA for this event, that it was never that quiet ?? 

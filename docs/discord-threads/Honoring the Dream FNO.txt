@@ -1,0 +1,219 @@
+https://perti.vatcscc.org/plan?225
+Michael B | VATUSA5 — 01/03/2026 14:21
+Honoring the Dream FNO | TMU OpLevel 3 | PERTI Data Request
+Honoring the Dream FNO is from 2026-01-16 2359Z to 2026-01-17 0400Z.
+Start: Friday, 16 January, 2026 18:59 (a month ago) in your timezone
+End:   Friday, 16 January, 2026 23:00 (a month ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZDC: @Carson B | ZDC EC 
+ZHU: @Dean V | ZHU DATM 
+ZID: @Hayden Y | ZID ATM 
+ZJX: @Patrick M | ZJX EC 
+ZMA: @Abhi D | ZMA EC (optional but i thnk last time out ZJX were saying it would be extremely benificial to have yall on)
+ZME: @Eric S | ZME EC 
+ZTL: @Meg B | ZTL EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+--------------------------------------------------------- 
+Carson B | ZDC EC
+
+ — 01/03/2026 14:22
+I feel like we just did this FNO lol
+Michael B | VATUSA5 — 01/03/2026 14:22
+me too loll
+and what cherry blossom is the day after right
+Dean V | ZHU DATM
+
+ — 01/03/2026 14:24
+Nice job scheduling.
+More than likely avail for this
+Arya C | ZME DATM — 01/03/2026 14:24
+ZOB can also offer its services if needed for ZID / some ground control as DTW is normally quite popular
+Hayden Y | ZID ATM — 01/03/2026 14:37
+Yeah I was thinking we'll see alot from DTW.
+Abhi D | ZMA EC — 01/03/2026 14:37
+@Roy P | ZMA DATM
+Matt B | ZJX C3 — 01/07/2026 08:56
+The new route tool is super handy FYI - https://perti.vatcscc.org/route
+I had to switch maps for it to work however
+Image
+Example
+Image
+Alejandro J | ZJX TA — 01/07/2026 16:41
+this is what we are looking at so far for routes going to ATL through ZJX Airspace, @Roy P | ZMA DATM thoughts on routing people out of the MIA/FLL metroplex over the west via Q110? @Meg B | ZTL EC @Timothy M | ZTL I1 thoughts on that aswell?
+
+cc: @Matt B | ZJX C3, @Ian B | ZJX C1, @Patrick M | ZJX EC 
+Image
+Roy P | ZMA DATM
+
+ — 01/07/2026 16:42
+sure we can do that
+if ZTL is good with it that is
+Alejandro J | ZJX TA — 01/07/2026 17:10
+Another possibility is we keep all ATL bound traffic from MIA/FLL going via SHRKS and we reroute guys out of MCO via the RDSOX
+we're fine with either whichever works best for y'all @Meg B | ZTL EC @Timothy M | ZTL I1
+Meg B | ZTL EC — 01/09/2026 13:39
+I'm inclined to leave MCO alone and have MIA go over the west coast. But let me see if I can look up the historical data...not that history repeats itself or anything. One can never tell.
+Matt B | ZJX C3 — 01/09/2026 13:55
+There is a very minor debate on if it’s easier for us to reroute MCO traffic IF needed vs having ZMA (a Tier 2) reroute all the MIA traffic.
+Timothy M | ZTL I1 — 01/13/2026 02:36
+well if we start re-routing people from the start, it'll be easy if we just post it on simbrief during event period
+Matt B | ZJX C3 — 01/13/2026 07:27
+I guess it just depends on what you all want then, MIA-ATL expected to be the heaviest demand. Do you want them routed west to join the HOBBT/GNDLF? or would prefer MCO-ATL routed that way?
+Timothy M | ZTL I1 — 01/13/2026 10:45
+cc: @Meg B | ZTL EC
+Meg B | ZTL EC — 01/14/2026 10:09
+If there's a way to get simbrief to suggest the western route from MIA I think that would be best for the pilots. It looks like fewer added flying miles. And it might be better for how we need to do splits too.
+Alex Y | ZNY I1 — 01/14/2026 10:20
+Several DCC staff people have the permissions to add time-limited "TMU" route entries into the Simbrief database, it usually comes up within the first couple route suggestions when flight planning 
+Short answer is yes
+Michael B | VATUSA5 — 01/14/2026 10:47
+Yeah just send the routes and I or anyone else with access can put em in
+Matt B | ZJX C3 — 01/14/2026 11:20
+MIAATLH0 CDR
+KMIA HURCN4 SMELZ Q110 DAWWN BEORN GNDLF3 KATL
+Well minus the arrival until we know the ops
+Michael B | VATUSA5 — 01/14/2026 11:23
+Rog yeah arrival won’t matter anyways cuz the database doesn’t have SID/STAR
+I’ll put it in rn 
+William P | ZDC C1 — 01/14/2026 14:00
+What's ZDC's TMIs looking like from ZTL?
+Meg B | ZTL EC — 01/14/2026 14:05
+I get Tim will say 10, but I'm thinking 15-20.
+Who am I kidding, Tim would say 5...!
+William P | ZDC C1 — 01/14/2026 15:19
+lol so start 10-15?
+Alejandro J | ZJX TA — 01/14/2026 16:09
+What are ZJX's TMI's looking like from ZTL?
+(plz say let em fly)
+Ford | ZTL C1 — 01/14/2026 16:14
+Unfortunately if anywhere ZJX is likely where the MIT is needed, as it's those STARs that create the downwind and base streams to the south runway at ATL. NE and NW both feed to their own runway 
+Eric S | ZME EC — 01/14/2026 16:41
+How about for ZME?
+Ford | ZTL C1 — 01/14/2026 17:28
+I'll leave everything up to @Meg B | ZTL EC and @Timothy M | ZTL I1 who are actually planning the event
+Hayden Y | ZID ATM — 01/15/2026 12:41
+I don't see any TMI or anything for us, do yoou have an opening plan @Meg B | ZTL EC or just gonna let the near tripple digit AAR go wild? 
+Abhi D | ZMA EC — 01/15/2026 13:42
+I sent the routing requirements to ZMA, just to make sure, it’s only MIA - ATL, no change for FLL - ATL?
+Eric S | ZME EC — 01/15/2026 16:10
+ZME split available in perti splits
+William P | ZDC C1 — 01/15/2026 16:10
+Planning on 2-way split
+Attachment file type: acrobat
+ZDC Standard 2-Way Depiction.pdf
+26.31 KB
+16/2300 ATL via EMI 25 MIT VOLUME:VOLUME 0000-0400 ZDC:ZNY
+ ZDC planned TMI
+Alejandro J | ZJX TA — 01/15/2026 18:35
+Still working on ZJX splits, trying to figure out staffing
+Dean V | ZHU DATM
+
+ — 01/15/2026 19:15
+ZHU will have staffing
+Timothy M | ZTL I1 — 01/15/2026 21:42
+Majority of ZTL will be using v-VSCS
+Alejandro J | ZJX TA — 01/15/2026 21:58
+same with ZJX
+Alejandro J | ZJX TA — 01/15/2026 22:16
+ZJX Split as of now
+Image
+Image
+our passback to ZMA will depend on what ZTL asks of us
+Zachary W | ZTL ATM — 01/16/2026 08:06
+It’s Gameday.
+Jeremy P | ZNY C1 — 01/16/2026 08:15
+Facilities are encouraged to use the PERTI Splits (PERTI/splits) for active splits, public routes system (PERTI/route) for published routes to be viewed by everyone, NAS Operations Dashboard (PERTI/nod) for situational awareness, & ground delay tool (PERTI/gdt) for measuring GS impacts
+Matt B | ZJX C3 — 01/16/2026 08:17
+one stop shop for splits people! we always wanted this feature! Thank you @Jeremy P | ZNY C1 for providing this
+Jeremy P | ZNY C1 — 01/16/2026 08:17
+And let me know what doesn’t work lol
+Jeremy P | ZNY C1 — 01/16/2026 08:23
+I see your scheduled ZJX split in the website but can you make sure the times are right? Or was that just for testing?
+Matt B | ZJX C3 — 01/16/2026 08:24
+I'm actually trying to see if we have it in there yet, I didnt see it, unless I am looking at the wrong spot...I was just making one
+Jeremy P | ZNY C1 — 01/16/2026 08:24
+But idk why it's showing up in scheduled if it's in the past; may be an issue on my side
+Image
+Matt B | ZJX C3 — 01/16/2026 08:25
+oh ok yea that was a test, I am making a correct one now
+Michael B | VATUSA5 — 01/16/2026 09:43
+Slightly off topic but if this is ur goal with all the new tabs on that website id rlly make sure there’s some user guide to all of it
+Jeremy P | ZNY C1 — 01/16/2026 09:44
+I'm working on it.
+Eric S | ZME EC — 01/16/2026 14:51
+TMIs for ZME?
+Patrick M | ZJX EC
+
+ — 01/16/2026 14:51
+Any TMIs for ZJX?
+Dean V | ZHU DATM
+
+ — 01/16/2026 15:33
+Anything for ZHU?
+Michael B | VATUSA5 — 01/16/2026 16:34
+ATL via CHPPR,GLAVN 20 MIT PER ROUTE VOLUME:VOLUME 0045-0330 ZTL:ZME
+ATL via HOBTT 15 MIT VOLUME:VOLUME 0045-0320 ZTL:ZME,ZJX,ZHU
+ATL via ONDRE 15 MIT AS ONE VOLUME:VOLUME 0045-0320 ZTL:ZID 
+ATL via OZZZI 15 MIT VOLUME:VOLUME 0045-0315 ZTL:ZDC 
+ATL via JJEDI 15 MIT PER ROUTE  VOLUME:VOLUME 0045-0320 ZTL:ZJX
+
+from Meg ^^
+
+think this is decent, gives some room to drop as well, do note they go into effect 45 mins into the event, will get these posted officially momentarily @Eric S | ZME EC @Patrick M | ZJX EC @Dean V | ZHU DATM @Hayden Y | ZID ATM @Carson B | ZDC EC
+Eric S | ZME EC — 01/16/2026 16:36
+ZME will pass back 30 MIT for ATL via CHPPR to ZID 
+Carson B | ZDC EC
+
+ — 01/16/2026 16:36
+@William P | ZDC C1
+Matt B | ZJX C3 — 01/16/2026 16:43
+@Michael B | VATUSA5 the route from MIA to ATL is set on SimBrief confirm?
+Michael B | VATUSA5 — 01/16/2026 16:48
+Image
+yup 
+Meg B | ZTL EC — 01/16/2026 18:30
+ZTL ASX has been updated
+Michael B | VATUSA5 — 01/16/2026 20:13
+nice work with the reroute
+Image
+Meg B | ZTL EC — 01/16/2026 20:19
+That is a beautiful line!
+Michael B | VATUSA5 — 01/16/2026 21:36
+0236z
+Image
+for context
+Gerardo R | ZMA C1 — 01/16/2026 21:46
+Worked hard on that one :LULW:
+Jeremy P | ZNY C1 — 01/16/2026 21:49
+Other pics
+Image
+Image
+Image
+Image
+Michael B | VATUSA5 — 01/16/2026 21:50
+vatsim replay will not be avail for this event due to issues
+Michael B | VATUSA5 — 01/16/2026 23:55
+Image
+Jeremy P | ZNY C1 — 01/31/2026 11:34
+https://perti.vatcscc.org/review?225 > TMI Compliance > Load Results
+
+Can someone spot check/verify these results?
+PERTI Planning
+PERTI Planning Website
+The site for PERTI operational planning of vATCSCC events on the VATSIM Network.
+Ford | ZTL C1 — 01/31/2026 12:13
+I mean it's missing a lot of the data

@@ -1,0 +1,170 @@
+https://perti.vatcscc.org/plan?213
+Michael B | VATUSA5 — 11/05/2025 23:20
+Rock Around the Clock: 24 Hours in Cleveland | TMU OpLevel 3 | PERTI Data Request
+The Rock Around the Clock: 24 Hours in Cleveland is on November 15 from 0000 to 0400z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZOB: @Jonathan B | ZOB EC 
+ZDC: @Carson B | ZDC EC 
+ZNY: @Daniel | ZNY EC 
+ZBW: @Cameron P | ZBW EC 
+ZMP: @Kristofer P | ZMP EC 
+ZAU: @Kevin H | ZAU EC 
+ZID: @Hayden Y | ZID ATM 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee    please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Arya C | ZME DATM — 11/06/2025 11:34
+Hi all. Apologies for the late notice. We would like T1 (especially ZID due to border proximity) for the SNO portion of our 24h. MIT package to follow shortly. 
+
+@Matt H | I1 ZYZ is not essential but if you’re on, it would be much appreciated. I understand there’s an OTS going on for you guys at a similar time potentially so I get if you’re busy.
+Matt H | I1 — 11/06/2025 11:40
+The OTS is from 21-23 so that shouldn't be an issue, I'll put out your request for staffing though. 
+Arya C | ZME DATM — 11/06/2025 11:41
+Brilliant thanks. Good luck @Benjamin M | C1 ??
+Hayden Y | ZID ATM — 11/06/2025 12:30
+ofc I already have it out there in our monthly plan
+for your planning we have alot of support events and only a few center controllers so it might be good to be aware of playbooks that miss us
+Arya C | ZME DATM — 11/06/2025 13:01
+Yeah starting this weekend we have events home and support 7 weekends in a row too so it’s a fun period ?? 
+Arya C | ZME DATM — 11/09/2025 17:08
+Will have preliminary TMIs out tomorrow or Tuesday
+Arya C | ZME DATM — 11/10/2025 11:58
+The plan is as follows: 
+
+15/2200   CLE via ROKNN 25MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 ZOB:ZID
+15/2200   CLE via ROLLN 25MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 ZOB:ZID
+15/2200   CLE via BUSTR 30MIT AS ONE EXCL:PROPS VOLUME:VOLUME 2359-0400 ZOB:ZDC
+15/2200   CLE via PSB 30MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 ZOB:ZNY
+15/2200   CLE via HANKK 30MIT AS ONE EXCL:PROPS VOLUME:VOLUME 2359-0400 ZOB:ZBW
+15/2200   CLE via BRWNZ 25MIT PER STREAM EXCL: PROPS VOLUME: VOLUME 2359-0400 ZOB:ZAU
+15/2200   CLE via TRYBE STOP VOLUME:VOLUME 2359-0400 ZOB:ZYZ
+15/2200   CLE via DOZRR 30MIT VOLUME:VOLUME 2359-0400 ZOB:ZYZ  
+
+
+15/2200   CLE via ROLLN 20MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 CLE:ZOB
+15/2200   CLE via ROKNN 20MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 CLE:ZOB
+15/2200   CLE via TRYBE 25MIT EXCL:PROPS VOLUME:VOLUME 2359-0400 CLE:ZOB
+15/2200   CLE via BRWNZ 25MIT AS ONE EXCL:PROPS VOLUME:VOLUME 2359-0400 CLE:ZOB
+ 
+I recognise the MIT is definitely on the higher side but for what is essentially a single field SNO to a field with an AAR of 35-40 depending on conditions I think it'll prevent any horror shows initially, and we can always take another look midway if it ends up being too much work for our T1.
+@Hayden Y | ZID ATM you were asking regarding routing; it seems like a big merge for you would be over the ROLNN# - prefroutes send ATL/CLT/RDU/RIC through there, might be something to coordinate with DC but since JST UPRRR TRYBE# is 'only' from PCT rerouting a few CLT for example straight through ZDC and missing ZID might be an option.
+Arya C | ZME DATM — 11/10/2025 12:34
+@Matt H | I1 since our TRYBE# stream will already be very busy, if you could route all your YYZ+ people to CLE via DOZRR BRWNZ4 (Simbrief gave me ANCOL5 GGUCE DOZRR BRWNZ4, not sure if that is what you want SID-wise) that would be much appreciated.
+Hayden Y | ZID ATM — 11/10/2025 14:12
+Yeah I’ll look at it and have some backup plans ready. I don’t anticipate needing to reroute but we’re getting pretty burnt out so it would be nice to know ahead of time what the backup plan is.
+I’m gonna go ahead and pull an ACE for it tonight or tomorrow if I don’t get any traction cause I’d rather have one of our guys end up opening CMH or something than be 0 or 1 person staffing.
+Either way we got you
+Arya C | ZME DATM — 11/10/2025 14:14
+I 10000% get it. I guess we're both in the situation of being Tier 1 city normally haha. But yeah I suspect ROKNN and ROLNN are going to be popping if ATL or CLT are staffed 
+Hayden Y | ZID ATM — 11/10/2025 14:15
+Yeah I’m seriously considering making a high only center from 24-60 so if we are solo one can open that alone.
+Just for T1 one support haha
+Arya C | ZME DATM — 11/10/2025 14:17
+I won't be there on the night, @Nick S | ZOB I1 will be TMU and @Jonathan B | ZOB EC will be there as well, if you guys are absolutely slammed I'm sure we can tweak things a little bit once we get into it
+Jonathan B | ZOB EC — 11/13/2025 17:07
+You guys get any signups?
+Jonathan B | ZOB EC — 11/14/2025 11:34
+Also this is what we came up with for a preferred route, SID is obviously your choice but:
+YYZ-CLE via ANCOL5 GGUCE DOZRR BRWNZ4
+ 
+Arya C | ZME DATM — 11/14/2025 11:45
+Central point for ZYZ if you are on (in accordance with the TRYBE STOP as above) is DOZRR BRWNZ4
+Jonathan B | ZOB EC — 11/14/2025 12:50
+@Michael B | VATUSA5 any luck on a NTMO?
+Michael B | VATUSA5 — 11/14/2025 13:13
+00-04?
+Jonathan B | ZOB EC — 11/14/2025 13:13
+Affirm
+Michael B | VATUSA5 — 11/14/2025 13:14
+@NTMO anyone able to come out?
+If not I can try and make it work
+Dean V | ZHU DATM
+
+ — 11/14/2025 13:19
+Tomorrow night? maybe
+Jonathan B | ZOB EC — 11/14/2025 13:19
+This event has the potential to either be completely fine or very busy. Our AAR is 43 
+Alex Y | ZNY I1 — 11/14/2025 13:21
+I'll probably be around but I may be needed to cover ZNY staffing
+Jonathan B | ZOB EC — 11/14/2025 14:31
+Scratch that... TAF shows IMC so AAR will be 32
+Arya C | ZME DATM — 11/14/2025 15:16
+??
+Thoughts and prayers
+Jonathan B | ZOB EC — 11/14/2025 15:23
+Jonathan B | ZOB EC — 11/14/2025 17:58
+Our initial splits:
+Image
+Jonathan B | ZOB EC — 11/14/2025 18:09
+@Nick S | ZOB I1 will be TMU. I'll also be available on the hotline as I will be CAB CIC.
+Matt H | I1 — 11/15/2025 00:18
+I’ve posted that routing for tonight alongside the TMI package, and based on conversations I’ve had we should have a few people who are around to help out. 
+
+Anything else you need from us?
+Arya C | ZME DATM — 11/15/2025 04:43
+That should be all. Thank you so much!!!
+Hayden Y | ZID ATM — 11/15/2025 15:50
+@Stephen W | ZID I1 in the hotline
+https://tools.indy.center/airspace
+We'll have the split somewhere from 7-11 ish
+Alex Y | ZNY I1 — 11/15/2025 18:53
+ZNY will be on for the SNO window at least (7-11)
+Dean V | ZHU DATM
+
+ — 11/15/2025 19:15
+I’m on call
+J ping me a few times lol
+If need anything
+Arya C | ZME DATM — 11/15/2025 19:15
+@William P | ZDC C1 zob split here
+Michael B | VATUSA5 — 11/15/2025 19:20
+im in ther hotline rn
+Alex Y | ZNY I1 — 11/15/2025 19:27
+I see planned TMIs above, can someone post them to NTML if they're official?
+Jonathan B | ZOB EC — 11/15/2025 19:27
+they were posted at 2200
+Arya C | ZME DATM — 11/15/2025 19:27
+^
+Alex Y | ZNY I1 — 11/15/2025 19:28
+Whoops, fail on my part I was looking in advisories
+Jonathan B | ZOB EC — 11/15/2025 22:24
+Thanks everyone!
+We made it with no ground stops... I will take that as a great success
+Arya C | ZME DATM — 11/16/2025 02:59
+Image
+The max AAR of 40 was always going to be a bit speculative but I'm glad it all came together. Thank you to all our neighbours for helping us out! Now time for the rest of the 24 hours....
+Also congrats on the C1 @Benjamin M | C1 
+Jonathan G | ZOB S2
+
+ — 11/16/2025 08:48
+taht looks excellent for a consistant stream
+Arya C | ZME DATM — 11/16/2025 08:49
+Yeah there were minor issues but overall super happy
+Michael B | VATUSA5 — 11/16/2025 13:18
+Image
+fire
+Forwarded
+15/2202    CLE    LVMC    ARR:24R  DEP:24L    AAR:40 ADR:30
+#ntml  •  11/15/2025
+Arya C | ZME DATM — 11/16/2025 13:20
+That's great
+So 40 takes into account the 24R/24L stagger which we didnt do
+The real AAR in that config is like 32 lol 
+even happier with that
+Michael B | VATUSA5 — 11/16/2025 13:31
+i can adjust then
+Image
+Arya C | ZME DATM — 11/16/2025 16:03
+What I love to see

@@ -1,0 +1,289 @@
+https://perti.vatcscc.org/plan?209
+Michael B | VATUSA5 — 09/28/2025 23:22
+Florida Night Ops | TMU OpLevel 3 | PERTI Data Request
+The Florida Night Ops is on October 24 from 2300 to 0300z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+
+ZMA: @Roy P | ZMA DATM 
+ZJX: @Patrick M | ZJX EC @Kona 
+ZHU: @Dean V | ZHU DATM 
+ZTL: @Meg B | ZTL EC 
+ZDC: @Carson B | ZDC EC 
+
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee   please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Kona
+
+ — 09/29/2025 05:37
+Woop woop. Let’s knock this out of the park. We have TMI from the last time we did a ZMA / ZJX FNO that included ZTL. Might be worth looking over again.
+Abhi D | ZMA EC — 10/17/2025 21:41
+Would anyone be available to serve as ZMA TMU should we need it? Our current rostered TMU is not 100% sure of their availability on Friday so in case he doesn’t make it we were looking for one
+Michael B | VATUSA5 — 10/17/2025 21:58
+@NTMO  ^^^^
+Simon R | ZJX C1 — 10/17/2025 22:11
+Depends on ZJX staffing
+Jeremy P | ZNY C1 — 10/18/2025 08:29
+I get home at like 1900ET I could help out. But someone else would need to do the setup
+Abhi D | ZMA EC — 10/19/2025 10:16
+Thank you, after talking with @Roy P | ZMA DATM, we have a different plan if our rostered TMU is not able to make it. So thank you everyone but no longer in need of one
+Jeremy P | ZNY C1 — 10/19/2025 10:21
+Ok
+Carson B | ZDC EC
+
+ — 10/20/2025 14:53
+@Patrick M | ZJX EC Any planned TMIs as of now?
+Patrick M | ZJX EC
+
+ — 10/20/2025 15:04
+Not as of yet. Will discuss with our team and let you know
+Alejandro J | ZJX TA — 10/21/2025 16:51
+currently working on the TMI's for F11/JAX, we'll get those once we determine what we may need from neighbors. Any passback MIT will be coordinated once we know what ZMA is gonna need from us.
+Abhi D | ZMA EC — 10/21/2025 16:55
+24/2300 MIA via FROGZ 30MIT VOLUME:VOLUME 2300-0300 ZMA:ZJX
+24/2300 MIA via BNFSH 20MIT VOLUME:VOLUME 2300-0300 ZMA:ZJX
+24/2330 MIA via DDANY CSTAL 25 MIT VOLUME:VOLUME 2300-0300 ZMA:F11
+24/2300 MIA via CSTAL 20MIT VOLUME:VOLUME 2300-0300 ZMA:ZJX
+
+24/2300 RSW via SHFTY 15MIT  VOLUME:VOLUME 2300-0300 ZMA:ZJX
+24/2300 RSW via TYNEE 15MIT  VOLUME:VOLUME 2300-0300 ZMA:ZJX
+Here are the numbers we currently have planned
+Abhi D | ZMA EC — 10/21/2025 17:11
+https://docs.google.com/presentation/d/1LWorZkSMzemZ2lN8OI6RmsUSlij2kFWdaXP6HQAwM9w/edit?usp=sharing
+
+Also ZJX here is the planned split for ZMA on Friday, we've improved the formatting as much as we can at the moment and I've received feedback this is much easier to understand than our previous ones. 
+
+The sectors in black on the left are the ones online, and underneath it lists what they cover. But everything is correctly color matched now, so the splits depcited are accurate to what the position is working, any questions let me know happy to clarify
+Google Docs
+ZMA ARTCC SPLIT
+ZMA SPLITS Black = Online Sector Color = Owned Sector 04 - MELBOURNE LOW 04 21 - FREEPORT LOW 02, 21 25 - FORT MYERS HIGH 25 41 - VIICE 06, 41, 58, 61, 62 46 - ALUTO 46, 65
+Patrick M | ZJX EC
+
+ — 10/21/2025 17:51
+Thanks! We don't have a split quite yet but will share it as soon as we do...still waiting to see how many ACE controllers we get
+Simon R | ZJX C1 — 10/21/2025 17:52
+How many are rostered so far…?
+I believe ZMA was also looking for 2-3 more enroute, not sure if they managed to get them
+Patrick M | ZJX EC
+
+ — 10/21/2025 17:53
+We have 3 officially signed up, 5 if you count the 2 "if needed" (they officially requested a different position but will work center if we need them to)
+Simon R | ZJX C1 — 10/21/2025 17:54
+So 2 for the full event + myself for at least half and then 2 others as “maybe” basically?
+Patrick M | ZJX EC
+
+ — 10/21/2025 17:55
+yep exactly...I put in an ACE request for 2-3 more people as well
+Simon R | ZJX C1 — 10/21/2025 17:55
+@Abhi D | ZMA EC are you also still short 1 or did you guys get sufficient?
+I’m assuming F11/JAX tracon / cab are both sufficient staffed right?
+Alejandro J | ZJX TA — 10/21/2025 17:57
+still figuring that out
+Abhi D | ZMA EC — 10/21/2025 17:58
+We are looking for 1 more Miami Center and then we should be good
+Dean V | ZHU DATM
+
+ — 10/21/2025 19:11
+Zhu?
+Patrick M | ZJX EC
+
+ — 10/21/2025 19:14
+24/2230 MIA ARR via FROGZ 30MIT ZJX:ZHU
+We'll start with that
+Dean V | ZHU DATM
+
+ — 10/21/2025 19:15
+MIA LTFC (landing traffic) is usually what's put in those TMIs ??
+also, FROGZ is wayyyyy too far for us to sequence to.
+Patrick M | ZJX EC
+
+ — 10/21/2025 19:16
+I will talk to the team...this was based off of last years FNO. Will get back to you!
+Dean V | ZHU DATM
+
+ — 10/21/2025 19:16
+no need
+its for u
+Simon R | ZJX C1 — 10/21/2025 19:26
+06/0110   MIA via BLVNS, 10 MIT VOLUME:VOLUME 2330-0230 ZJX:ZHU
+MIA via Y290 30 MIT EXCL:PROPS VOLUME:VOLUME 1800-2100 ZJX:ZHU
+is what has been done in the past
+Dean V | ZHU DATM
+
+ — 10/21/2025 21:08
+I’m like 99% that’s the same TMI
+Simon R | ZJX C1 — 10/21/2025 21:17
+It is
+Matt B | ZJX C3 — 10/21/2025 21:23
+@Meg B | ZTL EC We are looking at putting a STOP to MIA via ACORI, send over HONID like in events past
+24/2300 STOP MIA via ACORI START RRTE VIA ./.HONID FROGZ4 INSTEAD TYPE:JET VOLUME:VOLUME 2300-0230 ZJX:ZTL
+ --- This is from a previous event 
+
+Patrick M | ZJX EC
+
+ — 10/22/2025 09:26
+24/2300 MCO via RIDES 25MIT VOLUME:VOLUME 2300-0300 F11:ZMA
+24/2300 MCO via PRICY 25MIT VOLUME:VOLUME 2300-0300 F11:ZMA
+24/2300 MCO via GRNCH 20MIT VOLUME:VOLUME 2300-0300 F11:ZJX
+24/2300 MCO via GTOUT/SNFLD 20MIT VOLUME:VOLUME 2300-0300 F11:ZJX
+24/2300 MCO via JOKRS 35MIT VOLUME:VOLUME 2300-0300 F11:ZMA
+
+24/2300 JAX via LUNNI 30MIT VOLUME:VOLUME 2300-0300 JAX:ZJX
+24/2300 JAX via OHDEA 25MIT VOLUME:VOLUME 2300-0300 JAX:ZJX
+24/2300 JAX via QUBEN 20MIT VOLUME:VOLUME 2300-0300 JAX:ZJX
+24/2300 JAX via TEBOW 20MIT VOLUME:VOLUME 2300-0300 JAX:ZJX
+24/2300 JAX via MARQO 30MIT VOLUME:VOLUME 2300-0300 JAX:ZJX
+
+24/2300 MIA via HONID 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 STOP MIA via ACORI START RRTE VIA ./.HONID FROGZ4 INSTEAD TYPE:JET VOLUME:VOLUME 2300-0230 ZJX:ZTL
+24/2300 MIA via Q97 40MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 MIA via ICONS 30MIT VOLUME:VOLUME 2300-0300 ZJX:CLT
+24/2300 MCO via ICONS 15MIT VOLUME:VOLUME 2300-0300 ZJX:CLT
+24/2300 MCO via Q83 30MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 MCO via ZJAYX 15MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 RSW via LUCKK 15MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 JAX via DUCHY 25MIT VOLUME:VOLUME 2300-0300 ZJX:ZTL
+24/2300 JAX via ICONS 15MIT VOLUME:VOLUME 2300-0300 ZJX:CLT
+24/2300 JAX via LAL 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZMA
+24/2300 JAX via ORL 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZMA
+
+24/2300 MIA via Q97 40MIT VOLUME:VOLUME 2300-0300 ZJX:ZDC
+24/2300 MIA via Y313 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZDC
+24/2300 MIA via BNFSH 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZDC
+24/2300 RSW via SHFTY 15MIT VOLUME:VOLUME 2300-0300 ZJX:ZDC
+24/2300 MCO via Q85 15MIT VOLUME:VOLUME 2300-0300 ZJX:ZDC
+
+24/2300 MIA via Y290 30MIT VOLUME:VOLUME 2300-0300 ZJX:ZHU
+24/2300 MIA via MUURY 30MIT VOLUME:VOLUME 2300-0300 ZJX:ZHU
+24/2300 MCO via DEFUN 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZHU
+24/2300 MCO via Y280 20MIT VOLUME:VOLUME 2300-0300 ZJX:ZHU
+The latest from ZJX
+Carson B | ZDC EC
+
+ — 10/23/2025 17:06
+Is this finalized?
+Alejandro J | ZJX TA — 10/23/2025 17:07
+no
+Patrick M | ZJX EC
+
+ — 10/23/2025 17:07
+We’re adjusting MIT
+Carson B | ZDC EC
+
+ — 10/23/2025 17:07
+Okay and Owen is the TMU?
+Alejandro J | ZJX TA — 10/23/2025 17:07
+as of now yes
+Carson B | ZDC EC
+
+ — 10/23/2025 17:08
+Cool. I will be TMU for ZDC but I will also have a student training on center with me. FYI.
+Kona
+
+ — 10/23/2025 18:51
+They dusted the cob webs off and forced me into being TMU again. You down for a Florida hotline tomorrow night?
+Carson B | ZDC EC
+
+ — 10/23/2025 19:26
+Yeah I can sit it in
+Kona
+
+ — 10/23/2025 19:26
+Sweet
+Dean V | ZHU DATM
+
+ — 10/23/2025 19:43
+I may be around to support in one capacity or another
+Abhi D | ZMA EC — 10/23/2025 23:40
+If ZJX doesn’t need you then you might be able to Tower CIC for us like you did last time
+Dean V | ZHU DATM
+
+ — 10/23/2025 23:40
+Wtv u say pookie??
+Abhi D | ZMA EC — 10/23/2025 23:41
+JAX lmk or im taking this man
+Dean V | ZHU DATM
+
+ — 10/24/2025 02:35
+FY(yalls)I- my plan is to be available all day and for about 2h into the event 
+that’s just the plan??
+Abhi D | ZMA EC — 10/24/2025 10:26
+Im adding you to our roster
+Abhi D | ZMA EC — 10/24/2025 16:49
+https://docs.google.com/presentation/d/1LWorZkSMzemZ2lN8OI6RmsUSlij2kFWdaXP6HQAwM9w/edit?usp=drivesdk
+Google Docs
+ZMA ARTCC SPLIT
+ZMA SPLITS Black = Online Sector Color = Owned Sector 04 - MELBOURNE LOW 04 21 - FREEPORT LOW 02, 21 25 - FORT MYERS HIGH 25 41 - VIICE 06, 41, 61 46 - ALUTO 46, 65
+ZMA split
+Image
+LOW^
+Image
+HIGH ^
+Dean V | ZHU DATM
+
+ — 10/24/2025 16:54
+Image
+Image
+??
+Abhi D | ZMA EC — 10/24/2025 16:55
+^
+Dean V | ZHU DATM
+
+ — 10/24/2025 16:55
+makes it a lil easier for sharing ??
+Michael B | VATUSA5 — 10/24/2025 17:05
+ty haha
+Patrick M | ZJX EC
+
+ — 10/24/2025 17:11
+ZJX Splits
+Image
+Image
+Abhi D | ZMA EC — 10/24/2025 18:02
+Do you have a link to the website by chance?
+Patrick M | ZJX EC
+
+ — 10/24/2025 18:02
+www.zjxartcc.org
+Abhi D | ZMA EC — 10/24/2025 18:02
+But is there a specific link to the split map?
+Patrick M | ZJX EC
+
+ — 10/24/2025 18:03
+https://zjxartcc.org/operations
+Virtual Jacksonville ARTCC
+The Virtual Jacksonville ARTCC is a community of pilots and air traffic controllers on VATSIM who come together to enjoy the art of flight simulation.
+Robby | ZMA ATM
+
+ — 10/24/2025 21:30
+@Kona / @Patrick M | ZJX EC  / @Simon R | ZJX C1 you guys can lower MIT on the FROGZ to 25. We can accommodate 20 if that is easier for you guys. 
+Patrick M | ZJX EC
+
+ — 10/24/2025 21:35
+We'll drop it down to 20.
+Robby | ZMA ATM
+
+ — 10/24/2025 22:12
+Do you guys still need 25 into F11? No problem if so, just checking before we delay some planes.
+Patrick M | ZJX EC
+
+ — 10/24/2025 22:15
+We canceled all MIT into MCO about 5 minutes into the event
+So send em!
+Robby | ZMA ATM
+
+ — 10/24/2025 22:17
+Just saw that, thank you.
+Cancel all ZMA MIT

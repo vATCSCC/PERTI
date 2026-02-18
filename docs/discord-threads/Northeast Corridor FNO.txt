@@ -1,0 +1,664 @@
+https://perti.vatcscc.org/plan?228
+Michael B | VATUSA5 — 01/03/2026 15:25
+Northeast Corridor FNO | TMU OpLevel 3 | PERTI Data Request
+Northeast Corridor FNO is from 2026-01-30 2359Z to 2026-01-31 0400Z.
+Start: Friday, 30 January, 2026 18:59 (13 days ago) in your timezone
+End:   Friday, 30 January, 2026 23:00 (13 days ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZAU: @Kevin H | ZAU EC (ref ZOB if needed)
+ZBW: @Cameron P | ZBW EC 
+ZDC: @Carson B | ZDC EC 
+ZID: @Hayden Y | ZID ATM  (ref ZDC if needed)
+ZJX: @Patrick M | ZJX EC  (ref ZDC if needed)
+ZMP: @Kristofer P | ZMP EC  (ref ZOB if needed)
+ZNY: @Daniel | ZNY EC 
+ZOB: @Jonathan B | ZOB EC 
+ZTL: @Meg B | ZTL EC  (ref ZDC if needed)
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Arya C | ZME DATM — 01/03/2026 15:29
+ZOB will have an OTS going on, likely in one of our northeast sectors. 
+
+Considering yesterday’s FNO, we’d like ZAU to be on. ZMP can take the day off though. There will also be N90/BOS passback for ZID.
+Cameron P | ZBW EC — 01/03/2026 16:52
+@Daniel G | ZBW I1 @Evan M | ZBW I1
+Hayden Y | ZID ATM — 01/06/2026 08:50
+You know we’ll be there!
+Nathan P | C3 — 01/19/2026 20:22
+Any interest in adding CAN to this? Specifically probs the CZQ and CZY (maybe CZU)? CZQ will be staffing anyway
+Michael B | VATUSA5 — 01/19/2026 20:36
+Up to @Jonathan B | ZOB EC CAN is technically T2 in this instance
+Jonathan B | ZOB EC — 01/20/2026 07:43
+wait why is it up to me?
+ZOB is just support
+Michael B | VATUSA5 — 01/20/2026 07:54
+Cuz ur Toronto’s neighbor 
+So it’s up to u if u want them on
+Jonathan B | ZOB EC — 01/20/2026 07:55
+I have no issue with it
+@Emmanuel G | ZOB S3 ^
+Jonathan B | ZOB EC — 01/20/2026 08:38
+@Matt H | I1 we will have a center OTS going on and will be requesting passback
+Matt H | I1 — 01/20/2026 14:47
+sounds good, I'll pass on the message.
+Matt H | I1 — 01/20/2026 15:26
+@Jonathan B | ZOB EC once you have TMIs could you ping both myself and @Zihao Z | SUP cause I'm quite pre-occupied with exams at the moment
+Jonathan B | ZOB EC — 01/20/2026 15:27
+wilco
+Thomas V | ZOB DATM — 01/23/2026 13:05
+FYI, ZOB will be doing a C1 OTS durning this
+Daniel | ZNY EC — 01/23/2026 13:06
+Michael B | VATUSA5 — 01/23/2026 13:22
+Trial by fire
+I support it
+Arya C | ZME DATM — 01/23/2026 13:29
+35 mit or bust ??
+do not pass go HOXIE
+Daniel | ZNY EC — 01/23/2026 13:30
+Image
+Jonathan B | ZOB EC — 01/23/2026 13:31
+My OTS was a ZNY FNO so... lol
+Arya C | ZME DATM — 01/23/2026 13:33
+Wasnt that the one you failed ??
+Jonathan B | ZOB EC — 01/23/2026 13:33
+No that was Boston
+??
+Arya C | ZME DATM — 01/23/2026 13:33
+Ahhhhh
+Jonathan B | ZOB EC — 01/23/2026 13:34
+Lesson learned... do NOT rebuild PC the day before C1 OTS
+(and forget to reinstall half the things you need)
+Arya C | ZME DATM — 01/23/2026 13:35
+Oh I remember that ?? ?? ??
+Thomas V | ZOB DATM — 01/23/2026 17:09
+Still can’t believe you use Navigraph for controlling.
+It’s too clunky for me to look fast
+Daniel | ZNY EC — 01/23/2026 17:27
+That’s been my gripe with using it for controlling too. What do you use instead? Just Skyvector?
+Thomas V | ZOB DATM — 01/23/2026 17:50
+Our alias system.
+We have a chart recall built in
+Via fe buddy. .jfki2lc for instance will bring up the ILS 22L chart at jfk. Works with any FAA  airport. Like .oqnr27 brings up Brandywine regional rnav 27 or .n27r26 brings up Pottstown Muni Rnav 26. 
+
+These all pop in your browser so you easily close them
+Michael B | VATUSA5 — 01/23/2026 17:54
+https://reference.oakartcc.org/charts
+ZOA has this
+Can put it any FAA airport think it pulls from flight aware
+Thomas V | ZOB DATM — 01/23/2026 17:57
+I love popping it right from eram or stars
+Daniel | ZNY EC — 01/23/2026 18:24
+Oh that’s really nice. But just making sure, that’s local to ZOB right? If so, I could talk to our FE about getting something of the like implemented with us
+Jonathan B | ZOB EC — 01/23/2026 18:37
+Yeah it’s local
+Daniel | ZNY EC — 01/23/2026 18:43
+Neat. @Matthew B | ZNY FE sorry for the ping, but do you think this is a project that can be put on the list down the line?
+Matthew B | ZNY FE — 01/23/2026 18:46
+We can look into that, sure. But we do also have our IDS in development too so we can see if it's even necessary depending on how that ends up working out.
+Daniel | ZNY EC — 01/23/2026 18:46
+Perfect. Whichever works best, and I’m sure there’d be a way to incorporate it into the IDS and kill two birds with one stone. Thanks Matt!
+Thomas V | ZOB DATM — 01/23/2026 19:07
+Easily. https://github.com/Nikolai558/FE-BUDDY
+GitHub
+GitHub - Nikolai558/FE-BUDDY: Assists Virtual ARTCC Facility Engine...
+Assists Virtual ARTCC Facility Engineers with their daily tasks. - Nikolai558/FE-BUDDY
+GitHub - Nikolai558/FE-BUDDY: Assists Virtual ARTCC Facility Engine...
+@Kyle S | ZOB C3 can help. It’s his baby 
+Alex Y | ZNY I1 — 01/25/2026 13:28
+NEC but 5 days early
+Image
+Carson B | ZDC EC
+
+ — 01/25/2026 15:42
+I dont think we need to do this anymore
+Michael B | VATUSA5 — 01/25/2026 16:04
+U had ur fun for the month???
+Carson B | ZDC EC
+
+ — 01/25/2026 17:29
+I didnt even controll lol
+Thomas V | ZOB DATM — 01/25/2026 18:16
+Let’s move this up to tonight ??
+
+BDL, PVD, LGA all closed RW 
+Kevin H | ZAU EC
+
+ — 01/25/2026 18:17
+Cool event everyone. Did we forget to put this on the calendar? ??
+Jonathan B | ZOB EC — 01/25/2026 18:17
+Dude I just tubed and had to close ??
+Michael B | VATUSA5 — 01/25/2026 18:21
+Looked like most centers were solo
+Not surprised
+Alex Y | ZNY I1 — 01/25/2026 19:14
+I did about 45 minutes on the JFK N90 sector and landed only about 10 planes before quitting. The ability to follow instructions was the worst I've seen it maybe ever, taking a minute+ to start a turn, turning significantly-less-than-standard rates, and a complete inability to maintain assigned speed which resulted in multiple cancelled approaches and resequences because someone was doing either 100 over the ground or 220 over the ground on the same track at the same "180" kts
+Michael B | VATUSA5 — 01/25/2026 19:19
+pilot quality has tanked...fast
+i wish my recording of the event yesterday had my messages window open, i was at a point if after 2 tries u didn't respond, i typed out the instruction and even then half of them 5 mins later blocked me asking for a descent
+Daniel | ZNY EC — 01/25/2026 19:28
+The quality and competence were absolutely unacceptable today. I had to quit center after only like 90 minutes earlier, and barely survived working approach just now. I agree with Alex that this was the worst I’ve ever seen, even during our busiest events.
+Arya C | ZME DATM — 01/26/2026 03:06
+Can we pre-reserve a supervisor for the event ??
+Michael B | VATUSA5 — 01/26/2026 03:19
+Think there’s a ticket I can put in for it have to reread that conversation in staff chat
+Jonathan B | ZOB EC — 01/26/2026 10:10
+We won't be doing our OTS after all, with the mock event last night he passed ??
+Michael B | VATUSA5 — 01/26/2026 11:08
+Fire
+Cameron P | ZBW EC — 01/26/2026 14:25
+https://docs.google.com/document/d/1K6E73Ig7h5chcacESJmBwnK_NGwhiV9TlAkzPZOJLZQ/edit?usp=sharing
+Alex Y | ZNY I1 — 01/26/2026 14:39
+showing no access
+Cameron P | ZBW EC — 01/26/2026 14:42
+should be fixed
+Image
+Daniel | ZNY EC — 01/28/2026 11:51
+Just FYI, we will have high MITs to Kennedy during the event. This is to both discourage flooding Kennedy as well as provide relief due to staffing issues in that area of N90. 
+
+If (when) pilots complain, they are more than welcome to go to EWR or even LGA if demand allows.
+Arya C | ZME DATM — 01/28/2026 12:03
+We talking 35 or like….more
+Alex Y | ZNY I1 — 01/28/2026 12:04
+JFK (cab and radar total) currently has 2 controllers assigned to staff it so... more...
+Arya C | ZME DATM — 01/28/2026 12:05
+Should I drop ZOB and do JFK tower instead ?? what’s the equation
+It’s fine, we can do holding stacks for days if we need ??
+Daniel | ZNY EC — 01/28/2026 13:18
+Now 3, but still not great lol. Thanks Arya for switching to cover JFK TWR ??
+Jonathan B | ZOB EC — 01/28/2026 13:18
+/s of course, hopefully that helps
+Arya C | ZME DATM — 01/28/2026 13:20
+Not seen since I transferred 2 weeks ago ??
+Jonathan B | ZOB EC — 01/28/2026 13:20
+@Kevin H | ZAU EC If this turns into a N90 stream from C90 again it could result in a ground stop.
+Kevin H | ZAU EC
+
+ — 01/28/2026 13:20
+yaaaaaaaaaaaaay
+Our response to pilot #65 who asks for IFR to Kennedy
+Jonathan B | ZOB EC — 01/28/2026 13:21
+We're going to be holding JFK guys, can almost guarantee it ??
+Arya C | ZME DATM — 01/28/2026 13:22
+At least there’s a published hold at HOXIE
+Michael B | VATUSA5 — 01/28/2026 14:36
+ur funny i wasnt imagining Miles* in trail when i read that message
+Daniel | ZNY EC — 01/28/2026 14:38
+Introducing vNAS Status!
+Image
+Arya C | ZME DATM — 01/28/2026 14:38
+35MINIT
+we’re getting 8 people all event ??
+Daniel | ZNY EC — 01/28/2026 14:39
+Honestly what if we just started the event with a ground stop JFK? ??
+Simon R | ZJX C1 — 01/28/2026 15:39
+#saynotoJFK ?
+Carson B | ZDC EC
+
+ — 01/28/2026 16:14
+@Daniel | ZNY EC What route are you guys planning for JFK - DCA? 
+
+Are you guys able to put them on the CLIPR and stop the DEALE? 
+
+And I am guessing you guys would prefer all DCA from BOS through the DEALE?
+Daniel | ZNY EC — 01/28/2026 16:29
+Absolutely, that's the plan
+Daniel | ZNY EC — 01/28/2026 16:36
+I'm going to try and finish our TMI packet for distribution tonight. I am however running on 3 hours of sleep so we'll see ?? (got a flat tire on the way home last night)
+William P | ZDC C1 — 01/28/2026 17:04
+Forwarded
+29/2300 DCA via TOPRR 25 MIT VOLUME:VOLUME 0000-0400 ZDC:ZBW
+29/2300 DCA via JOOLO 80 MIT VOLUME:VOLUME 0000-0400 ZDC:ZTL
+29/2300 DCA via KILNS 80 MIT VOLUME:VOLUME 0000-0400 ZDC:ZTL
+29/2300 DCA via SARKY 80 MIT VOLUME:VOLUME 0000-0400 ZDC:ZJX
+29/2300 DCA via CLIPR 25 MIT VOLUME:VOLUME 0000-0400 PCT:ZNY
+ZDC Prelim MIT, gonna add some once we see MIT for us.
+Jonathan B | ZOB EC — 01/28/2026 17:05
+Nothing over BUCKO?
+Carson B | ZDC EC
+
+ — 01/28/2026 17:05
+Havent gotten to  ZOB or ZID yet... 
+Jonathan B | ZOB EC — 01/28/2026 17:06
+I was getting my hopes up ??
+William P | ZDC C1 — 01/28/2026 17:06
+thinking 50 right now
+Jonathan B | ZOB EC — 01/28/2026 17:07
+Carson B | ZDC EC
+
+ — 01/28/2026 17:07
+Arya C | ZME DATM — 01/28/2026 17:31
+GL lads
+Jonathan B | ZOB EC — 01/28/2026 17:33
+@Hayden Y | ZID ATM Can we stop ZID via BUCKO? We won't have the space to merge.
+Hayden Y | ZID ATM — 01/28/2026 17:48
+Even with the new route and turns in that last LOA? I’ll look at the routes and see what it’s looking like for us.
+Daniel | ZNY EC — 01/29/2026 09:21
+Preliminary TMIs: ?No Access
+Daniel | ZNY EC — 01/29/2026 09:30
+https://docs.google.com/document/d/1iz-GcI1A5ZCOzD8PmnPg2S0kfx_0DycV571j-jE6MZY/edit?usp=sharing
+Google Docs
+Northeast Corridor FNO - ZNY TMI Plan
+Purpose The purpose of this document is to outline the required and recommended Traffic Management Initiatives for ZNY facilities during the Northeast Corridor FNO on Friday, January 30, 2026. This FNO features both the ZBW, ZNY, and ZDC ARTCCs and the BOS, LGA, and DCA airports. In addition t...
+Image
+Matt B | ZJX C3 — 01/29/2026 11:06
+could you put your requested routes into SB so it saves time for reroutes?
+at least the MCO/ORL/JAX ones, any others in the air from elsewhere we can reroute airborne
+Michael B | VATUSA5 — 01/29/2026 11:06
+I read that as SweatBox at first????
+Daniel | ZNY EC — 01/29/2026 11:24
+@Alex Y | ZNY I1 any chance you can do this? I don’t know how to lol
+Michael B | VATUSA5 — 01/29/2026 12:33
+Send the routes
+Alex Y | ZNY I1 — 01/29/2026 12:58
+they're in the ZNY TMI Plan doc pages 4-6 with the draft advisories
+Alex Y | ZNY I1 — 01/29/2026 12:59
+only a few NTMOs have access, but we can enter routes into SimBrief and mark them as event TMU routes with a limited valid time. Looks like Michael's got these covered
+Michael B | VATUSA5 — 01/29/2026 13:09
+Rog
+Daniel | ZNY EC — 01/29/2026 13:48
+Awesome thanks!
+Jonathan B | ZOB EC — 01/29/2026 14:31
+Image
+Jonathan B | ZOB EC — 01/29/2026 17:31
+30/2359   DCA via BUCKO STOP VOLUME:VOLUME 2359-0400 ZOB:ZID
+@Hayden Y | ZID ATM ^
+Hayden Y | ZID ATM — 01/29/2026 17:32
+Oops sorry let me look
+My bad for not closing that loop we’ll work with it 
+William P | ZDC C1 — 01/29/2026 17:32
+just so you know we have 50 MIT for you into DCA as well
+Hayden Y | ZID ATM — 01/29/2026 17:33
+Yeah that I did see
+@Stephen W | ZID I1 for durring the event. There are stops and MIT for us from ZDC and ZOB
+Jonathan B | ZOB EC — 01/29/2026 17:37
+30/2359 BOS via HANKK 50 MIT VOLUME:VOLUME 2330-0400 ZOB:ZYZ
+
+
+@Zihao Z | SUP @Matt H | I1 
+Daniel | ZNY EC — 01/29/2026 17:49
+This is a beautiful TMI because my brain read it as “stop it, Bucko!”
+William P | ZDC C1 — 01/29/2026 19:12
+ZDC Split
+Image
+Carson B | ZDC EC
+
+ — 01/29/2026 20:34
+?No Access
+Michael B | VATUSA5 — 01/29/2026 23:03
+skyvector not taking Q437 correctly
+Image
+Jeremy P | ZNY C1 — 01/29/2026 23:05
+I believe it's now DITCH LUIGI HNNAH instead of DITCH Q437 HNNAH
+Michael B | VATUSA5 — 01/29/2026 23:12
+Image
+between the 2 which do i put in lol
+oh minus
+i get it now
+nvm
+Alex Y | ZNY I1 — 01/29/2026 23:15
+@Daniel | ZNY EC when you get a chance can you update this in our templates?
+Daniel | ZNY EC — 01/29/2026 23:15
+Yep will do right now
+Michael B | VATUSA5 — 01/29/2026 23:15
+routes are done
+good luck tmr 
+Daniel | ZNY EC — 01/29/2026 23:17
+@Alex Y | ZNY I1 just to clarify, this is the route I'm going to update it with as per the PRD:
+DITCH LUIGI HNNAH Q450 JFK ROBUC3
+Alex Y | ZNY I1 — 01/29/2026 23:26
+No, this is the reroute over MERIT to put PHL traffic with N90 instead of ZDC overflights
+DITCH LUIGI HNNAH MERIT ROBUC3
+Daniel | ZNY EC — 01/29/2026 23:29
+Ah okay, we don't have that in the PRD so I will save this somewhere for future reference
+Zihao Z | SUP — 01/29/2026 23:51
+k, nothing for N90 or PCT?
+Jonathan B | ZOB EC — 01/30/2026 06:07
+As of now, no
+Jonathan B | ZOB EC — 01/30/2026 13:00
+@Alex Y | ZNY I1 ZNY splits?
+Alex Y | ZNY I1 — 01/30/2026 13:02
+I'll be AFK, @Daniel | ZNY EC will be running this one
+Daniel | ZNY EC — 01/30/2026 13:12
+Split 2C https://nyartcc.org/page/airspace
+Jonathan B | ZOB EC — 01/30/2026 13:49
+Sorry for tagging the wrong person, but thanks!
+Daniel | ZNY EC — 01/30/2026 14:03
+All good! I'll only hold a grudge against you for eternity ??
+Kidding lol, thanks as always for ZOB being there!
+Michael B | VATUSA5 — 01/30/2026 14:27
+Did we have a NOM already for this?
+Daniel | ZNY EC — 01/30/2026 14:29
+I don't think so 
+Xintong D | ZOB WM — 01/30/2026 14:31
+DCA via PSB how many MIT do you guys need?
+Daniel | ZNY EC — 01/30/2026 14:33
+Shoot almost missed that, thanks. Let's do 35 MIT to start. May have to increase to 40 depending on demand via the CLIPR3
+Michael B | VATUSA5 — 01/30/2026 14:39
+i might be around
+Xintong D | ZOB WM — 01/30/2026 14:45
+@Cameron P | ZBW EC What's the pass back for N90 from us?
+Stephen W | ZID I1 — 01/30/2026 15:09
+This will likely be the ZID split for at least the first half of NEC. After that, it will probably be all me.
+https://tools.flyindycenter.com/airspace
+Daniel G | ZBW I1
+
+ — 01/30/2026 15:13
+LGA via AUDIL 35 (on the VALRE/NOBBI). JFK via MEMMS 50 AS ONE (on the IGN/PUCKY) 
+Xintong D | ZOB WM — 01/30/2026 15:16
+unless JB has other opinon, 
+30/2330    BOS via ALL AS ONE 50 MIT VOLUME:VOLUME 2330-0400 ZOB:ZYZ
+0/2330    DCA via PSB 40 MIT VOLUME:VOLUME 2330-0400 ZOB:ZYZ
+30/2330   JFK via MEMMS 50 MIT AS ONE VOLUME:VOLUME 2330-0400 ZOB:ZYZ
+30/2330   LGA via AUDIL 40 MIT AS ONE VOLUME:VOLUME 2330-0400 ZOB:ZYZ
+ 
+Arya C | ZME DATM — 01/30/2026 15:36
+Just saw the IGN# and LENDY# have been cancelled! Hopefully people remembered to update their AIRAC lol
+Kevin H | ZAU EC
+
+ — 01/30/2026 15:37
+Oh no! What did Lendy tweet?
+Daniel | ZNY EC — 01/30/2026 15:37
+Yep! That's why I no longer have to write a ?via LENDY/PUCKY? restriction lol
+Daniel | ZNY EC — 01/30/2026 15:38
+He tweeted about STAR supremacy and it really riled up the SIDs
+Thomas V | ZOB DATM — 01/30/2026 16:20
+My ATC Trainer session told me... whoops.. nothing like "please wait trainee while I fix flight plans" 
+Xintong D | ZOB WM — 01/30/2026 16:26
+uhmmm they should spot that and issue a reroute
+Thomas V | ZOB DATM — 01/30/2026 17:04
+Yeah, but also the planes didn’t you know… spawn
+Kevin H | ZAU EC
+
+ — 01/30/2026 18:16
+We're fully staffed I'll make it happen
+Alex Y | ZNY I1 — 01/30/2026 18:16
+Were any of the pass backs posted? There's also the Q133 stop and Q75 pass back for DCA from ZBW that should be there @Daniel | ZNY EC 
+Xintong D | ZOB WM — 01/30/2026 18:16
+Thanks, that would help to make our controller very bored ??
+William P | ZDC C1 — 01/30/2026 18:17
+I see the Stop Q133 for Bos
+Daniel | ZNY EC — 01/30/2026 18:17
+Ugh... no. I'll throw some in there right now
+Alex | ZTL C1 — 01/30/2026 18:17
+@William P | ZDC C1 if you do give us stuff for BOS, CLT and ATL gets routed the same arrival corridor so reference that
+William P | ZDC C1 — 01/30/2026 18:18
+looks like I am about to get it
+Michael B | VATUSA5 — 01/30/2026 18:37
+Hot
+Kevin H | ZAU EC
+
+ — 01/30/2026 18:37
+Just confirming, you want all of those AS ONE right? Boston 50 from Evote AND Gerbs?
+Michael B | VATUSA5 — 01/30/2026 18:38
+AAR in the NTML when able
+Just woke up gonna put on my NOM hat in a second here
+Xintong D | ZOB WM — 01/30/2026 18:38
+Yas as one
+Kevin H | ZAU EC
+
+ — 01/30/2026 18:39
+Ok so I'll sequence it based off CRR to ponct
+Jonathan B | ZOB EC — 01/30/2026 18:39
+Writing up NTMLs now
+Thomas V | ZOB DATM — 01/30/2026 18:43
+Possible pilot deviation. I have a number advise when ready to copy
+Alex | ZTL C1 — 01/30/2026 18:44
+@William P | ZDC C1 also u didnt give any MIT out of CLT for JFK, LGA, BOS only DCA
+William P | ZDC C1 — 01/30/2026 18:48
+oh ya gonna do CFR for that
+William P | ZDC C1 — 01/30/2026 18:49
+done
+Michael B | VATUSA5 — 01/30/2026 18:49
+ty
+Alex | ZTL C1 — 01/30/2026 18:49
+cool, and still lmk what u need MIT for ATL-BOS
+Jonathan B | ZOB EC — 01/30/2026 18:49
+?
+30/2350    DCA via BUCKO STOP VOLUME:VOLUME 2359-0400 ZOB:ZID
+30/2350    JFK via ALL 60 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZID
+30/2350   BOS via ALL 50 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZID
+
+30/2350    BOS via ALL 50 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZAU
+30/2350    JFK via ALL 60 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZAU
+30/2350   LGA via ALL 50 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZAU
+30/2350   DCA via ALL 70 MIT AS ONE VOLUME:VOLUME 2300-0300 ZOB:ZAU
+
+30/2350     BOS via HANKK 50 MIT VOLUME:VOLUME 2359-0400 ZOB:ZYZ
+30/2350     JFK via ALL 60 MIT PER ROUTE VOLUME:VOLUME 2300-0300 ZOB:ZYZ
+30/2350     LGA via ALL 50 MIT PER ROUTE VOLUME:VOLUME 2300-0300 ZOB:ZYZ
+30/2350     DCA via ALL 70 MIT PER ROUTE VOLUME:VOLUME 2300-0300 ZOB:ZYZ
+?
+
+@Hayden Y | ZID ATM @Stephen W | ZID I1 @Zihao Z | SUP @Matt H | I1
+Matt H | I1 — 01/30/2026 18:50
+received thanks
+William P | ZDC C1 — 01/30/2026 18:52
+gonna start with 40
+Alex | ZTL C1 — 01/30/2026 18:52
+cool
+Jonathan B | ZOB EC — 01/30/2026 21:56
+Image
+??
+Arya C | ZME DATM — 01/30/2026 21:57
+y = sin(x)
+Carson B | ZDC EC
+
+ — 01/30/2026 22:41
+Damn I just realized I dont work with you anymore ??
+Arya C | ZME DATM — 01/30/2026 22:42
+Tier 2 neighbours still count trust
+Carson B | ZDC EC
+
+ — 01/30/2026 22:42
+haha ture
+Jonathan B | ZOB EC — 01/30/2026 22:43
+@Emmanuel G | ZOB S3 has replaced the traitor otherwise known as Arya
+Cameron P | ZBW EC — 01/30/2026 22:47
+@Jonathan B | ZOB EC we'd definitely like to talk with you all on whats best for you with in-trail restrictions for BOS.
+
+ideally wed pick a fix on the boundary like only AUDIL...PONCT. so that way you are able to just clear direct a fix at the boundary to hit MIT. Think this was the first time we did a PER STREAM and we struggled a ton hitting our internal restrictions.
+Jonathan B | ZOB EC — 01/30/2026 22:47
+We usually like to give dct PONCT, so having AS ONE would actually work nice for us
+we have the airspace to handle it
+Cameron P | ZBW EC — 01/30/2026 22:48
+ok thanks
+Jonathan B | ZOB EC — 01/30/2026 22:54
+Great event everyone, ZOB had fun
+Daniel | ZNY EC — 01/30/2026 22:55
+12 years strong! Had to put out a bunch of fires internally that last hour but it was still pretty smooth. Thanks to everyone!
+Jonathan B | ZOB EC — 01/30/2026 22:55
+Y'all pray for us for the DTW-ATL crossfire next month lol
+Daniel | ZNY EC — 01/30/2026 22:56
+Michael B | VATUSA5 — 01/30/2026 23:47
+only comment i really was gate delay at DCA wasn't really correctly executed, demand short of the runway was lacking overall, which didnt effectively provide planes in the air to BOS.William P already knows bout this but for future events/usage of gatehold, some planes need to be kept at the runway so there's some demand to go in case MIT decreases or a GS lifts. Waiting until MIT is lowered to push wastes time in the air that people (could've) worked pretty hard to create
+other feedback i heard was general freq congestion at BOS, consistent throughout the entire event, lots of blocking each other and general congestion. apparently caused some undue delay off the gate
+Michael B | VATUSA5 — 01/30/2026 23:48
+yall are so brave for dat...but do u??
+Carson B | ZDC EC
+
+ — 01/30/2026 23:50
+Yup! Ill make sure to talk it over with GND as to some better ways to do some of that stuff. We also plan on making a document that describes these procedures
+Jeremy P | ZNY C1 — 01/31/2026 02:08
+Image
+Image
+Image
+Image
+Image
+Image
+Michael B | VATUSA5 — 01/31/2026 03:49
+Image
+Image
+Image
+Forwarded
+??
+30/2328    BOS    VMC    ARR:27/32 DEP:33L    AAR:40 ADR:40
+??
+#ntml  •  01/30/2026
+Forwarded
+?
+30/2329    LGA    VMC    ARR:22 DEP:31    AAR:36 ADR:40
+?
+#ntml  •  01/30/2026
+Forwarded
+?
+30/2346   DCA    VMC    ARR:01 DEP:01    AAR:30 ADR:30
+?
+#ntml  •  01/30/2026
+Nate J | ZAU C3 — 01/31/2026 07:21
+The disconnection data is fascinating. I'm not sure what specifically can be done about it... People want to file and fly their favorite airport pair even if there are more airports advertised... But, off the cuff anyway, something here feels actionable to help improve the pilot experience which can be corroborated via reduced disconnect metrics... I just can't put my finger on it at the moment.
+Jeremy P | ZNY C1 — 01/31/2026 07:22
+I agree. I think it provides a good (or better than what we were looking at before) idea about actual demand
+Daniel | ZNY EC — 01/31/2026 08:08
+Seconding (or thirding?) that. Really nice new metric because I definitely had a handful disconnect that had filed for DCA
+Too bad that's not a metric applicable to me in the real-world
+Jeremy P | ZNY C1 — 01/31/2026 08:09
+Just lmk when you need me to call your facility & notify you of a ... threat /s /j (for legal purposes)
+Matt B | ZJX C3 — 01/31/2026 08:09
+Does "disconnected" take into account pre-files that didnt fly? or only people who "connected" and then proceeded to "disconnect" at some point
+Jeremy P | ZNY C1 — 01/31/2026 08:10
+Connect, then disconnect (didn't complete flight)
+Nate J | ZAU C3 — 01/31/2026 08:11
+How granular is the data? Length of time connected? Location of disconnection?
+Matt B | ZJX C3 — 01/31/2026 08:14
+It is fascinating, but impossible to accurately pinpoint reasons without some sort of disconnect poll ?? 
+Some random reasons I can think of off the top of my head are sim issues, aircraft issues, stuff comes up at their house that they cant complete the flight, new pilots who thought they can do it and realized they are way above their head, delays due to taxi time and/or ground stops, etc.
+
+A good initial judge of this is lets compare this data tonight after the SNO in FL, I bet the disconnect numbers follow a similar pattern. 
+Jeremy P | ZNY C1 — 01/31/2026 08:15
+This is what it does now but I'm noticing a "close-enough" measure for disconnected vs arrived that I'm digging deeper on (maybe using ON times):
+?
+How the system determines if a flight "disconnected" vs "never showed up":
+
+The simple test: Did we ever see the plane's position on the radar?
+
+Scenario 1: Prefile that never flew
+
+Pilot filed a flight plan (like making a reservation)
+Never actually logged into the simulator to fly it
+System never received any position data (latitude/longitude)
+Status stays as "prefile" — they just didn't show up
+Scenario 2: Disconnected mid-flight
+
+Pilot filed a flight plan AND connected to fly
+System was receiving their position updates (we could see them on radar)
+Then they stopped sending updates for 5+ minutes
+They were still far from their destination (50+ nm away)
+Status becomes "disconnected" — they left mid-journey
+Scenario 3: Actually arrived
+
+Same as above, but when they stopped reporting...
+They were close to their destination (less than 50nm away)
+Status becomes "arrived" — they probably just landed and logged off
+
+The key difference: The system checks if there's any position data in the adl_flight_position table. If lat IS NULL (no coordinates ever recorded), the pilot never connected — they're a no-show prefile, not a disconnect.
+?
+Nate J | ZAU C3 — 01/31/2026 08:18
+Oooh, a disconnect poll... That sounds like a fascinating potential addition to vPilot
+"It appears you didn't complete your filed flight, would to care to provide a reason?"
+Jeremy P | ZNY C1 — 01/31/2026 08:20
+I'm gonna update & backfill the disconnect parameters:
+?
+1. Check for ON time first
+2. Change proximity threshold to 10NM
+?
+Thomas V | ZOB DATM — 01/31/2026 08:20
+It would be interesting to know if they never left the gate. I’m sure that could be figured out and that’s actionable. I know I ended up being a D/C because of that myself. I had a SIM crash and I might have missed my call for push because I wasn’t going to an event field on my arrival end. 
+
+When it reconnected after about 40 minutes, I’m not being able to get a word into ground I gave up and started event suping to help the chaos
+Jeremy P | ZNY C1 — 01/31/2026 08:22
+Also I updated the demand page. You can multi-filter by given filters (the buttons) + flight_status (e.g., see which disconnects were ROBUC flights) & set time window to custom values
+Matt B | ZJX C3 — 01/31/2026 08:23
+I like this, I noticed some pilots were landing and then disconnecting as soon as they exited runway (which I assume is they were under time constraints and had to ATL+F4)
+Jeremy P | ZNY C1 — 01/31/2026 08:23
+I say can but now it's not splitting the ORIG filter right... hold on
+Matt B | ZJX C3 — 01/31/2026 08:38
+Looking back at past data for BOS...the disconnect percentage was very close to this event vs a NON event day (snowstorm) last weekend. Interesting note is the snowstorm straffic was over a 12hr period vs FNO a 4 hour period, the percentage was still very close.
+
+Snowstorm had a disconnect percentage of about 34% of arrived flights
+NEC FNO had a disconnect percentage of about 35% of arrived flights
+
+If you want to play around with data make sure you select "Custom" on the time range
+Jeremy P | ZNY C1 — 01/31/2026 09:30
+I think this is fixed now. All counts look consistent
+Jeremy P | ZNY C1 — 01/31/2026 11:38
+https://perti.vatcscc.org/review?228 > TMI Compliance > Load Results
+Michael B | VATUSA5 — 01/31/2026 12:46
+Now that I’m thinking about it, we could pull the data from the storm lol
+anyone remember which day it was
+CC: @Ken G | ZOA DATM
+Ken G | ZOA DATM — 01/31/2026 12:49
+Jan 25-26 I believe
+Michael B | VATUSA5 — 01/31/2026 12:53
+Is that too long ago
+Ken G | ZOA DATM — 01/31/2026 12:54
+For my replay data? I didn’t have the full time recorder running yet, so yes for me
+Dunno about PERTI
+Michael B | VATUSA5 — 01/31/2026 12:56
+Yeah
+Matthew W | ZBW C1 — 01/31/2026 14:09
+People have disconnected from every VATSIM event in its entire history. What exactly would you do differently to stop the few that did due to volume or TMIs? Those things are both inescapable.
+Michael B | VATUSA5 — 01/31/2026 14:17
+yeah without the context of why the pilots disconnected the numbers could be misleading, even if we did know, all 3 airports were at capacity for at least minus LGA, and LGA wasnt even due to TMIs its just not enough people straight up flew there
+Matt B | ZJX C3 — 01/31/2026 14:45
+From what I looked at earlier I don’t think any correlation exists between TMIs and disconnect flights. I think it just happens all the time, just more noticeable in events because there are more airplanes.
+Cameron N | ZLC ATM — 01/31/2026 15:01
+Could always test that given enough data
+Jeremy P | ZNY C1 — 01/31/2026 17:04
+I’ll take a look at that later. I think we have the data. I should
+But I agree it will be misleading without asking pilots why they disco’d
+Also discos are my fav form of TMI. We don’t even have to log it.
+Matthew W | ZBW C1 — 02/01/2026 01:36
+I can't say I've logged data, but I have worked thousands if not tens of thousands of airplanes on the network. I'd say the number of pilots who disconnect and tell me beforehand that they are disconnecting due some sort of delay is maybe 1%, certainly single digits. Some of those mention they were time constrained and any delay meant they were unable to complete the flight and they were just hoping it would go smoothly. 
+
+A majority of pilots just disconnect without giving a reason. Sometimes it's during delay vectors or after a hold is issued, sometimes it's not. Usually when you start doing things that aren't letting the airplane fly its route in LNAV/VNAV (holds, vectors, speed control, etc.) you get some amount of disconnects. I assume a percentage of those are just because they don't know how to handle the situation and would rather not get yelled at for violating the CoC.
+The immediate thought that comes to mind for solutions is to be upfront and encourage pilots who do not want delays to avoid event airports and busy parts of the event airspace. 
+Jeremy P | ZNY C1 — 02/06/2026 17:38
+Updated this to include @Ken G | ZOA DATM's more granular trajectories (also updated my own data collection to store 15-sec trajectories) & redesign the UI.
+
+https://perti.vatcscc.org/review?228 -> TMI Compliance -> Load Results (it'll take a hot sec)
+
+I'm working on improving the flow cones & detecting flows/streams/branches for analysis
+Jeremy P | ZNY C1 — 02/11/2026 11:40
+https://perti.vatcscc.org/review?228 -> TMI Compliance -> Load Results now shows GS Compliance too.
+
+For the BOS GS, 39 flights were compliant, 17 non-compliant, & 37 exempt with an average delay time of 28min
+Image
+Jeremy P | ZNY C1 — 02/11/2026 12:43
+TMI Compliance Analysis — Plan 228
+2026-01-30T23:59:00 to 2026-01-31T04:00:00
+
+GROUND STOP: BOS
+02:00Z - 03:00Z (EXPIRED)
+VOLUME/ZDC DEP DEMAND
+Advisories: Adv 005 (INITIAL)
+
+Flights: 565 total, 39 compliant, 17 non-compliant, 37 exempt
+Compliance: 69.6%
+Avg Hold: 28m (min 10m 24s, median 22m 30s, max 59m 12s)
+Total, Maximum, Average Delays: 1219 / 113 / 28 (based on 43 flights with OOOI data)
+Time sources: 1 wheels-off, 43 gate+taxi, 65 first-seen
+
+Per-Origin Breakdown:
+KLGA — 53 flt, 72% comp, hold 33m, delay 23m
+KPHL — 12 flt, 71% comp, hold 59m 12s, delay 1h 34m
+KEWR — 11 flt, 67% comp, delay 34m 30s
+KJFK — 11 flt, 43% comp, hold 12m 36s, delay 25m 30s
+KHPN — 2 flt, 100% comp, delay 1h 14m
+KILG — 2 flt, 100% comp
+KTEB — 2 flt, 100% comp, delay 19m 30s
+
+100% trajectory coverage

@@ -1,0 +1,283 @@
+https://perti.vatcscc.org/plan?220
+Michael B | VATUSA5 — 12/04/2025 01:08
+Home for the Holidays FNO | TMU OpLevel 3 | PERTI Data Request
+The Home for the Holidays FNO is on December 19 from 2359 to 0400z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZOB: @Jonathan J | ZOB S3 
+ZMP: @Kristofer P | ZMP EC 
+ZAU: @Kevin H | ZAU EC 
+ZID: @Hayden Y | ZID ATM 
+ZKC: @James D | ZKC EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee    please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+---------------------------------------------------------
+Arya C | ZME DATM — 12/15/2025 15:37
+@Kevin H | ZAU EC preliminary MIT whenever you have it would be much appreciated, no rush of course! 
+
+@Matt H | I1 if ZYZ is on, that would also be really helpful, as we'll have to pass back whatever we get + a little change on the WYNDE# 
+
+..and last but not least @Cameron P | ZBW EC if there are plans for ZBW (or even the Boston cab) to be on, could we consider rerouting all BOS - ORD to not go via ZYZ? It makes the merge quite awkward with others on the WYNDE#. The different segment would be something like CAM Q822 GONZZ FARGN CHAAP Q436 KAYYS WYNDE3 instead of the preferred CAM Q822 FNT WYNDE3. Thank you!
+Matt H | I1 — 12/15/2025 15:53
+I've put out your request, we should have a couple of people around most likely
+Arya C | ZME DATM — 12/15/2025 15:54
+Dankeschon
+Cameron P | ZBW EC — 12/15/2025 15:55
+@Arya C | ZME DATM I’ll add it as an event route into SimBrief. And if people are online, I’ll let them now.
+Arya C | ZME DATM — 12/15/2025 15:55
+Appreciate it. Thank you!
+Kevin H | ZAU EC
+
+ — 12/16/2025 21:49
+Preliminary TMI for Friday:
+
+20/0000    ORD via WYNDE STAR 20 MITPER ROUTE (10 MIT NO COMP) EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    ORD via WATSN STAR 20 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    MDW via ASHEN 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    MDW via ZEGBI 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZOB
+
+20/0000    ORD via FWA 20 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    ORD via BONNT 20 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    MDW via FWA 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    MDW via DROSE 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZID
+
+20/0000    ORD via BENKY/TRTLL STAR 20 MITPER ROUTE (10 MIT NO COMP) EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZKC
+20/0000    MDW via IRK, MAGOO 40 MITPER ROUTE (20 MIT NO COMP) EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZKC
+20/0000    MDW via PHEEB 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZKC
+
+20/0000    ORD via ZZIPR 15 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    ORD via MYRRS 30 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    MDW via JALAP 50 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    MDW via OHHMY 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZMP
+
+20/0000    All ZAU ORD LTFC CFR EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    All IND, DSM, LAN, CMI, GRB, BTL ORD LTFC CFR EXCL:NONE EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    ORD LTFC 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:C90
+
+20/0000    All ZAU MDW LTFC CFR EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    All IND, DSM, LAN, CMI, GRB, BTL MDW LTFC CFR EXCL:NONE EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    MDW LTFC 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:C90
+20/0000    MDW via HALIE 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:C90
+Arya C | ZME DATM — 12/16/2025 21:57
+10 MIT NO COMP means minimum of 10 as one yeah?
+Kevin H | ZAU EC
+
+ — 12/16/2025 21:59
+Stream A and B independently 20 MIT. But if there is no traffic or a gap in stream B, stream A may deliver as low as 10 MIT if there is no conflict
+Arya C | ZME DATM — 12/16/2025 21:59
+Even better
+Kevin H | ZAU EC
+
+ — 12/16/2025 21:59
+The difference between that and 10 MIT AS ONE is A, B 10 MIT AS ONE means A and B needs to be sequenced together
+Subtle difference but after many attempts of getting it explained to me i think i understand it lol
+Alex Y | ZNY I1 — 12/16/2025 22:00
+"comp" = "competition" I'm guessing?
+Kevin H | ZAU EC
+
+ — 12/16/2025 22:00
+Yes
+Michael B | VATUSA5 — 12/16/2025 22:21
+hm, interesting
+the more yk
+Arya C | ZME DATM — 12/16/2025 22:22
+I felt bad for not knowing but if USA5 doesn’t know I’ll let myself off ??
+Michael B | VATUSA5 — 12/16/2025 22:23
+i'm well aware there are greater TMU gods than me lol dont sweat it
+Kevin H | ZAU EC
+
+ — 12/16/2025 22:23
+I just learned it recently so I am using the crap out of it ??
+Michael B | VATUSA5 — 12/16/2025 22:24
+I just sent this to the ZOA event team lol
+Kevin H | ZAU EC
+
+ — 12/16/2025 22:25
+Possible Plays:
+Reduce ORD Flow in SE Area
+This is already rare, but since our LOA permits it technically, all DTW - ORD need to go to the WYNDE. I'll likely just run this.
+
+Reduce MDW Flow in SE Area
+20/XXXX    MDW via ZEGBI STOP EXCL:NONE VOLUME:VOLUME XXXX-XXXX ZAU:ZOB
+
+All DTW to MDW routed 
+DTW SNDRS3 SNDRS >BAGEL< PANNG7
+
+ZMP Offload
+ORD via OVETE or FGHRN ERNNY/MADII7 30 MIT
+MSP to ORD probably WLSTN7 GRB FGHRN MADII7
+
+ZID Offload
+... CMI PNTAC SHAIN2/TRTLL6 30 MIT AOB220 
+Arya C | ZME DATM — 12/16/2025 22:28
+Yeah the prefroute is already SMUUV WYNDE# so we won't have any WATSN# from DTW. MDW plan can also be effected easily whenever you want. Will pass on. 
+Kevin H | ZAU EC
+
+ — 12/16/2025 22:30
+If MDW explodes and we need to slam the brakes on it, reducing the number of MDW PANGG streams from 3 to 2 should be prudent. Hopefully it won't get to that ??
+Arya C | ZME DATM — 12/17/2025 12:14
+ZOB planned split
+Image
+Arya C | ZME DATM — 12/17/2025 13:13
+@Kevin H | ZAU EC any chance to get EXCL:PROP on WATSN/WYNDE or not feasible? [Or, can we just put them on the non-RNAV routing? VIO ELX V100 DEERE / GSH GIJ V526 DEERE respectively] 
+Kevin H | ZAU EC
+
+ — 12/17/2025 13:52
+No problem
+@Colton A | ZAU C3
+Colton A | ZAU C3 — 12/17/2025 14:12
+We can put EXCL:PROP on the WYNDE TMIs. For WATSN, props will need to be moved to GSH GIJ V526 DEERE
+Arya C | ZME DATM — 12/17/2025 14:14
+Makes sense
+Kevin H | ZAU EC
+
+ — 12/17/2025 20:34
+Is DTW and DTW Sat Airports Synonymous with D21 airports
+Arya C | ZME DATM — 12/17/2025 20:35
+Yes
+Kevin H | ZAU EC
+
+ — 12/19/2025 03:57
+Image
+20/0000    ORD via WYNDE STAR 20 MIT PER ROUTE (10 MIT NO COMP) EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    ORD via WATSN STAR 20 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    MDW via ASHEN 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZOB
+20/0000    MDW via ZEGBI 30 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB
+
+20/0000    ORD via FWA 30 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    ORD via BONNT 20 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    MDW via FWA 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZID
+20/0000    MDW via DROSE 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZID
+
+20/0000    ORD via BENKY/TRTLL STAR 20 MIT PER ROUTE (10 MIT NO COMP) EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZKC
+20/0000    MDW via IRK, MAGOO 40 MIT PER ROUTE (20 MIT NO COMP) EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZKC
+20/0000    MDW via PHEEB 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZKC
+
+20/0000    ORD via ZZIPR 15 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    ORD via MYRRS 30 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    MDW via JALAP 50 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZMP
+20/0000    MDW via OHHMY 30 MIT EXCL:PROP VOLUME:VOLUME 0000-0330 ZAU:ZMP
+
+20/0000    All ZAU ORD LTFC CFR EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    All IND, DSM, LAN, CMI, GRB, BTL ORD LTFC CFR EXCL:NONE EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB, ZID, ZKC, ZMP
+20/0000    ORD LTFC 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 C90:ZAU
+
+20/0000    All ZAU MDW LTFC CFR EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZAU
+20/0000    All IND, DSM, LAN, CMI, GRB, BTL MDW LTFC CFR EXCL:NONE EXCL:NONE VOLUME:VOLUME 0000-0330 ZAU:ZOB, ZID, ZKC, ZMP
+20/0000    MDW LTFC 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 C90:ZAU
+20/0000    MDW via HALIE 7 MIT EXCL:NONE VOLUME:VOLUME 0000-0330 C90:SBN
+ 
+Arya C | ZME DATM — 12/19/2025 10:21
+@Matt H | I1 if you have people passback MIT as follows (will post in NTML when the time comes): 
+
+20/0000   ORD via WYNDE STAR 25 MIT AS ONE EXCL:PROP VOLUME:VOLUME 0000-0400
+
+
+@Cameron P | ZBW EC the route to put into simbrief / tell your cab for BOS-ORD as discussed (thanks again!) - 
+HYLND7 HYLND CAM Q822 GONZZ FARGN CHAAP Q436 KAYYS WYNDE3
+ (edited) 
+Cameron P | ZBW EC — 12/19/2025 11:04
+@Arya C | ZME DATM Isn’t that the normal BOS-ORD route?
+I thought you wanted CAM Q822 GONZZ FARGN CHAAP Q436 KAYYS WYNDE3
+Arya C | ZME DATM — 12/19/2025 11:06
+Yes sorry. brainfart. Wrong control c control v! 
+Michael B | VATUSA5 — 12/19/2025 17:25
+@Colton A | ZAU C3 u should be good to post in the NTML
+Lmk if there’s issues
+Michael B | VATUSA5 — 12/19/2025 18:31
+@Kevin H | ZAU EC
+Image
+Kevin H | ZAU EC
+
+ — 12/19/2025 18:31
+Image
+Arya C | ZME DATM — 12/19/2025 18:31
+Kristofer P | ZMP EC — 12/19/2025 18:35
+CIC/ coordination at ZMP can be done via P11 or Bill Polly at whatever position he’s on at M98. I’ll be up later on.
+Single sector at ZMP for now. Internal split possible if needed later.
+James D | ZKC EC — 12/19/2025 18:37
+KC will be single center tonight unless another comes online, if so we will post the split then.
+Ethan S | ZTL C1 — 12/19/2025 18:53
+Indy splits, 75 to the west 88 to the east
+Image
+Image
+Jeremy P | ZNY C1 — 12/19/2025 20:41
+Forwarded
+vATCSCC ADVZY 002 ZAU/ORD 12/20/2025 CDM GROUND STOP
+CTL ELEMENT: ORD
+ELEMENT TYPE: APT
+ADL TIME: 0135Z
+GROUND STOP PERIOD: 20/0135Z - 20/0200Z
+DEP FACILITIES INCLUDED: ZOB/ZID/ZMP/ZKC/ZAU
+PROBABILITY OF EXTENSION: MEDIUM
+IMPACTING CONDITION: VOLUME/VOLUME
+COMMENTS: 
+
+200135 - 200200
+25/12/20 01:35
+#advisories  •  12/19/2025
+GS FLIGHT LIST - 20/0140Z
+Total Flights: 7
+Total Delay: 80 min
+Max Delay: 20 min
+Avg Delay: 11 min
+
+ACID      ORIG  DEST  DCTR  ACTR  OETD      CTD       OETA      CTA       DELAY 
+--------------------------------------------------------------------------------
+UAL1182   KCMH  KORD  ZID   ZAU   20/0140Z  20/0200Z  20/0225Z  20/0245Z  20    
+UAL3931   KCLE  KORD  ZOB   ZAU   20/0145Z  20/0200Z  20/0250Z  20/0305Z  15    
+UAL4551   KIND  KORD  ZID   ZAU   20/0150Z  20/0200Z  20/0229Z  20/0239Z  10    
+AAL4701   KIND  KORD  ZID   ZAU   20/0150Z  20/0200Z  20/0229Z  20/0239Z  10    
+SVA14AZ   KDTW  KORD  ZOB   ZAU   20/0150Z  20/0200Z  20/0236Z  20/0246Z  10    
+UAL212    KMSP  KORD  ZMP   ZAU   20/0150Z  20/0200Z  20/0245Z  20/0255Z  10    
+JIA5381   KDAY  KORD  ZID   ZAU   20/0155Z  20/0200Z  20/0245Z  20/0250Z  5     
+ 
+Jonathan B | ZOB EC — 12/19/2025 20:42
+@Jeremy P | ZNY C1 does that only show for aircraft at the gate?
+Jeremy P | ZNY C1 — 12/19/2025 20:42
+Should only be for aircraft not yet departed
+Jonathan B | ZOB EC — 12/19/2025 20:43
+Ah, it's not showing one I have is why I was curious 
+Jeremy P | ZNY C1 — 12/19/2025 20:43
+Which one?
+Jonathan B | ZOB EC — 12/19/2025 20:43
+UAL623
+Jeremy P | ZNY C1 — 12/19/2025 20:44
+Stby
+They should be included
+Jonathan B | ZOB EC — 12/19/2025 20:46
+Yeah I'm holding them, was just curious how the list you posted works is all
+Jeremy P | ZNY C1 — 12/19/2025 20:47
+It's new scripting so apparently not perfectly.
+Jeremy P | ZNY C1 — 12/19/2025 21:19
+It was an ETD calculation issue that is hopefully fixed (or better-functioning)
+James D | ZKC EC — 12/19/2025 22:54
+Good event yall. Made me sweat working single center KC for a while there but I think it worked out.
+Alex D | ZAU C3
+
+ — 12/19/2025 23:35
+https://youtu.be/TBoQj4NVmPE
+YouTube
+Alex Dunbar
+Home For the Holidays 2025 - ZAU75
+Image
+timelapse of ZAU if it's helpful for the after-action
+Michael B | VATUSA5 — 12/19/2025 23:43
+vatsim replay was started 50 mins into the event unfortunatly
+Kevin H | ZAU EC
+
+ — 12/20/2025 20:01
+Thank you everyone for a great event! Great T1 support as always.
+Michael B | VATUSA5 — 12/29/2025 02:55
+Image

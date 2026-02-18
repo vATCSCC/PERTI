@@ -1,0 +1,360 @@
+https://perti.vatcscc.org/plan?175
+Michael B | VATUSA5 — 05/27/2025 13:21
+ZDV Live 2025 SNO | TMU OpLevel 3 | PERTI Data Request
+The ZDV Live 2025 SNO is on June 7 from 2300 to 0300z.
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZDV: @Blake R | ZSE C3 
+ZLA: @Nickolas C | ZLA ATM @Brody B | ZLA EC 
+ZLC: @Emmanuel G | ZOB S3 
+ZMP: @Kristofer P | ZMP EC 
+ZKC: @James D | ZKC EC 
+ZAB: @Jordan J | ZAB EC 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data. 
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event. @DCC Trainee   please react with your availability to shadow this event. 
+
+?? = Available
+?? = Partially available/unsure
+?? = Unavailable
+--------------------------------------------------------- 
+Michael B | VATUSA5 — 05/27/2025 14:23
+verify you didnt need T1 on for this?
+Evan M | ZDV ATM
+
+ — 05/27/2025 17:30
+We would love to have it. But Ik for ZLA they will be stretched thin so it will be fine if they are low/no staffing
+Blake R | ZSE C3 — 05/27/2025 19:57
+We have an agreement with ZLA for no TMI passbacks to them.  If others are around, especially on short side, it would help us out with metering. 
+Brody B | ZLA EC — 05/27/2025 20:48
+ZLA will have a TMU
+Kristofer P | ZMP EC — 05/27/2025 23:31
+We will be here
+Blake R | ZSE C3 — 06/01/2025 01:55
+I will put out the initial MIT tomorrow, just for planning purposes.  I may need to adjust a little based on weather later in the week, but we're not planning on anything greater than 20, just like the last FNO.  The only stream we stretched to 25 during prime time was the ZLC stream, but we reduced it once we got capacity back.
+Initial target will be AAR 96/ADR 96.
+Blake R | ZSE C3 — 06/01/2025 10:05
+07/2300    DEN via TUKKR 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+07/2300    DEN via DICEE 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+07/2300    DEN via TBC 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+
+07/2300    DEN via JARPA 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+07/2300    DEN via GNDLA 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+07/2300    DEN via ZIGEE 30 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+
+07/2300    DEN via HALEN 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+07/2300    DEN via KIISS 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+07/2300    DEN via OATHE 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+
+07/2300    DEN via KAMPR,LBERT 15 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLC
+07/2300    DEN via MJANE,TOFUU  15 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLC
+
+07/2300    DEN via NYTRO, PORDR 15 MIT VOLUME:VOLUME 2300-0300 ZDV:ZMP
+07/2300    DEN via BRWRY 15 MIT VOLUME:VOLUME 2300-0300 ZDV:ZMP
+
+07/2300    DEN via SSKII, TBARR, CLASH, NIIXX 15 MIT VOLUME:VOLUME 2300-0300 D01:ZDV
+07/2300    DEN via LONGZ, FLATI, AALLE, LAWGR 10 MIT VOLUME:VOLUME 2300-0300 D01:ZDV
+
+Request ZLC to reroute ZOA traffic via KAMPR LONGZ3 instead of BUMMP SSKII3
+
+ZAB may be requested to reroute ABQ via ZIGEE NIIXX3 if necessary for volume
+ 
+This is if we are in a south flow.  If we are in a north flow on Saturday, the long side gets 20 (ZLC), and the short side gets 15 (ZLA/ZKC/ZAB except ZIGEE).  ZIGEE is an offload for ABQ departures if we need it.
+Blake R | ZSE C3 — 06/02/2025 11:08
+@Michael B | VATUSA5 Are we going to have a NOM supporting this weekend?  For my T1 neighbors, please reach out if you have any questions.  I'll drop my ops plan in here tonight after work.  It's essentially a replay of the 2/28 FNO, including our ZDV internal staffing structure.
+I would like to have Simbrief prefer routing out of ZOA to go via KAMPR LONGZ3 if possible to save ZLC from reroutes.
+Blake R | ZSE C3 — 06/02/2025 12:54
+Also, at risk of opening a can of worms, I will be dedicated TMU on-site, but will have an offsite backup for hotline coordination.  We have been reviewing the TMR from Saturday internally to make sure we have any gaps covered.  Ops plan framework is locked.  Staffing will be locked by Wednesday, and outside of weather pivots, we should have everything set before Friday, let alone Saturday.
+Michael B | VATUSA5 — 06/02/2025 13:01
+The perti is out so there’s technically a request for one I can try’s and see if I can come out
+Blake R | ZSE C3 — 06/02/2025 13:03
+Image
+My desk is ready
+Dhruv K | ZMP ATM — 06/03/2025 14:06
+Just to clarify, no ZMP MIT? We’ve routinely been 20-25 MIT to DEN via PORDR/NYTRO/BRWRY all summer irl… 
+Blake R | ZSE C3 — 06/03/2025 15:11
+Correct, no MIT right now for ZMP.  If I see a blast of traffic coming out from there, I would put 20 to PORDR/NYTRO/BRWRY like you suggested.  Even when we had that international stream come in during the last FNO, it timed to where we handled it internally and soaked it w/o passing back to ZMP.
+I may add it to the list tonight to have it and leave it as one of the first to pull
+I'm generally surprised the MSP-DEN run in vatsim isn't as popular
+Dhruv K | ZMP ATM — 06/03/2025 16:15
+It historically seems to be when we do an event
+And we’ve seen it get busy before
+Blake R | ZSE C3 — 06/03/2025 16:18
+I'll add it when I get home.  Would rather have it and pull it than chase it after the cattle are out of the barn
+Blake R | ZSE C3 — 06/03/2025 20:42
+Added ZMP MIT to the proposed list above.  I'm using the 15 MIT for now as the "short side 15, long side 20" formula to start.  That allows for the compression into the TRACON.  Actuals will be published on Saturday once the weather forecast solidifies and we have the flow.  I'll also try to keep an eye for any runners coming out of ZNY and headed for us, just on the off chance that we need to pop these in early on the chance a T1 opens early for a save ??
+Blake R | ZSE C3 — 06/03/2025 22:24
+Image
+ZDV Split Map for Saturday
+Dhruv K | ZMP ATM — 06/04/2025 14:06
+Fwiw, ZDV Area 5 uses sector 35 (135.02) as its combined sector. Dunno if you guys’ AFV structure supports that or not
+Evan M | ZDV ATM
+
+ — 06/04/2025 15:37
+We are outdated on some SOP stuff for ZDV due to the focus on ZLC. Eventually all that would be looked into and redone
+Blake R | ZSE C3 — 06/04/2025 15:40
+135.02 is in there on Sector 35 right on the ZMP border, but our AFV is configured for Sector 16 (120.57) as our combined for now.
+Blake R | ZSE C3 — 06/06/2025 09:11
+Updated MIT Package for tomorrow.  Trying to keep it easy on the T1's, but this should work OK:
+07/2300    DEN via TUKKR 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+07/2300    DEN via DICEE 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+07/2300    DEN via TBC 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLA
+
+07/2300    DEN via JARPA 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+07/2300    DEN via GNDLA 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+07/2300    DEN via ZIGEE 30 MIT VOLUME:VOLUME 2300-0300 ZDV:ZAB
+
+07/2300    DEN via HALEN 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+07/2300    DEN via KIISS 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+07/2300    DEN via OATHE 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZKC
+
+07/2300    DEN via KAMPR,LBERT 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLC
+07/2300    DEN via MJANE,TOFUU  20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZLC
+
+07/2300    DEN via NYTRO, PORDR 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZMP
+07/2300    DEN via BRWRY 20 MIT VOLUME:VOLUME 2300-0300 ZDV:ZMP
+
+07/2300    DEN via SSKII, TBARR, CLASH, NIIXX 10 MIT VOLUME:VOLUME 2300-0300 D01:ZDV
+07/2300    DEN via LONGZ, FLATI, AALLE, LAWGR 15 MIT VOLUME:VOLUME 2300-0300 D01:ZDV
+
+Request ZLC to reroute ZOA traffic via KAMPR LONGZ3 instead of BUMMP SSKII3
+
+ZAB may be requested to reroute ABQ via ZIGEE NIIXX3 if necessary for volume
+Blake R | ZSE C3 — 06/06/2025 09:26
+Looking like it will be a north flow configuration tomorrow, but we are going to keep the basic enroute to 20 MIT to start everywhere except ZIGEE (short merge on our part with 2 streams from 2 ARTCCs, and that's an offload only usually).  Will adjust numbers based on how it plays out tomorrow.  Thanks everyone for any and all support that you can provide us, honestly!  It's always appreciated!
+Matt B | ZJX C3 — 06/06/2025 10:45
+@James D | ZKC EC let us know if you need any MIT for DEN, our most active center controller has been going for Iron Mic so most likely will be online a lot this weekend.
+Evan M | ZDV ATM
+
+ — 06/06/2025 11:31
+Idk if they will go through your airspace but ZNY live is before ours and we expect people to depart that near event end for our Live. Just something to keep in mind
+Matt B | ZJX C3 — 06/06/2025 11:32
+Yea the routes are most likely north of our airspace, but it depends on what IRL routes are doing for weather. Will keep an eye out for it.
+Alex Y | ZNY I1 — 06/06/2025 11:37
+The JFK preferred route is over J80 which does go through ZID. LGA, EWR, and PHL are via J60 which avoids it to the north through ZOB and ZAU
+Blake R | ZSE C3 — 06/06/2025 11:40
+Given no FNO tonight, we anticipate Saturday being big for the NAS.
+Matt B | ZJX C3 — 06/06/2025 12:21
+Could make an argument that this could qualify as op level 4 event(s)
+Jeremy P | ZNY C1 — 06/06/2025 12:21
+It doesn’t overlap enough and it’s not complex or long-duration enough to qualify
+James D | ZKC EC — 06/06/2025 16:16
+I will pass that along to the event controllers. I will not be able to attend due to work, but the center controller(s) are solid so they should be able to handle that.
+Brody B | ZLA EC — 06/07/2025 02:20
+ZLA's stuff
+
+07/0619    LAS via GGAPP, STEWW 20 MIT AS ONE VOLUME:VOLUME 2300-0300 ZLA:ZLC
+07/0619    LAS via HAHAA, ELLDA 25 MIT PER STREAM VOLUME:VOLUME 2300-0300 ZLA:ZAB
+07/0619    LAX, SAN, SNA, BUR via ALL 25 MIT PER STREAM VOLUME:VOLUME 2300-0300 ZLA:ZOA, ZLC, ZDV, ZAB                                    
+James D | ZKC EC — 06/07/2025 08:39
+ZKCs splits tonight, we will have two controllers but no TMU due to nobody certified to work the position able to attend. Controllers have been instructed to monitor discord for changing MITs as well as controller chat in real time and contact me with any questions and I will work the problem as best I can at work tonight.
+Image
+Blake R | ZSE C3 — 06/07/2025 08:40
+So no one will br in the hotline?  It's ok, and thanks for letting us know.  Just checking to be sure.
+James D | ZKC EC — 06/07/2025 08:44
+Correct
+Matt B | ZJX C3 — 06/07/2025 08:45
+you can always ask the working controller to join the hotline, just for open communication, they don't have to be TMU rep
+James D | ZKC EC — 06/07/2025 08:46
+I plan to and will pass along the info, not sure if he will though
+Blake R | ZSE C3 — 06/07/2025 12:58
+@Jordan J | ZAB EC @Emmanuel G | ZOB S3  - I don't see any staffing information on the PERTI.  Are you going to have at least 1 enroute today? 
+Emmanuel G | ZOB S3
+
+ — 06/07/2025 12:58
+Sorry, I haven’t had time to enter it. I have 1 center, and can get another if needed, but we have a center certed person on S56 just in case.
+Blake R | ZSE C3 — 06/07/2025 12:59
+Thanks.  Just compiling my split maps and finishing planning. ??
+Alex Y | ZNY I1 — 06/07/2025 16:58
+as of 2100z, 23 aircraft from JFK and LGA headed to DEN, they're relatively spread out for the most part so far
+Image
+Blake R | ZSE C3 — 06/07/2025 17:58
+Yeah, I'm seeing it in the charts.  Only saw 2 mating earlier.
+Daniel E | ZMP FE — 06/07/2025 18:19
+just to confirm is the NYTRO/PORDR restriction as one? @Blake R | ZSE C3
+Henry A | ZMA TA — 06/07/2025 18:21
+not too sure what is happening with staffing, but I will be on for part of the event and ill then find a relief hopefully 
+Blake R | ZSE C3 — 06/07/2025 18:35
+Per stream
+Brody B | ZLA EC — 06/07/2025 18:38
+ZLA split split.png
+Image
+Daniel K | ZLC C1 — 06/07/2025 20:04
+@Michael B | VATUSA5
+Image
+Michael B | VATUSA5 — 06/07/2025 22:54
+=== TMR Discussion and Feedback Staging ===
+
+This event is now over, please refrain from adding feedback to this thread until the TMR has begun.  Facility representatives for now should collect controller feedback from their facility and we'll consolidate it in the TMR, which will be posted 24 hours from now
+Michael B | VATUSA5 — 06/07/2025 23:06
+per ZDVs request
+Image
+sorry thats accurate now
+Ken G | ZOA DATM — 06/08/2025 10:17
+Event replay is now viewable at https://vatsim-replay.com/ in the selection box
+Jordan J | ZAB EC
+
+ — 06/08/2025 13:21
+Sorry about that, I had no internet (cruise ship) didn’t buy the internet package. ??
+Cameron N | ZLC ATM — 06/08/2025 19:27
+Tmr?
+Michael B | VATUSA5 — 06/08/2025 19:54
+Tis on my todo list this evening
+Blake R | ZSE C3 — 06/08/2025 22:14
+I have my notes, but I'm pretty tired tonight (no clue why).  I'll add my pieces tomorrow if that's OK with everyone ??
+Michael B | VATUSA5 — 06/09/2025 00:11
+BEGIN ZDV Live 2025 TMR
+ZDV | 06/08/2025 | 2300-0300z
+
+TMR Triggers: 
+Reroutes
+MIT
+
+Overview:
+Manage DEN airport operations to keep departure and airborne arrival delays to less than 30 minutes.
+
+----------
+
+Airport Conditions:
+DEN | ARR:34R/35L/35R | DEP:8/25/34L | AAR(Strat):96 ADR:96
+Were the correct runway configuration and AAR/ADR logged? Y
+
+Prevailing Weather Conditions: VFR
+
+
+Special Events:
+NONE
+
+----------
+
+Traffic Management Initiatives:
+ZDV MIT
+D01 MIT
+
+Were TMIs complied with? Y
+
+
+Were TMIs effective? Y
+
+
+Were TMIs initiated in a timely manner? Y
+
+
+Equipment:
+No issues noted
+
+----------
+
+Personnel:
+Was the operational area properly staffed? Y
+NOM was present, TMU reps for ZDV, ZLA,ZLC,ZAB (if i missed any let me know)
+
+----------
+
+Operational Plan: (https://perti.vatcscc.org/plan?175)
+
+----------
+
+Findings:
+ZDV had a well planned TMI package to effectively balance delay into D01
+DEN was shown to be over 70% capacity for over 2 hours during the event
+Major streams from ZLC, and ZMP were consistent throughout the night
+Surprising "no shows" in terms of volume was a LAS/LAX stream, a PHX stream, and a ZKC stream.  This greatly helped efforts into the TRACON.
+Good coordination between ZDV, DCC, and other facilities to strategically decrease MIT when volume was extremely low in some corners
+The usage of trips from the start of the event also helped the efficiency of the TRACON
+MIT compliance throughout the night from T1s also helped the event as a whole go well, special shoutouts to ZMP and ZLC
+A reroute for SFO traffic through SLCs stream instead of LAX/LASs, would've proved useful in the event but this was shutoff due to low volume
+MIT decrease throughout the night was either for lack of volume or to alleviate pressure on high volume streams merging
+Demand at the runways of all T1s were monitored extremely closely throughout the night, no airport exceeded a line of up to 5-7 planes, all launched without unreasonable delay
+Pair with ZNY even if the events did NOT overlap, did not prove to be harmful to the event, while an initial stream ZMP had to deal with the brunt of, the stream dispersed after some time due to ZNYs event ending, and did not cause extraordinary delay to T1 and T2 facilities
+
+Recommendations & Conclusions:
+When merging streams are a high/full capacity, have the TMIs then make mathematical sense, what we saw from the ZMP side is that 2 streams merging to the same downwind were at 20 MIT per stream, and MIT to D01 was set at 15, having 20+20-->10 makes much more sense in this situation
+For airports that are closer to the border with their streams, there's less time/airspace for the host sector to vector to make the MIT to the TRACON, AS ONE on these streams might be useful, as your T1 has more space to make that MIT occur compared to the host ARTCC.  The example we saw here was SLCs 2-3 streams were compliant with MIT per stream but when ties occurred, there was much less airspace to work with causing more workload on said controller (Area 6).  This could be something ZDV and similar facilities in the future as it's fascinating how the approach is completely opposite in Area 5 due to there being so much more space to deal with the LAWGRs and ALLEEs, allowing for the work to be done within ZDV
+when possible, and a TRACON is setup to be able to do, downwind changes and can in other words soak up planes, ensure that the MIT is as low as possible to assist everyone beyond the TRACON to the T1s and T2s. Its also important to know when your airspace, can't handle this way of feeding (flashbacks of SFO). It was pretty early where I suggested to keep MIT into the TRACON as low as possible, but we were limited by SOP giving 10 MIT to the corner.  This is also the benefits of having MIT put out on each corner per stream as we have a reference to go off of, and decrease where needed
+ 
+T2 passback is always good if demand at those airports start to rise, while I don't think any specific MIT was dished out to ORD through ZMP, the spacing that was provided was extremely helpful and kept ZMPs vectors to a minimum
+10 nm rings
+Image
+Image
+Michael B | VATUSA5 — 06/09/2025 00:19
+only real pic of note from the falcon is ZMPs initial sequencing of those JFK deps which didnt seem to cause too much trouble as demand from MSP and ORD was fairly low at this point
+Dhruv K | ZMP ATM — 06/09/2025 00:21
+We rarely pass DEN MIT back to ZAU irl
+
+Usually we handle most of it by fix balancing AALLE/LAWGR and aggressive vectoring much like what was done last night
+Irl 3-4 of those BRWRY.LAWGRs would get moved north and blended with the AALLE stream over PORDR
+Dhruv K | ZMP ATM — 06/09/2025 00:29
+That being said, given the limited staffing and disproportionate workload, having ZAU start something east of ALO/DSM wouldn’t be the worst thing in the world
+Cameron N | ZLC ATM — 06/09/2025 09:13
+From ZLC, the main thing was the TCH..KAMPR.LONGZ3 reroutes.  I understand the thought behind it, but looking at event traffic, I think a more tactical approach was probably better.  If we needed to offload a couple of people then that is fine, but blanket throwing all ZOA traffic over there was overkill imo.
+
+We ended up needing to shutdown SLC departures to DEN for like 30 minutes as that group flight moved through.  Looking at the replay, I think most of those guys over BUMMP were probably fine to remain on the original route.  This would've kept SLC flowing as well.
+I will note, that we don't see the BUMMP to KAMPR switch all that often IRL because military airspace from UTTR and Fallon make that reroute more difficult. Obviously not an issue here.
+Blake R | ZSE C3 — 06/09/2025 09:28
+I'll type up more later from the ZDV perspective.  I think way early in the planning, I thought I asked for a Simbrief reroute for the preferred Simbrief route to kick north.  You're right that the reroute inside of ZLC usually doesn't happen.  There are 2 routes out of the Bay that come to Denver.  They get cheeky and do it based on flow so they don't have to ride the downwind.  The intent was to get Simbrief to automatically do it and not put the blanket in.  I'll note next time that we do that reroute in real time, because yes, in Saturday's case, LAS traffic was low enough that we could've handled it, which is also why we pulled it right after the initial LAS push.
+I really didn't want to put that on ZLC.
+Cameron N | ZLC ATM — 06/09/2025 10:07
+Yeah we had the 2 out of OAK that actually filed TCH KAMPR, but generally those planes end up going over RNO/FMG area to get some sort of BAM..TCH..KAMPR. In my case we had 1 center on at the time and trying to reroute those guys, and sequence in the MJANE/TOFUU people was too much from the saturation perspective.  Ended up splitting center and made it much better.
+Matt B | ZJX C3 — 06/09/2025 10:27
+Just a small pilot report here! Great Job ZDV! Had a great time flying in. 
+
+Coming in on the NIXXS3 arrival I had 35R programmed (as on the chart). Got assigned 35L from approach, no big deal right?
+
+Well long behold the Toliss A321 did not change the runway transition fixes on the actual approach. Did not realize this until I was joining final, the final controller noticed and corrected me to a fix right away, did a great job. There was a CRJ joining 34R at the same time, resulted in a TA/RA (there was visual sep) but the Toliss simulates auto TCAS on the autopilot so it starts climbing, I didn’t call the RA since I had visual but had to disconnect AP in order to prevent the climb. 
+
+TL;DR the DEN metroplex can be very challenging for pilots (single pilot ops too) in a busy environment, and sometimes situations can cause more problems for the controllers and pilots. Based solely on aircraft not behaving correctly and/or features on the plane itself. 
+
+I’m sure this is already known by most ZDV controllers, but wanted to post my experience from a pilot point of view that others may not be aware of. Like I said great job though had a blast!
+Blake R | ZSE C3 — 06/09/2025 12:12
+Thanks Matt!  So we had a real world conflict with VATSIM world for this event.  35L/17R has been closed for 3 months due to construction and rehab.  Because of this and how Simbrief parses the RW DATIS, it doesn't kick out 35L right now.  The north flow NIIXX and TBARR (SW gate) arrivals would normally be on 35L where CLASH (SE) and SSKII get 34R.  Yes, it is challenging getting people to switch, and we try to give 50 miles notice.  Our ops do mimic RW closely.  Simbrief actually hands out 34R more often, but I've worked with them on setting runway priorities as long as they're open in the DATIS.
+We chose to open 35L for this event because we didn't want to constrain ourselves by not having trips.
+Blake R | ZSE C3 — 06/09/2025 12:23
+I love you read the chart and set up for 35R. ??  people cutting the corner is nothing new to us for those that don't reset the "via" or "transition" in their FMC.  LAX and others end up with that same issue.  I saw several people overshoot, but our finals guys were all sitting next to each other watching it.  We are lucky enough to get consistent traffic where we can get trips opportunities a few times a session in normal times, let alone an event.
+Blake R | ZSE C3 — 06/09/2025 19:00
+Official ZDV Feedback now that I'm home:
+
+Overall, great analysis Michael!  I also felt like our coordination was spot-on and it was a very relaxed night from a TMU perspective.  Pulling back the MIT's as we did kept a consistent flow into the TRACON without overburdening them.  After the ZNY push came through, we had consistent traffic on 3 of the 4 corners throughout the last 2 hours of the event.  The SE side was, as usual, the lowest volume.
+
+Notes moving forward in my Ops book:
+1)  Will make clearer that the reroute of ZOA overflights through ZLC will be a load-based call instead of a hard request.  I anticipated something that didn't happen which caused higher-than-needed pressure on ZLC and the NW arrivals
+
+2)  Better use of PER STREAM and AS ONE moving forward.  Great notes on that from a long side/short side perspective.
+
+3)  Will most likely remove the internal D01:ZDV MIT and keep it at our SOP of 10.  The reasons for the SOP being at 10 (matching real-world circa 2021) is partially due to the size of D01 and also the altitudes we deal with.  The internal TRACON flow merges 8 RNAV streams into 3 runways, so they handle the merges for ZDV.  That lets the TRACON crunch them to 5 and eventually legal minima.  An example of our north flow merge is below: 
+Image
+I appreciate all the hard work that our T1's did on Saturday night!  You guys set up ZDV for success!  I think at one point, I commented offloading some of the BRWRY traffic to PORDR, just like Dhruv mentioned above.  That offload magically makes the merge work in the TRACON.  Thanks everyone for the gift of feedback!  I'll add this to my Runbook going forward for the next one.
+Dean V | ZHU DATM
+
+ — 06/09/2025 19:08
+Great TMR??
+Dhruv K | ZMP ATM — 06/09/2025 19:17
+To clarify, those offloads aren’t ZDV’s responsibility - ZMP, and sometimes ZAU upstream, handle them tactically. @Nate J | ZAU C3 can elaborate on how unbalanced the LAWGR stream can get sometimes and that sometimes the fix is tactically moving anything off the ground within ZAU/ZMP up over SAUGI..PORDR or ONL..PORDR as a fix 
+Daniel E | ZMP FE — 06/09/2025 19:34
+Which is what I ended up doing, 3 or 4 OMAs got moved over PORDR from BRWRY
+Blake R | ZSE C3 — 06/12/2025 10:19
+Fun fact.  They just updated the NIIXX arrival to the NIIXX4 and fixed the note so it reads "Landing north select Rwy 35L Transition".  Update came out today.  Now, they also jacked up the FLATI note, but that's a different story ??
+Matt B | ZJX C3 — 06/12/2025 10:51
+nice! thanks for letting me know!
+Kristofer P | ZMP EC — 06/13/2025 01:37
+Word on the street is that the FLATI was getting offloaded to 35R so often that they simply moved it to 35R in this change cycle.
+
+Regardless, the most important note on all the STAR charts is "EXPECT runway assignment on initial contact with Denver TRACON" -- the second most important is to program the runway transitions as noted.
+
+One of the primary threats we brief IRL flying into DEN is that our runway assignment can be different from what we program, and may change multiple times while in the terminal area.
+Evan M | ZDV ATM
+
+ — 06/13/2025 01:48
+They prob have flati offloaded cause it isn’t as popular as the Longz so during the west heavy push they don’t need to worry about a merge and keep MIT down on the longz
+Blake R | ZSE C3 — 06/13/2025 07:05
+That does make sense.  Thanks Kris!  The primary threat for VATSIM pilots is they don't read the charts ??
+Dhruv K | ZMP ATM — 06/13/2025 09:30
+Too true
+Dhruv K | ZMP ATM — 06/13/2025 09:30
+The FLATI’s been plenty popular this week. We’ve been running all our AALLE traffic via ./.RAP..MBW..HIPEE.FLATI5 all week…

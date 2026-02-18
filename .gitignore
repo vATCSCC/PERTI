@@ -78,3 +78,15 @@ nul
 .claude/settings.local.json
 brightline_sno_flights.json
 2026-01-30-northeast-corridor-fno.json
+
+# Funding/grant documents (private)
+docs/FUND*.md
+docs/FUNDING_PACKET*.md
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Temporary screenshots
+*.png
+# But keep tracked assets
+!assets/**/*.png

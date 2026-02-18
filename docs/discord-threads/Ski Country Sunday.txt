@@ -1,0 +1,456 @@
+https://perti.vatcscc.org/plan?221
+Jeremy P | ZNY C1 — 12/07/2025 10:54
+Ski Country Sunday | TMU OpLevel 2 | PERTI Data Request
+Ski Country Sunday is on 2025-12-14 from 2000Z to 2300Z.
+Start: Sunday, 14 December, 2025 15:00 (2 months ago) in your timezone
+End:   Sunday, 14 December, 2025 18:00 (2 months ago) in your timezone
+
+Review and fill out the PERTI Plan:
+PERTI Plan
+Staffing Data
+PERTI Route Mapper
+Field Configs (VATSIM-applied AAR)
+DCC Dashboard
+
+ZDV: @Cameron N | ZLC ATM @Evan M | ZDV ATM @Emmanuel G | ZOB S3 
+ZLC: @Adam E | ZLC FE 
+
+Attempt to coordinate as many plans (initiatives, reroutes, etc.) in a timely manner, and fill out all appropriate areas of the staffing data.
+---------------------------------------------------------
+@NTMO please react with your availability to NOM for this event.
+@DCC Trainee please react with your availability to shadow this event.
+
+??  = Available
+??  = Partially available/unsure
+??  = Unavailable
+--------------------------------------------------------- 
+Cameron N | ZLC ATM — 12/07/2025 19:18
+@Evan M | ZDV ATM @Emmanuel G | ZOB S3
+Cameron N | ZLC ATM — 12/09/2025 14:59
+Looking at weather, high perssure firmly over the rockies.  No precip anywhere in Sight
+FG might be the only concern
+Planning on the following:
+JAC 19: AAR 16
+BZN 12: AAR 20
+SUN ODO 13: AAR 10 - visuals.
+
+I'm thinking a FCA BZN_NO_TOCUD for ZDV people. ASE/EGE/GJT TCH..SABAT.LOSST1 DEN and CPR: CZI..POWDA.POWDA1
+TMI Plans for us. all to ZDV.
+JAC via CZI, DDY 30 MIT per stream to start. will evaluate if we need as one.
+BZN via CZI 25 MIT.
+SUN, 5MINIT per stream. 
+Cameron N | ZLC ATM — 12/09/2025 15:07
+SUN is historically not super popular, so if demand isn't there, will plan on just letting it buck.  Will mitigate volume with holding
+Evan M | ZDV ATM
+
+ — 12/10/2025 18:08
+Image
+Image
+Cameron N | ZLC ATM — 12/10/2025 18:50
+Evan, do you think traffic will be crossfire style or from everywhere?
+Evan M | ZDV ATM
+
+ — 12/10/2025 21:22
+Biggest cross fire I expect is to/from EGE/ASE and JAC.
+Cameron N | ZLC ATM — 12/10/2025 21:27
+Put black freq on the low diagram
+I can't actually read that area 6 freq
+Evan M | ZDV ATM
+
+ — 12/10/2025 21:36
+Heres starting MIT thoughts:
+ASE: 35 MIT via HYPPE, ERRDA on the LOYYD#. (Non-rnav aircraft 35 MIT via ALL)
+EGE: 25-30 MIT via OCS CHE RLG
+GJT: 10 MIT Via All as one
+CPR: 10 MIT via all as one.
+Evan M | ZDV ATM
+
+ — 12/10/2025 21:46
+Image
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:23
+Heres initial MIT thoughts. I haven't had much experience creating them before so feel free to critique it and question it.
+ASE:
+14/1950 ASE via HYPPE,ERDDA,SLAPE 35 MIT VOLUME:VOLUME 2000-2300 ZDV:ZLC
+14/1950 ASE via TRUEL,EKR 30 MIT VOLUME:VOLUME 2000-2300 ZDV:ZLC
+14/1950 ASE via TRUEL,MMARY,LOYYD,HAREI,WERNR 25 MIT VOLUME:VOLUME 2000-2300 ASE:ZDV
+14/1950 ASE via CONNR 20 MIT VOLUME:VOLUME 2000-2300 ZDV:D01
+
+EGE:
+14/1950 EGE via CHE 30 MIT AS ONE VOLUME:VOLUME 2000-2300 ZDV:ZLC
+14/1950 EGE via ZIMMR 25 MIT VOLUME:VOLUME 2000-2300 ZDV:D01
+
+GJT:
+14/1950 GJT via ALL 15 MIT AS ONE VOLUME:VOLUME 2000-2300 ZDV:ZLC
+14/1950 GJT via ALL 10 MIT PER STREAM VOLUME:VOLUME 2000-2300 D01:ZDV
+14/1950 GJT via CONNR 15 MIT EXCL:PROPS VOLUME:VOLUME 2000-2300 ZDV:D01
+
+CPR:
+14/1950 CPR via ALL 10 MIT AS ONE VOLUME:VOLUME 2000-2300 ZDV:ZLC
+14/1950 CPR via ALL 10 MIT PER STREAM VOLUME:VOLUME 2000-2300 CPR:ZDV
+
+All Other Mountain Airports:
+14/1950 TEX,GUC,MTJ,HDN,RIL via ALL 20 MIT VOLUME:VOLUME 2000-2300 ZDV:ZLC
+ 
+@Cameron N | ZLC ATM
+Cameron N | ZLC ATM — 12/11/2025 00:30
+SK1?
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:34
+For routings?
+Cameron N | ZLC ATM — 12/11/2025 00:34
+Yeah
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:34
+yes and no
+ASE is how we want it on there but do to how our sectorization is for low center the EGE routes we dont want them on the star
+Image
+This is how the route will go. In that short distance they will go through 3 different centers
+would like to keep it just to 2 (the high  then low)
+Thinking EGE via OCS (J163) EKR RLG on the ZDV side
+Cameron N | ZLC ATM — 12/11/2025 00:43
+could just tunnel
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:43
+That too
+Would help a lot
+just OCS AOB FL260
+Plus with that route the ASE and EGE departures have plenty of room to climb
+Only required routings we have is;
+ASE: Via LOYYD1 STAR if they are RNAV capable
+EGE: OCS (J163) CHE RLG 
+rest are fine as normal 
+Cameron N | ZLC ATM — 12/11/2025 00:46
+ALPIN4 BPI OCS J163 CHE
+That is the JAC/EGE route
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:47
+need the RLG in there. Its an IAF and keeps them out of a different centers airspace
+The final fix for EGE arrivals kinda need to be RLG or DUCES if they are coming from ZLC
+Works for airspace and all IAFs
+Cameron N | ZLC ATM — 12/11/2025 00:49
+Actually wait
+That isn't what they flew
+They went to HYPPE
+https://www.flightaware.com/live/flight/EJA344/history/20251206/2044Z/KJAC/KEGE
+FlightAware
+1I344 (EJA344) NetJets Aviation Flight Tracking and History 06-Dec-...
+Track NetJets Aviation (1I) #344 flight from Jackson Hole to Eagle County
+1I344 (EJA344) NetJets Aviation Flight Tracking and History 06-Dec-...
+https://www.flightaware.com/live/flight/EJA344/history/20251206/2044Z/KJAC/KEGE
+FlightAware
+1I344 (EJA344) NetJets Aviation Flight Tracking and History 06-Dec-...
+Track NetJets Aviation (1I) #344 flight from Jackson Hole to Eagle County
+1I344 (EJA344) NetJets Aviation Flight Tracking and History 06-Dec-...
+Evan M | ZDV ATM
+
+ — 12/11/2025 00:51
+From what i've heard the ZDV/ZLC LOA is the only one with it being required for ski country airports to be on the new stars.
+Would need to update that LOA for us
+Cameron N | ZLC ATM — 12/11/2025 01:09
+But PRESN or MENIN is fine too
+OCS DNW for JAC People
+They gonna get vectored anyways.
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:11
+So thoughts for all BZN arrivals- 
+EGE: BEVVR1/APRES2 SPRKT EKR J173 TCH SABAT LOSST1
+ASE: LINDZ1 LINDZ JNC TCH SABAT LOSST1
+GJT: GRAND2 JNC TCH SABAT LOSST1
+CPR: CPR3 CZI POWDA POWDA1
+DEN: XXWNG1 XXWNG CZI POWDA POWDA1 
+want to add DEN to that?
+actually yeah we will
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:14
+Even CPR departures? OCS brings them pretty out of the way
+can do CPR3 BOY DNW
+Cameron N | ZLC ATM — 12/11/2025 01:15
+Nah
+DDY DNW if you want
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:16
+They'd just go direct to DNW from the tracon any ways
+Cameron N | ZLC ATM — 12/11/2025 01:16
+Yep
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:16
+DDY isnt really useful as its to the NE of the airport
+Cameron N | ZLC ATM — 12/11/2025 01:16
+DNW
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:16
+ahh just CPR3 DDY DNW and expect just direct to DNW given from the tracon
+can also just do CPR3 DNW
+Ill put it as CPR3 DDY DNW though
+Cameron N | ZLC ATM — 12/11/2025 01:19
+Image
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:20
+That looks good to me. Takes 5 airports and gives them 2 points to merge and 2 different STARS
+plus non of that really would be in the way of arrivals
+Cameron N | ZLC ATM — 12/11/2025 01:22
+vATCSCC ADVZY 001 ZLC 12/14/2025 ROUTE RQD
+NAME: BZN_NO_TOCUD
+CONSTRAINED AREA: ZLC
+REASON: VOLUME:VOLUME
+INCLUDE TRAFFIC: ZDV
+FACILITIES INCLUDED: ZDV
+FLIGHT STATUS: ALL FLIGHTS
+VALID: ETD 142000 TO 15000
+PROBABILITY OF EXTENSION: LOW
+REMARKS:
+ASSOCIATED RESTRICTIONS:
+MODIFICATIONS:
+ROUTES:
+
+ORIG       DEST    ROUTE
+----       ----    -----
+KEGE       KBZN    SPRKT EKR J173 TCH SABAT LOSST
+KASE       KBZN    LINDZ1 LINDZ JNC TCH SABAT LOSST1
+KGJT       KBZN    GRAND2 JNC TCH SABAT LOSST1
+KCPR       KBZN    CZI POWDA POWDA1
+KDEN       KBZN    XXWNG1 XXWNG CZI POWDA POWDA1
+
+TMI ID: RRZLC001
+EFFECTIVE TIME: 110629-111029
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:23
+is CKW DNW good for den departures to JAC? Or want to do same thing and do DDY DNW
+Cameron N | ZLC ATM — 12/11/2025 01:23
+ckw dnw WORKS
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:23
+k
+thats the default simbrief so dont need another reroute there
+Cameron N | ZLC ATM — 12/11/2025 01:23
+Yep
+Lets just hope we crossfire lol
+And a huge group doesn't come out of ZLA
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:24
+oh yeah.
+Ill be on ASE for the event and kinda will try to TMU. But I may be the one down the shitter
+Cameron N | ZLC ATM — 12/11/2025 01:25
+Like I said.
+I don't expect SUN to be busy
+bc that runway can't handle anything bigger than a a319
+So I can maybe TMU
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:25
+I guarentee you we'll get a 777 or similar at ASE 
+With the theme though I do expect lot of PJs
+Cameron N | ZLC ATM — 12/11/2025 01:30
+well I think we have a good plan here
+We can be ready to GS if there is a big mess from ZLA or something
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:34
+Looks like simbrief gives SUN MENIN for EGE and GJT. ASE puts them on the SLTAN.YAWNY while CPR gives direct to PRESN. That good for you?
+or we want to have the reroutes all onto the YAWNY?
+I dont want to over complicate it if we dont have too. Lot of work for the ground controllers
+Cameron N | ZLC ATM — 12/11/2025 01:35
+That's fine
+Will plan on adjusting if we need something different
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:36
+Roger
+Cameron N | ZLC ATM — 12/11/2025 01:36
+I'm planning on visuals
+Evan M | ZDV ATM
+
+ — 12/11/2025 01:40
+Ill put in here the ZDV to ZLC routings. Cameron can you get your side and figure out the departure part of yall and put them we can can have DCC staff add them to simbrief?
+Arrivals for BZN (Also see here):
+ASE: LINDZ1 LINDZ JNC TCH SABAT LOSST1
+EGE: BEVVR1/APRES2 SPRKT EKR J173 TCH SABAT LOSST1
+GJT: GRAND2 JNC TCH SABAT LOSST1
+CPR: CPR3 CZI POWDA POWDA1
+DEN: XXWNG1 XXWNG CZI POWDA POWDA1
+
+Arrivals for JAC:
+ASE: LINDZ1 LINDZ SLOLM EKR OCS DMW
+EGE:BEVVR1/APRES2 SPRKT OCS DNW
+GJT: GRAND1 JNC OCS DNW
+CPR: CPR3 DDY DNW
+Evan M | ZDV ATM
+
+ — 12/11/2025 23:14
+What MIT can we expect for ZDV to ZLC?
+Cameron N | ZLC ATM — 12/11/2025 23:26
+?20251214 Ski Country Sunday?
+Add OCS to 30 MIT per stream
+SUN, idk.  I'm not a believer it will be busy.  I may just opt to let sun buck to start and offset the TMI by an hour
+Adam E | ZLC FE — 12/13/2025 15:14
+Whole time 
+Image
+Evan M | ZDV ATM
+
+ — 12/14/2025 01:55
+@Michael B | VATUSA5 Can you add the event routings into simbrief.
+Michael B | VATUSA5 — 12/14/2025 02:19
+yeah
+Michael B | VATUSA5 — 12/14/2025 02:19
+just these
+done
+Evan M | ZDV ATM
+
+ — 12/14/2025 02:29
+@Michael B | VATUSA5 these too
+Michael B | VATUSA5 — 12/14/2025 02:34
+kk
+Michael B | VATUSA5 — 12/14/2025 02:35
+DMW isnt in the current AIRAC
+Evan M | ZDV ATM
+
+ — 12/14/2025 02:40
+DNW lol
+Evan M | ZDV ATM
+
+ — 12/14/2025 03:00
+Also I dont see a complete list for ZLC-ZDV routes
+@Cameron N | ZLC ATM can you get that?
+Evan M | ZDV ATM
+
+ — 12/14/2025 03:11
+Idk what Cameron wants for in ZLC and the departures but heres what the ZDV side of the routes need to be. 
+
+ASE needs to enter ZDV via HYPPE, SLAPE, or ERRDA so they can be on the LOYYD1. 
+
+EGE needs to enter ZDV via OCS CHE RLG
+and CPR/GJT can be what ever
+Cameron N | ZLC ATM — 12/14/2025 07:33
+Depends on Config at BZN and JAC.
+Cameron N | ZLC ATM — 12/14/2025 07:42
+JAC-ASE: ALPIN4 BPI HYPPE LOYYD1
+BZN-ASE: BGSKY2 DBS HYPPE LOYYD1
+SUN-ASE: FLYIN1 GDWIN HYPPE LOYYD1
+
+JAC-EGE: ALPIN4 BPI OCS J163 CHE RLG
+BZN-EGE: BOBKT5 BOY CKW CHE RLG
+SUN-EGE: FLYIN1 GDWIN HYPPE AAVON1
+I feel like all of those will be the defaults except BZN & JAC to EGE.
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:05
+For the SUN-EGE can you still put them on OCS CHE RLG? With that arrival and our sectorization it’d bring them between 3 controllers in span of 50 miles. Rather keep it simple with going through just 1 controller and one fix to meter them too
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:08
+And also Cameron when it comes time to post the MIT can you post ours as well? I won’t be home till just before event stat
+Cameron N | ZLC ATM — 12/14/2025 11:18
+Yeah. I can post in NTML
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:19
+Thanks!
+Also confirming y’all are good for doing the tunnel for all EGE arrivals? Just AOB FL260 to get to low
+Daniel K | ZLC C1 — 12/14/2025 11:24
+Did we ever confirm these were the MIT restrictions to ZDV from ZLC?
+I'm working on an event brief for ZLC as I'm typing
+just wanna make sure
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:25
+Yes that is the up to date MIT for us
+Daniel K | ZLC C1 — 12/14/2025 11:25
+Copy thx
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:25
+Also if you can put in the tunnel for the brief that’d be great
+Daniel K | ZLC C1 — 12/14/2025 11:26
+wilco
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:27
+@Michael B | VATUSA5 ca you put theses in with the exception of SUN-EGE. Just replace the HYPPE.AAVON with OCS CHE RLG
+Daniel K | ZLC C1 — 12/14/2025 11:29
+@Evan M | ZDV ATM just so I write it correctly we agreed to throw EGE arrivals below 260 straight to low?
+for the tunnel?
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:41
+Yes. 260 at the boarder
+We only have 1 high center so will help their work load
+I got to go and won’t be around till event. Can someone make sure the ZLC-ZFV routes are put into simbrief as stated above with the SUN-EGE fix
+Daniel K | ZLC C1 — 12/14/2025 11:46
+Copy thx
+Evan M | ZDV ATM
+
+ — 12/14/2025 11:50
+@DCC Staff can someone get these Simbrief routes in?
+Simon R | ZJX C1 — 12/14/2025 12:30
+Yup one sec
+Simon R | ZJX C1 — 12/14/2025 12:38
+Done.
+Adam E | ZLC FE — 12/14/2025 12:42
+The Jackson Hole Route Is Missing The SID
+Simon R | ZJX C1 — 12/14/2025 12:45
+I have no way to define SID’s
+Adam E | ZLC FE — 12/14/2025 12:45
+Ah ok
+Daniel K | ZLC C1 — 12/14/2025 12:49
+I don't know if this is a VATUSA thing or one of the ECs has to complete but it appears the event isn't on the VATSIM event calendar? 
+Daniel K | ZLC C1 — 12/14/2025 12:59
+Hey fyi @Evan M | ZDV ATM when you're back we lost a center controller so this will be primarily split for ZLC
+Image
+for entire event
+Michael B | VATUSA5 — 12/14/2025 13:07
+Sry I’m awake now lol
+Yall good? @Simon R | ZJX C1
+Simon R | ZJX C1 — 12/14/2025 13:29
+Yar
+Brandon W | VATUSA2 — 12/14/2025 14:04
+Is this the most up to date MIT request for ZLC:ZDV?
+Brandon W | VATUSA2 — 12/14/2025 14:05
+.......bruh...who forgot to post this
+Daniel K | ZLC C1 — 12/14/2025 14:09
+lmao
+I'm a little thankful because I can only assume how much traffic I'd be getting at JAC with it up lol
+Evan M | ZDV ATM
+
+ — 12/14/2025 14:11
+Must’ve been Blake. I was told everything was good when he left
+Cameron N | ZLC ATM — 12/14/2025 14:31
+Considering enroute volume. I'm going to say 5 MIT all ZLC for the time being.
+Aka, No MIT
+ZDV looks busier.
+Will post FCASK1_MOD once I get home
+Casey P | ZDV TA — 12/14/2025 19:57
+I don't think that's fair.
+Blake R | ZSE C3 — 12/14/2025 20:16
+I did not post into the VATSIM events calendar because if staffing sign-ups were too low, I was going to cancel.  In fairness, I was recommending cancelling when I retired, but left it up to the staff to decide.
+
+So, it can be a #blameblake if you choose.  I wanted to be sure there was an out due to the complex staffing requirements for that type of event. 
+Daniel K | ZLC C1 — 12/14/2025 20:16
+Don't worry about it, not too concerned tbh
+I wasn't able to be around the entire event unfortunately but I heard was a big hit either way
+But yeah we can just #blameblake this one, not a huge deal
+Blake R | ZSE C3 — 12/14/2025 20:18
+It's a VATSIM tradition to blame the person who just left.  Embrace the traditions
+Cameron N | ZLC ATM — 12/14/2025 21:01
+Casey P | ZDV TA — 12/14/2025 21:12
+Michael B | VATUSA5 — 12/14/2025 22:10
+Cameron N | ZLC ATM — 12/15/2025 07:58
+But all in all, I felt it went well.  Traffic looked okay.  Most I counted at ASE was 19 filed, and maybe 14 in the air.
+JAC was consistent 10-15.
+I tired visuals at SUN. Everyone turned that down and requested RNAV Y 31...
+Graham D | OBS — 12/15/2025 15:34
+I was VFR into sun for this one but fwiw whenever I have tried to take a visual there I have ended up really high so would have done the same. Field is kind of tucked round the valley bend and so I never get it in sight until too close for the mva, not sure if that's just a simism.
