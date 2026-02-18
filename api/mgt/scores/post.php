@@ -58,11 +58,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO r_scores (p_id, staffing, tactical, other, perti, ntml, tmi, ace)
-    VALUES ('$p_id', '$staffing', '$tactical', '$other', '$perti', '$ntml', '$tmi', '$ace')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO r_scores (p_id, staffing, tactical, other, perti, ntml, tmi, ace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $staffing, $tactical, $other, $perti, $ntml, $tmi, $ace]);
 
     $conn_pdo->commit();
     http_response_code(200);

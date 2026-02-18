@@ -49,13 +49,16 @@ $staffing_status = post_input('staffing_status');
 $staffing_quantity = post_input('staffing_quantity');
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_enroute_staffing SET facility_name='$facility_name', staffing_status='$staffing_status', staffing_quantity='$staffing_quantity', comments='$comments' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_enroute_staffing SET facility_name=?, staffing_status=?, staffing_quantity=?, comments=? WHERE id=?");
+$stmt->bind_param("ssssi", $facility_name, $staffing_status, $staffing_quantity, $comments, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("enroute_staffing/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

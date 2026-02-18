@@ -51,13 +51,16 @@ $aar = post_input('aar');
 $adr = post_input('adr');
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_configs SET airport='$airport', weather='$weather', arrive='$arrive', depart='$depart', aar='$aar', adr='$adr', comments='$comments' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_configs SET airport=?, weather=?, arrive=?, depart=?, aar=?, adr=?, comments=? WHERE id=?");
+$stmt->bind_param("sssssssi", $airport, $weather, $arrive, $depart, $aar, $adr, $comments, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("configs/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

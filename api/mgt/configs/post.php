@@ -57,10 +57,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_configs (p_id, airport, weather, arrive, depart, aar, adr, comments) VALUES ('$p_id', '$airport', '$weather', '$arrive', '$depart', '$aar', '$adr', '$comments')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_configs (p_id, airport, weather, arrive, depart, aar, adr, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $airport, $weather, $arrive, $depart, $aar, $adr, $comments]);
 
     $conn_pdo->commit();
     http_response_code(200);
