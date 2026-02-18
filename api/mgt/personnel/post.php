@@ -70,7 +70,7 @@ try {
     $conn_pdo->beginTransaction();
 
     // SQL Query (prepared statement)
-    $stmt_user = $conn_pdo->prepare("INSERT INTO users (cid, first_name, last_name, last_session_ip) VALUES (?, ?, ?, '')");
+    $stmt_user = $conn_pdo->prepare("INSERT INTO users (cid, first_name, last_name, last_session_ip, last_selfcookie) VALUES (?, ?, ?, '', '')");
     $stmt_user->execute([$n_cid, $first_name, $last_name]);
 
     // Create org memberships
