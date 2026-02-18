@@ -220,7 +220,7 @@
 
 .dcccp-facility-column {
     flex-shrink: 0;
-    width: 120px;
+    width: 160px;
     background: var(--gray-100);
     border-right: 1px solid var(--gray-300);
 }
@@ -421,7 +421,7 @@
     height: 28px;
     background: var(--gray-200);
     border: 1px solid var(--gray-300);
-    margin-left: 120px;
+    margin-left: 160px;
 }
 
 .dcccp-time-labels {
@@ -557,7 +557,7 @@
 
 .dcccp-tooltip-label {
     font-weight: 600;
-    width: 80px;
+    width: 100px;
     flex-shrink: 0;
     color: var(--gray-600);
 }
@@ -753,8 +753,8 @@
     .dcccp-controls { flex-direction: column; align-items: stretch; }
     .dcccp-controls-left, .dcccp-controls-center, .dcccp-controls-right { width: 100%; justify-content: flex-start; }
     .dcccp-filter-box { width: 100%; }
-    .dcccp-facility-column { width: 80px; }
-    .dcccp-time-axis { margin-left: 80px; }
+    .dcccp-facility-column { width: 100px; }
+    .dcccp-time-axis { margin-left: 100px; }
     .dcccp-facility-label { font-size: 11px; padding: 0 5px; }
 }
 

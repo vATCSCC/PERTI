@@ -786,12 +786,23 @@ class InitiativeTimeline {
             heights[f] = Math.max(this.rowHeight, result.laneCount * 26 + 8);
         });
 
-        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="height:${heights[f]}px">${f}</div>`).join('');
+        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="min-height:${heights[f]}px">${f}</div>`).join('');
 
         rowsEl.innerHTML = facilities.map(f => {
             const items = groups[f].map(i => this.renderItem(i, startTime, totalMs, laneData[f][i.id] || 0)).join('');
-            return `<div class="dcccp-timeline-row" style="height:${heights[f]}px">${items}</div>`;
+            return `<div class="dcccp-timeline-row" style="min-height:${heights[f]}px">${items}</div>`;
         }).join('');
+
+        // Sync heights: facility labels may wrap text and need more height than lanes
+        const facLabels = facCol.querySelectorAll('.dcccp-facility-label');
+        const timeRows = rowsEl.querySelectorAll('.dcccp-timeline-row');
+        facLabels.forEach((label, i) => {
+            if (timeRows[i]) {
+                const h = Math.max(label.scrollHeight, timeRows[i].scrollHeight);
+                label.style.height = h + 'px';
+                timeRows[i].style.height = h + 'px';
+            }
+        });
 
         rowsEl.querySelectorAll('.dcccp-item').forEach(el => {
             el.addEventListener('mouseenter', e => this.showTooltip(e, el.dataset.id));
@@ -994,6 +1005,20 @@ class InitiativeTimeline {
             `;
         }
 
+        // Build additional detail rows based on category
+        let detailRows = '';
+        if (cat === 'tmi' || cat === 'constraint') {
+            if (item.tmi_type) {
+                detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.tmiType')}</span><span class="dcccp-tooltip-value">${item.tmi_type}${item.tmi_type_other ? ` (${item.tmi_type_other})` : ''}</span></div>`;
+            }
+            if (item.cause) {
+                detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.cause')}</span><span class="dcccp-tooltip-value">${item.cause}</span></div>`;
+            }
+        }
+        if (item.advzy_number) {
+            detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.advzyNumber')}</span><span class="dcccp-tooltip-value">${item.advzy_number}</span></div>`;
+        }
+
         const tip = document.createElement('div');
         tip.className = 'dcccp-tooltip';
         tip.innerHTML = `
@@ -1004,6 +1029,7 @@ class InitiativeTimeline {
             <div class="dcccp-tooltip-body">
                 ${locationRows}
                 <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.level')}</span><span class="dcccp-tooltip-value">${this.levels[item.level]?.name || item.level}</span></div>
+                ${detailRows}
                 ${item.notes ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.notes')}</span><span class="dcccp-tooltip-value">${item.notes}</span></div>` : ''}
                 <div class="dcccp-tooltip-time">${this.formatTooltipTime(item.start_datetime, item.end_datetime)}</div>
             </div>
