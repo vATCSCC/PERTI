@@ -49,13 +49,16 @@ $context = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['cont
 $date = post_input('date');
 $impact = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['impact'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_terminal_constraints SET location='$location', context='$context', date='$date', impact='$impact' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_terminal_constraints SET location=?, context=?, date=?, impact=? WHERE id=?");
+$stmt->bind_param("ssssi", $location, $context, $date, $impact, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("terminal_constraints/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

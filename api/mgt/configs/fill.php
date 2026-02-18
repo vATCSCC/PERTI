@@ -46,13 +46,16 @@ $id = post_input('id');
 $aar = post_input('aar');
 $adr = post_input('adr');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_configs SET aar='$aar', adr='$adr' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_configs SET aar=?, adr=? WHERE id=?");
+$stmt->bind_param("ssi", $aar, $adr, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("configs/fill error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

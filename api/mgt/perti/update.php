@@ -62,19 +62,23 @@ $event_banner = post_input('event_banner');
 $oplevel = post_input('oplevel');
 $hotline = post_input('hotline');
 $org_code_raw = post_input('org_code');
-$org_code = ($org_code_raw !== '' && $org_code_raw !== null) ? "'" . $conn_sqli->real_escape_string($org_code_raw) . "'" : 'NULL';
+$org_code_val = ($org_code_raw !== '' && $org_code_raw !== null) ? $org_code_raw : null;
 
-// Update Data in Database (validate_plan_org already checked access)
+// Update Data in Database (prepared statement, validate_plan_org already checked access)
 if (is_org_global()) {
-    $query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline', org_code=$org_code WHERE id=$id");
+    $stmt = $conn_sqli->prepare("UPDATE p_plans SET event_name=?, event_date=?, event_start=?, event_end_date=?, event_end_time=?, event_banner=?, oplevel=?, hotline=?, org_code=? WHERE id=?");
+    $stmt->bind_param("sssssssssi", $event_name, $event_date, $event_start, $event_end_date, $event_end_time, $event_banner, $oplevel, $hotline, $org_code_val, $id);
 } else {
-    $query = $conn_sqli->query("UPDATE p_plans SET event_name='$event_name', event_date='$event_date', event_start='$event_start', event_end_date='$event_end_date', event_end_time='$event_end_time', event_banner='$event_banner', oplevel='$oplevel', hotline='$hotline', org_code=$org_code WHERE id=$id AND (org_code='$org' OR org_code IS NULL)");
+    $stmt = $conn_sqli->prepare("UPDATE p_plans SET event_name=?, event_date=?, event_start=?, event_end_date=?, event_end_time=?, event_banner=?, oplevel=?, hotline=?, org_code=? WHERE id=? AND (org_code=? OR org_code IS NULL)");
+    $stmt->bind_param("sssssssssiss", $event_name, $event_date, $event_start, $event_end_date, $event_end_time, $event_banner, $oplevel, $hotline, $org_code_val, $id, $org);
 }
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("perti/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

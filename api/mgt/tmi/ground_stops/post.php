@@ -75,62 +75,29 @@ try {
     $conn_pdo->beginTransaction();
 
     if ($id > 0) {
-        $sql = "UPDATE tmi_ground_stops SET 
-            status='$status',
-            name='$name',
-            ctl_element='$ctl_element',
-            element_type='$element_type',
-            airports='$airports',
-            start_utc='$start_utc',
-            end_utc='$end_utc',
-            prob_ext='$prob_ext',
-            origin_centers='$origin_centers',
-            origin_airports='$origin_airports',
-            flt_incl_carrier='$flt_incl_carrier',
-            flt_incl_type='$flt_incl_type',
-            dep_facilities='$dep_facilities',
-            comments='$comments',
-            adv_number='$adv_number',
-            advisory_text='$advisory_text'
-        WHERE id='$id'";
-        $conn_pdo->exec($sql);
+        $sql = "UPDATE tmi_ground_stops SET
+            status=?, name=?, ctl_element=?, element_type=?, airports=?,
+            start_utc=?, end_utc=?, prob_ext=?, origin_centers=?, origin_airports=?,
+            flt_incl_carrier=?, flt_incl_type=?, dep_facilities=?, comments=?,
+            adv_number=?, advisory_text=?
+        WHERE id=?";
+        $stmt = $conn_pdo->prepare($sql);
+        $stmt->execute([$status, $name, $ctl_element, $element_type, $airports,
+            $start_utc, $end_utc, $prob_ext, $origin_centers, $origin_airports,
+            $flt_incl_carrier, $flt_incl_type, $dep_facilities, $comments,
+            $adv_number, $advisory_text, $id]);
     } else {
         $sql = "INSERT INTO tmi_ground_stops (
-            status,
-            name,
-            ctl_element,
-            element_type,
-            airports,
-            start_utc,
-            end_utc,
-            prob_ext,
-            origin_centers,
-            origin_airports,
-            flt_incl_carrier,
-            flt_incl_type,
-            dep_facilities,
-            comments,
-            adv_number,
-            advisory_text
-        ) VALUES (
-            '$status',
-            '$name',
-            '$ctl_element',
-            '$element_type',
-            '$airports',
-            '$start_utc',
-            '$end_utc',
-            '$prob_ext',
-            '$origin_centers',
-            '$origin_airports',
-            '$flt_incl_carrier',
-            '$flt_incl_type',
-            '$dep_facilities',
-            '$comments',
-            '$adv_number',
-            '$advisory_text'
-        )";
-        $conn_pdo->exec($sql);
+            status, name, ctl_element, element_type, airports,
+            start_utc, end_utc, prob_ext, origin_centers, origin_airports,
+            flt_incl_carrier, flt_incl_type, dep_facilities, comments,
+            adv_number, advisory_text
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $conn_pdo->prepare($sql);
+        $stmt->execute([$status, $name, $ctl_element, $element_type, $airports,
+            $start_utc, $end_utc, $prob_ext, $origin_centers, $origin_airports,
+            $flt_incl_carrier, $flt_incl_type, $dep_facilities, $comments,
+            $adv_number, $advisory_text]);
         $id = (int)$conn_pdo->lastInsertId();
     }
 

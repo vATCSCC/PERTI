@@ -53,32 +53,49 @@ if (!validate_plan_org($id, $conn_sqli)) {
 }
 $org = get_org_code();
 
-// Delete plan and all child records (validate_plan_org already checked access)
-if (is_org_global()) {
-    $org_clause = "1=1";
-} else {
-    $org_clause = "(org_code='$org' OR org_code IS NULL)";
-}
-$query = $conn_sqli->multi_query("DELETE FROM p_plans WHERE id=$id AND $org_clause;
-                                DELETE FROM p_configs WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_dcc_staffing WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_enroute_constraints WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_enroute_init WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_enroute_planning WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_enroute_staffing WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_forecast WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_group_flights WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_historical WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_op_goals WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_terminal_constraints WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_terminal_init WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_terminal_planning WHERE p_id=$id AND $org_clause;
-                                DELETE FROM p_terminal_staffing WHERE p_id=$id AND $org_clause");
+// Delete plan and all child records (prepared statements, validate_plan_org already checked access)
+// Note: $id is already intval'd, $org comes from get_org_code() (session-controlled)
+// Child tables don't have org_code column, so only p_plans needs the org filter
+$tables = [
+    ['p_plans', 'id'],
+    ['p_configs', 'p_id'],
+    ['p_dcc_staffing', 'p_id'],
+    ['p_enroute_constraints', 'p_id'],
+    ['p_enroute_init', 'p_id'],
+    ['p_enroute_planning', 'p_id'],
+    ['p_enroute_staffing', 'p_id'],
+    ['p_forecast', 'p_id'],
+    ['p_group_flights', 'p_id'],
+    ['p_historical', 'p_id'],
+    ['p_op_goals', 'p_id'],
+    ['p_terminal_constraints', 'p_id'],
+    ['p_terminal_init', 'p_id'],
+    ['p_terminal_planning', 'p_id'],
+    ['p_terminal_staffing', 'p_id'],
+];
 
-if ($query) {
-    http_response_code('200');
+$success = true;
+foreach ($tables as $tbl) {
+    $table = $tbl[0];
+    $col = $tbl[1];
+    if ($table === 'p_plans' && !is_org_global()) {
+        $stmt = $conn_sqli->prepare("DELETE FROM p_plans WHERE id=? AND (org_code=? OR org_code IS NULL)");
+        $stmt->bind_param("is", $id, $org);
+    } else {
+        $stmt = $conn_sqli->prepare("DELETE FROM `$table` WHERE `$col`=?");
+        $stmt->bind_param("i", $id);
+    }
+    if (!$stmt->execute()) {
+        error_log("perti/delete error on $table: " . $stmt->error);
+        $success = false;
+    }
+    $stmt->close();
+}
+
+if ($success) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    http_response_code(500);
 }
 
 ?>

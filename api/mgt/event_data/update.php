@@ -49,13 +49,16 @@ $image_url = post_input('image_url');
 $source_url = post_input('source_url');
 
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE r_data SET summary='$summary', image_url='$image_url', source_url='$source_url'  WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE r_data SET summary=?, image_url=?, source_url=? WHERE id=?");
+$stmt->bind_param("sssi", $summary, $image_url, $source_url, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("event_data/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

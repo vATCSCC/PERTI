@@ -52,13 +52,16 @@ $ntml = post_input('ntml');
 $tmi = post_input('tmi');
 $ace = post_input('ace');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE r_scores SET staffing='$staffing', tactical='$tactical', other='$other', perti='$perti', ntml='$ntml', tmi='$tmi', ace='$ace' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE r_scores SET staffing=?, tactical=?, other=?, perti=?, ntml=?, tmi=?, ace=? WHERE id=?");
+$stmt->bind_param("sssssssi", $staffing, $tactical, $other, $perti, $ntml, $tmi, $ace, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("scores/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

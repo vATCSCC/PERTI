@@ -52,13 +52,16 @@ $eta = post_input('eta');
 $pilot_quantity = post_input('pilot_quantity');
 $route = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['route'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_group_flights SET entity='$entity', dep='$dep', arr='$arr', etd='$etd', eta='$eta', pilot_quantity='$pilot_quantity', route='$route' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_group_flights SET entity=?, dep=?, arr=?, etd=?, eta=?, pilot_quantity=?, route=? WHERE id=?");
+$stmt->bind_param("sssssssi", $entity, $dep, $arr, $etd, $eta, $pilot_quantity, $route, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("group_flights/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

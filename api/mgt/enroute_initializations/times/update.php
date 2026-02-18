@@ -38,13 +38,16 @@ if ($perm === true) {
         $probability = 4;
     }
 
-    $query = $conn_sqli->query("UPDATE p_enroute_init_times SET probability='$probability' WHERE id=$id");
+    $stmt = $conn_sqli->prepare("UPDATE p_enroute_init_times SET probability=? WHERE id=?");
+    $stmt->bind_param("ii", $probability, $id);
 
-    if ($query) {
+    if ($stmt->execute()) {
         http_response_code(200);
     } else {
+        error_log("enroute_initializations/times/update error: " . $stmt->error);
         http_response_code(500);
     }
+    $stmt->close();
 } else {
     http_response_code(403);
 }
