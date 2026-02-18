@@ -54,10 +54,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_dcc_staffing (p_id, position_name, position_facility, personnel_name, personnel_ois) VALUES ('$p_id', '$position_name', '$position_facility', '$personnel_name', '$personnel_ois')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_dcc_staffing (p_id, position_name, position_facility, personnel_name, personnel_ois) VALUES (?, ?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $position_name, $position_facility, $personnel_name, $personnel_ois]);
 
     $conn_pdo->commit();
     http_response_code(200);

@@ -54,11 +54,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO r_data (p_id, summary, image_url, source_url)
-    VALUES ('$p_id', '$summary', '$image_url', '$source_url')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO r_data (p_id, summary, image_url, source_url) VALUES (?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $summary, $image_url, $source_url]);
 
     $conn_pdo->commit();
     http_response_code(200);

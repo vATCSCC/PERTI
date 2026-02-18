@@ -51,10 +51,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_op_goals (comments, p_id) VALUES ('$comments', '$p_id')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_op_goals (comments, p_id) VALUES (?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$comments, $p_id]);
 
     $conn_pdo->commit();
     http_response_code(200);
