@@ -834,7 +834,7 @@ const GDP = (function() {
             sessionStorage.setItem('tmi_gdp_handoff', JSON.stringify(tmiHandoff));
 
             // Navigate to TMI Publishing page with GDP tab active
-            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&program_id=' + (state.programId || '') + '#gsgdpPanel';
+            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=gdp&program_id=' + (state.programId || '') + '#gsgdpPanel';
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);
