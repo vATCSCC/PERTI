@@ -355,15 +355,69 @@ def cluster_crossings_by_trajectory(crossings: List, trajectory_cache: dict,
     PostGIS operates on true geographic coordinates with proper distance metrics.
     """
     if not gis_conn:
-        logger.warning("  No GIS connection — falling back to single stream")
-        return {0: list(crossings)} if crossings else {}
+        logger.warning("  No GIS connection — falling back to bearing-based clustering")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
 
     try:
-        return _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
-                                     gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points)
+        postgis_result = _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
+                                               gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points)
     except Exception as e:
-        logger.warning(f"  PostGIS clustering failed ({e}) — falling back to single stream")
-        return {0: list(crossings)} if crossings else {}
+        logger.warning(f"  PostGIS clustering failed ({e}) — falling back to bearing-based")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
+
+    # Validate bearing coherence of PostGIS clusters
+    # If streams have high bearing variance, spatial clustering created
+    # non-directional groups (common at convergence fixes like DADES)
+    return _validate_stream_coherence(crossings, postgis_result)
+
+
+def _validate_stream_coherence(crossings, postgis_result, max_spread_deg=55.0):
+    """
+    Validate that PostGIS-produced streams have directionally coherent bearings.
+
+    At junction fixes (SEEVR), PostGIS correctly separates corridors because
+    flights from different directions occupy distinct geographic space upstream.
+    At convergence fixes (DADES), trajectories from many origins overlap
+    spatially, producing streams with mixed bearings — these are not useful
+    for directional pairing.
+
+    For each stream, compute circular bearing spread (angular std dev).
+    If the majority of flights are in incoherent streams (spread > max_spread_deg),
+    fall back to bearing-based clustering which directly separates by direction.
+
+    Args:
+        crossings: Original crossing list
+        postgis_result: Dict from PostGIS clustering {stream_id -> [crossings]}
+        max_spread_deg: Maximum acceptable bearing spread per stream (default 55°)
+
+    Returns:
+        PostGIS result if coherent, bearing-based result if not
+    """
+    if len(postgis_result) <= 1:
+        return postgis_result
+
+    total_flights = sum(len(cx) for cx in postgis_result.values())
+    incoherent_flights = 0
+
+    for sid, cx_list in postgis_result.items():
+        if sid == -1:
+            continue
+        meta = compute_stream_metadata(cx_list)
+        spread = meta.get('bearing_spread', 0)
+        if spread > max_spread_deg:
+            incoherent_flights += len(cx_list)
+            logger.info(f"    Stream {sid}: bearing spread {spread}° > {max_spread_deg}° threshold "
+                       f"({len(cx_list)} flights)")
+
+    incoherent_pct = (incoherent_flights / total_flights * 100) if total_flights > 0 else 0
+
+    if incoherent_pct > 40:
+        logger.info(f"    PostGIS clustering incoherent: {incoherent_pct:.0f}% of flights in "
+                   f"high-spread streams — falling back to bearing-based clustering")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
+
+    logger.info(f"    PostGIS clustering validated: {incoherent_pct:.0f}% incoherent (threshold 40%)")
+    return postgis_result
 
 
 def _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
@@ -2698,27 +2752,82 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
         # 3. For each flight, select the appropriate crossing point
-        # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
-        # For facility-specific MITs (with provider:requestor), ONLY use boundary crossings.
-        # The fix identifies the stream but the MIT applies at the handoff point.
-        # Flights that don't cross the provider->requestor boundary aren't subject to this MIT.
+        # For facility-pair MITs (e.g., DEPDY 25MIT N90:ZDC):
+        #   - The BOUNDARY (handoff point) is the measurement point
+        #   - The FIX is a FILTER (only flights that pass through this fix)
+        # Strategy: fix crossing gates the flight in, boundary is measurement
+        #   a) Fix crossing + boundary: use BOUNDARY (handoff = measurement)
+        #   b) Fix crossing only, split MIT: SKIP (can't determine provider)
+        #   b') Fix crossing only, non-split: use fix (boundary detection missed handoff)
+        #   c) Boundary only, near fix: use boundary (sparse trajectory missed fix)
+        #   d) Boundary only, far from fix: skip (flight doesn't traverse this fix)
         has_facility_pair = bool(tmi.provider and tmi.requestor)
+        is_split_mit = bool(tmi.group_id)  # Multiple providers for same fix
+        fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
+        fix_lon_coord = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
+
+        # Tight proximity for boundary-only fallback (no fix crossing confirmation)
+        proximity_nm = 40.0
+
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
+        skipped_far = 0
+        skipped_no_boundary = 0
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
-            if bnd_cx:
-                # Boundary crossing found - always use it
+            if has_facility_pair and fix and fix_lat_coord is not None:
+                # Facility-pair MIT: fix crossing gates entry, boundary is measurement
+                has_fix_cx = fix_cx is not None
+                bnd_near_fix = False
+                if bnd_cx and bnd_cx.lat and bnd_cx.lon:
+                    bnd_near_fix = haversine_nm(bnd_cx.lat, bnd_cx.lon,
+                                                fix_lat_coord, fix_lon_coord) <= proximity_nm
+
+                if has_fix_cx and bnd_cx:
+                    # Flight confirmed through fix AND has boundary crossing
+                    # Use boundary (handoff point) as measurement
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
+                elif has_fix_cx and not bnd_cx:
+                    if is_split_mit:
+                        # Split MIT: can't determine which provider without boundary.
+                        # Skip to prevent cross-provider contamination.
+                        # (e.g., SEEVR flight from ZKC skipped for ZFW:ZME sub-MIT)
+                        skipped_no_boundary += 1
+                    else:
+                        # Single-provider MIT: fix crossing is sufficient proof
+                        # that flight passes through this fix's traffic flow.
+                        # Boundary detection may have missed the handoff.
+                        crossings.append(fix_cx)
+                        measurement_stats['fix'] += 1
+                elif bnd_near_fix:
+                    # No fix crossing but boundary is very close to fix —
+                    # trajectory too sparse for fix detection, accept boundary
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
+                elif bnd_cx:
+                    # Boundary far from fix, no fix crossing — flight doesn't
+                    # traverse this fix (e.g., KATL traffic at TPA TRACON
+                    # boundary counted against MAATY MIT)
+                    skipped_far += 1
+                # else: no crossing at all for this callsign
+            elif bnd_cx:
+                # No facility pair or no fix — use boundary crossing as-is
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
-            elif fix_cx and not has_facility_pair:
-                # Fix fallback ONLY for TMIs without a facility pair
-                # (facility-specific MITs require boundary crossing)
+            elif fix_cx:
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
+
+        if skipped_far > 0:
+            logger.info(f"  Filtered {skipped_far} boundary crossings: no fix crossing "
+                       f"and >{proximity_nm}nm from {fix}")
+        if skipped_no_boundary > 0:
+            logger.info(f"  Skipped {skipped_no_boundary} fix-only crossings: split MIT, "
+                       f"no {tmi.provider}->{tmi.requestor} boundary detected")
 
         # Determine overall measurement type based on what was actually used
         if has_facility_pair:

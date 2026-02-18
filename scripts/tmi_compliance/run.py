@@ -416,8 +416,8 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             # Split multi-provider TMIs into separate per-boundary TMI objects
             # e.g., provider="ZME,ZKC" with requestor="ZFW" becomes two TMIs:
             #   ZFW:ZME and ZFW:ZKC — each analyzed at its own boundary
-            raw_provider = pt.get('provider', '')
-            raw_requestor = pt.get('requestor', '')
+            raw_provider = pt.get('provider') or ''
+            raw_requestor = pt.get('requestor') or ''
 
             if ',' in raw_provider and tmi_type not in (TMIType.GS, TMIType.REROUTE):
                 provider_list = [p.strip() for p in raw_provider.split(',') if p.strip()]
