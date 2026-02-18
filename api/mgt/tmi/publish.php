@@ -801,7 +801,11 @@ function saveAdvisoryToDatabase($conn, $entry, $rawText, $status, $userCid, $use
         'OPSPLAN' => 'Operations Plan',
         'FREEFORM' => $data['subject'] ?? 'General Advisory',
         'HOTLINE' => 'Hotline ' . ($data['hotline_action'] ?? 'Advisory'),
-        'SWAP' => 'SWAP ' . ($data['swap_type'] ?? 'Advisory')
+        'SWAP' => 'SWAP ' . ($data['swap_type'] ?? 'Advisory'),
+        'GDP' => 'Ground Delay Program' . (isset($data['airport']) && $data['airport'] ? ' - ' . $data['airport'] : ''),
+        'GS' => 'Ground Stop' . (isset($data['airport']) && $data['airport'] ? ' - ' . $data['airport'] : ''),
+        'GDP_CANCEL' => 'GDP Cancellation' . (isset($data['airport']) && $data['airport'] ? ' - ' . $data['airport'] : ''),
+        'GS_CANCEL' => 'GS Cancellation' . (isset($data['airport']) && $data['airport'] ? ' - ' . $data['airport'] : ''),
     ];
     $subject = $subjectMap[$advisoryType] ?? $advisoryType;
     

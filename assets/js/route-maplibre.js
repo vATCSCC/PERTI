@@ -6753,10 +6753,12 @@ $(document).ready(function() {
 
             console.log('[DRAFT-TMI] Prepared reroute data:', rerouteData);
 
-            // Store in sessionStorage for immediate transfer
+            // Store handoff data; keep a localStorage fallback for new-tab flows.
             try {
                 sessionStorage.setItem('tmi_reroute_draft', JSON.stringify(rerouteData));
                 sessionStorage.setItem('tmi_reroute_draft_timestamp', Date.now().toString());
+                localStorage.setItem('tmi_reroute_draft', JSON.stringify(rerouteData));
+                localStorage.setItem('tmi_reroute_draft_timestamp', Date.now().toString());
                 console.log('[DRAFT-TMI] Stored draft in sessionStorage');
             } catch (e) {
                 console.error('[DRAFT-TMI] Failed to store in sessionStorage:', e);
@@ -6769,7 +6771,7 @@ $(document).ready(function() {
             }
 
             // Open TMI Publisher in new tab with reroute mode
-            window.open('/tmi-publish.php?mode=reroute#reroutePanel', '_blank');
+            window.open('tmi-publish.php?mode=reroute&tab=reroute#reroutePanel', '_blank');
 
         } catch (err) {
             console.error('[DRAFT-TMI] Error preparing draft:', err);

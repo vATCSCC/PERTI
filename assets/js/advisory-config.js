@@ -1,6 +1,6 @@
 /**
  * Advisory Organization Configuration
- * Allows users to switch between US DCC (vATCSCC) and Canadian NOC (vNAVCAN) advisory formats.
+ * Allows users to switch between US DCC (vATCSCC) and Canadian NOC (CANOC) advisory formats.
  */
 window.AdvisoryConfig = (function() {
     'use strict';
@@ -8,11 +8,15 @@ window.AdvisoryConfig = (function() {
     const STORAGE_KEY = 'perti_advisory_org';
     const ORG_TYPES = {
         DCC: { prefix: 'vATCSCC', facility: 'DCC', name: 'US DCC' },
-        NOC: { prefix: 'vNAVCAN', facility: 'NOC', name: 'Canadian NOC' },
+        NOC: { prefix: 'CANOC', facility: 'NOC', name: 'Canadian NOC' },
     };
     const DEFAULT_ORG = 'DCC';
 
     function getOrgType() {
+        // Auto-detect from session org context if available
+        if (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') {
+            return 'NOC';
+        }
         return localStorage.getItem(STORAGE_KEY) || DEFAULT_ORG;
     }
 

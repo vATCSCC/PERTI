@@ -64,6 +64,8 @@ const PERTI_ADVISORY_TYPES = [
     'INFORMATIONAL', 'MISCELLANEOUS',
     // API-only extensions (not in JS)
     'MIT', 'MINIT', 'SWAP', 'TOS', 'HOTLINE', 'FREEFORM', 'ATCSCC',
+    // Cancellation types (from TMI Publisher)
+    'GDP_CANCEL', 'GS_CANCEL',
     // Backward-compatible aliases (deprecated, use canonical names above)
     'OPS_PLAN', 'GENERAL',
 ];
