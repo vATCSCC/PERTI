@@ -13,7 +13,7 @@ define('ORG_CONTEXT_LOADED', true);
 
 /**
  * Get active org code from session
- * @return string 'vatcscc' or 'vatcan'
+ * @return string 'vatcscc', 'canoc', 'ecfmp', etc.
  */
 function get_org_code(): string {
     return $_SESSION['ORG_CODE'] ?? 'vatcscc';
@@ -49,7 +49,7 @@ function require_org_privileged(): void {
 
 /**
  * Get all orgs for current user
- * @return array e.g. ['vatcscc', 'vatcan']
+ * @return array e.g. ['vatcscc', 'canoc']
  */
 function get_user_orgs(): array {
     return $_SESSION['ORG_ALL'] ?? ['vatcscc'];

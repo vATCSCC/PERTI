@@ -151,9 +151,9 @@ if (!defined("SQL_USERNAME")) {
             'testing_only' => true  // Only available in dev/test
         ],
         
-        // VATCAN - Virtual Air Traffic Control Association of Canada
-        'vatcan' => [
-            'name' => 'VATCAN',
+        // CANOC - Canadian National Operations Centre
+        'canoc' => [
+            'name' => 'CANOC',
             'region' => 'CA',
             'guild_id' => null,          // VATCAN to provide
             'channels' => [

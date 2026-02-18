@@ -40,7 +40,7 @@ if (defined('DEV') && DEV === true) {
     $_SESSION['ORG_CODE'] = 'vatcscc';
     $_SESSION['ORG_PRIVILEGED'] = true;
     $_SESSION['ORG_GLOBAL'] = true;
-    $_SESSION['ORG_ALL'] = ['vatcscc', 'vatcan', 'ecfmp'];
+    $_SESSION['ORG_ALL'] = ['vatcscc', 'canoc', 'ecfmp'];
 }
 
 // Session data is now simply read from PHP's native session storage.

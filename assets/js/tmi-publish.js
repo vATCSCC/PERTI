@@ -4972,7 +4972,7 @@
         // Auto-check partner org if cross-border detected
         if (crossBorder && CONFIG.crossBorderAutoDetect) {
             if (reqFac?.startsWith('CZ') || provFac?.startsWith('CZ')) {
-                $('#org_vatcan').prop('checked', true);
+                $('#org_canoc').prop('checked', true);
             }
             if (reqFac?.startsWith('Z') || provFac?.startsWith('Z')) {
                 $('#org_vatcscc').prop('checked', true);

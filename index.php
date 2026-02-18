@@ -478,7 +478,7 @@ include('load/nav.php');
 
             // Auto-default org based on hotline selection
             function hotlineToOrg(hotline) {
-                if (hotline === 'Canada East' || hotline === 'Canada West') return 'vatcan';
+                if (hotline === 'Canada East' || hotline === 'Canada West') return 'canoc';
                 return '';
             }
             $('select[name="hotline"]').on('change', function() {

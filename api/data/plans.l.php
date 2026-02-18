@@ -195,11 +195,11 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     $plan_org = $data['org_code'] ?? null;
     if ($plan_org === null) {
         $scope_badge = '<i class="fas fa-globe-americas text-muted fa-sm" data-toggle="tooltip" title="Global" style="margin-right: 4px;"></i>';
-    } elseif ($plan_org === 'vatcan') {
-        $scope_badge = '<span class="badge" data-toggle="tooltip" title="NOC Only" style="font-size: 0.65em; margin-right: 4px; background: #d32f2f; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.3); min-width: 30px; text-align: center;">NOC <img src="https://flagcdn.com/12x9/ca.png" width="12" height="9" alt="" style="vertical-align: baseline; margin-left: 2px;"></span>';
+    } elseif ($plan_org === 'canoc') {
+        $scope_badge = '<span class="badge" data-toggle="tooltip" title="CANOC Only" style="font-size: 0.65em; margin-right: 4px; background: #d32f2f; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.3); min-width: 36px; text-align: center;">CANOC <img src="https://flagcdn.com/12x9/ca.png" width="12" height="9" alt="" style="vertical-align: baseline; margin-left: 2px;"></span>';
     } else {
         $scope_label = $org_display[$plan_org] ?? strtoupper($plan_org);
-        $scope_badge = '<span class="badge badge-dark" data-toggle="tooltip" title="' . $scope_label . ' Only" style="font-size: 0.65em; margin-right: 4px;">' . $scope_label . '</span>';
+        $scope_badge = '<span class="badge badge-dark" data-toggle="tooltip" title="' . $scope_label . ' Only" style="font-size: 0.65em; margin-right: 4px; min-width: 36px; text-align: center;">' . $scope_label . '</span>';
     }
 
     // Status badge

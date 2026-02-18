@@ -56,7 +56,7 @@ class MultiDiscordAPI {
     /** @var array Region to org code mappings */
     private static $regionOrgMap = [
         'US' => 'vatcscc',
-        'CA' => 'vatcan',
+        'CA' => 'canoc',
         'EU' => 'ecfmp',
     ];
     
@@ -127,7 +127,7 @@ class MultiDiscordAPI {
     /**
      * Get organization configuration by code
      * 
-     * @param string $orgCode Organization code (e.g., 'vatcscc', 'vatcan')
+     * @param string $orgCode Organization code (e.g., 'vatcscc', 'canoc')
      * @return array|null Organization config or null if not found
      */
     public function getOrganization(string $orgCode): ?array {

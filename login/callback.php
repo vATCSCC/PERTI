@@ -113,7 +113,7 @@ if (isset($_GET['code'])) {
                 $division = $obj_at['data']['vatsim']['division']['id'] ?? null;
                 $auto_org = 'vatcscc';
                 if ($division === 'VATCAN' || $division === 'CAN') {
-                    $auto_org = 'vatcan';
+                    $auto_org = 'canoc';
                 }
 
                 // Check if user already has org assignment

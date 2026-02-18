@@ -196,7 +196,7 @@
       "dccRegion": "NOC Region",
       "colorsDesc": "Add <code>;colour</code> or <code>;#hex</code> at end (e.g., <code>FIX1 J60 FIX2;red</code>)",
       "filtersDesc": "Colour flights by weight class, carrier, ACC, altitude, etc. Filter by aircraft type",
-      "advisoryExpandDesc": "Expand panel below map to generate VATCAN reroute advisories",
+      "advisoryExpandDesc": "Expand panel below map to generate CANOC reroute advisories",
       "colorBy": "Colour By",
       "depCenter": "Departure ACC",
       "arrCenter": "Arrival ACC",
@@ -214,12 +214,12 @@
   "review": {
     "page": {
       "hostArtcc": "Host ACC",
-      "linkToAdvzy": "Link to VATCAN ADVZY / Operational Plan"
+      "linkToAdvzy": "Link to CANOC ADVZY / Operational Plan"
     }
   },
   "schedule": {
     "page": {
-      "title": "VATCAN Admin"
+      "title": "CANOC Admin"
     }
   },
   "plan": {
@@ -227,15 +227,15 @@
       "dccStaffing": "NOC Staffing"
     },
     "overview": {
-      "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the VATCAN Discord.",
-      "resourceTransgression": "VATCAN Trangression Reporting Form",
+      "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the CANOC Discord.",
+      "resourceTransgression": "CANOC Transgression Reporting Form",
       "resourceGdtDesc": "for ground delay programme/ground stop management."
     },
     "dcc": {
       "dccPersonnel": "NOC Personnel"
     },
     "advisory": {
-      "cardTitle": "VATCAN Advisory Builder (Discord)"
+      "cardTitle": "CANOC Advisory Builder (Discord)"
     },
     "pertiModal": {
       "usArtccs": "US ACCs"
@@ -338,15 +338,15 @@
     }
   },
   "org": {
-    "name": "VATCAN",
-    "displayName": "NOC",
+    "name": "CANOC",
+    "displayName": "CANOC",
     "airspace": "Canadian Domestic Airspace",
     "commandCenter": "National Operations Centre",
     "facilityType": "ACC",
     "facilityTypePlural": "ACCs"
   },
   "home": {
-    "welcome": "Welcome to VATCAN's"
+    "welcome": "Welcome to CANOC's"
   },
   "swim": {
     "page": {
@@ -356,15 +356,15 @@
     }
   },
   "privacy": {
-    "registrationText": "In order to use our services, you must be a registered and active VATSIM member. By logging into our services via the VATSIM Connent oAuth system, VATSIM provides information to VATCAN for use on our website. When logging in via Connect, the information which is provided to our services is explicitly detailed and you must consent to this information being shared with us prior to logging in. Some parts of our systems are accessible without registration or authentication. Despite not being required to log in to these services with personal credentials, data will be logged. Data includes cookies, IP addresses, and other data which may result in you being identifiable. If you wish to utilize our services while retaining anonymity, this is possible by taking appropriate anonymisation measures within your browser's settings.",
-    "collectionIntro": "Information collected by the VATCAN, and responsible to the facility through the <a class=\"text-info\" href=\"https://www.vatsim.net/documents/data-protection-handling-policy\" target=\"_blank\">VATSIM Data Protection & Handling Policy</a>, and are displayed through this site in any matter, includes the following:",
-    "collectionItem2": "Details in regards to your VATSIM-specific \"controller\" identifier (CID) which is automatically generated through the vatsim.net services, and obtained by VATCAN through the VATSIM Connect system.",
-    "collectionRemoval": "You, as a user of this website, under authority of VATCAN, and a member under the VATSIM Network (vatsim.net); through the services of VATSIM, have the ability to request the removal of your data. To request your data be removed upon approval from VATSIM; through this website, you must contact vatusa9@vatusa.net (CC: vatusa14@vatusa.net).",
-    "sharingIntro": "The information collected by VATCAN may be shared with the following parties:",
-    "cookiesText": "VATCAN utilizes \"cookies\" that are stored through the user's hard drives, and are related to the client to store data relevant to each session that is created through the website. These cookies will allow you to view certain pages and functions not accessible to the general user.",
-    "thirdPartyText": "VATCAN does, and will display links that may or not be affiliated with our party, and as such are not responsible for the privacy policies and policies of each 3rd-party website. Our party encourages members to read these policies before proceeding to utilize the sites.",
-    "securityText": "VATCAN does not store passwords, and will not ask for passwords pertaining directly to our party. Our party will ensure that all data is properly secured, and these systems are protected and only granted authorization through explicitly granted access from permissions through the website, and the database.",
-    "changesText": "VATCAN must ensure to notify all members affected of any changes to this policy. All information collected prior to the date of a new policy are subject to the old policy's material, and can not be changed in any way of share without proper consent."
+    "registrationText": "In order to use our services, you must be a registered and active VATSIM member. By logging into our services via the VATSIM Connent oAuth system, VATSIM provides information to CANOC for use on our website. When logging in via Connect, the information which is provided to our services is explicitly detailed and you must consent to this information being shared with us prior to logging in. Some parts of our systems are accessible without registration or authentication. Despite not being required to log in to these services with personal credentials, data will be logged. Data includes cookies, IP addresses, and other data which may result in you being identifiable. If you wish to utilize our services while retaining anonymity, this is possible by taking appropriate anonymisation measures within your browser's settings.",
+    "collectionIntro": "Information collected by CANOC, and responsible to the facility through the <a class=\"text-info\" href=\"https://www.vatsim.net/documents/data-protection-handling-policy\" target=\"_blank\">VATSIM Data Protection & Handling Policy</a>, and are displayed through this site in any matter, includes the following:",
+    "collectionItem2": "Details in regards to your VATSIM-specific \"controller\" identifier (CID) which is automatically generated through the vatsim.net services, and obtained by CANOC through the VATSIM Connect system.",
+    "collectionRemoval": "You, as a user of this website, under authority of CANOC, and a member under the VATSIM Network (vatsim.net); through the services of VATSIM, have the ability to request the removal of your data. To request your data be removed upon approval from VATSIM; through this website, you must contact vatusa9@vatusa.net (CC: vatusa14@vatusa.net).",
+    "sharingIntro": "The information collected by CANOC may be shared with the following parties:",
+    "cookiesText": "CANOC utilizes \"cookies\" that are stored through the user's hard drives, and are related to the client to store data relevant to each session that is created through the website. These cookies will allow you to view certain pages and functions not accessible to the general user.",
+    "thirdPartyText": "CANOC does, and will display links that may or not be affiliated with our party, and as such are not responsible for the privacy policies and policies of each 3rd-party website. Our party encourages members to read these policies before proceeding to utilize the sites.",
+    "securityText": "CANOC does not store passwords, and will not ask for passwords pertaining directly to our party. Our party will ensure that all data is properly secured, and these systems are protected and only granted authorization through explicitly granted access from permissions through the website, and the database.",
+    "changesText": "CANOC must ensure to notify all members affected of any changes to this policy. All information collected prior to the date of a new policy are subject to the old policy's material, and can not be changed in any way of share without proper consent."
   },
   "simulator": {
     "page": {
@@ -413,7 +413,7 @@
     }
   },
   "footer": {
-    "copyright": "Copyright © {year} VATCAN - All Rights Reserved."
+    "copyright": "Copyright © {year} CANOC - All Rights Reserved."
   },
   "weather": {
     "colors": "Colours:"
