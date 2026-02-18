@@ -1205,15 +1205,26 @@ class TMIComplianceAnalyzer:
                     logger.warning(f"GIS connection unavailable (not required): {gis_err}")
                     self.gis_conn = None
 
-                # Load fix coordinates for all TMIs
+                # Load fix coordinates for all TMIs (fixes + destination airports)
                 all_fixes = set()
+                dest_airports = set()
                 for tmi in self.event.tmis:
                     if tmi.fix:
                         all_fixes.add(tmi.fix)
                     all_fixes.update(tmi.fixes)
+                    # Collect destination airports for upstream direction filtering
+                    for dest in (tmi.destinations or []):
+                        dest_airports.add(dest)
+                        dest_airports.add(f'K{dest}')  # ICAO variant
 
+                all_fixes.update(dest_airports)
                 if all_fixes:
                     self._load_fix_coordinates(list(all_fixes))
+
+                # Load airport coordinates for destinations not found in nav_fixes
+                missing_dests = [d for d in dest_airports if d not in self.fix_coords]
+                if missing_dests:
+                    self._load_airport_coordinates(missing_dests)
 
                 # Pre-load ALL flights to/from featured facilities
                 # This is the comprehensive approach - gather all flights that could
@@ -1373,6 +1384,26 @@ class TMIComplianceAnalyzer:
             }
             logger.info(f"  Fix {row[0]}: {row[1]:.4f}, {row[2]:.4f}")
 
+        cursor.close()
+
+    def _load_airport_coordinates(self, airport_codes: List[str]):
+        """Load airport coordinates from apts table for codes not in nav_fixes."""
+        cursor = self.adl_conn.cursor()
+        code_in = "'" + "','".join(airport_codes) + "'"
+        cursor.execute(f"""
+            SELECT ICAO_ID, LAT_DECIMAL, LONG_DECIMAL FROM dbo.apts
+            WHERE ICAO_ID IN ({code_in})
+            UNION
+            SELECT ARPT_ID, LAT_DECIMAL, LONG_DECIMAL FROM dbo.apts
+            WHERE ARPT_ID IN ({code_in})
+        """)
+        for row in cursor.fetchall():
+            if row[0] and row[1] is not None and row[2] is not None:
+                self.fix_coords[row[0]] = {
+                    'lat': float(row[1]),
+                    'lon': float(row[2])
+                }
+                logger.info(f"  Airport {row[0]}: {row[1]:.4f}, {row[2]:.4f}")
         cursor.close()
 
     def _preload_trajectories(self, callsigns: List[str]):
@@ -2081,15 +2112,20 @@ class TMIComplianceAnalyzer:
                 cfrac = crossing_data['fraction']
 
                 # Check if this is the boundary we're looking for
+                # PostGIS returns ARTCC codes (KZBW), sector codes (ZBW01, ZBW17),
+                # and TRACON codes (A90, BOS). Match sectors by ARTCC prefix so
+                # ZBW01/ZBW17/etc. are recognized as "in ZBW".
                 is_provider_match = (
                     prev_facility in provider_codes or
-                    (provider_type == 'TRACON' and prev_facility and
-                     any(prev_facility.startswith(p.rstrip('0123456789')) for p in provider_codes))
+                    (prev_facility and any(
+                        prev_facility.startswith(p.rstrip('0123456789') if provider_type == 'TRACON' else p)
+                        for p in provider_codes))
                 )
                 is_requestor_match = (
                     facility_code in requestor_codes or
-                    (requestor_type == 'ARTCC' and
-                     any(facility_code.startswith(r.rstrip('0123456789')) for r in requestor_codes))
+                    (facility_code and any(
+                        facility_code.startswith(r.rstrip('0123456789') if requestor_type == 'TRACON' else r)
+                        for r in requestor_codes))
                 )
 
                 if is_provider_match and is_requestor_match:
@@ -2879,6 +2915,37 @@ class TMIComplianceAnalyzer:
         valid_crossings = [c for c in crossings if tmi.is_active_at(c.crossing_time)]
 
         logger.info(f"Valid crossings (in TMI window): {len(valid_crossings)}")
+
+        # Filter to upstream direction only — exclude flights heading AWAY from
+        # the destination (e.g., departures at arrival MIT fixes near airports).
+        # Only crossings heading roughly toward the destination are "upstream".
+        if tmi.destinations and fix and fix in self.fix_coords:
+            dest_icao = tmi.destinations[0]
+            # Try ICAO code directly, then with K prefix for US airports
+            dest_key = dest_icao if dest_icao in self.fix_coords else f'K{dest_icao}' if f'K{dest_icao}' in self.fix_coords else None
+            if dest_key and dest_key != fix:
+                dest_lat = self.fix_coords[dest_key]['lat']
+                dest_lon = self.fix_coords[dest_key]['lon']
+                fix_lat_f = self.fix_coords[fix]['lat']
+                fix_lon_f = self.fix_coords[fix]['lon']
+                expected_bearing = calculate_bearing(fix_lat_f, fix_lon_f, dest_lat, dest_lon)
+                upstream = []
+                downstream_count = 0
+                for c in valid_crossings:
+                    if c.bearing is not None:
+                        diff = abs(c.bearing - expected_bearing)
+                        if diff > 180:
+                            diff = 360 - diff
+                        if diff <= 90:
+                            upstream.append(c)
+                        else:
+                            downstream_count += 1
+                    else:
+                        upstream.append(c)  # No bearing data — keep conservatively
+                if downstream_count > 0:
+                    logger.info(f"  Filtered {downstream_count} downstream crossings "
+                               f"(heading away from {dest_icao}, expected bearing ~{expected_bearing:.0f})")
+                    valid_crossings = upstream
 
         if len(valid_crossings) < 2:
             return {
