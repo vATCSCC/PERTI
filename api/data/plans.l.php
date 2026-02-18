@@ -191,20 +191,12 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     $hotline = $data['hotline'] ?? '';
     $hotline_badge = $hotline_badges[$hotline] ?? ($hotline !== '' ? substr($hotline, 0, 1) : 'UNK');
 
-    // Region icons
-    $icon_prefix = '';
-    if ($hotline !== '' && strpos($hotline, 'Canada') === 0) {
-        $icon_prefix = '<img src="https://flagcdn.com/20x15/ca.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
-    } elseif ($hotline === 'Mexico') {
-        $icon_prefix = '<img src="https://flagcdn.com/20x15/mx.png" width="20" height="15" alt="" style="vertical-align: middle; margin-right: 4px;">';
-    } elseif ($hotline === 'Caribbean') {
-        $icon_prefix = '<i class="fas fa-tree fa-sm text-success" style="margin-right: 4px;"></i>';
-    }
-
-    // Scope badge
+    // Scope badge (per-org themed)
     $plan_org = $data['org_code'] ?? null;
     if ($plan_org === null) {
         $scope_badge = '<i class="fas fa-globe-americas text-muted fa-sm" data-toggle="tooltip" title="Global" style="margin-right: 4px;"></i>';
+    } elseif ($plan_org === 'vatcan') {
+        $scope_badge = '<span class="badge" data-toggle="tooltip" title="NOC Only" style="font-size: 0.65em; margin-right: 4px; background: linear-gradient(135deg, #d32f2f 40%, #fff 40%, #fff 60%, #d32f2f 60%); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.4);">NOC <img src="https://flagcdn.com/12x9/ca.png" width="12" height="9" alt="" style="vertical-align: baseline; margin-left: 2px;"></span>';
     } else {
         $scope_label = $org_display[$plan_org] ?? strtoupper($plan_org);
         $scope_badge = '<span class="badge badge-dark" data-toggle="tooltip" title="' . $scope_label . ' Only" style="font-size: 0.65em; margin-right: 4px;">' . $scope_label . '</span>';
@@ -224,7 +216,7 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     echo '<tr class="' . $row_class . '">';
 
     // Event name + badges + annotations
-    echo '<td>' . $scope_badge . $icon_prefix . htmlspecialchars($data['event_name']) . ' <span class="badge badge-secondary" data-toggle="tooltip" title="' . htmlspecialchars($hotline) . ' Hotline">' . $hotline_badge . '</span>' . $status_badge;
+    echo '<td>' . $scope_badge . htmlspecialchars($data['event_name']) . ' <span class="badge badge-secondary" data-toggle="tooltip" title="' . htmlspecialchars($hotline) . ' Hotline">' . $hotline_badge . '</span>' . $status_badge;
 
     if (!empty($overlaps[$data['id']])) {
         $ov_count = count($overlaps[$data['id']]);
