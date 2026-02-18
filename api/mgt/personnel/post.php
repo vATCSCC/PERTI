@@ -52,17 +52,26 @@ if (!is_array($orgs) || empty($orgs)) {
     $orgs = ['vatcscc'];
 }
 
+// Validate org codes exist in DB
+$valid_orgs_q = $conn_sqli->query("SELECT org_code FROM organizations WHERE is_active = 1");
+$valid_orgs = [];
+while ($vr = $valid_orgs_q->fetch_assoc()) { $valid_orgs[] = $vr['org_code']; }
+$orgs = array_filter($orgs, function($o) use ($valid_orgs) {
+    return in_array(preg_replace('/[^a-z]/', '', $o), $valid_orgs);
+});
+if (empty($orgs)) {
+    $orgs = ['vatcscc'];
+}
+
 // Insert Data into Database
 try {
 
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO users (cid, first_name, last_name)
-    VALUES ($n_cid, '$first_name', '$last_name')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $stmt_user = $conn_pdo->prepare("INSERT INTO users (cid, first_name, last_name) VALUES (?, ?, ?)");
+    $stmt_user->execute([$n_cid, $first_name, $last_name]);
 
     // Create org memberships
     $assigner_cid = intval($_SESSION['VATSIM_CID'] ?? 0);
