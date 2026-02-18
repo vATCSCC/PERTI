@@ -47,13 +47,16 @@ $date = post_input('date');
 $summary = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['summary'])));
 $image_url = post_input('image_url');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_forecast SET date='$date', summary='$summary', image_url='$image_url' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_forecast SET date=?, summary=?, image_url=? WHERE id=?");
+$stmt->bind_param("sssi", $date, $summary, $image_url, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("forecast/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

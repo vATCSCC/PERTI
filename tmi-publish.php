@@ -1662,7 +1662,7 @@ $perm = true;
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-times-circle mr-2"></i>Cancel Program</h5>
+                <h5 class="modal-title"><i class="fas fa-times-circle mr-2"></i><?= __('tmiPublish.cancel.cancelProgram') ?></h5>
                 <button type="button" class="close text-white" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
@@ -1672,80 +1672,80 @@ $perm = true;
                 <div class="alert alert-warning mb-3">
                     <div class="row">
                         <div class="col-md-4">
-                            <strong>Program:</strong>
+                            <strong><?= __('tmiPublish.cancel.programLabel') ?></strong>
                             <span id="cancelProgramType">--</span>
                         </div>
                         <div class="col-md-4">
-                            <strong>CTL Element:</strong>
+                            <strong><?= __('tmiPublish.cancel.ctlElementLabel') ?></strong>
                             <span id="cancelCtlElement">--</span>
                         </div>
                         <div class="col-md-4">
-                            <strong>Program ID:</strong>
+                            <strong><?= __('tmiPublish.cancel.programIdLabel') ?></strong>
                             <span id="cancelProgramId">--</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="font-weight-bold">Cancellation Reason <span class="text-danger">*</span></label>
+                    <label class="font-weight-bold"><?= __('tmiPublish.cancel.cancellationReason') ?> <span class="text-danger">*</span></label>
                     <select class="form-control" id="cancelReason">
-                        <option value="">-- Select Reason --</option>
-                        <option value="WEATHER_IMPROVEMENT">Weather Improvement</option>
-                        <option value="DEMAND_DECREASE">Demand Decrease</option>
-                        <option value="FACILITY_RESTORED">Facility/Equipment Restored</option>
-                        <option value="TRANSITION_TO_AFP">Transition to AFP</option>
-                        <option value="TRANSITION_TO_GDP">Transition to GDP</option>
-                        <option value="OPERATIONAL_NEED">Operational Need</option>
-                        <option value="USER_REQUEST">User Request</option>
-                        <option value="OTHER">Other</option>
+                        <option value=""><?= __('tmiPublish.cancel.selectReason') ?></option>
+                        <option value="WEATHER_IMPROVEMENT"><?= __('tmiPublish.cancel.weatherImprovement') ?></option>
+                        <option value="DEMAND_DECREASE"><?= __('tmiPublish.cancel.demandDecrease') ?></option>
+                        <option value="FACILITY_RESTORED"><?= __('tmiPublish.cancel.facilityRestored') ?></option>
+                        <option value="TRANSITION_TO_AFP"><?= __('tmiPublish.cancel.transitionToAfp') ?></option>
+                        <option value="TRANSITION_TO_GDP"><?= __('tmiPublish.cancel.transitionToGdp') ?></option>
+                        <option value="OPERATIONAL_NEED"><?= __('tmiPublish.cancel.operationalNeed') ?></option>
+                        <option value="USER_REQUEST"><?= __('tmiPublish.cancel.userRequest') ?></option>
+                        <option value="OTHER"><?= __('common.other') ?></option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="font-weight-bold">EDCT Instruction <span class="text-danger">*</span></label>
+                    <label class="font-weight-bold"><?= __('tmiPublish.cancel.edctInstruction') ?> <span class="text-danger">*</span></label>
                     <div class="custom-control custom-radio mb-2">
                         <input type="radio" class="custom-control-input" id="edctDisregard" name="edctAction" value="DISREGARD" checked>
                         <label class="custom-control-label" for="edctDisregard">
-                            <strong>DISREGARD EDCTS</strong> - All EDCTs for this program should be disregarded
+                            <strong>DISREGARD EDCTS</strong> - <?= __('tmiPublish.cancel.disregardEdctsDesc') ?>
                         </label>
                     </div>
                     <div class="custom-control custom-radio mb-2">
                         <input type="radio" class="custom-control-input" id="edctDisregardAfter" name="edctAction" value="DISREGARD_AFTER">
                         <label class="custom-control-label" for="edctDisregardAfter">
-                            <strong>DISREGARD AFTER</strong> - Disregard EDCTs after a specific time
+                            <strong>DISREGARD AFTER</strong> - <?= __('tmiPublish.cancel.disregardAfterDesc') ?>
                         </label>
                     </div>
                     <div id="edctAfterTimeGroup" class="ml-4 mt-2 mb-2" style="display: none;">
-                        <label class="small">Disregard After Time (UTC):</label>
+                        <label class="small"><?= __('tmiPublish.cancel.disregardAfterTime') ?></label>
                         <input type="datetime-local" class="form-control form-control-sm" id="edctAfterTime" style="width: 250px;">
                     </div>
                     <div class="custom-control custom-radio">
                         <input type="radio" class="custom-control-input" id="edctAfpActive" name="edctAction" value="AFP_ACTIVE">
                         <label class="custom-control-label" for="edctAfpActive">
-                            <strong>AFP ACTIVE</strong> - Flights may receive new EDCTs due to active AFP
+                            <strong>AFP ACTIVE</strong> - <?= __('tmiPublish.cancel.afpActiveDesc') ?>
                         </label>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="font-weight-bold">Additional Notes</label>
-                    <textarea class="form-control" id="cancelNotes" rows="2" placeholder="Optional notes about the cancellation"></textarea>
+                    <label class="font-weight-bold"><?= __('tmiPublish.cancel.additionalNotes') ?></label>
+                    <textarea class="form-control" id="cancelNotes" rows="2" placeholder="<?= __('tmiPublish.cancel.notesPlaceholder') ?>"></textarea>
                 </div>
 
                 <!-- Advisory Preview -->
                 <div class="card bg-dark text-white">
                     <div class="card-header py-2">
-                        <span class="font-weight-bold"><i class="fas fa-eye mr-1"></i> Cancellation Advisory Preview</span>
+                        <span class="font-weight-bold"><i class="fas fa-eye mr-1"></i> <?= __('tmiPublish.cancel.advisoryPreview') ?></span>
                     </div>
                     <div class="card-body">
-                        <pre id="cancelAdvisoryPreview" style="font-size: 0.8rem; white-space: pre-wrap; margin: 0; color: #00ff00;">Loading preview...</pre>
+                        <pre id="cancelAdvisoryPreview" style="font-size: 0.8rem; white-space: pre-wrap; margin: 0; color: #00ff00;"><?= __('common.loading') ?></pre>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.close') ?></button>
                 <button type="button" class="btn btn-danger" id="confirmCancelBtn">
-                    <i class="fas fa-times-circle mr-1"></i> Cancel Program
+                    <i class="fas fa-times-circle mr-1"></i> <?= __('tmiPublish.cancel.cancelProgram') ?>
                 </button>
             </div>
         </div>

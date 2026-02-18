@@ -48,14 +48,14 @@
         localAirportRow.classList.remove('show');
 
         // Clear facility select
-        facilitySelect.innerHTML = '<option value="">Select...</option>';
+        facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.select') + '</option>';
 
         // Clear role select
-        roleSelect.innerHTML = '<option value="">Select role...</option>';
+        roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
 
         if (!facType) {
-            facilitySelect.innerHTML = '<option value="">Select facility type first...</option>';
-            roleSelect.innerHTML = '<option value="">Select facility type first...</option>';
+            facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectFacilityTypeFirst') + '</option>';
+            roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectFacilityTypeFirst') + '</option>';
             JATOC.updateProfilePreview();
             return;
         }
@@ -65,9 +65,9 @@
             // Show DCC Services dropdown
             const services = DATA.DCC_SERVICES || [];
             if (services.length === 0) {
-                facilitySelect.innerHTML = '<option value="">No services available</option>';
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noServicesAvailable') + '</option>';
             } else {
-                facilitySelect.innerHTML = '<option value="">Select DCC Service...</option>';
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccService') + '</option>';
 
                 // Group services by group
                 const groups = {};
@@ -92,7 +92,7 @@
             }
 
             // Roles will be populated when a service is selected
-            roleSelect.innerHTML = '<option value="">Select DCC Service first...</option>';
+            roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
         }
         // Check if this is a single org type (no facility dropdown needed)
         else if (DATA.SINGLE_ORG_TYPES && DATA.SINGLE_ORG_TYPES.includes(facType)) {
@@ -103,7 +103,7 @@
             // Populate roles for single org types
             const roles = DATA.ROLES && DATA.ROLES[facType] ? DATA.ROLES[facType] : [];
             if (roles.length > 0) {
-                roleSelect.innerHTML = '<option value="">Select role...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
                 roles.forEach(role => {
                     const opt = document.createElement('option');
                     opt.value = role.code;
@@ -123,7 +123,7 @@
             // Populate roles
             const roles = DATA.ROLES && DATA.ROLES[facType] ? DATA.ROLES[facType] : [];
             if (roles.length > 0) {
-                roleSelect.innerHTML = '<option value="">Select role...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
                 roles.forEach(role => {
                     const opt = document.createElement('option');
                     opt.value = role.code;
@@ -140,7 +140,7 @@
             // Populate roles for LOCAL (use FACILITY roles)
             const roles = DATA.ROLES && DATA.ROLES.FACILITY ? DATA.ROLES.FACILITY : [];
             if (roles.length > 0) {
-                roleSelect.innerHTML = '<option value="">Select role...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
                 roles.forEach(role => {
                     const opt = document.createElement('option');
                     opt.value = role.code;
@@ -157,7 +157,7 @@
             // Populate roles
             const roles = DATA.ROLES && DATA.ROLES[facType] ? DATA.ROLES[facType] : [];
             if (roles.length > 0) {
-                roleSelect.innerHTML = '<option value="">Select role...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
                 roles.forEach(role => {
                     const opt = document.createElement('option');
                     opt.value = role.code;
@@ -171,9 +171,9 @@
             const facilities = DATA[facType] || [];
 
             if (facilities.length === 0) {
-                facilitySelect.innerHTML = '<option value="">No facilities available</option>';
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noFacilitiesAvailable') + '</option>';
             } else {
-                facilitySelect.innerHTML = '<option value="">Select facility...</option>';
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectFacility') + '</option>';
                 facilities.forEach(fac => {
                     const opt = document.createElement('option');
                     opt.value = fac.code;
@@ -188,7 +188,7 @@
             const roleKey = atcTypes.includes(facType) ? 'FACILITY' : facType;
             const roles = DATA.ROLES && DATA.ROLES[roleKey] ? DATA.ROLES[roleKey] : [];
             if (roles.length > 0) {
-                roleSelect.innerHTML = '<option value="">Select role...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
                 roles.forEach(role => {
                     const opt = document.createElement('option');
                     opt.value = role.code;
@@ -196,7 +196,7 @@
                     roleSelect.appendChild(opt);
                 });
             } else {
-                roleSelect.innerHTML = '<option value="">No roles available</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noRolesAvailable') + '</option>';
             }
         }
 
@@ -214,7 +214,7 @@
 
         // Check if this is DCC type - roles depend on selected service
         if (DATA.DCC_SERVICES_TYPE && DATA.DCC_SERVICES_TYPE.includes(facType)) {
-            roleSelect.innerHTML = '<option value="">Select role...</option>';
+            roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
 
             if (facility && DATA.DCC_ROLES && DATA.DCC_ROLES[facility]) {
                 const roles = DATA.DCC_ROLES[facility];
@@ -225,9 +225,9 @@
                     roleSelect.appendChild(opt);
                 });
             } else if (facility) {
-                roleSelect.innerHTML = '<option value="">No roles defined for this service</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noRolesForService') + '</option>';
             } else {
-                roleSelect.innerHTML = '<option value="">Select DCC Service first...</option>';
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
             }
         }
 
@@ -296,26 +296,26 @@
         } else if (DATA.IDENTIFIER_TYPES && DATA.IDENTIFIER_TYPES.includes(facType)) {
             facility = document.getElementById('orgIdentifier').value.trim().toUpperCase();
             if (!facility) {
-                alert('Please enter your organization identifier.');
+                alert(PERTII18n.t('jatoc.facilityPatch.validation.orgIdentifierRequired'));
                 return;
             }
         } else if (DATA.LOCAL_TYPES && DATA.LOCAL_TYPES.includes(facType)) {
             facility = document.getElementById('localAirportIcao').value.trim().toUpperCase();
             if (!facility || facility.length < 3) {
-                alert('Please enter a valid airport ICAO code.');
+                alert(PERTII18n.t('jatoc.facilityPatch.validation.invalidIcao'));
                 return;
             }
         } else if (DATA.CUSTOM_TYPES && DATA.CUSTOM_TYPES.includes(facType)) {
             facility = document.getElementById('customFacilityCode').value.trim().toUpperCase();
             customName = document.getElementById('customFacilityName').value.trim();
             if (!facility) {
-                alert('Please enter a facility code.');
+                alert(PERTII18n.t('jatoc.facilityPatch.validation.facilityCodeRequired'));
                 return;
             }
         } else if (DATA.DCC_SERVICES_TYPE && DATA.DCC_SERVICES_TYPE.includes(facType)) {
             facility = document.getElementById('profileFacility').value;
             if (!facility) {
-                alert('Please select a DCC Service.');
+                alert(PERTII18n.t('jatoc.facilityPatch.validation.selectDccService'));
                 return;
             }
         } else {
@@ -324,19 +324,19 @@
 
         // Validation
         if (!name) {
-            alert('Please enter your name.');
+            alert(PERTII18n.t('jatoc.facilityPatch.validation.nameRequired'));
             return;
         }
         if (!ois || ois.length !== 2) {
-            alert('Please enter 2-character operating initials.');
+            alert(PERTII18n.t('jatoc.facilityPatch.validation.oisRequired'));
             return;
         }
         if (!facType) {
-            alert('Please select a facility/organization type.');
+            alert(PERTII18n.t('jatoc.facilityPatch.validation.facilityTypeRequired'));
             return;
         }
         if (!role) {
-            alert('Please select a role.');
+            alert(PERTII18n.t('jatoc.facilityPatch.validation.roleRequired'));
             return;
         }
 

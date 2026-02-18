@@ -3102,7 +3102,7 @@ input[type="datetime-local"] {
                             
                             <div id="preset-no-position-selected" class="empty-state py-5">
                                 <div class="empty-state-icon">📍</div>
-                                <div class="empty-state-text">Select a position from the left to assign sectors,<br>or click "+ Add Position" to create one.</div>
+                                <div class="empty-state-text"><?= __('splits.page.presetNoPositionSelected') ?></div>
                             </div>
                         </div>
                     </div>

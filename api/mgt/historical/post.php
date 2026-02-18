@@ -55,10 +55,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_historical (p_id, title, date, summary, image_url, source_url) VALUES ('$p_id', '$title', '$date', '$summary', '$image_url', '$source_url')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_historical (p_id, title, date, summary, image_url, source_url) VALUES (?, ?, ?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $title, $date, $summary, $image_url, $source_url]);
 
     $conn_pdo->commit();
     http_response_code(200);
@@ -66,6 +66,7 @@ try {
 
 catch (PDOException $e) {
     $conn_pdo->rollback();
+    error_log("historical/post error: " . $e->getMessage());
     http_response_code(500);
 }
 

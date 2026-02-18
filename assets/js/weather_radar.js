@@ -58,48 +58,48 @@ const WeatherRadar = (function() {
 
     const PRODUCTS = {
         'nexrad-n0q': {
-            name: 'Base Reflectivity (N0Q)',
-            description: 'NEXRAD composite base reflectivity - primary radar display',
+            name: PERTII18n.t('weather.productN0q'),
+            description: PERTII18n.t('weather.productN0qDesc'),
             layer: 'nexrad-n0q',
             hasAnimation: true,
             unit: 'dBZ',
             range: [-30, 75],
         },
         'nexrad-n0q-900913': {
-            name: 'Base Reflectivity (Web Mercator)',
-            description: 'NEXRAD composite in EPSG:3857 projection',
+            name: PERTII18n.t('weather.productN0qWebMercator'),
+            description: PERTII18n.t('weather.productN0qWebMercatorDesc'),
             layer: 'nexrad-n0q-900913',
             hasAnimation: true,
             unit: 'dBZ',
             range: [-30, 75],
         },
         'nexrad-eet': {
-            name: 'Echo Tops (EET)',
-            description: 'NEXRAD echo tops - convective analysis',
+            name: PERTII18n.t('weather.productEet'),
+            description: PERTII18n.t('weather.productEetDesc'),
             layer: 'nexrad-eet',
             hasAnimation: true,
             unit: 'kft',
             range: [0, 70],
         },
         'q2-hsr': {
-            name: 'MRMS Reflectivity (HSR)',
-            description: 'Multi-Radar Multi-Sensor hybrid scan - highest quality',
+            name: PERTII18n.t('weather.productHsr'),
+            description: PERTII18n.t('weather.productHsrDesc'),
             layer: 'q2-hsr',
             hasAnimation: false,
             unit: 'dBZ',
             range: [-30, 75],
         },
         'q2-p1h': {
-            name: 'MRMS 1-Hour Precip',
-            description: 'MRMS estimated 1-hour precipitation',
+            name: PERTII18n.t('weather.productP1h'),
+            description: PERTII18n.t('weather.productP1hDesc'),
             layer: 'q2-n1p',
             hasAnimation: false,
             unit: 'inches',
             range: [0, 4],
         },
         'q2-p24h': {
-            name: 'MRMS 24-Hour Precip',
-            description: 'MRMS estimated 24-hour precipitation',
+            name: PERTII18n.t('weather.productP24h'),
+            description: PERTII18n.t('weather.productP24hDesc'),
             layer: 'q2-p24h',
             hasAnimation: false,
             unit: 'inches',
@@ -120,8 +120,8 @@ const WeatherRadar = (function() {
      */
     const COLOR_TABLES = {
         'NWS': {
-            name: 'NWS Standard',
-            description: 'National Weather Service standard colors',
+            name: PERTII18n.t('weather.colorNws'),
+            description: PERTII18n.t('weather.colorNwsDesc'),
             // These are the pre-rendered IEM colors - no client-side recoloring needed
             filter: 'none',
             legendColors: [
@@ -143,8 +143,8 @@ const WeatherRadar = (function() {
             ],
         },
         'FAA_ATC': {
-            name: 'FAA ATC (HF-STD-010A)',
-            description: 'FAA standard colors for air traffic control displays',
+            name: PERTII18n.t('weather.colorFaaAtc'),
+            description: PERTII18n.t('weather.colorFaaAtcDesc'),
             // CSS filter to approximate FAA colors (darker, less saturated)
             filter: 'saturate(0.6) brightness(0.7) contrast(1.2)',
             legendColors: [
@@ -163,8 +163,8 @@ const WeatherRadar = (function() {
             },
         },
         'SCOPE': {
-            name: 'Scope (Monochrome)',
-            description: 'Dark monochrome suitable for TSD display overlay',
+            name: PERTII18n.t('weather.colorScope'),
+            description: PERTII18n.t('weather.colorScopeDesc'),
             filter: 'saturate(0) brightness(0.5) contrast(1.5)',
             legendColors: [
                 { dbz: 20, color: '#333', get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('weatherSeverity.light') : 'Light'; } },
@@ -174,8 +174,8 @@ const WeatherRadar = (function() {
             ],
         },
         'HIGH_CONTRAST': {
-            name: 'High Contrast',
-            description: 'Enhanced visibility for low-light conditions',
+            name: PERTII18n.t('weather.colorHighContrast'),
+            description: PERTII18n.t('weather.colorHighContrastDesc'),
             filter: 'saturate(1.3) brightness(1.1) contrast(1.4)',
             legendColors: COLOR_TABLES?.NWS?.legendColors || [],
         },
@@ -723,7 +723,7 @@ const WeatherRadar = (function() {
         const product = PRODUCTS[state.product];
 
         return {
-            product: product?.name || 'Unknown',
+            product: product?.name || PERTII18n.t('common.unknown'),
             unit: product?.unit || 'dBZ',
             range: product?.range || [0, 75],
             colors: colorTable?.legendColors || [],

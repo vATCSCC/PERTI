@@ -55,11 +55,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_enroute_planning (facility_name, comments, p_id)
-    VALUES ('$facility_name', '$comments', '$p_id')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_enroute_planning (facility_name, comments, p_id) VALUES (?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$facility_name, $comments, $p_id]);
 
     $conn_pdo->commit();
     http_response_code(200);
@@ -67,6 +66,7 @@ try {
 
 catch (PDOException $e) {
     $conn_pdo->rollback();
+    error_log("enroute_planning/post error: " . $e->getMessage());
     http_response_code(500);
 }
 

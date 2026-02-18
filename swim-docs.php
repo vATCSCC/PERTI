@@ -261,23 +261,23 @@ include("load/i18n.php");
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_Design_Document_v1" class="doc-card">
-                    <h5><i class="fas fa-drafting-compass"></i>Design Document <span class="doc-badge badge-primary">v1.3</span></h5>
-                    <p>Complete architecture overview including data flow, infrastructure, and unified flight record design.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-drafting-compass"></i><?= __('swim.docs.designDocument') ?> <span class="doc-badge badge-primary">v1.3</span></h5>
+                    <p><?= __('swim.docs.designDocumentDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_API_Documentation" class="doc-card">
-                    <h5><i class="fas fa-book"></i>Full API Documentation</h5>
-                    <p>Comprehensive API guide with examples, WebSocket events, and integration patterns.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-book"></i><?= __('swim.docs.fullApiDocs') ?></h5>
+                    <p><?= __('swim.docs.fullApiDocsDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_Release_Documentation" class="doc-card">
-                    <h5><i class="fas fa-rocket"></i>Release Documentation</h5>
-                    <p>Release notes, deployment guide, and configuration reference.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-rocket"></i><?= __('swim.docs.releaseDocs') ?></h5>
+                    <p><?= __('swim.docs.releaseDocsDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
         </div>
@@ -292,37 +292,37 @@ include("load/i18n.php");
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_FIXM_Field_Mapping" class="doc-card">
-                    <h5><i class="fas fa-exchange-alt"></i>FIXM Field Mapping <span class="doc-badge badge-spec">FIXM 4.3</span></h5>
-                    <p>Complete field mapping between VATSWIM, FIXM 4.3, and TFMS standards.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-exchange-alt"></i><?= __('swim.docs.fixmMapping') ?> <span class="doc-badge badge-spec">FIXM 4.3</span></h5>
+                    <p><?= __('swim.docs.fixmMappingDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=Aviation_Standards_Cross_Reference" class="doc-card">
-                    <h5><i class="fas fa-globe"></i>Aviation Standards Cross-Reference</h5>
-                    <p>Comparison of aviation data standards (FIXM, AIXM, IWXXM, etc.) and their applicability.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-globe"></i><?= __('swim.docs.avStandards') ?></h5>
+                    <p><?= __('swim.docs.avStandardsDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_API_Field_Migration" class="doc-card">
-                    <h5><i class="fas fa-code-branch"></i>Field Migration Guide</h5>
-                    <p>Migration guide for transitioning from legacy field names to FIXM-aligned naming.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-code-branch"></i><?= __('swim.docs.fieldMigration') ?></h5>
+                    <p><?= __('swim.docs.fieldMigrationDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=ADL_FLIGHTS_SCHEMA_REFERENCE" class="doc-card">
-                    <h5><i class="fas fa-database"></i>ADL Flights Schema</h5>
-                    <p>Database schema reference for the adl_flights table structure.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-database"></i><?= __('swim.docs.adlSchema') ?></h5>
+                    <p><?= __('swim.docs.adlSchemaDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=ADL_NORMALIZED_SCHEMA_REFERENCE" class="doc-card">
-                    <h5><i class="fas fa-layer-group"></i>Normalized Schema Reference</h5>
-                    <p>Documentation for normalized/lookup tables (airports, aircraft, airlines).</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-layer-group"></i><?= __('swim.docs.normalizedSchema') ?></h5>
+                    <p><?= __('swim.docs.normalizedSchemaDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
         </div>
@@ -348,36 +348,36 @@ include("load/i18n.php");
                 </thead>
                 <tbody>
                     <tr>
-                        <td><span class="tier-badge tier-public">Public</span></td>
+                        <td><span class="tier-badge tier-public"><?= __('swim.page.public') ?></span></td>
                         <td><code>swim_pub_</code></td>
                         <td>100 req/min</td>
-                        <td>5 connections</td>
-                        <td>No</td>
-                        <td>Yes</td>
+                        <td>5 <?= __('swim.docs.connections') ?></td>
+                        <td><?= __('common.no') ?></td>
+                        <td><?= __('common.yes') ?></td>
                     </tr>
                     <tr>
-                        <td><span class="tier-badge tier-developer">Developer</span></td>
+                        <td><span class="tier-badge tier-developer"><?= __('swim.page.developer') ?></span></td>
                         <td><code>swim_dev_</code></td>
                         <td>300 req/min</td>
-                        <td>50 connections</td>
-                        <td>No</td>
-                        <td>Yes</td>
+                        <td>50 <?= __('swim.docs.connections') ?></td>
+                        <td><?= __('common.no') ?></td>
+                        <td><?= __('common.yes') ?></td>
                     </tr>
                     <tr>
-                        <td><span class="tier-badge tier-partner">Partner</span></td>
+                        <td><span class="tier-badge tier-partner"><?= __('swim.page.partner') ?></span></td>
                         <td><code>swim_par_</code></td>
                         <td>3,000 req/min</td>
-                        <td>500 connections</td>
-                        <td>Limited</td>
-                        <td>Contact Us</td>
+                        <td>500 <?= __('swim.docs.connections') ?></td>
+                        <td><?= __('swim.page.limited') ?></td>
+                        <td><?= __('swim.page.contactUs') ?></td>
                     </tr>
                     <tr>
-                        <td><span class="tier-badge tier-system">System</span></td>
+                        <td><span class="tier-badge tier-system"><?= __('swim.page.system') ?></span></td>
                         <td><code>swim_sys_</code></td>
                         <td>30,000 req/min</td>
-                        <td>10,000 connections</td>
-                        <td>Full</td>
-                        <td>Contact Us</td>
+                        <td>10,000 <?= __('swim.docs.connections') ?></td>
+                        <td><?= __('swim.page.full') ?></td>
+                        <td><?= __('swim.page.contactUs') ?></td>
                     </tr>
                 </tbody>
             </table>
@@ -393,9 +393,9 @@ include("load/i18n.php");
         <div class="row">
             <div class="col-md-6 col-lg-4 mb-3">
                 <a href="swim-doc?file=VATSWIM_Announcement" class="doc-card">
-                    <h5><i class="fas fa-newspaper"></i>Launch Announcement</h5>
-                    <p>Official SWIM API launch announcement with feature overview and getting started guide.</p>
-                    <div class="doc-meta"><i class="fas fa-eye"></i> View Documentation</div>
+                    <h5><i class="fas fa-newspaper"></i><?= __('swim.docs.launchAnnouncement') ?></h5>
+                    <p><?= __('swim.docs.launchAnnouncementDesc') ?></p>
+                    <div class="doc-meta"><i class="fas fa-eye"></i> <?= __('swim.docs.viewDocumentation') ?></div>
                 </a>
             </div>
         </div>
@@ -416,20 +416,20 @@ include("load/i18n.php");
             <div class="row">
                 <div class="col-md-6 col-lg-4 mb-3">
                     <a href="swim-doc?file=SWIM_TODO" class="doc-card">
-                        <h5><i class="fas fa-tasks"></i>TODO List <span class="doc-badge badge-internal">Internal</span></h5>
-                        <p>Outstanding work items and planned features.</p>
+                        <h5><i class="fas fa-tasks"></i><?= __('swim.docs.todoList') ?> <span class="doc-badge badge-internal">Internal</span></h5>
+                        <p><?= __('swim.docs.todoListDesc') ?></p>
                     </a>
                 </div>
                 <div class="col-md-6 col-lg-4 mb-3">
                     <a href="swim-doc?file=SWIM_Phase2_RealTime_Design" class="doc-card">
-                        <h5><i class="fas fa-broadcast-tower"></i>Phase 2: Real-Time Design <span class="doc-badge badge-internal">Internal</span></h5>
-                        <p>WebSocket and real-time streaming architecture design.</p>
+                        <h5><i class="fas fa-broadcast-tower"></i><?= __('swim.docs.phase2Design') ?> <span class="doc-badge badge-internal">Internal</span></h5>
+                        <p><?= __('swim.docs.phase2DesignDesc') ?></p>
                     </a>
                 </div>
                 <div class="col-md-6 col-lg-4 mb-3">
                     <a href="swim-doc?file=SWIM_Phase2_Phase3_Transition" class="doc-card">
-                        <h5><i class="fas fa-exchange-alt"></i>Phase 2/3 Transition <span class="doc-badge badge-internal">Internal</span></h5>
-                        <p>Phase transition planning and implementation notes.</p>
+                        <h5><i class="fas fa-exchange-alt"></i><?= __('swim.docs.phase23Transition') ?> <span class="doc-badge badge-internal">Internal</span></h5>
+                        <p><?= __('swim.docs.phase23TransitionDesc') ?></p>
                     </a>
                 </div>
             </div>
@@ -446,10 +446,10 @@ include("load/i18n.php");
             </div>
             <div class="col-md-4 text-md-right mt-3 mt-md-0">
                 <a href="mailto:dev@vatcscc.org" class="btn btn-outline-primary btn-sm mr-2">
-                    <i class="fas fa-envelope mr-1"></i> Email
+                    <i class="fas fa-envelope mr-1"></i> <?= __('swim.docs.email') ?>
                 </a>
                 <a href="https://vats.im/CommandCenter" class="btn btn-outline-primary btn-sm" target="_blank">
-                    <i class="fab fa-discord mr-1"></i> Discord
+                    <i class="fab fa-discord mr-1"></i> <?= __('swim.docs.discord') ?>
                 </a>
             </div>
         </div>

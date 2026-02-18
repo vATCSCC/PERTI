@@ -100,6 +100,7 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 window.PERTI_ORG = {
     code: <?= json_encode($_SESSION['ORG_CODE'] ?? 'vatcscc') ?>,
     privileged: <?= !empty($_SESSION['ORG_PRIVILEGED']) ? 'true' : 'false' ?>,
+    global: <?= !empty($_SESSION['ORG_GLOBAL']) ? 'true' : 'false' ?>,
     allOrgs: <?= json_encode($_SESSION['ORG_ALL'] ?? ['vatcscc']) ?>,
     defaultLocale: <?= json_encode($org_info_header['default_locale'] ?? 'en-US') ?>,
     orgInfo: <?= json_encode($org_info_header) ?>

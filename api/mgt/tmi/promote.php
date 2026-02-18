@@ -11,7 +11,7 @@
  * {
  *   "entityType": "ENTRY" | "ADVISORY",
  *   "entityId": 123,
- *   "orgs": ["vatcscc", "vatcan"],
+ *   "orgs": ["vatcscc", "canoc"],
  *   "deleteStaging": true,
  *   "userCid": "123456"
  * }
@@ -20,7 +20,7 @@
  * {
  *   "batch": [
  *     { "entityType": "ENTRY", "entityId": 123, "orgs": ["vatcscc"] },
- *     { "entityType": "ADVISORY", "entityId": 456, "orgs": ["vatcscc", "vatcan"] }
+ *     { "entityType": "ADVISORY", "entityId": 456, "orgs": ["vatcscc", "canoc"] }
  *   ],
  *   "deleteStaging": true,
  *   "userCid": "123456"

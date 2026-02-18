@@ -939,8 +939,8 @@ const SplitsController = {
                 <div class="area-toggle-header">
                     <span>${artcc}</span>
                     <div class="artcc-toggle-btns">
-                        <button class="btn btn-xs btn-link preset-artcc-show-all-btn" data-artcc="${artcc}" title="Show all ${artcc}">All</button>
-                        <button class="btn btn-xs btn-link preset-artcc-hide-all-btn" data-artcc="${artcc}" title="Hide all ${artcc}">None</button>
+                        <button class="btn btn-xs btn-link preset-artcc-show-all-btn" data-artcc="${artcc}" title="${PERTII18n.t('splits.buttons.showAllArtcc', { artcc })}">${PERTII18n.t('common.all')}</button>
+                        <button class="btn btn-xs btn-link preset-artcc-hide-all-btn" data-artcc="${artcc}" title="${PERTII18n.t('splits.buttons.hideAllArtcc', { artcc })}">${PERTII18n.t('common.none')}</button>
                     </div>
                 </div>`;
 
@@ -1750,12 +1750,12 @@ const SplitsController = {
         popup.innerHTML = `
             <div class="layer-select-header">
                 <span>${headerText}</span>
-                <button class="popup-close-btn" title="Close">&times;</button>
+                <button class="popup-close-btn" title="${PERTII18n.t('common.close')}">&times;</button>
             </div>
             <div class="layer-select-list" id="sector-select-list">
                 ${features.map((item, index) => {
         const isSelected = currentlySelected.has(item.sectorId);
-        const typeName = { 'high': 'High', 'low': 'Low', 'superhigh': 'Super High' }[item.layerType] || item.layerType;
+        const typeName = { 'high': PERTII18n.t('splits.sectorType.high'), 'low': PERTII18n.t('splits.sectorType.low'), 'superhigh': PERTII18n.t('splits.sectorType.superhigh') }[item.layerType] || item.layerType;
         const typeColor = { 'high': AIRSPACE_COLORS.high, 'low': AIRSPACE_COLORS.low, 'superhigh': AIRSPACE_COLORS.superhigh }[item.layerType] || '#888';
         return `
                         <div class="layer-select-item sector-select-item ${isSelected ? 'is-selected' : ''}" 
@@ -2125,7 +2125,7 @@ const SplitsController = {
         popup.innerHTML = `
             <div class="layer-select-header">
                 <span>${headerText}</span>
-                <button class="popup-close-btn" title="Close">&times;</button>
+                <button class="popup-close-btn" title="${PERTII18n.t('common.close')}">&times;</button>
             </div>
             <div class="layer-select-list" id="layer-select-list">${listHtml}</div>
         `;
@@ -2407,9 +2407,9 @@ const SplitsController = {
 
         // Build flags display
         const flags = [];
-        if (traconData?.contains_core30) {flags.push('Core 30');}
-        if (traconData?.contains_oep35) {flags.push('OEP 35');}
-        if (traconData?.contains_aspm82) {flags.push('ASPM 82');}
+        if (traconData?.contains_core30) {flags.push(PERTII18n.t('splits.designation.core30'));}
+        if (traconData?.contains_oep35) {flags.push(PERTII18n.t('splits.designation.oep35'));}
+        if (traconData?.contains_aspm82) {flags.push(PERTII18n.t('splits.designation.aspm82'));}
         const flagsHtml = flags.length > 0
             ? `<div class="popup-row"><span>${PERTII18n.t('splits.popup.designations')}:</span> ${flags.join(', ')}</div>`
             : '';
@@ -2501,10 +2501,10 @@ const SplitsController = {
         return `
             <div class="sector-popup">
                 <div class="popup-header" style="background: ${props.color || '#a855f7'}">
-                    <strong>${props.artcc || ''} ${props.area_name || 'Area'}</strong>
+                    <strong>${props.artcc || ''} ${props.area_name || PERTII18n.t('splits.feature.area')}</strong>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || 'N/A'}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || PERTII18n.t('common.na')}</div>
                     <div class="popup-row"><span>${PERTII18n.t('splits.popup.sectors')}:</span> ${sectors.length}</div>
                     ${sectorList ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.includes')}:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectorList}</div></div>` : ''}
                 </div>
@@ -2528,8 +2528,8 @@ const SplitsController = {
                     <span style="opacity: 0.8; font-size: 11px;">${props.preset_name || ''}</span>
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.preset')}:</span> ${props.preset_name || 'N/A'}</div>
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || 'N/A'}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.preset')}:</span> ${props.preset_name || PERTII18n.t('common.na')}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${props.artcc || PERTII18n.t('common.na')}</div>
                     <div class="popup-row"><span>${PERTII18n.t('splits.popup.sectors')}:</span> ${sectors.length}</div>
                     ${sectors.length > 0 ? `<div class="popup-row" style="flex-direction: column; align-items: flex-start;"><span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.includes')}:</span><div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${sectors.join(', ')}</div></div>` : ''}
                 </div>
@@ -2859,7 +2859,7 @@ const SplitsController = {
                 html += `
                     <div class="area-toggle-item" data-area-id="${area.id}">
                         <input type="checkbox" class="area-toggle-checkbox" ${isVisible ? 'checked' : ''}>
-                        <input type="color" class="area-color-picker" value="${color}" title="Change color">
+                        <input type="color" class="area-color-picker" value="${color}" title="${PERTII18n.t('splits.buttons.changeColor')}">
                         <span class="area-toggle-name">${area.area_name}</span>
                         <span class="area-toggle-count">${sectorCount}</span>
                     </div>
@@ -3526,11 +3526,11 @@ const SplitsController = {
                     <div class="preset-list-item" data-preset-id="${preset.id}" data-artcc="${preset.artcc}">
                         <div class="preset-list-info">
                             <div class="preset-list-name">${preset.preset_name}</div>
-                            <div class="preset-list-meta">${posCount} position${posCount !== 1 ? 's' : ''}</div>
+                            <div class="preset-list-meta">${PERTII18n.t('splits.presets.positionsFull', { count: posCount })}</div>
                         </div>
                         <div class="preset-list-actions">
-                            <button class="btn btn-xs btn-outline-warning view-preset-btn" title="Edit"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-xs btn-outline-success use-preset-btn" title="Use in New Config"><i class="fas fa-plus"></i></button>
+                            <button class="btn btn-xs btn-outline-warning view-preset-btn" title="${PERTII18n.t('common.edit')}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-xs btn-outline-success use-preset-btn" title="${PERTII18n.t('splits.buttons.useInNewConfig')}"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>`;
             });
@@ -3593,7 +3593,7 @@ const SplitsController = {
                 presets.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
-                    opt.textContent = `${p.preset_name} (${p.position_count || 0} pos)`;
+                    opt.textContent = `${p.preset_name} (${PERTII18n.t('splits.presets.positionsAbbr', { count: p.position_count || 0 })})`;
                     optgroup.appendChild(opt);
                 });
                 select.appendChild(optgroup);
@@ -3602,7 +3602,7 @@ const SplitsController = {
             filtered.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
-                opt.textContent = `${p.preset_name} (${p.position_count || 0} positions)`;
+                opt.textContent = `${p.preset_name} (${PERTII18n.t('splits.presets.positionsFull', { count: p.position_count || 0 })})`;
                 select.appendChild(opt);
             });
         }
@@ -3618,7 +3618,7 @@ const SplitsController = {
 
         try {
             const response = await fetch(`api/splits/presets.php?id=${presetId}`);
-            if (!response.ok) {throw new Error('Failed to load preset');}
+            if (!response.ok) {throw new Error(PERTII18n.t('splits.error.loadPresetFailed'));}
 
             const data = await response.json();
             const preset = data.preset;
@@ -3666,7 +3666,7 @@ const SplitsController = {
     async usePresetForNewConfig(presetId) {
         try {
             const response = await fetch(`api/splits/presets.php?id=${presetId}`);
-            if (!response.ok) {throw new Error('Failed to load preset');}
+            if (!response.ok) {throw new Error(PERTII18n.t('splits.error.loadPresetFailed'));}
 
             const data = await response.json();
             const preset = data.preset;
@@ -3724,7 +3724,7 @@ const SplitsController = {
     async editPreset(presetId) {
         try {
             const response = await fetch(`api/splits/presets.php?id=${presetId}`);
-            if (!response.ok) {throw new Error('Failed to load preset');}
+            if (!response.ok) {throw new Error(PERTII18n.t('splits.error.loadPresetFailed'));}
 
             const data = await response.json();
             const preset = data.preset;
@@ -3898,14 +3898,14 @@ const SplitsController = {
                 <div class="split-item ${isEditing ? 'active' : ''}" data-index="${i}">
                     <div class="split-item-header">
                         <div class="split-item-name">
-                            <input type="color" class="preset-pos-color-picker" value="${pos.color}" data-index="${i}" title="Change color">
+                            <input type="color" class="preset-pos-color-picker" value="${pos.color}" data-index="${i}" title="${PERTII18n.t('splits.buttons.changeColor')}">
                             ${pos.name}
                             ${pos.frequency ? `<small class="text-muted ml-1">${pos.frequency}</small>` : ''}
                         </div>
                         <div class="split-item-actions">
-                            <button class="btn btn-outline-info btn-xs edit-preset-pos-btn" title="Edit sectors">✎</button>
-                            <button class="btn btn-outline-secondary btn-xs edit-preset-pos-details-btn" title="Edit details">⚙</button>
-                            <button class="btn btn-outline-danger btn-xs delete-preset-pos-btn" title="Delete">×</button>
+                            <button class="btn btn-outline-info btn-xs edit-preset-pos-btn" title="${PERTII18n.t('splits.buttons.editSectors')}">✎</button>
+                            <button class="btn btn-outline-secondary btn-xs edit-preset-pos-details-btn" title="${PERTII18n.t('splits.buttons.editDetailsLower')}">⚙</button>
+                            <button class="btn btn-outline-danger btn-xs delete-preset-pos-btn" title="${PERTII18n.t('common.delete')}">×</button>
                         </div>
                     </div>
                     <div class="split-item-sectors">${sectors.length} sector${sectors.length !== 1 ? 's' : ''}: ${sectors.slice(0, 6).join(', ')}${sectors.length > 6 ? '...' : ''}</div>
@@ -4183,7 +4183,7 @@ const SplitsController = {
             let classes = 'sector-chip';
             if (isSelected) {classes += ' selected';}
             if (isAssigned) {classes += ' assigned';}
-            return `<div class="${classes}" data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? 'title="Assigned to another position"' : ''}>
+            return `<div class="${classes}" data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? `title="${PERTII18n.t('splits.buttons.assignedToAnotherPosition')}"` : ''}>
                 <span class="sector-type-dot" style="background:${typeColor}"></span>${s.name}
             </div>`;
         }).join('');
@@ -4488,7 +4488,7 @@ const SplitsController = {
         const payload = {
             preset_name: presetName,
             artcc: this.currentConfig.artcc,
-            description: `Created from configuration: ${this.currentConfig.name || 'Untitled'}`,
+            description: PERTII18n.t('splits.presets.createdFromConfig', { name: this.currentConfig.name || PERTII18n.t('splits.config.untitled') }),
             positions: this.currentConfig.splits.map((split, i) => ({
                 position_name: split.name,
                 sectors: split.sectors || [],
@@ -4687,7 +4687,7 @@ const SplitsController = {
             const typeColor = s.type === 'superhigh' ? AIRSPACE_COLORS.superhigh : (s.type === 'high' ? AIRSPACE_COLORS.high : AIRSPACE_COLORS.low);
             return `
                 <div class="sector-chip ${isSelected ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}" 
-                     data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? 'title="Assigned to another split"' : ''}>
+                     data-sector="${s.id}" data-type="${s.type}" ${isAssigned ? `title="${PERTII18n.t('splits.buttons.assignedToAnotherSplit')}"` : ''}>
                     <span class="sector-type-dot" style="background:${typeColor}"></span>${s.name}
                 </div>
             `;
@@ -5010,12 +5010,12 @@ const SplitsController = {
                 <div class="split-item-color" style="background: ${split.color}"></div>
                 <div class="split-item-info">
                     <div class="split-item-name">${split.name}${extraStr}</div>
-                    <div class="split-item-sectors">${split.sectors.length} sectors</div>
+                    <div class="split-item-sectors">${PERTII18n.t('splits.presets.sectorCount', { count: split.sectors.length })}</div>
                 </div>
                 <div class="split-item-actions">
-                    <button class="btn btn-xs btn-outline-info edit-split-details-btn" title="Edit Details">✎</button>
-                    <button class="btn btn-xs btn-outline-primary select-sectors-btn" title="Select Sectors">◉</button>
-                    <button class="btn btn-xs btn-outline-danger remove-split-btn" title="Remove">×</button>
+                    <button class="btn btn-xs btn-outline-info edit-split-details-btn" title="${PERTII18n.t('splits.buttons.editDetails')}">✎</button>
+                    <button class="btn btn-xs btn-outline-primary select-sectors-btn" title="${PERTII18n.t('splits.buttons.selectSectors')}">◉</button>
+                    <button class="btn btn-xs btn-outline-danger remove-split-btn" title="${PERTII18n.t('common.remove')}">×</button>
                 </div>
             </div>
         `;}).join('');
@@ -5626,12 +5626,12 @@ const SplitsController = {
             <div class="config-list-item" data-config-id="${config.id}" data-artcc="${config.artcc}">
                 <div class="config-list-info">
                     <div class="config-list-name">${config.config_name}</div>
-                    <div class="config-list-meta">${config.artcc} • ${posCount} position${posCount !== 1 ? 's' : ''}</div>
+                    <div class="config-list-meta">${config.artcc} • ${PERTII18n.t('splits.presets.positionsFull', { count: posCount })}</div>
                 </div>
                 <div class="config-list-status status-${config.status}">${config.status}</div>
                 <div class="config-list-actions">
-                    <button class="btn btn-xs btn-outline-info edit-config-btn" title="Edit">✎</button>
-                    <button class="btn btn-xs btn-outline-danger delete-config-btn" title="Delete">×</button>
+                    <button class="btn btn-xs btn-outline-info edit-config-btn" title="${PERTII18n.t('common.edit')}">✎</button>
+                    <button class="btn btn-xs btn-outline-danger delete-config-btn" title="${PERTII18n.t('common.delete')}">×</button>
                 </div>
             </div>
         `;}).join('');
@@ -5798,18 +5798,18 @@ const SplitsController = {
                             <div class="scheduled-config-artcc">${config.artcc}</div>
                         </div>
                         <div class="scheduled-config-actions">
-                            <button class="btn btn-xs btn-outline-info edit-scheduled-btn" title="Edit"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-xs btn-outline-success activate-scheduled-btn" title="Activate Now"><i class="fas fa-play"></i></button>
-                            <button class="btn btn-xs btn-outline-danger delete-scheduled-btn" title="Delete"><i class="fas fa-trash"></i></button>
+                            <button class="btn btn-xs btn-outline-info edit-scheduled-btn" title="${PERTII18n.t('common.edit')}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-xs btn-outline-success activate-scheduled-btn" title="${PERTII18n.t('splits.buttons.activateNow')}"><i class="fas fa-play"></i></button>
+                            <button class="btn btn-xs btn-outline-danger delete-scheduled-btn" title="${PERTII18n.t('common.delete')}"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
                     <div class="scheduled-config-timing">
-                        <span class="scheduled-time start-time" title="Start Time UTC">▶ ${startDisplay}</span>
-                        ${endTime ? `<span class="scheduled-time end-time" title="End Time UTC">■ ${endDisplay}</span>` : ''}
-                        ${countdownText ? `<span class="scheduled-time countdown" title="Time until start">⏱ ${countdownText}</span>` : ''}
+                        <span class="scheduled-time start-time" title="${PERTII18n.t('splits.buttons.startTimeUtc')}">▶ ${startDisplay}</span>
+                        ${endTime ? `<span class="scheduled-time end-time" title="${PERTII18n.t('splits.buttons.endTimeUtc')}">■ ${endDisplay}</span>` : ''}
+                        ${countdownText ? `<span class="scheduled-time countdown" title="${PERTII18n.t('splits.buttons.timeUntilStart')}">⏱ ${countdownText}</span>` : ''}
                     </div>
                     <div class="scheduled-config-positions">
-                        <span class="scheduled-position-count">${positions.length} position${positions.length !== 1 ? 's' : ''}</span>
+                        <span class="scheduled-position-count">${PERTII18n.t('splits.presets.positionsFull', { count: positions.length })}</span>
                         <div class="scheduled-position-preview">
                             ${positions.slice(0, 4).map(pos => `
                                 <span class="scheduled-position-chip">
@@ -5817,7 +5817,7 @@ const SplitsController = {
                                     ${this.escapeHtml(pos.position_name)}
                                 </span>
                             `).join('')}
-                            ${positions.length > 4 ? `<span class="scheduled-position-chip">+${positions.length - 4} more</span>` : ''}
+                            ${positions.length > 4 ? `<span class="scheduled-position-chip">${PERTII18n.t('splits.buttons.morePositions', { count: positions.length - 4 })}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -5870,7 +5870,7 @@ const SplitsController = {
         try {
             const response = await fetch(`api/splits/configs.php?id=${configId}`);
             if (!response.ok) {
-                throw new Error('Failed to load config');
+                throw new Error(PERTII18n.t('splits.error.loadConfigFailed'));
             }
             const data = await response.json();
             const config = data.config;
@@ -6066,8 +6066,8 @@ const SplitsController = {
                         <div class="active-config-header">
                             <span class="config-name">${config.config_name}</span>
                             <div class="config-actions">
-                                <button class="btn btn-xs btn-outline-info edit-active-btn" title="Edit">✎</button>
-                                <button class="btn btn-xs btn-outline-danger delete-active-btn" title="Delete">×</button>
+                                <button class="btn btn-xs btn-outline-info edit-active-btn" title="${PERTII18n.t('common.edit')}">✎</button>
+                                <button class="btn btn-xs btn-outline-danger delete-active-btn" title="${PERTII18n.t('common.delete')}">×</button>
                             </div>
                         </div>
                         <div class="active-config-splits">
@@ -6080,7 +6080,7 @@ const SplitsController = {
 
                         // Build frequency display
                         const freqDisplay = frequency ?
-                            `<span class="split-freq" title="Frequency">${frequency}</span>` : '';
+                            `<span class="split-freq" title="${PERTII18n.t('splits.page.frequency')}">${frequency}</span>` : '';
 
                         html += `
                             <div class="split-detail">
@@ -6328,7 +6328,7 @@ const SplitsController = {
                                 <span class="summary-pos-color" style="background: ${pos.color}"></span>
                                 <span class="summary-pos-name">${pos.position_name}</span>
                                 ${frequency ? `<span class="summary-pos-freq">${frequency}</span>` : ''}
-                                ${controllerOI ? `<span class="summary-pos-controller" title="Controller">${controllerOI}</span>` : ''}
+                                ${controllerOI ? `<span class="summary-pos-controller" title="${PERTII18n.t('splits.popup.controller')}">${controllerOI}</span>` : ''}
                                 ${posTiming ? `<span class="summary-pos-timing">${posTiming}</span>` : ''}
                             </div>
                             <div class="summary-pos-sectors">${sectorSummary}</div>
@@ -7066,7 +7066,7 @@ const SplitsController = {
                 <strong style="font-size: 12px;">${position.position_name}</strong>
                 <span class="datablock-close" style="cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.6; margin-left: 8px;">&times;</span>
             </div>
-            <div style="color: ${dimColor}; font-size: 9px; margin-bottom: 3px;">${config.artcc} • ${config.config_name || 'Config'}</div>
+            <div style="color: ${dimColor}; font-size: 9px; margin-bottom: 3px;">${config.artcc} • ${config.config_name || PERTII18n.t('splits.popup.config')}</div>
         `;
 
         // Frequency & Controller on same line if both exist

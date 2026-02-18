@@ -85,8 +85,17 @@ function swim_sync_from_adl() {
         $result = swim_bulk_upsert($conn_swim, $json);
 
         if ($result === false) {
-            // Fall back to row-by-row if SP doesn't exist
+            // SP missing in this environment - use legacy path for compatibility
             return swim_sync_delta_legacy($flights, $stats);
+        }
+
+        if (isset($result['error'])) {
+            $stats['duration_ms'] = round((microtime(true) - $stats['start_time']) * 1000);
+            return [
+                'success' => false,
+                'message' => 'Bulk upsert failed (will retry next cycle): ' . $result['error'],
+                'stats' => $stats
+            ];
         }
 
         $stats['inserted'] = $result['inserted'] ?? 0;
@@ -109,7 +118,7 @@ function swim_sync_from_adl() {
             'stats' => $stats
         ];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         $stats['duration_ms'] = round((microtime(true) - $stats['start_time']) * 1000);
         error_log('SWIM delta sync error: ' . $e->getMessage());
         return ['success' => false, 'message' => 'Sync error: ' . $e->getMessage(), 'stats' => $stats];
@@ -305,7 +314,7 @@ function swim_sync_delta_legacy(array $flights, array $stats) {
  * 
  * @param resource $conn_swim SWIM_API connection
  * @param string $json JSON-encoded flight array
- * @return array|false Stats array on success, false if SP doesn't exist
+ * @return array|false Stats array on success, false if SP missing (legacy fallback)
  */
 function swim_bulk_upsert($conn_swim, string $json) {
     $sql = "EXEC dbo.sp_Swim_BulkUpsert @Json = ?";
@@ -321,8 +330,8 @@ function swim_bulk_upsert($conn_swim, string $json) {
             error_log('SWIM bulk upsert SP not found, falling back to legacy sync');
             return false;
         }
-        error_log('SWIM bulk upsert failed: ' . json_encode($errors));
-        return false;
+        error_log('SWIM bulk upsert failed (no legacy fallback): ' . json_encode($errors));
+        return ['error' => ($errorMsg !== '' ? $errorMsg : 'Unknown SQL error')];
     }
     
     // Get result row

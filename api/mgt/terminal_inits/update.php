@@ -47,13 +47,16 @@ $id = post_input('id');
 $title = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['title'])));
 $context = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['context'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_terminal_init SET title='$title', context='$context' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_terminal_init SET title=?, context=? WHERE id=?");
+$stmt->bind_param("ssi", $title, $context, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("terminal_inits/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

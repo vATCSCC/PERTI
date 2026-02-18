@@ -45,13 +45,16 @@ if ($perm == true) {
 $id = post_input('id');
 $comments = post_input('comments');
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_op_goals SET comments='$comments' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_op_goals SET comments=? WHERE id=?");
+$stmt->bind_param("si", $comments, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("goals/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

@@ -480,8 +480,8 @@
                 <td>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-info" onclick="showFlightDetail('${f.flight_key}')" title="Info"><i class="fas fa-info-circle"></i></button>
-                        ${isAssigned ? `<button class="btn btn-outline-warning" onclick="overrideCompliance(${f.id},'${f.callsign}')" title="${PERTII18n.t('reroute.action.override')}"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-secondary" onclick="showHistory(${f.id})" title="${PERTII18n.t('reroute.action.history')}"><i class="fas fa-history"></i></button>` : ''}
+                        ${isAssigned ? `<button class="btn btn-outline-warning" onclick="overrideCompliance(${f.id},'${f.callsign}')" title="${PERTII18n.t('reroute.override')}"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-secondary" onclick="showHistory(${f.id})" title="${PERTII18n.t('reroute.history')}"><i class="fas fa-history"></i></button>` : ''}
                     </div>
                 </td>
             </tr>`;

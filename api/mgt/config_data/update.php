@@ -122,15 +122,18 @@ if (!$conn_adl) {
     $vmc_adr = $_POST['vatsim_vmc_adr'] ?? $_POST['vmc_adr'] ?? 0;
     $imc_adr = $_POST['vatsim_imc_adr'] ?? $_POST['imc_adr'] ?? 0;
 
-    $query = $conn_sqli->query("UPDATE config_data SET airport='$airport_faa', arr='$arr_runways', dep='$dep_runways', vmc_aar='$vmc_aar', lvmc_aar='$lvmc_aar', imc_aar='$imc_aar', limc_aar='$limc_aar', vmc_adr='$vmc_adr', imc_adr='$imc_adr' WHERE id=$id");
+    $stmt = $conn_sqli->prepare("UPDATE config_data SET airport=?, arr=?, dep=?, vmc_aar=?, lvmc_aar=?, imc_aar=?, limc_aar=?, vmc_adr=?, imc_adr=? WHERE id=?");
+    $stmt->bind_param("sssssssssi", $airport_faa, $arr_runways, $dep_runways, $vmc_aar, $lvmc_aar, $imc_aar, $limc_aar, $vmc_adr, $imc_adr, $id);
 
-    if ($query) {
+    if ($stmt->execute()) {
         http_response_code(200);
         echo json_encode(['success' => true]);
     } else {
+        error_log("config_data/update fallback error: " . $stmt->error);
         http_response_code(500);
         echo json_encode(['error' => 'Database error']);
     }
+    $stmt->close();
     exit();
 }
 

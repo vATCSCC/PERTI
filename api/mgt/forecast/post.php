@@ -53,10 +53,10 @@ try {
     // Begin Transaction
     $conn_pdo->beginTransaction();
 
-    // SQL Query
-    $sql = "INSERT INTO p_forecast (p_id, date, summary, image_url) VALUES ('$p_id', '$date', '$summary', '$image_url')";
-
-    $conn_pdo->exec($sql);
+    // SQL Query (prepared statement)
+    $sql = "INSERT INTO p_forecast (p_id, date, summary, image_url) VALUES (?, ?, ?, ?)";
+    $stmt = $conn_pdo->prepare($sql);
+    $stmt->execute([$p_id, $date, $summary, $image_url]);
 
     $conn_pdo->commit();
     http_response_code(200);
@@ -64,6 +64,7 @@ try {
 
 catch (PDOException $e) {
     $conn_pdo->rollback();
+    error_log("forecast/post error: " . $e->getMessage());
     http_response_code(500);
 }
 

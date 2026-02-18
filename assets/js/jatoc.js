@@ -68,74 +68,74 @@
         ? _JP.COORDINATION.ROLES
         : {
         DCC: [
-            { code: 'OP', name: 'Operations Planner' },
-            { code: 'NOM', name: 'National Operations Manager' },
-            { code: 'NTMO', name: 'National Traffic Management Officer' },
-            { code: 'NTMS', name: 'National Traffic Management Specialist' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'OP', name: PERTII18n.t('jatoc.role.dcc.op') },
+            { code: 'NOM', name: PERTII18n.t('jatoc.role.dcc.nom') },
+            { code: 'NTMO', name: PERTII18n.t('jatoc.role.dcc.ntmo') },
+            { code: 'NTMS', name: PERTII18n.t('jatoc.role.dcc.ntms') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.dcc.other') },
         ],
         ECFMP: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'NMT', name: 'Network Management Team' },
-            { code: 'SFM', name: 'Senior Flow Manager' },
-            { code: 'FM', name: 'Flow Manager' },
-            { code: 'EVENT', name: 'Event Staff' },
-            { code: 'ATC', name: 'Air Traffic Controller' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.ecfmp.lead') },
+            { code: 'NMT', name: PERTII18n.t('jatoc.role.ecfmp.nmt') },
+            { code: 'SFM', name: PERTII18n.t('jatoc.role.ecfmp.sfm') },
+            { code: 'FM', name: PERTII18n.t('jatoc.role.ecfmp.fm') },
+            { code: 'EVENT', name: PERTII18n.t('jatoc.role.ecfmp.event') },
+            { code: 'ATC', name: PERTII18n.t('jatoc.role.ecfmp.atc') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.ecfmp.other') },
         ],
         CTP: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'COORD', name: 'Coordination' },
-            { code: 'PLAN', name: 'Planning' },
-            { code: 'RTE', name: 'Routes' },
-            { code: 'FLOW', name: 'Flow' },
-            { code: 'OCN', name: 'Oceanic' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.ctp.lead') },
+            { code: 'COORD', name: PERTII18n.t('jatoc.role.ctp.coord') },
+            { code: 'PLAN', name: PERTII18n.t('jatoc.role.ctp.plan') },
+            { code: 'RTE', name: PERTII18n.t('jatoc.role.ctp.rte') },
+            { code: 'FLOW', name: PERTII18n.t('jatoc.role.ctp.flow') },
+            { code: 'OCN', name: PERTII18n.t('jatoc.role.ctp.ocn') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.ctp.other') },
         ],
         WF: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'AFF', name: 'Affiliate' },
-            { code: 'TEAM', name: 'Team Member' },
-            { code: 'SM', name: 'Social Media' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.wf.lead') },
+            { code: 'AFF', name: PERTII18n.t('jatoc.role.wf.aff') },
+            { code: 'TEAM', name: PERTII18n.t('jatoc.role.wf.team') },
+            { code: 'SM', name: PERTII18n.t('jatoc.role.wf.sm') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.wf.other') },
         ],
         FACILITY: [
-            { code: 'STMC', name: 'Supervisory TMC' },
-            { code: 'TMC', name: 'Traffic Management Coordinator' },
-            { code: 'TMU', name: 'Traffic Management Unit' },
-            { code: 'DEP', name: 'Departure Coordinator' },
-            { code: 'ENR', name: 'En Route Coordinator' },
-            { code: 'ARR', name: 'Arrival Coordinator' },
-            { code: 'PIT', name: 'ZNY PIT' },
-            { code: 'RR', name: 'Reroute Coordinator' },
-            { code: 'MIL', name: 'Military Coordinator' },
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'EVENT', name: 'Events' },
-            { code: 'ATC', name: 'Air Traffic Controller' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'STMC', name: PERTII18n.t('jatoc.role.facility.stmc') },
+            { code: 'TMC', name: PERTII18n.t('jatoc.role.facility.tmc') },
+            { code: 'TMU', name: PERTII18n.t('jatoc.role.facility.tmu') },
+            { code: 'DEP', name: PERTII18n.t('jatoc.role.facility.dep') },
+            { code: 'ENR', name: PERTII18n.t('jatoc.role.facility.enr') },
+            { code: 'ARR', name: PERTII18n.t('jatoc.role.facility.arr') },
+            { code: 'PIT', name: PERTII18n.t('jatoc.role.facility.pit') },
+            { code: 'RR', name: PERTII18n.t('jatoc.role.facility.rr') },
+            { code: 'MIL', name: PERTII18n.t('jatoc.role.facility.mil') },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.facility.lead') },
+            { code: 'EVENT', name: PERTII18n.t('jatoc.role.facility.event') },
+            { code: 'ATC', name: PERTII18n.t('jatoc.role.facility.atc') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.facility.other') },
         ],
         VATUSA: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'EVENT', name: 'Events' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.vatusa.lead') },
+            { code: 'EVENT', name: PERTII18n.t('jatoc.role.vatusa.event') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.vatusa.other') },
         ],
         VATSIM: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'BOG', name: 'Board of Governors' },
-            { code: 'REGL', name: 'Region Leadership' },
-            { code: 'DIVL', name: 'Division Leadership' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.vatsim.lead') },
+            { code: 'BOG', name: PERTII18n.t('jatoc.role.vatsim.bog') },
+            { code: 'REGL', name: PERTII18n.t('jatoc.role.vatsim.regl') },
+            { code: 'DIVL', name: PERTII18n.t('jatoc.role.vatsim.divl') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.vatsim.other') },
         ],
         VA: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'AOC', name: 'Operations' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.va.lead') },
+            { code: 'AOC', name: PERTII18n.t('jatoc.role.va.aoc') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.va.other') },
         ],
         VSO: [
-            { code: 'LEAD', name: 'Leadership' },
-            { code: 'CMD', name: 'Command Staff' },
-            { code: 'ATC', name: 'ATC Coordination' },
-            { code: 'OTHER', name: 'Other' },
+            { code: 'LEAD', name: PERTII18n.t('jatoc.role.vso.lead') },
+            { code: 'CMD', name: PERTII18n.t('jatoc.role.vso.cmd') },
+            { code: 'ATC', name: PERTII18n.t('jatoc.role.vso.atc') },
+            { code: 'OTHER', name: PERTII18n.t('jatoc.role.vso.other') },
         ],
     };
 
@@ -496,7 +496,7 @@
     }
 
     async function saveOpsLevel() {
-        if (!requireDCC('change Ops Level')) {
+        if (!requireDCC(PERTII18n.t('jatoc.actions.changeOpsLevel'))) {
             // Reset to current value
             document.getElementById('opsLevelSelect').value = state.opsLevel;
             return;
@@ -510,7 +510,7 @@
     }
 
     async function changeOpsLevel() {
-        if (!requireDCC('change Ops Level')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.changeOpsLevel'))) {return;}
         const level = parseInt(document.getElementById('modalOpsLevel').value);
         const reason = document.getElementById('modalOpsReason').value;
         if (!confirm(PERTII18n.t('jatoc.opsLevel.changeConfirm', { level }))) {return;}
@@ -932,13 +932,13 @@
     }
 
     async function quickPage(id) {
-        if (!requireDCC('mark incidents as paged')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.markPaged'))) {return;}
         if (!confirm(PERTII18n.t('jatoc.incidents.markPagedConfirm'))) {return;}
         try { await api('incident.php?id=' + id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: id, update_type: 'PAGED', remarks: PERTII18n.t('jatoc.incidents.personnelPaged'), created_by: getUserAuthorString() }); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function quickClose(id) {
-        if (!requireDCC('close out incidents')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.closeOutIncidents'))) {return;}
         if (!confirm(PERTII18n.t('jatoc.incidents.closeOutConfirm'))) {return;}
         try {
             const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -951,7 +951,7 @@
     function toggleMapVisibility(id) { if (state.hiddenIncidents.has(id)) {state.hiddenIncidents.delete(id);} else {state.hiddenIncidents.add(id);} renderIncidents(); updateMapIncidents(state.incidents); }
 
     function showCreateModal() {
-        if (!requireDCC('create incidents')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.createIncidents'))) {return;}
         document.getElementById('incidentModalTitle').textContent = PERTII18n.t('jatoc.incidents.newIncident');
         document.getElementById('incidentForm').reset();
         document.getElementById('incidentId').value = '';
@@ -960,7 +960,7 @@
     }
 
     async function editIncident(id) {
-        if (!requireDCC('edit incidents')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.editIncidents'))) {return;}
         try {
             const r = await api('incident.php?id=' + id);
             const i = r.data;
@@ -1054,7 +1054,7 @@
     function formatPriority(text) { return text.replace(/&lt;\s*([^&]+?)\s*&gt;/g, '<span class="priority-text">&lt; $1 &gt;</span>'); }
 
     async function addUpdate() {
-        if (!requireProfile('add updates')) {return;}
+        if (!requireProfile(PERTII18n.t('jatoc.actions.addUpdates'))) {return;}
         const id = document.getElementById('updateIncidentId').value;
         const remarks = document.getElementById('updateRemarks').value;
         if (!remarks.trim()) { alert(PERTII18n.t('jatoc.updates.enterNotes')); return; }
@@ -1063,7 +1063,7 @@
 
     async function markPaged() {
         if (!state.currentIncident) {return;}
-        if (!requireDCC('mark incidents as paged')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.markPaged'))) {return;}
         try { await api('incident.php?id=' + state.currentIncident.id, 'PUT', { paged: true, updated_by: getUserAuthorString() }); await api('updates.php', 'POST', { incident_id: state.currentIncident.id, update_type: 'PAGED', remarks: PERTII18n.t('jatoc.incidents.personnelPaged'), created_by: getUserAuthorString() }); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
@@ -1071,7 +1071,7 @@
 
     async function generateReport() {
         if (!state.currentIncident) {return;}
-        if (!requireDCC('generate report numbers')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.generateReportNumbers'))) {return;}
         if (state.currentIncident.report_number) { alert(PERTII18n.t('jatoc.report.alreadyHas', { number: state.currentIncident.report_number })); return; }
         if (!confirm(PERTII18n.t('jatoc.report.generateConfirm'))) {return;}
         try { const r = await api('report.php', 'POST', { incident_id: state.currentIncident.id, created_by: getUserAuthorString() }); alert(PERTII18n.t('jatoc.report.generated', { number: r.report_number || '?' })); showIncidentDetails(state.currentIncident.id); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
@@ -1079,7 +1079,7 @@
 
     async function closeoutIncident() {
         if (!state.currentIncident) {return;}
-        if (!requireDCC('close out incidents')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.closeOutIncidents'))) {return;}
         if (!confirm(PERTII18n.t('jatoc.incidents.closeOutThisConfirm'))) {return;}
         try {
             const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -1093,7 +1093,7 @@
 
     async function reopenIncident() {
         if (!state.currentIncident) {return;}
-        if (!requireDCC('reopen incidents')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.reopenIncidents'))) {return;}
         if (!confirm(PERTII18n.t('jatoc.incidents.reopenConfirm'))) {return;}
         try {
             await api('incident.php?id=' + state.currentIncident.id, 'PUT', { incident_status: 'ACTIVE', closeout_utc: null, updated_by: getUserAuthorString() });
@@ -1121,17 +1121,17 @@
     // ========== DAILY OPS & PERSONNEL ==========
     function editDailyOps(type) { document.getElementById('dailyOpsType').value = type; document.getElementById('dailyOpsTypeLabel').textContent = type; const el = document.getElementById(type === 'POTUS' ? 'potusCalendar' : 'spaceCalendar'); document.getElementById('dailyOpsContent').value = el?.innerText || ''; $('#dailyOpsModal').modal('show'); }
     async function saveDailyOps() {
-        if (!requireDCC('edit daily ops')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.editDailyOps'))) {return;}
         const type = document.getElementById('dailyOpsType').value;
         try { await api('daily_ops.php', 'PUT', { item_type: type, content: document.getElementById('dailyOpsContent').value, updated_by: getUserAuthorString() }); $('#dailyOpsModal').modal('hide'); if (type === 'POTUS') {loadPotusCalendar();} else {loadSpaceCalendar();} } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
     function editPersonnel(elem, init, name) { document.getElementById('personnelElement').textContent = elem; document.getElementById('personnelElementInput').value = elem; document.getElementById('personnelInitials').value = init; document.getElementById('personnelName').value = name; $('#personnelModal').modal('show'); }
     async function savePersonnel() {
-        if (!requireDCC('edit personnel')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.editPersonnel'))) {return;}
         try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: document.getElementById('personnelInitials').value, name: document.getElementById('personnelName').value, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
     async function clearPersonnel() {
-        if (!requireDCC('edit personnel')) {return;}
+        if (!requireDCC(PERTII18n.t('jatoc.actions.editPersonnel'))) {return;}
         try { await api('personnel.php', 'PUT', { element: document.getElementById('personnelElementInput').value, initials: null, name: null, updated_by: getUserAuthorString() }); $('#personnelModal').modal('hide'); loadPersonnel(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
@@ -1139,7 +1139,7 @@
     function formatTime(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(5, 16).replace('T', ' ') + 'Z'; } catch { return dt; } }
     function formatTimeISO(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(0, 19).replace('T', ' ') + 'Z'; } catch { return dt; } }
     function formatStatus(s) { return (s || '').replace('_', ' '); }
-    function calcDuration(startStr, endStr) { if (!startStr) {return '-';} try { const start = new Date(startStr.includes('Z') ? startStr : startStr + 'Z'); const end = endStr ? new Date(endStr.includes('Z') ? endStr : endStr + 'Z') : new Date(); const diffMs = end.getTime() - start.getTime(); if (diffMs < 0) {return '0m';} const mins = Math.floor(diffMs / 60000); if (mins < 60) {return mins + 'm';} return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm'; } catch { return '-'; } }
+    function calcDuration(startStr, endStr) { if (!startStr) {return '-';} try { const start = new Date(startStr.includes('Z') ? startStr : startStr + 'Z'); const end = endStr ? new Date(endStr.includes('Z') ? endStr : endStr + 'Z') : new Date(); const diffMs = end.getTime() - start.getTime(); if (diffMs < 0) {return PERTII18n.t('jatoc.duration.zeroMinutes');} const mins = Math.floor(diffMs / 60000); if (mins < 60) {return PERTII18n.t('jatoc.duration.minutes', { value: mins });} return PERTII18n.t('jatoc.duration.hoursMinutes', { hours: Math.floor(mins / 60), minutes: mins % 60 }); } catch { return '-'; } }
     function decodeHtml(s) { const txt = document.createElement('textarea'); txt.innerHTML = s || ''; return txt.value; }
     function esc(s) { return decodeHtml(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function applyFilters() { loadIncidents(); }

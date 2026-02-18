@@ -6,61 +6,21 @@
 // SUA constants - uses PERTI namespace when available
 const _SUA_P = (typeof PERTI !== 'undefined' && PERTI.SUA) ? PERTI.SUA : null;
 
-// Type display names
-const TYPE_NAMES = _SUA_P ? _SUA_P.TYPE_NAMES : {
-    'P': 'Prohibited Area',
-    'R': 'Restricted Area',
-    'W': 'Warning Area',
-    'A': 'Alert Area',
-    'MOA': 'Military Operations Area',
-    'NSA': 'National Security Area',
-    'ATCAA': 'ATC Assigned Airspace',
-    'IR': 'IR Route',
-    'VR': 'VR Route',
-    'SR': 'SR Route',
-    'AR': 'Aerial Refueling',
-    'TFR': 'Temporary Flight Restriction',
-    'ALTRV': 'Altitude Reservation',
-    'OPAREA': 'Operating Area',
-    'AW': 'AWACS Orbit',
-    'USN': 'US Navy',
-    'DZ': 'Drop Zone',
-    'ADIZ': 'Air Defense Identification Zone',
-    'OSARA': 'Offshore Airspace Restricted Area',
-    'WSRP': 'Weather Surveillance Radar Program',
-    'SS': 'Supersonic',
-    'USArmy': 'US Army',
-    'LASER': 'Laser',
-    'USAF': 'US Air Force',
-    'ANG': 'Air National Guard',
-    'NUCLEAR': 'Nuclear',
-    'NORAD': 'NORAD',
-    'NOAA': 'NOAA',
-    'NASA': 'NASA',
-    'MODEC': 'Mode C Veil',
-    'FRZ': 'Flight Restricted Zone',
-    'SFRA': 'Special Flight Rules Area',
-    'PROHIBITED': 'Prohibited Area',
-    'RESTRICTED': 'Restricted Area',
-    'WARNING': 'Warning Area',
-    'ALERT': 'Alert Area',
-    'OTHER': 'Other',
-    'Unknown': 'Other',
-    '120': 'DC Speed Restriction',
-    '180': 'DC Special Flight Rules Area',
-};
+// Type display names - build from i18n keys when PERTI namespace not available
+const TYPE_NAMES = _SUA_P ? _SUA_P.TYPE_NAMES : (function() {
+    const keys = ['P','R','W','A','MOA','NSA','ATCAA','IR','VR','SR','AR','TFR','ALTRV','OPAREA','AW','USN','DZ','ADIZ','OSARA','WSRP','SS','USArmy','LASER','USAF','ANG','NUCLEAR','NORAD','NOAA','NASA','MODEC','FRZ','SFRA','PROHIBITED','RESTRICTED','WARNING','ALERT','OTHER','Unknown','120','180'];
+    const map = {};
+    keys.forEach(function(k) { map[k] = PERTII18n.t('sua.typeNames.' + k); });
+    return map;
+})();
 
-// Group display names (for new schema)
-const GROUP_NAMES = _SUA_P ? _SUA_P.GROUPS : {
-    'REGULATORY': 'Regulatory',
-    'MILITARY': 'Military',
-    'ROUTES': 'Routes',
-    'SPECIAL': 'Special',
-    'DC_AREA': 'DC NCR',
-    'SURFACE_OPS': 'Surface Ops',
-    'AWACS': 'AWACS',
-    'OTHER': 'Other',
-};
+// Group display names (for new schema) - build from i18n keys when PERTI namespace not available
+const GROUP_NAMES = _SUA_P ? _SUA_P.GROUPS : (function() {
+    const keys = ['REGULATORY','MILITARY','ROUTES','SPECIAL','DC_AREA','SURFACE_OPS','AWACS','OTHER'];
+    const map = {};
+    keys.forEach(function(k) { map[k] = PERTII18n.t('sua.groupNames.' + k); });
+    return map;
+})();
 
 // Types that should remain as lines (routes, tracks) - NOT converted to polygons
 const LINE_TYPES = _SUA_P ? [..._SUA_P.LINE_TYPES] : [
@@ -952,7 +912,7 @@ function showFeaturePopup(feature, lngLat) {
     const featureType = props._isRoute ? PERTII18n.t('sua.route') : PERTII18n.t('sua.area');
 
     // Name display
-    const displayName = props.name || props.designator || 'Unknown';
+    const displayName = props.name || props.designator || PERTII18n.t('common.unknown');
     const areaName = props.area_name;
 
     let popupContent = '<div class="sua-popup">' +

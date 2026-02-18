@@ -94,11 +94,11 @@ const GDP = (function() {
         if (!badge) {return;}
 
         const statusMap = {
-            'DRAFT': { text: 'Draft (local)', class: 'badge-secondary' },
-            'PREVIEWED': { text: 'Previewed', class: 'badge-info' },
-            'SIMULATED': { text: 'Simulated', class: 'badge-warning' },
-            'ACTIVE': { text: 'Active', class: 'badge-success' },
-            'PURGED': { text: 'Purged', class: 'badge-danger' },
+            'DRAFT': { text: PERTII18n.t('gdp.status.draft'), class: 'badge-secondary' },
+            'PREVIEWED': { text: PERTII18n.t('gdp.status.previewed'), class: 'badge-info' },
+            'SIMULATED': { text: PERTII18n.t('gdp.status.simulated'), class: 'badge-warning' },
+            'ACTIVE': { text: PERTII18n.t('gdp.status.active'), class: 'badge-success' },
+            'PURGED': { text: PERTII18n.t('gdp.status.purged'), class: 'badge-danger' },
         };
 
         const info = statusMap[status] || statusMap['DRAFT'];
@@ -120,9 +120,9 @@ const GDP = (function() {
             const canSubmit = state.status === 'SIMULATED' || state.status === 'MODELED';
             submitTmiBtn.disabled = !canSubmit;
             if (canSubmit) {
-                submitTmiBtn.title = 'Submit GDP to TMI Publishing for coordination';
+                submitTmiBtn.title = PERTII18n.t('gdp.tooltip.submitToTmi');
             } else {
-                submitTmiBtn.title = 'Run "Model" first to enable';
+                submitTmiBtn.title = PERTII18n.t('gdp.tooltip.runModelFirst');
             }
         }
         if (purgeLocalBtn) {purgeLocalBtn.disabled = (state.status === 'DRAFT');}
@@ -238,14 +238,14 @@ const GDP = (function() {
         const airport = (document.getElementById('gdp_ctl_element')?.value || '').toUpperCase().trim();
 
         if (!airport) {
-            alert('Please enter a CTL Element (airport code) first.');
+            alert(PERTII18n.t('gdp.validation.enterCtlElement'));
             return;
         }
 
         const btn = document.getElementById('gdp_reload_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Loading...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('common.loading');
         }
 
         try {
@@ -264,7 +264,7 @@ const GDP = (function() {
             const tbodies = ['gdp_flight_list_tbody', 'gdp_slots_list_tbody', 'gdp_demand_by_center'];
             tbodies.forEach(id => {
                 const tbody = document.getElementById(id);
-                if (tbody) {tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">Click Model to load data</td></tr>';}
+                if (tbody) {tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">' + PERTII18n.t('gdp.table.clickModelToLoad') + '</td></tr>';}
             });
 
             // Update airport label
@@ -276,7 +276,7 @@ const GDP = (function() {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Reload';
+                btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> ' + PERTII18n.t('gdp.button.reload');
             }
         }
     }
@@ -308,7 +308,7 @@ const GDP = (function() {
     function handleShowDemand() {
         const airport = (document.getElementById('gdp_ctl_element')?.value || '').toUpperCase().trim();
         if (!airport) {
-            alert('Please enter a CTL Element (airport code) first.');
+            alert(PERTII18n.t('gdp.validation.enterCtlElement'));
             return;
         }
 
@@ -357,7 +357,7 @@ const GDP = (function() {
         const flights = state.simulatedFlights.length > 0 ? state.simulatedFlights : state.previewFlights;
 
         if (!flights || flights.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">No flights loaded. Run Model first.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-secondary">' + PERTII18n.t('gdp.table.noFlightsRunModel') + '</td></tr>';
             return;
         }
 
@@ -368,8 +368,7 @@ const GDP = (function() {
             const delay = parseInt(f.program_delay_min, 10) || 0;
             const isExempt = f.ctl_exempt === 1 || f.ctl_exempt === '1';
             const statusClass = isExempt ? 'text-success' : (delay > 0 ? 'text-warning' : '');
-            const statusKey = isExempt ? 'exempt' : (delay > 0 ? 'delayed' : 'uncontrolled');
-            const statusText = PERTII18n.t('gdt.flight.status' + statusKey.charAt(0).toUpperCase() + statusKey.slice(1));
+            const statusText = isExempt ? PERTII18n.t('gdp.flight.exempt') : (delay > 0 ? PERTII18n.t('gdp.flight.delayed') : PERTII18n.t('gdp.flight.uncontrolled'));
 
             if (delay > 0) {delayed++;}
             if (isExempt) {exempt++;}
@@ -384,7 +383,7 @@ const GDP = (function() {
                 <td>${formatUtcTime(f.cta_utc)}</td>
                 <td>${formatUtcTime(f.ctd_utc)}</td>
                 <td class="${getDelayClass(delay)}">${formatDelay(delay)}</td>
-                <td data-status="${statusKey}">${statusText}</td>
+                <td>${statusText}</td>
             </tr>`;
         });
 
@@ -394,7 +393,7 @@ const GDP = (function() {
         document.getElementById('gdp_fl_count_all').textContent = flights.length;
         document.getElementById('gdp_fl_count_delayed').textContent = delayed;
         document.getElementById('gdp_fl_count_exempt').textContent = exempt;
-        document.getElementById('gdp_fl_status').textContent = PERTII18n.t('gdt.flight.showingFlights', { count: flights.length });
+        document.getElementById('gdp_fl_status').textContent = PERTII18n.t('gdp.table.showingFlights', { count: flights.length });
     }
 
     function renderSlotsListModal() {
@@ -404,7 +403,7 @@ const GDP = (function() {
         const slots = state.slots || [];
 
         if (slots.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary">No slots generated. Run Model first.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary">' + PERTII18n.t('gdp.table.noSlotsRunModel') + '</td></tr>';
             return;
         }
 
@@ -415,19 +414,18 @@ const GDP = (function() {
             const isAssigned = s.callsign && s.callsign !== '';
             if (isAssigned) {assigned++;} else {open++;}
 
-            const statusKey = isAssigned ? 'assigned' : 'open';
-            const statusText = PERTII18n.t('gdt.flight.status' + statusKey.charAt(0).toUpperCase() + statusKey.slice(1));
+            const statusText = isAssigned ? PERTII18n.t('gdp.slot.assigned') : PERTII18n.t('gdp.slot.open');
             const statusClass = isAssigned ? 'text-primary' : 'text-secondary';
 
             html += `<tr>
                 <td>${formatUtcTime(s.slot_time_utc)}</td>
                 <td>${s.slot_id || '--'}</td>
-                <td class="${statusClass}">${s.callsign || '(open)'}</td>
+                <td class="${statusClass}">${s.callsign || PERTII18n.t('gdp.slot.openLabel')}</td>
                 <td>${s.origin || '--'}</td>
                 <td>${formatUtcTime(s.ctd_utc)}</td>
                 <td class="${getDelayClass(s.delay_min)}">${formatDelay(s.delay_min)}</td>
                 <td>${s.slot_type || 'PRG'}</td>
-                <td class="${statusClass}" data-status="${statusKey}">${statusText}</td>
+                <td class="${statusClass}">${statusText}</td>
             </tr>`;
         });
 
@@ -437,7 +435,7 @@ const GDP = (function() {
         document.getElementById('gdp_sl_count_all').textContent = slots.length;
         document.getElementById('gdp_sl_count_assigned').textContent = assigned;
         document.getElementById('gdp_sl_count_open').textContent = open;
-        document.getElementById('gdp_sl_status').textContent = PERTII18n.t('gdt.flight.showingFlights', { count: slots.length });
+        document.getElementById('gdp_sl_status').textContent = PERTII18n.t('gdp.table.showingSlots', { count: slots.length });
     }
 
     // =========================================================================
@@ -519,14 +517,14 @@ const GDP = (function() {
                 labels: hours,
                 datasets: [
                     {
-                        label: 'Original',
+                        label: PERTII18n.t('gdp.chart.original'),
                         data: originalData,
                         backgroundColor: 'rgba(0, 123, 255, 0.7)',
                         borderColor: 'rgba(0, 123, 255, 1)',
                         borderWidth: 1,
                     },
                     {
-                        label: 'Modeled',
+                        label: PERTII18n.t('gdp.chart.modeled'),
                         data: modeledData,
                         backgroundColor: 'rgba(255, 193, 7, 0.5)',
                         borderColor: 'rgba(255, 193, 7, 1)',
@@ -555,7 +553,7 @@ const GDP = (function() {
         const payload = collectGdpPayload();
 
         if (!payload.gdp_airport) {
-            alert('Please enter a CTL Element (airport code).');
+            alert(PERTII18n.t('gdp.validation.enterCtlElement'));
             return;
         }
 
@@ -564,7 +562,7 @@ const GDP = (function() {
         const btn = document.getElementById('gdp_model_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Loading...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('common.loading');
         }
 
         try {
@@ -573,7 +571,7 @@ const GDP = (function() {
             console.log('GDP Preview result:', result);
 
             if (result.status !== 'ok') {
-                alert('Preview failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.previewFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -597,11 +595,11 @@ const GDP = (function() {
 
         } catch (err) {
             console.error('Preview error:', err);
-            alert('Preview failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.previewFailed') + ': ' + err.message);
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> Model';
+                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> ' + PERTII18n.t('gdp.button.model');
             }
         }
     }
@@ -614,7 +612,7 @@ const GDP = (function() {
         const payload = collectGdpPayload();
 
         if (!payload.gdp_airport || !payload.gdp_start || !payload.gdp_end) {
-            alert('Please enter CTL Element, Start, and End times.');
+            alert(PERTII18n.t('gdp.validation.enterCtlStartEnd'));
             return;
         }
 
@@ -623,7 +621,7 @@ const GDP = (function() {
         const btn = document.getElementById('gdp_model_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Modeling...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdp.button.modeling');
         }
 
         try {
@@ -633,7 +631,7 @@ const GDP = (function() {
             console.log('GDP Model result:', result);
 
             if (result.status !== 'ok') {
-                alert('Model failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.modelFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -657,11 +655,11 @@ const GDP = (function() {
 
         } catch (err) {
             console.error('Model error:', err);
-            alert('Model failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.modelFailed') + ': ' + err.message);
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> Model';
+                btn.innerHTML = '<i class="fas fa-calculator mr-1"></i> ' + PERTII18n.t('gdp.button.model');
             }
         }
     }
@@ -674,21 +672,21 @@ const GDP = (function() {
         const payload = collectGdpPayload();
 
         if (!payload.gdp_airport || !payload.gdp_start || !payload.gdp_end) {
-            alert('Please enter CTL Element, Start, and End times.');
+            alert(PERTII18n.t('gdp.validation.enterCtlStartEnd'));
             return;
         }
 
         const btn = document.getElementById('gdp_run_proposed_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Running...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdp.button.running');
         }
 
         try {
             const result = await apiPostJson(API.simulate, payload);
 
             if (result.status !== 'ok') {
-                alert('Simulation failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.simulationFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -709,11 +707,11 @@ const GDP = (function() {
 
         } catch (err) {
             console.error('Simulate error:', err);
-            alert('Simulation failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.simulationFailed') + ': ' + err.message);
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Run Proposed';
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> ' + PERTII18n.t('gdp.button.runProposed');
             }
         }
     }
@@ -723,19 +721,19 @@ const GDP = (function() {
     // =========================================================================
 
     async function handleApply() {
-        if (!confirm('Apply GDP to live ADL? This will assign EDCTs to affected flights.')) {
+        if (!confirm(PERTII18n.t('gdp.confirm.applyGdp'))) {
             return;
         }
 
         if (!state.programId) {
-            alert('No GDP program to activate. Run Model first.');
+            alert(PERTII18n.t('gdp.error.noProgramToActivate'));
             return;
         }
 
         const btn = document.getElementById('gdp_run_actual_btn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Applying...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('gdp.button.applying');
         }
 
         try {
@@ -744,7 +742,7 @@ const GDP = (function() {
             });
 
             if (result.status !== 'ok') {
-                alert('Apply failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.applyFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -759,15 +757,15 @@ const GDP = (function() {
             }
 
             const controlled = flightsInfo.controlled || 0;
-            alert('GDP activated. ' + controlled + ' flights assigned EDCTs.');
+            alert(PERTII18n.t('gdp.success.gdpActivated', { count: controlled }));
 
         } catch (err) {
             console.error('Apply error:', err);
-            alert('Apply failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.applyFailed') + ': ' + err.message);
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Run Actual';
+                btn.innerHTML = '<i class="fas fa-check-circle mr-1"></i> ' + PERTII18n.t('gdp.button.runActual');
             }
         }
     }
@@ -782,12 +780,12 @@ const GDP = (function() {
             if (window.Swal) {
                 window.Swal.fire({
                     icon: 'warning',
-                    title: 'Model Required',
-                    text: 'You must run "Model" before submitting to TMI Publishing. This ensures EDCTs are calculated correctly.',
-                    confirmButtonText: 'OK',
+                    title: PERTII18n.t('gdp.error.modelRequired'),
+                    text: PERTII18n.t('gdp.error.modelRequiredText'),
+                    confirmButtonText: PERTII18n.t('common.ok'),
                 });
             } else {
-                alert('You must run "Model" before submitting to TMI Publishing.');
+                alert(PERTII18n.t('gdp.error.modelRequiredShort'));
             }
             return;
         }
@@ -796,7 +794,7 @@ const GDP = (function() {
 
         // Validate required fields
         if (!payload.gdp_airport || !payload.gdp_start || !payload.gdp_end) {
-            alert('Please enter CTL Element, Start, and End times.');
+            alert(PERTII18n.t('gdp.validation.enterCtlStartEnd'));
             return;
         }
 
@@ -840,7 +838,7 @@ const GDP = (function() {
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);
-            alert('Failed to prepare handoff data: ' + err.message);
+            alert(PERTII18n.t('gdp.error.handoffFailed') + ': ' + err.message);
         }
     }
 
@@ -849,7 +847,7 @@ const GDP = (function() {
     // =========================================================================
 
     async function handlePurgeLocal() {
-        if (!confirm('Clear GDP simulation? This does not affect live flights.')) {
+        if (!confirm(PERTII18n.t('gdp.confirm.purgeLocal'))) {
             return;
         }
 
@@ -857,7 +855,7 @@ const GDP = (function() {
             const result = await apiPostJson(API.purgeLocal, { program_id: state.programId });
 
             if (result.status !== 'ok') {
-                alert('Purge failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.purgeFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -869,17 +867,17 @@ const GDP = (function() {
 
         } catch (err) {
             console.error('Purge local error:', err);
-            alert('Purge failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.purgeFailed') + ': ' + err.message);
         }
     }
 
     async function handlePurge() {
-        if (!confirm('PURGE active GDP? This will remove EDCTs from all affected flights.')) {
+        if (!confirm(PERTII18n.t('gdp.confirm.purgeActive'))) {
             return;
         }
 
         if (!state.programId) {
-            alert('No GDP program to purge.');
+            alert(PERTII18n.t('gdp.error.noProgramToPurge'));
             return;
         }
 
@@ -890,7 +888,7 @@ const GDP = (function() {
             });
 
             if (result.status !== 'ok') {
-                alert('Purge failed: ' + (result.message || 'Unknown error'));
+                alert(PERTII18n.t('gdp.error.purgeFailed') + ': ' + (result.message || PERTII18n.t('gdp.error.unknown')));
                 return;
             }
 
@@ -899,11 +897,11 @@ const GDP = (function() {
             updateWorkflowButtons();
             clearDisplay();
 
-            alert('GDP purged successfully.');
+            alert(PERTII18n.t('gdp.success.gdpPurged'));
 
         } catch (err) {
             console.error('Purge error:', err);
-            alert('Purge failed: ' + err.message);
+            alert(PERTII18n.t('gdp.error.purgeFailed') + ': ' + err.message);
         }
     }
 
@@ -955,7 +953,7 @@ const GDP = (function() {
         if (!tbody) {return;}
 
         if (!data || Object.keys(data).length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary">No data available</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary">' + PERTII18n.t('gdp.table.noDataAvailable') + '</td></tr>';
             return;
         }
 
@@ -992,7 +990,7 @@ const GDP = (function() {
         tbody.innerHTML = '';
 
         if (!flights || flights.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No flights</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">' + PERTII18n.t('gdp.table.noFlights') + '</td></tr>';
             return;
         }
 
@@ -1022,7 +1020,7 @@ const GDP = (function() {
         tbody.innerHTML = '';
 
         if (!slots || slots.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No slots generated</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">' + PERTII18n.t('gdp.table.noSlotsGenerated') + '</td></tr>';
             return;
         }
 
@@ -1053,7 +1051,7 @@ const GDP = (function() {
         document.getElementById('gdp_metric_avg_delay').textContent = '--';
         document.getElementById('gdp_metric_max_delay').textContent = '--';
         document.getElementById('gdp_metric_utilization').textContent = '--';
-        document.getElementById('gdp_flight_count').textContent = '0 flights';
+        document.getElementById('gdp_flight_count').textContent = PERTII18n.t('gdp.table.zeroFlights');
 
         // Clear chart
         const chartContainer = document.getElementById('gdp_chart_container');
@@ -1062,7 +1060,7 @@ const GDP = (function() {
                 <div class="d-flex justify-content-center align-items-center h-100 text-muted">
                     <div class="text-center">
                         <i class="fas fa-chart-bar fa-3x mb-2"></i>
-                        <p class="mb-0">Run Preview to see demand/capacity chart</p>
+                        <p class="mb-0">${PERTII18n.t('gdp.chart.runPreview')}</p>
                     </div>
                 </div>
             `;
@@ -1089,7 +1087,7 @@ const GDP = (function() {
         }));
 
         if (data.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted p-4">No data to display</div>';
+            container.innerHTML = '<div class="text-center text-muted p-4">' + PERTII18n.t('gdp.chart.noDataToDisplay') + '</div>';
             return;
         }
 
@@ -1151,7 +1149,7 @@ const GDP = (function() {
             .attr('dy', '1em')
             .style('text-anchor', 'middle')
             .style('font-size', '11px')
-            .text('Flights');
+            .text(PERTII18n.t('gdp.chart.flights'));
     }
 
     function renderDemandChartWithSlots(flights, slots, params) {
@@ -1190,7 +1188,7 @@ const GDP = (function() {
         }));
 
         if (data.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted p-4">No data to display</div>';
+            container.innerHTML = '<div class="text-center text-muted p-4">' + PERTII18n.t('gdp.chart.noDataToDisplay') + '</div>';
             return;
         }
 
@@ -1277,14 +1275,14 @@ const GDP = (function() {
             .attr('transform', `translate(${margin.left + 10}, ${margin.top})`);
 
         legend.append('rect').attr('x', 0).attr('y', 0).attr('width', 12).attr('height', 12).attr('fill', '#dc3545');
-        legend.append('text').attr('x', 16).attr('y', 10).text('Demand').style('font-size', '10px');
+        legend.append('text').attr('x', 16).attr('y', 10).text(PERTII18n.t('gdp.chart.demand')).style('font-size', '10px');
 
         legend.append('rect').attr('x', 70).attr('y', 0).attr('width', 12).attr('height', 12).attr('fill', '#28a745');
-        legend.append('text').attr('x', 86).attr('y', 10).text('Capacity').style('font-size', '10px');
+        legend.append('text').attr('x', 86).attr('y', 10).text(PERTII18n.t('gdp.chart.capacity')).style('font-size', '10px');
 
         legend.append('line').attr('x1', 150).attr('x2', 170).attr('y1', 6).attr('y2', 6)
             .attr('stroke', '#007bff').attr('stroke-width', 2).attr('stroke-dasharray', '5,5');
-        legend.append('text').attr('x', 175).attr('y', 10).text('Rate').style('font-size', '10px');
+        legend.append('text').attr('x', 175).attr('y', 10).text(PERTII18n.t('gdp.chart.rate')).style('font-size', '10px');
 
         // Y-axis label
         svg.append('text')
@@ -1294,7 +1292,7 @@ const GDP = (function() {
             .attr('dy', '1em')
             .style('text-anchor', 'middle')
             .style('font-size', '11px')
-            .text('Flights');
+            .text(PERTII18n.t('gdp.chart.yAxisFlights'));
     }
 
     // =========================================================================
@@ -1460,7 +1458,7 @@ const GDP = (function() {
         // Load AAR button - placeholder for loading AAR data
         document.getElementById('gdp_load_aar_btn')?.addEventListener('click', () => {
             console.log('GDP: Load AAR clicked - feature coming soon');
-            alert('Load ADL AAR feature coming soon.');
+            alert(PERTII18n.t('gdp.button.loadAarComingSoon'));
         });
 
         // Show Demand button
@@ -1517,30 +1515,30 @@ const GDP = (function() {
                     btn.classList.remove('btn-outline-secondary');
                     btn.classList.add(filter === 'delayed' ? 'btn-outline-warning' : filter === 'exempt' ? 'btn-outline-success' : 'btn-info');
 
-                    // Filter rows by data-status attribute in last column
+                    // Filter rows by status text in last column
                     var rows = document.querySelectorAll('#gdp_flight_list_tbody tr');
                     var visibleCount = 0;
                     rows.forEach(function(row) {
                         var cells = row.querySelectorAll('td');
                         var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
-                        var statusVal = statusCell ? (statusCell.getAttribute('data-status') || '') : '';
+                        var statusText = statusCell ? statusCell.textContent.trim() : '';
 
                         if (filter === 'all') {
                             row.style.display = '';
                             visibleCount++;
                         } else if (filter === 'delayed') {
-                            var show = statusVal === 'delayed';
+                            var show = statusText === 'Delayed';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         } else if (filter === 'exempt') {
-                            var show = statusVal === 'exempt';
+                            var show = statusText === 'Exempt';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         }
                     });
 
                     var statusEl = document.getElementById('gdp_fl_status');
-                    if (statusEl) statusEl.textContent = PERTII18n.t('gdt.flight.showingFlights', { count: visibleCount });
+                    if (statusEl) statusEl.textContent = PERTII18n.t('gdp.table.showingFlightsFiltered', { count: visibleCount });
                 });
             }
         });
@@ -1564,24 +1562,24 @@ const GDP = (function() {
                     rows.forEach(function(row) {
                         var cells = row.querySelectorAll('td');
                         var statusCell = cells.length > 0 ? cells[cells.length - 1] : null;
-                        var statusVal = statusCell ? (statusCell.getAttribute('data-status') || '') : '';
+                        var statusText = statusCell ? statusCell.textContent.trim() : '';
 
                         if (filter === 'all') {
                             row.style.display = '';
                             visibleCount++;
                         } else if (filter === 'assigned') {
-                            var show = statusVal === 'assigned';
+                            var show = statusText === 'Assigned';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         } else if (filter === 'open') {
-                            var show = statusVal === 'open';
+                            var show = statusText === 'Open';
                             row.style.display = show ? '' : 'none';
                             if (show) visibleCount++;
                         }
                     });
 
                     var statusEl = document.getElementById('gdp_sl_status');
-                    if (statusEl) statusEl.textContent = PERTII18n.t('gdt.flight.showingFlights', { count: visibleCount });
+                    if (statusEl) statusEl.textContent = PERTII18n.t('gdp.table.showingSlotsFiltered', { count: visibleCount });
                 });
             }
         });
@@ -1773,7 +1771,7 @@ const GDP = (function() {
 
         let labels = [];
         let dataPoints = [];
-        let chartLabel = 'Avg Delay (min)';
+        let chartLabel = PERTII18n.t('gdp.chart.avgDelayMin');
 
         if (view === 'hourly') {
             // Sort hours
@@ -1781,7 +1779,7 @@ const GDP = (function() {
             labels = hours;
             if (metric === 'count') {
                 dataPoints = hours.map(h => stats.byHour[h].count);
-                chartLabel = 'Flight Count';
+                chartLabel = PERTII18n.t('gdp.chart.flightCount');
             } else {
                 dataPoints = hours.map(h => {
                     const d = stats.byHour[h];
@@ -1793,7 +1791,7 @@ const GDP = (function() {
             labels = sorted.map(s => s[0]);
             if (metric === 'count') {
                 dataPoints = sorted.map(s => s[1].count);
-                chartLabel = 'Flight Count';
+                chartLabel = PERTII18n.t('gdp.chart.flightCount');
             } else {
                 dataPoints = sorted.map(s => s[1].count > 0 ? (s[1].totalDelay / s[1].count).toFixed(1) : 0);
             }
@@ -1802,7 +1800,7 @@ const GDP = (function() {
             labels = sorted.map(s => s[0]);
             if (metric === 'count') {
                 dataPoints = sorted.map(s => s[1].count);
-                chartLabel = 'Flight Count';
+                chartLabel = PERTII18n.t('gdp.chart.flightCount');
             } else {
                 dataPoints = sorted.map(s => s[1].count > 0 ? (s[1].totalDelay / s[1].count).toFixed(1) : 0);
             }

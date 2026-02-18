@@ -48,6 +48,23 @@ function swim_log($message, $level = 'INFO') {
 }
 
 /**
+ * Write a heartbeat file so ADL can detect healthy SWIM daemon activity.
+ */
+function swim_write_heartbeat($heartbeatFile, $status, array $extra = []) {
+    $payload = array_merge([
+        'pid' => getmypid(),
+        'status' => $status,
+        'updated_utc' => gmdate('Y-m-d H:i:s'),
+        'unix_ts' => time(),
+    ], $extra);
+
+    $written = @file_put_contents($heartbeatFile, json_encode($payload), LOCK_EX);
+    if ($written === false) {
+        swim_log("Failed to write heartbeat file: $heartbeatFile", 'WARN');
+    }
+}
+
+/**
  * Write PID file for process management
  */
 function swim_write_pid($pidFile) {
@@ -86,6 +103,7 @@ function swim_check_existing_instance($pidFile) {
 // ============================================================================
 
 $pidFile = sys_get_temp_dir() . '/swim_sync_daemon.pid';
+$heartbeatFile = sys_get_temp_dir() . '/swim_sync_daemon.heartbeat';
 
 // Check for existing instance
 if (swim_check_existing_instance($pidFile)) {
@@ -95,6 +113,12 @@ if (swim_check_existing_instance($pidFile)) {
 
 // Write PID file
 swim_write_pid($pidFile);
+register_shutdown_function(function() use ($heartbeatFile) {
+    if (file_exists($heartbeatFile)) {
+        @unlink($heartbeatFile);
+    }
+});
+swim_write_heartbeat($heartbeatFile, 'starting');
 
 swim_log("========================================");
 swim_log("VATSWIM Sync Daemon Starting");
@@ -111,6 +135,7 @@ $cycleCount = 0;
 do {
     $cycleStart = microtime(true);
     $cycleCount++;
+    swim_write_heartbeat($heartbeatFile, 'running', ['cycle' => $cycleCount]);
 
     swim_log("--- Sync cycle #$cycleCount starting ---");
 
@@ -128,7 +153,7 @@ do {
         } else {
             swim_log($result['message'], 'ERROR');
         }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         swim_log("Sync exception: " . $e->getMessage(), 'ERROR');
     }
 
@@ -149,26 +174,31 @@ do {
             }
 
             $lastCleanupTime = time();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             swim_log("Cleanup exception: " . $e->getMessage(), 'ERROR');
         }
     }
+
+    $cycleDuration = microtime(true) - $cycleStart;
+    swim_write_heartbeat($heartbeatFile, 'idle', [
+        'cycle' => $cycleCount,
+        'cycle_ms' => (int)round($cycleDuration * 1000),
+    ]);
 
     // ========================================================================
     // Sleep until next cycle
     // ========================================================================
     if ($runLoop) {
-        $cycleDuration = microtime(true) - $cycleStart;
-        $sleepTime = max(1, $syncInterval - $cycleDuration);
+        $sleepSeconds = max(1, (int)ceil($syncInterval - $cycleDuration));
 
         if ($debug) {
-            swim_log("Cycle completed in " . round($cycleDuration * 1000) . "ms, sleeping {$sleepTime}s", 'DEBUG');
+            swim_log("Cycle completed in " . round($cycleDuration * 1000) . "ms, sleeping {$sleepSeconds}s", 'DEBUG');
         }
 
         // Sleep in 1-second increments to allow graceful shutdown
-        $sleepRemaining = $sleepTime;
+        $sleepRemaining = $sleepSeconds;
         while ($sleepRemaining > 0) {
-            sleep(min(1, $sleepRemaining));
+            sleep(1);
             $sleepRemaining--;
 
             // Check for shutdown signals

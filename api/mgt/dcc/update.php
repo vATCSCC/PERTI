@@ -48,13 +48,16 @@ $position_name = post_input('position_name');
 $personnel_ois = post_input('personnel_ois');
 $personnel_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['personnel_name'])));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_dcc_staffing SET position_facility='$position_facility', position_name='$position_name', personnel_ois='$personnel_ois', personnel_name='$personnel_name' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_dcc_staffing SET position_facility=?, position_name=?, personnel_ois=?, personnel_name=? WHERE id=?");
+$stmt->bind_param("ssssi", $position_facility, $position_name, $personnel_ois, $personnel_name, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("dcc/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

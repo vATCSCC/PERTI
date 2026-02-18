@@ -1,6 +1,6 @@
 # Data Refresh Pipeline
 
-The data refresh pipeline is the core process that ingests VATSIM flight data every ~15 seconds and orchestrates all downstream calculations. The main procedure `sp_Adl_RefreshFromVatsim_Normalized` executes 13+ processing steps within a target window of 5 seconds.
+The data refresh pipeline is the core process that ingests VATSIM flight data every ~15 seconds and orchestrates all downstream calculations. The main procedure `sp_Adl_RefreshFromVatsim_Staged` (V9.3.0) executes 13+ processing steps. When `@defer_expensive = 1`, expensive ETA/snapshot steps are deferred to the daemon's time-budget system, ensuring data ingestion and trajectory capture always complete within the 15s window. Delta detection (V9.3.0) skips redundant processing for unchanged flights, reducing SP time by ~30-40%.
 
 ---
 
@@ -130,27 +130,28 @@ The main procedure executes these steps in sequence:
 
 | Step | Name | Function | Tables Affected |
 |------|------|----------|-----------------|
-| 1 | Parse JSON | Extract pilots from JSON | #pilots |
-| 1b | Enrich | Add airport data | #pilots |
-| 2 | Core Upsert | Merge flight core data | adl_flight_core |
+| 1 | Parse Staging | Read pilots from staging table + `change_flags` | #pilots |
+| 1b | Enrich | Add airport data; geography filtered by `change_flags & 5` (V9.3.0) | #pilots |
+| 2 | Core Upsert | Heartbeat path (timestamps only) or full update with phase recalc (V9.3.0) | adl_flight_core |
 | 2a | Prefiles | Process VATSIM prefiles | adl_flight_core |
 | 2b | Times Init | Create times rows | adl_flight_times |
-| 3 | Position | Update positions | adl_flight_position |
-| 4 | Flight Plan | Detect route changes | adl_flight_plan |
+| 3 | Position | Update positions; skipped for heartbeat flights (V9.3.0) | adl_flight_position |
+| 4 | Flight Plan | Detect route changes; filtered by `change_flags & 2` (V9.3.0) | adl_flight_plan |
 | 4b | ETD Calc | Calculate departure times | adl_flight_times |
 | 4c | SimBrief | Parse SimBrief data | adl_flight_stepclimbs |
 | 5 | Queue | Queue routes for parsing | adl_parse_queue |
 | 5b | Route Dist | Update route distances | adl_flight_position |
-| 6 | Aircraft | Update aircraft info | adl_flight_aircraft |
+| 6 | Aircraft | Update aircraft info; filtered by `change_flags & 6` (V9.3.0) | adl_flight_aircraft |
 | 7 | Inactive | Mark stale flights | adl_flight_core |
-| 8 | Trajectory | ETA + trajectory logging (V3.2: includes prefiles) | adl_flight_times, adl_flight_trajectory |
+| 8 | Trajectory | Trajectory logging always runs; ETA conditional on `@defer_expensive` (V9.2.0) | adl_flight_times, adl_flight_trajectory |
 | 8b | Buckets | Update arrival buckets | adl_flight_times |
 | 8c | Waypoint ETA | Calculate waypoint ETAs | adl_flight_waypoints |
+| 8d | Batch ETA | High-accuracy wind ETA; skipped when `@defer_expensive = 1` (V9.2.0) | adl_flight_times |
 | 9 | Zone | OOOI zone detection (V2.1: sets atd/ata times) | adl_zone_events, adl_flight_times |
 | 10 | Boundary | ARTCC/Sector detection | (disabled pending optimization) |
 | 11 | Crossings | Planned crossings | (disabled pending optimization) |
-| 12 | Log Traj | Archive trajectory | adl_flight_trajectory |
-| 13 | Snapshot | Phase snapshot for charts | adl_phase_snapshots |
+| 12 | Log Traj | Archive trajectory; skipped when `@defer_expensive = 1` (V9.2.0) | adl_flight_trajectory |
+| 13 | Snapshot | Phase snapshot; skipped when `@defer_expensive = 1` (V9.2.0) | adl_phase_snapshots |
 
 ### Normalized Table Structure
 
@@ -234,27 +235,32 @@ IF target.fp_hash IS NULL OR target.fp_hash != source.route_hash
 
 ### Sub-Procedure Calls
 
-The main procedure orchestrates sub-procedures:
+The main procedure orchestrates sub-procedures. When `@defer_expensive = 1`, trajectory capture always runs but ETA/snapshot steps are skipped in the SP and handled by the daemon's time-budget system instead:
 
 ```sql
--- ETA calculation (V3.2 - includes prefiles)
-EXEC dbo.sp_ProcessTrajectoryBatch 
-    @process_eta = 1, 
+-- Trajectory + ETA (V9.2.0: split by @defer_expensive)
+-- When @defer_expensive = 1: trajectory only (positions are ephemeral, must never skip)
+-- When @defer_expensive = 0: trajectory + ETA together (original behavior)
+EXEC dbo.sp_ProcessTrajectoryBatch
+    @process_eta = CASE @defer_expensive WHEN 1 THEN 0 ELSE 1 END,
     @process_trajectory = 1,
     @eta_count = @eta_count OUTPUT,
     @traj_count = @traj_count OUTPUT;
 
--- SimBrief parsing
-EXEC dbo.sp_ParseSimBriefDataBatch 
-    @batch_size = 50, 
+-- High-accuracy wind ETA (skipped when @defer_expensive = 1)
+EXEC dbo.sp_CalculateETABatch @eta_count = @batch_eta_count OUTPUT;
+
+-- SimBrief parsing (always runs)
+EXEC dbo.sp_ParseSimBriefDataBatch
+    @batch_size = 50,
     @only_unparsed = 1;
 
 -- Zone detection (V2.1 - sets atd_utc/ata_runway_utc)
-EXEC dbo.sp_ProcessZoneDetectionBatch 
+EXEC dbo.sp_ProcessZoneDetectionBatch
     @transitions_detected = @zone_transitions OUTPUT;
 
 -- Waypoint ETAs
-EXEC dbo.sp_CalculateWaypointETABatch 
+EXEC dbo.sp_CalculateWaypointETABatch
     @waypoint_count = @waypoint_etas OUTPUT;
 ```
 
@@ -301,20 +307,145 @@ The procedure uses:
 
 ### Daemon Integration
 
-The PHP daemon calls the procedure:
+The PHP daemon calls the staged procedure with optional deferred processing:
 
 ```php
-// vatsim_adl_daemon.php
+// vatsim_adl_daemon.php (V9.3.0)
 while (true) {
     $json = fetch_vatsim_api();
-    $result = sqlsrv_query($conn_adl, 
-        "EXEC sp_Adl_RefreshFromVatsim_Normalized @Json = ?",
-        [$json]
+    $parsedPilots = parseVatsimPilots($json);
+
+    // Delta detection: compare against previous cycle (V9.3.0)
+    foreach ($parsedPilots as &$pilot) {
+        $pilot['change_flags'] = computeChangeFlags($pilot, $previousPilots[$pilot['flight_key']] ?? null);
+    }
+    // Rebuild previous state for next cycle (~240KB for 3000 pilots)
+    $previousPilots = rebuildPreviousState($parsedPilots);
+
+    // Bulk insert to staging with change_flags
+    insertPilotsBulkLiteral($conn, $parsedPilots, $batchId);
+
+    // SP skips processing for heartbeat flights (change_flags=0)
+    $result = executeStagedRefreshSP($conn, $batchId, $timeout,
+        $config['zone_daemon_enabled'],   // @skip_zone_detection
+        $config['defer_expensive']        // @defer_expensive
     );
-    log_stats(sqlsrv_fetch_array($result));
+
+    // If time budget remains, run deferred ETA calculations
+    if ($config['defer_expensive']) {
+        $deferred = executeDeferredProcessing($conn, $config, $stats, $cycleStart);
+    }
+
     sleep(15 - elapsed_time());
 }
 ```
+
+---
+
+## Deferred Processing (V9.2.0)
+
+_Added in V9.2.0._
+
+### Problem
+
+At high pilot counts (2,500+), the SP takes 8-10s per cycle. Combined with VATSIM API fetch time, cycles frequently exceed the 15s window, causing missed data feeds (~38% of cycles, rising to 48% during events).
+
+### Solution: `@defer_expensive`
+
+The SP accepts `@defer_expensive BIT = 0`. When set to `1`:
+
+| Step | Behavior |
+|------|----------|
+| Steps 1-7 (ingest) | Always run (no change) |
+| Step 8 trajectory INSERT | **Always runs** — position points are ephemeral |
+| Step 8 basic ETA | **Deferred** to daemon |
+| Step 8b (arrival buckets) | Always runs (no change) |
+| Step 8d (batch wind ETA) | **Deferred** to daemon |
+| Step 9 (zone detection) | Controlled by `@skip_zone_detection` (no change) |
+| Step 12 (legacy traj log) | **Deferred** — redundant with Step 8 trajectory |
+| Step 13 (phase snapshot) | **Deferred** to daemon |
+
+### Daemon Time-Budget System
+
+After the SP returns, the daemon checks remaining cycle time:
+
+```
+budget = (15s * 1000) - elapsed_ms - 2000ms_safety_margin
+```
+
+If budget > 0, it runs deferred steps in order:
+1. **Basic ETA** (`sp_ProcessTrajectoryBatch @process_eta=1, @process_trajectory=0`) — if budget > 300ms
+2. **Batch wind ETA** (`sp_CalculateETABatch`) — every N cycles, if budget > 500ms
+3. **Legacy trajectory log** (`sp_Log_Trajectory`) — if budget > 100ms
+4. **Phase snapshot** (`sp_CapturePhaseSnapshot`) — if budget > 100ms
+
+If budget <= 0, all deferred steps are skipped. The next quiet cycle catches up.
+
+### Key Design Principle
+
+**Trajectory points are ephemeral** — each position snapshot is unique to its timestamp. If a cycle skips trajectory capture, those data points are lost forever. ETAs are always recalculable from live position/distance data. Therefore trajectory INSERT always runs, and only ETA computation is deferred.
+
+### Rollback
+
+Set `'defer_expensive' => false` in the daemon config. The SP parameter defaults to `@defer_expensive = 0`, restoring original behavior with zero schema changes.
+
+---
+
+## Delta Detection (V9.3.0)
+
+_Added in V9.3.0._
+
+### Problem
+
+Even with deferred processing (V9.2.0), the SP runs ALL flights through ALL merge steps regardless of whether anything changed. At typical traffic (~2000-3000 pilots), ~18-30% of flights are parked or stationary with identical data cycle-to-cycle. These go through geography calculations, position merges, aircraft lookups, and phase recalculation — all producing no-ops.
+
+### Solution: `change_flags` Bitmask
+
+The PHP daemon compares each pilot against the previous cycle in memory (microsecond cost, ~240KB for 3000 pilots) and sets a `change_flags` bitmask per flight in the staging table:
+
+| Bit | Value | Flag | Trigger |
+|-----|-------|------|---------|
+| 0 | 1 | `POSITION_CHANGED` | Any change in lat, lon, altitude, groundspeed, heading (exact match) |
+| 1 | 2 | `PLAN_CHANGED` | Any change in route_hash, altitude_filed, TAS, fp_rule, aircraft_faa, remarks |
+| 2 | 4 | `NEW_FLIGHT` | flight_key not in previous cycle |
+| — | 0 | Heartbeat | Everything identical |
+| — | 15 | Full (default) | Backward-compatible fallback for old daemon code |
+
+### Two-Layer Threshold System
+
+- **PHP exact match** (zero threshold): Determines whether to run the processing pipeline. Conservative — any detectable change triggers full processing for robust state tracking.
+- **SQL V9.1 threshold** (0.0001° lat/lon, 50ft alt, 2kts gs): Determines whether to write position to disk. Less conservative — avoids I/O for sub-meaningful jitter.
+
+A flight with 1ft altitude change → PHP flags as changed → SP runs full phase recalc → SQL may skip the position disk write if below V9.1 threshold.
+
+### SP Conditional Processing
+
+| Step | Heartbeat (change_flags=0) | Changed (change_flags>0) |
+|------|---------------------------|--------------------------|
+| 1b (geography) | Skipped | Runs |
+| 2 (core update) | Timestamps only (`is_active`, `last_seen_utc`) | Full update with phase recalculation |
+| 3 (position) | Skipped entirely | Runs (V9.1 SQL threshold still applies) |
+| 4 (flight plan) | Skipped | Runs (hash check still applies) |
+| 6 (aircraft) | Skipped | Runs for new/plan-changed flights |
+| 8 (trajectory) | **Not filtered** — reads from persisted tables | **Not filtered** |
+
+### Trajectory Safety
+
+Step 8 calls `sp_ProcessTrajectoryBatch`, which reads from **persisted** `adl_flight_core` and `adl_flight_position` tables (not `#pilots`). It uses time-based tier intervals (`fn_GetTierIntervalSeconds`) to decide when to log trajectory points. Heartbeat flights still have valid persisted position data, so trajectory logging continues at the appropriate tier interval. TMI Compliance analysis data is unaffected.
+
+### Monitoring
+
+The daemon logs `hb=N` in each cycle's log context, showing the number of heartbeat flights. The SP returns `heartbeat_flights` in its result set.
+
+```
+[INFO] Refresh #4 {"pilots":893,"sp_ms":3125,"hb":171,...}
+```
+
+### Rollback
+
+1. `change_flags DEFAULT 15` ensures old daemon code (without delta detection) triggers full processing automatically.
+2. No SP rollback needed — `change_flags = 15` means all WHERE filters pass.
+3. To disable: remove the comparison loop in PHP; all flags default to 15.
 
 ---
 

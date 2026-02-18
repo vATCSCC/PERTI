@@ -34,15 +34,15 @@
 
     // Trigger definitions with icons
     var TRIGGERS = [
-        { key: 'holding_15', icon: 'fa-plane-circle-exclamation', i18n: 'tmr.trigger.holding15', desc: 'FAA Order 7210.632' },
-        { key: 'delays_30', icon: 'fa-clock', i18n: 'tmr.trigger.delays30', desc: 'Departure delay threshold' },
-        { key: 'no_notice_holding', icon: 'fa-triangle-exclamation', i18n: 'tmr.trigger.noNoticeHolding', desc: 'Unexpected airborne holding' },
-        { key: 'reroutes', icon: 'fa-route', i18n: 'tmr.trigger.reroutes', desc: 'Playbook or CDR activation' },
-        { key: 'ground_stop', icon: 'fa-hand', i18n: 'tmr.trigger.groundStop', desc: 'Airport ground stop issued' },
-        { key: 'gdp', icon: 'fa-hourglass-half', i18n: 'tmr.trigger.gdp', desc: 'Ground Delay Program issued' },
-        { key: 'equipment', icon: 'fa-wrench', i18n: 'tmr.trigger.equipment', desc: 'Equipment outage or degradation' },
-        { key: 'dcc_initiated', icon: 'fa-tower-broadcast', i18n: 'tmr.trigger.dccInitiated', desc: 'DCC management review request' },
-        { key: 'other', icon: 'fa-circle-question', i18n: 'tmr.trigger.other', desc: 'Specify in text field below' },
+        { key: 'holding_15', icon: 'fa-plane-circle-exclamation', i18n: 'tmr.trigger.holding15', descI18n: 'tmr.trigger.holding15Desc' },
+        { key: 'delays_30', icon: 'fa-clock', i18n: 'tmr.trigger.delays30', descI18n: 'tmr.trigger.delays30Desc' },
+        { key: 'no_notice_holding', icon: 'fa-triangle-exclamation', i18n: 'tmr.trigger.noNoticeHolding', descI18n: 'tmr.trigger.noNoticeHoldingDesc' },
+        { key: 'reroutes', icon: 'fa-route', i18n: 'tmr.trigger.reroutes', descI18n: 'tmr.trigger.reroutesDesc' },
+        { key: 'ground_stop', icon: 'fa-hand', i18n: 'tmr.trigger.groundStop', descI18n: 'tmr.trigger.groundStopDesc' },
+        { key: 'gdp', icon: 'fa-hourglass-half', i18n: 'tmr.trigger.gdp', descI18n: 'tmr.trigger.gdpDesc' },
+        { key: 'equipment', icon: 'fa-wrench', i18n: 'tmr.trigger.equipment', descI18n: 'tmr.trigger.equipmentDesc' },
+        { key: 'dcc_initiated', icon: 'fa-tower-broadcast', i18n: 'tmr.trigger.dccInitiated', descI18n: 'tmr.trigger.dccInitiatedDesc' },
+        { key: 'other', icon: 'fa-circle-question', i18n: 'tmr.trigger.other', descI18n: 'tmr.trigger.otherDesc' },
     ];
 
     // ========================================================================
@@ -148,13 +148,14 @@
 
         TRIGGERS.forEach(function(t) {
             var label = PERTII18n.t(t.i18n);
+            var desc = PERTII18n.t(t.descI18n);
             var card = $(
                 '<label class="trigger-card" data-trigger="' + t.key + '">' +
                     '<input type="checkbox" class="tmr-trigger" value="' + t.key + '">' +
                     '<div class="trigger-icon"><i class="fas ' + t.icon + '"></i></div>' +
                     '<div class="trigger-text">' +
                         '<div class="trigger-label">' + escapeHtml(label) + '</div>' +
-                        '<div class="trigger-desc">' + escapeHtml(t.desc) + '</div>' +
+                        '<div class="trigger-desc">' + escapeHtml(desc) + '</div>' +
                     '</div>' +
                 '</label>'
             );
@@ -417,7 +418,7 @@
             }
             Swal.fire({
                 title: PERTII18n.t('tmr.tmi.removeSelected'),
-                text: selectedKeys.length + ' TMI(s) will be removed.',
+                text: PERTII18n.t('tmr.tmi.willBeRemoved', { count: selectedKeys.length }),
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -716,7 +717,7 @@
 
         // N/A case: matched but insufficient data (e.g. 0 pairs)
         if (pct < 0) {
-            var naTooltip = '0 pairs — insufficient data';
+            var naTooltip = PERTII18n.t('tmr.tmi.insufficientData');
             return '<span class="compliance-badge compliance-na" title="' + escapeHtml(naTooltip) + '">N/A</span>';
         }
 

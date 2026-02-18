@@ -10,6 +10,7 @@ function loadData() {
             $('#assigned').html(data);
             $.get('api/data/personnel').done(function(data) {
                 $('#personnel').html(data);
+                bindOrgToggles();
                 tooltips();
             });
         });
@@ -17,6 +18,42 @@ function loadData() {
 }
 
 loadData();
+
+// Bind org membership checkbox toggles
+function bindOrgToggles() {
+    $(document).off('change', '.org-toggle').on('change', '.org-toggle', function() {
+        var $cb = $(this);
+        var cid = $cb.data('cid');
+        var org = $cb.data('org');
+        var action = $cb.is(':checked') ? 'add' : 'remove';
+
+        $.ajax({
+            type: 'POST',
+            url: 'api/mgt/personnel/update_org',
+            data: { cid: cid, org_code: org, action: action },
+            success: function() {
+                Swal.fire({
+                    toast: true,
+                    position: 'bottom-right',
+                    icon: 'success',
+                    title: action === 'add' ? PERTII18n.t('schedule.orgAdded') : PERTII18n.t('schedule.orgRemoved'),
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            },
+            error: function(xhr) {
+                // Revert checkbox
+                $cb.prop('checked', !$cb.is(':checked'));
+                var msg = PERTII18n.t('schedule.error.updateOrgFailed');
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.error) msg = resp.error;
+                } catch(e) {}
+                Swal.fire({ icon: 'error', title: PERTII18n.t('common.error'), text: msg });
+            }
+        });
+    });
+}
 
 // FUNC: schedule [id:, title:, date;]
 function schedule(id, title, date) {

@@ -2033,3 +2033,68 @@
     background: var(--dark-bg-surface);
     border-color: var(--dark-border);
 }
+
+/* ============================================================
+   HOLDING PATTERN DETECTION
+   ============================================================ */
+
+.tmi-type-badge.holding {
+    background-color: #a020d0;
+    color: #fff;
+}
+
+.holding-ntml-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin: 8px 0;
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    border-radius: 4px;
+    color: #28a745;
+    font-size: 0.85rem;
+}
+
+.holding-ntml-badge .fa-check-circle {
+    color: #28a745;
+}
+
+.holding-delay-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.holding-delay-summary .stat {
+    text-align: center;
+    min-width: 80px;
+}
+
+.holding-delay-summary .stat-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--v2-text-primary, #1a1a2e);
+}
+
+.holding-delay-summary .stat-label {
+    font-size: 0.75rem;
+    color: var(--v2-text-muted, #8e8ea0);
+    margin-top: 2px;
+}
+
+.holding-zone-popup {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    padding: 4px;
+}
+
+.holding-zone-popup strong {
+    color: #a020d0;
+}
+
+.tmi-list-item-meta .fa-check-circle {
+    color: #28a745;
+    margin-left: 4px;
+}

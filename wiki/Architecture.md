@@ -196,27 +196,35 @@ Session variables set:
        ▼
 2. vatsim_adl_daemon.php
        │
-       ├──▶ sp_Adl_RefreshFromVatsim_Normalized
+       ├──▶ Delta detection: set change_flags per flight (V9.3.0)
+       │
+       ├──▶ sp_Adl_RefreshFromVatsim_Staged (@defer_expensive=1)
        │           │
-       │           ├──▶ INSERT/UPDATE adl_flights
-       │           ├──▶ INSERT adl_flights_history (snapshots)
+       │           ├──▶ INSERT/UPDATE normalized 8-table flight data
+       │           │    (heartbeat flights: timestamps only; changed: full processing)
+       │           ├──▶ INSERT trajectory points (always, not filtered by change_flags)
        │           └──▶ Queue routes for parsing
        │
-       ▼
-3. parse_queue_daemon.php
-       │
-       ├──▶ sp_ParseQueue
+       ├──▶ Deferred ETA processing (time-budget permitting)
        │           │
-       │           ├──▶ sp_ParseRoute (expand route string)
-       │           ├──▶ INSERT adl_parsed_routes (waypoints)
-       │           └──▶ sp_RouteDistanceBatch (calculate distances)
+       │           ├──▶ sp_ProcessTrajectoryBatch (ETA only)
+       │           ├──▶ sp_CalculateETABatch (wind-adjusted ETA)
+       │           └──▶ sp_CapturePhaseSnapshot
        │
        ▼
-4. Stored Procedure Triggers
+3. parse_queue_gis_daemon.php
        │
-       ├──▶ sp_CalculateETABatch (ETA calculation)
-       ├──▶ sp_ProcessZoneDetectionBatch (OOOI events)
-       └──▶ sp_ProcessBoundaryDetectionBatch (sector crossings)
+       ├──▶ PostGIS route parsing
+       │           │
+       │           ├──▶ adl_flight_waypoints (parsed waypoints)
+       │           └──▶ adl_flight_plan.route_geometry
+       │
+       ▼
+4. Additional Processing Daemons
+       │
+       ├──▶ boundary_gis_daemon.php (ARTCC/sector detection via PostGIS)
+       ├──▶ crossing_gis_daemon.php (boundary crossing ETAs)
+       └──▶ waypoint_eta_daemon.php (waypoint ETAs)
 ```
 
 ---

@@ -49,13 +49,16 @@ $facility_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST
 $init_c = strip_tags(str_replace("`", "&#039;", $_POST['comments']), "<br><strong><b><i><em><ul><ol><li><img><table><td><tr><th><a><u>");
 $comments = preg_replace("#<br\s*/?>#i", "<br>", str_replace('"', "&quot;", $init_c));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_terminal_planning SET facility_name='$facility_name', comments='$comments' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_terminal_planning SET facility_name=?, comments=? WHERE id=?");
+$stmt->bind_param("ssi", $facility_name, $comments, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("terminal_planning/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

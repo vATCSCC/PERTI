@@ -3,9 +3,10 @@
  * Deploy SP Optimizations to VATSIM_ADL
  *
  * Deploys the following changes:
- *   1. sp_Adl_RefreshFromVatsim_Staged V9.1.0 (position skip-unchanged)
+ *   1. sp_Adl_RefreshFromVatsim_Staged V9.3.0 (delta detection + @defer_expensive)
  *   2. Delta sync indexes (005_delta_sync_indexes.sql)
  *   3. sp_ProcessZoneDetectionBatch_Tiered (tiered zone detection)
+ *   4. change_flags migration (006_staging_change_flags.sql)
  *
  * Usage:
  *   php deploy_sp_optimizations.php [--dry-run] [--indexes-only] [--sp-only]
@@ -101,6 +102,11 @@ echo "Connected to VATSIM_ADL\n\n";
 
 // Define deployment files
 $deployments = [
+    'migration_change_flags' => [
+        'file' => __DIR__ . '/../adl/migrations/performance/006_staging_change_flags.sql',
+        'name' => 'Change Flags Migration',
+        'description' => 'Add change_flags TINYINT column to adl_staging_pilots (DEFAULT 15)',
+    ],
     'indexes' => [
         'file' => __DIR__ . '/../adl/migrations/performance/005_delta_sync_indexes.sql',
         'name' => 'Delta Sync Indexes',
@@ -108,8 +114,8 @@ $deployments = [
     ],
     'sp_refresh' => [
         'file' => __DIR__ . '/../adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql',
-        'name' => 'sp_Adl_RefreshFromVatsim_Staged V9.1.0',
-        'description' => 'Position skip-unchanged optimization, @skip_zone_detection parameter',
+        'name' => 'sp_Adl_RefreshFromVatsim_Staged V9.3.0',
+        'description' => 'Delta detection (change_flags), @defer_expensive, position skip-unchanged',
     ],
     'sp_zone_tiered' => [
         'file' => __DIR__ . '/../adl/procedures/sp_ProcessZoneDetectionBatch_Tiered.sql',
@@ -222,7 +228,9 @@ if ($errorCount > 0) {
 echo "\nNext steps:\n";
 echo "1. Enable zone_daemon in vatsim_adl_daemon.php:\n";
 echo "   'zone_daemon_enabled' => true,\n";
-echo "2. Start the zone daemon:\n";
+echo "2. Enable deferred processing in vatsim_adl_daemon.php:\n";
+echo "   'defer_expensive' => true,\n";
+echo "3. Start the zone daemon:\n";
 echo "   php scripts/zone_daemon.php\n";
 echo "\n";
 

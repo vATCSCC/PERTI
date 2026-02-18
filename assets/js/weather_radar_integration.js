@@ -94,28 +94,28 @@ function addRadarControlPanel(map, config) {
             <div class="radar-settings">
                 <!-- Product Selection -->
                 <div class="radar-row">
-                    <label>Product</label>
+                    <label>${PERTII18n.t('weather.product')}</label>
                     <select id="radar-product-select">
-                        <option value="nexrad-n0q">Base Reflectivity</option>
-                        <option value="q2-hsr">MRMS HSR</option>
-                        <option value="nexrad-eet">Echo Tops</option>
-                        <option value="q2-p1h">1-Hour Precip</option>
+                        <option value="nexrad-n0q">${PERTII18n.t('weather.productBaseReflectivity')}</option>
+                        <option value="q2-hsr">${PERTII18n.t('weather.productMrmsHsr')}</option>
+                        <option value="nexrad-eet">${PERTII18n.t('weather.productEchoTops')}</option>
+                        <option value="q2-p1h">${PERTII18n.t('weather.product1HrPrecip')}</option>
                     </select>
                 </div>
-                
+
                 <!-- Color Table Selection -->
                 <div class="radar-row">
-                    <label>Colors</label>
+                    <label>${PERTII18n.t('weather.colors')}</label>
                     <select id="radar-color-select">
-                        <option value="NWS">NWS Standard</option>
-                        <option value="FAA_ATC">FAA ATC</option>
-                        <option value="SCOPE">Scope (Dark)</option>
+                        <option value="NWS">${PERTII18n.t('weather.colorNws')}</option>
+                        <option value="FAA_ATC">${PERTII18n.t('weather.colorFaaAtc')}</option>
+                        <option value="SCOPE">${PERTII18n.t('weather.colorScope')}</option>
                     </select>
                 </div>
-                
+
                 <!-- Opacity Control -->
                 <div class="radar-row">
-                    <label>Opacity</label>
+                    <label>${PERTII18n.t('weather.opacity')}</label>
                     <input type="range" id="radar-opacity-slider" 
                            min="0" max="100" value="${config.defaultOpacity * 100}">
                     <span id="radar-opacity-value">${Math.round(config.defaultOpacity * 100)}%</span>
@@ -124,10 +124,10 @@ function addRadarControlPanel(map, config) {
                 ${config.showAnimation ? `
                 <!-- Animation Controls -->
                 <div class="radar-animation-controls">
-                    <button id="radar-prev-btn" title="Previous Frame (←)">◀◀</button>
-                    <button id="radar-play-btn" title="Play/Pause (Space)">▶</button>
-                    <button id="radar-next-btn" title="Next Frame (→)">▶▶</button>
-                    <button id="radar-refresh-btn" title="Refresh (R)">↻</button>
+                    <button id="radar-prev-btn" title="${PERTII18n.t('weather.previousFrame')} (←)">◀◀</button>
+                    <button id="radar-play-btn" title="${PERTII18n.t('weather.playPause')} (Space)">▶</button>
+                    <button id="radar-next-btn" title="${PERTII18n.t('weather.nextFrame')} (→)">▶▶</button>
+                    <button id="radar-refresh-btn" title="${PERTII18n.t('common.refresh')} (R)">↻</button>
                 </div>
                 
                 <!-- Progress Bar -->
@@ -139,7 +139,7 @@ function addRadarControlPanel(map, config) {
                 ${config.showLegend ? `
                 <!-- Legend -->
                 <div class="radar-legend" id="radar-legend">
-                    <div class="legend-title">Reflectivity (dBZ)</div>
+                    <div class="legend-title">${PERTII18n.t('weather.legendReflectivity')}</div>
                     <div class="legend-gradient"></div>
                     <div class="legend-labels">
                         <span>5</span>
@@ -305,13 +305,13 @@ function updateLegendForProduct(productId) {
     if (!legendTitle) {return;}
 
     const products = {
-        'nexrad-n0q': 'Reflectivity (dBZ)',
-        'q2-hsr': 'MRMS Reflectivity (dBZ)',
-        'nexrad-eet': 'Echo Tops (kft)',
-        'q2-p1h': '1-Hour Precip (in)',
+        'nexrad-n0q': PERTII18n.t('weather.legendReflectivity'),
+        'q2-hsr': PERTII18n.t('weather.legendMrmsReflectivity'),
+        'nexrad-eet': PERTII18n.t('weather.legendEchoTops'),
+        'q2-p1h': PERTII18n.t('weather.legend1HrPrecip'),
     };
 
-    legendTitle.textContent = products[productId] || 'Reflectivity (dBZ)';
+    legendTitle.textContent = products[productId] || PERTII18n.t('weather.legendReflectivity');
 }
 
 /**
@@ -323,25 +323,25 @@ function updateLegendForColorTable(tableId) {
 
     if (tableId === 'FAA_ATC') {
         legendContainer.innerHTML = `
-            <div class="legend-title">Precipitation Intensity</div>
+            <div class="legend-title">${PERTII18n.t('weather.legendPrecipIntensity')}</div>
             <div class="legend-faa">
                 <div class="legend-item">
                     <span class="legend-color wx-green"></span>
-                    <span class="legend-label">Light (&lt;30 dBZ)</span>
+                    <span class="legend-label">${PERTII18n.t('weather.legendLight')}</span>
                 </div>
                 <div class="legend-item">
                     <span class="legend-color wx-yellow"></span>
-                    <span class="legend-label">Moderate (30-40 dBZ)</span>
+                    <span class="legend-label">${PERTII18n.t('weather.legendModerate')}</span>
                 </div>
                 <div class="legend-item">
                     <span class="legend-color wx-red"></span>
-                    <span class="legend-label">Heavy/Extreme (&gt;40 dBZ)</span>
+                    <span class="legend-label">${PERTII18n.t('weather.legendHeavyExtreme')}</span>
                 </div>
             </div>
         `;
     } else {
         legendContainer.innerHTML = `
-            <div class="legend-title">Reflectivity (dBZ)</div>
+            <div class="legend-title">${PERTII18n.t('weather.legendReflectivity')}</div>
             <div class="legend-gradient"></div>
             <div class="legend-labels">
                 <span>5</span>
@@ -371,8 +371,8 @@ function addRadarToLayerPanel(layerPanelId) {
     radarItem.innerHTML = `
         <input type="checkbox" id="layer-radar-toggle">
         <span class="layer-icon"></span>
-        <span class="layer-label">Weather Radar</span>
-        <span class="layer-badge">LIVE</span>
+        <span class="layer-label">${PERTII18n.t('weather.radar')}</span>
+        <span class="layer-badge">${PERTII18n.t('weather.layerLive')}</span>
     `;
 
     // Find weather group or create it
@@ -380,7 +380,7 @@ function addRadarToLayerPanel(layerPanelId) {
     if (!weatherGroup) {
         weatherGroup = document.createElement('div');
         weatherGroup.className = 'layer-group layer-group-weather';
-        weatherGroup.innerHTML = '<div class="layer-group-title">Weather</div>';
+        weatherGroup.innerHTML = '<div class="layer-group-title">' + PERTII18n.t('weather.layerGroupWeather') + '</div>';
         layerPanel.appendChild(weatherGroup);
     }
 

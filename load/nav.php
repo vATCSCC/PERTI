@@ -191,16 +191,23 @@ if (!function_exists('render_dropdown')) {
             $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
             $org_all = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
             $org_display = 'DCC';
+            $org_display_map = [];
             if (isset($conn_sqli) && $conn_sqli) {
                 $oi = get_org_info($conn_sqli);
                 $org_display = $oi['display_name'] ?? 'DCC';
-            }
-            $org_display_map = [];
-            if (isset($conn_sqli) && $conn_sqli) {
                 $dm_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations");
                 if ($dm_result) { while ($dm_row = $dm_result->fetch_assoc()) { $org_display_map[$dm_row['org_code']] = $dm_row['display_name']; } }
             }
-            $org_colors = ['vatcscc' => '#1a73e8', 'vatcan' => '#d32f2f', 'ecfmp' => '#7b1fa2'];
+            // For anonymous users, show all active orgs so they can switch scope
+            $is_anonymous = empty($_SESSION['VATSIM_CID']);
+            if ($is_anonymous && isset($conn_sqli) && $conn_sqli) {
+                $all_orgs_result = $conn_sqli->query("SELECT org_code FROM organizations WHERE is_active = 1 ORDER BY org_code");
+                if ($all_orgs_result && $all_orgs_result->num_rows > 1) {
+                    $org_all = [];
+                    while ($r = $all_orgs_result->fetch_assoc()) { $org_all[] = $r['org_code']; }
+                }
+            }
+            $org_colors = ['vatcscc' => '#1a73e8', 'canoc' => '#d32f2f', 'ecfmp' => '#7b1fa2'];
             $org_color = $org_colors[$org_code] ?? '#555';
             $multi_org = count($org_all) > 1;
         ?>
@@ -224,7 +231,7 @@ if (!function_exists('render_dropdown')) {
                 <?= htmlspecialchars($org_display) ?>
             </span>
         <?php endif; ?>
-        <?php if ($org_code === 'vatcan'): ?>
+        <?php if ($org_code === 'canoc'): ?>
             <div class="btn-group btn-group-sm mr-2" role="group">
                 <button type="button" class="btn btn-outline-light btn-lang" onclick="setLocale('en-CA')" id="btn-lang-en">EN</button>
                 <button type="button" class="btn btn-outline-light btn-lang" onclick="setLocale('fr-CA')" id="btn-lang-fr">FR</button>
@@ -320,6 +327,9 @@ function switchOrg(orgCode) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
+            if (data.default_locale) {
+                localStorage.setItem('PERTI_LOCALE', data.default_locale);
+            }
             window.location.reload();
         }
     });

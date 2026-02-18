@@ -25,20 +25,20 @@ class InitiativeTimeline {
 
         // Level definitions
         this.levels = {
-            'CDW': { name: 'Critical Decision Window', category: 'cdw', icon: 'fa-clock' },
-            'Possible': { name: 'Possible TMI', category: 'tmi', icon: 'fa-question-circle' },
-            'Probable': { name: 'Probable TMI', category: 'tmi', icon: 'fa-exclamation-circle' },
-            'Expected': { name: 'Expected TMI', category: 'tmi', icon: 'fa-check-circle' },
-            'Active': { name: 'Active TMI', category: 'tmi', icon: 'fa-broadcast-tower' },
-            'Advisory_Terminal': { name: 'TMI Advisory', category: 'tmi', icon: 'fa-info-circle' },
-            'Advisory_EnRoute': { name: 'Advisory', category: 'tmi', icon: 'fa-info-circle' },
-            'Constraint_Terminal': { name: 'Terminal Constraint', category: 'constraint', icon: 'fa-exclamation-triangle' },
-            'Constraint_EnRoute': { name: 'En Route Constraint', category: 'constraint', icon: 'fa-exclamation-triangle' },
-            'Special_Event': { name: 'Special Event', category: 'event', icon: 'fa-star' },
-            'Space_Op': { name: 'Space Operation', category: 'space', icon: 'fa-rocket' },
-            'VIP': { name: 'VIP Movement', category: 'vip', icon: 'fa-user-shield' },
-            'Staffing': { name: 'Staffing Trigger', category: 'staffing', icon: 'fa-users' },
-            'Misc': { name: 'Miscellaneous', category: 'misc', icon: 'fa-ellipsis-h' },
+            'CDW': { name: PERTII18n.t('initiative.level.cdw'), category: 'cdw', icon: 'fa-clock' },
+            'Possible': { name: PERTII18n.t('initiative.level.possibleTmi'), category: 'tmi', icon: 'fa-question-circle' },
+            'Probable': { name: PERTII18n.t('initiative.level.probableTmi'), category: 'tmi', icon: 'fa-exclamation-circle' },
+            'Expected': { name: PERTII18n.t('initiative.level.expectedTmi'), category: 'tmi', icon: 'fa-check-circle' },
+            'Active': { name: PERTII18n.t('initiative.level.activeTmi'), category: 'tmi', icon: 'fa-broadcast-tower' },
+            'Advisory_Terminal': { name: PERTII18n.t('initiative.level.tmiAdvisory'), category: 'tmi', icon: 'fa-info-circle' },
+            'Advisory_EnRoute': { name: PERTII18n.t('initiative.level.advisory'), category: 'tmi', icon: 'fa-info-circle' },
+            'Constraint_Terminal': { name: PERTII18n.t('initiative.level.terminalConstraint'), category: 'constraint', icon: 'fa-exclamation-triangle' },
+            'Constraint_EnRoute': { name: PERTII18n.t('initiative.level.enRouteConstraint'), category: 'constraint', icon: 'fa-exclamation-triangle' },
+            'Special_Event': { name: PERTII18n.t('initiative.level.specialEvent'), category: 'event', icon: 'fa-star' },
+            'Space_Op': { name: PERTII18n.t('initiative.level.spaceOperation'), category: 'space', icon: 'fa-rocket' },
+            'VIP': { name: PERTII18n.t('initiative.level.vipMovement'), category: 'vip', icon: 'fa-user-shield' },
+            'Staffing': { name: PERTII18n.t('initiative.level.staffingTrigger'), category: 'staffing', icon: 'fa-users' },
+            'Misc': { name: PERTII18n.t('initiative.level.miscellaneous'), category: 'misc', icon: 'fa-ellipsis-h' },
         };
 
         this.terminalLevels = ['CDW', 'Possible', 'Probable', 'Expected', 'Active', 'Advisory_Terminal', 'Constraint_Terminal', 'VIP', 'Misc'];
@@ -665,7 +665,7 @@ class InitiativeTimeline {
         if (!container) {return;}
 
         if (this.filteredOut.size === 0) {
-            container.innerHTML = '<span class="dcccp-filter-tag-none">None</span>';
+            container.innerHTML = `<span class="dcccp-filter-tag-none">${PERTII18n.t('common.none')}</span>`;
         } else {
             container.innerHTML = Array.from(this.filteredOut)
                 .map(l => `<span class="dcccp-filter-tag">${this.levels[l].name}</span>`).join('');
@@ -751,7 +751,7 @@ class InitiativeTimeline {
 
         const groups = {};
         data.forEach(i => {
-            const f = i.facility || 'Unknown';
+            const f = i.facility || PERTII18n.t('common.unknown');
             if (!groups[f]) {groups[f] = [];}
             groups[f].push(i);
         });
@@ -771,7 +771,7 @@ class InitiativeTimeline {
 
         if (!facilities.length) {
             facCol.innerHTML = '';
-            rowsEl.innerHTML = '<div class="dcccp-no-data">No data available</div>';
+            rowsEl.innerHTML = `<div class="dcccp-no-data">${PERTII18n.t('initiative.noData')}</div>`;
             this.renderTimeAxis(startTime, endTime);
             this.updateNowLine(startTime, totalMs);
             return;
@@ -786,12 +786,23 @@ class InitiativeTimeline {
             heights[f] = Math.max(this.rowHeight, result.laneCount * 26 + 8);
         });
 
-        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="height:${heights[f]}px">${f}</div>`).join('');
+        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="min-height:${heights[f]}px">${f}</div>`).join('');
 
         rowsEl.innerHTML = facilities.map(f => {
             const items = groups[f].map(i => this.renderItem(i, startTime, totalMs, laneData[f][i.id] || 0)).join('');
-            return `<div class="dcccp-timeline-row" style="height:${heights[f]}px">${items}</div>`;
+            return `<div class="dcccp-timeline-row" style="min-height:${heights[f]}px">${items}</div>`;
         }).join('');
+
+        // Sync heights: facility labels may wrap text and need more height than lanes
+        const facLabels = facCol.querySelectorAll('.dcccp-facility-label');
+        const timeRows = rowsEl.querySelectorAll('.dcccp-timeline-row');
+        facLabels.forEach((label, i) => {
+            if (timeRows[i]) {
+                const h = Math.max(label.scrollHeight, timeRows[i].scrollHeight);
+                label.style.height = h + 'px';
+                timeRows[i].style.height = h + 'px';
+            }
+        });
 
         rowsEl.querySelectorAll('.dcccp-item').forEach(el => {
             el.addEventListener('mouseenter', e => this.showTooltip(e, el.dataset.id));
@@ -880,9 +891,9 @@ class InitiativeTimeline {
             case 'vip': return `${item.tmi_type || 'VIP'}: ${item.facility}→${item.area}`;
             case 'space': return `${item.tmi_type}: ${item.cause || ''}`;
             case 'staffing': return `${PERTII18n.t('initiative.label.staffingPrefix')}: ${item.area || item.facility}`;
-            case 'event': return item.cause || 'Special Event';
-            case 'cdw': return item.cause || 'CDW';
-            case 'misc': return item.cause || 'Misc';
+            case 'event': return item.cause || PERTII18n.t('initiative.label.specialEvent');
+            case 'cdw': return item.cause || PERTII18n.t('initiative.label.cdw');
+            case 'misc': return item.cause || PERTII18n.t('initiative.label.misc');
             default: return item.tmi_type || item.cause || '';
         }
     }
@@ -994,6 +1005,20 @@ class InitiativeTimeline {
             `;
         }
 
+        // Build additional detail rows based on category
+        let detailRows = '';
+        if (cat === 'tmi' || cat === 'constraint') {
+            if (item.tmi_type) {
+                detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.tmiType')}</span><span class="dcccp-tooltip-value">${item.tmi_type}${item.tmi_type_other ? ` (${item.tmi_type_other})` : ''}</span></div>`;
+            }
+            if (item.cause) {
+                detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.cause')}</span><span class="dcccp-tooltip-value">${item.cause}</span></div>`;
+            }
+        }
+        if (item.advzy_number) {
+            detailRows += `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.advzyNumber')}</span><span class="dcccp-tooltip-value">${item.advzy_number}</span></div>`;
+        }
+
         const tip = document.createElement('div');
         tip.className = 'dcccp-tooltip';
         tip.innerHTML = `
@@ -1004,6 +1029,7 @@ class InitiativeTimeline {
             <div class="dcccp-tooltip-body">
                 ${locationRows}
                 <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.level')}</span><span class="dcccp-tooltip-value">${this.levels[item.level]?.name || item.level}</span></div>
+                ${detailRows}
                 ${item.notes ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.notes')}</span><span class="dcccp-tooltip-value">${item.notes}</span></div>` : ''}
                 <div class="dcccp-tooltip-time">${this.formatTooltipTime(item.start_datetime, item.end_datetime)}</div>
             </div>

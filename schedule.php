@@ -93,6 +93,16 @@ include('load/nav.php');
 
             <h5><?= __('schedule.page.systemPersonnel') ?>     <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#addpersonnelModal"><i class="fas fa-plus"></i> <?= __('common.add') ?></button></h5>
             <table class="table w-75">
+                <thead>
+                    <tr>
+                        <th class="text-center">CID</th>
+                        <th class="text-center">First Name</th>
+                        <th class="text-center">Last Name</th>
+                        <th class="text-center">Organization</th>
+                        <th class="text-center">Last Updated</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
                 <tbody id="personnel"></tbody>
             </table>
 
@@ -119,7 +129,7 @@ include('load/nav.php');
 
                     <input type="hidden" name="id" id="id">
 
-                    <b class="text-danger">P</b><?= __('schedule.page.planPersonnel') ?>
+                    <?= __('schedule.page.planPersonnel') ?>
                     <select class="form-control" name="p_cid" id="p_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -129,7 +139,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">E</b><?= __('schedule.page.executePersonnel') ?>
+                    <?= __('schedule.page.executePersonnel') ?>
                     <select class="form-control" name="e_cid" id="e_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -139,7 +149,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">R</b><?= __('schedule.page.reviewPersonnel') ?>
+                    <?= __('schedule.page.reviewPersonnel') ?>
                     <select class="form-control" name="t_cid" id="t_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -149,7 +159,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">T</b><?= __('schedule.page.trainPersonnel') ?>
+                    <?= __('schedule.page.trainPersonnel') ?>
                     <select class="form-control" name="r_cid" id="r_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -159,7 +169,7 @@ include('load/nav.php');
                         ?>
                     </select>
 
-                    <b class="text-danger">I</b><?= __('schedule.page.improvePersonnel') ?>
+                    <?= __('schedule.page.improvePersonnel') ?>
                     <select class="form-control" name="i_cid" id="i_cid" required>
                         <option value='0'><?= __('schedule.page.noPersonnelAssigned') ?></option>
                         <?php 
@@ -205,6 +215,18 @@ include('load/nav.php');
 
                     <?= __('schedule.page.lastName') ?>
                     <input type="text" name="last_name" class="form-control" id="last_name">
+
+                    <hr>
+                    <label><b>Organization</b></label>
+                    <?php
+                        $orgs_q = $conn_sqli->query("SELECT org_code, display_name FROM organizations WHERE is_active = 1 ORDER BY org_code");
+                        while ($org_row = mysqli_fetch_assoc($orgs_q)):
+                    ?>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="orgs[]" value="<?= $org_row['org_code'] ?>" id="add-org-<?= $org_row['org_code'] ?>" <?= $org_row['org_code'] === 'vatcscc' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="add-org-<?= $org_row['org_code'] ?>"><?= $org_row['display_name'] ?></label>
+                    </div>
+                    <?php endwhile; ?>
 
                 </div>
                 <div class="modal-footer">

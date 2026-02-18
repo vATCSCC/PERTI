@@ -5,8 +5,12 @@
  * 
  * Location: wwwroot/scripts/vatsim_adl_daemon.php
  * 
- * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim.
+ * Fetches VATSIM data every 15 seconds and calls sp_Adl_RefreshFromVatsim_Staged.
  * Optimized for 3,000-6,000 flights per cycle.
+ *
+ * V9.2.0: When defer_expensive=true, trajectory capture always runs in the SP
+ * but ETA/snapshot steps are deferred to a time-budget system after the SP returns.
+ * This ensures data ingestion completes within the 15s VATSIM API window.
  * 
  * Usage:
  *   php scripts/vatsim_adl_daemon.php                # Run in foreground
@@ -139,10 +143,13 @@ $config = [
     'wind_timeout'        => 90,     // SP timeout in seconds (increased from 30 to handle large flight counts)
 
     // SWIM API sync (syncs flight data to SWIM_API database for public API)
-    // SWIM_API is Azure SQL Basic ($5/mo) - dedicated for API queries to avoid
-    // Serverless costs on VATSIM_ADL. Runs after each ADL refresh cycle.
-    'swim_enabled'        => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
-    'swim_interval'       => 8,      // Run every N cycles (8 = every 2 minutes)
+    // Primary path is swim_sync_daemon.php; inline SWIM is fallback only.
+    'swim_enabled'               => defined('SWIM_SQL_HOST'),  // Auto-enable if SWIM config exists
+    'swim_interval'              => 8,      // Run every N cycles (8 = every 2 minutes)
+    'swim_inline_enabled'        => getenv('ADL_SWIM_INLINE') === '1',  // Force inline SWIM in ADL loop
+    'swim_inline_fallback_enabled' => true, // Run inline only if daemon heartbeat is stale/missing
+    'swim_daemon_heartbeat_file' => sys_get_temp_dir() . '/swim_sync_daemon.heartbeat',
+    'swim_daemon_stale_sec'      => 300,    // Consider daemon unhealthy after 5 min without heartbeat
 
     // Zone Detection (OOOI detection at airports)
     // Set to true when zone_daemon.php is running separately
@@ -179,6 +186,16 @@ $config = [
     // Reduces ~43 round trips to ~3 round trips for ~3000 pilots (1000 rows per INSERT)
     // No parameters = no 2100 limit, faster than parameterized batches
     'use_tvp'                => true,  // Use bulk literal for staging inserts (faster)
+
+    // =============================================
+    // V9.2 Deferred Expensive Processing
+    // =============================================
+    // When enabled, the SP defers ETA calculation and snapshot steps.
+    // Trajectory position capture ALWAYS runs (ephemeral data).
+    // Deferred steps run after SP returns, only when cycle time budget allows.
+    // Saves ~800ms per cycle, reducing missed VATSIM feeds from ~38% to ~15-20%.
+    'defer_expensive'       => true,   // Defer ETA/snapshot steps, always capture trajectory
+    'deferred_eta_interval' => 2,      // Run wind-adjusted batch ETA every N cycles when budget allows
 ];
 
 // ============================================================================
@@ -367,6 +384,7 @@ function executeRefreshSP($conn, string $jsonData, int $timeout): array {
             // This is the V8.9 result set with step timings
             $result['stats'] = [
                 'pilots'      => $row['pilots_received'] ?? 0,
+                'heartbeat'   => $row['heartbeat_flights'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
                 'pos_ins'     => $row['positions_inserted'] ?? 0,
@@ -781,6 +799,7 @@ function insertPilotsBulkLiteral($conn, array $pilots, string $batchId, int $bat
                 sqlEscapeString($p['flight_key']),
                 sqlEscapeBinary($p['route_hash']),
                 sqlEscapeString($p['airline_icao']),
+                sqlEscapeNumber($p['change_flags'] ?? 15, true),
                 $escapedBatchId,
             ];
 
@@ -793,7 +812,7 @@ function insertPilotsBulkLiteral($conn, array $pilots, string $batchId, int $bat
             fp_rule, dept_icao, dest_icao, alt_icao, route, remarks,
             altitude_filed_raw, tas_filed_raw, dep_time_z, enroute_time_raw,
             fuel_time_raw, aircraft_faa_raw, aircraft_short, fp_dof_raw,
-            flight_key, route_hash, airline_icao, batch_id
+            flight_key, route_hash, airline_icao, change_flags, batch_id
         ) VALUES " . implode(',', $valuesClauses);
 
         $stmt = sqlsrv_query($conn, $sql);
@@ -874,16 +893,18 @@ function insertPrefilesBulkLiteral($conn, array $prefiles, string $batchId, int 
  * @param string $batchId UUID for this batch
  * @param int $timeout Query timeout in seconds
  * @param bool $skipZoneDetection Set to true when zone_daemon.php is running
+ * @param bool $deferExpensive Set to true to defer ETA/snapshot steps (trajectory always captured)
  * @return array Result with stats and timings
  */
-function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skipZoneDetection = false): array {
+function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skipZoneDetection = false, bool $deferExpensive = false): array {
     $startTime = microtime(true);
 
     $skipZone = $skipZoneDetection ? 1 : 0;
-    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?";
+    $defer = $deferExpensive ? 1 : 0;
+    $sql = "EXEC [dbo].[sp_Adl_RefreshFromVatsim_Staged] @batch_id = ?, @skip_zone_detection = ?, @defer_expensive = ?";
     $options = ['QueryTimeout' => $timeout];
 
-    $stmt = sqlsrv_query($conn, $sql, [$batchId, $skipZone], $options);
+    $stmt = sqlsrv_query($conn, $sql, [$batchId, $skipZone, $defer], $options);
 
     if ($stmt === false) {
         $errors = sqlsrv_errors();
@@ -903,6 +924,7 @@ function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skip
         if ($row && isset($row['pilots_received']) && isset($row['step1_json_ms'])) {
             $result['stats'] = [
                 'pilots'      => $row['pilots_received'] ?? 0,
+                'heartbeat'   => $row['heartbeat_flights'] ?? 0,
                 'new'         => $row['new_flights'] ?? 0,
                 'updated'     => $row['updated_flights'] ?? 0,
                 'pos_ins'     => $row['positions_inserted'] ?? 0,
@@ -954,6 +976,156 @@ function executeStagedRefreshSP($conn, string $batchId, int $timeout, bool $skip
     if ($result['elapsed_ms'] == 0) {
         $result['elapsed_ms'] = round((microtime(true) - $startTime) * 1000);
     }
+
+    return $result;
+}
+
+// ============================================================================
+// DELTA DETECTION (V9.3.0)
+// ============================================================================
+
+/**
+ * Compare current pilot data against previous cycle to detect changes.
+ *
+ * Returns a bitmask:
+ *   1 = POSITION_CHANGED (lat, lon, altitude, groundspeed, heading)
+ *   2 = PLAN_CHANGED     (route_hash, altitude, TAS, rule, aircraft, remarks)
+ *   4 = NEW_FLIGHT       (flight_key not in previous cycle)
+ *   0 = Heartbeat        (everything identical — skip expensive processing)
+ *
+ * Position uses loose comparison (!=) for float tolerance.
+ * Integers and strings use strict comparison (!==).
+ */
+function computeChangeFlags(array $current, ?array $previous): int {
+    if ($previous === null) {
+        return 7; // NEW_FLIGHT | PLAN_CHANGED | POSITION_CHANGED
+    }
+
+    $flags = 0;
+
+    // Position: exact match (zero threshold) for robust state tracking
+    if (($current['lat'] ?? 0) != ($previous['lat'] ?? 0)
+        || ($current['lon'] ?? 0) != ($previous['lon'] ?? 0)
+        || ($current['altitude_ft'] ?? 0) !== ($previous['altitude_ft'] ?? 0)
+        || ($current['groundspeed_kts'] ?? 0) !== ($previous['groundspeed_kts'] ?? 0)
+        || ($current['heading_deg'] ?? 0) !== ($previous['heading_deg'] ?? 0)
+    ) {
+        $flags |= 1; // POSITION_CHANGED
+    }
+
+    // Plan: compare ALL plan-relevant fields (not just route hash)
+    // Catches: route change, altitude amendment, TAS change, aircraft swap, rule change, remarks edit
+    if (($current['route_hash'] ?? '') !== ($previous['route_hash'] ?? '')
+        || ($current['altitude_filed_raw'] ?? '') !== ($previous['altitude_filed_raw'] ?? '')
+        || ($current['tas_filed_raw'] ?? '') !== ($previous['tas_filed_raw'] ?? '')
+        || ($current['fp_rule'] ?? '') !== ($previous['fp_rule'] ?? '')
+        || ($current['aircraft_faa_raw'] ?? '') !== ($previous['aircraft_faa_raw'] ?? '')
+        || ($current['remarks'] ?? '') !== ($previous['remarks'] ?? '')
+    ) {
+        $flags |= 2; // PLAN_CHANGED
+    }
+
+    return $flags;
+}
+
+/**
+ * Execute deferred expensive processing (ETA calculations, legacy log, snapshot).
+ * Called after the main SP when @defer_expensive is enabled.
+ * Trajectory capture always happens in the SP - this only handles ETA and snapshots.
+ * Uses remaining cycle time budget to decide what to run.
+ *
+ * @param resource $conn SQL Server connection
+ * @param array $config Daemon config
+ * @param array &$stats Running stats (modified in place)
+ * @param float $cycleStart microtime(true) of cycle start
+ * @return array Results with timing and counts
+ */
+function executeDeferredProcessing($conn, array $config, array &$stats, float $cycleStart): array {
+    $result = [
+        'eta_basic' => null,
+        'eta_batch' => null,
+        'log' => null,
+        'snapshot' => null,
+        'elapsed_ms' => 0,
+        'skipped' => false,
+    ];
+
+    $cycleElapsedMs = round((microtime(true) - $cycleStart) * 1000);
+    $budget = $config['interval_seconds'] * 1000 - $cycleElapsedMs - 2000; // 2s safety margin
+
+    if ($budget <= 0) {
+        $stats['deferred_skipped']++;
+        $result['skipped'] = true;
+        return $result;
+    }
+
+    $deferStart = microtime(true);
+
+    // Basic ETA (the @process_eta portion of sp_ProcessTrajectoryBatch)
+    if ($budget > 300) {
+        $start = microtime(true);
+        $etaCount = 0;
+        $trajCount = 0;
+        $stmt = sqlsrv_query($conn,
+            "EXEC dbo.sp_ProcessTrajectoryBatch @process_eta = 1, @process_trajectory = 0, @eta_count = ?, @traj_count = ?",
+            [
+                [&$etaCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT],
+                [&$trajCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT],
+            ],
+            ['QueryTimeout' => 10]
+        );
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+            $ms = round((microtime(true) - $start) * 1000);
+            $result['eta_basic'] = ['count' => $etaCount, 'ms' => $ms];
+            $budget -= $ms;
+        }
+    }
+
+    // High-accuracy batch ETA with wind integration (every N cycles)
+    if ($stats['runs'] % $config['deferred_eta_interval'] === 0 && $budget > 500) {
+        $start = microtime(true);
+        $batchEtaCount = 0;
+        $stmt = sqlsrv_query($conn,
+            "EXEC dbo.sp_CalculateETABatch @eta_count = ?",
+            [[&$batchEtaCount, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT]],
+            ['QueryTimeout' => 10]
+        );
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+            $ms = round((microtime(true) - $start) * 1000);
+            $result['eta_batch'] = ['count' => $batchEtaCount, 'ms' => $ms];
+            $budget -= $ms;
+        }
+    }
+
+    // Legacy trajectory log (has internal 60s skip logic, cheap when skipped)
+    if ($budget > 100) {
+        $start = microtime(true);
+        $stmt = sqlsrv_query($conn, "EXEC dbo.sp_Log_Trajectory", [], ['QueryTimeout' => 5]);
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+        }
+        $result['log'] = ['ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    // Phase snapshot
+    if ($budget > 100) {
+        $start = microtime(true);
+        $stmt = sqlsrv_query($conn, "EXEC dbo.sp_CapturePhaseSnapshot", [], ['QueryTimeout' => 5]);
+        if ($stmt !== false) {
+            while (sqlsrv_next_result($stmt)) {}
+            sqlsrv_free_stmt($stmt);
+        }
+        $result['snapshot'] = ['ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    $result['elapsed_ms'] = round((microtime(true) - $deferStart) * 1000);
+    $stats['deferred_runs']++;
+    $stats['deferred_total_ms'] += $result['elapsed_ms'];
 
     return $result;
 }
@@ -1549,6 +1721,52 @@ function getSwimConnection() {
     return $conn !== false ? $conn : null;
 }
 
+function getSwimDaemonHeartbeatAge(array $config): ?int {
+    $heartbeatFile = $config['swim_daemon_heartbeat_file'] ?? '';
+    if ($heartbeatFile === '') {
+        return null;
+    }
+
+    clearstatcache(true, $heartbeatFile);
+    if (!is_file($heartbeatFile)) {
+        return null;
+    }
+
+    $mtime = @filemtime($heartbeatFile);
+    if ($mtime === false) {
+        return null;
+    }
+
+    $age = time() - $mtime;
+    return $age < 0 ? 0 : $age;
+}
+
+function shouldRunInlineSwim(array $config, int $run, ?int &$heartbeatAge = null): bool {
+    $heartbeatAge = null;
+    if (empty($config['swim_enabled'])) {
+        return false;
+    }
+    if ($run % $config['swim_interval'] !== 0) {
+        return false;
+    }
+
+    if (!empty($config['swim_inline_enabled'])) {
+        return true;
+    }
+
+    if (empty($config['swim_inline_fallback_enabled'])) {
+        return false;
+    }
+
+    $heartbeatAge = getSwimDaemonHeartbeatAge($config);
+    if ($heartbeatAge === null) {
+        return true;
+    }
+
+    $staleSec = (int)($config['swim_daemon_stale_sec'] ?? 300);
+    return $heartbeatAge > $staleSec;
+}
+
 function executeSwimSync($conn_adl, $conn_swim): ?array {
     static $syncScriptLoaded = false;
 
@@ -1574,7 +1792,7 @@ function executeSwimSync($conn_adl, $conn_swim): ?array {
 
     if ($result['success']) {
         return [
-            'flights_synced' => $result['stats']['flights_fetched'] ?? 0,
+            'flights_synced' => $result['stats']['flights_changed'] ?? ($result['stats']['flights_fetched'] ?? 0),
             'inserted'       => $result['stats']['inserted'] ?? 0,
             'updated'        => $result['stats']['updated'] ?? 0,
             'deleted'        => $result['stats']['deleted'] ?? 0,
@@ -1633,12 +1851,37 @@ function isConnectionAlive($conn): bool {
         return false;
     }
 
-    $stmt = @sqlsrv_query($conn, "SELECT 1");
+    try {
+        $stmt = @sqlsrv_query($conn, "SELECT 1");
+    } catch (Throwable $e) {
+        return false;
+    }
+
     if ($stmt === false) {
         return false;
     }
-    sqlsrv_free_stmt($stmt);
+    @sqlsrv_free_stmt($stmt);
     return true;
+}
+
+/**
+ * Best-effort SQLSRV connection close.
+ * Some SQLSRV failure states can leave an invalid handle that throws TypeError
+ * on sqlsrv_close(), so we treat close as optional and always null the handle.
+ */
+function safeCloseConnection(&$conn): void {
+    if ($conn === null || $conn === false) {
+        $conn = null;
+        return;
+    }
+
+    try {
+        @sqlsrv_close($conn);
+    } catch (Throwable $e) {
+        // Ignore invalid/terminated handles during recovery.
+    }
+
+    $conn = null;
 }
 
 // ============================================================================
@@ -1667,7 +1910,7 @@ function runDaemon(array $config): void {
         try {
             $conn = getConnection($config);
             logInfo("Database connected");
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $reconnectAttempts++;
             logError("Connection attempt {$reconnectAttempts} failed", ['error' => $e->getMessage()]);
             if ($reconnectAttempts < $maxReconnectAttempts) {
@@ -1681,14 +1924,25 @@ function runDaemon(array $config): void {
         exit(1);
     }
     
-    // Establish SWIM_API connection (if configured)
+    // Establish SWIM_API connection (inline mode only).
+    // Daemon-first mode keeps SWIM out of the ADL critical path.
     $conn_swim = null;
     if ($config['swim_enabled']) {
-        $conn_swim = getSwimConnection();
-        if ($conn_swim) {
-            logInfo("SWIM_API database connected", ['database' => SWIM_SQL_DATABASE]);
+        if ($config['swim_inline_enabled']) {
+            $conn_swim = getSwimConnection();
+            if ($conn_swim) {
+                logInfo("SWIM_API database connected", [
+                    'database' => SWIM_SQL_DATABASE,
+                    'mode' => 'inline',
+                ]);
+            } else {
+                logWarn("SWIM_API connection failed - inline sync disabled");
+            }
         } else {
-            logWarn("SWIM_API connection failed - sync disabled");
+            logInfo("SWIM sync delegated to swim_sync_daemon", [
+                'heartbeat_file' => $config['swim_daemon_heartbeat_file'],
+                'stale_sec' => $config['swim_daemon_stale_sec'],
+            ]);
         }
     }
 
@@ -1732,6 +1986,12 @@ function runDaemon(array $config): void {
         // V9.0 Staging stats
         'total_staging_ms'     => 0,
         'total_insert_ms'      => 0,
+        // V9.2 Deferred processing stats
+        'deferred_runs'        => 0,
+        'deferred_skipped'     => 0,
+        'deferred_total_ms'    => 0,
+        // V9.3 Delta detection stats
+        'total_heartbeat'      => 0,
     ];
     
     // WebSocket: Track last refresh time for event detection
@@ -1757,7 +2017,7 @@ function runDaemon(array $config): void {
             // 1. Check connection health (fast check)
             if (!isConnectionAlive($conn)) {
                 logWarn("Connection lost, reconnecting...");
-                @sqlsrv_close($conn);
+                safeCloseConnection($conn);
                 $conn = getConnection($config);
                 logInfo("Reconnected");
             }
@@ -1799,6 +2059,44 @@ function runDaemon(array $config): void {
                 $parsedPrefiles = parseVatsimPrefiles($vatsimData);
                 $stagingMs = round((microtime(true) - $stagingStart) * 1000);
 
+                // 4a2. Delta detection: compare against previous cycle (V9.3.0)
+                static $previousPilots = [];
+
+                foreach ($parsedPilots as &$pilot) {
+                    $key = $pilot['flight_key'];
+                    $prev = $previousPilots[$key] ?? null;
+                    $pilot['change_flags'] = computeChangeFlags($pilot, $prev);
+                }
+                unset($pilot);
+
+                // Delta stats for logging
+                $deltaStats = ['heartbeat' => 0, 'pos_changed' => 0, 'plan_changed' => 0, 'new' => 0];
+                foreach ($parsedPilots as $p) {
+                    $f = $p['change_flags'];
+                    if ($f === 0) $deltaStats['heartbeat']++;
+                    if ($f & 1) $deltaStats['pos_changed']++;
+                    if ($f & 2) $deltaStats['plan_changed']++;
+                    if ($f & 4) $deltaStats['new']++;
+                }
+
+                // Rebuild previous state for next cycle (only store comparison fields)
+                $previousPilots = [];
+                foreach ($parsedPilots as $p) {
+                    $previousPilots[$p['flight_key']] = [
+                        'lat'              => $p['lat'],
+                        'lon'              => $p['lon'],
+                        'altitude_ft'      => $p['altitude_ft'],
+                        'groundspeed_kts'  => $p['groundspeed_kts'],
+                        'heading_deg'      => $p['heading_deg'],
+                        'route_hash'       => $p['route_hash'],
+                        'altitude_filed_raw' => $p['altitude_filed_raw'] ?? '',
+                        'tas_filed_raw'    => $p['tas_filed_raw'] ?? '',
+                        'fp_rule'          => $p['fp_rule'] ?? '',
+                        'aircraft_faa_raw' => $p['aircraft_faa_raw'] ?? '',
+                        'remarks'          => $p['remarks'] ?? '',
+                    ];
+                }
+
                 // 4b. Insert to staging tables
                 $insertStart = microtime(true);
                 $batchId = generateBatchId();
@@ -1822,7 +2120,7 @@ function runDaemon(array $config): void {
                 $insertMs = round((microtime(true) - $insertStart) * 1000);
 
                 // 4c. Execute staged refresh SP
-                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout'], $config['zone_daemon_enabled']);
+                $spResult = executeStagedRefreshSP($conn, $batchId, $config['sp_timeout'], $config['zone_daemon_enabled'], $config['defer_expensive']);
                 $spMs = $spResult['elapsed_ms'];
 
                 // Log staging performance on first run or every 100 runs
@@ -1841,6 +2139,13 @@ function runDaemon(array $config): void {
 
             // Free raw JSON string (we have vatsimData now)
             unset($jsonData);
+
+            // 4d. Deferred ETA processing (trajectory already captured in SP)
+            // Runs ETA calcs, legacy log, and snapshot when cycle time budget allows
+            $deferredResult = null;
+            if ($config['defer_expensive']) {
+                $deferredResult = executeDeferredProcessing($conn, $config, $stats, $cycleStart);
+            }
 
             // 5. Process ATIS (with dynamic tiered intervals)
             $atisImported = 0;
@@ -1947,13 +2252,59 @@ function runDaemon(array $config): void {
 
             // 5e. SWIM API sync (every 2 minutes)
             $swimResult = null;
-            if ($config['swim_enabled'] && $conn_swim !== null && $stats['runs'] % $config['swim_interval'] === 0) {
-                $swimResult = executeSwimSync($conn, $conn_swim);
-                if ($swimResult !== null) {
-                    $stats['swim_runs']++;
-                    $stats['swim_synced'] += $swimResult['flights_synced'];
-                    $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
+            $swimMode = null;
+            $swimHeartbeatAge = null;
+            $swimTick = $config['swim_enabled'] && ($stats['runs'] % $config['swim_interval'] === 0);
+            static $lastSwimMode = null;
+
+            if ($swimTick) {
+                if (shouldRunInlineSwim($config, $stats['runs'], $swimHeartbeatAge)) {
+                    $swimMode = $config['swim_inline_enabled'] ? 'inline' : 'fallback';
+
+                    if ($conn_swim === null) {
+                        $conn_swim = getSwimConnection();
+                        if ($conn_swim) {
+                            logInfo("SWIM_API database connected", [
+                                'database' => SWIM_SQL_DATABASE,
+                                'mode' => $swimMode,
+                            ]);
+                        } else {
+                            logWarn("SWIM_API connection failed - inline sync unavailable", [
+                                'mode' => $swimMode,
+                            ]);
+                        }
+                    }
+
+                    if ($conn_swim !== null) {
+                        $swimResult = executeSwimSync($conn, $conn_swim);
+                        if ($swimResult !== null) {
+                            $stats['swim_runs']++;
+                            $stats['swim_synced'] += $swimResult['flights_synced'];
+                            $stats['swim_total_ms'] += $swimResult['elapsed_ms'];
+                        }
+                    }
+                } else {
+                    $swimMode = 'daemon';
+                    $swimHeartbeatAge = getSwimDaemonHeartbeatAge($config);
+                    // Release fallback connection now that daemon is healthy
+                    if ($conn_swim !== null && empty($config['swim_inline_enabled'])) {
+                        @sqlsrv_close($conn_swim);
+                        $conn_swim = null;
+                    }
                 }
+            }
+
+            if ($swimMode !== null && $swimMode !== $lastSwimMode) {
+                if ($swimMode === 'daemon') {
+                    logInfo("SWIM mode active: daemon", ['heartbeat_age_s' => $swimHeartbeatAge]);
+                } elseif ($swimMode === 'fallback') {
+                    logWarn("SWIM mode active: fallback inline (daemon heartbeat stale/missing)", [
+                        'heartbeat_age_s' => $swimHeartbeatAge,
+                    ]);
+                } else {
+                    logWarn("SWIM mode active: forced inline");
+                }
+                $lastSwimMode = $swimMode;
             }
 
             // 5f. WebSocket real-time events
@@ -2003,6 +2354,7 @@ function runDaemon(array $config): void {
             if ($config['staged_refresh_enabled']) {
                 $stats['total_staging_ms'] += $stagingMs;
                 $stats['total_insert_ms'] += $insertMs;
+                $stats['total_heartbeat'] += $deltaStats['heartbeat'] ?? 0;
             }
 
             // 7. Log with performance level
@@ -2028,6 +2380,8 @@ function runDaemon(array $config): void {
                 $logContext['parse_ms'] = $parseMs;
                 $logContext['stg_ms'] = $stagingMs;
                 $logContext['ins_ms'] = $insertMs;
+                // V9.3 delta stats
+                $logContext['hb'] = $deltaStats['heartbeat'] ?? 0;
             }
 
             if ($atisImported > 0 || $atisParsed > 0 || $atisSkipped > 0) {
@@ -2050,6 +2404,13 @@ function runDaemon(array $config): void {
                 }
             }
 
+            if ($swimMode !== null) {
+                $logContext['swim_mode'] = $swimMode;
+                if ($swimHeartbeatAge !== null) {
+                    $logContext['swim_hb_s'] = $swimHeartbeatAge;
+                }
+            }
+
             if ($swimResult !== null) {
                 $logContext['swim_ms'] = $swimResult['elapsed_ms'];
                 $logContext['swim_sync'] = $swimResult['flights_synced'];
@@ -2060,6 +2421,21 @@ function runDaemon(array $config): void {
 
             if ($wsResult !== null && $wsResult['total_events'] > 0) {
                 $logContext['ws_events'] = $wsResult['total_events'];
+            }
+
+            // V9.2: Deferred processing metrics
+            if ($deferredResult !== null) {
+                $logContext['def_ms'] = $deferredResult['elapsed_ms'];
+                if ($deferredResult['skipped']) {
+                    $logContext['def'] = 'SKIP';
+                } else {
+                    if ($deferredResult['eta_basic'] !== null) {
+                        $logContext['def_eta1'] = $deferredResult['eta_basic']['count'];
+                    }
+                    if ($deferredResult['eta_batch'] !== null) {
+                        $logContext['def_eta2'] = $deferredResult['eta_batch']['count'];
+                    }
+                }
             }
 
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
@@ -2082,15 +2458,15 @@ function runDaemon(array $config): void {
                 }
             }
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $stats['failures']++;
             logError("Refresh #{$stats['runs']} FAILED", ['error' => $e->getMessage()]);
             
             try {
-                @sqlsrv_close($conn);
+                safeCloseConnection($conn);
                 $conn = getConnection($config);
                 logInfo("Reconnected after error");
-            } catch (Exception $re) {
+            } catch (Throwable $re) {
                 logError("Reconnection failed", ['error' => $re->getMessage()]);
                 $conn = null;
             }
@@ -2141,6 +2517,14 @@ function runDaemon(array $config): void {
                 $statsContext['avg_ins_ms'] = $avgInsertMs;
             }
 
+            // V9.2 Deferred processing stats
+            if ($config['defer_expensive']) {
+                $avgDefMs = $stats['deferred_runs'] > 0 ? round($stats['deferred_total_ms'] / $stats['deferred_runs']) : 0;
+                $statsContext['def_runs'] = $stats['deferred_runs'];
+                $statsContext['def_skip'] = $stats['deferred_skipped'];
+                $statsContext['avg_def_ms'] = $avgDefMs;
+            }
+
             logInfo("=== Stats @ run {$stats['runs']} ===", $statsContext);
 
             if ($conn !== null) {
@@ -2167,7 +2551,7 @@ function runDaemon(array $config): void {
             try {
                 $conn = getConnection($config);
                 logInfo("Connection restored");
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 logError("Still cannot connect", ['error' => $e->getMessage()]);
                 sleep(5);
             }
@@ -2182,7 +2566,7 @@ function runDaemon(array $config): void {
     ]);
     
     if ($conn) {
-        @sqlsrv_close($conn);
+        safeCloseConnection($conn);
     }
 }
 

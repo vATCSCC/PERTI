@@ -428,7 +428,8 @@ function format_results($results) {
         'mit_results' => [],
         'gs_results' => [],
         'apreq_results' => [],
-        'reroute_results' => []
+        'reroute_results' => [],
+        'holding' => null
     ];
 
     // Process MIT results
@@ -475,7 +476,11 @@ function format_results($results) {
                 // Traffic flow sector data (for flow cone visualization)
                 'traffic_sector' => $r['traffic_sector'] ?? null,
                 // Fix coordinate data (for measurement point marker)
-                'fix_info' => $r['fix_info'] ?? null
+                'fix_info' => $r['fix_info'] ?? null,
+                // Stream-aware pairing metadata
+                'stream_aware' => $r['stream_aware'] ?? false,
+                'stream_count' => $r['stream_count'] ?? 0,
+                'streams' => $r['streams'] ?? []
             ];
         }
     }
@@ -580,6 +585,11 @@ function format_results($results) {
                 'reroute_key' => $key
             ];
         }
+    }
+
+    // Holding pattern results
+    if (isset($results['holding']) && !empty($results['holding'])) {
+        $formatted['holding'] = $results['holding'];
     }
 
     return $formatted;

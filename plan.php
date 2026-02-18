@@ -35,6 +35,10 @@ include("sessions/handler.php");
     }
 
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
+
+    require_once('load/org_context.php');
+    $plan_org_code = $plan_info['org_code'] ?? null;
+    $org_mismatch = ($plan_org_code !== null && $plan_org_code !== get_org_code());
 ?>
 
 <!DOCTYPE html>
@@ -143,7 +147,27 @@ include("sessions/handler.php");
 
 <?php
 include('load/nav.php');
+
+if ($org_mismatch):
+    $stmt = $conn_sqli->prepare("SELECT display_name FROM organizations WHERE org_code = ?");
+    $stmt->bind_param("s", $plan_org_code);
+    $stmt->execute();
+    $plan_org_display = $stmt->get_result()->fetch_assoc()['display_name'] ?? strtoupper($plan_org_code);
+    $current_org_display = get_org_info($conn_sqli)['display_name'];
 ?>
+    <div class="container mt-5 text-center">
+        <div class="alert alert-warning py-4" role="alert">
+            <h5 class="mb-3"><i class="fas fa-exchange-alt mr-2"></i> <?= __('org.mismatch.title') ?></h5>
+            <p><?= __('org.mismatch.planBelongsTo', ['org' => htmlspecialchars($plan_org_display)]) ?>
+               <?= __('org.mismatch.currentlyViewing', ['org' => htmlspecialchars($current_org_display)]) ?></p>
+            <button class="btn btn-primary" onclick="switchOrg('<?= htmlspecialchars($plan_org_code) ?>')">
+                <i class="fas fa-sync-alt mr-1"></i> <?= __('org.mismatch.switchTo', ['org' => htmlspecialchars($plan_org_display)]) ?>
+            </button>
+        </div>
+    </div>
+<?php include('load/footer.php'); ?>
+</body></html>
+<?php exit; endif; ?>
 
     <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">
         <div class="container-fluid pt-2 pb-5 py-lg-6">
@@ -178,7 +202,6 @@ include('load/nav.php');
                     <hr>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#group_flights"><?= __('plan.tabs.groupFlights') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#outlook"><?= __('plan.tabs.outlook') ?></a></li>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#advisories"><?= __('plan.tabs.advisories') ?></a></li>
                 </ul>
             </div>
             <div class="col-10">
@@ -535,123 +558,6 @@ include('load/nav.php');
                     <div class="tab-pane fade" id="outlook">
                         <div class="row gutters-tiny py-20" id="outlook_data"></div>
                     </div>
-
-                    <!-- Tab: Advisory Builder -->
-                    <div class="tab-pane fade" id="advisories">
-                        <div class="card">
-                            <div class="card-header">
-                                <strong><?= __('plan.advisory.cardTitle') ?></strong>
-                            </div>
-                            <div class="card-body">
-                                <div class="container-fluid">
-
-                                    <!-- Line 1: vATCSCC ADVZY ... -->
-                                    <div class="form-row">
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyNumber"><?= __('plan.advisory.advisoryNumber') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyNumber" placeholder="e.g. 027">
-                                            <small class="form-text text-muted">
-                                                <?= __('plan.advisory.advisoryNumberHint') ?>
-                                            </small>
-                                        </div>
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyFacility"><?= __('plan.advisory.facilityOptional') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyFacility" placeholder="e.g. DCC or JFK/ZNY">
-                                        </div>
-                                        <div class="form-group col-md-6">
-                                            <label for="advzyDate"><?= __('plan.advisory.advisoryDateUtc') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyDate" placeholder="mm/dd/yyyy">
-                                        </div>
-                                    </div>
-
-                                    <!-- Advisory Type/Name (OPERATIONS PLAN, ROUTE, etc.) -->
-                                    <div class="form-row">
-                                        <div class="form-group col-md-12">
-                                            <label for="advzyType"><?= __('plan.advisory.advisoryTypeName') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyType" placeholder="e.g. OPERATIONS PLAN">
-                                            <small class="form-text text-muted">
-                                                <?= __('plan.advisory.advisoryTypeHint') ?>
-                                            </small>
-                                        </div>
-                                    </div>
-
-                                    <!-- VALID FOR line -->
-                                    <div class="form-row">
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyValidFrom"><?= __('plan.advisory.validFrom') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyValidFrom" placeholder="e.g. 301300">
-                                        </div>
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyValidTo"><?= __('plan.advisory.validTo') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyValidTo" placeholder="e.g. 301900">
-                                        </div>
-                                        <div class="form-group col-md-6">
-                                            <small class="form-text text-muted mt-4">
-                                                <?= __('plan.advisory.validHint') ?>
-                                            </small>
-                                        </div>
-                                    </div>
-
-                                    <hr class="my-2">
-
-                                    <!-- Free-text advisory body -->
-                                    <div class="form-group">
-                                        <label for="advzyBody"><?= __('plan.advisory.advisoryText') ?></label>
-                                        <textarea class="form-control" id="advzyBody" rows="6"></textarea>
-                                        <small class="form-text text-muted">
-                                            <?= __('plan.advisory.advisoryTextHint') ?>
-                                        </small>
-                                    </div>
-
-                                    <!-- Effective time line -->
-                                    <div class="form-row">
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyEffFrom"><?= __('plan.advisory.effectiveFrom') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyEffFrom" placeholder="e.g. 301224">
-                                        </div>
-                                        <div class="form-group col-md-3">
-                                            <label for="advzyEffTo"><?= __('plan.advisory.effectiveTo') ?></label>
-                                            <input type="text" class="form-control form-control-sm" id="advzyEffTo" placeholder="e.g. 301359">
-                                        </div>
-                                        <div class="form-group col-md-6">
-                                            <small class="form-text text-muted mt-4">
-                                                <?= __('plan.advisory.effectiveHint') ?>
-                                            </small>
-                                        </div>
-                                    </div>
-
-                                    <!-- Signature line -->
-                                    <div class="form-group">
-                                        <label for="advzySignature"><?= __('plan.advisory.signatureLine') ?></label>
-                                        <input type="text" class="form-control form-control-sm" id="advzySignature" placeholder="YY/MM/DD hh:mm /OI">
-                                        <small class="form-text text-muted">
-                                            <?= __('plan.advisory.signatureHint') ?>
-                                        </small>
-                                    </div>
-
-                                    <hr class="my-2">
-
-                                    <!-- Build & copy -->
-                                    <div class="form-group">
-                                        <button type="button" class="btn btn-sm btn-primary" id="advzyBuildBtn">
-                                            <?= __('plan.advisory.generateButton') ?>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" id="advzyCopyBtn">
-                                            <?= __('plan.advisory.copyButton') ?>
-                                        </button>
-                                    </div>
-
-                                    <!-- Final Discord-ready output -->
-                                    <div class="form-group mt-2">
-                                        <label for="advzyMessage"><?= __('plan.advisory.outputLabel') ?></label>
-                                        <textarea class="form-control" id="advzyMessage" rows="14" style="font-family: Menlo, Consolas, monospace;"></textarea>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
 
                 </div>
             </div>
@@ -2382,154 +2288,6 @@ include('load/nav.php');
                 hasPerm: PERTI_HAS_PERM
             });
         }
-    });
-</script>
-
-<script>
-    function wrapTo68(line) {
-        line = line.trim();
-        if (!line) return [];
-        var words = line.split(/\s+/);
-        var out = [];
-        var current = '';
-
-        for (var i = 0; i < words.length; i++) {
-            var w = words[i];
-            if (!w) continue;
-            if (!current) {
-                current = w;
-            } else if (current.length + 1 + w.length > 68) {
-                out.push(current);
-                current = w;
-            } else {
-                current += ' ' + w;
-            }
-        }
-        if (current) out.push(current);
-        return out;
-    }
-
-    function buildAdvzyText() {
-        var num       = (document.getElementById('advzyNumber').value || '').trim();
-        var facility  = (document.getElementById('advzyFacility').value || '').trim();
-        var dateStr   = (document.getElementById('advzyDate').value || '').trim();
-        var typeName  = (document.getElementById('advzyType').value || '').trim();
-        var validFrom = (document.getElementById('advzyValidFrom').value || '').trim();
-        var validTo   = (document.getElementById('advzyValidTo').value || '').trim();
-        var body      = (document.getElementById('advzyBody').value || '').trim();
-        var effFrom   = (document.getElementById('advzyEffFrom').value || '').trim();
-        var effTo     = (document.getElementById('advzyEffTo').value || '').trim();
-        var signature = (document.getElementById('advzySignature').value || '').trim();
-
-        // Default advisory date from event date if empty
-        if (!dateStr && typeof PERTI_EVENT_DATE !== 'undefined' && PERTI_EVENT_DATE) {
-            var parts = PERTI_EVENT_DATE.split('-'); // 'YYYY-MM-DD'
-            if (parts.length === 3) {
-                var mm0 = parts[1].padStart(2, '0');
-                var dd0 = parts[2].padStart(2, '0');
-                var yyyy0 = parts[0];
-                dateStr = mm0 + '/' + dd0 + '/' + yyyy0;
-                document.getElementById('advzyDate').value = dateStr;
-            }
-        }
-
-        // Advisory number: zero-pad to 3 digits if numeric
-        if (num && /^\d+$/.test(num)) {
-            num = num.padStart(3, '0');
-        }
-
-        // Date: allow mm/dd/yyyy or mm/dd/yy; header shows mm/dd/yy
-        var headerDate = dateStr;
-        var m = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-        if (m) {
-            var mm = m[1].padStart(2, '0');
-            var dd = m[2].padStart(2, '0');
-            var yyyyOrYY = m[3];
-            var yy = yyyyOrYY.length === 4 ? yyyyOrYY.slice(-2) : yyyyOrYY.padStart(2, '0');
-            headerDate = mm + '/' + dd + '/' + yy;
-        }
-
-        // Default type if blank
-        if (!typeName) {
-            typeName = 'OPERATIONS PLAN';
-            document.getElementById('advzyType').value = typeName;
-        }
-
-        // Line 1: ATCSCC ADVZY ### [FACILITY] mm/dd/yy TYPE
-        var line1Parts = ['vATCSCC', 'ADVZY'];
-        if (num) {
-            line1Parts.push(num);
-        } else {
-            line1Parts.push('###');
-        }
-        if (facility) {
-            line1Parts.push(facility);
-        }
-        if (headerDate) {
-            line1Parts.push(headerDate);
-        }
-        if (typeName) {
-            line1Parts.push(typeName.toUpperCase());
-        }
-
-        var lines = [];
-        lines.push(line1Parts.join(' '));
-
-        // VALID FOR line (optional)
-        if (validFrom && validTo) {
-            lines.push('VALID FOR ' + validFrom + ' THRU ' + validTo);
-        }
-
-        // Body: wrap to 68 chars per line, uppercase
-        if (body) {
-            var bodyLines = body.split(/\r?\n/);
-            for (var i = 0; i < bodyLines.length; i++) {
-                var chunk = bodyLines[i];
-                var wrapped = wrapTo68(chunk);
-                for (var j = 0; j < wrapped.length; j++) {
-                    lines.push(wrapped[j].toUpperCase());
-                }
-            }
-        }
-
-        // Effective time line: ddhhmm-ddhhmm
-        if (effFrom && effTo) {
-            lines.push(effFrom + '-' + effTo);
-        }
-
-        // Default signature if empty
-        if (!signature) {
-            var now = new Date();
-            var yy = String(now.getUTCFullYear()).slice(-2);
-            var mm2 = String(now.getUTCMonth() + 1).padStart(2, '0');
-            var dd2 = String(now.getUTCDate()).padStart(2, '0');
-            var hh = String(now.getUTCHours()).padStart(2, '0');
-            var mi = String(now.getUTCMinutes()).padStart(2, '0');
-            signature = yy + '/' + mm2 + '/' + dd2 + ' ' + hh + ':' + mi + ' DCC';
-            document.getElementById('advzySignature').value = signature;
-        }
-
-        lines.push(signature);
-
-        document.getElementById('advzyMessage').value = lines.join('\n');
-    }
-
-    $(function () {
-        $('#advzyBuildBtn').on('click', function () {
-            buildAdvzyText();
-        });
-
-        $('#advzyCopyBtn').on('click', function () {
-            var ta = document.getElementById('advzyMessage');
-            if (!ta) return;
-            ta.focus();
-            ta.select();
-            try {
-                document.execCommand('copy');
-            } catch (e) {
-                // ignore
-            }
-        });
     });
 </script>
 

@@ -30,8 +30,8 @@ echo "nginx reload failed - container may handle this"
 
 echo "nginx configured"
 
-# Start the combined VATSIM ADL daemon (ingestion + ATIS processing every 15s)
-# This PHP daemon handles both flight data AND ATIS runway parsing
+# Start the combined VATSIM ADL daemon (ingestion + ATIS + deferred ETA every 15s)
+# SP V9.2.0: trajectory always captured, ETA deferred to time-budget system
 echo "Starting vatsim_adl_daemon.php (combined ingestion + ATIS)..."
 nohup php "${WWWROOT}/scripts/vatsim_adl_daemon.php" >> /home/LogFiles/vatsim_adl.log 2>&1 &
 ADL_PID=$!

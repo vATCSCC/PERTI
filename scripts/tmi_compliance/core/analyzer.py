@@ -9,7 +9,7 @@ import math
 import re
 import logging
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Dict, List, Any, Optional
 
 from .models import (
@@ -18,7 +18,10 @@ from .models import (
     normalize_datetime, normalize_icao_list, CROSSING_RADIUS_NM, MITModifier,
     TrafficDirection, TrafficFilter,
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
-    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD
+    REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
+    HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
+    HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
+    HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -36,6 +39,42 @@ def haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.asin(math.sqrt(a))
 
 
+def closest_approach_on_segment(lat1: float, lon1: float, lat2: float, lon2: float,
+                                fix_lat: float, fix_lon: float):
+    """
+    Find the closest approach of the great-circle segment (lat1,lon1)->(lat2,lon2)
+    to the point (fix_lat, fix_lon) using projected interpolation.
+
+    Returns (min_dist_nm, fraction, interp_lat, interp_lon) where:
+    - min_dist_nm: minimum distance from segment to fix
+    - fraction: 0.0-1.0 position along segment of closest approach
+    - interp_lat, interp_lon: interpolated coordinates at closest approach
+
+    For typical trajectory segments (<50nm), uses cos(lat)-corrected linear
+    interpolation which is accurate to within ~0.1nm at mid-latitudes.
+    """
+    d1 = haversine_nm(lat1, lon1, fix_lat, fix_lon)
+    seg_len = haversine_nm(lat1, lon1, lat2, lon2)
+    if seg_len < 0.1:
+        return (d1, 0.0, lat1, lon1)
+
+    cos_lat = math.cos(math.radians((lat1 + lat2) / 2))
+    dlat = lat2 - lat1
+    dlon = (lon2 - lon1) * cos_lat
+    flat = fix_lat - lat1
+    flon = (fix_lon - lon1) * cos_lat
+
+    denom = dlat * dlat + dlon * dlon
+    if denom < 1e-14:
+        return (d1, 0.0, lat1, lon1)
+
+    t = max(0.0, min(1.0, (flat * dlat + flon * dlon) / denom))
+    interp_lat = lat1 + t * (lat2 - lat1)
+    interp_lon = lon1 + t * (lon2 - lon1)
+    min_dist = haversine_nm(interp_lat, interp_lon, fix_lat, fix_lon)
+    return (min_dist, t, interp_lat, interp_lon)
+
+
 def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate initial bearing from point 1 to point 2 in degrees (0-360)"""
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
@@ -44,6 +83,52 @@ def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
     bearing = math.atan2(x, y)
     return (math.degrees(bearing) + 360) % 360
+
+
+def compute_approach_bearing(trajectory: List[dict], crossing_lat: float, crossing_lon: float,
+                              crossing_seg_idx: int, approach_dist_nm: float = 150.0) -> Optional[float]:
+    """
+    Compute approach bearing from upstream trajectory to the crossing point.
+
+    Unlike instantaneous heading at the crossing (which is convergent for all
+    flights merging toward the same destination), approach bearing reveals the
+    corridor a flight came from by looking ~150nm back along the trajectory.
+
+    At arrival fixes, all flights converge with similar headings regardless of
+    corridor. But 150nm back, flights are still on their enroute segments with
+    distinct directions: flights from Arkansas might approach at ~200 degrees
+    while flights from Mississippi approach at ~270 degrees — a separation that
+    gap-based clustering can detect.
+
+    Uses 150nm (not 75nm) because STAR convergence begins ~50-100nm from the
+    destination, so 75nm still captures partially-converged traffic.
+
+    Args:
+        trajectory: Full flight trajectory (time-ordered list with lat, lon keys)
+        crossing_lat: Latitude of the crossing point
+        crossing_lon: Longitude of the crossing point
+        crossing_seg_idx: Index into trajectory near the crossing (scan starts here)
+        approach_dist_nm: Target lookback distance (default 150nm)
+
+    Returns:
+        Bearing in degrees (0-360) or None if insufficient upstream trajectory
+    """
+    # Scan backward from crossing segment to find a point ~approach_dist_nm upstream
+    for i in range(min(crossing_seg_idx, len(trajectory) - 1), -1, -1):
+        pt = trajectory[i]
+        dist = haversine_nm(pt['lat'], pt['lon'], crossing_lat, crossing_lon)
+        if dist >= approach_dist_nm:
+            return calculate_bearing(pt['lat'], pt['lon'], crossing_lat, crossing_lon)
+
+    # Didn't reach target distance. Use earliest trajectory point if at least
+    # 30nm away (otherwise too close for meaningful corridor identification).
+    if trajectory:
+        first = trajectory[0]
+        dist = haversine_nm(first['lat'], first['lon'], crossing_lat, crossing_lon)
+        if dist >= 30.0:
+            return calculate_bearing(first['lat'], first['lon'], crossing_lat, crossing_lon)
+
+    return None
 
 
 def compute_traffic_sector(crossings: List, trajectory_cache: dict,
@@ -172,6 +257,338 @@ def compute_traffic_sector(crossings: List, trajectory_cache: dict,
     }
 
 
+def cluster_crossings_by_bearing(crossings: List, gap_threshold_deg: float = 30.0) -> Dict[int, List]:
+    """
+    Cluster crossings into traffic streams based on bearing gaps.
+
+    Uses circular gap detection: bearings are sorted around the circle (0-360),
+    and gaps larger than gap_threshold_deg are used to split into streams.
+    This naturally handles the 0/360 wrap-around.
+
+    Args:
+        crossings: List of CrossingResult with bearing field
+        gap_threshold_deg: Minimum angular gap to split streams (default 30 degrees)
+
+    Returns:
+        Dict mapping stream_id (0-based) to list of CrossingResult.
+        Stream -1 contains crossings without bearing data.
+    """
+    with_bearing = [(c, c.bearing) for c in crossings if c.bearing is not None]
+    without_bearing = [c for c in crossings if c.bearing is None]
+
+    if not with_bearing:
+        # No bearing data — all unassigned
+        return {-1: crossings} if crossings else {}
+
+    # Sort by bearing (circular)
+    with_bearing.sort(key=lambda x: x[1])
+
+    # Find gaps > threshold in the circular arrangement
+    bearings = [b for _, b in with_bearing]
+    n = len(bearings)
+    gaps = []
+
+    for i in range(n):
+        next_i = (i + 1) % n
+        if next_i == 0:
+            # Wrap-around gap: from last bearing to first + 360
+            gap = (bearings[0] + 360) - bearings[-1]
+        else:
+            gap = bearings[next_i] - bearings[i]
+        if gap >= gap_threshold_deg:
+            gaps.append(i)  # Gap AFTER index i
+
+    if not gaps:
+        # All bearings within one cluster
+        result = {0: [c for c, _ in with_bearing]}
+        if without_bearing:
+            result[-1] = without_bearing
+        return result
+
+    # Split into streams at the gaps
+    # Start from the first element AFTER the largest gap (most natural break)
+    # This ensures streams don't get split at arbitrary points
+    result = {}
+    stream_id = 0
+
+    # Rotate so we start right after the first gap
+    start_after = gaps[0] + 1
+    ordered_indices = [(start_after + j) % n for j in range(n)]
+
+    current_stream = []
+    gap_set = set(gaps)
+
+    for j, idx in enumerate(ordered_indices):
+        current_stream.append(with_bearing[idx][0])
+        # Check if there's a gap AFTER this index
+        if idx in gap_set and j < n - 1:
+            result[stream_id] = current_stream
+            current_stream = []
+            stream_id += 1
+
+    if current_stream:
+        result[stream_id] = current_stream
+
+    if without_bearing:
+        result[-1] = without_bearing
+
+    return result
+
+
+def cluster_crossings_by_trajectory(crossings: List, trajectory_cache: dict,
+                                     fix_lat: float, fix_lon: float,
+                                     gis_conn=None,
+                                     min_dist_nm: float = 5.0,
+                                     max_dist_nm: float = 250.0,
+                                     eps_nm: float = 3.0,
+                                     min_points: int = 5) -> Dict[int, List]:
+    """
+    Cluster crossings into traffic streams using PostGIS ST_ClusterDBSCAN.
+
+    Uses the same spatial clustering algorithm as the JS frontend's branch analysis
+    (track_density.php). For each flight, trajectory segment midpoints between
+    min_dist_nm and max_dist_nm from the fix are inserted into PostGIS, then
+    ST_ClusterDBSCAN groups spatially adjacent segments into corridors. Each
+    flight is assigned to its majority corridor via segment vote.
+
+    This approach is proven to correctly separate converging corridors because
+    PostGIS operates on true geographic coordinates with proper distance metrics.
+    """
+    if not gis_conn:
+        logger.warning("  No GIS connection — falling back to bearing-based clustering")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
+
+    try:
+        postgis_result = _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
+                                               gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points)
+    except Exception as e:
+        logger.warning(f"  PostGIS clustering failed ({e}) — falling back to bearing-based")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
+
+    # Validate bearing coherence of PostGIS clusters
+    # If streams have high bearing variance, spatial clustering created
+    # non-directional groups (common at convergence fixes like DADES)
+    return _validate_stream_coherence(crossings, postgis_result)
+
+
+def _validate_stream_coherence(crossings, postgis_result, max_spread_deg=55.0):
+    """
+    Validate that PostGIS-produced streams have directionally coherent bearings.
+
+    At junction fixes (SEEVR), PostGIS correctly separates corridors because
+    flights from different directions occupy distinct geographic space upstream.
+    At convergence fixes (DADES), trajectories from many origins overlap
+    spatially, producing streams with mixed bearings — these are not useful
+    for directional pairing.
+
+    For each stream, compute circular bearing spread (angular std dev).
+    If the majority of flights are in incoherent streams (spread > max_spread_deg),
+    fall back to bearing-based clustering which directly separates by direction.
+
+    Args:
+        crossings: Original crossing list
+        postgis_result: Dict from PostGIS clustering {stream_id -> [crossings]}
+        max_spread_deg: Maximum acceptable bearing spread per stream (default 55°)
+
+    Returns:
+        PostGIS result if coherent, bearing-based result if not
+    """
+    if len(postgis_result) <= 1:
+        return postgis_result
+
+    total_flights = sum(len(cx) for cx in postgis_result.values())
+    incoherent_flights = 0
+
+    for sid, cx_list in postgis_result.items():
+        if sid == -1:
+            continue
+        meta = compute_stream_metadata(cx_list)
+        spread = meta.get('bearing_spread', 0)
+        if spread > max_spread_deg:
+            incoherent_flights += len(cx_list)
+            logger.info(f"    Stream {sid}: bearing spread {spread}° > {max_spread_deg}° threshold "
+                       f"({len(cx_list)} flights)")
+
+    incoherent_pct = (incoherent_flights / total_flights * 100) if total_flights > 0 else 0
+
+    if incoherent_pct > 40:
+        logger.info(f"    PostGIS clustering incoherent: {incoherent_pct:.0f}% of flights in "
+                   f"high-spread streams — falling back to bearing-based clustering")
+        return cluster_crossings_by_bearing(crossings, gap_threshold_deg=30.0)
+
+    logger.info(f"    PostGIS clustering validated: {incoherent_pct:.0f}% incoherent (threshold 40%)")
+    return postgis_result
+
+
+def _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
+                          gis_conn, min_dist_nm, max_dist_nm, eps_nm, min_points):
+    """Internal: PostGIS-based spatial clustering of trajectory segments."""
+    cursor = gis_conn.cursor()
+    eps_deg = eps_nm / 60.0
+    min_dist_m = min_dist_nm * 1852
+    max_dist_m = max_dist_nm * 1852
+
+    # Phase 1: Build trajectory segment midpoints for all crossing flights
+    # Segments = midpoints of consecutive trajectory point pairs
+    segments = []  # (callsign, seg_idx, mid_lat, mid_lon)
+    callsign_set = set()
+
+    for crossing in crossings:
+        cs = crossing.callsign
+        trajectory = trajectory_cache.get(cs, [])
+        if len(trajectory) < 2:
+            continue
+        callsign_set.add(cs)
+        for i in range(len(trajectory) - 1):
+            p1, p2 = trajectory[i], trajectory[i + 1]
+            mid_lat = (p1['lat'] + p2['lat']) / 2.0
+            mid_lon = (p1['lon'] + p2['lon']) / 2.0
+            segments.append((cs, i, mid_lat, mid_lon))
+
+    if not segments:
+        return {0: list(crossings)} if crossings else {}
+
+    logger.info(f"    PostGIS clustering: {len(segments)} segments from "
+                f"{len(callsign_set)} flights, eps={eps_nm}nm, min_pts={min_points}")
+
+    # Phase 2: Create temp table and insert segments
+    cursor.execute("DROP TABLE IF EXISTS _tmp_stream_segs")
+    cursor.execute("""
+        CREATE TEMP TABLE _tmp_stream_segs (
+            callsign VARCHAR(20),
+            seg_idx INT,
+            geom GEOMETRY(Point, 4326)
+        )
+    """)
+
+    # Batch insert using execute with values
+    batch_size = 500
+    for i in range(0, len(segments), batch_size):
+        batch = segments[i:i + batch_size]
+        values = []
+        params = []
+        for j, (cs, idx, lat, lon) in enumerate(batch):
+            offset = j * 4
+            values.append(f"(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))")
+            params.extend([cs, idx, lon, lat])
+        sql = "INSERT INTO _tmp_stream_segs (callsign, seg_idx, geom) VALUES " + ",".join(values)
+        cursor.execute(sql, params)
+
+    # Phase 3: ST_ClusterDBSCAN on segments within distance range of fix
+    cursor.execute("""
+        WITH fix AS (
+            SELECT ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography AS geom
+        ),
+        filtered AS (
+            SELECT s.callsign, s.seg_idx, s.geom,
+                   ST_Distance(s.geom::geography, f.geom) / 1852.0 AS dist_nm
+            FROM _tmp_stream_segs s
+            CROSS JOIN fix f
+            WHERE ST_DWithin(s.geom::geography, f.geom, %s)
+              AND ST_Distance(s.geom::geography, f.geom) > %s
+        ),
+        clustered AS (
+            SELECT callsign, seg_idx, dist_nm,
+                   ST_ClusterDBSCAN(geom, eps := %s, minpoints := %s) OVER () AS cluster_id
+            FROM filtered
+        )
+        SELECT callsign, cluster_id, COUNT(*) as seg_count
+        FROM clustered
+        WHERE cluster_id IS NOT NULL
+        GROUP BY callsign, cluster_id
+        ORDER BY callsign, seg_count DESC
+    """, (fix_lon, fix_lat, max_dist_m, min_dist_m, eps_deg, min_points))
+
+    # Phase 4: Assign each flight to its majority cluster
+    flight_clusters = {}  # callsign -> {cluster_id: count}
+    for row in cursor.fetchall():
+        cs, cid, cnt = row
+        if cs not in flight_clusters:
+            flight_clusters[cs] = {}
+        flight_clusters[cs][cid] = cnt
+
+    # Majority vote per flight
+    flight_assignment = {}
+    for cs, clusters in flight_clusters.items():
+        best_cluster = max(clusters, key=clusters.get)
+        flight_assignment[cs] = best_cluster
+
+    # Renumber cluster IDs to 0-based sequential
+    unique_clusters = sorted(set(flight_assignment.values()))
+    cluster_remap = {old: new for new, old in enumerate(unique_clusters)}
+
+    # Phase 5: Build result dict, assign unassigned flights to nearest cluster
+    result = {}
+    unassigned = []
+    for crossing in crossings:
+        cs = crossing.callsign
+        if cs in flight_assignment:
+            sid = cluster_remap[flight_assignment[cs]]
+            if sid not in result:
+                result[sid] = []
+            result[sid].append(crossing)
+        else:
+            unassigned.append(crossing)
+
+    # Phase 6: Assign unassigned flights to nearest cluster by crossing position
+    # Flights without segments in the distance band are matched to the nearest
+    # cluster based on where they crossed (geographic proximity of crossing point)
+    if unassigned and result:
+        # Compute centroid crossing position per cluster
+        cluster_centroids = {}
+        for sid, cx_list in result.items():
+            lats = [c.lat for c in cx_list if c.lat]
+            lons = [c.lon for c in cx_list if c.lon]
+            if lats and lons:
+                cluster_centroids[sid] = (sum(lats) / len(lats), sum(lons) / len(lons))
+
+        for crossing in unassigned:
+            if crossing.lat and crossing.lon and cluster_centroids:
+                best_sid = min(cluster_centroids,
+                              key=lambda s: haversine_nm(
+                                  crossing.lat, crossing.lon,
+                                  cluster_centroids[s][0], cluster_centroids[s][1]))
+            else:
+                best_sid = max(result, key=lambda s: len(result[s]))
+            result[best_sid].append(crossing)
+            logger.info(f"    Assigned {crossing.callsign} to stream {best_sid} "
+                       f"(crossing position match)")
+    elif unassigned:
+        result[0] = unassigned
+
+    # Cleanup temp table
+    cursor.execute("DROP TABLE IF EXISTS _tmp_stream_segs")
+    gis_conn.commit()
+
+    # Log
+    for sid in sorted(result.keys()):
+        logger.info(f"    Stream {sid}: {len(result[sid])} flights")
+
+    return result
+
+
+def compute_stream_metadata(stream_crossings: List) -> dict:
+    """Compute metadata for a stream of crossings (circular mean bearing, spread, count)."""
+    bearings = [c.bearing for c in stream_crossings if c.bearing is not None]
+    if not bearings:
+        return {'mean_bearing': None, 'bearing_spread': 0, 'count': len(stream_crossings)}
+
+    # Circular mean
+    sin_sum = sum(math.sin(math.radians(b)) for b in bearings)
+    cos_sum = sum(math.cos(math.radians(b)) for b in bearings)
+    mean_bearing = math.degrees(math.atan2(sin_sum, cos_sum)) % 360
+
+    # Angular spread (circular std dev approximation)
+    R = math.sqrt(sin_sum**2 + cos_sum**2) / len(bearings)
+    spread = math.degrees(math.acos(min(1.0, R))) if R < 1.0 else 0
+
+    return {
+        'mean_bearing': round(mean_bearing, 1),
+        'bearing_spread': round(spread, 1),
+        'count': len(stream_crossings)
+    }
+
+
 def classify_facility(code: str) -> str:
     """
     Classify a facility code as ARTCC, TRACON, or AIRPORT.
@@ -223,6 +640,223 @@ def classify_facility(code: str) -> str:
     return 'AIRPORT'
 
 
+# ---------------------------------------------------------------------------
+# Holding pattern detection helpers (module-level pure functions)
+# ---------------------------------------------------------------------------
+
+def _heading_delta(h1: float, h2: float) -> float:
+    """Signed heading change from h1 to h2, handling 360-degree wrap.
+    Positive = clockwise (right turn), Negative = counter-clockwise (left turn).
+    Returns value in range (-180, 180]."""
+    d = (h2 - h1) % 360
+    if d > 180:
+        d -= 360
+    return d
+
+
+def detect_flight_holding(trajectory: List[Dict[str, Any]],
+                          dest_lat: float, dest_lon: float) -> List[Dict[str, Any]]:
+    """
+    Detect holding patterns in a single flight's trajectory.
+
+    Scans the trajectory for sustained turning (cumulative heading change
+    exceeding one orbit) and groups consecutive orbits into hold events.
+
+    Args:
+        trajectory: List of dicts with keys:
+            timestamp (datetime), lat (float), lon (float),
+            gs (float), gs_valid (bool), alt (float)
+        dest_lat: Destination airport latitude (for circling approach filter)
+        dest_lon: Destination airport longitude (for circling approach filter)
+
+    Returns:
+        List of hold event dicts (see _finalize_hold for structure).
+    """
+    if len(trajectory) < 4:
+        return []
+
+    # Step 1: Build bearing series from consecutive trajectory points
+    # Each entry is the bearing from point[i] to point[i+1]
+    bearings = []
+    for i in range(len(trajectory) - 1):
+        p1 = trajectory[i]
+        p2 = trajectory[i + 1]
+        brg = calculate_bearing(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+        bearings.append(brg)
+
+    if len(bearings) < 2:
+        return []
+
+    # Step 2: Scan bearing deltas to find orbits
+    holding_events = []
+    cumulative_heading = 0.0
+    orbit_count = 0
+    turn_sign_sum = 0.0
+    hold_start_idx = 0      # Index into bearings where current candidate began
+    in_candidate = False
+
+    for i in range(1, len(bearings)):
+        # Check for time gaps in the trajectory segments contributing to
+        # bearings[i-1] and bearings[i].  A large gap means data dropout;
+        # reset the accumulator to avoid false detections across the gap.
+        gap_sec = (trajectory[i]['timestamp'] - trajectory[i - 1]['timestamp']).total_seconds()
+        if (i + 1) < len(trajectory):
+            gap_sec = max(gap_sec,
+                          (trajectory[i + 1]['timestamp'] - trajectory[i]['timestamp']).total_seconds())
+
+        if gap_sec > HOLD_GAP_RESET_SEC:
+            # Finalize any pending hold before resetting
+            if in_candidate and orbit_count >= 1:
+                _finalize_hold(trajectory, bearings, hold_start_idx, i - 1,
+                               orbit_count, turn_sign_sum, holding_events,
+                               dest_lat, dest_lon)
+            # Reset accumulator
+            cumulative_heading = 0.0
+            orbit_count = 0
+            turn_sign_sum = 0.0
+            in_candidate = False
+            hold_start_idx = i
+            continue
+
+        # Compute heading delta between consecutive bearings
+        delta = _heading_delta(bearings[i - 1], bearings[i])
+        cumulative_heading += delta
+        turn_sign_sum += delta
+
+        if not in_candidate:
+            # Start tracking when we see meaningful turning
+            if abs(cumulative_heading) >= 45:
+                in_candidate = True
+                hold_start_idx = max(0, i - 1)
+            else:
+                # Keep resetting start point until candidate begins
+                hold_start_idx = i
+                continue
+
+        # Check if we've completed an orbit
+        if abs(cumulative_heading) >= HOLD_MIN_HEADING_CHANGE_DEG:
+            orbit_count += 1
+            # Subtract one orbit's worth of heading, preserving sign
+            if cumulative_heading > 0:
+                cumulative_heading -= 360.0
+            else:
+                cumulative_heading += 360.0
+
+    # Finalize any remaining candidate at trajectory end
+    if in_candidate and orbit_count >= 1:
+        _finalize_hold(trajectory, bearings, hold_start_idx, len(bearings) - 1,
+                       orbit_count, turn_sign_sum, holding_events,
+                       dest_lat, dest_lon)
+
+    return holding_events
+
+
+def _finalize_hold(trajectory: List[Dict[str, Any]],
+                   bearings: List[float],
+                   start_idx: int, end_idx: int,
+                   orbit_count: int, turn_sign_sum: float,
+                   holding_events: List[Dict[str, Any]],
+                   dest_lat: float, dest_lon: float) -> None:
+    """
+    Validate and finalize a candidate holding event.
+
+    Maps bearing indices back to trajectory indices, applies duration,
+    spatial containment, and circling approach filters, then appends
+    a validated event dict to holding_events.
+
+    Args:
+        trajectory: Full trajectory point list
+        bearings: Bearing series (one per consecutive trajectory pair)
+        start_idx: Start index in bearings array
+        end_idx: End index in bearings array
+        orbit_count: Number of detected orbits
+        turn_sign_sum: Sum of all heading deltas (sign indicates direction)
+        holding_events: Output list to append validated events to
+        dest_lat: Destination latitude (for circling filter)
+        dest_lon: Destination longitude (for circling filter)
+    """
+    # Map bearing indices to trajectory indices.
+    # bearings[i] is derived from trajectory[i] -> trajectory[i+1],
+    # so the trajectory span is [start_idx, end_idx + 1].
+    traj_start = start_idx
+    traj_end = min(end_idx + 1, len(trajectory) - 1)
+
+    if traj_start >= traj_end:
+        return
+
+    # 1. Duration check
+    t_start = trajectory[traj_start]['timestamp']
+    t_end = trajectory[traj_end]['timestamp']
+    duration_sec = int((t_end - t_start).total_seconds())
+
+    if duration_sec < HOLD_MIN_DURATION_SEC:
+        return
+
+    # 2. Spatial containment: compute centroid and check radius
+    hold_points = trajectory[traj_start:traj_end + 1]
+    n_pts = len(hold_points)
+
+    center_lat = sum(p['lat'] for p in hold_points) / n_pts
+    center_lon = sum(p['lon'] for p in hold_points) / n_pts
+
+    max_dist = 0.0
+    dist_sum = 0.0
+    for p in hold_points:
+        d = haversine_nm(center_lat, center_lon, p['lat'], p['lon'])
+        dist_sum += d
+        if d > max_dist:
+            max_dist = d
+
+    if max_dist > HOLD_MAX_RADIUS_NM:
+        return
+
+    avg_radius = dist_sum / n_pts if n_pts > 0 else 0.0
+    avg_alt = sum(p['alt'] for p in hold_points) / n_pts if n_pts > 0 else 0.0
+
+    # 3. Circling approach filter: skip if close to destination and low altitude
+    if dest_lat is not None and dest_lon is not None:
+        dist_to_dest = haversine_nm(center_lat, center_lon, dest_lat, dest_lon)
+
+        if dist_to_dest < HOLD_CIRCLING_DIST_NM and avg_alt < HOLD_CIRCLING_ALT_AGL_FT:
+            return
+
+    # 4. Compute metrics
+    gs_values = [p['gs'] for p in hold_points if p.get('gs_valid', True) and p['gs'] > 0]
+    avg_gs = sum(gs_values) / len(gs_values) if gs_values else 0.0
+
+    # Groundspeed filter: exclude ground operations (taxi, pushback, parking)
+    if avg_gs < HOLD_MIN_GROUNDSPEED_KTS:
+        return
+
+    turn_direction = 'R' if turn_sign_sum >= 0 else 'L'
+
+    # 5. Data resolution / low-confidence check
+    # Average interval between points; flag if sparser than threshold
+    low_confidence = False
+    if n_pts >= 2:
+        avg_interval = duration_sec / (n_pts - 1)
+        if avg_interval > HOLD_LOW_CONFIDENCE_INTERVAL_SEC:
+            low_confidence = True
+    else:
+        low_confidence = True
+
+    # 6. Append validated event
+    holding_events.append({
+        'hold_start_utc': t_start,
+        'hold_end_utc': t_end,
+        'duration_sec': duration_sec,
+        'orbit_count': orbit_count,
+        'center_lat': round(center_lat, 6),
+        'center_lon': round(center_lon, 6),
+        'avg_radius_nm': round(avg_radius, 2),
+        'avg_altitude_ft': round(avg_alt, 0),
+        'avg_groundspeed_kts': round(avg_gs, 1),
+        'turn_direction': turn_direction,
+        'low_confidence': low_confidence,
+        'point_indices': (traj_start, traj_end),
+    })
+
+
 class TMIComplianceAnalyzer:
     """Main analyzer class for TMI compliance"""
 
@@ -241,6 +875,9 @@ class TMIComplianceAnalyzer:
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
         self._mit_trajectories = {}  # key -> {callsign -> trajectory} for split output
         self._taxi_references = {}  # airport_icao -> unimpeded_taxi_sec
+        self._holding_events = []           # List of holding event dicts
+        self._flight_waypoints_cache = {}   # {flight_uid: [waypoints]}
+        self._star_fixes_cache = {}         # {dest_icao: [fixes]}
 
     # Trajectory quality thresholds
     MIN_ENROUTE_POINTS = 5       # Minimum points with gs > 50 (enroute, not ground)
@@ -544,6 +1181,7 @@ class TMIComplianceAnalyzer:
             'gs_results': {},
             'reroute_results': {},
             'apreq_results': {},
+            'holding': {},
             'delay_results': [],
             'skipped_lines': [],  # Lines parser could not handle (for user override)
             'user_defined_tmis': []  # User overrides that were applied
@@ -594,6 +1232,9 @@ class TMIComplianceAnalyzer:
 
                 # Load airport→ARTCC mapping for GS facility scope filtering
                 self._load_airport_facility_map()
+
+                # Holding pattern detection (event-wide)
+                self._holding_events = self._detect_all_holding_patterns()
 
                 # Analyze by TMI type
                 mit_tmis = [t for t in self.event.tmis if t.tmi_type in (TMIType.MIT, TMIType.MINIT)]
@@ -667,6 +1308,16 @@ class TMIComplianceAnalyzer:
         except Exception as e:
             logger.exception("Analysis failed")
             raise
+
+        # NTML correlation for holding events
+        if self.event.delays:
+            self._correlate_ntml_holding(self._holding_events, self.event.delays)
+
+        # TMI delay attribution
+        self._attribute_holding_to_tmi(self._holding_events, self.event)
+
+        # Build holding results
+        results['holding'] = self._build_holding_summary(self._holding_events)
 
         # Calculate summary
         results['summary'] = self._calculate_summary(results)
@@ -750,26 +1401,70 @@ class TMIComplianceAnalyzer:
         logger.info(f"Pre-loading trajectories for {len(callsigns)} flights...")
         logger.info(f"  Trajectory window: {query_start.strftime('%Y-%m-%d %H:%MZ')} to {query_end.strftime('%Y-%m-%d %H:%MZ')}")
 
-        # Load from unified TMI trajectory view (combines high-res TMI + archive)
+        # Load from ALL trajectory sources with priority-based deduplication.
+        # Priority: TMI (full resolution) > Live (not yet archived) > Archive (downsampled)
+        # This ensures the analyzer always uses the highest resolution data available.
         query = self.adl.format_query(f"""
-            SELECT v.callsign, v.flight_uid, v.timestamp_utc,
-                   v.lat, v.lon, v.groundspeed_kts, v.altitude_ft,
-                   p.fp_dept_icao, p.fp_dest_icao,
-                   v.tmi_tier, v.source_table
-            FROM dbo.vw_trajectory_tmi_complete v
-            INNER JOIN dbo.adl_flight_plan p ON v.flight_uid = p.flight_uid
-            WHERE v.timestamp_utc >= %s
-              AND v.timestamp_utc <= %s
-              AND v.callsign IN ({callsign_in})
-            ORDER BY v.callsign, v.timestamp_utc
+            WITH all_trajectory AS (
+                SELECT c.callsign, t.flight_uid, t.timestamp_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       t.tmi_tier, 'TMI' AS source_table,
+                       1 AS source_priority
+                FROM dbo.adl_tmi_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                UNION ALL
+                SELECT c.callsign, t.flight_uid, t.recorded_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       NULL AS tmi_tier, 'LIVE' AS source_table,
+                       2 AS source_priority
+                FROM dbo.adl_flight_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.recorded_utc >= %s AND t.recorded_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                UNION ALL
+                SELECT a.callsign, a.flight_uid, a.timestamp_utc,
+                       a.lat, a.lon, a.groundspeed_kts, a.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao,
+                       NULL AS tmi_tier, 'ARCHIVE' AS source_table,
+                       3 AS source_priority
+                FROM dbo.adl_trajectory_archive a
+                JOIN dbo.adl_flight_plan p ON a.flight_uid = p.flight_uid
+                WHERE a.timestamp_utc >= %s AND a.timestamp_utc <= %s
+                  AND a.callsign IN ({callsign_in})
+            ),
+            ranked AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY callsign, timestamp_utc
+                    ORDER BY source_priority
+                ) AS rn
+                FROM all_trajectory
+            )
+            SELECT callsign, flight_uid, timestamp_utc,
+                   lat, lon, groundspeed_kts, altitude_ft,
+                   fp_dept_icao, fp_dest_icao,
+                   tmi_tier, source_table
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
+            query_start.strftime('%Y-%m-%d %H:%M:%S'),
+            query_end.strftime('%Y-%m-%d %H:%M:%S'),
+            query_start.strftime('%Y-%m-%d %H:%M:%S'),
+            query_end.strftime('%Y-%m-%d %H:%M:%S'),
             query_start.strftime('%Y-%m-%d %H:%M:%S'),
             query_end.strftime('%Y-%m-%d %H:%M:%S')
         ))
 
-        # Group by callsign and track tier distribution
+        # Group by callsign and track source/tier distribution
         tier_counts = {0: 0, 1: 0, 2: 0, None: 0}
+        source_counts = {'TMI': 0, 'LIVE': 0, 'ARCHIVE': 0}
         for row in cursor.fetchall():
             cs, fuid, ts, lat, lon, gs, alt, dept, dest, tmi_tier, source_table = row
 
@@ -782,17 +1477,15 @@ class TMIComplianceAnalyzer:
                     'tmi_tier': tmi_tier,
                     'source': source_table
                 }
-                # Count tier distribution (first point per flight)
                 tier_counts[tmi_tier] = tier_counts.get(tmi_tier, 0) + 1
+                source_counts[source_table] = source_counts.get(source_table, 0) + 1
 
             self._trajectory_cache[cs].append({
                 'timestamp': normalize_datetime(ts),
                 'lat': float(lat),
                 'lon': float(lon),
-                # Store RAW groundspeed for validation (0/NULL means no enroute data)
-                # Fallback to 250 only used AFTER validation when calculating spacing
                 'gs': float(gs) if gs else 0,
-                'gs_valid': bool(gs and 100 < gs < 600),  # Flag for validation
+                'gs_valid': bool(gs and 100 < gs < 600),
                 'alt': float(alt) if alt else 0
             })
 
@@ -801,10 +1494,10 @@ class TMIComplianceAnalyzer:
         tmi_count = tier_counts.get(0, 0) + tier_counts.get(1, 0) + tier_counts.get(2, 0)
         archive_count = tier_counts.get(None, 0)
         logger.info(f"  Cached trajectories for {total} flights")
-        logger.info(f"  Data source priority: TMI T-0 (15s) > T-1 (30s) > T-2 (60s) > Archive")
-        logger.info(f"  Tier distribution: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, Archive={archive_count}")
+        logger.info(f"  Sources: TMI={source_counts.get('TMI', 0)}, Live={source_counts.get('LIVE', 0)}, Archive={source_counts.get('ARCHIVE', 0)}")
+        logger.info(f"  TMI tiers: T-0={tier_counts.get(0, 0)}, T-1={tier_counts.get(1, 0)}, T-2={tier_counts.get(2, 0)}, non-TMI={archive_count}")
         if total > 0:
-            logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}/{total} ({archive_count/total*100:.0f}%)")
+            logger.info(f"  Highest-res coverage: {tmi_count + source_counts.get('LIVE', 0)}/{total} flights ({(tmi_count + source_counts.get('LIVE', 0))/total*100:.0f}%)")
 
         # Pre-compute PostGIS boundary crossings for all flights with GIS
         if self.gis_conn and self._trajectory_cache:
@@ -978,10 +1671,22 @@ class TMIComplianceAnalyzer:
         # CRITICAL: Filter by route fix to ensure flights are actually routed via the TMI fix
         # This prevents including flights on parallel routes that happen to pass near the fix
         if tmi.fix:
-            # Check both fp_route_expanded (space-delimited fixes) and afix (arrival fix)
-            # Use space-bounded search to avoid partial matches (e.g., "FLCHR" not matching "FLCHRS")
-            route_filter = f"AND (p.fp_route_expanded LIKE '% {tmi.fix} %' OR p.fp_route_expanded LIKE '{tmi.fix} %' OR p.fp_route_expanded LIKE '% {tmi.fix}' OR p.afix = '{tmi.fix}')"
-            logger.info(f"Route filter: flights via {tmi.fix}")
+            # Check: 1) fix in expanded route (space-bounded), 2) arrival fix, 3) STAR named after fix
+            # STARs are named {FIX}{version} e.g. DADES2, MAATY5 — flights on these STARs cross the fix
+            # 4) fix in parsed waypoints — catches flights where expanded route is NULL but
+            #    waypoint parser resolved the fix (e.g. via airway/procedure expansion)
+            route_filter = f"""AND (
+                p.fp_route_expanded LIKE '% {tmi.fix} %'
+                OR p.fp_route_expanded LIKE '{tmi.fix} %'
+                OR p.fp_route_expanded LIKE '% {tmi.fix}'
+                OR p.afix = '{tmi.fix}'
+                OR p.star_name LIKE '{tmi.fix}%'
+                OR EXISTS (
+                    SELECT 1 FROM dbo.adl_flight_waypoints w
+                    WHERE w.flight_uid = c.flight_uid AND w.fix_name = '{tmi.fix}'
+                )
+            )"""
+            logger.info(f"Route filter: flights via {tmi.fix} (expanded route/afix/STAR/waypoints)")
 
         # Use WIDEST window
         tmi_start = tmi.start_utc
@@ -1026,139 +1731,197 @@ class TMIComplianceAnalyzer:
 
     def _detect_crossings(self, fix_name: str, fix_lat: float, fix_lon: float,
                           callsigns: List[str], tmi: TMI) -> List[CrossingResult]:
-        """Detect fix crossings using trajectory data from both live and archive tables"""
-        crossings = []
-        cursor = self.adl_conn.cursor()
+        """
+        Detect fix crossings using trajectory data with segment interpolation.
 
-        # Filter out flights with low-quality trajectory data
+        When the trajectory cache is loaded (normal path), uses full trajectory
+        data without bbox limitations and interpolates between consecutive points
+        to find crossings even when no actual trajectory point falls near the fix.
+
+        This handles the common case of Tier 4 cruise (5-min intervals, ~33nm gaps)
+        where flights cross a fix but have no trajectory point within the bbox.
+
+        Falls back to bbox-filtered SQL queries when cache is not loaded.
+        """
         callsigns = [cs for cs in callsigns if cs not in self._low_quality_flights]
 
         tmi_start = tmi.start_utc
         tmi_end = tmi.get_effective_end()
 
-        # Bounding box filter
-        lat_margin = 0.18  # ~11nm
-        lon_margin = 0.24
+        if self._trajectory_cache_loaded:
+            return self._detect_crossings_interpolated(
+                fix_name, fix_lat, fix_lon, callsigns, tmi_start, tmi_end
+            )
 
+        return self._detect_crossings_bbox(
+            fix_name, fix_lat, fix_lon, callsigns, tmi_start, tmi_end
+        )
+
+    def _detect_crossings_interpolated(self, fix_name: str, fix_lat: float, fix_lon: float,
+                                        callsigns: List[str], tmi_start, tmi_end) -> List[CrossingResult]:
+        """
+        Detect crossings using cached trajectories with segment interpolation.
+
+        For each flight, scans all consecutive trajectory point pairs and computes
+        the closest approach of each segment to the fix. This catches crossings
+        even when trajectory resolution is sparse (Tier 4 = 5 min intervals).
+        """
+        crossings = []
+
+        for callsign in callsigns:
+            trajectory = self._trajectory_cache.get(callsign, [])
+            if len(trajectory) < 2:
+                continue
+
+            metadata = self._trajectory_metadata.get(callsign, {})
+            best_dist = float('inf')
+            best_result = None
+            best_seg_idx = -1
+
+            for i in range(len(trajectory) - 1):
+                p1 = trajectory[i]
+                p2 = trajectory[i + 1]
+
+                # Geometry-aware pre-filter: skip segments that can't possibly
+                # pass within CROSSING_RADIUS of the fix. For a segment of length L,
+                # the closest-approach point could be at most L/2 closer than the
+                # nearest endpoint, so skip if min(d1,d2) > L/2 + radius.
+                d1 = haversine_nm(p1['lat'], p1['lon'], fix_lat, fix_lon)
+                d2 = haversine_nm(p2['lat'], p2['lon'], fix_lat, fix_lon)
+                seg_len = haversine_nm(p1['lat'], p1['lon'], p2['lat'], p2['lon'])
+                if min(d1, d2) > seg_len / 2.0 + CROSSING_RADIUS_NM:
+                    continue
+
+                min_dist, frac, interp_lat, interp_lon = closest_approach_on_segment(
+                    p1['lat'], p1['lon'], p2['lat'], p2['lon'], fix_lat, fix_lon
+                )
+
+                if min_dist >= best_dist:
+                    continue
+
+                # Interpolate crossing time
+                t1 = p1['timestamp']
+                t2 = p2['timestamp']
+                dt = (t2 - t1).total_seconds()
+                interp_time = t1 + timedelta(seconds=dt * frac)
+
+                if interp_time < tmi_start or interp_time > tmi_end:
+                    continue
+
+                best_dist = min_dist
+                best_seg_idx = i
+                gs1 = p1['gs'] if p1['gs_valid'] else 250
+                gs2 = p2['gs'] if p2['gs_valid'] else 250
+
+                best_result = CrossingResult(
+                    callsign=callsign,
+                    flight_uid=metadata.get('flight_uid', 0),
+                    crossing_time=interp_time,
+                    distance_nm=min_dist,
+                    lat=interp_lat,
+                    lon=interp_lon,
+                    groundspeed=gs1 + frac * (gs2 - gs1),
+                    altitude=p1['alt'] + frac * (p2['alt'] - p1['alt']),
+                    dept=metadata.get('dept', 'UNK'),
+                    dest=metadata.get('dest', 'UNK')
+                )
+
+            if best_result and best_dist <= CROSSING_RADIUS_NM:
+                best_result.bearing = compute_approach_bearing(
+                    trajectory, best_result.lat, best_result.lon, best_seg_idx
+                )
+                crossings.append(best_result)
+
+        logger.info(f"  Fix crossings ({fix_name}): {len(crossings)} detected "
+                     f"(segment interpolation, {len(callsigns)} candidates)")
+        return crossings
+
+    def _detect_crossings_bbox(self, fix_name: str, fix_lat: float, fix_lon: float,
+                                callsigns: List[str], tmi_start, tmi_end) -> List[CrossingResult]:
+        """Fallback: detect crossings using bbox-filtered SQL queries (no cache)."""
+        crossings = []
+        cursor = self.adl_conn.cursor()
+        lat_margin = 0.18
+        lon_margin = 0.24
         callsign_in = "'" + "','".join(callsigns) + "'"
 
-        # Query TMI trajectory, archive, and live tables with priority-based deduplication
-        # Priority: TMI (15s/30s/60s) > Archive (downsampled) > Live (real-time)
-        # CTE + ROW_NUMBER ensures only the best source per callsign+timestamp is kept
         query = self.adl.format_query(f"""
             WITH trajectory_points AS (
-                -- TMI trajectory table (high-res event data - priority 1)
                 SELECT c.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       1 AS source_priority
+                       p.fp_dept_icao, p.fp_dest_icao, 1 AS source_priority
                 FROM dbo.adl_tmi_trajectory t
-                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.timestamp_utc >= %s
-                  AND t.timestamp_utc <= %s
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
                   AND c.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
-
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
                 UNION ALL
-
-                -- Archive table (older data - priority 2)
+                SELECT c.callsign, t.flight_uid, t.recorded_utc,
+                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
+                       p.fp_dept_icao, p.fp_dest_icao, 2 AS source_priority
+                FROM dbo.adl_flight_trajectory t
+                JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.recorded_utc >= %s AND t.recorded_utc <= %s
+                  AND c.callsign IN ({callsign_in})
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
+                UNION ALL
                 SELECT t.callsign, t.flight_uid, t.timestamp_utc,
                        t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       2 AS source_priority
+                       p.fp_dept_icao, p.fp_dest_icao, 3 AS source_priority
                 FROM dbo.adl_trajectory_archive t
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.timestamp_utc >= %s
-                  AND t.timestamp_utc <= %s
+                JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
+                WHERE t.timestamp_utc >= %s AND t.timestamp_utc <= %s
                   AND t.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
-
-                UNION ALL
-
-                -- Live table (recent data - priority 3)
-                SELECT c.callsign, t.flight_uid, t.recorded_utc AS timestamp_utc,
-                       t.lat, t.lon, t.groundspeed_kts, t.altitude_ft,
-                       p.fp_dept_icao, p.fp_dest_icao,
-                       3 AS source_priority
-                FROM dbo.adl_flight_trajectory t
-                INNER JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-                INNER JOIN dbo.adl_flight_plan p ON t.flight_uid = p.flight_uid
-                WHERE t.recorded_utc >= %s
-                  AND t.recorded_utc <= %s
-                  AND c.callsign IN ({callsign_in})
-                  AND t.lat BETWEEN %s AND %s
-                  AND t.lon BETWEEN %s AND %s
+                  AND t.lat BETWEEN %s AND %s AND t.lon BETWEEN %s AND %s
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (
-                    PARTITION BY callsign, timestamp_utc
-                    ORDER BY source_priority
-                ) AS rn
-                FROM trajectory_points
+                    PARTITION BY callsign, timestamp_utc ORDER BY source_priority
+                ) AS rn FROM trajectory_points
             )
             SELECT callsign, flight_uid, timestamp_utc, lat, lon,
                    groundspeed_kts, altitude_ft, fp_dept_icao, fp_dest_icao
-            FROM ranked
-            WHERE rn = 1
+            FROM ranked WHERE rn = 1
             ORDER BY callsign, timestamp_utc
         """)
         cursor.execute(query, (
-            # TMI trajectory table params
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin,
-            # Archive table params
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin,
-            # Live table params (same values)
-            tmi_start.strftime('%Y-%m-%d %H:%M:%S'),
-            tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
-            fix_lat - lat_margin, fix_lat + lat_margin,
-            fix_lon - lon_margin, fix_lon + lon_margin
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin,
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin,
+            tmi_start.strftime('%Y-%m-%d %H:%M:%S'), tmi_end.strftime('%Y-%m-%d %H:%M:%S'),
+            fix_lat - lat_margin, fix_lat + lat_margin, fix_lon - lon_margin, fix_lon + lon_margin
         ))
-
         positions = cursor.fetchall()
         cursor.close()
-        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (deduplicated, TMI preferred)")
+        logger.info(f"  Found {len(positions)} trajectory points near {fix_name} (bbox fallback)")
 
-        # Group by callsign and find closest approach
         flight_positions = defaultdict(list)
         for pos in positions:
             flight_positions[pos[0]].append(pos)
-        logger.info(f"  Trajectory data for {len(flight_positions)} unique flights")
 
         for callsign, pos_list in flight_positions.items():
             closest_dist = float('inf')
             closest_pos = None
-
             for pos in pos_list:
                 cs, fuid, ts, lat, lon, gs, alt, dept, dest = pos
                 lat, lon = float(lat), float(lon)
-
                 dist = haversine_nm(lat, lon, fix_lat, fix_lon)
-
                 if dist < closest_dist:
                     closest_dist = dist
                     closest_pos = CrossingResult(
-                        callsign=callsign,
-                        flight_uid=fuid,
-                        crossing_time=normalize_datetime(ts),
-                        distance_nm=dist,
-                        lat=lat,
-                        lon=lon,
+                        callsign=callsign, flight_uid=fuid,
+                        crossing_time=normalize_datetime(ts), distance_nm=dist,
+                        lat=lat, lon=lon,
                         groundspeed=float(gs) if gs and 100 < gs < 600 else 250,
                         altitude=float(alt) if alt else 0,
-                        dept=dept or 'UNK',
-                        dest=dest or 'UNK'
+                        dept=dept or 'UNK', dest=dest or 'UNK'
                     )
-
             if closest_pos and closest_dist <= CROSSING_RADIUS_NM:
+                # bbox fallback has no upstream trajectory data — leave bearing None
+                # (approach bearing requires full trajectory, only available in cache path)
                 crossings.append(closest_pos)
 
         return crossings
@@ -1274,6 +2037,14 @@ class TMIComplianceAnalyzer:
             if total > 0:
                 logger.info(f"  TMI coverage: {tmi_count}/{total} flights ({tmi_count/total*100:.0f}%), Archive fallback: {archive_count}")
 
+        # When requestor is a TRACON or airport (not ARTCC), PostGIS may not
+        # reliably detect the TRACON entry due to sparse trajectory data.
+        # Interpret the facility pair: e.g., ZJX:TPA means ZJX ARTCC -> TPA TRACON.
+        # The handoff occurs where the flight exits the provider ARTCC, which shares
+        # a boundary edge with the requestor TRACON. So "exit provider ARTCC" is a
+        # valid proxy for "enter requestor TRACON".
+        use_provider_exit_fallback = requestor_type in ('TRACON', 'AIRPORT')
+
         # Process each flight using CACHED boundary crossings
         for callsign in callsigns:
             trajectory = flight_trajectories.get(callsign, [])
@@ -1281,8 +2052,6 @@ class TMIComplianceAnalyzer:
                 continue
 
             # Validate trajectory quality for flights not already validated during caching
-            # If flight was in cache, it was already validated (and would be in _low_quality_flights if invalid)
-            # If flight was loaded on-demand, we need to validate it now
             if callsign not in self._trajectory_cache:
                 is_valid, reason = self._validate_trajectory_quality(callsign, trajectory)
                 if not is_valid:
@@ -1293,7 +2062,6 @@ class TMIComplianceAnalyzer:
             if callsign in self._crossing_cache:
                 boundary_crossings_data = self._crossing_cache[callsign]
             elif self.gis_conn:
-                # Compute on-demand (slow path)
                 boundary_crossings_data = self._compute_boundary_crossings_for_flight(callsign, trajectory)
             else:
                 continue
@@ -1302,7 +2070,10 @@ class TMIComplianceAnalyzer:
                 continue
 
             # Find the provider->requestor boundary crossing
+            found = False
             prev_facility = None
+            last_provider_crossing = None  # Track last point in provider ARTCC
+
             for crossing_data in boundary_crossings_data:
                 facility_code = crossing_data['facility_code']
                 clat = crossing_data['lat']
@@ -1322,8 +2093,8 @@ class TMIComplianceAnalyzer:
                 )
 
                 if is_provider_match and is_requestor_match:
-                    # Found the handoff point!
-                    crossing_time, crossing_gs, crossing_alt = self._interpolate_crossing_time(
+                    # Found exact provider->requestor handoff
+                    crossing_time, crossing_gs, crossing_alt, crossing_bearing = self._interpolate_crossing_time(
                         trajectory, cfrac
                     )
 
@@ -1342,12 +2113,49 @@ class TMIComplianceAnalyzer:
                             dept=meta.get('dept', 'UNK'),
                             dest=meta.get('dest', 'UNK'),
                             distance_from_origin_nm=cfrac * self._estimate_route_length(trajectory),
-                            crossing_type='ENTRY'
+                            crossing_type='ENTRY',
+                            bearing=crossing_bearing
                         )
                         crossings.append(crossing)
-                        break  # Only count first crossing
+                        found = True
+                        break
+
+                # Track when the flight leaves the provider ARTCC (for fallback)
+                if is_provider_match and use_provider_exit_fallback:
+                    last_provider_crossing = {
+                        'lat': clat, 'lon': clon, 'fraction': cfrac,
+                        'prev_facility': prev_facility, 'next_facility': facility_code
+                    }
 
                 prev_facility = facility_code
+
+            # Fallback: if requestor is TRACON/airport but PostGIS didn't detect
+            # the TRACON entry, use the provider ARTCC exit point instead.
+            # The provider ARTCC exit IS the TRACON entry (shared boundary edge).
+            if not found and last_provider_crossing and use_provider_exit_fallback:
+                lpc = last_provider_crossing
+                crossing_time, crossing_gs, crossing_alt, crossing_bearing = self._interpolate_crossing_time(
+                    trajectory, lpc['fraction']
+                )
+                if crossing_time:
+                    meta = flight_metadata.get(callsign, {})
+                    crossing = BoundaryCrossing(
+                        callsign=callsign,
+                        flight_uid=meta.get('flight_uid', ''),
+                        crossing_time=crossing_time,
+                        crossing_lat=float(lpc['lat']),
+                        crossing_lon=float(lpc['lon']),
+                        from_artcc=lpc['prev_facility'] or provider,
+                        to_artcc=requestor,
+                        groundspeed=crossing_gs,
+                        altitude=crossing_alt,
+                        dept=meta.get('dept', 'UNK'),
+                        dest=meta.get('dest', 'UNK'),
+                        distance_from_origin_nm=lpc['fraction'] * self._estimate_route_length(trajectory),
+                        crossing_type='ENTRY',
+                        bearing=crossing_bearing
+                    )
+                    crossings.append(crossing)
 
         logger.info(f"  Boundary crossings ({provider}->{requestor}): {len(crossings)}")
         return crossings
@@ -1460,10 +2268,10 @@ class TMIComplianceAnalyzer:
             fraction: Position along route (0.0 to 1.0)
 
         Returns:
-            Tuple of (crossing_time, groundspeed, altitude) or (None, 0, 0) if interpolation fails
+            Tuple of (crossing_time, groundspeed, altitude, bearing) or (None, 0, 0, None)
         """
         if not trajectory or len(trajectory) < 2:
-            return None, 0, 0
+            return None, 0, 0, None
 
         # Calculate cumulative distances
         cumulative_dist = [0.0]
@@ -1475,7 +2283,7 @@ class TMIComplianceAnalyzer:
 
         total_dist = cumulative_dist[-1]
         if total_dist <= 0:
-            return None, 0, 0
+            return None, 0, 0, None
 
         # Find target distance
         target_dist = fraction * total_dist
@@ -1501,18 +2309,24 @@ class TMIComplianceAnalyzer:
                 crossing_time = prev_time + timedelta(seconds=time_diff * seg_frac)
 
                 # Interpolate GS and altitude
-                # Use raw gs values, but fallback to 250 if invalid (for spacing calculation)
-                prev_gs = prev['gs'] if prev.get('gs_valid', prev['gs'] > 100) else 250
-                curr_gs = curr['gs'] if curr.get('gs_valid', curr['gs'] > 100) else 250
+                prev_gs = prev['gs'] if prev['gs_valid'] else 250
+                curr_gs = curr['gs'] if curr['gs_valid'] else 250
                 crossing_gs = prev_gs + (curr_gs - prev_gs) * seg_frac
                 crossing_alt = prev['alt'] + (curr['alt'] - prev['alt']) * seg_frac
 
-                return crossing_time, crossing_gs, crossing_alt
+                # Compute approach bearing (from ~75nm upstream, not segment heading)
+                crossing_lat = prev['lat'] + seg_frac * (curr['lat'] - prev['lat'])
+                crossing_lon = prev['lon'] + seg_frac * (curr['lon'] - prev['lon'])
+                bearing = compute_approach_bearing(
+                    trajectory, crossing_lat, crossing_lon, i - 1
+                )
+
+                return crossing_time, crossing_gs, crossing_alt, bearing
 
         # Default to last point
         last = trajectory[-1]
-        last_gs = last['gs'] if last.get('gs_valid', last['gs'] > 100) else 250
-        return last['timestamp'], last_gs, last['alt']
+        last_gs = last['gs'] if last['gs_valid'] else 250
+        return last['timestamp'], last_gs, last['alt'], None
 
     def _estimate_route_length(self, trajectory: List[dict]) -> float:
         """Estimate total route length in nm from trajectory points"""
@@ -1526,6 +2340,347 @@ class TMIComplianceAnalyzer:
             total += haversine_nm(prev['lat'], prev['lon'], curr['lat'], curr['lon'])
 
         return total
+
+    # ------------------------------------------------------------------
+    # Holding pattern: fix matching
+    # ------------------------------------------------------------------
+
+    def _load_flight_waypoints(self, flight_uids: list) -> dict:
+        """Load route waypoints for a batch of flights.
+        Returns dict: {flight_uid: [{fix_name, lat, lon, sequence_num}, ...]}
+        """
+        if not flight_uids:
+            return {}
+
+        placeholders = ','.join(['%s'] * len(flight_uids))
+        query = self.adl.format_query(
+            f"""SELECT flight_uid, fix_name, lat, lon, sequence_num
+                FROM dbo.adl_flight_waypoints
+                WHERE flight_uid IN ({placeholders})
+                AND fix_name IS NOT NULL AND lat IS NOT NULL
+                ORDER BY flight_uid, sequence_num"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, tuple(flight_uids))
+
+        waypoints = {}
+        for row in cursor.fetchall():
+            uid = row[0]
+            if uid not in waypoints:
+                waypoints[uid] = []
+            waypoints[uid].append({
+                'fix_name': row[1],
+                'lat': float(row[2]),
+                'lon': float(row[3]),
+                'sequence_num': row[4]
+            })
+        return waypoints
+
+    def _load_star_fixes(self, dest_icao: str) -> list:
+        """Load all fixes on published STARs for a destination airport.
+        Returns list of {fix_name, lat, lon}.
+        """
+        query = self.adl.format_query(
+            """SELECT DISTINCT nf.fix_name, nf.lat, nf.lon
+               FROM dbo.nav_procedure_legs npl
+               JOIN dbo.nav_procedures np ON npl.procedure_id = np.procedure_id
+               JOIN dbo.nav_fixes nf ON npl.fix_name = nf.fix_name
+               WHERE np.airport_icao = %s AND np.procedure_type = 'STAR'
+               AND nf.lat IS NOT NULL"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (dest_icao,))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
+
+    def _match_holding_fix(self, event: dict, flight_uid: int, dest_icao: str,
+                           flight_waypoints: dict, star_cache: dict) -> dict:
+        """Match a holding event's center to the best fix.
+        Priority: route waypoints > STAR fixes > any nav_fix.
+        Modifies event dict in place.
+        """
+        center_lat = event['center_lat']
+        center_lon = event['center_lon']
+        best_fix = None
+        best_dist = HOLD_FIX_MATCH_RADIUS_NM
+        best_source = None
+
+        # Priority 1: Flight's own route waypoints
+        wps = flight_waypoints.get(flight_uid, [])
+        for wp in wps:
+            d = haversine_nm(center_lat, center_lon, wp['lat'], wp['lon'])
+            if d < best_dist:
+                best_fix = wp['fix_name']
+                best_dist = d
+                best_source = 'route'
+
+        # Priority 2: STAR fixes for destination (only if no route match within 3nm)
+        if best_source != 'route' or best_dist > 3.0:
+            if dest_icao and dest_icao not in star_cache:
+                star_cache[dest_icao] = self._load_star_fixes(dest_icao)
+            for sf in star_cache.get(dest_icao, []):
+                d = haversine_nm(center_lat, center_lon, sf['lat'], sf['lon'])
+                if d < best_dist:
+                    best_fix = sf['fix_name']
+                    best_dist = d
+                    best_source = 'star'
+
+        # Priority 3: Any nav_fix (from preloaded fix_coords)
+        if best_source is None:
+            for fix_name, coords in self.fix_coords.items():
+                d = haversine_nm(center_lat, center_lon, coords['lat'], coords['lon'])
+                if d < best_dist:
+                    best_fix = fix_name
+                    best_dist = d
+                    best_source = 'navfix'
+
+            # If fix_coords doesn't cover the area, do a targeted query
+            if best_source is None:
+                nearby = self._query_nearby_fixes(center_lat, center_lon, HOLD_FIX_MATCH_RADIUS_NM)
+                for nf in nearby:
+                    d = haversine_nm(center_lat, center_lon, nf['lat'], nf['lon'])
+                    if d < best_dist:
+                        best_fix = nf['fix_name']
+                        best_dist = d
+                        best_source = 'navfix'
+
+        event['matched_fix'] = best_fix
+        event['fix_match_source'] = best_source
+        event['fix_distance_nm'] = round(best_dist, 2) if best_fix else 0
+        event['fix_on_route'] = (best_source == 'route')
+        return event
+
+    def _query_nearby_fixes(self, lat: float, lon: float, radius_nm: float) -> list:
+        """Query nav_fixes within a bounding box around a point."""
+        deg_offset = radius_nm / 60.0
+        query = self.adl.format_query(
+            """SELECT fix_name, lat, lon FROM dbo.nav_fixes
+               WHERE lat BETWEEN %s AND %s AND lon BETWEEN %s AND %s"""
+        )
+        cursor = self.adl_conn.cursor()
+        cursor.execute(query, (lat - deg_offset, lat + deg_offset,
+                               lon - deg_offset, lon + deg_offset))
+        return [{'fix_name': r[0], 'lat': float(r[1]), 'lon': float(r[2])}
+                for r in cursor.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Holding pattern: NTML correlation & TMI delay attribution
+    # ------------------------------------------------------------------
+
+    def _correlate_ntml_holding(self, holding_events: list, delay_entries: list) -> None:
+        """Cross-reference detected holds with NTML +Holding entries.
+        Modifies holding_events in place, setting ntml_corroborated=True when matched.
+        """
+        from .models import HoldingStatus
+
+        ntml_holds = [d for d in delay_entries
+                      if d.holding_status == HoldingStatus.HOLDING and d.holding_fix]
+
+        if not ntml_holds:
+            return
+
+        for event in holding_events:
+            if not event.get('matched_fix'):
+                continue
+            for ntml in ntml_holds:
+                if ntml.holding_fix.upper() == event['matched_fix'].upper():
+                    event['ntml_corroborated'] = True
+                    break
+
+    def _attribute_holding_to_tmi(self, holding_events: list, event_config) -> None:
+        """Attribute each holding event to the most likely TMI program.
+        Priority: GS > MIT (based on likelihood of causing holds).
+        """
+        for hold in holding_events:
+            hold_start = hold['hold_start_utc']
+            hold_end = hold['hold_end_utc']
+            dest = hold.get('dest', '')
+
+            # Check Ground Stops first (strongest signal for causing holding)
+            for gs in getattr(event_config, 'gs_programs', []):
+                if not gs.advisories:
+                    continue
+                gs_dest = gs.airport
+                if dest and dest.upper().endswith(gs_dest.upper()):
+                    gs_start = gs.effective_start
+                    gs_end = gs.effective_end
+                    if gs_start and gs_end and hold_start <= gs_end and hold_end >= gs_start:
+                        hold['tmi_attribution'] = 'gs'
+                        hold['tmi_program_id'] = f"GS_{gs_dest}"
+                        break
+
+            if hold.get('tmi_attribution'):
+                continue
+
+            # Check MIT programs (hold near measurement fix)
+            for tmi in getattr(event_config, 'tmis', []):
+                if not hasattr(tmi, 'tmi_type') or tmi.tmi_type.name not in ('MIT', 'MINIT'):
+                    continue
+                fix_name = getattr(tmi, 'fix', None) or getattr(tmi, 'measurement_point', None)
+                if hold.get('matched_fix') and fix_name:
+                    if hold['matched_fix'].upper() == fix_name.upper():
+                        if (tmi.start_utc and tmi.end_utc and
+                                hold_start <= tmi.end_utc and hold_end >= tmi.start_utc):
+                            hold['tmi_attribution'] = 'mit'
+                            hold['tmi_program_id'] = f"MIT_{fix_name}"
+                            break
+
+    def _detect_all_holding_patterns(self) -> list:
+        """Scan all flights in trajectory cache for holding patterns.
+        Called once after _preload_trajectories(), before TMI-specific analysis.
+        """
+        all_events = []
+        flights_with_holds = 0
+
+        # Load waypoints for all flights that have trajectories
+        flight_uids = [meta['flight_uid'] for meta in self._trajectory_metadata.values()
+                       if meta.get('flight_uid')]
+        self._flight_waypoints_cache = self._load_flight_waypoints(flight_uids)
+
+        for callsign, trajectory in self._trajectory_cache.items():
+            if callsign in self._low_quality_flights:
+                continue
+            if len(trajectory) < 4:
+                continue
+
+            meta = self._trajectory_metadata.get(callsign, {})
+            dest = meta.get('dest', '')
+
+            # Get destination coords for circling approach filter
+            dest_lat = dest_lon = None
+            if dest and dest in self.fix_coords:
+                dest_lat = self.fix_coords[dest]['lat']
+                dest_lon = self.fix_coords[dest]['lon']
+
+            raw_events = detect_flight_holding(trajectory, dest_lat, dest_lon)
+
+            if raw_events:
+                flights_with_holds += 1
+                flight_uid = meta.get('flight_uid', 0)
+                dept = meta.get('dept', '')
+
+                for evt in raw_events:
+                    evt['callsign'] = callsign
+                    evt['flight_uid'] = flight_uid
+                    evt['dept'] = dept
+                    evt['dest'] = dest
+
+                    # Fix matching
+                    self._match_holding_fix(evt, flight_uid, dest,
+                                            self._flight_waypoints_cache,
+                                            self._star_fixes_cache)
+
+                    all_events.append(evt)
+
+        logger.info(f"Holding detection: {len(all_events)} events across "
+                    f"{flights_with_holds} flights (scanned {len(self._trajectory_cache)})")
+
+        return all_events
+
+    def _build_holding_summary(self, events: list) -> dict:
+        """Build aggregate holding summary grouped by fix."""
+        from collections import defaultdict
+
+        if not events:
+            return {
+                'summary': {
+                    'total_flights_holding': 0,
+                    'total_hold_events': 0,
+                    'total_hold_duration_sec': 0,
+                    'avg_hold_duration_sec': 0,
+                    'hold_fixes': [],
+                    'delay_attribution': {
+                        'total_hold_delay_sec': 0,
+                        'attributed': {
+                            'gs': {'flights': 0, 'total_sec': 0},
+                            'gdp': {'flights': 0, 'total_sec': 0},
+                            'mit': {'flights': 0, 'total_sec': 0},
+                        },
+                        'unattributed': {'flights': 0, 'total_sec': 0},
+                    },
+                },
+                'events': [],
+            }
+
+        # Group by matched fix
+        fix_groups = defaultdict(list)
+        for evt in events:
+            key = evt.get('matched_fix') or f"{evt['center_lat']:.3f},{evt['center_lon']:.3f}"
+            fix_groups[key].append(evt)
+
+        hold_fixes = []
+        for fix_key, group in fix_groups.items():
+            # Peak concurrent: sweep line algorithm
+            time_events = []
+            for evt in group:
+                time_events.append((evt['hold_start_utc'], 1))
+                time_events.append((evt['hold_end_utc'], -1))
+            time_events.sort(key=lambda x: x[0])
+            concurrent = 0
+            peak = 0
+            for _, delta in time_events:
+                concurrent += delta
+                peak = max(peak, concurrent)
+
+            hold_fixes.append({
+                'fix_name': group[0].get('matched_fix'),
+                'center': [group[0]['center_lon'], group[0]['center_lat']],
+                'flight_count': len(set(e['callsign'] for e in group)),
+                'total_orbits': sum(e['orbit_count'] for e in group),
+                'avg_duration_sec': sum(e['duration_sec'] for e in group) / len(group),
+                'peak_concurrent': peak,
+                'ntml_corroborated': any(e.get('ntml_corroborated') for e in group),
+                'time_range': [
+                    min(e['hold_start_utc'] for e in group).isoformat() + 'Z',
+                    max(e['hold_end_utc'] for e in group).isoformat() + 'Z',
+                ],
+            })
+
+        # Delay attribution totals
+        attr = {'gs': {'flights': set(), 'total_sec': 0},
+                'gdp': {'flights': set(), 'total_sec': 0},
+                'mit': {'flights': set(), 'total_sec': 0}}
+        unattr_flights = set()
+        unattr_sec = 0
+        for evt in events:
+            a = evt.get('tmi_attribution')
+            if a and a in attr:
+                attr[a]['flights'].add(evt['callsign'])
+                attr[a]['total_sec'] += evt['duration_sec']
+            else:
+                unattr_flights.add(evt['callsign'])
+                unattr_sec += evt['duration_sec']
+
+        unique_flights = set(e['callsign'] for e in events)
+        total_dur = sum(e['duration_sec'] for e in events)
+
+        # Serialize events for JSON
+        serialized_events = []
+        for evt in events:
+            se = dict(evt)
+            se['hold_start_utc'] = evt['hold_start_utc'].isoformat() + 'Z'
+            se['hold_end_utc'] = evt['hold_end_utc'].isoformat() + 'Z'
+            se.pop('point_indices', None)
+            serialized_events.append(se)
+
+        return {
+            'summary': {
+                'total_flights_holding': len(unique_flights),
+                'total_hold_events': len(events),
+                'total_hold_duration_sec': total_dur,
+                'avg_hold_duration_sec': round(total_dur / len(events), 1),
+                'hold_fixes': sorted(hold_fixes, key=lambda x: x['flight_count'], reverse=True),
+                'delay_attribution': {
+                    'total_hold_delay_sec': total_dur,
+                    'attributed': {
+                        k: {'flights': len(v['flights']), 'total_sec': v['total_sec']}
+                        for k, v in attr.items()
+                    },
+                    'unattributed': {'flights': len(unattr_flights), 'total_sec': unattr_sec},
+                },
+            },
+            'events': serialized_events,
+        }
 
     def _analyze_mit_compliance(self, tmi: TMI) -> Optional[Dict]:
         """
@@ -1591,32 +2746,88 @@ class TMIComplianceAnalyzer:
                     groundspeed=bc.groundspeed,
                     altitude=bc.altitude,
                     dept=bc.dept,
-                    dest=bc.dest
+                    dest=bc.dest,
+                    bearing=bc.bearing
                 )
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
         # 3. For each flight, select the appropriate crossing point
-        # TMI structure: Fix defines the STREAM, Provider:Requestor defines the MEASUREMENT POINT
-        # For facility-specific MITs (with provider:requestor), ONLY use boundary crossings.
-        # The fix identifies the stream but the MIT applies at the handoff point.
-        # Flights that don't cross the provider->requestor boundary aren't subject to this MIT.
+        # For facility-pair MITs (e.g., DEPDY 25MIT N90:ZDC):
+        #   - The BOUNDARY (handoff point) is the measurement point
+        #   - The FIX is a FILTER (only flights that pass through this fix)
+        # Strategy: fix crossing gates the flight in, boundary is measurement
+        #   a) Fix crossing + boundary: use BOUNDARY (handoff = measurement)
+        #   b) Fix crossing only, split MIT: SKIP (can't determine provider)
+        #   b') Fix crossing only, non-split: use fix (boundary detection missed handoff)
+        #   c) Boundary only, near fix: use boundary (sparse trajectory missed fix)
+        #   d) Boundary only, far from fix: skip (flight doesn't traverse this fix)
         has_facility_pair = bool(tmi.provider and tmi.requestor)
+        is_split_mit = bool(tmi.group_id)  # Multiple providers for same fix
+        fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
+        fix_lon_coord = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
+
+        # Tight proximity for boundary-only fallback (no fix crossing confirmation)
+        proximity_nm = 40.0
+
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
+        skipped_far = 0
+        skipped_no_boundary = 0
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
-            if bnd_cx:
-                # Boundary crossing found - always use it
+            if has_facility_pair and fix and fix_lat_coord is not None:
+                # Facility-pair MIT: fix crossing gates entry, boundary is measurement
+                has_fix_cx = fix_cx is not None
+                bnd_near_fix = False
+                if bnd_cx and bnd_cx.lat and bnd_cx.lon:
+                    bnd_near_fix = haversine_nm(bnd_cx.lat, bnd_cx.lon,
+                                                fix_lat_coord, fix_lon_coord) <= proximity_nm
+
+                if has_fix_cx and bnd_cx:
+                    # Flight confirmed through fix AND has boundary crossing
+                    # Use boundary (handoff point) as measurement
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
+                elif has_fix_cx and not bnd_cx:
+                    if is_split_mit:
+                        # Split MIT: can't determine which provider without boundary.
+                        # Skip to prevent cross-provider contamination.
+                        # (e.g., SEEVR flight from ZKC skipped for ZFW:ZME sub-MIT)
+                        skipped_no_boundary += 1
+                    else:
+                        # Single-provider MIT: fix crossing is sufficient proof
+                        # that flight passes through this fix's traffic flow.
+                        # Boundary detection may have missed the handoff.
+                        crossings.append(fix_cx)
+                        measurement_stats['fix'] += 1
+                elif bnd_near_fix:
+                    # No fix crossing but boundary is very close to fix —
+                    # trajectory too sparse for fix detection, accept boundary
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
+                elif bnd_cx:
+                    # Boundary far from fix, no fix crossing — flight doesn't
+                    # traverse this fix (e.g., KATL traffic at TPA TRACON
+                    # boundary counted against MAATY MIT)
+                    skipped_far += 1
+                # else: no crossing at all for this callsign
+            elif bnd_cx:
+                # No facility pair or no fix — use boundary crossing as-is
                 crossings.append(bnd_cx)
                 measurement_stats['boundary'] += 1
-            elif fix_cx and not has_facility_pair:
-                # Fix fallback ONLY for TMIs without a facility pair
-                # (facility-specific MITs require boundary crossing)
+            elif fix_cx:
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
+
+        if skipped_far > 0:
+            logger.info(f"  Filtered {skipped_far} boundary crossings: no fix crossing "
+                       f"and >{proximity_nm}nm from {fix}")
+        if skipped_no_boundary > 0:
+            logger.info(f"  Skipped {skipped_no_boundary} fix-only crossings: split MIT, "
+                       f"no {tmi.provider}->{tmi.requestor} boundary detected")
 
         # Determine overall measurement type based on what was actually used
         if has_facility_pair:
@@ -1708,81 +2919,161 @@ class TMIComplianceAnalyzer:
         # Determine if we're using boundary-based or fix-based measurement
         is_boundary_based = measurement_type in (MeasurementType.BOUNDARY, MeasurementType.BOUNDARY_FALLBACK_FIX)
 
-        # Analyze consecutive pairs with stream validation
+        # Stream-aware grouping: cluster crossings geographically to avoid
+        # pairing flights from different traffic corridors
+        modifier = tmi.modifier
+        if modifier in (MITModifier.AS_ONE, MITModifier.SINGLE_STREAM):
+            # Explicit single-stream: treat all crossings as one group
+            stream_groups = {0: sorted_crossings}
+            logger.info(f"  Stream grouping: AS_ONE (modifier={modifier.value})")
+        elif modifier == MITModifier.PER_AIRPORT:
+            # Group by departure airport instead of bearing
+            stream_groups = {}
+            for c in sorted_crossings:
+                dept = c.dept or 'UNK'
+                if dept not in stream_groups:
+                    stream_groups[dept] = []
+                stream_groups[dept].append(c)
+            logger.info(f"  Stream grouping: PER_AIRPORT ({len(stream_groups)} groups)")
+        else:
+            # Default: cluster by trajectory position (spatial DBSCAN)
+            # Geography-based: samples trajectory positions upstream from fix and
+            # clusters spatially, correctly separating converging corridors that
+            # approach the fix at similar bearings but from different geographic paths
+            fix_lat = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
+            fix_lon = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
+
+            if fix_lat is not None and self._trajectory_cache_loaded:
+                stream_groups = cluster_crossings_by_trajectory(
+                    sorted_crossings, self._trajectory_cache,
+                    fix_lat, fix_lon,
+                    gis_conn=self.gis_conn,
+                    min_dist_nm=60.0,
+                    max_dist_nm=120.0,
+                    eps_nm=8.0
+                )
+                logger.info(f"  Stream grouping: PostGIS DBSCAN ({len(stream_groups)} streams)")
+            else:
+                # Fallback to bearing-based when no trajectory cache or fix coords
+                stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
+                logger.info(f"  Stream grouping: bearing-based fallback ({len(stream_groups)} streams)")
+            for sid, sc in stream_groups.items():
+                meta = compute_stream_metadata(sc)
+                logger.info(f"    Stream {sid}: {len(sc)} crossings, "
+                           f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
+
+        # Pair within each stream
         pairs = []
         skipped_pairs = []
+        per_stream_results = {}
         required = tmi.value
 
-        for i in range(1, len(sorted_crossings)):
-            prev = sorted_crossings[i-1]
-            curr = sorted_crossings[i]
-
-            time_diff_sec = (curr.crossing_time - prev.crossing_time).total_seconds()
-            time_diff_min = time_diff_sec / 60
-
-            if time_diff_sec <= 0:
+        for stream_id, stream_crossings in stream_groups.items():
+            if stream_id == -1:
+                # Unassigned crossings (no bearing) — skip pairing
+                logger.info(f"  Stream -1: {len(stream_crossings)} unassigned crossings (no bearing data)")
                 continue
 
-            # STREAM VALIDATION: Check that both crossings are at similar locations
-            # Only applies to FIX-based measurements - boundary crossings can span entire boundary
-            crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
-            if not is_boundary_based and crossing_separation > MAX_CROSSING_SEPARATION_NM_FIX:
-                skipped_pairs.append({
-                    'prev': prev.callsign,
-                    'curr': curr.callsign,
-                    'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM_FIX}nm'
-                })
-                logger.debug(f"  Skipping pair {prev.callsign}->{curr.callsign}: crossing points {crossing_separation:.1f}nm apart")
-                continue
+            # Sort this stream by time
+            stream_sorted = sorted(stream_crossings, key=lambda c: c.crossing_time)
+            stream_pairs = []
 
-            # Calculate spacing based on TMI type
-            if tmi.tmi_type == TMIType.MINIT:
-                actual = time_diff_min
+            for i in range(1, len(stream_sorted)):
+                prev = stream_sorted[i-1]
+                curr = stream_sorted[i]
+
+                time_diff_sec = (curr.crossing_time - prev.crossing_time).total_seconds()
+                time_diff_min = time_diff_sec / 60
+
+                if time_diff_sec <= 0:
+                    continue
+
+                # Crossing separation check (additional safeguard)
+                crossing_separation = haversine_nm(prev.lat, prev.lon, curr.lat, curr.lon)
+                if not is_boundary_based and crossing_separation > MAX_CROSSING_SEPARATION_NM_FIX:
+                    skipped_pairs.append({
+                        'prev': prev.callsign,
+                        'curr': curr.callsign,
+                        'reason': f'crossing separation {crossing_separation:.1f}nm > {MAX_CROSSING_SEPARATION_NM_FIX}nm'
+                    })
+                    continue
+
+                # Calculate spacing based on TMI type
+                if tmi.tmi_type == TMIType.MINIT:
+                    actual = time_diff_min
+                else:
+                    avg_gs = (prev.groundspeed + curr.groundspeed) / 2 if prev.groundspeed > 0 else curr.groundspeed
+                    actual = (time_diff_min * avg_gs) / 60
+
+                spacing_cat = categorize_spacing(actual, required)
+
+                if spacing_cat == SpacingCategory.UNDER:
+                    compliance = Compliance.NON_COMPLIANT
+                    shortfall_pct = calculate_shortfall_pct(actual, required)
+                else:
+                    compliance = Compliance.COMPLIANT
+                    shortfall_pct = 0
+
+                margin_pct = ((actual - required) / required * 100) if required > 0 else 0
+
+                pair = {
+                    'prev_callsign': prev.callsign,
+                    'curr_callsign': curr.callsign,
+                    'prev_time': prev.crossing_time.strftime('%H:%M:%SZ'),
+                    'curr_time': curr.crossing_time.strftime('%H:%M:%SZ'),
+                    'time_min': round(time_diff_min, 1),
+                    'spacing': round(actual, 1),
+                    'required': required,
+                    'margin_pct': round(margin_pct, 1),
+                    'spacing_category': spacing_cat.value,
+                    'compliance': compliance.value,
+                    'shortfall_pct': shortfall_pct,
+                    'gs': curr.groundspeed,
+                    'prev_crossing_lat': round(prev.lat, 4),
+                    'prev_crossing_lon': round(prev.lon, 4),
+                    'curr_crossing_lat': round(curr.lat, 4),
+                    'curr_crossing_lon': round(curr.lon, 4),
+                    'crossing_separation_nm': round(crossing_separation, 1),
+                    'stream_id': stream_id,
+                    'prev_bearing': round(prev.bearing, 1) if prev.bearing is not None else None,
+                    'curr_bearing': round(curr.bearing, 1) if curr.bearing is not None else None,
+                }
+                stream_pairs.append(pair)
+
+            # Per-stream stats
+            stream_meta = compute_stream_metadata(stream_crossings)
+            if stream_pairs:
+                stream_under = sum(1 for p in stream_pairs if p['spacing_category'] == SpacingCategory.UNDER.value)
+                stream_compliant = len(stream_pairs) - stream_under
+                per_stream_results[stream_id] = {
+                    'crossings': len(stream_crossings),
+                    'pairs': len(stream_pairs),
+                    'compliant': stream_compliant,
+                    'violations': stream_under,
+                    'compliance_pct': round(100 * stream_compliant / len(stream_pairs), 1),
+                    'mean_bearing': stream_meta['mean_bearing'],
+                    'bearing_spread': stream_meta['bearing_spread'],
+                }
             else:
-                # Use average of both groundspeeds for better accuracy
-                avg_gs = (prev.groundspeed + curr.groundspeed) / 2 if prev.groundspeed > 0 else curr.groundspeed
-                actual = (time_diff_min * avg_gs) / 60
+                per_stream_results[stream_id] = {
+                    'crossings': len(stream_crossings),
+                    'pairs': 0,
+                    'compliant': 0,
+                    'violations': 0,
+                    'compliance_pct': 100.0,
+                    'mean_bearing': stream_meta['mean_bearing'],
+                    'bearing_spread': stream_meta['bearing_spread'],
+                }
 
-            spacing_cat = categorize_spacing(actual, required)
-
-            if spacing_cat == SpacingCategory.UNDER:
-                compliance = Compliance.NON_COMPLIANT
-                shortfall_pct = calculate_shortfall_pct(actual, required)
-            else:
-                compliance = Compliance.COMPLIANT
-                shortfall_pct = 0
-
-            margin_pct = ((actual - required) / required * 100) if required > 0 else 0
-
-            pair = {
-                'prev_callsign': prev.callsign,
-                'curr_callsign': curr.callsign,
-                'prev_time': prev.crossing_time.strftime('%H:%M:%SZ'),
-                'curr_time': curr.crossing_time.strftime('%H:%M:%SZ'),
-                'time_min': round(time_diff_min, 1),
-                'spacing': round(actual, 1),
-                'required': required,
-                'margin_pct': round(margin_pct, 1),
-                'spacing_category': spacing_cat.value,
-                'compliance': compliance.value,
-                'shortfall_pct': shortfall_pct,
-                'gs': curr.groundspeed,
-                # Include crossing location data for verification
-                'prev_crossing_lat': round(prev.lat, 4),
-                'prev_crossing_lon': round(prev.lon, 4),
-                'curr_crossing_lat': round(curr.lat, 4),
-                'curr_crossing_lon': round(curr.lon, 4),
-                'crossing_separation_nm': round(crossing_separation, 1)
-            }
-            pairs.append(pair)
+            pairs.extend(stream_pairs)
 
         if skipped_pairs:
-            logger.info(f"  Skipped {len(skipped_pairs)} pairs due to stream validation")
+            logger.info(f"  Skipped {len(skipped_pairs)} pairs due to stream/separation validation")
 
         if not pairs:
             return None
 
-        # Calculate statistics
+        # Calculate aggregate statistics across all streams
         spacings = [p['spacing'] for p in pairs]
 
         under_count = sum(1 for p in pairs if p['spacing_category'] == SpacingCategory.UNDER.value)
@@ -1854,6 +3145,10 @@ class TMIComplianceAnalyzer:
             # Fix coordinates from navdata (for map rendering anchor point)
             'fix_info': {'lat': self.fix_coords[fix]['lat'], 'lon': self.fix_coords[fix]['lon']}
                 if fix and fix in self.fix_coords else None,
+            # Stream-aware pairing metadata
+            'stream_aware': True,
+            'stream_count': len([s for s in stream_groups if s != -1]),
+            'streams': per_stream_results,
         }
 
         # Add trajectory data for flights that crossed (for map rendering)
@@ -3262,6 +4557,15 @@ class TMIComplianceAnalyzer:
             if action in action_counts:
                 action_counts[action] += 1
         summary['reroute']['action_breakdown'] = action_counts
+
+        # Holding summary
+        holding = results.get('holding', {}).get('summary', {})
+        summary['holding'] = {
+            'total_flights_holding': holding.get('total_flights_holding', 0),
+            'total_hold_events': holding.get('total_hold_events', 0),
+            'total_hold_duration_min': round(holding.get('total_hold_duration_sec', 0) / 60, 1),
+            'avg_hold_duration_min': round(holding.get('avg_hold_duration_sec', 0) / 60, 1),
+        }
 
         # Overall (including mandatory reroutes - use flown compliance for reroutes)
         # For reroutes, flown compliance is the more accurate measure of what actually happened
