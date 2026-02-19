@@ -2123,23 +2123,68 @@ function handleRescindProposal() {
  * Uses the 'preview' field if available (already formatted by JS), otherwise rebuilds
  */
 function buildNtmlText($entry) {
+    $text = null;
+
     // Prefer the preview/rawText field which is already correctly formatted by the JS side
     // JS may send either 'preview' or 'rawText' depending on the entry type
     if (!empty($entry['preview'])) {
-        return $entry['preview'];
+        $text = $entry['preview'];
+    } elseif (!empty($entry['rawText'])) {
+        $text = $entry['rawText'];
     }
-    if (!empty($entry['rawText'])) {
-        return $entry['rawText'];
+    // Fallback: try to rebuild via TMIDiscord
+    if ($text === null) {
+        try {
+            $tmiDiscord = new TMIDiscord();
+            $text = $tmiDiscord->buildNTMLMessageFromEntry($entry);
+        } catch (Exception $e) {
+            // Last resort: return JSON representation
+            $text = json_encode($entry);
+        }
     }
 
-    // Fallback: try to rebuild via TMIDiscord
-    try {
-        $tmiDiscord = new TMIDiscord();
-        return $tmiDiscord->buildNTMLMessageFromEntry($entry);
-    } catch (Exception $e) {
-        // Last resort: return JSON representation
-        return json_encode($entry);
+    // Normalize route/reroute TMI IDs so malformed values like "RR02"
+    // are rendered as "RRDCC02" in coordination text.
+    return normalizeRouteTmiIdText($text, $entry);
+}
+
+/**
+ * Normalize ROUTE/REROUTE TMI ID lines to include facility code.
+ *
+ * @param string $text
+ * @param array $entry
+ * @return string
+ */
+function normalizeRouteTmiIdText($text, $entry) {
+    $text = (string)$text;
+    if ($text === '') {
+        return $text;
     }
+
+    $entryType = strtoupper(trim((string)($entry['entryType'] ?? $entry['data']['entry_type'] ?? '')));
+    if ($entryType !== 'ROUTE' && $entryType !== 'REROUTE') {
+        return $text;
+    }
+
+    $data = is_array($entry['data'] ?? null) ? $entry['data'] : [];
+    $facility = strtoupper(trim((string)($data['req_facility'] ?? $data['requesting_facility'] ?? $data['facility'] ?? 'DCC')));
+    if ($facility === '') {
+        $facility = 'DCC';
+    }
+
+    // Replace malformed/custom TMI ID line while preserving the original advisory digit width.
+    $normalized = preg_replace(
+        '/(^TMI\s+ID:\s*)RR(?:[A-Z]{2,5})?(\d{1,3})\s*$/im',
+        '$1RR' . $facility . '$2',
+        $text,
+        1
+    );
+
+    if ($normalized !== null) {
+        return $normalized;
+    }
+
+    return $text;
 }
 
 /**
@@ -2664,7 +2709,7 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
     $lines[] = "DCC OVERRIDE = :DCC:";
 
     $body = implode("\n", $lines);
-    $maxBodyLen = 1965; // keep room for fenced code block wrapper
+    $maxBodyLen = 1990;
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
         if (mb_strlen($body, 'UTF-8') > $maxBodyLen) {
             $body = mb_substr($body, 0, $maxBodyLen - 3, 'UTF-8') . '...';
@@ -2675,7 +2720,7 @@ function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $use
         }
     }
 
-    return "```text\n{$body}\n```";
+    return $body;
 }
 
 /**

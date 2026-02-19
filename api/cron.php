@@ -14,6 +14,20 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
+// Allow targeted triggering of TMI proposal reaction processing.
+// Used by the coordination UI so reaction sync is not blocked by scheduler timing.
+$requestedType = strtolower(trim((string)($_GET['type'] ?? '')));
+if ($requestedType === 'tmi') {
+    $tmiProposalResult = runTmiProposalProcessor();
+    echo json_encode([
+        'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
+        'executed' => true,
+        'type' => 'tmi',
+        'tmi_proposals' => $tmiProposalResult
+    ]);
+    exit;
+}
+
 require_once __DIR__ . '/splits/connect_adl.php';
 
 if (!$conn_adl) {
