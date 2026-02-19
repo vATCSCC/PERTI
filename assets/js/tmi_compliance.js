@@ -5048,6 +5048,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         // outliers (e.g., 259° when stream flows at 170°) that distort
                         // the cone even after smoothing.
                         // ───────────────────────────────────────────────────────────
+                        let outlierCount = 0;
                         if (centerlinePoints.length >= 3) {
                             const streamBearing = stream.bearing;
                             const MAX_DEVIATION = 60; // degrees from stream bearing
@@ -5056,6 +5057,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                 const cp = centerlinePoints[i];
                                 const dev = Math.abs(angularDiff(cp.bearing, streamBearing));
                                 if (dev > MAX_DEVIATION) {
+                                    outlierCount++;
                                     // Find nearest non-outlier neighbors for interpolation
                                     let prevGood = null, nextGood = null;
                                     for (let j = i - 1; j >= 0; j--) {
@@ -5093,6 +5095,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                                     cp.coords = pointAtBearing(fixLon, fixLat, newBearing, cp.dist);
                                 }
                             }
+                        }
+
+                        // Skip streams where most centerline points were outliers —
+                        // the approach bearing clustered into this stream but actual
+                        // trajectory data doesn't support it. This prevents artificial
+                        // cones built entirely from replaced outlier bearings.
+                        const outlierPct = centerlinePoints.length > 0
+                            ? outlierCount / centerlinePoints.length : 0;
+                        if (outlierPct > 0.7) {
+                            console.log(`  Skipping stream ${streamIdx + 1}: ${(outlierPct * 100).toFixed(0)}% outliers (${outlierCount}/${centerlinePoints.length}) — insufficient trajectory support`);
+                            return; // skip this stream in forEach
                         }
 
                         if (centerlinePoints.length >= 2) {
