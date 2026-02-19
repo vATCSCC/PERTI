@@ -49,13 +49,27 @@ define('DCC_OVERRIDE_USERS', [
 // DCC override roles (Discord role IDs)
 define('DCC_OVERRIDE_ROLE_IDS', [
     '1268395552496816231',  // @DCC Staff
-    '1268395359714021396'   // @NTMO
+    '1268395359714021396',  // @NTMO
+    // Backup Discord role IDs
+    '1039586513882718326',  // NAS Operations
+    '1039586513882718325',  // NOM - National Operations Manager
+    '1039586513882718324',  // OP - Operations Planner
+    '1039586513882718323',  // NTMO - National Traffic Management Officer
+    '1039586513882718322',  // NTMS - National Traffic Management Specialist
+    '1039586513861750941'   // PERTI Team
 ]);
 
 // DCC override role names (fallback for web UI)
 define('DCC_OVERRIDE_ROLES', [
     'DCC Staff',
-    'NTMO'
+    'NTMO',
+    // Backup Discord role names
+    'NAS Operations',
+    'NOM - National Operations Manager',
+    'OP - Operations Planner',
+    'NTMO - National Traffic Management Officer',
+    'NTMS - National Traffic Management Specialist',
+    'PERTI Team'
 ]);
 
 // Deny emoji (primary and alternate)
