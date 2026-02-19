@@ -219,13 +219,46 @@ $(document).ready(function() {
     /**
      * Prefill route input from URL query params.
      * Supported params:
+     *   - s: server-side share code (fetches from API)
      *   - routes: URL-encoded plain text
      *   - routes_b64: base64url-encoded UTF-8 text
+     *
+     * Returns: false (sync, no match), true (sync match), or a Promise (async ?s= fetch)
      */
     function seedRouteInputFromUrl() {
+        const params = new URLSearchParams(window.location.search || '');
+
+        // ?s= share code — async fetch from server
+        if (params.has('s')) {
+            const code = params.get('s') || '';
+            if (!code) { return false; }
+            return fetch('api/data/route_share.php?code=' + encodeURIComponent(code))
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    if (!data.success || !data.route_text) {
+                        console.warn('[MAPLIBRE] Share code not found:', code);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'warning', title: 'Share link not found', text: 'This share link may have been deleted or does not exist.' });
+                        }
+                        return false;
+                    }
+                    var $routeInput = $('#routeSearch');
+                    if (!$routeInput.length) { return false; }
+                    var existing = ($routeInput.val() || '').toString().trim();
+                    if (existing) { return false; }
+                    $routeInput.val(data.route_text.replace(/\r\n/g, '\n'));
+                    console.log('[MAPLIBRE] Loaded shared route "' + (data.label || code) + '", length:', data.route_text.length);
+                    return true;
+                })
+                .catch(function(e) {
+                    console.warn('[MAPLIBRE] Failed to load share code:', e);
+                    return false;
+                });
+        }
+
+        // Synchronous: ?routes= or ?routes_b64=
         let routeText = '';
         try {
-            const params = new URLSearchParams(window.location.search || '');
             if (params.has('routes')) {
                 routeText = params.get('routes') || '';
             } else if (params.has('routes_b64')) {
@@ -6925,6 +6958,135 @@ $(document).ready(function() {
     $(document).on('click', '#plot_c', function() {
         navigator.clipboard.writeText($('#routeSearch').val());
     });
+
+    // ── Share Routes ─────────────────────────────────────────────────────────
+    $(document).on('click', '#share_routes', function() {
+        var routeText = ($('#routeSearch').val() || '').trim();
+        if (!routeText) {
+            Swal.fire({
+                icon: 'warning',
+                title: PERTII18n.t('route.page.shareNoRoutes'),
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+        Swal.fire({
+            title: PERTII18n.t('route.page.shareNamePrompt'),
+            input: 'text',
+            inputPlaceholder: PERTII18n.t('route.page.shareNamePlaceholder'),
+            showCancelButton: true,
+            confirmButtonText: PERTII18n.t('route.page.share'),
+            inputValidator: function(value) {
+                if (!value || !value.trim()) {
+                    return PERTII18n.t('route.page.shareNamePrompt');
+                }
+            }
+        }).then(function(result) {
+            if (!result.isConfirmed || !result.value) { return; }
+            var label = result.value.trim();
+            fetch('api/data/route_share.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label: label, route_text: routeText })
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.success && data.url) {
+                    navigator.clipboard.writeText(data.url).then(function() {
+                        Swal.fire({
+                            icon: 'success',
+                            title: PERTII18n.t('route.page.shareLinkCopied'),
+                            text: data.url,
+                            confirmButtonText: 'OK'
+                        });
+                    });
+                } else {
+                    Swal.fire({ icon: 'error', title: PERTII18n.t('route.page.shareError'), text: data.error || '' });
+                }
+            })
+            .catch(function() {
+                Swal.fire({ icon: 'error', title: PERTII18n.t('route.page.shareError') });
+            });
+        });
+    });
+
+    // ── My Shares ────────────────────────────────────────────────────────────
+    $(document).on('click', '#my_shares', function() {
+        fetch('api/data/route_share.php?mine=1')
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    Swal.fire({ icon: 'error', title: data.error || 'Error' });
+                    return;
+                }
+                var shares = data.shares || [];
+                if (shares.length === 0) {
+                    Swal.fire({ icon: 'info', title: PERTII18n.t('route.page.mySharesEmpty') });
+                    return;
+                }
+                var html = '<div style="max-height:400px;overflow-y:auto;text-align:left;">';
+                shares.forEach(function(s) {
+                    var url = window.location.origin + '/route.php?s=' + encodeURIComponent(s.code);
+                    var dateStr = s.created_at ? s.created_at.substring(0, 10) : '';
+                    html += '<div style="padding:8px 0;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;">';
+                    html += '<div style="flex:1;min-width:0;">';
+                    html += '<strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + $('<span>').text(s.label).html() + '</strong>';
+                    html += '<small class="text-muted">' + dateStr + ' &middot; ' + PERTII18n.t('route.page.mySharesViews', { count: s.view_count || 0 }) + '</small>';
+                    html += '</div>';
+                    html += '<div style="flex-shrink:0;margin-left:8px;">';
+                    html += '<button class="btn btn-sm btn-outline-primary mr-1 my-share-load" data-code="' + $('<span>').text(s.code).html() + '" title="' + PERTII18n.t('route.page.mySharesLoad') + '"><i class="fas fa-download"></i></button>';
+                    html += '<button class="btn btn-sm btn-outline-secondary mr-1 my-share-copy" data-url="' + $('<span>').text(url).html() + '" title="' + PERTII18n.t('route.page.mySharesCopy') + '"><i class="fas fa-link"></i></button>';
+                    html += '<button class="btn btn-sm btn-outline-danger my-share-delete" data-code="' + $('<span>').text(s.code).html() + '" title="' + PERTII18n.t('route.page.mySharesDelete') + '"><i class="fas fa-trash-alt"></i></button>';
+                    html += '</div></div>';
+                });
+                html += '</div>';
+
+                Swal.fire({
+                    title: PERTII18n.t('route.page.myShares'),
+                    html: html,
+                    showConfirmButton: false,
+                    showCloseButton: true,
+                    width: '500px',
+                    didOpen: function() {
+                        // Load share into textarea
+                        $(document).off('click.myShareLoad').on('click.myShareLoad', '.my-share-load', function() {
+                            var code = $(this).data('code');
+                            fetch('api/data/route_share.php?code=' + encodeURIComponent(code))
+                                .then(function(r) { return r.json(); })
+                                .then(function(d) {
+                                    if (d.success && d.route_text) {
+                                        $('#routeSearch').val(d.route_text);
+                                        Swal.close();
+                                        processAndDisplayRoutes();
+                                    }
+                                });
+                        });
+                        // Copy link
+                        $(document).off('click.myShareCopy').on('click.myShareCopy', '.my-share-copy', function() {
+                            navigator.clipboard.writeText($(this).data('url'));
+                            $(this).find('i').removeClass('fa-link').addClass('fa-check');
+                            var btn = $(this);
+                            setTimeout(function() { btn.find('i').removeClass('fa-check').addClass('fa-link'); }, 1500);
+                        });
+                        // Delete share
+                        $(document).off('click.myShareDelete').on('click.myShareDelete', '.my-share-delete', function() {
+                            var code = $(this).data('code');
+                            var row = $(this).closest('div[style*="border-bottom"]');
+                            if (!confirm(PERTII18n.t('route.page.mySharesDeleteConfirm'))) { return; }
+                            fetch('api/data/route_share.php?code=' + encodeURIComponent(code), { method: 'DELETE' })
+                                .then(function(r) { return r.json(); })
+                                .then(function(d) {
+                                    if (d.success) { row.fadeOut(200, function() { row.remove(); }); }
+                                });
+                        });
+                    }
+                });
+            })
+            .catch(function() {
+                Swal.fire({ icon: 'error', title: PERTII18n.t('route.page.shareError') });
+            });
+    });
+
     $(document).on('keyup change', '#filter', updateFilteredAirways);
     $(document).on('click', '#filter_c', function() { $('#filter').val(''); updateFilteredAirways(); });
 
@@ -7002,12 +7164,25 @@ $(document).ready(function() {
     const USE_MAPLIBRE = localStorage.getItem('useMapLibre') === 'true' ||
                          (typeof window.PERTI_USE_MAPLIBRE !== 'undefined' && window.PERTI_USE_MAPLIBRE);
 
-    // Allow deep links like /route.php?routes=...
-    seedRouteInputFromUrl();
+    // Allow deep links like /route.php?routes=... or /route.php?s=share-code
+    var seedResult = seedRouteInputFromUrl();
 
     if (USE_MAPLIBRE) {
         console.log('[MAPLIBRE] Feature flag enabled, initializing MapLibre GL JS');
-        setTimeout(initMap, 100);
+        // If seedResult is a Promise (?s= share code), auto-plot after load
+        if (seedResult && typeof seedResult.then === 'function') {
+            seedResult.then(function(seeded) {
+                setTimeout(function() {
+                    initMap();
+                    if (seeded) {
+                        // Auto-plot after map initializes
+                        setTimeout(function() { processAndDisplayRoutes(); }, 500);
+                    }
+                }, 100);
+            });
+        } else {
+            setTimeout(initMap, 100);
+        }
     } else {
         console.log('[MAPLIBRE] Feature flag disabled, Leaflet will be used');
     }

@@ -1594,6 +1594,14 @@ ROUTE2</pre>
                         <button class="btn btn-sm btn-info" id="plot_c" title="<?= __('route.page.copyDesc') ?>">
                             <i class="far fa-copy mr-1"></i><span class="btn-text"><?= __('route.page.copy') ?></span>
                         </button>
+                        <button class="btn btn-sm btn-primary" id="share_routes" title="<?= __('route.page.shareDesc') ?>">
+                            <i class="fas fa-share-alt mr-1"></i><span class="btn-text"><?= __('route.page.share') ?></span>
+                        </button>
+                        <?php if (isset($_SESSION['VATSIM_CID']) && $_SESSION['VATSIM_CID']): ?>
+                        <button class="btn btn-sm btn-outline-secondary" id="my_shares" title="<?= __('route.page.myShares') ?>">
+                            <i class="fas fa-bookmark mr-1"></i><span class="btn-text"><?= __('route.page.myShares') ?></span>
+                        </button>
+                        <?php endif; ?>
                         <button class="btn btn-sm btn-secondary" id="toggle_labels" type="button" onclick="toggleAllLabels();" title="<?= __('route.page.labelsDesc') ?>">
                             <i class="fas fa-tags mr-1"></i><span class="btn-text"><?= __('route.page.labels') ?></span>
                         </button>
