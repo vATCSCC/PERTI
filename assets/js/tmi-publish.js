@@ -8076,8 +8076,12 @@
          * Format reroute advisory text with proper 68-char line wrapping
          */
         formatRerouteAdvisory: function(params) {
-            // Normalize advisory number - strip "ADVZY " prefix if present
-            const advNum = (params.advisory_number || '001').replace(/^ADVZY\s+/i, '');
+            // Normalize advisory number and facility for stable output across all workflows.
+            // Ensures TMI ID is always RR{FACILITY}{3-digit advisory number}.
+            const advNumRaw = (params.advisory_number || '001').toString().replace(/^ADVZY\s+/i, '').trim();
+            const advDigits = advNumRaw.replace(/\D/g, '');
+            const advNum = (advDigits || advNumRaw || '001').padStart(3, '0');
+            const facility = (params.facility || 'DCC').toString().trim().toUpperCase() || 'DCC';
             const MAX_LINE = 68;
             const now = new Date();
             const headerDate = (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
@@ -8096,7 +8100,7 @@
                           validUntilDt.getUTCHours().toString().padStart(2, '0') +
                           validUntilDt.getUTCMinutes().toString().padStart(2, '0');
 
-            const tmiId = 'RR' + params.facility + advNum;
+            const tmiId = 'RR' + facility + advNum;
 
             // Helper: add labeled field with proper wrapping at 68 chars
             // Preserves explicit newlines in the value, treating each line separately
@@ -8161,7 +8165,7 @@
             const lines = [];
             const routeType = params.route_type || 'ROUTE';
             const compliance = params.compliance || 'RQD';
-            lines.push(`vATCSCC ADVZY ${advNum} ${params.facility} ${headerDate} ${routeType} ${compliance}`);
+            lines.push(`vATCSCC ADVZY ${advNum} ${facility} ${headerDate} ${routeType} ${compliance}`);
             addLabeledField(lines, 'NAME', params.name);
             addLabeledField(lines, 'CONSTRAINED AREA', params.constrained_area);
             addLabeledField(lines, 'REASON', params.reason);
@@ -8197,7 +8201,7 @@
 
             // Add author signature: FACILITY.OI (e.g., DCC.HP)
             const userOI = window.TMI_PUBLISHER_CONFIG?.userOI || '';
-            const authorSig = userOI ? `${params.facility}.${userOI}` : params.facility;
+            const authorSig = userOI ? `${facility}.${userOI}` : facility;
             lines.push(`${timestampStr} ${authorSig}`);
 
             return lines.join('\n');

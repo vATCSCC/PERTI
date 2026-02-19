@@ -288,18 +288,22 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
         }
     }
 
-    // Get DCC approve emoji reactions
-    $dccUsers = $discord->getReactions($channelId, $messageId, DCC_APPROVE_EMOJI, ['limit' => 100]);
-    if ($dccUsers && is_array($dccUsers)) {
-        foreach ($dccUsers as $user) {
-            $reactions[] = [
-                'emoji' => DCC_APPROVE_EMOJI,
-                'emoji_name' => DCC_APPROVE_EMOJI,
-                'facility_code' => null,
-                'type' => 'DCC_APPROVE',
-                'user_id' => $user['id'],
-                'username' => $user['username'] ?? null
-            ];
+    // Get DCC approve emoji reactions.
+    // For custom emoji, Discord requires name:id in the reactions endpoint.
+    $dccEmojiQuery = resolveDccReactionEmojiQuery($discord, $channelId, $messageId);
+    if ($dccEmojiQuery !== null) {
+        $dccUsers = $discord->getReactions($channelId, $messageId, $dccEmojiQuery, ['limit' => 100]);
+        if ($dccUsers && is_array($dccUsers)) {
+            foreach ($dccUsers as $user) {
+                $reactions[] = [
+                    'emoji' => DCC_APPROVE_EMOJI,
+                    'emoji_name' => $dccEmojiQuery,
+                    'facility_code' => null,
+                    'type' => 'DCC_APPROVE',
+                    'user_id' => $user['id'],
+                    'username' => $user['username'] ?? null
+                ];
+            }
         }
     }
 
@@ -423,6 +427,50 @@ function normalizeReactionEmojiForApi($emoji) {
     }
 
     return $emoji;
+}
+
+/**
+ * Resolve the DCC emoji query string for Discord reactions API.
+ * Custom emoji must be queried as name:id, so discover it from message reactions.
+ *
+ * @param DiscordAPI $discord
+ * @param string $channelId
+ * @param string $messageId
+ * @return string|null
+ */
+function resolveDccReactionEmojiQuery($discord, $channelId, $messageId) {
+    $fallback = normalizeReactionEmojiForApi(DCC_APPROVE_EMOJI);
+
+    try {
+        $message = $discord->getMessage($channelId, $messageId);
+        if (!is_array($message) || empty($message['reactions']) || !is_array($message['reactions'])) {
+            return $fallback;
+        }
+
+        $targetName = strtoupper(trim((string) DCC_APPROVE_EMOJI));
+        foreach ($message['reactions'] as $reaction) {
+            $emojiObj = $reaction['emoji'] ?? null;
+            if (!is_array($emojiObj)) {
+                continue;
+            }
+
+            $emojiName = trim((string)($emojiObj['name'] ?? ''));
+            if ($emojiName === '' || strtoupper($emojiName) !== $targetName) {
+                continue;
+            }
+
+            $emojiId = trim((string)($emojiObj['id'] ?? ''));
+            if ($emojiId !== '') {
+                return $emojiName . ':' . $emojiId;
+            }
+
+            return normalizeReactionEmojiForApi($emojiName);
+        }
+    } catch (Throwable $e) {
+        // Fall back to configured value.
+    }
+
+    return $fallback;
 }
 
 function processReaction($conn, $discord, $proposal, $facilities, $reaction) {

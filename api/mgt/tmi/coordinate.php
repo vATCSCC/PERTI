@@ -2980,10 +2980,24 @@ function activateProposal($conn, $proposalId) {
                 // Replace patterns like "ADVZY 004" or "RRDCC004" with the real number
                 if ($advNumberDigits) {
                     // Replace ADVZY header pattern
-                    $rawText = preg_replace('/ADVZY\s*\d{3}/', 'ADVZY ' . $advNumberDigits, $rawText);
-                    // Replace TMI ID pattern (e.g., RRDCC004 -> RRDCCxxx)
-                    $rawText = preg_replace('/RR([A-Z]{2,5})\d{3}/', 'RR$1' . $advNumberDigits, $rawText);
-                    $log("Updated rawText with advisory number: $advNumberDigits");
+                    $rawText = preg_replace('/ADVZY\s*\d{1,3}/', 'ADVZY ' . $advNumberDigits, $rawText, 1);
+
+                    // Normalize TMI ID with a concrete facility code.
+                    // Handles malformed IDs such as "RR01" and valid IDs like "RRDCC001".
+                    $rerouteFacility = strtoupper(trim((string)($entryData['req_facility'] ?? $entryData['requesting_facility'] ?? $entryData['facility'] ?? 'DCC')));
+                    if ($rerouteFacility === '') {
+                        $rerouteFacility = 'DCC';
+                    }
+                    $rawText = preg_replace(
+                        '/(TMI\s+ID:\s*)RR(?:[A-Z]{2,5})?\d{1,3}/i',
+                        '$1RR' . $rerouteFacility . $advNumberDigits,
+                        $rawText,
+                        1
+                    );
+
+                    // Fallback replacement for other RR{FAC}{digits} tokens that may exist in free text.
+                    $rawText = preg_replace('/RR([A-Z]{2,5})\d{1,3}/', 'RR$1' . $advNumberDigits, $rawText);
+                    $log("Updated rawText with advisory number: $advNumberDigits and facility: $rerouteFacility");
                 }
 
                 // Publish to Discord advisories channel if not scheduled for later
