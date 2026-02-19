@@ -724,7 +724,11 @@ class TMIDiscord {
         $endTime = $this->formatTimeDDHHMM($data['end_utc'] ?? $data['valid_until'] ?? null);
         $routeName = strtoupper($data['route_name'] ?? $data['name'] ?? 'ROUTE');
         $cancelText = $data['cancel_text'] ?? "{$routeName} HAS BEEN CANCELLED.";
-        $reason = !empty($data['reason']) ? ' ' . strtoupper(trim($data['reason'])) : '';
+        $reasonText = strtoupper(trim((string)($data['reason'] ?? '')));
+        // Suppress boilerplate batch reason in public cancellation text.
+        $reason = ($reasonText !== '' && $reasonText !== 'BATCH CANCELLATION')
+            ? ' ' . $reasonText
+            : '';
 
         // Format per real-world ATCSCC:
         // vATCSCC ADVZY 015 DCC 01/28/2022 REROUTE CANCELLATION
