@@ -788,6 +788,12 @@ function handleListProposals($includeAll = false) {
     }
 
     try {
+        // On-demand sync for pending view so approvals update promptly
+        // even if external cron cadence is delayed.
+        if (!$includeAll) {
+            syncProposalReactionsForUi();
+        }
+
         // Build query based on filter
         if ($includeAll) {
             $sql = "SELECT p.*,
@@ -851,6 +857,62 @@ function handleListProposals($includeAll = false) {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Query error: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Trigger proposal reaction processing via internal cron endpoint.
+ * Uses HTTP call to avoid PHP function redeclaration conflicts.
+ */
+function syncProposalReactionsForUi() {
+    static $alreadyRan = false;
+    if ($alreadyRan) {
+        return;
+    }
+    $alreadyRan = true;
+
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return;
+    }
+
+    $scheme = 'http';
+    if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+        $scheme = strtolower(trim(explode(',', (string)$_SERVER['HTTP_X_FORWARDED_PROTO'])[0]));
+    } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $scheme = 'https';
+    }
+    if ($scheme !== 'http' && $scheme !== 'https') {
+        $scheme = 'https';
+    }
+
+    $url = $scheme . '://' . $host . '/api/cron.php?force=1&type=tmi';
+
+    try {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            if ($ch !== false) {
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Connection: close']);
+                curl_exec($ch);
+                curl_close($ch);
+                return;
+            }
+        }
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 5,
+                'ignore_errors' => true,
+                'header' => "Connection: close\r\n",
+            ]
+        ]);
+        @file_get_contents($url, false, $ctx);
+    } catch (Throwable $e) {
+        error_log('syncProposalReactionsForUi failed: ' . $e->getMessage());
     }
 }
 
