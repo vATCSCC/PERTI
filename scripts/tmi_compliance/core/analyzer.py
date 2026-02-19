@@ -4295,10 +4295,16 @@ class TMIComplianceAnalyzer:
 
         all_required_fixes = list(set(all_required_fixes))
 
-        # Load fix coordinates
+        # Load fix coordinates for required fixes
         fixes_to_load = [f for f in all_required_fixes if f not in self.fix_coords]
         if fixes_to_load:
             self._load_fix_coordinates(fixes_to_load)
+
+        # Load airport coordinates for origins/destinations
+        airports_to_load = [a for a in (program.origins + program.destinations)
+                           if a not in self.fix_coords and len(a) >= 3]
+        if airports_to_load:
+            self._load_airport_coordinates(airports_to_load)
 
         # Pre-load trajectories
         all_callsigns = [row[0] for row in flights]
@@ -4490,6 +4496,9 @@ class TMIComplianceAnalyzer:
             'destinations': program.destinations,
             'required_routes': [{'orig': ','.join(r.origins), 'dest': r.destination, 'route': r.route_string} for r in program.current_routes],
             'required_fixes': all_required_fixes,
+            'fix_coordinates': {name: self.fix_coords[name] for name in set(
+                all_required_fixes + program.origins + program.destinations
+            ) if name in self.fix_coords},
             'total_flights': len(flights),
             'flights': flight_results,
             'filed_compliant': filed_compliant,

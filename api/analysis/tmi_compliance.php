@@ -583,7 +583,11 @@ function format_results($results) {
                 'requestor' => $r['requestor'] ?? '',
                 'group_id' => $r['group_id'] ?? '',
                 'original_facilities' => $r['original_facilities'] ?? '',
-                'reroute_key' => $key
+                'reroute_key' => $key,
+                // Fix coordinates for map visualization
+                'fix_coordinates' => $r['fix_coordinates'] ?? [],
+                // Per-flight results for detailed breakdown
+                'flights' => $r['flights'] ?? []
             ];
         }
     }

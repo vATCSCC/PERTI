@@ -19,8 +19,9 @@
 .tmi-analysis-wrapper {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100vh - 200px);
     min-height: 600px;
+    max-height: 1200px;
 }
 
 .tmi-analysis-container {
@@ -157,6 +158,32 @@
     position: sticky;
     top: 45px;
     z-index: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+.tmi-list-section-label .section-chevron {
+    transition: transform 0.2s;
+    font-size: 0.8em;
+}
+
+.tmi-list-section-label.collapsed .section-chevron {
+    transform: rotate(-90deg);
+}
+
+.tmi-list-section-label .section-badge {
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 0.9em;
+}
+
+.tmi-list-section-items.collapsed {
+    display: none;
 }
 
 .tmi-list-item {
@@ -233,6 +260,12 @@
 
 .tmi-detail-header {
     margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: inherit;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .tmi-detail-header .tmi-identity {
@@ -1593,6 +1626,50 @@
     font-weight: 600;
     padding: 1px 3px;
     border-radius: 2px;
+}
+
+.route-legend {
+    font-size: 0.8em;
+    color: var(--text-muted, #999);
+    margin-bottom: 0.4rem;
+    padding: 3px 6px;
+}
+
+.route-legend .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.fix-hit-rate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.4rem;
+}
+
+.fix-hit-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.fix-hit-item .required-segment {
+    background: rgba(255, 193, 7, 0.15);
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 2px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.reroute-map-container {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
 }
 
 .reroute-card .compliance-split {

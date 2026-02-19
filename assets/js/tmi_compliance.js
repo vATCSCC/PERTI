@@ -2601,6 +2601,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </button>
                 </div>
                 <div class="collapse mt-2" id="${routeTableId}">
+                    ${(r.required_fixes || []).length > 0
+                        ? `<div class="route-legend"><span class="required-segment">${r.required_fixes[0]}</span> = required fix that flights must traverse</div>`
+                        : ''}
                     <div class="table-responsive">
                         <table class="table table-sm table-striped route-table">
                             <thead class="thead-dark">
@@ -2794,7 +2797,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const requiredRoutes = data.required_routes || [];
         if (requiredRoutes.length > 0) {
             html += this.renderExpandableSectionV2('reroute-routes', PERTII18n.t('tmiCompliance.requiredRoutesLabel'), `(${requiredRoutes.length})`, () => {
-                let tbl = `<div class="table-responsive"><table class="table table-sm table-striped route-table">
+                const reqFixes = data.required_fixes || [];
+                const legend = reqFixes.length > 0
+                    ? `<div class="route-legend"><span class="required-segment">${reqFixes[0]}</span> = required fix that flights must traverse</div>`
+                    : '';
+                let tbl = legend + `<div class="table-responsive"><table class="table table-sm table-striped route-table">
                     <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
                 requiredRoutes.forEach(rt => {
                     let routeStr = rt.route || '';
@@ -2812,6 +2819,72 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 tbl += `</tbody></table></div>`;
                 return tbl;
             });
+        }
+
+        // Required fix hit rate (expandable section)
+        const reqFixesAll = data.required_fixes || [];
+        if (reqFixesAll.length > 0 && allFlights.length > 0) {
+            html += this.renderExpandableSectionV2('reroute-fix-hits', 'Fix Hit Rate', `(${reqFixesAll.length} fixes)`, () => {
+                let fhtml = '<div class="fix-hit-rate-grid">';
+                reqFixesAll.forEach(fix => {
+                    const filedHits = allFlights.filter(f => (f.filed_matched_fixes || []).includes(fix)).length;
+                    const flownHits = allFlights.filter(f => (f.flown_matched_fixes || []).includes(fix)).length;
+                    const withTraj = allFlights.filter(f => f.has_trajectory !== false).length;
+                    const filedPctFix = allFlights.length > 0 ? Math.round(filedHits / allFlights.length * 100) : 0;
+                    const flownPctFix = withTraj > 0 ? Math.round(flownHits / withTraj * 100) : 0;
+                    const filedClass = filedPctFix >= 80 ? 'text-success' : filedPctFix >= 50 ? 'text-warning' : 'text-danger';
+                    const flownClass = flownPctFix >= 80 ? 'text-success' : flownPctFix >= 50 ? 'text-warning' : 'text-danger';
+                    fhtml += `<div class="fix-hit-item">
+                        <span class="required-segment">${fix}</span>
+                        <span class="${filedClass}">${filedPctFix}% filed</span>
+                        <span class="${flownClass}">${flownPctFix}% flown</span>
+                        <span class="text-muted">(${filedHits}/${allFlights.length})</span>
+                    </div>`;
+                });
+                fhtml += '</div>';
+                return fhtml;
+            });
+        }
+
+        // Per-origin compliance (expandable section)
+        if (allFlights.length > 0) {
+            const originGroups = {};
+            allFlights.forEach(f => {
+                const key = f.dept || 'Unknown';
+                if (!originGroups[key]) originGroups[key] = { compliant: 0, nonCompliant: 0, total: 0 };
+                originGroups[key].total++;
+                const status = (f.final_status || '').toUpperCase();
+                if (status === 'COMPLIANT') originGroups[key].compliant++;
+                else originGroups[key].nonCompliant++;
+            });
+            const origEntries = Object.entries(originGroups).sort((a, b) => b[1].total - a[1].total);
+            if (origEntries.length > 1) {
+                html += this.renderExpandableSectionV2('reroute-per-origin', 'Per-Origin Breakdown', `(${origEntries.length})`, () => {
+                    let ohtml = '<table class="tmi-pairs-table"><thead><tr><th>Origin</th><th>Flights</th><th>Compliant</th><th>Rate</th></tr></thead><tbody>';
+                    origEntries.forEach(([orig, g]) => {
+                        const rate = g.total > 0 ? Math.round(g.compliant / g.total * 100) : 0;
+                        const cls = rate >= 80 ? 'text-success' : rate >= 50 ? 'text-warning' : 'text-danger';
+                        ohtml += `<tr><td><code>${orig}</code></td><td>${g.total}</td><td>${g.compliant}</td><td class="${cls}">${rate}%</td></tr>`;
+                    });
+                    ohtml += '</tbody></table>';
+                    return ohtml;
+                });
+            }
+        }
+
+        // Route compliance map (expandable section)
+        const fixCoords = data.fix_coordinates || {};
+        if (Object.keys(fixCoords).length > 0) {
+            const rerouteMapId = 'reroute-map-' + (++this.detailIdCounter);
+            html += this.renderExpandableSectionV2('reroute-map', 'Route Map', '', () => {
+                return `<div id="${rerouteMapId}" class="reroute-map-container" style="height:350px;border-radius:6px;"></div>`;
+            });
+            // Schedule map init after DOM render
+            setTimeout(() => {
+                if (this.expandedSections['reroute-map']) {
+                    this._initRerouteMap(rerouteMapId, data, fixCoords);
+                }
+            }, 100);
         }
 
         // Flight details (expandable section) - with expandable route match rows
@@ -6351,6 +6424,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     cleanupMaps: function() {
         Object.values(this.activeMaps).forEach(map => { if (map) {map.remove();} });
         this.activeMaps = {};
+        if (this._rerouteMaps) {
+            Object.values(this._rerouteMaps).forEach(map => { if (map) {map.remove();} });
+            this._rerouteMaps = {};
+        }
     },
 
     // Data gap tracking
@@ -6993,24 +7070,33 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // NTML Entries section
         if (sortedNtml.length > 0) {
-            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('ntml')">
+                <span class="section-chevron">&#9662;</span>NTML Entries<span class="section-badge">${sortedNtml.length}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="ntml">';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
+            html += '</div>';
         }
 
         // Advisories section
         if (sortedAdvisories.length > 0) {
-            html += '<div class="tmi-list-section-label">Advisories</div>';
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('advisories')">
+                <span class="section-chevron">&#9662;</span>Advisories<span class="section-badge">${sortedAdvisories.length}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="advisories">';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
+            html += '</div>';
         }
 
         // Holding patterns section
         if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
             const hs = this.holdingData.summary;
-            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.holdingPatternsLabel') + '</div>';
+            const holdCount = (hs.hold_fixes || []).length;
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('holding')">
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.holdingPatternsLabel')}<span class="section-badge">${holdCount}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="holding">';
             (hs.hold_fixes || []).forEach((fix, idx) => {
                 const fixLabel = fix.fix_name || PERTII18n.t('tmiCompliance.unknownFixLabel');
                 const isSelected = this._selectedHoldingFix === idx;
@@ -7025,9 +7111,22 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </div>
                 </div>`;
             });
+            html += '</div>';
         }
 
         return html;
+    },
+
+    /**
+     * Toggle a list section's collapsed state
+     */
+    toggleListSection: function(section) {
+        const label = $(`.tmi-list-section-label:has([class*="section-chevron"])`).filter(function() {
+            return $(this).next().data('section') === section;
+        });
+        const items = $(`.tmi-list-section-items[data-section="${section}"]`);
+        label.toggleClass('collapsed');
+        items.toggleClass('collapsed');
     },
 
     /**
@@ -7720,6 +7819,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (this.expandedSections[sectionId]) {
             section.addClass('expanded');
+
+            // Holding sections: re-render holding detail to invoke content functions
+            if (sectionId.startsWith('holding-') && this._selectedHoldingFix != null) {
+                this.renderHoldingDetail(this._selectedHoldingFix);
+                return;
+            }
+
             // Re-render content when expanding
             // For sections managed by renderExpandableSectionV2 with contentFn,
             // re-render the full detail panel to invoke the content function
@@ -7862,6 +7968,170 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }
 
         $('#tmi-detail-panel').html(html);
+    },
+
+    /**
+     * Initialize a reroute compliance map showing fixes, airports, and routes
+     */
+    _initRerouteMap: function(containerId, data, fixCoords) {
+        const container = document.getElementById(containerId);
+        if (!container || container.querySelector('canvas')) return;
+
+        const features = [];
+        const bounds = [];
+
+        // Add required fixes
+        const reqFixes = data.required_fixes || [];
+        reqFixes.forEach(fix => {
+            const c = fixCoords[fix];
+            if (!c) return;
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+                properties: { name: fix, role: 'fix' }
+            });
+            bounds.push([c.lon, c.lat]);
+        });
+
+        // Add origin/destination airports
+        const origins = data.origins || [];
+        const destinations = data.destinations || [];
+        origins.forEach(apt => {
+            const c = fixCoords[apt];
+            if (!c) return;
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+                properties: { name: apt, role: 'origin' }
+            });
+            bounds.push([c.lon, c.lat]);
+        });
+        destinations.forEach(apt => {
+            const c = fixCoords[apt];
+            if (!c) return;
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+                properties: { name: apt, role: 'destination' }
+            });
+            bounds.push([c.lon, c.lat]);
+        });
+
+        if (bounds.length < 2) return;
+
+        // Build route lines from fix sequences
+        const routeLines = [];
+        (data.required_routes || []).forEach((rt, idx) => {
+            const routeStr = rt.route || '';
+            const tokens = routeStr.replace(/[<>]/g, '').split(/\s+/).filter(Boolean);
+            const coords = [];
+            // Add origin if it has coordinates
+            const origApts = (rt.orig || '').split(',');
+            origApts.forEach(o => {
+                const c = fixCoords[o.trim()];
+                if (c) coords.push([c.lon, c.lat]);
+            });
+            // Add intermediate fixes
+            tokens.forEach(tok => {
+                const c = fixCoords[tok];
+                if (c) coords.push([c.lon, c.lat]);
+            });
+            // Add destination
+            const c = fixCoords[rt.dest];
+            if (c) coords.push([c.lon, c.lat]);
+            if (coords.length >= 2) {
+                routeLines.push({
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: coords },
+                    properties: { name: `Route ${idx + 1}`, orig: rt.orig, dest: rt.dest }
+                });
+            }
+        });
+
+        const map = new maplibregl.Map({
+            container: container,
+            style: {
+                version: 8,
+                sources: { 'carto-dark': {
+                    type: 'raster',
+                    tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
+                    tileSize: 256
+                }},
+                layers: [{ id: 'carto-dark-layer', type: 'raster', source: 'carto-dark' }]
+            },
+            center: [-90, 36],
+            zoom: 4,
+            attributionControl: false
+        });
+
+        map.on('load', () => {
+            // Route lines
+            if (routeLines.length > 0) {
+                map.addSource('reroute-lines', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: routeLines }
+                });
+                map.addLayer({
+                    id: 'reroute-lines-glow', type: 'line', source: 'reroute-lines',
+                    paint: { 'line-color': '#00bcd4', 'line-width': 5, 'line-opacity': 0.3 }
+                });
+                map.addLayer({
+                    id: 'reroute-lines-main', type: 'line', source: 'reroute-lines',
+                    paint: { 'line-color': '#00bcd4', 'line-width': 2, 'line-opacity': 0.8, 'line-dasharray': [4, 2] }
+                });
+            }
+
+            // Points
+            map.addSource('reroute-points', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: features }
+            });
+
+            // Origin airports (blue)
+            map.addLayer({
+                id: 'reroute-origins', type: 'circle', source: 'reroute-points',
+                filter: ['==', ['get', 'role'], 'origin'],
+                paint: { 'circle-radius': 6, 'circle-color': '#2196f3', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+            });
+            // Destination airports (orange)
+            map.addLayer({
+                id: 'reroute-dests', type: 'circle', source: 'reroute-points',
+                filter: ['==', ['get', 'role'], 'destination'],
+                paint: { 'circle-radius': 6, 'circle-color': '#ff9800', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+            });
+            // Required fixes (yellow/gold)
+            map.addLayer({
+                id: 'reroute-fixes', type: 'circle', source: 'reroute-points',
+                filter: ['==', ['get', 'role'], 'fix'],
+                paint: { 'circle-radius': 5, 'circle-color': '#ffc107', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+            });
+
+            // Labels
+            map.addLayer({
+                id: 'reroute-labels', type: 'symbol', source: 'reroute-points',
+                layout: {
+                    'text-field': ['get', 'name'],
+                    'text-size': 11,
+                    'text-offset': [0, 1.2],
+                    'text-anchor': 'top',
+                    'text-font': ['Open Sans Regular']
+                },
+                paint: { 'text-color': '#fff', 'text-halo-color': '#000', 'text-halo-width': 1 }
+            });
+
+            // Fit to bounds
+            if (bounds.length >= 2) {
+                const lngMin = Math.min(...bounds.map(b => b[0]));
+                const lngMax = Math.max(...bounds.map(b => b[0]));
+                const latMin = Math.min(...bounds.map(b => b[1]));
+                const latMax = Math.max(...bounds.map(b => b[1]));
+                map.fitBounds([[lngMin, latMin], [lngMax, latMax]], { padding: 40 });
+            }
+        });
+
+        // Store map reference for cleanup
+        if (!this._rerouteMaps) this._rerouteMaps = {};
+        this._rerouteMaps[containerId] = map;
     },
 
     /**
@@ -8270,24 +8540,33 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // NTML Entries section
         if (sortedNtml.length > 0) {
-            html += '<div class="tmi-list-section-label">NTML Entries</div>';
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('ntml')">
+                <span class="section-chevron">&#9662;</span>NTML Entries<span class="section-badge">${sortedNtml.length}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="ntml">';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
+            html += '</div>';
         }
 
         // Advisories section
         if (sortedAdvisories.length > 0) {
-            html += '<div class="tmi-list-section-label">Advisories</div>';
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('advisories')">
+                <span class="section-chevron">&#9662;</span>Advisories<span class="section-badge">${sortedAdvisories.length}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="advisories">';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
             });
+            html += '</div>';
         }
 
         // Holding patterns section
         if (this.holdingData && this.holdingData.summary && this.holdingData.summary.total_hold_events > 0) {
             const hs = this.holdingData.summary;
-            html += '<div class="tmi-list-section-label">' + PERTII18n.t('tmiCompliance.holdingPatternsLabel') + '</div>';
+            const holdCount = (hs.hold_fixes || []).length;
+            html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('holding')">
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.holdingPatternsLabel')}<span class="section-badge">${holdCount}</span></div>`;
+            html += '<div class="tmi-list-section-items" data-section="holding">';
             (hs.hold_fixes || []).forEach((fix, idx) => {
                 const fixLabel = fix.fix_name || PERTII18n.t('tmiCompliance.unknownFixLabel');
                 const isSelected = this._selectedHoldingFix === idx;
@@ -8302,10 +8581,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </div>
                 </div>`;
             });
+            html += '</div>';
         }
 
         // Replace just the list content (after header)
-        $('.tmi-list-panel .tmi-list-section-label, .tmi-list-panel .tmi-list-item').remove();
+        $('.tmi-list-panel .tmi-list-section-label, .tmi-list-panel .tmi-list-section-items, .tmi-list-panel .tmi-list-item').remove();
         $('.tmi-list-panel .tmi-list-header').after(html);
 
         // Re-select the currently selected item
