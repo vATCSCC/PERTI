@@ -38,7 +38,7 @@ require_once __DIR__ . '/../load/discord/TMIDiscord.php';
 define('COORDINATION_CHANNEL', '1466013550450577491');
 define('DENY_EMOJI', '❌');
 define('DENY_EMOJI_ALT', '🚫');
-define('DCC_APPROVE_EMOJI', 'DCC');
+define('DCC_APPROVE_EMOJI', getenv('PERTI_DCC_APPROVE_EMOJI') ?: 'DCC');
 
 // DCC override users
 define('DCC_OVERRIDE_USERS', [
@@ -445,6 +445,134 @@ function normalizeReactionEmojiForApi($emoji) {
 }
 
 /**
+ * Parse a comma-separated env var into unique trimmed values.
+ *
+ * @param string $envName
+ * @return array
+ */
+function parseEnvCsvList($envName) {
+    $raw = getenv($envName);
+    if ($raw === false || $raw === null || trim($raw) === '') {
+        return [];
+    }
+
+    $parts = array_map('trim', explode(',', (string)$raw));
+    $parts = array_values(array_filter($parts, static fn($v) => $v !== ''));
+    return array_values(array_unique($parts));
+}
+
+/**
+ * Parse an emoji string into name/id.
+ * Supports: name, :name:, name:id, <:name:id>, <a:name:id>
+ *
+ * @param string $emoji
+ * @return array{name:string,id:string}
+ */
+function parseEmojiNameAndId($emoji) {
+    $emoji = trim((string)$emoji);
+    if ($emoji === '') {
+        return ['name' => '', 'id' => ''];
+    }
+
+    if (preg_match('/^<a?:([A-Za-z0-9_]+):(\d+)>$/', $emoji, $m)) {
+        return ['name' => $m[1], 'id' => $m[2]];
+    }
+
+    if (preg_match('/^([A-Za-z0-9_]+):(\d+)$/', $emoji, $m)) {
+        return ['name' => $m[1], 'id' => $m[2]];
+    }
+
+    if (preg_match('/^:([A-Za-z0-9_]+):$/', $emoji, $m)) {
+        return ['name' => $m[1], 'id' => ''];
+    }
+
+    return ['name' => $emoji, 'id' => ''];
+}
+
+/**
+ * Return configured DCC emoji names (uppercased).
+ * Sources:
+ * - DCC_APPROVE_EMOJI constant
+ * - PERTI_DCC_APPROVE_EMOJI_NAMES env (comma-separated)
+ *
+ * @return array
+ */
+function getConfiguredDccEmojiNames() {
+    static $names = null;
+    if ($names !== null) {
+        return $names;
+    }
+
+    $parsed = parseEmojiNameAndId((string)DCC_APPROVE_EMOJI);
+    $baseName = strtoupper(trim((string)$parsed['name']));
+    $nameList = $baseName !== '' ? [$baseName] : [];
+
+    foreach (parseEnvCsvList('PERTI_DCC_APPROVE_EMOJI_NAMES') as $name) {
+        $normalized = strtoupper(trim((string)$name));
+        if ($normalized !== '') {
+            $nameList[] = $normalized;
+        }
+    }
+
+    $names = array_values(array_unique($nameList));
+    return $names;
+}
+
+/**
+ * Return configured DCC emoji IDs.
+ * Sources:
+ * - DCC_APPROVE_EMOJI constant (when set as name:id)
+ * - PERTI_DCC_APPROVE_EMOJI_IDS env (comma-separated)
+ *
+ * @return array
+ */
+function getConfiguredDccEmojiIds() {
+    static $ids = null;
+    if ($ids !== null) {
+        return $ids;
+    }
+
+    $parsed = parseEmojiNameAndId((string)DCC_APPROVE_EMOJI);
+    $idList = $parsed['id'] !== '' ? [(string)$parsed['id']] : [];
+
+    foreach (parseEnvCsvList('PERTI_DCC_APPROVE_EMOJI_IDS') as $id) {
+        $normalized = trim((string)$id);
+        if ($normalized !== '') {
+            $idList[] = $normalized;
+        }
+    }
+
+    $ids = array_values(array_unique($idList));
+    return $ids;
+}
+
+/**
+ * Determine whether an emoji name/id should be treated as DCC override.
+ *
+ * @param string $emojiName
+ * @param string $emojiId
+ * @return bool
+ */
+function isDccApproveEmojiMatch($emojiName, $emojiId = '') {
+    $emojiName = strtoupper(trim((string)$emojiName));
+    $emojiId = trim((string)$emojiId);
+
+    $allowedIds = getConfiguredDccEmojiIds();
+    if ($emojiId !== '' && in_array($emojiId, $allowedIds, true)) {
+        return true;
+    }
+
+    $allowedNames = getConfiguredDccEmojiNames();
+    if ($emojiName !== '' && in_array($emojiName, $allowedNames, true)) {
+        return true;
+    }
+
+    // Fallback for aliases like DCC_OVERRIDE, DCCSTAFF, etc.
+    $compressed = preg_replace('/[^A-Z0-9]/', '', $emojiName);
+    return $compressed !== '' && strpos($compressed, 'DCC') !== false;
+}
+
+/**
  * Resolve the DCC emoji query string for Discord reactions API.
  * Custom emoji must be queried as name:id, so discover it from message reactions.
  *
@@ -454,7 +582,10 @@ function normalizeReactionEmojiForApi($emoji) {
  * @return string|null
  */
 function resolveDccReactionEmojiQuery($discord, $channelId, $messageId) {
-    $fallback = normalizeReactionEmojiForApi(DCC_APPROVE_EMOJI);
+    $fallbackParsed = parseEmojiNameAndId((string)DCC_APPROVE_EMOJI);
+    $fallback = $fallbackParsed['id'] !== ''
+        ? ($fallbackParsed['name'] . ':' . $fallbackParsed['id'])
+        : normalizeReactionEmojiForApi($fallbackParsed['name']);
 
     try {
         $message = $discord->getMessage($channelId, $messageId);
@@ -462,7 +593,6 @@ function resolveDccReactionEmojiQuery($discord, $channelId, $messageId) {
             return $fallback;
         }
 
-        $targetName = strtoupper(trim((string) DCC_APPROVE_EMOJI));
         foreach ($message['reactions'] as $reaction) {
             $emojiObj = $reaction['emoji'] ?? null;
             if (!is_array($emojiObj)) {
@@ -470,11 +600,11 @@ function resolveDccReactionEmojiQuery($discord, $channelId, $messageId) {
             }
 
             $emojiName = trim((string)($emojiObj['name'] ?? ''));
-            if ($emojiName === '' || strtoupper($emojiName) !== $targetName) {
+            $emojiId = trim((string)($emojiObj['id'] ?? ''));
+            if (!isDccApproveEmojiMatch($emojiName, $emojiId)) {
                 continue;
             }
 
-            $emojiId = trim((string)($emojiObj['id'] ?? ''));
             if ($emojiId !== '') {
                 return $emojiName . ':' . $emojiId;
             }
@@ -520,6 +650,7 @@ function processReaction($conn, $discord, $proposal, $facilities, $reaction, $gu
         $reactionType = 'DCC_DENY';
     } elseif ($type === 'DCC_APPROVE' && !$isDccUser) {
         $reactionType = 'OTHER'; // Not authorized for DCC actions
+        echo "    DCC override ignored for user {$userId} (not authorized in guild {$guildId})\n";
     }
 
     // Log reaction
