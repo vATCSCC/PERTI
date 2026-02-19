@@ -6779,45 +6779,59 @@
             </tr>
         `);
 
-        // Fetch pending proposals
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php?list=pending',
-            method: 'GET',
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    displayProposals(response.proposals || [], 'proposalsTableBody', true);
-                    const pendingCount = (response.proposals || []).length;
-                    $('#pendingCount').text(pendingCount);
-                    if (pendingCount > 0) {
-                        $('#pendingProposalsBadge').text(pendingCount).show();
+        const fetchProposalTables = function() {
+            // Fetch pending proposals
+            $.ajax({
+                url: 'api/mgt/tmi/coordinate.php?list=pending',
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        displayProposals(response.proposals || [], 'proposalsTableBody', true);
+                        const pendingCount = (response.proposals || []).length;
+                        $('#pendingCount').text(pendingCount);
+                        if (pendingCount > 0) {
+                            $('#pendingProposalsBadge').text(pendingCount).show();
+                        } else {
+                            $('#pendingProposalsBadge').hide();
+                        }
                     } else {
-                        $('#pendingProposalsBadge').hide();
+                        showProposalsError('proposalsTableBody', response.error || PERTII18n.t('tmiPublish.proposals.loadFailed'));
                     }
-                } else {
-                    showProposalsError('proposalsTableBody', response.error || PERTII18n.t('tmiPublish.proposals.loadFailed'));
-                }
-            },
-            error: function(xhr, status, error) {
-                showProposalsError('proposalsTableBody', PERTII18n.t('tmiPublish.proposals.connectionFailed'));
-            },
-        });
+                },
+                error: function(xhr, status, error) {
+                    showProposalsError('proposalsTableBody', PERTII18n.t('tmiPublish.proposals.connectionFailed'));
+                },
+            });
 
-        // Fetch recent proposals (all)
+            // Fetch recent proposals (all)
+            $.ajax({
+                url: 'api/mgt/tmi/coordinate.php?list=all',
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Filter to show only resolved (not pending)
+                        const resolved = (response.proposals || []).filter(p => p.status !== 'PENDING');
+                        displayProposals(resolved, 'recentProposalsTableBody', false);
+                        $('#recentCount').text(resolved.length);
+                    }
+                },
+                error: function() {
+                    // Silent fail for recent
+                },
+            });
+        };
+
+        // Trigger reaction polling immediately, then refresh proposal tables.
+        // This avoids waiting on scheduler cadence for Discord reaction updates.
         $.ajax({
-            url: 'api/mgt/tmi/coordinate.php?list=all',
+            url: 'api/cron.php?type=tmi',
             method: 'GET',
             dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    // Filter to show only resolved (not pending)
-                    const resolved = (response.proposals || []).filter(p => p.status !== 'PENDING');
-                    displayProposals(resolved, 'recentProposalsTableBody', false);
-                    $('#recentCount').text(resolved.length);
-                }
-            },
-            error: function() {
-                // Silent fail for recent
+            timeout: 7000,
+            complete: function() {
+                fetchProposalTables();
             },
         });
     }
