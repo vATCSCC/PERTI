@@ -964,6 +964,9 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             //   Split:    FROM: / TO: sections with ORIG ROUTE / DEST ROUTE
             //   Other:    OTHER ROUTES: with ORIG DEST ROUTE
             if ($in_routes_section) {
+                // Use raw untrimmed line for column-position-based continuation detection
+                $raw_line = $lines[$i];
+
                 // Section markers (state transitions)
                 if (preg_match('/^FROM:/i', $line)) { $route_section = 'FROM'; continue; }
                 if (preg_match('/^TO:/i', $line)) { $route_section = 'TO'; continue; }
@@ -972,8 +975,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                 // Skip header/separator lines
                 if (preg_match('/^(ORIG|DEST|ROUTE\s|----|-{3,})/i', $line)) continue;
 
-                // Continuation line: starts with 10+ spaces, no airport code at column 0
-                if (preg_match('/^\s{10,}(\S.*)/', $line, $cm)) {
+                // Pure continuation: raw line starts with 10+ spaces (route text only)
+                if (preg_match('/^\s{10,}(\S.*)/', $raw_line, $cm)) {
                     if ($route_section === 'FROM') {
                         $target = &$from_routes;
                     } elseif ($route_section === 'TO') {
@@ -991,15 +994,18 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                 }
 
                 // Parse row based on current section
+                $row_matched = false;
                 if ($route_section === 'FROM') {
                     // FROM section: ORIG  ROUTE (2-column, ~20-char label width)
                     if (preg_match('/^(\S+(?:\s+\S+)*?)\s{2,}(.+)/', $line, $rm)) {
                         $from_routes[] = ['orig' => trim($rm[1]), 'route' => trim($rm[2])];
+                        $row_matched = true;
                     }
                 } elseif ($route_section === 'TO') {
                     // TO section: DEST  ROUTE (2-column)
                     if (preg_match('/^(\S+(?:\s+\S+)*?)\s{2,}(.+)/', $line, $rm)) {
                         $to_routes[] = ['dest' => trim($rm[1]), 'route' => trim($rm[2])];
+                        $row_matched = true;
                     }
                 } else {
                     // Standard or OTHER: ORIG  DEST  ROUTE (3-column)
@@ -1017,6 +1023,23 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                                 'route' => trim($rm[3])
                             ];
                         }
+                        $row_matched = true;
+                    }
+                }
+
+                // Mixed continuation: line has origin text + large gap + route text
+                // Handles multi-line origin wrapping from formatRouteTable(), e.g.:
+                //   "KTPA KPGD                     JFK< ROBUC3"
+                //   "-KSRQ -KTPA -KPGD)            Q419 JFK< ROBUC3"
+                if (!$row_matched && $route_section === null && !empty($routes_buffer)) {
+                    if (preg_match('/^(.+?)\s{6,}(\S.+)/', $line, $cm)) {
+                        $prev_idx = count($routes_buffer) - 1;
+                        $routes_buffer[$prev_idx]['orig'] .= ' ' . trim($cm[1]);
+                        $routes_buffer[$prev_idx]['route'] .= ' ' . trim($cm[2]);
+                    } elseif (preg_match('/^[A-Z]/', $line)) {
+                        // Origin-only continuation (no route portion)
+                        $prev_idx = count($routes_buffer) - 1;
+                        $routes_buffer[$prev_idx]['orig'] .= ' ' . $line;
                     }
                 }
             }
@@ -1051,9 +1074,12 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     }
 
     // Expand multi-airport origins: "KFMY KPIE KRSW" -> separate entries
+    // Strip parenthetical exclusions first: "ZMA (-KFMY -KRSW)" -> "ZMA"
     $expanded = [];
     foreach ($routes_buffer as $r) {
-        $orig_tokens = preg_split('/[\s\/]+/', trim($r['orig']));
+        $clean_orig = preg_replace('/\s*\([^)]*\)\s*/', ' ', trim($r['orig']));
+        $clean_orig = trim($clean_orig);
+        $orig_tokens = preg_split('/[\s\/]+/', $clean_orig);
         $airports = array_values(array_filter($orig_tokens, function($t) {
             return preg_match('/^[A-Z][A-Z0-9]{2,3}$/', $t);
         }));
