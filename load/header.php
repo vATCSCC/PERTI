@@ -62,7 +62,7 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti-colors.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/theme.css">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti_theme.css">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/tmi-compliance.css?v=2">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/tmi-compliance.css?v=3">
   <link rel="stylesheet" href="<?= $filepath; ?>assets/css/mobile.css">
 <?php } ?>
     
