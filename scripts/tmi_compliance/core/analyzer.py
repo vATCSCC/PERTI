@@ -1373,24 +1373,76 @@ class TMIComplianceAnalyzer:
         return results
 
     def _load_fix_coordinates(self, fixes: List[str]):
-        """Load fix coordinates from database"""
+        """Load fix coordinates from database, disambiguating by geographic context."""
         cursor = self.adl_conn.cursor()
         fix_in = "'" + "','".join(fixes) + "'"
 
         cursor.execute(f"""
             SELECT fix_name, lat, lon FROM dbo.nav_fixes
             WHERE fix_name IN ({fix_in})
-            GROUP BY fix_name, lat, lon
         """)
 
+        # Group all candidates by fix name
+        candidates = {}
         for row in cursor.fetchall():
-            self.fix_coords[row[0]] = {
-                'lat': float(row[1]),
-                'lon': float(row[2])
-            }
-            logger.info(f"  Fix {row[0]}: {row[1]:.4f}, {row[2]:.4f}")
-
+            name = row[0]
+            if name not in candidates:
+                candidates[name] = []
+            candidates[name].append((float(row[1]), float(row[2])))
         cursor.close()
+
+        # Compute geographic centroid from already-loaded coordinates
+        # (airports, previously loaded fixes) for disambiguation
+        centroid_lat, centroid_lon = self._get_context_centroid()
+
+        for name, coords_list in candidates.items():
+            if len(coords_list) == 1:
+                lat, lon = coords_list[0]
+            elif centroid_lat is not None:
+                # Pick the candidate closest to the geographic context
+                lat, lon = min(coords_list,
+                               key=lambda c: haversine_nm(c[0], c[1], centroid_lat, centroid_lon))
+            else:
+                # No context yet — use first candidate
+                lat, lon = coords_list[0]
+
+            self.fix_coords[name] = {'lat': lat, 'lon': lon}
+            if len(coords_list) > 1:
+                logger.info(f"  Fix {name}: {lat:.4f}, {lon:.4f} (selected from {len(coords_list)} candidates)")
+            else:
+                logger.info(f"  Fix {name}: {lat:.4f}, {lon:.4f}")
+
+    def _get_context_centroid(self):
+        """Compute centroid from already-loaded coordinates for geo disambiguation."""
+        if not self.fix_coords:
+            # Fall back to event destinations/origins if nothing loaded yet
+            airports = []
+            for tmi in self.event.tmis:
+                airports.extend(tmi.destinations or [])
+                airports.extend(tmi.origins or [])
+            if not airports:
+                return None, None
+            # Quick lookup of a few airports for centroid
+            cursor = self.adl_conn.cursor()
+            icao_codes = [f'K{a}' if len(a) == 3 else a for a in airports[:10]]
+            code_in = "'" + "','".join(icao_codes + airports[:10]) + "'"
+            cursor.execute(f"""
+                SELECT LAT_DECIMAL, LONG_DECIMAL FROM dbo.apts
+                WHERE ICAO_ID IN ({code_in}) OR ARPT_ID IN ({code_in})
+            """)
+            lats, lons = [], []
+            for row in cursor.fetchall():
+                if row[0] is not None and row[1] is not None:
+                    lats.append(float(row[0]))
+                    lons.append(float(row[1]))
+            cursor.close()
+            if not lats:
+                return None, None
+            return sum(lats) / len(lats), sum(lons) / len(lons)
+
+        lats = [c['lat'] for c in self.fix_coords.values()]
+        lons = [c['lon'] for c in self.fix_coords.values()]
+        return sum(lats) / len(lats), sum(lons) / len(lons)
 
     def _load_airport_coordinates(self, airport_codes: List[str]):
         """Load airport coordinates from apts table for codes not in nav_fixes."""

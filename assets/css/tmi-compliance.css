@@ -212,17 +212,24 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .tmi-list-item .type-value {
     color: var(--light-text-secondary);
     text-align: right;
+    white-space: nowrap;
+    font-size: 0.85em;
 }
 
 .tmi-list-item .metric {
     text-align: right;
     color: var(--light-text-muted);
     font-size: 0.9em;
+    white-space: nowrap;
 }
 
 /* Non-compliant indicator dot */
