@@ -8052,6 +8052,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
+                glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
                 sources: { 'carto-dark': {
                     type: 'raster',
                     tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
