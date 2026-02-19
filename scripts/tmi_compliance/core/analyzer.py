@@ -4249,7 +4249,7 @@ class TMIComplianceAnalyzer:
                     dept = flight.get('dept', '')
                     dest = flight.get('dest', '')
                     if dept in normalized_origs and dest in normalized_dests:
-                        flights.append((callsign, dept, dest, flight.get('fp_route', ''), dep_time, flight.get('last_seen')))
+                        flights.append((callsign, dept, dest, flight.get('fp_route', ''), dep_time, flight.get('last_seen'), flight.get('route_expanded', '')))
 
         logger.info(f"  Filtered to {len(flights)} flights in program window"
                     f"{' (event window fallback)' if time_note else ''}")
@@ -4320,9 +4320,10 @@ class TMIComplianceAnalyzer:
         exempt_flights = []
 
         for row in flights:
-            callsign, dept, dest, fp_route, dep_time, last_seen = row
+            callsign, dept, dest, fp_route, dep_time, last_seen, route_expanded = row
             dep_time = normalize_datetime(dep_time)
             fp_route = fp_route or ''
+            route_expanded = route_expanded or ''
 
             # For PLN/FYI modes, skip compliance scoring
             if mode == 'future_planning':
@@ -4359,17 +4360,34 @@ class TMIComplianceAnalyzer:
                 required_fixes = all_required_fixes
 
             # === FILED ROUTE ANALYSIS ===
-            route_upper = fp_route.upper()
+            # Prefer expanded route (airways resolved to constituent fixes) over raw filed route
+            match_route = route_expanded if route_expanded else fp_route
+            route_upper = match_route.upper()
+            route_tokens = route_upper.split()
 
-            # Check fixes in ORDER (sequence validation)
+            # Check fixes in ORDER (sequence validation) using token-based matching
             filed_matched_fixes = []
             last_pos = -1
             for fix in required_fixes:
-                pos = route_upper.find(fix)
-                if pos >= 0 and pos > last_pos:
+                fix_upper = fix.upper()
+                # Find fix as a discrete token (not substring)
+                found_pos = -1
+                for i, tok in enumerate(route_tokens):
+                    if i <= last_pos:
+                        continue
+                    if tok == fix_upper:
+                        found_pos = i
+                        break
+                if found_pos < 0:
+                    # Fallback: fix embedded in procedure name (e.g., ROBUC3 contains ROBUC)
+                    for i, tok in enumerate(route_tokens):
+                        if fix_upper in tok:
+                            found_pos = i
+                            break
+                if found_pos >= 0 and found_pos > last_pos:
                     filed_matched_fixes.append(fix)
-                    last_pos = pos
-                elif pos >= 0:
+                    last_pos = found_pos
+                elif found_pos >= 0:
                     # Fix present but out of order
                     filed_matched_fixes.append(fix)
 
@@ -4455,7 +4473,8 @@ class TMIComplianceAnalyzer:
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
                 'final_status': final_status,
-                'required_fixes': required_fixes
+                'required_fixes': required_fixes,
+                'route_source': 'expanded' if route_expanded else 'filed'
             }
 
             flight_results.append(flight_info)
