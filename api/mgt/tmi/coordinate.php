@@ -624,17 +624,9 @@ function handleSubmitForCoordination() {
         $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName);
         error_log("[TMI_COORD] postProposalToDiscord returned: " . json_encode($discordResult));
 
-        if ($discordResult && isset($discordResult['id'])) {
+        list($channelId, $messageId) = resolveProposalDiscordTarget($discordResult);
+        if ($channelId !== null && $messageId !== null) {
             // Update proposal with Discord IDs.
-            // Use thread channel/message pair only when both are present.
-            if (!empty($discordResult['thread_id']) && !empty($discordResult['thread_message_id'])) {
-                $channelId = $discordResult['thread_id'];
-                $messageId = $discordResult['thread_message_id'];
-            } else {
-                $channelId = DISCORD_COORDINATION_CHANNEL;
-                $messageId = $discordResult['id'];
-            }
-
             $updateSql = "UPDATE dbo.tmi_proposals SET
                               discord_channel_id = :channel,
                               discord_message_id = :message_id,
@@ -1765,13 +1757,16 @@ function handleEditProposal($input) {
         );
 
         // Update proposal with new Discord message ID and deadline
-        if ($discordResult && isset($discordResult['id'])) {
+        list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
+        if ($discordChannelId !== null && $discordMessageId !== null) {
             $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                     discord_channel_id = :channel_id,
                                      discord_message_id = :msg_id,
                                      approval_deadline_utc = :deadline
                                  WHERE proposal_id = :prop_id";
             $conn->prepare($updateDiscordSql)->execute([
-                ':msg_id' => $discordResult['id'],
+                ':channel_id' => $discordChannelId,
+                ':msg_id' => $discordMessageId,
                 ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
                 ':prop_id' => $proposalId
             ]);
@@ -1782,7 +1777,7 @@ function handleEditProposal($input) {
             'proposal_id' => $proposalId,
             'message' => 'Proposal updated and coordination restarted',
             'approvals_cleared' => true,
-            'new_discord_message' => isset($discordResult['id'])
+            'new_discord_message' => !empty($discordMessageId)
         ]);
 
     } catch (Exception $e) {
@@ -1976,13 +1971,16 @@ function handleRescindProposal() {
                 );
 
                 // Update proposal with new deadline and Discord message ID
-                if ($discordResult && isset($discordResult['id'])) {
+                list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
+                if ($discordChannelId !== null && $discordMessageId !== null) {
                     $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                             discord_channel_id = :channel_id,
                                              discord_message_id = :msg_id,
                                              approval_deadline_utc = :deadline
                                          WHERE proposal_id = :prop_id";
                     $conn->prepare($updateDiscordSql)->execute([
-                        ':msg_id' => $discordResult['id'],
+                        ':channel_id' => $discordChannelId,
+                        ':msg_id' => $discordMessageId,
                         ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
                         ':prop_id' => $proposalId
                     ]);
@@ -2495,6 +2493,27 @@ function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilitie
     }
 
     return substr($title, 0, 100);
+}
+
+/**
+ * Determine which Discord channel/message IDs should be stored for proposal polling.
+ * Preference order:
+ * 1) Thread details message (where reactions are added)
+ * 2) Starter message in coordination channel
+ *
+ * @param mixed $discordResult
+ * @return array [channelId|null, messageId|null]
+ */
+function resolveProposalDiscordTarget($discordResult) {
+    if (!is_array($discordResult) || empty($discordResult['id'])) {
+        return [null, null];
+    }
+
+    if (!empty($discordResult['thread_id']) && !empty($discordResult['thread_message_id'])) {
+        return [$discordResult['thread_id'], $discordResult['thread_message_id']];
+    }
+
+    return [DISCORD_COORDINATION_CHANNEL, $discordResult['id']];
 }
 
 /**

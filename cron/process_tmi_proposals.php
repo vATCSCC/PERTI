@@ -497,7 +497,7 @@ function processReaction($conn, $discord, $proposal, $facilities, $reaction) {
 
     // Get user roles
     $userRoles = getUserRoles($discord, $userId);
-    $isDccUser = canDccOverride($userId, $userRoles);
+    $isDccUser = canDccOverride($userId, $userRoles, $discord);
 
     // Determine reaction type
     $reactionType = $type;
@@ -590,23 +590,68 @@ function getUserRoles($discord, $userId) {
     return [];
 }
 
-function canDccOverride($userId, $userRoles) {
+function canDccOverride($userId, $userRoles, $discord = null) {
+    $roleIds = array_map('strval', is_array($userRoles) ? $userRoles : []);
+
     // Check user ID
     if (in_array($userId, DCC_OVERRIDE_USERS)) {
         return true;
     }
 
     // Check role IDs
-    if (!empty(array_intersect($userRoles, DCC_OVERRIDE_ROLE_IDS))) {
+    if (!empty(array_intersect($roleIds, DCC_OVERRIDE_ROLE_IDS))) {
         return true;
     }
 
-    // Check role names (fallback)
-    if (!empty(array_intersect($userRoles, DCC_OVERRIDE_ROLE_NAMES))) {
+    // Check role names (fallback) by resolving member role IDs to role names.
+    $roleNames = [];
+    if ($discord !== null) {
+        $roleNames = getRoleNamesByIds($discord, $roleIds);
+    }
+    if (!empty(array_intersect($roleNames, DCC_OVERRIDE_ROLE_NAMES))) {
         return true;
     }
 
     return false;
+}
+
+/**
+ * Resolve Discord role IDs to role names using guild role metadata.
+ *
+ * @param DiscordAPI $discord
+ * @param array $roleIds
+ * @return array
+ */
+function getRoleNamesByIds($discord, $roleIds) {
+    static $roleIdToName = null;
+
+    if ($roleIdToName === null) {
+        $roleIdToName = [];
+        try {
+            $guildRoles = $discord->getGuildRoles();
+            if (is_array($guildRoles)) {
+                foreach ($guildRoles as $role) {
+                    $id = isset($role['id']) ? (string)$role['id'] : '';
+                    $name = isset($role['name']) ? (string)$role['name'] : '';
+                    if ($id !== '' && $name !== '') {
+                        $roleIdToName[$id] = $name;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // Ignore and fall back to ID-only checks.
+        }
+    }
+
+    $names = [];
+    foreach ((array)$roleIds as $roleId) {
+        $key = (string)$roleId;
+        if ($key !== '' && isset($roleIdToName[$key])) {
+            $names[] = $roleIdToName[$key];
+        }
+    }
+
+    return array_values(array_unique($names));
 }
 
 function checkAndUpdateProposalStatus($conn, $proposalId) {
