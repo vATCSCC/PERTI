@@ -1208,7 +1208,7 @@ window.PublicRoutes = (function() {
         const usArtccCodes = new Set([
             'ZAB', 'ZAK', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU',
             'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA',
-            'ZOB', 'ZSE', 'ZSU', 'ZTL', 'ZUA',
+            'ZOB', 'ZSE', 'ZTL', 'ZUA', 'TJZS',
         ]);
 
         // Common TRACON codes (alphanumeric, 3-char)

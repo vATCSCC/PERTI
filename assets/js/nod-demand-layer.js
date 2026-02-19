@@ -1515,7 +1515,7 @@ const NODDemandLayer = (function() {
         ? [...PERTI.FACILITY.FACILITY_LISTS.ARTCC_ALL]
         : ['ZNY', 'ZBW', 'ZDC', 'ZOB', 'ZID', 'ZAU', 'ZMP', 'ZKC', 'ZME', 'ZFW',
            'ZHU', 'ZLA', 'ZOA', 'ZSE', 'ZLC', 'ZDV', 'ZAB', 'ZTL', 'ZJX', 'ZMA',
-           'ZAN', 'ZHN', 'ZSU', 'ZUA'];
+           'ZAN', 'ZHN', 'ZUA'];
 
     // Common TRACON codes (typically 3 chars, some start with letter + digits)
     const TRACON_PATTERNS = /^(N90|A80|A90|C90|D01|D10|D21|I90|L30|M98|NCT|NOR|P50|P80|PCT|PHL|POT|S46|S56|SCT|Y90)$/i;

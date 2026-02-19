@@ -333,14 +333,17 @@ const FILTER_CONFIG = {
             'MIDWEST': '#28a745',        // Green - ZAU, ZDV, ZKC, ZMP
             'SOUTHEAST': '#ffc107',      // Yellow - ZID, ZJX, ZMA, ZMO, ZTL
             'NORTHEAST': '#007bff',      // Blue - ZBW, ZDC, ZNY, ZOB, ZWY
-            'CANADA': '#6f42c1',         // Purple - all Canadian FIRs (matches facility-hierarchy.js)
+            'CANADA': '#6f42c1',         // Purple - all Canadian FIRs
+            'MEXICO': '#20c997',         // Teal-green - Mexican ACCs
+            'CARIBBEAN': '#e83e8c',      // Pink - Caribbean FIRs
+            'ECFMP': '#17a2b8',          // Cyan - European FIRs
             'OTHER': '#6c757d',
             'UNKNOWN': '#adb5bd',
         },
         labels: {
             'WEST': 'West', 'SOUTH_CENTRAL': 'South Central', 'MIDWEST': 'Midwest',
             'SOUTHEAST': 'Southeast', 'NORTHEAST': 'Northeast',
-            'CANADA': 'Canada',
+            'CANADA': 'Canada', 'MEXICO': 'Mexico', 'CARIBBEAN': 'Caribbean', 'ECFMP': 'ECFMP',
             'OTHER': 'Other', 'UNKNOWN': 'Unknown',
         },
         // Map ARTCCs/FIRs to DCC regions - uses PERTI when available
@@ -364,6 +367,31 @@ const FILTER_CONFIG = {
             'CZYZ': 'CANADA', 'CZUL': 'CANADA',
             'CZQM': 'CANADA', 'CZQX': 'CANADA', 'CZQO': 'CANADA',
             'CZWG': 'CANADA', 'CZEG': 'CANADA', 'CZVR': 'CANADA',
+            // Mexico (Teal-green)
+            'MMMX': 'MEXICO', 'MMTY': 'MEXICO', 'MMZT': 'MEXICO',
+            'MMMD': 'MEXICO', 'MMUN': 'MEXICO', 'MMFR': 'MEXICO', 'MMFO': 'MEXICO',
+            // Caribbean (Pink)
+            'TJZS': 'CARIBBEAN', 'MKJK': 'CARIBBEAN', 'MUFH': 'CARIBBEAN',
+            'MDCS': 'CARIBBEAN', 'TNCF': 'CARIBBEAN', 'TTZP': 'CARIBBEAN',
+            'MHCC': 'CARIBBEAN', 'MPZL': 'CARIBBEAN',
+            // ECFMP (Cyan) - UK-Ireland
+            'EGPX': 'ECFMP', 'EGTT': 'ECFMP', 'EISN': 'ECFMP',
+            // ECFMP - FABEC
+            'LFFF': 'ECFMP', 'LFBB': 'ECFMP', 'LFEE': 'ECFMP', 'LFMM': 'ECFMP', 'LFRR': 'ECFMP',
+            'EDGG': 'ECFMP', 'EDMM': 'ECFMP', 'EDUU': 'ECFMP', 'EDWW': 'ECFMP',
+            'EHAA': 'ECFMP', 'EBBU': 'ECFMP', 'ELLX': 'ECFMP', 'LSAS': 'ECFMP',
+            // ECFMP - Nordic/Baltic/Iceland
+            'EFIN': 'ECFMP', 'ENOR': 'ECFMP', 'ESAA': 'ECFMP', 'EKDK': 'ECFMP',
+            'BIRD': 'ECFMP', 'BICC': 'ECFMP',
+            'EETT': 'ECFMP', 'EVRR': 'ECFMP', 'EYVL': 'ECFMP', 'EPWW': 'ECFMP',
+            // ECFMP - FAB CE / SW FAB / BLUE MED / DANUBE / Other
+            'LOVV': 'ECFMP', 'LKAA': 'ECFMP', 'LZBB': 'ECFMP', 'LHCC': 'ECFMP',
+            'LDZO': 'ECFMP', 'LJLA': 'ECFMP', 'LQSB': 'ECFMP',
+            'LECM': 'ECFMP', 'LECB': 'ECFMP', 'LECS': 'ECFMP', 'LPPC': 'ECFMP',
+            'LIBB': 'ECFMP', 'LIMM': 'ECFMP', 'LIPP': 'ECFMP', 'LIRR': 'ECFMP',
+            'LGGG': 'ECFMP', 'LCCC': 'ECFMP', 'LMMM': 'ECFMP',
+            'LRBB': 'ECFMP', 'LBSR': 'ECFMP',
+            'LTAA': 'ECFMP', 'LYBA': 'ECFMP', 'LAAA': 'ECFMP', 'LWSK': 'ECFMP', 'LUUU': 'ECFMP',
         },  // end dcc mapping ternary
     },
 
@@ -548,6 +576,9 @@ const FILTER_I18N_KEYS = {
         'SOUTHEAST': 'dccRegion.southeast',
         'NORTHEAST': 'dccRegion.northeast',
         'CANADA': 'dccRegion.canada',
+        'MEXICO': 'dccRegion.mexico',
+        'CARIBBEAN': 'dccRegion.caribbean',
+        'ECFMP': 'dccRegion.ecfmp',
         'OTHER': 'common.other',
         'UNKNOWN': 'common.unknown',
     },

@@ -47,7 +47,7 @@ $(document).ready(function() {
         // US ARTCCs (Non-CONUS)
         'ZAN': { lat: 61.17, lon: -150.00 },  // Anchorage Center
         'ZHN': { lat: 21.32, lon: -157.92 },  // Honolulu Center
-        'ZSU': { lat: 18.44, lon: -66.00 },   // San Juan Center
+        'TJZS': { lat: 18.44, lon: -66.00 },  // San Juan FIR (Caribbean)
 
         // Canadian FIRs (short codes)
         'CZY': { lat: 43.68, lon: -79.63 },   // Toronto FIR (CZYZ)
@@ -5723,15 +5723,38 @@ $(document).ready(function() {
     function advGenerateTmiId(advAction, advFacility, advNumber, existingId) {
         existingId = (existingId || '').trim().toUpperCase();
         advAction = (advAction || '').trim().toUpperCase();
-        advFacility = (advFacility || '').trim().toUpperCase();
+        advFacility = (advFacility || '').trim().toUpperCase() || 'DCC';
         advNumber = (advNumber || '').trim();
-        if (existingId) {return existingId;}
-        if (!advFacility || !advNumber) {return '';}
-        let digits = advNumber.replace(/\D/g, '');
-        digits = digits.length ? digits.padStart(3, '0') : advNumber;
+
+        const normalizeDigits = (value) => {
+            const raw = (value || '').toString().trim();
+            const onlyDigits = raw.replace(/\D/g, '');
+            if (onlyDigits.length > 0) {return onlyDigits.padStart(3, '0');}
+            return '';
+        };
+
         let prefix = '';
         if (advAction.indexOf('ROUTE') !== -1) {prefix = 'RR';}
         if (!prefix) {return '';}
+
+        // If operator supplied an existing ID, normalize malformed short IDs (e.g., RR02 -> RRDCC002).
+        if (existingId) {
+            let m = existingId.match(/^RR(\d{1,3})$/i);
+            if (m) {
+                return 'RR' + advFacility + m[1].padStart(3, '0');
+            }
+
+            m = existingId.match(/^RR([A-Z]{2,5})(\d{1,3})$/i);
+            if (m) {
+                return 'RR' + m[1].toUpperCase() + m[2].padStart(3, '0');
+            }
+
+            return existingId;
+        }
+
+        const digits = normalizeDigits(advNumber);
+        if (!digits) {return '';}
+
         return prefix + advFacility + digits;
     }
 

@@ -101,7 +101,7 @@ const PERTI_ARTCC_ALL = [
     'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
     'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
     // Non-CONUS domestic
-    'ZAN', 'ZHN', 'ZSU',
+    'ZAN', 'ZHN',
     // Oceanic/Territory
     'ZAK', 'ZAP', 'ZHO', 'ZMO', 'ZUA', 'ZWY',
 ];

@@ -117,6 +117,9 @@ const PERTIColors = (function() {
         SOUTHEAST: '#ffc107',
         NORTHEAST: '#007bff',
         CANADA: '#6f42c1',
+        MEXICO: '#20c997',
+        CARIBBEAN: '#e83e8c',
+        ECFMP: '#17a2b8',
         OTHER: '#6c757d',
     };
 
@@ -135,6 +138,28 @@ const PERTIColors = (function() {
         CZYZ: 'CANADA', CZUL: 'CANADA',
         CZQM: 'CANADA', CZQX: 'CANADA', CZQO: 'CANADA',
         CZWG: 'CANADA', CZEG: 'CANADA', CZVR: 'CANADA',
+        // Mexico
+        MMMX: 'MEXICO', MMTY: 'MEXICO', MMZT: 'MEXICO',
+        MMMD: 'MEXICO', MMUN: 'MEXICO', MMFR: 'MEXICO', MMFO: 'MEXICO',
+        // Caribbean
+        TJZS: 'CARIBBEAN', MKJK: 'CARIBBEAN', MUFH: 'CARIBBEAN',
+        MDCS: 'CARIBBEAN', TNCF: 'CARIBBEAN', TTZP: 'CARIBBEAN',
+        MHCC: 'CARIBBEAN', MPZL: 'CARIBBEAN',
+        // ECFMP
+        EGPX: 'ECFMP', EGTT: 'ECFMP', EISN: 'ECFMP',
+        LFFF: 'ECFMP', LFBB: 'ECFMP', LFEE: 'ECFMP', LFMM: 'ECFMP', LFRR: 'ECFMP',
+        EDGG: 'ECFMP', EDMM: 'ECFMP', EDUU: 'ECFMP', EDWW: 'ECFMP',
+        EHAA: 'ECFMP', EBBU: 'ECFMP', ELLX: 'ECFMP', LSAS: 'ECFMP',
+        EFIN: 'ECFMP', ENOR: 'ECFMP', ESAA: 'ECFMP', EKDK: 'ECFMP',
+        BIRD: 'ECFMP', BICC: 'ECFMP',
+        EETT: 'ECFMP', EVRR: 'ECFMP', EYVL: 'ECFMP', EPWW: 'ECFMP',
+        LOVV: 'ECFMP', LKAA: 'ECFMP', LZBB: 'ECFMP', LHCC: 'ECFMP',
+        LDZO: 'ECFMP', LJLA: 'ECFMP', LQSB: 'ECFMP',
+        LECM: 'ECFMP', LECB: 'ECFMP', LECS: 'ECFMP', LPPC: 'ECFMP',
+        LIBB: 'ECFMP', LIMM: 'ECFMP', LIPP: 'ECFMP', LIRR: 'ECFMP',
+        LGGG: 'ECFMP', LCCC: 'ECFMP', LMMM: 'ECFMP',
+        LRBB: 'ECFMP', LBSR: 'ECFMP',
+        LTAA: 'ECFMP', LYBA: 'ECFMP', LAAA: 'ECFMP', LWSK: 'ECFMP', LUUU: 'ECFMP',
     };
 
     // ========================================

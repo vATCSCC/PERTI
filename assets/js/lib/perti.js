@@ -344,7 +344,7 @@
             'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
             'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
             // Non-CONUS domestic
-            'ZAN', 'ZHN', 'ZSU',
+            'ZAN', 'ZHN',
             // Oceanic/Territory
             'ZAK', 'ZAP', 'ZHO', 'ZMO', 'ZUA', 'ZWY',
         ]),
@@ -370,22 +370,44 @@
         FIR_CANADA: Object.freeze([
             'CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ',
         ]),
-        // European FIRs (commonly referenced)
+        // European FIRs (ECFMP coverage area)
         FIR_EUROPE: Object.freeze([
-            'EGPX', 'EGTT', 'EISN', 'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
-            'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'LSAS', 'LOVV',
-            'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LECM', 'LECB', 'LECS', 'LPPC',
-            'EKDK', 'ENOR', 'ESAA', 'EFIN', 'BIRD', 'BICC',
+            // UK-Ireland
+            'EGPX', 'EGTT', 'EISN',
+            // FABEC (France, Germany, Benelux, Switzerland)
+            'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+            'EDGG', 'EDMM', 'EDUU', 'EDWW',
+            'EHAA', 'EBBU', 'ELLX', 'LSAS',
+            // Nordic / DK-SE / Iceland
+            'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+            // Baltic
+            'EETT', 'EVRR', 'EYVL', 'EPWW',
+            // FAB CE (Central Europe)
+            'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+            // SW FAB (Iberia)
+            'LECM', 'LECB', 'LECS', 'LPPC',
+            // BLUE MED (Italy, Greece, Cyprus, Malta)
+            'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+            // DANUBE (Romania, Bulgaria)
+            'LRBB', 'LBSR',
+            // Other (Turkey, Serbia, Albania, N. Macedonia, Moldova)
+            'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
         ]),
         // Global FIRs (comprehensive list for dropdowns)
         FIR_GLOBAL: Object.freeze([
             // Canada
             'CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ',
-            // Europe
-            'EGPX', 'EGTT', 'EISN', 'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
-            'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'LSAS', 'LOVV',
-            'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LECM', 'LECB', 'LECS', 'LPPC',
-            'EKDK', 'ENOR', 'ESAA', 'EFIN', 'BIRD', 'BICC',
+            // Europe (ECFMP coverage)
+            'EGPX', 'EGTT', 'EISN',
+            'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+            'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+            'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+            'EETT', 'EVRR', 'EYVL', 'EPWW',
+            'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+            'LECM', 'LECB', 'LECS', 'LPPC',
+            'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+            'LRBB', 'LBSR',
+            'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
             // Eastern Europe / Russia
             'UUUU', 'UMMV', 'UKBV', 'UKDV', 'UKLV', 'UKOV',
             // Middle East
@@ -403,8 +425,11 @@
             // South America
             'SCEZ', 'SCEL', 'SUEO', 'SABE', 'SBBS', 'SBCW', 'SBRE', 'SBAZ',
             'SVZM', 'SKED', 'SKEC', 'SPIM', 'SLLF', 'SEGU',
-            // Central America / Caribbean / Mexico
-            'MHTG', 'MGGT', 'MMMX', 'MMFR', 'MMTY', 'MMZT', 'TJZS', 'MKJK', 'MDCS', 'TTZP',
+            // Mexico
+            'MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO',
+            // Caribbean / Central America
+            'TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL',
+            'MHTG', 'MGGT',
         ]),
     });
 
@@ -440,7 +465,7 @@
         'ZNY': 'New York Center', 'ZOA': 'Oakland Center', 'ZOB': 'Cleveland Center',
         'ZSE': 'Seattle Center', 'ZTL': 'Atlanta Center',
         // US ARTCCs — Non-CONUS domestic
-        'ZAN': 'Anchorage Center', 'ZHN': 'Honolulu Center', 'ZSU': 'San Juan CERAP',
+        'ZAN': 'Anchorage Center', 'ZHN': 'Honolulu Center',
         // US ARTCCs — Oceanic/Territory
         'ZAK': 'Oakland Oceanic', 'ZAP': 'Anchorage Oceanic', 'ZHO': 'Houston Oceanic',
         'ZMO': 'Miami Oceanic', 'ZUA': 'Guam CERAP', 'ZWY': 'New York Oceanic',
@@ -798,7 +823,7 @@
         VATCAN: { name: 'Canada', region: 'CANADA' },
         VATMEX: { name: 'Mexico', region: 'MEXICO' },
         VATCAR: { name: 'Caribbean', region: 'CARIBBEAN' },
-        ECFMP: { name: 'Europe/N. Africa', region: 'EMEA' },
+        ECFMP: { name: 'Europe/N. Africa', region: 'ECFMP' },
     });
 
     // Role definitions for various operations
@@ -882,7 +907,7 @@
         SOUTHEAST: {
             name: 'DCC Southeast',
             color: '#ffc107',
-            artccs: ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZSU', 'ZTL'],
+            artccs: ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
         },
         NORTHEAST: {
             name: 'DCC Northeast',
@@ -893,6 +918,42 @@
             name: 'Canada',
             color: '#6f42c1',
             artccs: ['CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ'],
+        },
+        MEXICO: {
+            name: 'Mexico',
+            color: '#20c997',
+            artccs: ['MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO'],
+        },
+        CARIBBEAN: {
+            name: 'Caribbean',
+            color: '#e83e8c',
+            artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+        },
+        ECFMP: {
+            name: 'ECFMP',
+            color: '#17a2b8',
+            artccs: [
+                // UK-Ireland
+                'EGPX', 'EGTT', 'EISN',
+                // FABEC (France, Germany, Benelux, Switzerland)
+                'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+                'EDGG', 'EDMM', 'EDUU', 'EDWW',
+                'EHAA', 'EBBU', 'ELLX', 'LSAS',
+                // Nordic (NEFAB + DK-SE)
+                'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+                // Baltic
+                'EETT', 'EVRR', 'EYVL', 'EPWW',
+                // FAB CE (Central Europe)
+                'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+                // SW FAB (Iberia)
+                'LECM', 'LECB', 'LECS', 'LPPC',
+                // BLUE MED (Italy, Greece, Cyprus, Malta)
+                'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+                // DANUBE (Romania, Bulgaria)
+                'LRBB', 'LBSR',
+                // Other (Turkey, Serbia, Albania, N. Macedonia, Moldova)
+                'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
+            ],
         },
         OTHER: {
             name: 'Other',
@@ -1107,7 +1168,6 @@
         'ZOA': [-122, 38],
         'ZOB': [-82, 41],
         'ZSE': [-122, 47],
-        'ZSU': [-66, 18],
         'ZTL': [-84, 34],
     });
 
@@ -1145,6 +1205,7 @@
         'CANADA': 6,
         'MEXICO': 7,
         'CARIBBEAN': 8,
+        'ECFMP': 9,
         'OTHER': 99,
     });
 
@@ -1244,13 +1305,26 @@
     ARTCC_ALIASES['PAZN'] = 'ZAP';   // Anchorage Oceanic
     ARTCC_ALIASES['PHZH'] = 'ZHN';   // Honolulu
 
-    // Mexican FIRs: informal short codes → ICAO
-    ARTCC_ALIASES['ZMX']  = 'MMMX';  // Mexico City
-    ARTCC_ALIASES['ZMZ']  = 'MMZT';  // Mazatlan
-    ARTCC_ALIASES['ZMR']  = 'MMMD';  // Merida
-    ARTCC_ALIASES['ZMT']  = 'MMTY';  // Monterrey
-    ARTCC_ALIASES['MMFR'] = 'MMFR';  // Mexico FIR (already canonical)
-    ARTCC_ALIASES['MMFO'] = 'MMFO';  // Mazatlan Oceanic FIR (already canonical)
+    // Mexican FIRs: canonical ICAO → [short aliases]
+    var MEXICAN_FIRS = {
+        'MMMX': ['ZMX'],      // Mexico City ACC
+        'MMTY': ['ZMT'],      // Monterrey ACC
+        'MMZT': ['ZMZ'],      // Mazatlan ACC
+        'MMMD': ['ZMR'],      // Merida ACC
+        'MMUN': ['ZMC'],      // Cancun ACC
+        'MMFR': [],           // Mexico FIR (canonical only)
+        'MMFO': [],           // Mazatlan Oceanic FIR (canonical only)
+    };
+    Object.keys(MEXICAN_FIRS).forEach(function(canonical) {
+        ARTCC_ALIASES[canonical] = canonical;
+        MEXICAN_FIRS[canonical].forEach(function(alias) {
+            ARTCC_ALIASES[alias] = canonical;
+        });
+    });
+
+    // Caribbean — ZSU (FAA) → TJZS (ICAO), same facility
+    ARTCC_ALIASES['TJZS'] = 'TJZS';  // San Juan FIR (canonical ICAO)
+    ARTCC_ALIASES['ZSU']  = 'TJZS';  // FAA code → ICAO canonical
 
     // European pseudo-code
     ARTCC_ALIASES['ZEU']  = 'EGTT';  // "Europe" → London FIR (primary reference)
@@ -1366,6 +1440,37 @@
         'CZYZ': '#9b59b6', 'CZUL': '#8e44ad', 'CZQM': '#6c3483',
         'CZQX': '#5b2c6f', 'CZQO': '#4a235a',
         'CZWG': '#ff69b4', 'CZEG': '#ff1493', 'CZVR': '#db7093',
+        // Mexican FIRs (teal-greens) — DCC_REGIONS.MEXICO.color = '#20c997'
+        'MMMX': '#1a9e7a', 'MMTY': '#20c997', 'MMZT': '#40d4a5',
+        'MMMD': '#63dfb8', 'MMUN': '#86e9cb',
+        'MMFR': '#14856a', 'MMFO': '#0f6b55',
+        // Caribbean FIRs (pinks) — DCC_REGIONS.CARIBBEAN.color = '#e83e8c'
+        'TJZS': '#e83e8c', 'MKJK': '#d63384', 'MUFH': '#eb559d',
+        'MDCS': '#c4286e', 'TNCF': '#b02060', 'TTZP': '#f06dae',
+        'MHCC': '#a51b58', 'MPZL': '#91164c',
+        // ECFMP FIRs (cyans) — DCC_REGIONS.ECFMP.color = '#17a2b8'
+        // UK-Ireland
+        'EGPX': '#1b8a9e', 'EGTT': '#17a2b8', 'EISN': '#20b2c9',
+        // FABEC
+        'LFFF': '#138496', 'LFBB': '#1591a6', 'LFEE': '#0f7385', 'LFMM': '#1ba7bd', 'LFRR': '#0d6775',
+        'EDGG': '#2ec4db', 'EDMM': '#3dd0e5', 'EDUU': '#4dd9ec', 'EDWW': '#5ce2f3',
+        'EHAA': '#1dc2d9', 'EBBU': '#0eb3cc', 'ELLX': '#00a3bf', 'LSAS': '#0094b2',
+        // Nordic / Baltic / Iceland
+        'EFIN': '#5bb8c9', 'ENOR': '#4aadbe', 'ESAA': '#6cc3d4', 'EKDK': '#7dcede',
+        'BIRD': '#8ed9e8', 'BICC': '#9fe4f2',
+        'EETT': '#39a2b3', 'EVRR': '#2897a8', 'EYVL': '#178c9d', 'EPWW': '#068192',
+        // FAB CE
+        'LOVV': '#1596ab', 'LKAA': '#138ba0', 'LZBB': '#118095', 'LHCC': '#0f758a',
+        'LDZO': '#0d6a7f', 'LJLA': '#0b5f74', 'LQSB': '#095469',
+        // SW FAB
+        'LECM': '#21b8cf', 'LECB': '#33c2d7', 'LECS': '#45ccdf', 'LPPC': '#57d6e7',
+        // BLUE MED
+        'LIBB': '#0a8da1', 'LIMM': '#0c97ab', 'LIPP': '#0ea1b5', 'LIRR': '#10abbf',
+        'LGGG': '#12b5c9', 'LCCC': '#14bfd3', 'LMMM': '#16c9dd',
+        // DANUBE
+        'LRBB': '#08839a', 'LBSR': '#067990',
+        // Other European
+        'LTAA': '#046f86', 'LYBA': '#02657c', 'LAAA': '#005b72', 'LWSK': '#005168', 'LUUU': '#00475e',
         // Fallbacks
         'OTHER': '#6c757d', 'UNKNOWN': '#adb5bd',
     });
@@ -1381,13 +1486,43 @@
         'ZDV': 'Denver', 'ZLC': 'Salt Lake', 'ZLA': 'Los Angeles',
         'ZOA': 'Oakland', 'ZSE': 'Seattle',
         // US ARTCCs — Non-CONUS / Oceanic / Territory
-        'ZAN': 'Anchorage', 'ZHN': 'Honolulu', 'ZSU': 'San Juan',
+        'ZAN': 'Anchorage', 'ZHN': 'Honolulu',
         'ZAK': 'Oakland Oceanic', 'ZAP': 'Anchorage Oceanic', 'ZUA': 'Guam',
         'ZHO': 'Houston Oceanic', 'ZMO': 'Miami Oceanic', 'ZWY': 'NY Oceanic',
         // Canadian FIRs
         'CZYZ': 'Toronto', 'CZUL': 'Montreal',
         'CZQM': 'Moncton', 'CZQX': 'Gander', 'CZQO': 'Gander Oceanic',
         'CZWG': 'Winnipeg', 'CZEG': 'Edmonton', 'CZVR': 'Vancouver',
+        // Mexican ACCs
+        'MMMX': 'Mexico City', 'MMTY': 'Monterrey', 'MMZT': 'Mazatlan',
+        'MMMD': 'Merida', 'MMUN': 'Cancun',
+        'MMFR': 'Mexico FIR', 'MMFO': 'Mazatlan Oceanic',
+        // Caribbean FIRs
+        'TJZS': 'San Juan', 'MKJK': 'Kingston', 'MUFH': 'Havana',
+        'MDCS': 'Santo Domingo', 'TNCF': 'Curacao', 'TTZP': 'Piarco',
+        'MHCC': 'Honduras', 'MPZL': 'Panama',
+        // European FIRs — UK-Ireland
+        'EGPX': 'Scottish', 'EGTT': 'London', 'EISN': 'Shannon',
+        // FABEC
+        'LFFF': 'Paris', 'LFBB': 'Bordeaux', 'LFEE': 'Reims', 'LFMM': 'Marseille', 'LFRR': 'Brest',
+        'EDGG': 'Langen', 'EDMM': 'Munich', 'EDUU': 'Maastricht', 'EDWW': 'Bremen',
+        'EHAA': 'Amsterdam', 'EBBU': 'Brussels', 'ELLX': 'Luxembourg', 'LSAS': 'Zurich',
+        // Nordic / Baltic / Iceland
+        'EFIN': 'Helsinki', 'ENOR': 'Norway', 'ESAA': 'Sweden', 'EKDK': 'Copenhagen',
+        'BIRD': 'Reykjavik', 'BICC': 'Iceland Oceanic',
+        'EETT': 'Tallinn', 'EVRR': 'Riga', 'EYVL': 'Vilnius', 'EPWW': 'Warsaw',
+        // FAB CE
+        'LOVV': 'Vienna', 'LKAA': 'Prague', 'LZBB': 'Bratislava', 'LHCC': 'Budapest',
+        'LDZO': 'Zagreb', 'LJLA': 'Ljubljana', 'LQSB': 'Sarajevo',
+        // SW FAB
+        'LECM': 'Madrid', 'LECB': 'Barcelona', 'LECS': 'Seville', 'LPPC': 'Lisbon',
+        // BLUE MED
+        'LIBB': 'Brindisi', 'LIMM': 'Milan', 'LIPP': 'Padua', 'LIRR': 'Rome',
+        'LGGG': 'Athens', 'LCCC': 'Nicosia', 'LMMM': 'Malta',
+        // DANUBE
+        'LRBB': 'Bucharest', 'LBSR': 'Sofia',
+        // Other European
+        'LTAA': 'Ankara', 'LYBA': 'Belgrade', 'LAAA': 'Tirana', 'LWSK': 'Skopje', 'LUUU': 'Chisinau',
     });
 
     const UI = Object.freeze({

@@ -45,7 +45,6 @@ define('SPLITS_ARTCC_LIST', [
     'ZOA' => 'Oakland',
     'ZOB' => 'Cleveland',
     'ZSE' => 'Seattle',
-    'ZSU' => 'San Juan',
     'ZTL' => 'Atlanta',
     'ZUA' => 'Guam'
 ]);
@@ -93,7 +92,8 @@ define('SPLITS_FACILITY_CENTERS', [
     'ZOA' => [-122.22, 37.62],
     'ZOB' => [-81.85, 41.41],
     'ZSE' => [-122.31, 47.45],
-    'ZSU' => [-66.00, 18.43],
     'ZTL' => [-84.43, 33.64],
-    'ZUA' => [144.80, 13.48]
+    'ZUA' => [144.80, 13.48],
+    // Caribbean FIRs
+    'TJZS' => [-66.00, 18.43],
 ]);

@@ -13,7 +13,11 @@
     "southeast": "DANUBE",
     "northeast": "NEFAB",
     "canadaEast": "UK-Ireland",
-    "canadaWest": "SW FAB"
+    "canadaWest": "SW FAB",
+    "mexico": "Mexico",
+    "caribbean": "Caribbean",
+    "ecfmp": "ECFMP",
+    "canada": "Canada"
   },
   "sua": {
     "popupArtcc": "ACC/FIR",

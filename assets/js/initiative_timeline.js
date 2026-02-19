@@ -66,7 +66,7 @@ class InitiativeTimeline {
     buildFacilitiesList() {
         const _P = (typeof PERTI !== 'undefined' && PERTI.FACILITY) ? PERTI.FACILITY.FACILITY_LISTS : null;
         const artccs = _P ? [..._P.ARTCC_ALL]
-            : ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZSU', 'ZTL'];
+            : ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'];
         const tracons = _P ? [..._P.TRACON]
             : ['A11', 'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'F11', 'I90', 'L30', 'M03', 'M98', 'N90', 'NCT', 'P31', 'P50', 'P80', 'PCT', 'R90', 'S46', 'S56', 'SCT', 'T75', 'U90', 'Y90'];
         const airports = _P ? [..._P.ATCT]
@@ -385,7 +385,7 @@ class InitiativeTimeline {
                                     <div class="row compact-row">
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
-                                            <input type="text" class="form-control" id="${this.modalId}-cdw-facility" list="${this.modalId}-facilities" placeholder="ZMA, ZSU...">
+                                            <input type="text" class="form-control" id="${this.modalId}-cdw-facility" list="${this.modalId}-facilities" placeholder="ZMA, ZJX...">
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.decisionPoint')}</label>
@@ -970,7 +970,7 @@ class InitiativeTimeline {
     }
 
     geoOrder(f) {
-        const order = { 'NAS': 0, 'ZBW': 10, 'N90': 11, 'ZNY': 12, 'ZDC': 14, 'ZJX': 20, 'ZTL': 21, 'ZMA': 23, 'ZAU': 30, 'ZID': 32, 'ZMP': 33, 'ZKC': 34, 'ZME': 35, 'ZFW': 40, 'ZHU': 42, 'ZDV': 50, 'ZLC': 52, 'ZAB': 53, 'ZLA': 60, 'ZOA': 62, 'ZSE': 64, 'ZAN': 70, 'ZSU': 71 };
+        const order = { 'NAS': 0, 'ZBW': 10, 'N90': 11, 'ZNY': 12, 'ZDC': 14, 'ZJX': 20, 'ZTL': 21, 'ZMA': 23, 'ZAU': 30, 'ZID': 32, 'ZMP': 33, 'ZKC': 34, 'ZME': 35, 'ZFW': 40, 'ZHU': 42, 'ZDV': 50, 'ZLC': 52, 'ZAB': 53, 'ZLA': 60, 'ZOA': 62, 'ZSE': 64, 'ZAN': 70, 'TJZS': 71 };
         return order[f] ?? 100;
     }
 

@@ -681,7 +681,7 @@ if ($org_mismatch):
                         <option value="ZJX">ZJX - Jacksonville ARTCC</option>
                         <option value="ZMA">ZMA - Miami ARTCC</option>
                         <option value="ZMO">ZMO - Miami OCA</option>
-                        <option value="ZSU">ZSU - San Juan CERAP</option>
+                        <option value="TJZS">TJZS - San Juan FIR</option>
                         <option value="CZVR">CZVR - Vancouver FIR</option>
                         <option value="CZEG">CZEG - Edmonton FIR</option>
                         <option value="CZWG">CZWG - Winnipeg FIR</option>
@@ -783,7 +783,7 @@ if ($org_mismatch):
                         <option value="ZJX">ZJX - Jacksonville ARTCC</option>
                         <option value="ZMA">ZMA - Miami ARTCC</option>
                         <option value="ZMO">ZMO - Miami OCA</option>
-                        <option value="ZSU">ZSU - San Juan CERAP</option>
+                        <option value="TJZS">TJZS - San Juan FIR</option>
                         <option value="CZVR">CZVR - Vancouver FIR</option>
                         <option value="CZEG">CZEG - Edmonton FIR</option>
                         <option value="CZWG">CZWG - Winnipeg FIR</option>
@@ -1585,7 +1585,7 @@ if ($org_mismatch):
                         <option>ZJX - Jacksonville ARTCC</option>
                         <option>ZMA - Miami ARTCC</option>
                         <option>ZMO - Miami OCA</option>
-                        <option>ZSU - San Juan CERAP</option>
+                        <option>TJZS - San Juan FIR</option>
                         <option>CZVR - Vancouver FIR</option>
                         <option>CZEG - Edmonton FIR</option>
                         <option>CZWG - Winnipeg FIR</option>
@@ -1673,7 +1673,7 @@ if ($org_mismatch):
                         <option>ZJX - Jacksonville ARTCC</option>
                         <option>ZMA - Miami ARTCC</option>
                         <option>ZMO - Miami OCA</option>
-                        <option>ZSU - San Juan CERAP</option>
+                        <option>TJZS - San Juan FIR</option>
                         <option>CZVR - Vancouver FIR</option>
                         <option>CZEG - Edmonton FIR</option>
                         <option>CZWG - Winnipeg FIR</option>
@@ -1761,7 +1761,7 @@ if ($org_mismatch):
                         <option>ZJX - Jacksonville ARTCC</option>
                         <option>ZMA - Miami ARTCC</option>
                         <option>ZMO - Miami OCA</option>
-                        <option>ZSU - San Juan CERAP</option>
+                        <option>TJZS - San Juan FIR</option>
                         <option>CZVR - Vancouver FIR</option>
                         <option>CZEG - Edmonton FIR</option>
                         <option>CZWG - Winnipeg FIR</option>
@@ -1838,7 +1838,7 @@ if ($org_mismatch):
                         <option>ZJX - Jacksonville ARTCC</option>
                         <option>ZMA - Miami ARTCC</option>
                         <option>ZMO - Miami OCA</option>
-                        <option>ZSU - San Juan CERAP</option>
+                        <option>TJZS - San Juan FIR</option>
                         <option>CZVR - Vancouver FIR</option>
                         <option>CZEG - Edmonton FIR</option>
                         <option>CZWG - Winnipeg FIR</option>

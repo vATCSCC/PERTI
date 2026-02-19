@@ -47,10 +47,21 @@
         'ZAK', 'ZAP', 'ZWY', 'ZHO', 'ZMO', 'ZUA',
         // Canada (ICAO codes)
         'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL',
-        // Mexico FIRs
-        'MMFR', 'MMFO',
+        // Mexico ACCs/FIRs
+        'MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO',
         // Caribbean & Central American FIRs
         'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL',
+        // European FIRs (ECFMP coverage)
+        'EGPX', 'EGTT', 'EISN',
+        'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+        'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+        'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+        'EETT', 'EVRR', 'EYVL', 'EPWW',
+        'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+        'LECM', 'LECB', 'LECS', 'LPPC',
+        'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+        'LRBB', 'LBSR',
+        'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
     ];
 
     // ===========================================
@@ -74,7 +85,15 @@
         'ZUA': ['PGZU'],           // Guam CERAP
         'ZAN': ['PAZA'],           // Anchorage ARTCC
         'ZAP': ['PAZN'],           // Anchorage Oceanic
-        'ZHN': ['PHZH'],            // Honolulu
+        'ZHN': ['PHZH'],           // Honolulu
+        // Mexican FIRs: ICAO -> Short
+        'MMMX': ['ZMX'],           // Mexico City
+        'MMTY': ['ZMT'],           // Monterrey
+        'MMZT': ['ZMZ'],           // Mazatlan
+        'MMMD': ['ZMR'],           // Merida
+        'MMUN': ['ZMC'],           // Cancun
+        // Caribbean FIRs
+        'TJZS': ['ZSU'],           // San Juan
     };
 
     // Build reverse alias lookup (alias -> canonical)
@@ -101,26 +120,14 @@
             'SOUTHEAST': { bgColor: 'rgba(255, 193, 7, 0.15)', textClass: 'text-warning' },
             'NORTHEAST': { bgColor: 'rgba(0, 123, 255, 0.15)', textClass: 'text-primary' },
             'CANADA': { bgColor: 'rgba(111, 66, 193, 0.15)', textClass: 'text-purple' },
+            'MEXICO': { bgColor: 'rgba(32, 201, 151, 0.15)', textClass: 'text-teal' },
+            'CARIBBEAN': { bgColor: 'rgba(232, 62, 140, 0.15)', textClass: 'text-pink' },
+            'ECFMP': { bgColor: 'rgba(23, 162, 184, 0.15)', textClass: 'text-info' },
             'OTHER': { bgColor: 'rgba(108, 117, 125, 0.15)', textClass: 'text-muted' },
         };
 
-        // Additional regions not in PERTI (MEXICO, CARIBBEAN)
-        const EXTENDED_REGIONS = {
-            'MEXICO': {
-                name: 'Mexico',
-                artccs: ['MMFR', 'MMFO'],
-                color: '#8B4513',
-                bgColor: 'rgba(139, 69, 19, 0.15)',
-                textClass: 'text-brown',
-            },
-            'CARIBBEAN': {
-                name: 'Caribbean',
-                artccs: ['TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
-                color: '#e83e8c',
-                bgColor: 'rgba(232, 62, 140, 0.15)',
-                textClass: 'text-pink',
-            },
-        };
+        // Extended regions (MEXICO, CARIBBEAN, ECFMP now in PERTI source-of-truth)
+        const EXTENDED_REGIONS = {};
 
         // If PERTI is available, build from it
         if (_PERTI && _PERTI.GEOGRAPHIC && _PERTI.GEOGRAPHIC.DCC_REGIONS) {
@@ -186,6 +193,34 @@
                 color: '#6f42c1',
                 bgColor: 'rgba(111, 66, 193, 0.15)',
                 textClass: 'text-purple',
+            },
+            'MEXICO': {
+                name: 'Mexico',
+                artccs: ['MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO'],
+                color: '#20c997',
+                bgColor: 'rgba(32, 201, 151, 0.15)',
+                textClass: 'text-teal',
+            },
+            'CARIBBEAN': {
+                name: 'Caribbean',
+                artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+                color: '#e83e8c',
+                bgColor: 'rgba(232, 62, 140, 0.15)',
+                textClass: 'text-pink',
+            },
+            'ECFMP': {
+                name: 'ECFMP',
+                artccs: ['EGPX', 'EGTT', 'EISN', 'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+                    'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+                    'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+                    'EETT', 'EVRR', 'EYVL', 'EPWW',
+                    'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+                    'LECM', 'LECB', 'LECS', 'LPPC',
+                    'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+                    'LRBB', 'LBSR', 'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU'],
+                color: '#17a2b8',
+                bgColor: 'rgba(23, 162, 184, 0.15)',
+                textClass: 'text-info',
             },
             ...EXTENDED_REGIONS,
         };
@@ -572,6 +607,42 @@
             description: 'Eastern Canadian FIRs',
             artccs: ['CZWG', 'CZYZ', 'CZUL', 'CZQM'],
         },
+        // ECFMP FABs (Functional Airspace Blocks)
+        'UK_IRELAND': {
+            name: 'UK-Ireland',
+            description: 'UK and Ireland FIRs',
+            artccs: ['EGPX', 'EGTT', 'EISN'],
+        },
+        'FABEC': {
+            name: 'FABEC',
+            description: 'France, Germany, Benelux, Switzerland',
+            artccs: ['LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR', 'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS'],
+        },
+        'NEFAB': {
+            name: 'NEFAB',
+            description: 'Nordic/Baltic FAB (Finland, Norway, Sweden, Denmark, Iceland, Baltics)',
+            artccs: ['EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC', 'EETT', 'EVRR', 'EYVL', 'EPWW'],
+        },
+        'FAB_CE': {
+            name: 'FAB CE',
+            description: 'Central Europe FAB (Austria, Czech, Slovakia, Hungary, Croatia, Slovenia, Bosnia)',
+            artccs: ['LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB'],
+        },
+        'SW_FAB': {
+            name: 'SW FAB',
+            description: 'Southwest FAB (Spain, Portugal)',
+            artccs: ['LECM', 'LECB', 'LECS', 'LPPC'],
+        },
+        'BLUE_MED': {
+            name: 'BLUE MED',
+            description: 'Blue Mediterranean FAB (Italy, Greece, Cyprus, Malta)',
+            artccs: ['LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM'],
+        },
+        'DANUBE': {
+            name: 'DANUBE',
+            description: 'Danube FAB (Romania, Bulgaria)',
+            artccs: ['LRBB', 'LBSR'],
+        },
     };
 
     // ===========================================
@@ -612,6 +683,26 @@
         'GULF': {
             name: 'Gulf',
             artccs: ['ZJX', 'ZMA', 'ZHU'],
+        },
+        'MEXICO_ALL': {
+            name: 'All Mexico',
+            artccs: ['MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO'],
+        },
+        'CARIBBEAN_ALL': {
+            name: 'Caribbean',
+            artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+        },
+        'ECFMP_ALL': {
+            name: 'All ECFMP',
+            artccs: ['EGPX', 'EGTT', 'EISN',
+                'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+                'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+                'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+                'EETT', 'EVRR', 'EYVL', 'EPWW',
+                'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+                'LECM', 'LECB', 'LECS', 'LPPC',
+                'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+                'LRBB', 'LBSR', 'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU'],
         },
     };
 

@@ -119,7 +119,11 @@
     "southeast": "Southeast",
     "northeast": "Northeast",
     "canadaEast": "Canada East",
-    "canadaWest": "Canada West"
+    "canadaWest": "Canada West",
+    "mexico": "Mexico",
+    "caribbean": "Caribbean",
+    "ecfmp": "ECFMP",
+    "canada": "Canada"
   },
   "sua": {
     "cancelActivation": {

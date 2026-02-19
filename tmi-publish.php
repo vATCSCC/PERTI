@@ -1759,7 +1759,7 @@ window.TMI_PUBLISHER_CONFIG = {
 </script>
 <script src="assets/js/advisory-config.js?v=1.0.0"></script>
 <script src="advisory-templates.js?v=1.0.0"></script>
-<script src="assets/js/tmi-publish.js?v=1.10.0"></script>
+<script src="assets/js/tmi-publish.js?v=1.10.1"></script>
 <script src="assets/js/tmi-active-display.js?v=1.2.0"></script>
 <script src="assets/js/tmi-gdp.js?v=1.1.0"></script>
 <script>

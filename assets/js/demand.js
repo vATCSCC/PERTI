@@ -1116,12 +1116,16 @@ function getDCCRegionColor(artcc) {
         // Canada - Purple
         'CZEG': '#6f42c1', 'CZVR': '#6f42c1', 'CZWG': '#6f42c1', 'CZYZ': '#6f42c1',
         'CZQM': '#6f42c1', 'CZQX': '#6f42c1', 'CZQO': '#6f42c1', 'CZUL': '#6f42c1',
-        // Mexico - Brown
-        'MMFR': '#8B4513', 'MMFO': '#8B4513',
+        // Mexico - Teal-green
+        'MMMX': '#20c997', 'MMTY': '#20c997', 'MMZT': '#20c997',
+        'MMMD': '#20c997', 'MMUN': '#20c997', 'MMFR': '#20c997', 'MMFO': '#20c997',
         // Caribbean - Pink
         'TJZS': '#e83e8c', 'MKJK': '#e83e8c', 'MUFH': '#e83e8c', 'MYNA': '#e83e8c',
+        'MDCS': '#e83e8c', 'TNCF': '#e83e8c', 'TTZP': '#e83e8c', 'MHCC': '#e83e8c', 'MPZL': '#e83e8c',
+        // ECFMP - Cyan
+        'EGPX': '#17a2b8', 'EGTT': '#17a2b8', 'EISN': '#17a2b8',
         // International oceanic regions
-        'ASIA': '#e83e8c', 'EURO': '#6f42c1', 'INTL': '#8B4513', 'YPAC': '#17a2b8',
+        'ASIA': '#e83e8c', 'EURO': '#17a2b8', 'INTL': '#6c757d', 'YPAC': '#17a2b8',
     };
 
     if (DCC_REGION_COLORS[artcc]) {
