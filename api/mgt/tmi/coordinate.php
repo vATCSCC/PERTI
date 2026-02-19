@@ -788,12 +788,6 @@ function handleListProposals($includeAll = false) {
     }
 
     try {
-        // Keep UI state fresh even if background cron cadence is delayed.
-        // Only run on pending list requests (not history/all).
-        if (!$includeAll) {
-            syncProposalReactionsForUi();
-        }
-
         // Build query based on filter
         if ($includeAll) {
             $sql = "SELECT p.*,
@@ -857,44 +851,6 @@ function handleListProposals($includeAll = false) {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Query error: ' . $e->getMessage()]);
-    }
-}
-
-/**
- * Process pending proposal reactions inline for UI refresh paths.
- * This avoids relying solely on external cron/webhook timing.
- */
-function syncProposalReactionsForUi() {
-    static $alreadyRan = false;
-
-    if ($alreadyRan) {
-        return;
-    }
-    $alreadyRan = true;
-
-    $cronPath = __DIR__ . '/../../../cron/process_tmi_proposals.php';
-    if (!file_exists($cronPath)) {
-        return;
-    }
-
-    $originalCronKey = $_GET['cron_key'] ?? null;
-    $_GET['cron_key'] = getenv('CRON_KEY') ?: 'tmi_proposal_cron_2026';
-
-    try {
-        ob_start();
-        include $cronPath;
-        ob_end_clean();
-    } catch (Throwable $e) {
-        if (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        error_log('syncProposalReactionsForUi failed: ' . $e->getMessage());
-    }
-
-    if ($originalCronKey === null) {
-        unset($_GET['cron_key']);
-    } else {
-        $_GET['cron_key'] = $originalCronKey;
     }
 }
 
