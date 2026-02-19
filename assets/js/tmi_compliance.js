@@ -554,7 +554,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const rrResults = this.results.reroute_results || {};
         const rrArray = Array.isArray(rrResults) ? rrResults : Object.values(rrResults);
         const hasReroutes = rrArray.length > 0;
-        const rrCompliance = hasReroutes ? (rrArray.reduce((s, rr) => s + (rr.filed_compliance_pct || 0), 0) / rrArray.length) : null;
+        const rrValid = rrArray.filter(rr => rr.filed_compliance_pct != null);
+        const rrCompliance = rrValid.length > 0 ? (rrValid.reduce((s, rr) => s + rr.filed_compliance_pct, 0) / rrValid.length) : (hasReroutes ? null : null);
         const overall = summary.overall_compliance_pct || 0;
 
         html += `
@@ -2477,8 +2478,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const action = r.action || (r.mandatory ? 'RQD' : 'FYI');
         const routeType = r.route_type || 'ROUTE';
         const actionBadgeClass = this.getActionBadgeClass(action);
-        const compPct = r.compliance_pct || r.filed_compliance_pct || 0;
-        const compClass = this.getComplianceClass(compPct);
+        const rawCompPct = r.compliance_pct != null ? r.compliance_pct : r.filed_compliance_pct;
+        const compPct = rawCompPct != null ? rawCompPct : null;
+        const compClass = compPct != null ? this.getComplianceClass(compPct) : 'na';
 
         const filedCompliant = r.filed_compliant || [];
         const filedNonCompliant = r.filed_non_compliant || [];
@@ -2506,7 +2508,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         </span>
                         ${endedBadge}
                     </div>
-                    <div class="compliance-badge ${compClass}">${compPct.toFixed(1)}%</div>
+                    <div class="compliance-badge ${compClass}">${compPct != null ? compPct.toFixed(1) + '%' : 'N/A'}</div>
                 </div>
         `;
 
@@ -2546,17 +2548,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         `;
 
         // Filed vs flown compliance split
-        const filedPct = r.filed_compliance_pct || 0;
-        const flownPct = r.flown_compliance_pct || 0;
+        const filedPct = r.filed_compliance_pct != null ? r.filed_compliance_pct : null;
+        const flownPct = r.flown_compliance_pct != null ? r.flown_compliance_pct : null;
         html += `
                 <div class="compliance-split">
                     <div class="filed">
                         <div class="small text-muted">${PERTII18n.t('tmiCompliance.reroute.filed')}</div>
-                        <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                        <div class="compliance-badge ${filedPct != null ? this.getComplianceClass(filedPct) : 'na'}" style="font-size:1rem;">${filedPct != null ? filedPct.toFixed(1) + '%' : 'N/A'}</div>
                     </div>
                     <div class="flown">
                         <div class="small text-muted">${PERTII18n.t('tmiCompliance.reroute.flown')}</div>
-                        <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                        <div class="compliance-badge ${flownPct != null ? this.getComplianceClass(flownPct) : 'na'}" style="font-size:1rem;">${flownPct != null ? flownPct.toFixed(1) + '%' : 'N/A'}</div>
                         ${r.no_trajectory_count ? `<div class="small text-muted">(${r.no_trajectory_count} no trajectory)</div>` : ''}
                     </div>
                 </div>
@@ -2705,8 +2707,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const filedNonCompliant = data.filed_non_compliant || [];
         const flownCompliant = data.flown_compliant || [];
         const flownNonCompliant = data.flown_non_compliant || [];
-        const filedPct = data.filed_compliance_pct || 0;
-        const flownPct = data.flown_compliance_pct || 0;
+        const filedPct = data.filed_compliance_pct != null ? data.filed_compliance_pct : null;
+        const flownPct = data.flown_compliance_pct != null ? data.flown_compliance_pct : null;
 
         // Ended-by badge
         let endedBadge = '';
@@ -2758,11 +2760,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="compliance-split mt-2">
                 <div class="filed">
                     <div class="small text-muted">${PERTII18n.t('tmiCompliance.reroute.v2.filedCompliance')}</div>
-                    <div class="compliance-badge ${this.getComplianceClass(filedPct)}" style="font-size:1rem;">${filedPct.toFixed(1)}%</div>
+                    <div class="compliance-badge ${filedPct != null ? this.getComplianceClass(filedPct) : 'na'}" style="font-size:1rem;">${filedPct != null ? filedPct.toFixed(1) + '%' : 'N/A'}</div>
                 </div>
                 <div class="flown">
                     <div class="small text-muted">${PERTII18n.t('tmiCompliance.reroute.v2.flownCompliance')}</div>
-                    <div class="compliance-badge ${this.getComplianceClass(flownPct)}" style="font-size:1rem;">${flownPct.toFixed(1)}%</div>
+                    <div class="compliance-badge ${flownPct != null ? this.getComplianceClass(flownPct) : 'na'}" style="font-size:1rem;">${flownPct != null ? flownPct.toFixed(1) + '%' : 'N/A'}</div>
                     ${data.no_trajectory_count ? `<div class="small text-muted">(${data.no_trajectory_count} no trajectory)</div>` : ''}
                 </div>
             </div>
@@ -6889,8 +6891,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             advisoryLines += `<div class="tmi-summary-line"><strong>GS:</strong> ${gsCount} program${gsCount > 1 ? 's' : ''}</div>`;
         }
         if (rerouteCount > 0) {
-            const avgFiledPct = rerouteArray.reduce((sum, rr) => sum + (rr.filed_compliance_pct || 0), 0) / rerouteCount;
-            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, filed ${avgFiledPct.toFixed(0)}% compliant</div>`;
+            const validReroutes = rerouteArray.filter(rr => rr.filed_compliance_pct != null);
+            const avgFiledPct = validReroutes.length > 0
+                ? validReroutes.reduce((sum, rr) => sum + rr.filed_compliance_pct, 0) / validReroutes.length
+                : null;
+            const compStr = avgFiledPct != null ? `filed ${avgFiledPct.toFixed(0)}% compliant` : 'N/A';
+            advisoryLines += `<div class="tmi-summary-line"><strong>Reroutes:</strong> ${rerouteCount} program${rerouteCount > 1 ? 's' : ''} (${mandatoryReroutes} mandatory), ${rerouteFlights} flights, ${compStr}</div>`;
         }
 
         // Data gap information
@@ -7008,13 +7014,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             (hs.hold_fixes || []).forEach((fix, idx) => {
                 const fixLabel = fix.fix_name || PERTII18n.t('tmiCompliance.unknownFixLabel');
                 const isSelected = this._selectedHoldingFix === idx;
-                const durMin = Math.round(fix.avg_duration_sec / 60);
+                const totalDurMin = Math.round((fix.total_duration_sec || fix.avg_duration_sec * fix.flight_count) / 60);
+                const altStr = fix.avg_altitude_ft ? (fix.avg_altitude_ft >= 18000 ? `FL${Math.round(fix.avg_altitude_ft / 100)}` : `${Math.round(fix.avg_altitude_ft).toLocaleString()}ft`) : '';
                 html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
                     <div class="tmi-list-item-identity">
                         <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
                     </div>
                     <div class="tmi-list-item-meta">
-                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                        ${fix.flight_count} flights, ${totalDurMin}min total${altStr ? ', ' + altStr : ''}${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
                     </div>
                 </div>`;
             });
@@ -7783,12 +7790,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         </div>`;
 
         // Overview stats
-        const durMin = Math.round(fix.avg_duration_sec / 60);
+        const avgDurMin = Math.round(fix.avg_duration_sec / 60);
+        const totalDurMin = Math.round((fix.total_duration_sec || fix.avg_duration_sec * fix.flight_count) / 60);
+        const altDisplay = fix.avg_altitude_ft ? (fix.avg_altitude_ft >= 18000 ? `FL${Math.round(fix.avg_altitude_ft / 100)}` : `${Math.round(fix.avg_altitude_ft).toLocaleString()}ft`) : '-';
+        const distDisplay = fix.avg_dist_to_dest_nm != null ? `${fix.avg_dist_to_dest_nm}nm` : '-';
         html += `<div class="tmi-detail-overview">
             <div class="stat"><div class="stat-value">${fix.flight_count}</div><div class="stat-label">Flights</div></div>
             <div class="stat"><div class="stat-value">${fix.total_orbits}</div><div class="stat-label">Total Orbits</div></div>
-            <div class="stat"><div class="stat-value">${durMin}m</div><div class="stat-label">Avg Duration</div></div>
+            <div class="stat"><div class="stat-value">${totalDurMin}m</div><div class="stat-label">Total Duration</div></div>
+            <div class="stat"><div class="stat-value">${avgDurMin}m</div><div class="stat-label">Avg Duration</div></div>
             <div class="stat"><div class="stat-value">${fix.peak_concurrent}</div><div class="stat-label">Peak Concurrent</div></div>
+            <div class="stat"><div class="stat-value">${altDisplay}</div><div class="stat-label">Avg Altitude</div></div>
+            <div class="stat"><div class="stat-value">${distDisplay}</div><div class="stat-label">Avg Dist to Dest</div></div>
         </div>`;
 
         // NTML badge
@@ -7799,23 +7812,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Flight list expandable section
         html += this.renderExpandableSectionV2('holding-flights-' + fixIdx, 'Flights', events.length, () => {
             let tableHtml = '<table class="tmi-pairs-table"><thead><tr>';
-            tableHtml += '<th>Callsign</th><th>Dep</th><th>Dest</th><th>Start</th><th>Duration</th><th>Orbits</th><th>Fix Source</th><th>Dir</th>';
+            tableHtml += '<th>Callsign</th><th>Dep</th><th>Dest</th><th>Start</th><th>Duration</th><th>Alt</th><th>Dist</th><th>GS</th><th>Orbits</th><th>Dir</th><th></th>';
             tableHtml += '</tr></thead><tbody>';
             events.forEach(e => {
                 const startTime = e.hold_start_utc ? e.hold_start_utc.substring(11, 16) : '-';
                 const durMin = Math.round(e.duration_sec / 60);
-                const sourceLabel = e.fix_match_source === 'route' ? 'Route'
-                    : e.fix_match_source === 'star' ? 'STAR'
-                    : e.fix_match_source === 'navfix' ? 'Nearby' : '-';
+                const altFt = e.avg_altitude_ft || 0;
+                const altStr = altFt >= 18000 ? `FL${Math.round(altFt / 100)}` : altFt > 0 ? `${Math.round(altFt).toLocaleString()}` : '-';
+                const distStr = e.dist_to_dest_nm != null ? `${e.dist_to_dest_nm}` : '-';
+                const gsStr = e.avg_groundspeed_kts ? `${Math.round(e.avg_groundspeed_kts)}` : '-';
+                const warnIcon = e.low_confidence ? ' <i class="fas fa-exclamation-triangle text-warning" title="Low confidence: sparse trajectory data"></i>' : '';
                 tableHtml += `<tr>
                     <td><strong>${e.callsign}</strong></td>
                     <td>${e.dept || '-'}</td>
                     <td>${e.dest || '-'}</td>
                     <td>${startTime}Z</td>
                     <td>${durMin}min</td>
+                    <td>${altStr}</td>
+                    <td>${distStr}</td>
+                    <td>${gsStr}</td>
                     <td>${e.orbit_count}</td>
-                    <td>${sourceLabel}</td>
                     <td>${e.turn_direction || '-'}</td>
+                    <td>${warnIcon}</td>
                 </tr>`;
             });
             tableHtml += '</tbody></table>';
@@ -8273,13 +8291,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             (hs.hold_fixes || []).forEach((fix, idx) => {
                 const fixLabel = fix.fix_name || PERTII18n.t('tmiCompliance.unknownFixLabel');
                 const isSelected = this._selectedHoldingFix === idx;
-                const durMin = Math.round(fix.avg_duration_sec / 60);
+                const totalDurMin = Math.round((fix.total_duration_sec || fix.avg_duration_sec * fix.flight_count) / 60);
+                const altStr = fix.avg_altitude_ft ? (fix.avg_altitude_ft >= 18000 ? `FL${Math.round(fix.avg_altitude_ft / 100)}` : `${Math.round(fix.avg_altitude_ft).toLocaleString()}ft`) : '';
                 html += `<div class="tmi-list-item${isSelected ? ' selected' : ''}" onclick="TMICompliance.selectHoldingFix(${idx})">
                     <div class="tmi-list-item-identity">
                         <span class="tmi-type-badge holding">HPT</span> ${fixLabel}
                     </div>
                     <div class="tmi-list-item-meta">
-                        ${fix.flight_count} flights, ${durMin}min avg${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
+                        ${fix.flight_count} flights, ${totalDurMin}min total${altStr ? ', ' + altStr : ''}${fix.ntml_corroborated ? ' <i class="fas fa-check-circle" title="NTML corroborated"></i>' : ''}
                     </div>
                 </div>`;
             });

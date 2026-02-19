@@ -702,7 +702,10 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
     // Parse subsequent lines for ADVZY fields
     $in_routes_section = false;
     $routes_buffer = [];
-    $current_route_orig = null;
+    $from_routes = [];
+    $to_routes = [];
+    $other_routes = [];
+    $route_section = null; // null=standard, 'FROM', 'TO', 'OTHER'
 
     for ($i = $start_idx + 1; $i < min($start_idx + 100, count($lines)); $i++) {
         $line = trim($lines[$i]);
@@ -867,16 +870,33 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                     // Parse origins (may be / or space separated)
                     $origins = preg_split('/[\/\s]+/', $orig_str);
                     $tmi['origins'] = array_values(array_filter(array_map(function($o) {
-                        $o = trim($o);
-                        // Skip facility codes like KZMA
-                        return (strlen($o) === 4 && $o[0] === 'K') ? $o : null;
+                        $o = strtoupper(trim($o));
+                        if (!$o) return null;
+                        // K-prefixed ARTCC codes (KZTL -> ZTL)
+                        if (strlen($o) === 4 && $o[0] === 'K' && $o[1] === 'Z') {
+                            return substr($o, 1);
+                        }
+                        // Standard ICAO airports (KJFK, KBOS)
+                        if (strlen($o) === 4 && $o[0] === 'K') return $o;
+                        // ARTCC codes (ZTL, ZJX, ZMA)
+                        if (strlen($o) === 3 && $o[0] === 'Z') return $o;
+                        return null;
                     }, $origins)));
 
                     // Parse destinations
                     $dests = preg_split('/[\/\s]+/', $dest_str);
                     $tmi['destinations'] = array_values(array_filter(array_map(function($d) {
-                        $d = trim($d);
-                        return (strlen($d) === 4 && $d[0] === 'K') ? $d : null;
+                        $d = strtoupper(trim($d));
+                        if (!$d) return null;
+                        // K-prefixed ARTCC codes (KZTL -> ZTL)
+                        if (strlen($d) === 4 && $d[0] === 'K' && $d[1] === 'Z') {
+                            return substr($d, 1);
+                        }
+                        // Standard ICAO airports (KJFK, KBOS)
+                        if (strlen($d) === 4 && $d[0] === 'K') return $d;
+                        // ARTCC codes (ZTL, ZJX, ZMA)
+                        if (strlen($d) === 3 && $d[0] === 'Z') return $d;
+                        return null;
                     }, $dests)));
                 }
                 continue;
@@ -938,34 +958,114 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             }
 
             // Parse route table rows (after ROUTES: section)
+            // This parser is the inverse of formatRouteTable() / formatSplitRouteTable()
+            // in tmi-publish.js. It handles three formats:
+            //   Standard: ORIG  DEST  ROUTE (with continuation lines)
+            //   Split:    FROM: / TO: sections with ORIG ROUTE / DEST ROUTE
+            //   Other:    OTHER ROUTES: with ORIG DEST ROUTE
             if ($in_routes_section) {
-                // Skip header lines like "ORIG  DEST  ROUTE" or "----  ----  -----"
-                if (preg_match('/^(ORIG|FROM|TO|----)/i', $line)) {
+                // Section markers (state transitions)
+                if (preg_match('/^FROM:/i', $line)) { $route_section = 'FROM'; continue; }
+                if (preg_match('/^TO:/i', $line)) { $route_section = 'TO'; continue; }
+                if (preg_match('/^OTHER\s+ROUTES:/i', $line)) { $route_section = 'OTHER'; continue; }
+
+                // Skip header/separator lines
+                if (preg_match('/^(ORIG|DEST|ROUTE\s|----|-{3,})/i', $line)) continue;
+
+                // Continuation line: starts with 10+ spaces, no airport code at column 0
+                if (preg_match('/^\s{10,}(\S.*)/', $line, $cm)) {
+                    if ($route_section === 'FROM') {
+                        $target = &$from_routes;
+                    } elseif ($route_section === 'TO') {
+                        $target = &$to_routes;
+                    } elseif ($route_section === 'OTHER') {
+                        $target = &$other_routes;
+                    } else {
+                        $target = &$routes_buffer;
+                    }
+                    if (!empty($target)) {
+                        $target[count($target) - 1]['route'] .= ' ' . trim($cm[1]);
+                    }
+                    unset($target);
                     continue;
                 }
 
-                // Route row: KPHL  KBOS  >DITCH LUIGI HNNAH MERIT< ROBUC3
-                // Or continuation line starting with spaces
-                if (preg_match('/^([A-Z0-9\/\s\-\(\)]+?)\s{2,}(K[A-Z]{3})?\s*(.*)/i', $line, $rm)) {
-                    $orig_part = trim($rm[1]);
-                    $dest_part = isset($rm[2]) ? trim($rm[2]) : '';
-                    $route_part = isset($rm[3]) ? trim($rm[3]) : '';
-
-                    if ($orig_part && !preg_match('/^-+$/', $orig_part)) {
-                        $current_route_orig = $orig_part;
+                // Parse row based on current section
+                if ($route_section === 'FROM') {
+                    // FROM section: ORIG  ROUTE (2-column, ~20-char label width)
+                    if (preg_match('/^(\S+(?:\s+\S+)*?)\s{2,}(.+)/', $line, $rm)) {
+                        $from_routes[] = ['orig' => trim($rm[1]), 'route' => trim($rm[2])];
                     }
-
-                    if ($route_part) {
-                        $routes_buffer[] = [
-                            'orig' => $current_route_orig,
-                            'dest' => $dest_part ?: ($tmi['destinations'][0] ?? ''),
-                            'route' => $route_part
-                        ];
+                } elseif ($route_section === 'TO') {
+                    // TO section: DEST  ROUTE (2-column)
+                    if (preg_match('/^(\S+(?:\s+\S+)*?)\s{2,}(.+)/', $line, $rm)) {
+                        $to_routes[] = ['dest' => trim($rm[1]), 'route' => trim($rm[2])];
+                    }
+                } else {
+                    // Standard or OTHER: ORIG  DEST  ROUTE (3-column)
+                    if (preg_match('/^(\S+(?:\s\S+)*?)\s{2,}([A-Z][A-Z0-9]{2,3})\s{2,}(.+)/i', $line, $rm)) {
+                        if ($route_section === 'OTHER') {
+                            $other_routes[] = [
+                                'orig' => trim($rm[1]),
+                                'dest' => trim($rm[2]),
+                                'route' => trim($rm[3])
+                            ];
+                        } else {
+                            $routes_buffer[] = [
+                                'orig' => trim($rm[1]),
+                                'dest' => trim($rm[2]),
+                                'route' => trim($rm[3])
+                            ];
+                        }
                     }
                 }
             }
         }
     }
+
+    // Merge FROM + TO segments at shared pivot fix
+    if (!empty($from_routes) && !empty($to_routes)) {
+        foreach ($from_routes as $fr) {
+            foreach ($to_routes as $tr) {
+                $from_tokens = preg_split('/\s+/', trim($fr['route']));
+                $to_tokens = preg_split('/\s+/', trim($tr['route']));
+                $last_from = end($from_tokens);
+
+                // Deduplicate pivot: if TO starts with same fix, skip it
+                if (!empty($to_tokens) && strcasecmp($to_tokens[0], $last_from) === 0) {
+                    array_shift($to_tokens);
+                }
+                $merged = $fr['route'] . ' ' . implode(' ', $to_tokens);
+                $routes_buffer[] = [
+                    'orig' => $fr['orig'],
+                    'dest' => $tr['dest'],
+                    'route' => trim($merged)
+                ];
+            }
+        }
+    }
+
+    // Add OTHER ROUTES entries
+    foreach ($other_routes as $or) {
+        $routes_buffer[] = $or;
+    }
+
+    // Expand multi-airport origins: "KFMY KPIE KRSW" -> separate entries
+    $expanded = [];
+    foreach ($routes_buffer as $r) {
+        $orig_tokens = preg_split('/[\s\/]+/', trim($r['orig']));
+        $airports = array_values(array_filter($orig_tokens, function($t) {
+            return preg_match('/^[A-Z][A-Z0-9]{2,3}$/', $t);
+        }));
+        if (count($airports) > 1) {
+            foreach ($airports as $apt) {
+                $expanded[] = ['orig' => $apt, 'dest' => $r['dest'], 'route' => $r['route']];
+            }
+        } else {
+            $expanded[] = $r;
+        }
+    }
+    $routes_buffer = $expanded;
 
     // Store parsed routes
     if (!empty($routes_buffer)) {
@@ -1084,8 +1184,27 @@ function build_reroute_programs($tmis) {
             'effective_end' => $latest['end_time'] ?? null,
             'ended_by' => 'EXPIRATION',
             'routes' => $latest['routes'] ?? [],
-            'tmi_id' => $latest['tmi_id'] ?? ''
+            'tmi_id' => $latest['tmi_id'] ?? '',
+            'origins' => [],
+            'destinations' => [],
+            'facilities' => [],
         ];
+
+        // Aggregate origins/destinations/facilities from all advisories
+        foreach ($advisories as $adv) {
+            if (!empty($adv['origins'])) {
+                $program['origins'] = array_values(array_unique(
+                    array_merge($program['origins'], $adv['origins'])));
+            }
+            if (!empty($adv['destinations'])) {
+                $program['destinations'] = array_values(array_unique(
+                    array_merge($program['destinations'], $adv['destinations'])));
+            }
+            if (!empty($adv['facilities'])) {
+                $program['facilities'] = array_values(array_unique(
+                    array_merge($program['facilities'], $adv['facilities'])));
+            }
+        }
 
         // Match cancellation
         foreach ($cnxs as $cnx) {

@@ -265,6 +265,23 @@ def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> Rer
             required_fixes=required_fixes,
         ))
 
+    # Aggregate origins/destinations from PHP data + route entries + advisories
+    all_origins = list(pt.get('origins', []) or [])
+    all_destinations = list(pt.get('destinations', []) or [])
+
+    for route in current_routes:
+        all_origins.extend(route.origins)
+        if route.destination:
+            all_destinations.append(route.destination)
+
+    for adv in advisories:
+        all_origins.extend(adv.origins)
+        all_destinations.extend(adv.destinations)
+
+    # Deduplicate preserving order
+    all_origins = list(dict.fromkeys(all_origins))
+    all_destinations = list(dict.fromkeys(all_destinations))
+
     return RerouteProgram(
         name=name,
         tmi_id=pt.get('tmi_id', ''),
@@ -277,6 +294,9 @@ def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> Rer
         effective_end=effective_end,
         ended_by=pt.get('ended_by', ''),
         current_routes=current_routes,
+        origins=all_origins,
+        destinations=all_destinations,
+        facilities=list(pt.get('facilities', []) or []),
     )
 
 

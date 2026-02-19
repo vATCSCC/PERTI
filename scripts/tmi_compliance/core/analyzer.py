@@ -840,7 +840,12 @@ def _finalize_hold(trajectory: List[Dict[str, Any]],
     else:
         low_confidence = True
 
-    # 6. Append validated event
+    # 6. Compute distance to destination
+    dist_to_dest_nm = None
+    if dest_lat is not None and dest_lon is not None:
+        dist_to_dest_nm = round(haversine_nm(center_lat, center_lon, dest_lat, dest_lon), 1)
+
+    # 7. Append validated event
     holding_events.append({
         'hold_start_utc': t_start,
         'hold_end_utc': t_end,
@@ -853,6 +858,7 @@ def _finalize_hold(trajectory: List[Dict[str, Any]],
         'avg_groundspeed_kts': round(avg_gs, 1),
         'turn_direction': turn_direction,
         'low_confidence': low_confidence,
+        'dist_to_dest_nm': dist_to_dest_nm,
         'point_indices': (traj_start, traj_end),
     })
 
@@ -2661,12 +2667,33 @@ class TMIComplianceAnalyzer:
                 concurrent += delta
                 peak = max(peak, concurrent)
 
+            # Altitude stats
+            altitudes = [e['avg_altitude_ft'] for e in group if e.get('avg_altitude_ft')]
+            avg_alt = round(sum(altitudes) / len(altitudes)) if altitudes else 0
+            min_alt = round(min(altitudes)) if altitudes else 0
+            max_alt = round(max(altitudes)) if altitudes else 0
+
+            # Duration stats
+            durations = [e['duration_sec'] for e in group]
+            total_dur_sec = sum(durations)
+
+            # Distance to destination stats
+            dists = [e['dist_to_dest_nm'] for e in group if e.get('dist_to_dest_nm') is not None]
+            avg_dist = round(sum(dists) / len(dists), 1) if dists else None
+
             hold_fixes.append({
                 'fix_name': group[0].get('matched_fix'),
                 'center': [group[0]['center_lon'], group[0]['center_lat']],
                 'flight_count': len(set(e['callsign'] for e in group)),
                 'total_orbits': sum(e['orbit_count'] for e in group),
-                'avg_duration_sec': sum(e['duration_sec'] for e in group) / len(group),
+                'avg_duration_sec': sum(durations) / len(group),
+                'total_duration_sec': total_dur_sec,
+                'min_duration_sec': min(durations),
+                'max_duration_sec': max(durations),
+                'avg_altitude_ft': avg_alt,
+                'min_altitude_ft': min_alt,
+                'max_altitude_ft': max_alt,
+                'avg_dist_to_dest_nm': avg_dist,
                 'peak_concurrent': peak,
                 'ntml_corroborated': any(e.get('ntml_corroborated') for e in group),
                 'time_range': [
@@ -4084,6 +4111,14 @@ class TMIComplianceAnalyzer:
         logger.info(f"Analyzing REROUTE Program: {name} (mode={mode}, action={program.action})")
 
         # Create synthetic TMI for flight filtering
+        # Fallback: extract origins/destinations from routes if program-level is empty
+        if not program.origins and program.current_routes:
+            program.origins = list(dict.fromkeys(
+                o for r in program.current_routes for o in r.origins if o))
+        if not program.destinations and program.current_routes:
+            program.destinations = list(dict.fromkeys(
+                r.destination for r in program.current_routes if r.destination))
+
         synthetic_tmi = TMI(
             tmi_id=f'REROUTE_PROGRAM_{name}',
             tmi_type=TMIType.REROUTE,
@@ -4096,6 +4131,24 @@ class TMIComplianceAnalyzer:
 
         normalized_origs = set(normalize_icao_list(program.origins)) if program.origins else set()
         normalized_dests = set(normalize_icao_list(program.destinations)) if program.destinations else set()
+
+        # Expand ARTCC codes to airport sets from actual flight data
+        artcc_origs = {o for o in normalized_origs if len(o) == 3 and o.startswith('Z')}
+        if artcc_origs:
+            for fuid, flight in flights_dict.items():
+                dept_artcc = flight.get('dept_artcc', '')
+                if dept_artcc in artcc_origs:
+                    dept = flight.get('dept', '')
+                    if dept:
+                        normalized_origs.add(dept)
+        artcc_dests = {d for d in normalized_dests if len(d) == 3 and d.startswith('Z')}
+        if artcc_dests:
+            for fuid, flight in flights_dict.items():
+                dest_artcc = flight.get('dest_artcc', '')
+                if dest_artcc in artcc_dests:
+                    dest = flight.get('dest', '')
+                    if dest:
+                        normalized_dests.add(dest)
 
         # Build program history for frontend (must be before early-returns that reference it)
         program_history = []
@@ -4136,7 +4189,7 @@ class TMIComplianceAnalyzer:
                 'flights': [],
                 'filed_compliant': [], 'filed_non_compliant': [],
                 'flown_compliant': [], 'flown_non_compliant': [],
-                'filed_compliance_pct': 100, 'flown_compliance_pct': 100,
+                'filed_compliance_pct': None, 'flown_compliance_pct': None,
                 'program_history': program_history,
                 'constrained_area': program.constrained_area,
                 'reason': program.reason,
@@ -4180,7 +4233,7 @@ class TMIComplianceAnalyzer:
                 'flights': [],
                 'filed_compliant': [], 'filed_non_compliant': [],
                 'flown_compliant': [], 'flown_non_compliant': [],
-                'filed_compliance_pct': 100, 'flown_compliance_pct': 100,
+                'filed_compliance_pct': None, 'flown_compliance_pct': None,
                 'program_history': program_history,
                 'constrained_area': program.constrained_area,
                 'reason': program.reason,
