@@ -237,19 +237,18 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
 
     // Check each emoji for reactions
     foreach ($emojiToFacility as $emoji => $facCode) {
-        $emojiEncoded = urlencode($emoji);
-        // For custom emojis like :ZDC:, extract the name
-        if (preg_match('/^:(\w+):$/', $emoji)) {
-            $emojiEncoded = extractEmojiName($emoji);
+        $emojiQuery = normalizeReactionEmojiForApi($emoji);
+        if ($emojiQuery === null) {
+            continue;
         }
 
-        $users = $discord->getReactions($channelId, $messageId, $emojiEncoded, ['limit' => 100]);
+        $users = $discord->getReactions($channelId, $messageId, $emojiQuery, ['limit' => 100]);
 
         if ($users && is_array($users)) {
             foreach ($users as $user) {
                 $reactions[] = [
                     'emoji' => $emoji,
-                    'emoji_name' => $emojiEncoded,
+                    'emoji_name' => $emojiQuery,
                     'facility_code' => $facCode,
                     'type' => 'FACILITY_APPROVE',
                     'user_id' => $user['id'],
@@ -260,7 +259,7 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
     }
 
     // Get deny emoji reactions (primary ❌)
-    $denyUsers = $discord->getReactions($channelId, $messageId, urlencode(DENY_EMOJI), ['limit' => 100]);
+    $denyUsers = $discord->getReactions($channelId, $messageId, DENY_EMOJI, ['limit' => 100]);
     if ($denyUsers && is_array($denyUsers)) {
         foreach ($denyUsers as $user) {
             $reactions[] = [
@@ -275,7 +274,7 @@ function getMessageReactions($discord, $channelId, $messageId, $facilityEmojis) 
     }
 
     // Get alternate deny emoji reactions (🚫)
-    $denyAltUsers = $discord->getReactions($channelId, $messageId, urlencode(DENY_EMOJI_ALT), ['limit' => 100]);
+    $denyAltUsers = $discord->getReactions($channelId, $messageId, DENY_EMOJI_ALT, ['limit' => 100]);
     if ($denyAltUsers && is_array($denyAltUsers)) {
         foreach ($denyAltUsers as $user) {
             $reactions[] = [
@@ -400,14 +399,29 @@ function getParentArtcc($facilityCode) {
     return null;
 }
 
-function extractEmojiName($emoji) {
-    // Handle custom emoji format <:name:id> or :name:
-    if (preg_match('/<:(\w+):(\d+)>/', $emoji, $matches)) {
-        return $matches[1] . ':' . $matches[2];
+/**
+ * Normalize emoji query input for DiscordAPI::getReactions().
+ * - Unicode emoji: pass raw string (DiscordAPI encodes it once).
+ * - Custom emoji with id (name:id): pass through.
+ * - Placeholder custom emoji (:NAME:): cannot be queried without id; skip.
+ *
+ * @param string $emoji
+ * @return string|null
+ */
+function normalizeReactionEmojiForApi($emoji) {
+    $emoji = trim((string)$emoji);
+    if ($emoji === '') {
+        return null;
     }
-    if (preg_match('/:(\w+):/', $emoji, $matches)) {
-        return $matches[1];
+
+    if (preg_match('/^[A-Za-z0-9_]+:\d+$/', $emoji)) {
+        return $emoji;
     }
+
+    if (preg_match('/^:[A-Za-z0-9_]+:$/', $emoji)) {
+        return null;
+    }
+
     return $emoji;
 }
 
