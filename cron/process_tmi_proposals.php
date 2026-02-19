@@ -200,6 +200,7 @@ function processProposal($conn, $discord, $proposal) {
     $proposalId = $proposal['proposal_id'];
     $messageId = $proposal['discord_message_id'];
     $channelId = $proposal['discord_channel_id'] ?: COORDINATION_CHANNEL;
+    $guildId = getGuildIdForChannel($discord, $channelId);
 
     echo "  Processing proposal #{$proposalId} (msg: {$messageId})...\n";
 
@@ -221,7 +222,7 @@ function processProposal($conn, $discord, $proposal) {
 
     // Process each reaction
     foreach ($allReactions as $reaction) {
-        processReaction($conn, $discord, $proposal, $facilities, $reaction);
+        processReaction($conn, $discord, $proposal, $facilities, $reaction, $guildId);
     }
 
     // Check approval status
@@ -487,7 +488,7 @@ function resolveDccReactionEmojiQuery($discord, $channelId, $messageId) {
     return $fallback;
 }
 
-function processReaction($conn, $discord, $proposal, $facilities, $reaction) {
+function processReaction($conn, $discord, $proposal, $facilities, $reaction, $guildId = null) {
     $proposalId = $proposal['proposal_id'];
     $userId = $reaction['user_id'];
     $emoji = $reaction['emoji'];
@@ -510,8 +511,8 @@ function processReaction($conn, $discord, $proposal, $facilities, $reaction) {
     }
 
     // Get user roles
-    $userRoles = getUserRoles($discord, $userId);
-    $isDccUser = canDccOverride($userId, $userRoles, $discord);
+    $userRoles = getUserRoles($discord, $userId, $guildId);
+    $isDccUser = canDccOverride($userId, $userRoles, $discord, $guildId);
 
     // Determine reaction type
     $reactionType = $type;
@@ -592,9 +593,9 @@ function processReaction($conn, $discord, $proposal, $facilities, $reaction) {
     }
 }
 
-function getUserRoles($discord, $userId) {
+function getUserRoles($discord, $userId, $guildId = null) {
     try {
-        $member = $discord->getGuildMember($userId);
+        $member = $discord->getGuildMember($userId, $guildId);
         if ($member && isset($member['roles'])) {
             return $member['roles'];
         }
@@ -604,7 +605,7 @@ function getUserRoles($discord, $userId) {
     return [];
 }
 
-function canDccOverride($userId, $userRoles, $discord = null) {
+function canDccOverride($userId, $userRoles, $discord = null, $guildId = null) {
     $roleIds = array_map('strval', is_array($userRoles) ? $userRoles : []);
 
     // Check user ID
@@ -620,7 +621,7 @@ function canDccOverride($userId, $userRoles, $discord = null) {
     // Check role names (fallback) by resolving member role IDs to role names.
     $roleNames = [];
     if ($discord !== null) {
-        $roleNames = getRoleNamesByIds($discord, $roleIds);
+        $roleNames = getRoleNamesByIds($discord, $roleIds, $guildId);
     }
     if (!empty(array_intersect($roleNames, DCC_OVERRIDE_ROLE_NAMES))) {
         return true;
@@ -636,19 +637,20 @@ function canDccOverride($userId, $userRoles, $discord = null) {
  * @param array $roleIds
  * @return array
  */
-function getRoleNamesByIds($discord, $roleIds) {
-    static $roleIdToName = null;
+function getRoleNamesByIds($discord, $roleIds, $guildId = null) {
+    static $roleIdToNameByGuild = [];
 
-    if ($roleIdToName === null) {
-        $roleIdToName = [];
+    $guildKey = (string)($guildId ?: (defined('DISCORD_GUILD_ID') ? DISCORD_GUILD_ID : 'default'));
+    if (!isset($roleIdToNameByGuild[$guildKey])) {
+        $roleIdToNameByGuild[$guildKey] = [];
         try {
-            $guildRoles = $discord->getGuildRoles();
+            $guildRoles = $discord->getGuildRoles($guildId);
             if (is_array($guildRoles)) {
                 foreach ($guildRoles as $role) {
                     $id = isset($role['id']) ? (string)$role['id'] : '';
                     $name = isset($role['name']) ? (string)$role['name'] : '';
                     if ($id !== '' && $name !== '') {
-                        $roleIdToName[$id] = $name;
+                        $roleIdToNameByGuild[$guildKey][$id] = $name;
                     }
                 }
             }
@@ -660,12 +662,48 @@ function getRoleNamesByIds($discord, $roleIds) {
     $names = [];
     foreach ((array)$roleIds as $roleId) {
         $key = (string)$roleId;
-        if ($key !== '' && isset($roleIdToName[$key])) {
-            $names[] = $roleIdToName[$key];
+        if ($key !== '' && isset($roleIdToNameByGuild[$guildKey][$key])) {
+            $names[] = $roleIdToNameByGuild[$guildKey][$key];
         }
     }
 
     return array_values(array_unique($names));
+}
+
+/**
+ * Resolve guild ID from proposal channel/thread ID.
+ *
+ * @param DiscordAPI $discord
+ * @param string $channelId
+ * @return string|null
+ */
+function getGuildIdForChannel($discord, $channelId) {
+    static $channelToGuild = [];
+
+    $channelKey = (string)$channelId;
+    if ($channelKey === '') {
+        return defined('DISCORD_GUILD_ID') ? DISCORD_GUILD_ID : null;
+    }
+    if (isset($channelToGuild[$channelKey])) {
+        return $channelToGuild[$channelKey];
+    }
+
+    $guildId = null;
+    try {
+        $channel = $discord->getChannel($channelId);
+        if (is_array($channel) && !empty($channel['guild_id'])) {
+            $guildId = (string)$channel['guild_id'];
+        }
+    } catch (Throwable $e) {
+        // Ignore and fall back to configured guild.
+    }
+
+    if ($guildId === null || $guildId === '') {
+        $guildId = defined('DISCORD_GUILD_ID') ? DISCORD_GUILD_ID : null;
+    }
+
+    $channelToGuild[$channelKey] = $guildId;
+    return $guildId;
 }
 
 function checkAndUpdateProposalStatus($conn, $proposalId) {
