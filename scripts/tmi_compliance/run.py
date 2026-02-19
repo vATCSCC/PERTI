@@ -103,8 +103,9 @@ def build_gs_program_from_api(pt: dict, base_date, event_start=None) -> GSProgra
     effective_end = parse_time_window(pt.get('effective_end', ''), base_date)
 
     # Handle overnight events: if parsed times fall well before event start,
-    # they belong to the next calendar day (e.g., event at 23:59Z, GS at 02:00Z)
-    if event_start and effective_start and effective_start < event_start - timedelta(hours=2):
+    # they belong to the next calendar day (e.g., event at 23:59Z, GS at 02:00Z).
+    # 14h threshold: only early-morning times get shifted for late-night events.
+    if event_start and effective_start and effective_start < event_start - timedelta(hours=14):
         effective_start = effective_start + timedelta(days=1)
         if effective_end:
             effective_end = effective_end + timedelta(days=1)
@@ -120,8 +121,8 @@ def build_gs_program_from_api(pt: dict, base_date, event_start=None) -> GSProgra
         gs_end = parse_time_window(adv.get('end_time', ''), base_date)
         issued = parse_time_window(adv.get('issued_time', ''), base_date)
 
-        # Overnight shift for advisory times
-        if event_start and gs_start and gs_start < event_start - timedelta(hours=2):
+        # Overnight shift for advisory times (14h threshold, same as program-level)
+        if event_start and gs_start and gs_start < event_start - timedelta(hours=14):
             gs_start = gs_start + timedelta(days=1)
             if gs_end:
                 gs_end = gs_end + timedelta(days=1)
@@ -178,8 +179,11 @@ def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> Rer
     effective_end = parse_time_window(pt.get('effective_end', ''), base_date)
 
     # Handle overnight events: if parsed times fall well before event start,
-    # they belong to the next calendar day
-    if event_start and effective_start and effective_start < event_start - timedelta(hours=2):
+    # they belong to the next calendar day.
+    # Use 14h threshold so only early-morning times (0000-~0959Z) get shifted
+    # for late-night events (e.g. 2359Z start). A 2h threshold was too aggressive,
+    # incorrectly shifting daytime reroute times like 1330Z for late-night events.
+    if event_start and effective_start and effective_start < event_start - timedelta(hours=14):
         effective_start = effective_start + timedelta(days=1)
         if effective_end:
             effective_end = effective_end + timedelta(days=1)
@@ -194,8 +198,8 @@ def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> Rer
         valid_end = parse_time_window(adv.get('end_time', ''), base_date)
         issued = parse_time_window(adv.get('issued_time', ''), base_date)
 
-        # Overnight shift for advisory times
-        if event_start and valid_start and valid_start < event_start - timedelta(hours=2):
+        # Overnight shift for advisory times (14h threshold, same as program-level)
+        if event_start and valid_start and valid_start < event_start - timedelta(hours=14):
             valid_start = valid_start + timedelta(days=1)
             if valid_end:
                 valid_end = valid_end + timedelta(days=1)
@@ -277,6 +281,13 @@ def build_reroute_program_from_api(pt: dict, base_date, event_start=None) -> Rer
     for adv in advisories:
         all_origins.extend(adv.origins)
         all_destinations.extend(adv.destinations)
+
+    # Clean parenthetical exclusions from origins/destinations
+    # e.g., "ZMA (-KFMY KPIE KRSW -KSRQ -KTPA -KPGD)" → "ZMA"
+    all_origins = [re.sub(r'\s*\([^)]*\)', '', o).strip() for o in all_origins]
+    all_destinations = [re.sub(r'\s*\([^)]*\)', '', d).strip() for d in all_destinations]
+    all_origins = [o for o in all_origins if o]
+    all_destinations = [d for d in all_destinations if d]
 
     # Deduplicate preserving order
     all_origins = list(dict.fromkeys(all_origins))
@@ -397,7 +408,8 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
             # Handle overnight events: if parsed times are before event start,
             # shift them to the next day. This handles events like 23:59-04:00
             # where TMI times like "0045" should be on the next calendar day.
-            if start_utc and start_utc < event_start - timedelta(hours=2):
+            # 14h threshold prevents shifting daytime reroute times for late-night events.
+            if start_utc and start_utc < event_start - timedelta(hours=14):
                 start_utc = start_utc + timedelta(days=1)
                 end_utc = end_utc + timedelta(days=1) if end_utc else None
                 issued_utc = issued_utc + timedelta(days=1) if issued_utc else None

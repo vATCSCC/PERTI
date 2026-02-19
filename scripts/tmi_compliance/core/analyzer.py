@@ -1658,18 +1658,33 @@ class TMIComplianceAnalyzer:
         normalized_dests = set(normalize_icao_list(tmi.destinations)) if tmi.destinations else set()
         normalized_origs = set(normalize_icao_list(tmi.origins)) if tmi.origins else set()
 
+        # Separate ARTCC codes (3-letter Z-prefix) from airport codes
+        # ARTCC origins like ZTL mean "any airport in ZTL's airspace"
+        artcc_origs = {o for o in normalized_origs if len(o) == 3 and o.startswith('Z')}
+        airport_origs = normalized_origs - artcc_origs
+        artcc_dests = {d for d in normalized_dests if len(d) == 3 and d.startswith('Z')}
+        airport_dests = normalized_dests - artcc_dests
+
         filtered = {}
         for fuid, flight in self.flight_data.items():
             dest = flight.get('dest', '')
             dept = flight.get('dept', '')
 
             # Check destination filter (if specified)
-            if normalized_dests and dest not in normalized_dests:
-                continue
+            if normalized_dests:
+                dest_match = dest in airport_dests
+                if not dest_match and artcc_dests:
+                    dest_match = flight.get('dest_artcc', '') in artcc_dests
+                if not dest_match:
+                    continue
 
             # Check origin filter (if specified)
-            if normalized_origs and dept not in normalized_origs:
-                continue
+            if normalized_origs:
+                orig_match = dept in airport_origs
+                if not orig_match and artcc_origs:
+                    orig_match = flight.get('dept_artcc', '') in artcc_origs
+                if not orig_match:
+                    continue
 
             filtered[fuid] = flight
 
@@ -4132,7 +4147,9 @@ class TMIComplianceAnalyzer:
         normalized_origs = set(normalize_icao_list(program.origins)) if program.origins else set()
         normalized_dests = set(normalize_icao_list(program.destinations)) if program.destinations else set()
 
-        # Expand ARTCC codes to airport sets from actual flight data
+        # Expand ARTCC codes to concrete airport codes from flight data
+        # _filter_flights_by_scope already matched these flights via dept_artcc,
+        # but we need airport-level codes for the OD matching at line 4227
         artcc_origs = {o for o in normalized_origs if len(o) == 3 and o.startswith('Z')}
         if artcc_origs:
             for fuid, flight in flights_dict.items():
@@ -4196,7 +4213,29 @@ class TMIComplianceAnalyzer:
                 'note': f'Missing origins ({program.origins}) or destinations ({program.destinations}) - cannot scope flights'
             }
 
-        # Filter flights to those within the program window and matching OD
+        # Determine effective time window for flight filtering
+        # If the reroute window doesn't overlap the event, use the event window.
+        # This handles VATSIM events where NTML reroute times (e.g. 1330-1800Z)
+        # are from real-world FAA operations but the event traffic is concentrated
+        # in the event window (e.g. 2359-0400Z).
+        filter_start = program.effective_start
+        filter_end = program.effective_end
+        time_note = ''
+
+        if filter_start and filter_end and self.event.start_utc and self.event.end_utc:
+            event_start = self.event.start_utc
+            event_end = self.event.end_utc
+            # Check for overlap: reroute window intersects event window
+            has_overlap = filter_start < event_end and filter_end > event_start
+            if not has_overlap:
+                logger.info(f"  Reroute window ({filter_start.strftime('%H:%MZ')}-{filter_end.strftime('%H:%MZ')}) "
+                           f"has no overlap with event ({event_start.strftime('%H:%MZ')}-{event_end.strftime('%H:%MZ')})")
+                logger.info(f"  Using event window as fallback for flight filtering")
+                filter_start = event_start
+                filter_end = event_end
+                time_note = 'event_window_fallback'
+
+        # Filter flights to those within the effective window and matching OD
         flights = []
         for fuid, flight in flights_dict.items():
             callsign = flight.get('callsign', str(fuid))
@@ -4205,14 +4244,15 @@ class TMIComplianceAnalyzer:
                 continue
             dep_time = normalize_datetime(dep_time)
 
-            if program.effective_start and program.effective_end:
-                if dep_time >= program.effective_start and dep_time <= program.effective_end:
+            if filter_start and filter_end:
+                if dep_time >= filter_start and dep_time <= filter_end:
                     dept = flight.get('dept', '')
                     dest = flight.get('dest', '')
                     if dept in normalized_origs and dest in normalized_dests:
                         flights.append((callsign, dept, dest, flight.get('fp_route', ''), dep_time, flight.get('last_seen')))
 
-        logger.info(f"  Filtered to {len(flights)} flights in program window")
+        logger.info(f"  Filtered to {len(flights)} flights in program window"
+                    f"{' (event window fallback)' if time_note else ''}")
 
         if not flights:
             return {
@@ -4221,7 +4261,7 @@ class TMIComplianceAnalyzer:
                 'route_type': program.route_type,
                 'action': program.action,
                 'assessment_mode': mode,
-                'time_type': '',
+                'time_type': time_note,
                 'start': program.effective_start.strftime('%H:%MZ') if program.effective_start else None,
                 'end': program.effective_end.strftime('%H:%MZ') if program.effective_end else None,
                 'ended_by': program.ended_by,
@@ -4442,7 +4482,7 @@ class TMIComplianceAnalyzer:
             'route_type': program.route_type,
             'action': program.action,
             'assessment_mode': mode,
-            'time_type': '',
+            'time_type': time_note,
             'start': program.effective_start.strftime('%H:%MZ') if program.effective_start else None,
             'end': program.effective_end.strftime('%H:%MZ') if program.effective_end else None,
             'ended_by': program.ended_by,
