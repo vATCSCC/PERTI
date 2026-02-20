@@ -5,6 +5,7 @@
 
 include("../../load/config.php");
 include("../../load/connect.php");
+include("../../load/airport_aliases.php");
 
 header('Content-Type: application/json');
 
@@ -54,7 +55,7 @@ if ($row) {
         'success' => true,
         'faa' => $row['ARPT_ID'],
         'icao' => $row['ICAO_ID'],
-        'name' => $row['ARPT_NAME'],
+        'name' => applyAirportDisplayName($row['ARPT_NAME']),
         'source' => 'apts'
     ]);
 } else {

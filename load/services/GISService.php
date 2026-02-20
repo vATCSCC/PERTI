@@ -16,6 +16,8 @@
  *   }
  */
 
+require_once(__DIR__ . '/../airport_aliases.php');
+
 class GISService
 {
     private ?PDO $conn = null;
@@ -707,7 +709,7 @@ class GISService
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $airports[] = [
                     'icao' => $row['icao_id'],
-                    'name' => $row['airport_name'],
+                    'name' => applyAirportDisplayName($row['airport_name']),
                     'lat' => (float)$row['lat'],
                     'lon' => (float)$row['lon']
                 ];

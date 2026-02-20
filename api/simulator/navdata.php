@@ -260,7 +260,7 @@ function getKnownAirports() {
         'KEWR' => ['lat' => 40.6895, 'lon' => -74.1745, 'elev' => 18, 'name' => 'Newark'],
         'KLGA' => ['lat' => 40.7769, 'lon' => -73.8740, 'elev' => 21, 'name' => 'New York LaGuardia'],
         'KPHL' => ['lat' => 39.8719, 'lon' => -75.2411, 'elev' => 36, 'name' => 'Philadelphia'],
-        'KDCA' => ['lat' => 38.8521, 'lon' => -77.0402, 'elev' => 15, 'name' => 'Washington Reagan'],
+        'KDCA' => ['lat' => 38.8521, 'lon' => -77.0402, 'elev' => 15, 'name' => 'Washington National'],
         'KIAD' => ['lat' => 38.9531, 'lon' => -77.4565, 'elev' => 313, 'name' => 'Washington Dulles'],
         'KBWI' => ['lat' => 39.1774, 'lon' => -76.6684, 'elev' => 146, 'name' => 'Baltimore'],
         'KCLT' => ['lat' => 35.2140, 'lon' => -80.9431, 'elev' => 748, 'name' => 'Charlotte'],

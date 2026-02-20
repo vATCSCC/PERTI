@@ -199,7 +199,7 @@ INSERT INTO airports (icao_id, iata_id, airport_name, lat, lon, elevation_ft, ai
 ('KEWR', 'EWR', 'Newark Liberty International', 40.692501, -74.168701, 18, 'large_airport', 'US', 'US-NJ'),
 ('KLGA', 'LGA', 'LaGuardia', 40.777199, -73.872597, 21, 'large_airport', 'US', 'US-NY'),
 ('KIAD', 'IAD', 'Washington Dulles International', 38.944500, -77.455803, 313, 'large_airport', 'US', 'US-VA'),
-('KDCA', 'DCA', 'Ronald Reagan Washington National', 38.852100, -77.037697, 15, 'large_airport', 'US', 'US-VA'),
+('KDCA', 'DCA', 'Washington National', 38.852100, -77.037697, 15, 'large_airport', 'US', 'US-VA'),
 ('KPHL', 'PHL', 'Philadelphia International', 39.871899, -75.241096, 36, 'large_airport', 'US', 'US-PA'),
 ('KSTL', 'STL', 'St Louis Lambert International', 38.748697, -90.370003, 618, 'large_airport', 'US', 'US-MO'),
 ('KMSP', 'MSP', 'Minneapolis Saint Paul International', 44.882000, -93.221802, 841, 'large_airport', 'US', 'US-MN');

@@ -12,6 +12,7 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../../../../load/airport_aliases.php';
 
 // Get database connections
 global $conn_sqli, $conn_adl, $conn_swim;
@@ -121,7 +122,7 @@ if ($type === 'all' || $type === 'gs') {
                     'program_id' => $row['program_id'],
                     'program_guid' => $row['program_guid'],
                     'airport' => $row['ctl_element'],
-                    'airport_name' => $row['airport_name'],
+                    'airport_name' => applyAirportDisplayName($row['airport_name'] ?? ''),
                     'artcc' => $row['artcc'],
                     'name' => $row['program_name'] ?? 'CDM GROUND STOP',
                     'reason' => $row['impacting_condition'],
@@ -261,7 +262,7 @@ if ($type === 'all' || $type === 'gdp') {
                     'program_guid' => $row['program_guid'],
                     'program_type' => $row['program_type'],
                     'airport' => $row['ctl_element'],
-                    'airport_name' => $row['airport_name'],
+                    'airport_name' => applyAirportDisplayName($row['airport_name'] ?? ''),
                     'artcc' => $row['artcc'],
                     'name' => $row['program_name'],
                     'reason' => $row['impacting_condition'],
@@ -365,7 +366,7 @@ if ($type === 'all' || $type === 'gdp') {
                     'type' => 'gdp',
                     'program_id' => $row['program_id'],
                     'airport' => $row['ctl_element'],
-                    'airport_name' => $row['airport_name'],
+                    'airport_name' => applyAirportDisplayName($row['airport_name'] ?? ''),
                     'artcc' => $row['artcc'],
                     'reason' => $row['impacting_condition'],
                     'probability_of_extension' => intval($row['probability_of_extension']),
@@ -413,7 +414,7 @@ function getAirportInfo($icao) {
     if ($stmt === false) return null;
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
-    return $row ? ['icao' => $row['ICAO_ID'], 'name' => $row['ARPT_NAME'], 'artcc' => $row['RESP_ARTCC_ID']] : null;
+    return $row ? ['icao' => $row['ICAO_ID'], 'name' => applyAirportDisplayName($row['ARPT_NAME']), 'artcc' => $row['RESP_ARTCC_ID']] : null;
 }
 
 function formatDT($dt) {
