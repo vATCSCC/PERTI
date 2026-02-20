@@ -391,6 +391,16 @@ BEGIN
 
     IF @base_lat IS NULL RETURN;
 
+    -- If mag_var wasn't set from the resolved fix, look for it from a co-located VOR record
+    IF @mag_var IS NULL OR @mag_var = 0
+    BEGIN
+        SELECT TOP 1 @mag_var = nf.mag_var
+        FROM dbo.nav_fixes nf
+        WHERE nf.fix_name = @base_fix
+          AND nf.mag_var IS NOT NULL AND nf.mag_var <> 0
+          AND ABS(nf.lat - @base_lat) < 0.1 AND ABS(nf.lon - @base_lon) < 0.1;
+    END
+
     -- Convert magnetic bearing to true bearing
     -- mag_var: positive = East, negative = West; True = Magnetic + mag_var
     SET @true_bearing = CAST(@bearing_deg AS FLOAT) + ISNULL(@mag_var, 0);

@@ -288,6 +288,16 @@ BEGIN
         RETURN;
     END IF;
 
+    -- If mag_var wasn't set from the resolved fix, look for it from a co-located VOR record
+    IF v_mag_var IS NULL OR v_mag_var = 0 THEN
+        SELECT nf.mag_var INTO v_mag_var
+        FROM nav_fixes nf
+        WHERE nf.fix_name = v_base_fix
+          AND nf.mag_var IS NOT NULL AND nf.mag_var != 0
+          AND ABS(nf.lat - v_base_lat) < 0.1 AND ABS(nf.lon - v_base_lon) < 0.1
+        LIMIT 1;
+    END IF;
+
     -- Convert magnetic bearing to true bearing
     -- mag_var: positive = East, negative = West; True = Magnetic + mag_var
     v_true_bearing := v_bearing_deg::FLOAT + COALESCE(v_mag_var, 0)::FLOAT;

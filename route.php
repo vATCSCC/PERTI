@@ -2310,7 +2310,7 @@ include('load/footer.php');
 <?php endif; ?>
 <script src="assets/js/public-routes.js"></script>
 <script src="assets/js/playbook-cdr-search.js"></script>
-<script src="assets/js/route-maplibre.js?v=20260219"></script>
+<script src="assets/js/route-maplibre.js?v=20260220"></script>
 
 <!-- Simple JS to toggle Plot Routes help panel -->
 <script>
