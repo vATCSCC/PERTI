@@ -104,6 +104,21 @@
     "chart": {
       "titleDestArtcc": "Data Graph - Dest ACC",
       "titleOrigArtcc": "Data Graph - Origin ACC"
+    },
+    "dashboard": {
+      "cancelProgramTitle": "Cancel Programme #{id}?",
+      "programCancelled": "Programme has been cancelled.",
+      "programExtended": "Programme Extended",
+      "programExtendedText": "Programme #{id} has been extended.",
+      "programNotFound": "Programme not found",
+      "programRevised": "Programme Revised",
+      "rateRequired": "Programme rate is required"
+    },
+    "exemptReason": {
+      "departingCenter": "Departing from exempt ACC/FIR",
+      "departingTracon": "Departing from exempt TCA",
+      "destCenter": "Destination exempt ACC/FIR",
+      "destTracon": "Destination exempt TCA"
     }
   },
   "demand": {
@@ -145,6 +160,13 @@
         "ntml": "Flow Measure",
         "program": "Programme"
       }
+    },
+    "tmi": {
+      "category": {
+        "ntml": "Flow Measure",
+        "program": "Programme"
+      },
+      "nothingToParseText": "Paste Flow Measure entries first."
     }
   },
   "tmiCompliance": {
@@ -153,7 +175,15 @@
     "measuredAtBoundaryTitle": "Measured at ACC handoff point",
     "multiFacilityTitle": "Measured across {count} ACC boundaries",
     "ntmlEntriesLabel": "Flow Measures",
-    "copyNtmlForDiscord": "Copy Flow Measures for Discord"
+    "copyNtmlForDiscord": "Copy Flow Measures for Discord",
+    "map": {
+      "artcc": "ACC/FIR",
+      "tracon": "TCA"
+    },
+    "programHistoryLabel": "Programme History",
+    "reroute": {
+      "programHistory": "Programme History"
+    }
   },
   "jatoc": {
     "layers": {
@@ -253,6 +283,24 @@
       "originArtcc": "Origin ACC",
       "destTracon": "Dest TCA",
       "destArtcc": "Dest ACC"
+    },
+    "color": "Colour",
+    "colorRule": {
+      "addTitle": "Add Colour Rule",
+      "arrCenter": "Arrival Centre",
+      "color": "Colour",
+      "depCenter": "Departure Centre",
+      "editTitle": "Edit Colour Rule",
+      "enterValuesAndColor": "Enter values and select a colour",
+      "namedColors": "Named Colours",
+      "quickColors": "Quick Colours"
+    },
+    "confirmClearOverrides": "Clear all colour/style overrides?",
+    "layer": {
+      "traconBoundaries": "TCA Boundaries"
+    },
+    "sua": {
+      "artcc": "ACC/FIR"
     }
   },
   "nod": {
@@ -318,5 +366,10 @@
   },
   "footer": {
     "disclaimer": "For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network."
+  },
+  "publicRoutes": {
+    "changeColor": "Change colour",
+    "color": "Colour",
+    "routeColor": "Route Colour"
   }
 }

@@ -116,6 +116,21 @@
     },
     "status": {
       "createNewProgram": "Create a new programme to begin."
+    },
+    "dashboard": {
+      "cancelProgramTitle": "Cancel Programme #{id}?",
+      "programCancelled": "Programme has been cancelled.",
+      "programExtended": "Programme Extended",
+      "programExtendedText": "Programme #{id} has been extended.",
+      "programNotFound": "Programme not found",
+      "programRevised": "Programme Revised",
+      "rateRequired": "Programme rate is required"
+    },
+    "exemptReason": {
+      "departingCenter": "Departing from exempt ACC",
+      "departingTracon": "Departing from exempt Terminal",
+      "destCenter": "Destination exempt ACC",
+      "destTracon": "Destination exempt Terminal"
     }
   },
   "nav": {
@@ -273,6 +288,24 @@
       "color": "Colour",
       "colors": "Colours:",
       "symbologyDesc": "Configure line styles, colours, opacity, dash patterns, and fix/waypoint display"
+    },
+    "color": "Colour",
+    "colorRule": {
+      "addTitle": "Add Colour Rule",
+      "arrCenter": "Arrival Centre",
+      "color": "Colour",
+      "depCenter": "Departure Centre",
+      "editTitle": "Edit Colour Rule",
+      "enterValuesAndColor": "Enter values and select a colour",
+      "namedColors": "Named Colours",
+      "quickColors": "Quick Colours"
+    },
+    "confirmClearOverrides": "Clear all colour/style overrides?",
+    "layer": {
+      "traconBoundaries": "Terminal Boundaries"
+    },
+    "sua": {
+      "artcc": "ACC"
     }
   },
   "review": {
@@ -540,5 +573,10 @@
   },
   "advisoryConfig": {
     "usDcc": "US NOC"
+  },
+  "publicRoutes": {
+    "changeColor": "Change colour",
+    "color": "Colour",
+    "routeColor": "Route Colour"
   }
 }
