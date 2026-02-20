@@ -448,6 +448,48 @@ class GISService
     }
 
     /**
+     * Resolve a Fix/Bearing/Distance token to projected coordinates
+     *
+     * @param string $token FBD token (e.g., "BDR228018")
+     * @param float|null $prevLat Previous waypoint latitude for disambiguation
+     * @param float|null $prevLon Previous waypoint longitude for disambiguation
+     * @param float|null $nextLat Next waypoint latitude for disambiguation
+     * @param float|null $nextLon Next waypoint longitude for disambiguation
+     * @return array|null {fix_id, lat, lon, source} or null
+     */
+    public function resolveFBD(string $token, ?float $prevLat = null, ?float $prevLon = null, ?float $nextLat = null, ?float $nextLon = null): ?array
+    {
+        if (!$this->conn) return null;
+
+        try {
+            $sql = "SELECT fix_id, lat, lon, source FROM resolve_fbd_waypoint(:token, :prev_lat, :prev_lon, :next_lat, :next_lon)";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([
+                ':token' => $token,
+                ':prev_lat' => $prevLat,
+                ':prev_lon' => $prevLon,
+                ':next_lat' => $nextLat,
+                ':next_lon' => $nextLon,
+            ]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row || !$row['lat']) return null;
+
+            return [
+                'fix_id' => $row['fix_id'],
+                'lat' => (float)$row['lat'],
+                'lon' => (float)$row['lon'],
+                'source' => $row['source'],
+            ];
+
+        } catch (PDOException $e) {
+            $this->lastError = $e->getMessage();
+            error_log('GISService::resolveFBD error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Expand multiple routes at once (batch)
      *
      * @param array $routes Array of route strings

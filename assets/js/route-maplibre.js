@@ -443,6 +443,49 @@ $(document).ready(function() {
         return null;
     }
 
+    /**
+     * Resolve Fix/Bearing/Distance token (e.g., BDR228018 = BDR VOR, 228deg, 18nm)
+     * Uses route context (prev + next waypoints) for base fix disambiguation.
+     * @param {string} token - The FBD token
+     * @param {Array|null} previousPointData - [name, lat, lon] of previous waypoint
+     * @param {Array|null} nextPointData - [name, lat, lon] of next waypoint
+     * @returns {Array|null} [token, lat, lon] or null
+     */
+    function resolveFBD(token, previousPointData, nextPointData) {
+        if (!token) return null;
+        const s = String(token).toUpperCase().trim();
+        const m = s.match(/^([A-Z]{2,5})(\d{3})(\d{3})$/);
+        if (!m) return null;
+
+        const baseFix = m[1];
+        const bearingDeg = parseInt(m[2], 10);
+        const distanceNm = parseInt(m[3], 10);
+
+        if (bearingDeg > 360 || distanceNm < 1 || distanceNm > 999) return null;
+
+        // Look up the base fix using existing point resolution (handles disambiguation)
+        const basePoint = getPointByName(baseFix, previousPointData, nextPointData);
+        if (!basePoint) return null;
+
+        const baseLat = basePoint[1];
+        const baseLon = basePoint[2];
+
+        // Forward geodesic projection (spherical Earth)
+        const R = 6371000.0; // Earth radius in meters
+        const d = distanceNm * 1852.0;
+        const phi1 = baseLat * Math.PI / 180;
+        const lam1 = baseLon * Math.PI / 180;
+        const theta = bearingDeg * Math.PI / 180;
+
+        const phi2 = Math.asin(Math.sin(phi1) * Math.cos(d / R) + Math.cos(phi1) * Math.sin(d / R) * Math.cos(theta));
+        const lam2 = lam1 + Math.atan2(Math.sin(theta) * Math.sin(d / R) * Math.cos(phi1), Math.cos(d / R) - Math.sin(phi1) * Math.sin(phi2));
+
+        const lat = phi2 * 180 / Math.PI;
+        const lon = lam2 * 180 / Math.PI;
+
+        return [s, lat, lon];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // POINT LOOKUP FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -491,6 +534,12 @@ $(document).ready(function() {
             return confirmReasonableDistance([name, coord.lat, coord.lon], previousPointData, nextPointData);
         }
 
+        // Fix/Bearing/Distance tokens (e.g., BDR228018)
+        const fbd = resolveFBD(name, previousPointData, nextPointData);
+        if (fbd) {
+            return confirmReasonableDistance(fbd, previousPointData, nextPointData);
+        }
+
         // Final fallback: check areaCenters for ARTCC/FIR/regional pseudo-fixes
         if (areaCenters[name]) {
             const center = areaCenters[name];
@@ -511,6 +560,7 @@ $(document).ready(function() {
         }
         if (points[name]) {return points[name].length;}
         if (parseCoordinateToken(name)) {return 1;}
+        if (/^[A-Z]{2,5}\d{6}$/.test(name)) {return 1;}
         return 0;
     }
 

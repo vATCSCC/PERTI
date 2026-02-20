@@ -201,6 +201,110 @@ $$ LANGUAGE plpgsql STABLE;
 COMMENT ON FUNCTION expand_airway(VARCHAR, VARCHAR, VARCHAR) IS 'Expands an airway between two fixes to ordered waypoints';
 
 -- -----------------------------------------------------------------------------
+-- 2b. resolve_fbd_waypoint - Resolve a Fix/Bearing/Distance token
+-- -----------------------------------------------------------------------------
+-- Input: FBD token like 'BDR228018' (BDR VOR, 228° bearing, 18nm distance)
+--        Optional prev/next coordinates for base fix disambiguation
+-- Output: fix_id (original token), lat, lon, source ('fbd')
+--
+-- Format: {FIX_NAME}{BBB}{DDD} — 2-5 uppercase letters + 3-digit bearing + 3-digit distance
+-- Uses route context (prev + next waypoints) to disambiguate duplicate base fixes
+-- globally — NOT US-centric.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION resolve_fbd_waypoint(
+    p_token VARCHAR,
+    p_prev_lat DECIMAL(10,7) DEFAULT NULL,
+    p_prev_lon DECIMAL(11,7) DEFAULT NULL,
+    p_next_lat DECIMAL(10,7) DEFAULT NULL,
+    p_next_lon DECIMAL(11,7) DEFAULT NULL
+)
+RETURNS TABLE (
+    fix_id VARCHAR,
+    lat DECIMAL(10,7),
+    lon DECIMAL(11,7),
+    source VARCHAR(20)
+) AS $$
+DECLARE
+    v_base_fix VARCHAR;
+    v_bearing_deg INT;
+    v_distance_nm INT;
+    v_alpha_len INT;
+    v_base_lat DECIMAL(10,7);
+    v_base_lon DECIMAL(11,7);
+    v_projected GEOGRAPHY;
+    v_ref_lat DECIMAL(10,7);
+    v_ref_lon DECIMAL(11,7);
+BEGIN
+    -- Validate token: 2-5 uppercase letters followed by exactly 6 digits
+    IF p_token !~ '^[A-Z]{2,5}\d{6}$' THEN
+        RETURN;
+    END IF;
+
+    -- Extract components: base fix name (alpha prefix) + bearing (3 digits) + distance (3 digits)
+    v_alpha_len := LENGTH(regexp_replace(p_token, '\d.*$', ''));
+    v_base_fix := SUBSTRING(p_token FROM 1 FOR v_alpha_len);
+    v_bearing_deg := CAST(SUBSTRING(p_token FROM v_alpha_len + 1 FOR 3) AS INT);
+    v_distance_nm := CAST(SUBSTRING(p_token FROM v_alpha_len + 4 FOR 3) AS INT);
+
+    -- Validate ranges
+    IF v_bearing_deg > 360 OR v_distance_nm < 1 OR v_distance_nm > 999 THEN
+        RETURN;
+    END IF;
+
+    -- Resolve base fix with route-context proximity disambiguation
+    -- Strategy: both prev+next → midpoint, one side → that side, neither → first result
+    IF p_prev_lat IS NOT NULL AND p_next_lat IS NOT NULL THEN
+        v_ref_lat := (p_prev_lat + p_next_lat) / 2.0;
+        v_ref_lon := (p_prev_lon + p_next_lon) / 2.0;
+    ELSIF p_prev_lat IS NOT NULL THEN
+        v_ref_lat := p_prev_lat;
+        v_ref_lon := p_prev_lon;
+    ELSIF p_next_lat IS NOT NULL THEN
+        v_ref_lat := p_next_lat;
+        v_ref_lon := p_next_lon;
+    END IF;
+
+    IF v_ref_lat IS NOT NULL THEN
+        SELECT nf.lat, nf.lon INTO v_base_lat, v_base_lon
+        FROM nav_fixes nf
+        WHERE nf.fix_name = v_base_fix
+          AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(nf.lon, nf.lat), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(v_ref_lon, v_ref_lat), 4326)::geography
+        )
+        LIMIT 1;
+    ELSE
+        SELECT nf.lat, nf.lon INTO v_base_lat, v_base_lon
+        FROM nav_fixes nf
+        WHERE nf.fix_name = v_base_fix
+          AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
+        LIMIT 1;
+    END IF;
+
+    IF v_base_lat IS NULL THEN
+        RETURN;
+    END IF;
+
+    -- Project from base fix along bearing for distance
+    -- ST_Project(geography, distance_meters, azimuth_radians)
+    v_projected := ST_Project(
+        ST_SetSRID(ST_MakePoint(v_base_lon, v_base_lat), 4326)::geography,
+        v_distance_nm * 1852.0,
+        RADIANS(v_bearing_deg::FLOAT)
+    );
+
+    RETURN QUERY SELECT
+        p_token::VARCHAR AS fix_id,
+        ROUND(ST_Y(v_projected::geometry)::DECIMAL(10,7), 7) AS lat,
+        ROUND(ST_X(v_projected::geometry)::DECIMAL(11,7), 7) AS lon,
+        'fbd'::VARCHAR(20) AS source;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION resolve_fbd_waypoint(VARCHAR, DECIMAL, DECIMAL, DECIMAL, DECIMAL) IS 'Resolves Fix/Bearing/Distance token (e.g. BDR228018) to projected coordinates';
+
+-- -----------------------------------------------------------------------------
 -- 3. expand_route - Parse and expand a full route string
 -- -----------------------------------------------------------------------------
 -- Input: Route string like "KDFW LOWGN J86 BNA J42 BROKK KMCO"
@@ -230,6 +334,12 @@ DECLARE
     v_next_fix TEXT;
     v_wp RECORD;
     v_airway_wp RECORD;
+    v_fbd_wp RECORD;
+    v_fbd_prev_lat DECIMAL(10,7);
+    v_fbd_prev_lon DECIMAL(11,7);
+    v_fbd_next_lat DECIMAL(10,7);
+    v_fbd_next_lon DECIMAL(11,7);
+    v_fbd_next_wp RECORD;
 BEGIN
     -- Split route string into parts
     v_parts := regexp_split_to_array(TRIM(p_route_string), '\s+');
@@ -240,6 +350,53 @@ BEGIN
 
         -- Skip empty parts
         IF v_part IS NULL OR v_part = '' THEN
+            v_idx := v_idx + 1;
+            CONTINUE;
+        END IF;
+
+        -- Check for FBD (Fix/Bearing/Distance) tokens like BDR228018
+        -- Must come BEFORE airway check to avoid misclassification
+        IF v_part ~ '^[A-Z]{2,5}\d{6}$' THEN
+            -- Get previous fix coords for disambiguation
+            v_fbd_prev_lat := NULL;
+            v_fbd_prev_lon := NULL;
+            v_fbd_next_lat := NULL;
+            v_fbd_next_lon := NULL;
+
+            IF v_seq > 0 THEN
+                SELECT rw.lat, rw.lon INTO v_fbd_prev_lat, v_fbd_prev_lon
+                FROM resolve_waypoint(v_prev_fix) rw LIMIT 1;
+            END IF;
+
+            -- Look ahead to next token for disambiguation context
+            IF v_idx < array_length(v_parts, 1) THEN
+                v_next_fix := v_parts[v_idx + 1];
+                IF v_next_fix IS NOT NULL AND v_next_fix != '' AND v_next_fix !~ '^[A-Z]{2,5}\d{6}$' THEN
+                    -- Strip procedure notation
+                    IF v_next_fix LIKE '%.%' THEN
+                        v_next_fix := split_part(v_next_fix, '.', 1);
+                    END IF;
+                    SELECT rw.lat, rw.lon INTO v_fbd_next_lat, v_fbd_next_lon
+                    FROM resolve_waypoint(v_next_fix) rw LIMIT 1;
+                END IF;
+            END IF;
+
+            SELECT rfbd.fix_id, rfbd.lat, rfbd.lon, rfbd.source
+            INTO v_fbd_wp
+            FROM resolve_fbd_waypoint(v_part, v_fbd_prev_lat, v_fbd_prev_lon, v_fbd_next_lat, v_fbd_next_lon) rfbd
+            LIMIT 1;
+
+            IF v_fbd_wp.fix_id IS NOT NULL THEN
+                v_seq := v_seq + 1;
+                waypoint_seq := v_seq;
+                waypoint_id := v_fbd_wp.fix_id;
+                lat := v_fbd_wp.lat;
+                lon := v_fbd_wp.lon;
+                waypoint_type := 'fbd';
+                RETURN NEXT;
+                v_prev_fix := v_part;
+            END IF;
+
             v_idx := v_idx + 1;
             CONTINUE;
         END IF;
@@ -652,6 +809,7 @@ CREATE INDEX IF NOT EXISTS idx_playbook_play_name ON playbook_routes(play_name);
 -- GRANT permissions (uncomment as needed for your environment)
 -- =============================================================================
 -- GRANT EXECUTE ON FUNCTION resolve_waypoint(VARCHAR) TO gis_readonly;
+-- GRANT EXECUTE ON FUNCTION resolve_fbd_waypoint(VARCHAR, DECIMAL, DECIMAL, DECIMAL, DECIMAL) TO gis_readonly;
 -- GRANT EXECUTE ON FUNCTION expand_airway(VARCHAR, VARCHAR, VARCHAR) TO gis_readonly;
 -- GRANT EXECUTE ON FUNCTION expand_route(TEXT) TO gis_readonly;
 -- GRANT EXECUTE ON FUNCTION expand_route_with_artccs(TEXT) TO gis_readonly;

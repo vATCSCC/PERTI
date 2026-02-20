@@ -216,7 +216,21 @@ BEGIN
         -- Otherwise it's an airway (A501, etc)
         RETURN 'AIRWAY';
     END
-    
+
+    -- Fix/Bearing/Distance (e.g., BDR228018 = BDR VOR, 228 bearing, 18nm)
+    -- 2-5 alpha chars followed by exactly 6 digits. Must come before SID/STAR.
+    IF LEN(@upper) BETWEEN 8 AND 11
+    BEGIN
+        DECLARE @fbd_alpha INT = 0;
+        DECLARE @fbd_i INT = 1;
+        WHILE @fbd_i <= LEN(@upper) AND SUBSTRING(@upper, @fbd_i, 1) LIKE '[A-Z]'
+            SET @fbd_i = @fbd_i + 1;
+        SET @fbd_alpha = @fbd_i - 1;
+        IF @fbd_alpha BETWEEN 2 AND 5 AND LEN(@upper) - @fbd_alpha = 6
+           AND SUBSTRING(@upper, @fbd_alpha + 1, 6) LIKE '[0-9][0-9][0-9][0-9][0-9][0-9]'
+            RETURN 'FBD';
+    END
+
     -- SID/STAR with dot
     IF @upper LIKE '%.%' AND LEN(@upper) >= 5
     BEGIN
@@ -274,6 +288,125 @@ BEGIN
         RETURN 'FIX';
     
     RETURN 'UNKNOWN';
+END;
+GO
+
+-- ============================================================================
+-- Helper Function: Resolve Fix/Bearing/Distance token
+-- ============================================================================
+-- Input: FBD token like 'BDR228018' (BDR VOR, 228 bearing, 18nm distance)
+--        Optional prev/next coordinates for base fix disambiguation
+-- Output: fix_name, lat, lon, base_fix, bearing, distance_nm
+--
+-- Uses route context (prev + next waypoints) to disambiguate duplicate base
+-- fixes globally. NOT US-centric.
+-- ============================================================================
+IF OBJECT_ID('dbo.fn_ResolveFBD', 'TF') IS NOT NULL
+    DROP FUNCTION dbo.fn_ResolveFBD;
+GO
+
+CREATE FUNCTION dbo.fn_ResolveFBD (
+    @token NVARCHAR(100),
+    @prev_lat FLOAT = NULL,
+    @prev_lon FLOAT = NULL,
+    @next_lat FLOAT = NULL,
+    @next_lon FLOAT = NULL
+)
+RETURNS @result TABLE (
+    fix_name NVARCHAR(50),
+    lat FLOAT,
+    lon FLOAT,
+    base_fix NVARCHAR(10),
+    bearing INT,
+    distance_nm INT
+)
+AS
+BEGIN
+    DECLARE @upper NVARCHAR(100) = UPPER(LTRIM(RTRIM(@token)));
+    DECLARE @alpha_len INT = 0;
+    DECLARE @base_fix NVARCHAR(10);
+    DECLARE @bearing_deg INT;
+    DECLARE @distance_nm INT;
+    DECLARE @base_lat FLOAT;
+    DECLARE @base_lon FLOAT;
+    DECLARE @ref_lat FLOAT;
+    DECLARE @ref_lon FLOAT;
+
+    -- Count leading alpha characters
+    DECLARE @ci INT = 1;
+    WHILE @ci <= LEN(@upper) AND SUBSTRING(@upper, @ci, 1) LIKE '[A-Z]'
+        SET @ci = @ci + 1;
+    SET @alpha_len = @ci - 1;
+
+    -- Validate: 2-5 alpha + exactly 6 digits remaining
+    IF @alpha_len < 2 OR @alpha_len > 5 RETURN;
+    IF LEN(@upper) - @alpha_len != 6 RETURN;
+    IF SUBSTRING(@upper, @alpha_len + 1, 6) NOT LIKE '[0-9][0-9][0-9][0-9][0-9][0-9]' RETURN;
+
+    SET @base_fix = LEFT(@upper, @alpha_len);
+    SET @bearing_deg = CAST(SUBSTRING(@upper, @alpha_len + 1, 3) AS INT);
+    SET @distance_nm = CAST(SUBSTRING(@upper, @alpha_len + 4, 3) AS INT);
+
+    -- Validate ranges
+    IF @bearing_deg > 360 OR @distance_nm < 1 OR @distance_nm > 999 RETURN;
+
+    -- Determine reference point for proximity disambiguation
+    -- Strategy: both prev+next -> midpoint; one side -> that side; neither -> first result
+    IF @prev_lat IS NOT NULL AND @next_lat IS NOT NULL
+    BEGIN
+        SET @ref_lat = (@prev_lat + @next_lat) / 2.0;
+        SET @ref_lon = (@prev_lon + @next_lon) / 2.0;
+    END
+    ELSE IF @prev_lat IS NOT NULL
+    BEGIN
+        SET @ref_lat = @prev_lat;
+        SET @ref_lon = @prev_lon;
+    END
+    ELSE IF @next_lat IS NOT NULL
+    BEGIN
+        SET @ref_lat = @next_lat;
+        SET @ref_lon = @next_lon;
+    END
+
+    -- Resolve base fix with proximity disambiguation
+    IF @ref_lat IS NOT NULL
+    BEGIN
+        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon
+        FROM dbo.nav_fixes nf
+        WHERE nf.fix_name = @base_fix
+          AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
+        ORDER BY geography::Point(@ref_lat, @ref_lon, 4326).STDistance(
+            geography::Point(nf.lat, nf.lon, 4326)
+        );
+    END
+    ELSE
+    BEGIN
+        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon
+        FROM dbo.nav_fixes nf
+        WHERE nf.fix_name = @base_fix
+          AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL;
+    END
+
+    IF @base_lat IS NULL RETURN;
+
+    -- Forward geodesic projection using spherical Earth formula
+    -- phi2 = asin(sin(phi1)*cos(d/R) + cos(phi1)*sin(d/R)*cos(theta))
+    -- lambda2 = lambda1 + atan2(sin(theta)*sin(d/R)*cos(phi1), cos(d/R) - sin(phi1)*sin(phi2))
+    DECLARE @R FLOAT = 6371000.0;  -- Earth radius in meters
+    DECLARE @d FLOAT = @distance_nm * 1852.0;  -- distance in meters
+    DECLARE @phi1 FLOAT = RADIANS(@base_lat);
+    DECLARE @lam1 FLOAT = RADIANS(@base_lon);
+    DECLARE @theta FLOAT = RADIANS(CAST(@bearing_deg AS FLOAT));
+    DECLARE @phi2 FLOAT;
+    DECLARE @lam2 FLOAT;
+
+    SET @phi2 = ASIN(SIN(@phi1) * COS(@d / @R) + COS(@phi1) * SIN(@d / @R) * COS(@theta));
+    SET @lam2 = @lam1 + ATN2(SIN(@theta) * SIN(@d / @R) * COS(@phi1), COS(@d / @R) - SIN(@phi1) * SIN(@phi2));
+
+    INSERT INTO @result (fix_name, lat, lon, base_fix, bearing, distance_nm)
+    VALUES (@upper, DEGREES(@phi2), DEGREES(@lam2), @base_fix, @bearing_deg, @distance_nm);
+
+    RETURN;
 END;
 GO
 
@@ -541,13 +674,79 @@ BEGIN
         BEGIN
             DECLARE @coord_lat FLOAT, @coord_lon FLOAT, @coord_valid BIT;
             SELECT @coord_lat = lat, @coord_lon = lon, @coord_valid = is_valid FROM dbo.fn_ParseCoordinate(@t_token);
-            
+
             IF @coord_valid = 1
             BEGIN
                 INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
                 VALUES (@t_token, @coord_lat, @coord_lon, 'COORD', 'COORD', @t_token);
                 SET @prev_fix_name = @t_token;
             END
+            SET @pending_airway = NULL;
+        END
+        ELSE IF @t_type = 'FBD'
+        BEGIN
+            -- Fix/Bearing/Distance token (e.g., BDR228018)
+            -- Resolve with route context: previous fix + look-ahead to next fix
+            DECLARE @fbd_lat FLOAT, @fbd_lon FLOAT;
+            DECLARE @fbd_next_lat FLOAT, @fbd_next_lon FLOAT;
+            DECLARE @fbd_prev_lat FLOAT, @fbd_prev_lon FLOAT;
+            DECLARE @fbd_next_token NVARCHAR(100), @fbd_next_type NVARCHAR(20);
+
+            -- Reset for each FBD token (DECLARE only initializes on first iteration)
+            SET @fbd_lat = NULL;
+            SET @fbd_lon = NULL;
+            SET @fbd_next_lat = NULL;
+            SET @fbd_next_lon = NULL;
+            SET @fbd_prev_lat = NULL;
+            SET @fbd_prev_lon = NULL;
+            SET @fbd_next_token = NULL;
+            SET @fbd_next_type = NULL;
+
+            -- Get previous fix coordinates from already-resolved origin or nav_fixes
+            IF @prev_fix_name IS NOT NULL
+            BEGIN
+                -- Check if already resolved in waypoints (origin has lat/lon)
+                SELECT TOP 1 @fbd_prev_lat = lat, @fbd_prev_lon = lon
+                FROM @waypoints WHERE fix_name = @prev_fix_name AND lat IS NOT NULL
+                ORDER BY seq DESC;
+
+                -- If not yet resolved, try nav_fixes directly
+                IF @fbd_prev_lat IS NULL
+                BEGIN
+                    SELECT TOP 1 @fbd_prev_lat = lat, @fbd_prev_lon = lon
+                    FROM dbo.nav_fixes
+                    WHERE fix_name = @prev_fix_name AND lat IS NOT NULL;
+                END
+            END
+
+            -- Look ahead to next non-skip token for disambiguation context
+            SELECT TOP 1 @fbd_next_token = token, @fbd_next_type = token_type
+            FROM @tokens WHERE seq > @t_seq AND token_type NOT IN ('SKIP', 'SPEED_ALT') ORDER BY seq;
+
+            IF @fbd_next_token IS NOT NULL AND @fbd_next_type IN ('FIX', 'AIRPORT')
+            BEGIN
+                SELECT TOP 1 @fbd_next_lat = lat, @fbd_next_lon = lon
+                FROM dbo.nav_fixes
+                WHERE fix_name = @fbd_next_token AND lat IS NOT NULL;
+            END
+
+            -- Resolve FBD with full route context
+            SELECT TOP 1 @fbd_lat = lat, @fbd_lon = lon
+            FROM dbo.fn_ResolveFBD(@t_token, @fbd_prev_lat, @fbd_prev_lon, @fbd_next_lat, @fbd_next_lon);
+
+            IF @fbd_lat IS NOT NULL
+            BEGIN
+                INSERT INTO @waypoints (fix_name, lat, lon, fix_type, source, original_token)
+                VALUES (@t_token, @fbd_lat, @fbd_lon, 'FBD', 'FBD', @t_token);
+                SET @prev_fix_name = @t_token;
+                SET @last_fix_for_star = @t_token;
+
+                IF @debug = 1
+                    PRINT 'FBD resolved: ' + @t_token + ' at ' + CAST(@fbd_lat AS VARCHAR) + ', ' + CAST(@fbd_lon AS VARCHAR);
+            END
+            ELSE IF @debug = 1
+                PRINT 'FBD unresolved: ' + @t_token;
+
             SET @pending_airway = NULL;
         END
         ELSE IF @t_type IN ('SID', 'STAR', 'SID_OR_STAR')
