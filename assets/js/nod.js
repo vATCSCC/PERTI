@@ -3718,12 +3718,16 @@
             return regions;
         }
         return {
-            'WEST':         ['ZAK', 'ZAN', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE'],
+            'WEST':          ['ZAK', 'ZAN', 'ZAP', 'ZHN', 'ZLA', 'ZLC', 'ZOA', 'ZSE', 'ZUA'],
             'SOUTH_CENTRAL': ['ZAB', 'ZFW', 'ZHO', 'ZHU', 'ZME'],
-            'MIDWEST':      ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
-            'SOUTHEAST':    ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
-            'NORTHEAST':    ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
-            'CANADA':       ['CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ'],
+            'MIDWEST':       ['ZAU', 'ZDV', 'ZKC', 'ZMP'],
+            'SOUTHEAST':     ['ZID', 'ZJX', 'ZMA', 'ZMO', 'ZTL'],
+            'NORTHEAST':     ['ZBW', 'ZDC', 'ZNY', 'ZOB', 'ZWY'],
+            'CANADA':        ['CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ'],
+            'MEXICO':        ['MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO'],
+            'CARIBBEAN':     ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL', 'MYNA'],
+            'ECFMP':         [],
+            'OTHER':         [],
         };
     })();
 
@@ -3737,6 +3741,10 @@
             'SOUTHEAST': '#ffc107',      // Yellow (bright amber, distinct from orange)
             'NORTHEAST': '#007bff',      // Blue
             'CANADA': '#6f42c1',         // Purple (matches facility-hierarchy.js)
+            'MEXICO': '#20c997',         // Teal
+            'CARIBBEAN': '#e83e8c',      // Pink
+            'ECFMP': '#17a2b8',          // Cyan
+            'OTHER': '#6c757d',          // Gray
             '': '#6c757d',
         };
 
@@ -3863,7 +3871,7 @@
 
     // Airport tier colors - use FacilityHierarchy as source of truth
     const AIRPORT_TIER_COLORS = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TIER_COLORS) || {
-        'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OTHER': '#6c757d',
+        'CORE30': '#dc3545', 'OEP35': '#007bff', 'ASPM82': '#ffc107', 'OPSNET45': '#17a2b8', 'OTHER': '#6c757d',
     };
 
     // ARTCC colors - use PERTI > FILTER_CONFIG > hardcoded fallback

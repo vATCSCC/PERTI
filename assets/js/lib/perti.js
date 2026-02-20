@@ -486,10 +486,10 @@
         'CZQX': 'Gander FIR', 'CZUL': 'Montreal FIR', 'CZVR': 'Vancouver FIR',
         'CZWG': 'Winnipeg FIR', 'CZYZ': 'Toronto FIR',
         // Caribbean
-        'TJSJ': 'San Juan CERAP', 'MUFH': 'Havana FIR', 'MKJK': 'Kingston FIR',
-        'TNCF': 'Curacao FIR', 'TTPP': 'Piarco FIR',
+        'TJSJ': 'San Juan CERAP', 'TJZS': 'San Juan FIR', 'MUFH': 'Havana FIR', 'MKJK': 'Kingston FIR',
+        'TNCF': 'Curacao FIR', 'TTPP': 'Piarco Airport', 'TTZP': 'Piarco FIR',
         // Mexico
-        'MMEX': 'Mexico City ACC', 'MMTY': 'Monterrey ACC', 'MMZT': 'Mazatlan ACC',
+        'MMMX': 'Mexico City ACC', 'MMTY': 'Monterrey ACC', 'MMZT': 'Mazatlan ACC',
         'MMUN': 'Cancun ACC', 'MMMD': 'Merida ACC',
     });
 
@@ -927,7 +927,7 @@
         CARIBBEAN: {
             name: 'Caribbean',
             color: '#e83e8c',
-            artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+            artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL', 'MYNA'],
         },
         ECFMP: {
             name: 'ECFMP',

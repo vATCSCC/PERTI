@@ -29,9 +29,9 @@
         FIR: [..._JP.FACILITY.FACILITY_LISTS.FIR_GLOBAL],
     } : {
         ARTCC: [
-            'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
-            'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
-            'ZAN', 'HCF',
+            'ZAB', 'ZAK', 'ZAN', 'ZAP', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN',
+            'ZHO', 'ZHU', 'ZID', 'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMO',
+            'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL', 'ZUA', 'ZWY',
         ],
         TRACON: [
             'A11', 'A80', 'A90', 'C90', 'D01', 'D10', 'D21', 'F11', 'I90', 'L30',
@@ -45,7 +45,7 @@
             'KPHL', 'KPHX', 'KPIT', 'KSAN', 'KSEA', 'KSFO', 'KSLC', 'KSTL', 'KTPA',
         ],
         FIR: [
-            'CZEG', 'CZQM', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ',
+            'CZEG', 'CZQM', 'CZQO', 'CZQX', 'CZUL', 'CZVR', 'CZWG', 'CZYZ',
             'EGPX', 'EGTT', 'EISN', 'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
             'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'LSAS', 'LOVV',
             'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LECM', 'LECB', 'LECS', 'LPPC',
@@ -60,7 +60,8 @@
             'DGAC', 'DRRR', 'DNKK', 'GOOO', 'GMMM', 'DTTC', 'HLLL', 'HECC',
             'SCEZ', 'SCEL', 'SUEO', 'SABE', 'SBBS', 'SBCW', 'SBRE', 'SBAZ',
             'SVZM', 'SKED', 'SKEC', 'SPIM', 'SLLF', 'SEGU',
-            'MHTG', 'MGGT', 'MMMX', 'MMFR', 'MMTY', 'MMZT', 'TJZS', 'MKJK', 'MDCS', 'TTZP',
+            'MHTG', 'MGGT', 'MMMX', 'MMFR', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFO',
+            'TJZS', 'MKJK', 'MDCS', 'TTZP', 'MUFH', 'MHCC', 'MPZL', 'TNCF', 'MYNA',
         ],
     };
 

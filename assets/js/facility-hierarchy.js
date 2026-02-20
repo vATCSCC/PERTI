@@ -203,7 +203,7 @@
             },
             'CARIBBEAN': {
                 name: 'Caribbean',
-                artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL'],
+                artccs: ['TJZS', 'MKJK', 'MUFH', 'MDCS', 'TNCF', 'TTZP', 'MHCC', 'MPZL', 'MYNA'],
                 color: '#e83e8c',
                 bgColor: 'rgba(232, 62, 140, 0.15)',
                 textClass: 'text-pink',

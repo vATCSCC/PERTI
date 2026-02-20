@@ -1078,10 +1078,10 @@ function getManufacturerOrder(mfr) {
  * Get DCC region color for an ARTCC
  * Uses FacilityHierarchy regional color scheme:
  * - Northeast (ZBW, ZDC, ZNY, ZOB): Blue
- * - Southeast (ZID, ZJX, ZMA, ZTL): Yellow
- * - South Central (ZAB, ZFW, ZHU, ZME): Orange
+ * - Southeast (ZID, ZJX, ZMA, ZMO, ZTL): Yellow
+ * - South Central (ZAB, ZFW, ZHO, ZHU, ZME): Orange
  * - Midwest (ZAU, ZDV, ZKC, ZMP): Green
- * - West (ZLA, ZLC, ZOA, ZSE, ZAN, ZHN): Red
+ * - West (ZAK, ZAN, ZAP, ZHN, ZLA, ZLC, ZOA, ZSE, ZUA): Red
  * - Canada: Purple
  * - International: Various
  * @param {string} artcc - ARTCC code
@@ -1107,7 +1107,7 @@ function getDCCRegionColor(artcc) {
         // Southeast - Yellow/Gold
         'ZID': '#ffc107', 'ZJX': '#ffc107', 'ZMA': '#ffc107', 'ZMO': '#ffc107', 'ZTL': '#ffc107',
         // South Central - Orange
-        'ZAB': '#ec791b', 'ZFW': '#ec791b', 'ZHO': '#ec791b', 'ZHU': '#ec791b', 'ZME': '#ec791b',
+        'ZAB': '#fd7e14', 'ZFW': '#fd7e14', 'ZHO': '#fd7e14', 'ZHU': '#fd7e14', 'ZME': '#fd7e14',
         // Midwest - Green
         'ZAU': '#28a745', 'ZDV': '#28a745', 'ZKC': '#28a745', 'ZMP': '#28a745',
         // West - Red
