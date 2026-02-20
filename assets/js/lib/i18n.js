@@ -89,7 +89,12 @@ const PERTII18n = (function() {
      */
     function t(key, params = {}) {
         // Look up in current strings, then fallback, then return key
-        let str = strings[key] || fallbackStrings[key] || key;
+        let str = strings[key] ?? fallbackStrings[key] ?? key;
+
+        // Warn about missing keys in development (helps catch typos)
+        if (str === key && key && key.includes('.')) {
+            console.warn('[i18n] Missing translation key:', key);
+        }
 
         // Interpolate parameters: {param} -> value
         if (params && typeof params === 'object') {

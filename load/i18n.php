@@ -26,7 +26,7 @@ if (defined('I18N_PHP_LOADED')) {
 define('I18N_PHP_LOADED', true);
 
 /** Supported locale codes */
-const SUPPORTED_LOCALES = ['en-US', 'en-CA', 'fr-CA'];
+const SUPPORTED_LOCALES = ['en-US', 'en-CA', 'en-EU', 'fr-CA'];
 
 /**
  * PHP i18n translation class.
@@ -104,6 +104,11 @@ class PERTII18nPHP
         $str = self::$strings[$key]
             ?? self::$fallbackStrings[$key]
             ?? $key;
+
+        // Log missing keys to help catch typos (only when key looks like a dot-notation key)
+        if ($str === $key && str_contains($key, '.')) {
+            error_log('[i18n] Missing translation key: ' . $key);
+        }
 
         if ($params) {
             foreach ($params as $name => $value) {

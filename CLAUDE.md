@@ -933,10 +933,10 @@ Keys are auto-flattened to dot notation: `myFeature.title`, `myFeature.error.loa
 
 ### Current Coverage
 
-- **JS modules using i18n**: `tmi-publish.js` (50+ keys), `dialog.js`, `phase-colors.js`, `filter-colors.js`
-- **JS modules NOT yet using i18n**: `demand.js`, `route-maplibre.js`, `gdt.js`, `nod.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sheet.js`, `sua.js`, `weather_impact.js`
-- **PHP API**: No i18n — all error strings hardcoded English
-- **Supported locales**: `en-US` only (infrastructure supports expansion)
+- **JS modules fully using i18n**: `demand.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`
+- **JS modules mostly using i18n** (minor gaps): `gdt.js`, `nod.js`, `route-maplibre.js`, `tmi_compliance.js`, `weather_radar.js`
+- **PHP pages using i18n**: `index.php`, `plan.php`, `sheet.php`, `route.php`, `review.php`, `schedule.php`, `demand.php`, `splits.php`, `gdt.php`, `nod.php`, `jatoc.php`, `sua.php`, `swim.php`, `tmi-publish.php`, `nav.php`, `footer.php` (28 files total)
+- **Supported locales**: `en-US` (full), `fr-CA` (near-complete), `en-CA` (overlay), `en-EU` (overlay)
 
 ### Locale Detection Priority
 

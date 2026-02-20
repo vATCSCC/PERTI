@@ -126,7 +126,14 @@
                     "none": "None",
                     "all": "All",
                     "other": "Other",
-                    "unknown": "Unknown"
+                    "unknown": "Unknown",
+                    "unknownError": "An unknown error occurred",
+                    "na": "N/A",
+                    "status": "Status",
+                    "saveChanges": "Save Changes",
+                    "noDataAvailable": "No data available",
+                    "noFlightsFound": "No flights found",
+                    "copiedToClipboard": "Copied to clipboard"
                 },
                 "status": {
                     "active": "Active",
@@ -162,6 +169,10 @@
                     "reroute": "Reroute",
                     "exempt": "Exempt",
                     "uncontrolled": "Uncontrolled",
+                    "mit": "Miles-In-Trail",
+                    "minit": "Minutes-In-Trail",
+                    "afp": "Airspace Flow Program",
+                    "ctop": "Collaborative Trajectory Options Program",
                     "actualGdp": "GDP (EDCT)",
                     "simulatedGdp": "GDP (Simulated)",
                     "proposedGdp": "GDP (Proposed)",
@@ -186,22 +197,46 @@
                     "midwest": "Midwest",
                     "southeast": "Southeast",
                     "northeast": "Northeast",
+                    "canada": "Canada",
                     "canadaEast": "Canada East",
-                    "canadaWest": "Canada West"
+                    "canadaWest": "Canada West",
+                    "mexico": "Mexico",
+                    "caribbean": "Caribbean",
+                    "ecfmp": "ECFMP"
                 },
                 "dialog": {
                     "loading": "Loading...",
                     "submitting": "Submitting...",
                     "publishing": "Publishing...",
                     "saving": "Saving...",
-                    "processing": "Processing..."
+                    "processing": "Processing...",
+                    "success": {
+                        "title": "Success",
+                        "saved": "Changes saved successfully",
+                        "deleted": "Item deleted successfully"
+                    },
+                    "error": {
+                        "title": "Error",
+                        "generic": "An error occurred"
+                    },
+                    "confirmDelete": {
+                        "title": "Are you sure?",
+                        "text": "This action cannot be undone."
+                    }
                 },
                 "error": {
                     "loadFailed": "Failed to load {resource}",
                     "saveFailed": "Failed to save {resource}",
+                    "deleteFailed": "Failed to delete {resource}",
+                    "updateFailed": "Failed to update {resource}",
+                    "fetchFailed": "Failed to fetch data",
+                    "submitFailed": "Failed to submit",
                     "networkError": "Network error: {message}",
                     "connectionFailed": "Failed to connect to server",
-                    "invalidInput": "Invalid input"
+                    "serverError": "Server error",
+                    "invalidInput": "Invalid input",
+                    "requiredField": "This field is required",
+                    "timeout": "Request timed out"
                 },
                 "flight": {
                     "one": "{count} flight",

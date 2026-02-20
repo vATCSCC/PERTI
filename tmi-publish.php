@@ -244,28 +244,28 @@ $perm = true;
         </li>
         <li class="nav-item">
             <a class="nav-link" id="reroute-tab" data-toggle="tab" href="#reroutePanel" role="tab">
-                <i class="fas fa-route mr-1"></i> Reroute
+                <i class="fas fa-route mr-1"></i> <?= __('tmiPublish.page.tabReroute') ?>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="gsgdp-tab" data-toggle="tab" href="#gsgdpPanel" role="tab">
-                <i class="fas fa-plane-departure mr-1"></i> GS/GDP
+                <i class="fas fa-plane-departure mr-1"></i> <?= __('tmiPublish.page.tabGsGdp') ?>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="queue-tab" data-toggle="tab" href="#queuePanel" role="tab">
-                <i class="fas fa-list mr-1"></i> Queue 
+                <i class="fas fa-list mr-1"></i> <?= __('tmiPublish.page.tabQueue') ?>
                 <span class="badge badge-secondary" id="queueBadge">0</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="active-tab" data-toggle="tab" href="#activePanel" role="tab">
-                <i class="fas fa-broadcast-tower mr-1"></i> Active TMIs
+                <i class="fas fa-broadcast-tower mr-1"></i> <?= __('tmiPublish.page.tabActiveTmis') ?>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="coordination-tab" data-toggle="tab" href="#coordinationPanel" role="tab">
-                <i class="fas fa-handshake mr-1"></i> Coordination
+                <i class="fas fa-handshake mr-1"></i> <?= __('tmiPublish.page.tabCoordination') ?>
                 <span class="badge badge-warning" id="pendingProposalsBadge" style="display: none;">0</span>
             </a>
         </li>
@@ -281,7 +281,7 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header bg-dark text-white">
                             <span class="tmi-section-title">
-                                <i class="fas fa-list-alt mr-1"></i> NTML Entry Type
+                                <i class="fas fa-list-alt mr-1"></i> <?= __('tmiPublish.page.ntmlEntryType') ?>
                             </span>
                         </div>
                         <div class="card-body">
