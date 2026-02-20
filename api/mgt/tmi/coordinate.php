@@ -955,14 +955,44 @@ function handleListProposals($includeAll = false) {
         $stmt = $conn->query($sql);
         $proposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Bulk-query per-facility approval data for all returned proposals
+        $facilityMap = [];
+        if (!empty($proposals)) {
+            $propIds = array_map(fn($p) => (int)$p['proposal_id'], $proposals);
+            $placeholders = implode(',', $propIds);
+            $facSql = "SELECT proposal_id, facility_code, facility_name, approval_status,
+                              reacted_by_user_id, reacted_by_username, reacted_by_oi, reacted_at
+                       FROM dbo.tmi_proposal_facilities
+                       WHERE proposal_id IN ({$placeholders})
+                       ORDER BY proposal_id, facility_code";
+            $facStmt = $conn->query($facSql);
+            $facRows = $facStmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($facRows as $fac) {
+                $pid = (int)$fac['proposal_id'];
+                if (!isset($facilityMap[$pid])) {
+                    $facilityMap[$pid] = [];
+                }
+                $facilityMap[$pid][] = [
+                    'facility_code' => $fac['facility_code'],
+                    'facility_name' => $fac['facility_name'],
+                    'approval_status' => $fac['approval_status'],
+                    'reacted_by_user_id' => $fac['reacted_by_user_id'],
+                    'reacted_by_username' => $fac['reacted_by_username'],
+                    'reacted_by_oi' => $fac['reacted_by_oi'],
+                    'reacted_at' => $fac['reacted_at']
+                ];
+            }
+        }
+
         // Format proposals for response
         $result = [];
         foreach ($proposals as $prop) {
             // Parse entry data for display
             $entryData = json_decode($prop['entry_data_json'], true);
+            $propId = (int)$prop['proposal_id'];
 
             $result[] = [
-                'proposal_id' => (int)$prop['proposal_id'],
+                'proposal_id' => $propId,
                 'proposal_guid' => $prop['proposal_guid'],
                 'status' => $prop['status'],
                 'entry_type' => $prop['entry_type'],
@@ -975,6 +1005,7 @@ function handleListProposals($includeAll = false) {
                 'valid_until' => $prop['valid_until'],
                 'facility_count' => (int)$prop['facility_count'],
                 'approved_count' => (int)$prop['approved_count'],
+                'facilities' => $facilityMap[$propId] ?? [],
                 'dcc_override' => (bool)$prop['dcc_override'],
                 'dcc_override_action' => $prop['dcc_override_action'],
                 'discord_message_id' => $prop['discord_message_id'],
@@ -1073,21 +1104,27 @@ function handleProcessReaction() {
     $webReactionType = $input['reaction_type'] ?? null;
     $webDccAction = $input['dcc_action'] ?? null;
 
+    // Web-based facility action fields
+    $webFacilityCode = $input['facility_code'] ?? null;
+    $operatingInitials = $input['operating_initials'] ?? null;
+
     // Allow web-based DCC override (reaction_type=DCC_OVERRIDE with dcc_action)
     $isWebDccOverride = ($webReactionType === 'DCC_OVERRIDE' && in_array($webDccAction, ['APPROVE', 'DENY']));
 
-    // SECURITY: Web-based DCC override requires login (valid VATSIM CID)
-    if ($isWebDccOverride) {
-        // Check for valid CID - must be numeric and positive
+    // Allow web-based facility approve/deny
+    $isWebFacilityAction = in_array($webReactionType, ['WEB_FACILITY_APPROVE', 'WEB_FACILITY_DENY']) && $webFacilityCode;
+
+    // SECURITY: Web-based actions require login (valid VATSIM CID)
+    if ($isWebDccOverride || $isWebFacilityAction) {
         if (!$discordUserId || !is_numeric($discordUserId) || intval($discordUserId) <= 0) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to perform DCC override actions']);
+            echo json_encode(['success' => false, 'error' => 'Authentication required: You must be logged in to perform coordination actions']);
             return;
         }
     }
 
-    // Validation: need proposal/message ID and either emoji (Discord) or web DCC override
-    if ((!$proposalId && !$messageId) || (!$emoji && !$isWebDccOverride) || !$discordUserId) {
+    // Validation: need proposal/message ID and either emoji (Discord), web DCC override, or web facility action
+    if ((!$proposalId && !$messageId) || (!$emoji && !$isWebDccOverride && !$isWebFacilityAction) || !$discordUserId) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Missing required fields: need proposal_id, discord_user_id, and either emoji or DCC_OVERRIDE action']);
         return;
@@ -1140,6 +1177,38 @@ function handleProcessReaction() {
             $dccAction = $webDccAction;
             $reactionType = ($webDccAction === 'APPROVE') ? 'DCC_APPROVE' : 'DCC_DENY';
             $emoji = ($webDccAction === 'APPROVE') ? 'WEB_APPROVE' : 'WEB_DENY'; // Placeholder for logging
+        } elseif ($isWebFacilityAction) {
+            // Web-based facility approve/deny (from TMI Publisher UI)
+            // Validate facility exists for this proposal and is still PENDING
+            $checkFacSql = "SELECT approval_status FROM dbo.tmi_proposal_facilities
+                            WHERE proposal_id = :prop_id AND facility_code = :fac_code";
+            $checkFacStmt = $conn->prepare($checkFacSql);
+            $checkFacStmt->execute([':prop_id' => $proposalId, ':fac_code' => $webFacilityCode]);
+            $facRow = $checkFacStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$facRow) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => "Facility {$webFacilityCode} not found for this proposal"]);
+                return;
+            }
+
+            if ($facRow['approval_status'] !== 'PENDING') {
+                echo json_encode([
+                    'success' => true,
+                    'message' => "Facility {$webFacilityCode} already responded: {$facRow['approval_status']}",
+                    'status' => $facRow['approval_status']
+                ]);
+                return;
+            }
+
+            $facilityCode = $webFacilityCode;
+            if ($webReactionType === 'WEB_FACILITY_APPROVE') {
+                $reactionType = 'FACILITY_APPROVE';
+                $emoji = 'WEB_APPROVE';
+            } else {
+                $reactionType = 'FACILITY_DENY';
+                $emoji = 'WEB_DENY';
+            }
         } else {
             // Check for Discord emoji-based DCC override
             $isDccUser = in_array($discordUserId, DCC_OVERRIDE_USERS);
@@ -1238,23 +1307,32 @@ function handleProcessReaction() {
         }
 
         // Log the reaction
+        // Use WEB_FAC_APPROVE/WEB_FAC_DENY for web actions to distinguish from Discord in audit log
+        $loggedReactionType = $reactionType;
+        if ($isWebFacilityAction) {
+            $loggedReactionType = ($reactionType === 'FACILITY_APPROVE') ? 'WEB_FAC_APPROVE' : 'WEB_FAC_DENY';
+        }
+
         $rxnSql = "INSERT INTO dbo.tmi_proposal_reactions (
                        proposal_id, emoji, emoji_id, reaction_type,
-                       discord_user_id, discord_username, discord_roles, facility_code
+                       discord_user_id, discord_username, discord_roles, facility_code,
+                       operating_initials
                    ) VALUES (
                        :prop_id, :emoji, :emoji_id, :rxn_type,
-                       :user_id, :username, :roles, :fac_code
+                       :user_id, :username, :roles, :fac_code,
+                       :oi
                    )";
         $rxnStmt = $conn->prepare($rxnSql);
         $rxnStmt->execute([
             ':prop_id' => $proposalId,
             ':emoji' => $emoji,
             ':emoji_id' => $emojiId,
-            ':rxn_type' => $reactionType,
+            ':rxn_type' => $loggedReactionType,
             ':user_id' => $discordUserId,
             ':username' => $discordUsername,
             ':roles' => json_encode($userRoles),
-            ':fac_code' => $facilityCode
+            ':fac_code' => $facilityCode,
+            ':oi' => $operatingInitials
         ]);
 
         // Process based on reaction type
@@ -1295,6 +1373,7 @@ function handleProcessReaction() {
             logCoordinationActivity($conn, $proposalId, 'DCC_' . $dccAction, [
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
+                'oi' => $operatingInitials,
                 'emoji' => $emoji,
                 'via' => $isWebDccOverride ? 'web' : 'discord',
                 'entry_type' => $proposal['entry_type'] ?? '',
@@ -1306,12 +1385,15 @@ function handleProcessReaction() {
                                  approval_status = 'APPROVED',
                                  reacted_at = SYSUTCDATETIME(),
                                  reacted_by_user_id = :user_id,
-                                 reacted_by_username = :username
-                             WHERE proposal_id = :prop_id AND facility_code = :fac_code";
+                                 reacted_by_username = :username,
+                                 reacted_by_oi = :oi
+                             WHERE proposal_id = :prop_id AND facility_code = :fac_code
+                             AND approval_status = 'PENDING'";
             $updateFacStmt = $conn->prepare($updateFacSql);
             $updateFacStmt->execute([
                 ':user_id' => $discordUserId,
                 ':username' => $discordUsername,
+                ':oi' => $operatingInitials,
                 ':prop_id' => $proposalId,
                 ':fac_code' => $facilityCode
             ]);
@@ -1321,22 +1403,40 @@ function handleProcessReaction() {
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
+                'oi' => $operatingInitials,
                 'emoji' => $emoji,
+                'via' => $isWebFacilityAction ? 'web' : 'discord',
                 'entry_type' => $proposal['entry_type'] ?? '',
                 'ctl_element' => $proposal['ctl_element'] ?? ''
             ]);
+
+            // Post notification to Discord coordination thread for web actions
+            if ($isWebFacilityAction && !empty($proposal['discord_channel_id'])) {
+                try {
+                    $discord = new DiscordAPI();
+                    $oiLabel = $operatingInitials ? "{$operatingInitials} / " : '';
+                    $discord->sendMessageToThread($proposal['discord_channel_id'], [
+                        'content' => "✅ **{$facilityCode}** approved via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
+                    ]);
+                } catch (Exception $e) {
+                    error_log("Failed to post web facility approve to Discord thread: " . $e->getMessage());
+                }
+            }
         } elseif ($facilityCode && $reactionType === 'FACILITY_DENY') {
             // Update facility denial status
             $updateFacSql = "UPDATE dbo.tmi_proposal_facilities SET
                                  approval_status = 'DENIED',
                                  reacted_at = SYSUTCDATETIME(),
                                  reacted_by_user_id = :user_id,
-                                 reacted_by_username = :username
-                             WHERE proposal_id = :prop_id AND facility_code = :fac_code";
+                                 reacted_by_username = :username,
+                                 reacted_by_oi = :oi
+                             WHERE proposal_id = :prop_id AND facility_code = :fac_code
+                             AND approval_status = 'PENDING'";
             $updateFacStmt = $conn->prepare($updateFacSql);
             $updateFacStmt->execute([
                 ':user_id' => $discordUserId,
                 ':username' => $discordUsername,
+                ':oi' => $operatingInitials,
                 ':prop_id' => $proposalId,
                 ':fac_code' => $facilityCode
             ]);
@@ -1346,10 +1446,25 @@ function handleProcessReaction() {
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
+                'oi' => $operatingInitials,
                 'emoji' => $emoji,
+                'via' => $isWebFacilityAction ? 'web' : 'discord',
                 'entry_type' => $proposal['entry_type'] ?? '',
                 'ctl_element' => $proposal['ctl_element'] ?? ''
             ]);
+
+            // Post notification to Discord coordination thread for web actions
+            if ($isWebFacilityAction && !empty($proposal['discord_channel_id'])) {
+                try {
+                    $discord = new DiscordAPI();
+                    $oiLabel = $operatingInitials ? "{$operatingInitials} / " : '';
+                    $discord->sendMessageToThread($proposal['discord_channel_id'], [
+                        'content' => "❌ **{$facilityCode}** denied via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
+                    ]);
+                } catch (Exception $e) {
+                    error_log("Failed to post web facility deny to Discord thread: " . $e->getMessage());
+                }
+            }
         }
 
         // Check if proposal should be approved/denied
@@ -1480,11 +1595,14 @@ function handleExtendDeadline() {
         }
 
         // Log the deadline extension
+        $userOi = $input['operating_initials'] ?? null;
         logCoordinationActivity($conn, $proposalId, 'DEADLINE_EXTENDED', [
             'old_deadline' => $oldDeadline,
             'new_deadline' => $newDeadline->format('Y-m-d H:i:s'),
             'user_cid' => $userCid,
-            'user_name' => $userName
+            'user_name' => $userName,
+            'oi' => $userOi,
+            'via' => 'web'
         ]);
 
         echo json_encode([
@@ -1563,7 +1681,9 @@ function handlePublishApprovedProposal($input) {
                 'ctl_element' => $proposal['ctl_element'] ?? '',
                 'tmi_entry_id' => $activationResult['tmi_entry_id'] ?? null,
                 'user_cid' => $userCid,
-                'user_name' => $userName
+                'user_name' => $userName,
+                'oi' => $input['operating_initials'] ?? null,
+                'via' => 'web'
             ]);
 
             echo json_encode([
@@ -1662,6 +1782,8 @@ function handleBatchPublish($input) {
                     'tmi_entry_id' => $activationResult['tmi_entry_id'] ?? null,
                     'user_cid' => $userCid,
                     'user_name' => $userName,
+                    'oi' => $input['operating_initials'] ?? null,
+                    'via' => 'web',
                     'batch_size' => count($proposalIds)
                 ]);
 
@@ -1881,6 +2003,8 @@ function handleEditProposal($input) {
         logCoordinationActivity($conn, $proposalId, 'PROPOSAL_EDITED', [
             'user_cid' => $userCid,
             'user_name' => $userName,
+            'oi' => $updates['operating_initials'] ?? null,
+            'via' => 'web',
             'reason' => $updates['edit_reason'] ?? 'No reason provided',
             'old_values' => $oldData,
             'new_values' => $updates,
@@ -2207,6 +2331,8 @@ function handleRescindProposal() {
                     'new_status' => 'ACTIVATED',
                     'user_cid' => $userCid,
                     'user_name' => $userName,
+                    'oi' => $input['operating_initials'] ?? null,
+                    'via' => 'web',
                     'entry_type' => $entryType,
                     'ctl_element' => $proposal['ctl_element'] ?? ''
                 ]);
@@ -2238,6 +2364,7 @@ function handleRescindProposal() {
             'new_status' => $newStatus,
             'user_cid' => $userCid,
             'user_name' => $userName,
+            'oi' => $input['operating_initials'] ?? null,
             'reason' => $reason,
             'entry_type' => $proposal['entry_type'] ?? '',
             'ctl_element' => $proposal['ctl_element'] ?? '',
@@ -3916,7 +4043,7 @@ function logCoordinationActivity($conn, $proposalId, $action, $details = []) {
 
     try {
         // ===================================================
-        // 1. Save to database
+        // 1. Save to database (with structured audit columns)
         // ===================================================
         $sql = "IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tmi_coordination_log')
                 CREATE TABLE dbo.tmi_coordination_log (
@@ -3924,17 +4051,28 @@ function logCoordinationActivity($conn, $proposalId, $action, $details = []) {
                     proposal_id INT NOT NULL,
                     action VARCHAR(50) NOT NULL,
                     details NVARCHAR(MAX),
+                    user_cid NVARCHAR(32) NULL,
+                    user_name NVARCHAR(128) NULL,
+                    operating_initials NVARCHAR(4) NULL,
+                    facility_code NVARCHAR(8) NULL,
+                    via NVARCHAR(16) NULL,
                     created_at DATETIME2 DEFAULT SYSUTCDATETIME()
                 )";
         $conn->exec($sql);
 
-        $insertSql = "INSERT INTO dbo.tmi_coordination_log (proposal_id, action, details)
-                      VALUES (:prop_id, :action, :details)";
+        $insertSql = "INSERT INTO dbo.tmi_coordination_log
+                          (proposal_id, action, details, user_cid, user_name, operating_initials, facility_code, via)
+                      VALUES (:prop_id, :action, :details, :cid, :uname, :oi, :fac, :via)";
         $stmt = $conn->prepare($insertSql);
         $stmt->execute([
             ':prop_id' => $proposalId,
             ':action' => $action,
-            ':details' => json_encode($details)
+            ':details' => json_encode($details),
+            ':cid' => $details['user_cid'] ?? $details['created_by'] ?? null,
+            ':uname' => $details['user_name'] ?? $details['created_by_name'] ?? null,
+            ':oi' => $details['oi'] ?? null,
+            ':fac' => $details['facility'] ?? null,
+            ':via' => $details['via'] ?? null
         ]);
 
         // ===================================================
@@ -3957,6 +4095,7 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
     $userName = $details['user_name'] ?? $details['created_by_name'] ?? 'System';
     $userCid = $details['user_cid'] ?? $details['created_by'] ?? '';
     $via = isset($details['via']) ? " ({$details['via']})" : '';
+    $oi = !empty($details['oi']) ? " [{$details['oi']}]" : '';
 
     // Get Unix timestamp for Discord formatting
     $unixTime = time();
@@ -3987,7 +4126,7 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "⚡ **DCC OVERRIDE APPROVED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}{$via}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'DCC_DENY':
@@ -3997,7 +4136,7 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "⚡ **DCC OVERRIDE DENIED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}{$via}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'FACILITY_APPROVE':
@@ -4008,8 +4147,8 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "✅ **{$facility} APPROVED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            if ($emoji) $parts[] = "| via {$emoji}";
-            $parts[] = "| by {$userName}";
+            if ($emoji && $emoji !== 'WEB_APPROVE') $parts[] = "| via {$emoji}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'FACILITY_DENY':
@@ -4020,8 +4159,8 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "❌ **{$facility} DENIED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            if ($emoji) $parts[] = "| via {$emoji}";
-            $parts[] = "| by {$userName}";
+            if ($emoji && $emoji !== 'WEB_DENY') $parts[] = "| via {$emoji}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'ACTIVATED':

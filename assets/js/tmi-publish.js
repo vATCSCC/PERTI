@@ -6209,6 +6209,19 @@
             handleProposalAction(proposalId, 'DENY');
         });
 
+        // Facility-level approve/deny buttons (delegated events)
+        $(document).on('click', '.facility-approve-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const facilityCode = $(this).data('facility-code');
+            handleFacilityAction(proposalId, facilityCode, 'APPROVE');
+        });
+
+        $(document).on('click', '.facility-deny-btn', function() {
+            const proposalId = $(this).data('proposal-id');
+            const facilityCode = $(this).data('facility-code');
+            handleFacilityAction(proposalId, facilityCode, 'DENY');
+        });
+
         // Reopen button (for resolved proposals)
         $(document).on('click', '.reopen-proposal-btn', function() {
             const proposalId = $(this).data('proposal-id');
@@ -6931,6 +6944,146 @@
         });
     }
 
+    /**
+     * Render per-facility approval status badges/buttons for a proposal
+     */
+    function renderFacilityStatus(proposal) {
+        // Fully approved proposals
+        if (proposal.status === 'APPROVED') {
+            return `<span class="badge badge-success" title="${PERTII18n.t('tmiPublish.coordination.allApproved')}">${PERTII18n.t('tmiPublish.coordination.allApproved')}</span>`;
+        }
+
+        // Backward compat: no facilities array from older API
+        if (!proposal.facilities || !proposal.facilities.length) {
+            return `<span class="badge badge-info">${proposal.approved_count || 0}/${proposal.facility_count || 0}</span>`;
+        }
+
+        let html = '<div class="d-flex flex-wrap" style="gap: 3px;">';
+        proposal.facilities.forEach(fac => {
+            const code = escapeHtml(fac.facility_code);
+            if (fac.approval_status === 'APPROVED') {
+                const who = PERTII18n.t('tmiPublish.coordination.approvedBy', {
+                    facility: code,
+                    oi: escapeHtml(fac.reacted_by_oi || ''),
+                    name: escapeHtml(fac.reacted_by_username || 'Unknown'),
+                    cid: escapeHtml(fac.reacted_by_user_id || '')
+                });
+                html += `<span class="badge badge-success" title="${who}"><i class="fas fa-check fa-xs mr-1"></i>${code}</span>`;
+            } else if (fac.approval_status === 'DENIED') {
+                const who = PERTII18n.t('tmiPublish.coordination.deniedBy', {
+                    facility: code,
+                    oi: escapeHtml(fac.reacted_by_oi || ''),
+                    name: escapeHtml(fac.reacted_by_username || 'Unknown'),
+                    cid: escapeHtml(fac.reacted_by_user_id || '')
+                });
+                html += `<span class="badge badge-danger" title="${who}"><i class="fas fa-times fa-xs mr-1"></i>${code}</span>`;
+            } else if (isUserLoggedIn() && isProfileComplete()) {
+                // PENDING + logged in + profile complete: show approve/deny buttons
+                html += `<div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-success btn-xs facility-approve-btn py-0 px-1"
+                            data-proposal-id="${proposal.proposal_id}"
+                            data-facility-code="${code}"
+                            title="${PERTII18n.t('tmiPublish.coordination.approveFor', { facility: code })}">
+                        <i class="fas fa-check fa-xs"></i> ${code}
+                    </button>
+                    <button class="btn btn-outline-danger btn-xs facility-deny-btn py-0 px-1"
+                            data-proposal-id="${proposal.proposal_id}"
+                            data-facility-code="${code}"
+                            title="${PERTII18n.t('tmiPublish.coordination.denyFor', { facility: code })}">
+                        <i class="fas fa-times fa-xs"></i>
+                    </button>
+                </div>`;
+            } else if (isUserLoggedIn()) {
+                // Logged in but profile incomplete
+                html += `<span class="badge badge-secondary" title="${PERTII18n.t('tmiPublish.coordination.profileRequired')}">${code}</span>`;
+            } else {
+                // Not logged in
+                html += `<span class="badge badge-secondary" title="${PERTII18n.t('tmiPublish.coordination.loginRequired')}">${code}</span>`;
+            }
+        });
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * Handle facility approve/deny button click
+     */
+    function handleFacilityAction(proposalId, facilityCode, action) {
+        if (!isProfileComplete()) {
+            PERTIDialog.error(
+                PERTII18n.t('tmiPublish.coordination.profileRequired'),
+                PERTII18n.t('tmiPublish.coordination.profileRequiredText')
+            );
+            return;
+        }
+
+        const titleKey = action === 'APPROVE' ? 'tmiPublish.coordination.approveConfirm' : 'tmiPublish.coordination.denyConfirm';
+        const confirmColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
+
+        Swal.fire({
+            title: PERTII18n.t(titleKey, { id: proposalId, facility: facilityCode }),
+            html: PERTII18n.t('tmiPublish.coordination.webNote'),
+            icon: action === 'APPROVE' ? 'question' : 'warning',
+            showCancelButton: true,
+            confirmButtonColor: confirmColor,
+            confirmButtonText: action === 'APPROVE'
+                ? `<i class="fas fa-check mr-1"></i>${PERTII18n.t('tmiPublish.coordination.approveFor', { facility: facilityCode })}`
+                : `<i class="fas fa-times mr-1"></i>${PERTII18n.t('tmiPublish.coordination.denyFor', { facility: facilityCode })}`,
+            cancelButtonText: PERTII18n.t('common.cancel')
+        }).then(result => {
+            if (result.isConfirmed) {
+                submitFacilityAction(proposalId, facilityCode, action);
+            }
+        });
+    }
+
+    /**
+     * Submit facility approve/deny to the API
+     */
+    function submitFacilityAction(proposalId, facilityCode, action) {
+        const reactionType = action === 'APPROVE' ? 'WEB_FACILITY_APPROVE' : 'WEB_FACILITY_DENY';
+
+        Swal.fire({
+            title: PERTII18n.t('common.loading'),
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.ajax({
+            url: 'api/mgt/tmi/coordinate.php',
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                proposal_id: proposalId,
+                reaction_type: reactionType,
+                facility_code: facilityCode,
+                discord_user_id: CONFIG.userCid,
+                discord_username: CONFIG.userName,
+                operating_initials: CONFIG.userOI
+            }),
+            dataType: 'json',
+            success: function(resp) {
+                Swal.close();
+                if (resp.success) {
+                    const msgKey = action === 'APPROVE' ? 'tmiPublish.coordination.facilityApproved' : 'tmiPublish.coordination.facilityDenied';
+                    PERTIDialog.toast(PERTII18n.t(msgKey, { facility: facilityCode }), 'success');
+                    loadProposals();
+                } else if (resp.message) {
+                    // Already responded
+                    PERTIDialog.toast(resp.message, 'info');
+                    loadProposals();
+                } else {
+                    PERTIDialog.error(PERTII18n.t('common.error'), resp.error || PERTII18n.t('common.unknownError'));
+                }
+            },
+            error: function(xhr) {
+                Swal.close();
+                const msg = xhr.responseJSON?.error || PERTII18n.t('common.unknownError');
+                PERTIDialog.error(PERTII18n.t('common.error'), msg);
+            }
+        });
+    }
+
     function displayProposals(proposals, containerId, isPending) {
         const $tbody = $('#' + containerId);
 
@@ -6969,7 +7122,7 @@
                         <td class="small text-truncate" style="max-width: 250px;" title="${escapeHtml(p.raw_text || '')}">${escapeHtml(p.raw_text || '--')}</td>
                         <td class="small">${escapeHtml(p.created_by_name || 'Unknown')}</td>
                         <td class="small">${isApproved ? '<span class="text-success">--</span>' : deadline}</td>
-                        <td><span class="badge ${isApproved ? 'badge-success' : 'badge-info'}">${isApproved ? 'Ready' : approvalProgress}</span></td>
+                        <td>${renderFacilityStatus(p)}</td>
                         <td>${statusBadge}</td>
                         <td class="text-nowrap" style="white-space: nowrap;">
                             ${isApproved ? `
@@ -7008,46 +7161,39 @@
                                 ${isUserLoggedIn() ? `
                                     <button class="btn btn-outline-info edit-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="Edit proposal (clears approvals)">
+                                            title="${PERTII18n.t('tmiPublish.editProposal.title', { id: p.proposal_id })}">
                                         <i class="fas fa-edit"></i>
                                     </button>
+                                    ${CONFIG.userPrivileged ? `
                                     <button class="btn btn-outline-success approve-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="Approve (DCC Override)">
+                                            title="${PERTII18n.t('tmiPublish.coordination.dccOverrideApprove')}">
                                         <i class="fas fa-check"></i>
                                     </button>
                                     <button class="btn btn-outline-danger deny-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="Deny (DCC Override)">
+                                            title="${PERTII18n.t('tmiPublish.coordination.dccOverrideDeny')}">
                                         <i class="fas fa-times"></i>
                                     </button>
+                                    ` : ''}
                                     <button class="btn btn-outline-primary extend-deadline-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
-                                            title="Extend deadline">
+                                            title="${PERTII18n.t('tmiPublish.coordination.extendDeadline')}">
                                         <i class="fas fa-clock"></i>
                                     </button>
                                     <button class="btn btn-outline-secondary cancel-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
                                             data-ctl-element="${escapeHtml(p.ctl_element || '')}"
-                                            title="Cancel proposal">
+                                            title="${PERTII18n.t('tmiPublish.cancelProposal.title')}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 ` : `
-                                    <button class="btn btn-outline-secondary" disabled title="Login required">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-outline-secondary" disabled title="Login required">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                    <button class="btn btn-outline-secondary" disabled title="Login required">
-                                        <i class="fas fa-times"></i>
-                                    </button>
                                     <button class="btn btn-outline-secondary extend-deadline-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
-                                            title="Extend deadline">
+                                            title="${PERTII18n.t('tmiPublish.coordination.extendDeadline')}">
                                         <i class="fas fa-clock"></i>
                                     </button>
                                 `}

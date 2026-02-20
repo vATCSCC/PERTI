@@ -44,6 +44,28 @@
       "freeFormDesc": "ECFMP Advisory",
       "hotline": "Landline",
       "hotlineDesc": "Activation/Term"
+    },
+    "page": {
+      "coordinationDiscord": "Facilities approve via Discord emoji reactions or web buttons below. ECFMP can override any proposal."
+    },
+    "coordination": {
+      "allApproved": "All Approved",
+      "approvedBy": "{facility} approved by {oi} / {name} (CID {cid})",
+      "deniedBy": "{facility} denied by {oi} / {name} (CID {cid})",
+      "approveFor": "Approve for {facility}?",
+      "denyFor": "Deny for {facility}?",
+      "approveConfirm": "Approve Proposal #{id} on behalf of {facility}?",
+      "denyConfirm": "Deny Proposal #{id} on behalf of {facility}?",
+      "webNote": "This will be recorded with your VATSIM identity and posted to the Discord coordination thread.",
+      "facilityApproved": "{facility} approved",
+      "facilityDenied": "{facility} denied",
+      "facilityAlreadyResponded": "{facility} already responded: {status}",
+      "profileRequired": "Profile Required",
+      "profileRequiredText": "Please set up your profile (CID, name, OI, facility) to participate in coordination.",
+      "loginRequired": "Login to participate in coordination",
+      "dccOverrideApprove": "ECFMP Override: Approve",
+      "dccOverrideDeny": "ECFMP Override: Deny",
+      "extendDeadline": "Extend Deadline"
     }
   },
   "tmiActive": {
