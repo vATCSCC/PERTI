@@ -2877,7 +2877,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (Object.keys(fixCoords).length > 0) {
             const rerouteMapId = 'reroute-map-' + (++this.detailIdCounter);
             html += this.renderExpandableSectionV2('reroute-map', 'Route Map', '', () => {
-                return `<div id="${rerouteMapId}" class="reroute-map-container" style="height:350px;border-radius:6px;"></div>`;
+                return `<div class="tmi-map-layer-controls" id="${rerouteMapId}_controls" style="background:rgba(30,30,30,0.9);border-bottom:1px solid #444;">
+                    <span class="layer-label" style="color:#aaa;">Layers:</span>
+                    <button class="layer-btn active" data-layer="rr-compliant" data-map="${rerouteMapId}" style="border-color:#4caf50;background:#4caf50;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Compliant</button>
+                    <button class="layer-btn active" data-layer="rr-partial" data-map="${rerouteMapId}" style="border-color:#ff9800;background:#ff9800;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Partial</button>
+                    <button class="layer-btn active" data-layer="rr-non_compliant" data-map="${rerouteMapId}" style="border-color:#f44336;background:#f44336;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Non-Compliant</button>
+                    <button class="layer-btn active" data-layer="rr-other" data-map="${rerouteMapId}" style="border-color:#888;background:#888;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Other</button>
+                    <span class="layer-divider" style="color:#555;">|</span>
+                    <button class="layer-btn active" data-layer="rr-routes" data-map="${rerouteMapId}" style="border-color:#00bcd4;background:#00bcd4;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Routes</button>
+                    <button class="layer-btn active" data-layer="rr-fixes" data-map="${rerouteMapId}" style="border-color:#ffc107;background:#ffc107;color:#000;" onclick="TMICompliance.toggleRerouteLayer(this)">Fixes</button>
+                </div>
+                <div id="${rerouteMapId}" class="reroute-map-container" style="height:350px;border-radius:0 0 6px 6px;"></div>`;
             });
             // Schedule map init after DOM render
             setTimeout(() => {
@@ -4251,7 +4261,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 sources: {
                     'carto-dark': {
                         type: 'raster',
-                        tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                            'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                        ],
                         tileSize: 256,
                         attribution: '&copy; OpenStreetMap contributors',
                     },
@@ -8060,28 +8075,30 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             }
         });
 
-        // Build flight trajectory features colored by compliance
-        const trajFeatures = [];
+        // Build flight trajectory features grouped by compliance status
         const allFlights = data.flights || [];
+        const statusGroups = {
+            compliant:     { color: '#4caf50', label: 'Compliant',     features: [], count: 0 },
+            partial:       { color: '#ff9800', label: 'Partial',       features: [], count: 0 },
+            non_compliant: { color: '#f44336', label: 'Non-Compliant', features: [], count: 0 },
+            other:         { color: '#888888', label: 'Other',         features: [], count: 0 }
+        };
         allFlights.forEach(f => {
             if (!f.trajectory_coords || f.trajectory_coords.length < 2) return;
             const status = (f.final_status || f.filed_status || '').toUpperCase();
-            let color = '#888888'; // grey = no status / unknown
-            if (status.includes('COMPLIANT') && !status.includes('NON')) color = '#4caf50'; // green
-            else if (status.includes('PARTIAL')) color = '#ff9800'; // orange
-            else if (status.includes('NON_COMPLIANT')) color = '#f44336'; // red
-            else if (status.includes('MONITORING')) color = '#2196f3'; // blue
-            trajFeatures.push({
+            let group = 'other';
+            if (status.includes('COMPLIANT') && !status.includes('NON')) group = 'compliant';
+            else if (status.includes('PARTIAL')) group = 'partial';
+            else if (status.includes('NON_COMPLIANT')) group = 'non_compliant';
+            statusGroups[group].features.push({
                 type: 'Feature',
                 geometry: { type: 'LineString', coordinates: f.trajectory_coords },
-                properties: {
-                    callsign: f.callsign,
-                    status: status,
-                    color: color,
-                    filed_pct: f.filed_match_pct || 0
-                }
+                properties: { callsign: f.callsign, status: status, filed_pct: f.filed_match_pct || 0 }
             });
+            statusGroups[group].count++;
         });
+        const hasTraj = Object.values(statusGroups).some(g => g.features.length > 0);
+        const trajLayerIds = [];
 
         const map = new maplibregl.Map({
             container: container,
@@ -8090,7 +8107,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
                 sources: { 'carto-dark': {
                     type: 'raster',
-                    tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
+                    tiles: [
+                        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+                    ],
                     tileSize: 256
                 }},
                 layers: [{ id: 'carto-dark-layer', type: 'raster', source: 'carto-dark' }]
@@ -8101,21 +8123,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         });
 
         map.on('load', () => {
-            // Flight trajectories (rendered first, behind route lines)
-            if (trajFeatures.length > 0) {
-                map.addSource('reroute-trajectories', {
+            // Flight trajectories — per-status layers (rendered first, behind route lines)
+            Object.entries(statusGroups).forEach(([key, group]) => {
+                if (group.features.length === 0) return;
+                const layId = `rr-traj-${key}`;
+                map.addSource(layId, {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: trajFeatures }
+                    data: { type: 'FeatureCollection', features: group.features }
                 });
                 map.addLayer({
-                    id: 'reroute-traj-lines', type: 'line', source: 'reroute-trajectories',
-                    paint: {
-                        'line-color': ['get', 'color'],
-                        'line-width': 1.5,
-                        'line-opacity': 0.5
-                    }
+                    id: layId, type: 'line', source: layId,
+                    paint: { 'line-color': group.color, 'line-width': 1.5, 'line-opacity': 0.6 }
                 });
-            }
+                trajLayerIds.push(layId);
+            });
 
             // Route lines (solid cyan, matching route.php style)
             if (routeLines.length > 0) {
@@ -8181,15 +8202,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 minzoom: 5
             });
 
-            // Trajectory legend (only if trajectories are present)
-            if (trajFeatures.length > 0) {
+            // Trajectory legend
+            if (hasTraj) {
                 const legend = document.createElement('div');
                 legend.style.cssText = 'position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.75);padding:6px 10px;border-radius:4px;font-size:11px;color:#fff;z-index:10;';
-                const compliant = allFlights.filter(f => { const s = (f.final_status||f.filed_status||'').toUpperCase(); return s.includes('COMPLIANT') && !s.includes('NON'); }).length;
-                const nonCompliant = allFlights.filter(f => { const s = (f.final_status||f.filed_status||'').toUpperCase(); return s.includes('NON_COMPLIANT'); }).length;
-                const other = allFlights.length - compliant - nonCompliant;
-                legend.innerHTML = `<span style="color:#4caf50;">&#9632;</span> Compliant (${compliant}) &nbsp; <span style="color:#f44336;">&#9632;</span> Non-compliant (${nonCompliant})` +
-                    (other > 0 ? ` &nbsp; <span style="color:#888;">&#9632;</span> Other (${other})` : '');
+                const parts = [];
+                if (statusGroups.compliant.count > 0) parts.push(`<span style="color:${statusGroups.compliant.color};">&#9632;</span> Compliant (${statusGroups.compliant.count})`);
+                if (statusGroups.partial.count > 0) parts.push(`<span style="color:${statusGroups.partial.color};">&#9632;</span> Partial (${statusGroups.partial.count})`);
+                if (statusGroups.non_compliant.count > 0) parts.push(`<span style="color:${statusGroups.non_compliant.color};">&#9632;</span> Non-Compliant (${statusGroups.non_compliant.count})`);
+                if (statusGroups.other.count > 0) parts.push(`<span style="color:${statusGroups.other.color};">&#9632;</span> Other (${statusGroups.other.count})`);
+                legend.innerHTML = parts.join(' &nbsp; ');
                 container.style.position = 'relative';
                 container.appendChild(legend);
             }
@@ -8203,19 +8225,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 map.fitBounds([[lngMin, latMin], [lngMax, latMax]], { padding: 40 });
             }
 
-            // Popup on trajectory hover
-            if (trajFeatures.length > 0) {
+            // Popup on trajectory hover (bind to each per-status layer)
+            if (trajLayerIds.length > 0) {
                 const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
-                map.on('mouseenter', 'reroute-traj-lines', (e) => {
-                    map.getCanvas().style.cursor = 'pointer';
-                    const p = e.features[0].properties;
-                    popup.setLngLat(e.lngLat).setHTML(
-                        `<b>${p.callsign}</b><br>Status: ${(p.status||'').replace(/_/g,' ')}<br>Filed: ${p.filed_pct}%`
-                    ).addTo(map);
-                });
-                map.on('mouseleave', 'reroute-traj-lines', () => {
-                    map.getCanvas().style.cursor = '';
-                    popup.remove();
+                trajLayerIds.forEach(layId => {
+                    map.on('mouseenter', layId, (e) => {
+                        map.getCanvas().style.cursor = 'pointer';
+                        const p = e.features[0].properties;
+                        popup.setLngLat(e.lngLat).setHTML(
+                            `<b>${p.callsign}</b><br>Status: ${(p.status||'').replace(/_/g,' ')}<br>Filed: ${p.filed_pct}%`
+                        ).addTo(map);
+                    });
+                    map.on('mouseleave', layId, () => {
+                        map.getCanvas().style.cursor = '';
+                        popup.remove();
+                    });
                 });
             }
         });
@@ -8223,6 +8247,45 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Store map reference for cleanup
         if (!this._rerouteMaps) this._rerouteMaps = {};
         this._rerouteMaps[containerId] = map;
+    },
+
+    /**
+     * Toggle a reroute map layer on/off
+     */
+    toggleRerouteLayer: function(btn) {
+        const layerKey = btn.dataset.layer;
+        const mapId = btn.dataset.map;
+        const map = this._rerouteMaps?.[mapId];
+        if (!map) return;
+
+        const isActive = btn.classList.toggle('active');
+
+        // Map button keys to MapLibre layer IDs
+        const layerMappings = {
+            'rr-compliant':     ['rr-traj-compliant'],
+            'rr-partial':       ['rr-traj-partial'],
+            'rr-non_compliant': ['rr-traj-non_compliant'],
+            'rr-other':         ['rr-traj-other'],
+            'rr-routes':        ['reroute-lines-glow', 'reroute-lines-main'],
+            'rr-fixes':         ['reroute-points', 'reroute-origins', 'reroute-dests', 'reroute-fixes', 'reroute-labels']
+        };
+
+        const layerIds = layerMappings[layerKey] || [];
+        layerIds.forEach(lid => {
+            if (map.getLayer(lid)) {
+                map.setLayoutProperty(lid, 'visibility', isActive ? 'visible' : 'none');
+            }
+        });
+
+        // Update button styling — active = filled, inactive = outline only
+        const origColor = btn.style.borderColor;
+        if (isActive) {
+            btn.style.background = origColor;
+            btn.style.color = (layerKey === 'rr-fixes') ? '#000' : '#fff';
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.color = origColor;
+        }
     },
 
     /**

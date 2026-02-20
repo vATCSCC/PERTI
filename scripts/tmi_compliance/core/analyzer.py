@@ -1142,6 +1142,7 @@ class TMIComplianceAnalyzer:
         self._trajectory_cache = {}      # callsign -> list of trajectory points
         self._trajectory_metadata = {}   # callsign -> {flight_uid, dept, dest}
         self._crossing_cache = {}        # callsign -> list of PostGIS boundary crossings
+        self._tracon_sub_codes = {}      # parent_code -> [sub_codes] from GIS sector_code
         self._trajectory_cache_loaded = False
         self._low_quality_flights = set()  # Flights with insufficient trajectory data
         self._mit_trajectories = {}  # key -> {callsign -> trajectory} for split output
@@ -2629,10 +2630,46 @@ class TMIComplianceAnalyzer:
             # TRACONs may have K prefix in some datasets
             if not code.startswith('K'):
                 codes.append('K' + code)
-            # Some TRACONs use airport code (P80 vs KPDX approach)
-            # This is data-dependent - add variations as needed
+            # Resolve combined TRACON codes to sub-area codes from GIS.
+            # e.g., N90 (New York TRACON) -> LGA, JFK, EWR, NY, ISP, SWF
+            # The GIS tracon_boundaries table stores sub-areas with their own
+            # tracon_code and the parent as sector_code.
+            sub_codes = self._resolve_tracon_sub_codes(code)
+            codes.extend(sub_codes)
 
         return codes
+
+    def _resolve_tracon_sub_codes(self, parent_code: str) -> List[str]:
+        """
+        Query GIS for sub-TRACON codes sharing a parent sector_code.
+
+        Combined TRACONs (e.g., N90) are stored in GIS as multiple rows with
+        individual tracon_code values (LGA, JFK, EWR, etc.) and the combined
+        code as sector_code. This method resolves the parent to all children.
+        """
+        if parent_code in self._tracon_sub_codes:
+            return self._tracon_sub_codes[parent_code]
+
+        if not self.gis_conn:
+            self._tracon_sub_codes[parent_code] = []
+            return []
+
+        try:
+            cursor = self.gis_conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT tracon_code FROM tracon_boundaries
+                WHERE sector_code = %s AND tracon_code != %s
+            """, (parent_code, parent_code))
+            sub_codes = [r[0] for r in cursor.fetchall()]
+            cursor.close()
+            self._tracon_sub_codes[parent_code] = sub_codes
+            if sub_codes:
+                logger.info(f"  TRACON {parent_code} resolved to sub-codes: {sub_codes}")
+            return sub_codes
+        except Exception as e:
+            logger.debug(f"Error resolving TRACON sub-codes for {parent_code}: {e}")
+            self._tracon_sub_codes[parent_code] = []
+            return []
 
     # Backwards compatibility alias
     def _normalize_artcc_code(self, code: str) -> List[str]:
