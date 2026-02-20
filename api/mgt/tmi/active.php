@@ -1206,6 +1206,11 @@ function formatReroute($row) {
     ];
     $status = $statusMap[intval($row['status'] ?? 0)] ?? 'UNKNOWN';
 
+    $originAirports = normalizeRouteScopeValue($row['origin_airports'] ?? null);
+    $originCenters = normalizeRouteScopeValue($row['origin_centers'] ?? null);
+    $destAirports = normalizeRouteScopeValue($row['dest_airports'] ?? null);
+    $destCenters = normalizeRouteScopeValue($row['dest_centers'] ?? null);
+
     return [
         'entityType' => 'REROUTE',
         'entityId' => intval($row['id'] ?? 0),
@@ -1218,10 +1223,10 @@ function formatReroute($row) {
         'protectedFixes' => $row['protected_fixes'] ?? null,
         'avoidFixes' => $row['avoid_fixes'] ?? null,
         'routeType' => $row['route_type'] ?? null,
-        'originAirports' => $row['origin_airports'] ?? null,
-        'originCenters' => $row['origin_centers'] ?? null,
-        'destAirports' => $row['dest_airports'] ?? null,
-        'destCenters' => $row['dest_centers'] ?? null,
+        'originAirports' => $originAirports,
+        'originCenters' => $originCenters,
+        'destAirports' => $destAirports,
+        'destCenters' => $destCenters,
         'impactingCondition' => $row['impacting_condition'] ?? null,
         'comments' => $row['comments'] ?? null,
         'advisoryText' => $row['advisory_text'] ?? null,
@@ -1246,8 +1251,8 @@ function buildRerouteSummary($row) {
         $parts[] = $name;
     }
 
-    $origin = $row['origin_centers'] ?? $row['origin_airports'] ?? '';
-    $dest = $row['dest_centers'] ?? $row['dest_airports'] ?? '';
+    $origin = normalizeRouteScopeValue($row['origin_centers'] ?? null) ?: normalizeRouteScopeValue($row['origin_airports'] ?? null);
+    $dest = normalizeRouteScopeValue($row['dest_centers'] ?? null) ?: normalizeRouteScopeValue($row['dest_airports'] ?? null);
     if (!empty($origin) && !empty($dest)) {
         $parts[] = "{$origin}→{$dest}";
     } elseif (!empty($origin)) {
@@ -1262,6 +1267,103 @@ function buildRerouteSummary($row) {
     }
 
     return implode(' ', $parts) ?: 'Reroute';
+}
+
+/**
+ * Normalize reroute scope fields that may be stored as JSON arrays or plain strings.
+ * Examples:
+ * - '[]' => null
+ * - '["ZNY","ZBW"]' => 'ZNY/ZBW'
+ * - 'ZNY ZBW' => 'ZNY ZBW'
+ *
+ * @param mixed $value
+ * @return string|null
+ */
+function normalizeRouteScopeValue($value) {
+    if ($value === null) {
+        return null;
+    }
+
+    $tokens = [];
+    collectScopeTokens($value, $tokens);
+
+    if (empty($tokens)) {
+        return null;
+    }
+
+    $unique = [];
+    $seen = [];
+    foreach ($tokens as $token) {
+        $key = strtoupper($token);
+        if (!isset($seen[$key])) {
+            $seen[$key] = true;
+            $unique[] = $token;
+        }
+    }
+
+    return implode('/', $unique);
+}
+
+/**
+ * Recursively collect scope tokens from mixed input values.
+ *
+ * @param mixed $value
+ * @param array $tokens
+ * @return void
+ */
+function collectScopeTokens($value, &$tokens) {
+    if ($value === null) {
+        return;
+    }
+
+    if (is_array($value)) {
+        foreach ($value as $item) {
+            collectScopeTokens($item, $tokens);
+        }
+        return;
+    }
+
+    if (is_object($value)) {
+        foreach (get_object_vars($value) as $item) {
+            collectScopeTokens($item, $tokens);
+        }
+        return;
+    }
+
+    if (!is_scalar($value)) {
+        return;
+    }
+
+    $str = trim((string)$value);
+    if (
+        $str === '' ||
+        $str === '[]' ||
+        $str === '{}' ||
+        strcasecmp($str, 'null') === 0 ||
+        strcasecmp($str, 'undefined') === 0
+    ) {
+        return;
+    }
+
+    $decoded = json_decode($str, true);
+    if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
+        collectScopeTokens($decoded, $tokens);
+        return;
+    }
+
+    // Normalize common facility lists like "ZNY,ZBW" or "ZNY ZBW".
+    if (preg_match('/^[A-Za-z0-9]{2,8}(?:[\/,\s]+[A-Za-z0-9]{2,8})+$/', $str)) {
+        $parts = preg_split('/[\/,\s]+/', $str);
+        foreach ($parts as $part) {
+            $part = trim((string)$part);
+            if ($part !== '') {
+                $tokens[] = strtoupper($part);
+            }
+        }
+        return;
+    }
+
+    $tokens[] = $str;
 }
 
 // ===========================================
@@ -1414,13 +1516,9 @@ function getCancelledPublicRoutes($conn, $hours, $limit) {
  * Format public route for API response
  */
 function formatPublicRoute($row) {
-    // Parse JSON fields for origin/dest filters
-    $originFilter = !empty($row['origin_filter']) ? json_decode($row['origin_filter'], true) : null;
-    $destFilter = !empty($row['dest_filter']) ? json_decode($row['dest_filter'], true) : null;
-
-    // Convert arrays to space-separated strings for display
-    $originStr = is_array($originFilter) ? implode(' ', $originFilter) : ($originFilter ?? '');
-    $destStr = is_array($destFilter) ? implode(' ', $destFilter) : ($destFilter ?? '');
+    $originStr = normalizeRouteScopeValue($row['origin_filter'] ?? null);
+    $destStr = normalizeRouteScopeValue($row['dest_filter'] ?? null);
+    $constrainedArea = normalizeRouteScopeValue($row['constrained_area'] ?? null);
 
     // Map numeric status to string
     $statusMap = [
@@ -1440,7 +1538,7 @@ function formatPublicRoute($row) {
         'advisoryNumber' => $row['adv_number'] ?? null,
         'routeString' => $row['route_string'] ?? null,
         'advisoryText' => $row['advisory_text'] ?? null,
-        'constrainedArea' => $row['constrained_area'] ?? null,
+        'constrainedArea' => $constrainedArea,
         'originCenters' => $originStr,
         'destCenters' => $destStr,
         'facilities' => $row['facilities'] ?? null,
@@ -1465,12 +1563,8 @@ function buildPublicRouteSummary($row) {
         $parts[] = $name;
     }
 
-    // Parse origin/dest filters
-    $originFilter = !empty($row['origin_filter']) ? json_decode($row['origin_filter'], true) : null;
-    $destFilter = !empty($row['dest_filter']) ? json_decode($row['dest_filter'], true) : null;
-
-    $origin = $row['constrained_area'] ?? (is_array($originFilter) ? implode('/', array_slice($originFilter, 0, 2)) : '');
-    $dest = is_array($destFilter) ? implode('/', array_slice($destFilter, 0, 2)) : '';
+    $origin = normalizeRouteScopeValue($row['constrained_area'] ?? null) ?: normalizeRouteScopeValue($row['origin_filter'] ?? null);
+    $dest = normalizeRouteScopeValue($row['dest_filter'] ?? null);
 
     if (!empty($origin) && !empty($dest)) {
         $parts[] = "{$origin}→{$dest}";

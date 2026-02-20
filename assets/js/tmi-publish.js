@@ -2637,6 +2637,41 @@
     /**
      * Populate Ops Plan form fields from PERTI Plan data
      */
+    function normalizeLegacyTextBlock(value) {
+        if (value === null || value === undefined) {return '';}
+
+        if (Array.isArray(value)) {
+            return value
+                .map(v => normalizeLegacyTextBlock(v))
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+        }
+
+        if (typeof value === 'object') {
+            return Object.values(value)
+                .map(v => normalizeLegacyTextBlock(v))
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+        }
+
+        const str = String(value).trim();
+        if (!str || str === '[]' || str === '{}' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+            return '';
+        }
+
+        if ((str.startsWith('[') && str.endsWith(']')) || (str.startsWith('{') && str.endsWith('}'))) {
+            try {
+                return normalizeLegacyTextBlock(JSON.parse(str));
+            } catch (e) {
+                // Keep raw text if it is not valid JSON.
+            }
+        }
+
+        return str;
+    }
+
     function populateOpsPlanFromPerti(plan) {
         console.log('[TMI-Publish] Populating from plan:', plan);
         console.log('[TMI-Publish] Debug info from API:', plan._debug);
@@ -2657,17 +2692,20 @@
         console.log('[TMI-Publish] Form fields exist:', fieldsExist);
 
         // Use pre-built initiative summary from API, or build from TMIs
-        if (plan.initiativesSummary) {
+        const initiativesSummary = normalizeLegacyTextBlock(plan.initiativesSummary);
+        if (initiativesSummary) {
             console.log('[TMI-Publish] Setting initiatives from initiativesSummary');
-            $('#adv_initiatives').val(plan.initiativesSummary);
+            $('#adv_initiatives').val(initiativesSummary);
         } else if (plan.tmis && plan.tmis.length > 0) {
             // Fallback: build from TMIs array
             console.log('[TMI-Publish] Building initiatives from TMIs array');
             const initiatives = plan.tmis.map(tmi => {
+                const facility = normalizeLegacyTextBlock(tmi.airport || tmi.element || '');
+                const context = normalizeLegacyTextBlock(tmi.context || '');
                 if (tmi.type === 'terminal') {
-                    return `${tmi.airport || ''}${tmi.context ? ' - ' + tmi.context : ''}`;
+                    return `${facility}${context ? ' - ' + context : ''}`;
                 } else {
-                    return `${tmi.element || 'Enroute'}${tmi.context ? ' - ' + tmi.context : ''}`;
+                    return `${facility || 'Enroute'}${context ? ' - ' + context : ''}`;
                 }
             }).filter(i => i.trim());
             $('#adv_initiatives').val(initiatives.join('\n'));
@@ -2676,29 +2714,34 @@
         }
 
         // Use pre-built constraints summary from API
-        if (plan.constraintsSummary) {
+        const constraintsSummary = normalizeLegacyTextBlock(plan.constraintsSummary);
+        if (constraintsSummary) {
             console.log('[TMI-Publish] Setting constraints from constraintsSummary');
-            $('#adv_weather').val(plan.constraintsSummary);
+            $('#adv_weather').val(constraintsSummary);
         } else if (plan.weather) {
             // Fallback: weather might be array or string
             console.log('[TMI-Publish] Building constraints from weather data');
-            const weatherStr = Array.isArray(plan.weather) ? plan.weather.join('\n') : plan.weather;
+            const weatherStr = normalizeLegacyTextBlock(plan.weather);
             $('#adv_weather').val(weatherStr);
         } else {
             console.log('[TMI-Publish] No constraints data available');
         }
 
         // Use pre-built events summary from API, or build from events array
-        if (plan.eventsSummary) {
+        const eventsSummary = normalizeLegacyTextBlock(plan.eventsSummary);
+        if (eventsSummary) {
             console.log('[TMI-Publish] Setting events from eventsSummary');
-            $('#adv_events').val(plan.eventsSummary);
+            $('#adv_events').val(eventsSummary);
         } else if (plan.events && plan.events.length > 0) {
             // Fallback: build from events array
             console.log('[TMI-Publish] Building events from events array');
             const events = plan.events.map(ev => {
-                let line = ev.title || '';
-                if (ev.description) {line += ': ' + ev.description;}
-                if (ev.time) {line += ' (' + ev.time + ')';}
+                const title = normalizeLegacyTextBlock(ev.title || '');
+                const description = normalizeLegacyTextBlock(ev.description || '');
+                const time = normalizeLegacyTextBlock(ev.time || '');
+                let line = title;
+                if (description) {line += ': ' + description;}
+                if (time) {line += ' (' + time + ')';}
                 return line;
             }).filter(e => e.trim());
             $('#adv_events').val(events.join('\n'));

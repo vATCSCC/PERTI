@@ -307,8 +307,8 @@ function buildFullPlanData($conn, $row) {
             while ($t = $termQuery->fetch_assoc()) {
                 $plan['tmis'][] = [
                     'type' => 'terminal',
-                    'airport' => $t['title'] ?? '',
-                    'context' => $t['context'] ?? null
+                    'airport' => normalizeLegacyPlanText($t['title'] ?? ''),
+                    'context' => normalizeLegacyPlanText($t['context'] ?? null)
                 ];
             }
         }
@@ -322,8 +322,8 @@ function buildFullPlanData($conn, $row) {
             while ($e = $enrouteQuery->fetch_assoc()) {
                 $plan['tmis'][] = [
                     'type' => 'enroute',
-                    'element' => $e['title'] ?? null,
-                    'context' => $e['context'] ?? null
+                    'element' => normalizeLegacyPlanText($e['title'] ?? null),
+                    'context' => normalizeLegacyPlanText($e['context'] ?? null)
                 ];
             }
         }
@@ -342,9 +342,9 @@ function buildFullPlanData($conn, $row) {
         if ($eventsQuery) {
             while ($ev = $eventsQuery->fetch_assoc()) {
                 $plan['events'][] = [
-                    'title' => $ev['title'] ?? null,
-                    'description' => $ev['description'] ?? null,
-                    'time' => $ev['event_time'] ?? null
+                    'title' => normalizeLegacyPlanText($ev['title'] ?? null),
+                    'description' => normalizeLegacyPlanText($ev['description'] ?? null),
+                    'time' => normalizeLegacyPlanText($ev['event_time'] ?? null)
                 ];
             }
         }
@@ -398,12 +398,14 @@ function buildInitiativesSummary($tmis) {
     $lines = [];
     foreach ($tmis as $tmi) {
         if ($tmi['type'] === 'terminal') {
-            $line = $tmi['airport'] ?? '';
-            if (!empty($tmi['context'])) $line .= ' - ' . $tmi['context'];
+            $line = normalizeLegacyPlanText($tmi['airport'] ?? '');
+            $context = normalizeLegacyPlanText($tmi['context'] ?? '');
+            if ($context !== '') $line .= ' - ' . $context;
             $lines[] = $line;
         } else {
-            $line = $tmi['element'] ?? 'Enroute';
-            if (!empty($tmi['context'])) $line .= ' - ' . $tmi['context'];
+            $line = normalizeLegacyPlanText($tmi['element'] ?? 'Enroute');
+            $context = normalizeLegacyPlanText($tmi['context'] ?? '');
+            if ($context !== '') $line .= ' - ' . $context;
             $lines[] = $line;
         }
     }
@@ -418,12 +420,17 @@ function buildConstraintsSummary($plan) {
     $lines = [];
 
     if (!empty($plan['weather'])) {
-        $lines[] = 'Weather: ' . implode(', ', $plan['weather']);
+        $weather = array_filter(array_map('normalizeLegacyPlanText', $plan['weather']));
+        if (!empty($weather)) {
+            $lines[] = 'Weather: ' . implode(', ', $weather);
+        }
     }
 
     foreach ($plan['tmis'] as $tmi) {
-        if (!empty($tmi['context'])) {
-            $lines[] = ($tmi['airport'] ?? $tmi['element'] ?? 'TMI') . ': ' . $tmi['context'];
+        $context = normalizeLegacyPlanText($tmi['context'] ?? '');
+        if ($context !== '') {
+            $element = normalizeLegacyPlanText($tmi['airport'] ?? $tmi['element'] ?? 'TMI');
+            $lines[] = $element . ': ' . $context;
         }
     }
 
@@ -438,9 +445,12 @@ function buildEventsSummary($events) {
 
     $lines = [];
     foreach ($events as $ev) {
-        $line = $ev['title'] ?? 'Event';
-        if (!empty($ev['time'])) $line .= ' (' . $ev['time'] . 'Z)';
-        if (!empty($ev['description'])) $line .= ' - ' . $ev['description'];
+        $title = normalizeLegacyPlanText($ev['title'] ?? 'Event');
+        $time = normalizeLegacyPlanText($ev['time'] ?? '');
+        $description = normalizeLegacyPlanText($ev['description'] ?? '');
+        $line = $title !== '' ? $title : 'Event';
+        if ($time !== '') $line .= ' (' . $time . 'Z)';
+        if ($description !== '') $line .= ' - ' . $description;
         $lines[] = $line;
     }
 
@@ -460,4 +470,46 @@ function normalizeTime($time) {
         return $time; // Already in HH:MM format
     }
     return $time ?: '00:00';
+}
+
+/**
+ * Normalize legacy placeholder values from historical plan rows.
+ */
+function normalizeLegacyPlanText($value) {
+    if ($value === null) {
+        return '';
+    }
+
+    if (is_array($value)) {
+        $parts = [];
+        foreach ($value as $item) {
+            $normalized = normalizeLegacyPlanText($item);
+            if ($normalized !== '') {
+                $parts[] = $normalized;
+            }
+        }
+        return implode(' ', $parts);
+    }
+
+    if (is_object($value)) {
+        return normalizeLegacyPlanText(get_object_vars($value));
+    }
+
+    $str = trim((string)$value);
+    if (
+        $str === '' ||
+        $str === '[]' ||
+        $str === '{}' ||
+        strcasecmp($str, 'null') === 0 ||
+        strcasecmp($str, 'undefined') === 0
+    ) {
+        return '';
+    }
+
+    $decoded = json_decode($str, true);
+    if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
+        return normalizeLegacyPlanText($decoded);
+    }
+
+    return $str;
 }

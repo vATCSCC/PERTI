@@ -929,13 +929,13 @@
         // Handle different entity types
         if (item.entityType === 'PROGRAM') {
             // GDT Programs (GS, GDP)
-            reqFac = item.scopeCenters ? JSON.parse(item.scopeCenters || '[]').join(',') : 'ALL';
+            reqFac = normalizeDisplayText(item.scopeCenters, ', ') || 'ALL';
             provFac = item.ctlElement || '-';
             restriction = buildProgramText(item);
         } else if (item.entityType === 'REROUTE') {
             // Reroutes
-            reqFac = item.originCenters || item.originAirports || '-';
-            provFac = item.destCenters || item.destAirports || '-';
+            reqFac = normalizeDisplayText(item.originCenters) || normalizeDisplayText(item.originAirports) || '-';
+            provFac = normalizeDisplayText(item.destCenters) || normalizeDisplayText(item.destAirports) || '-';
             restriction = buildRerouteText(item);
         } else {
             // NTML entries
@@ -1230,13 +1230,14 @@
         let validityInfo = '';
         if (isReroute) {
             const validUntil = formatFaaDateTime(item.validUntil);
-            if (item.constrainedArea || item.originCenters || item.destCenters) {
-                const scope = item.constrainedArea ||
-                    [item.originCenters, item.destCenters].filter(Boolean).join(' → ');
+            const constrainedArea = normalizeDisplayText(item.constrainedArea);
+            const originScope = normalizeDisplayText(item.originCenters) || normalizeDisplayText(item.originAirports);
+            const destScope = normalizeDisplayText(item.destCenters) || normalizeDisplayText(item.destAirports);
+            if (constrainedArea || originScope || destScope) {
+                const scope = constrainedArea || [originScope, destScope].filter(Boolean).join(' -> ');
                 validityInfo = `<div class="small text-muted mb-2"><strong>Scope:</strong> ${escapeHtml(scope)} | <strong>Valid:</strong> ${effectiveTime} - ${validUntil}</div>`;
             }
         }
-
         const canSelect = !['CANCELLED', 'PURGED', 'EXPIRED'].includes(status);
 
         return `
@@ -1360,14 +1361,14 @@
             items = items.filter(i => {
                 // For PROGRAM, check ctlElement or scopeCenters
                 if (i.entityType === 'PROGRAM') {
-                    const centers = (i.scopeCenters || '').toUpperCase().split(/[,\s]+/);
+                    const centers = tokenizeScope(i.scopeCenters);
                     const ctlEl = (i.ctlElement || '').toUpperCase();
                     return centers.some(c => expandedReq.has(c)) || expandedReq.has(ctlEl);
                 }
                 // For REROUTE, check origin centers/airports
                 if (i.entityType === 'REROUTE') {
-                    const origins = (i.originCenters || '').toUpperCase().split(/[,\s]+/);
-                    const originApts = (i.originAirports || '').toUpperCase().split(/[,\s]+/);
+                    const origins = tokenizeScope(i.originCenters);
+                    const originApts = tokenizeScope(i.originAirports);
                     return origins.some(o => expandedReq.has(o)) || originApts.some(a => expandedReq.has(a));
                 }
                 // For ENTRY, check requesting facility
@@ -1390,8 +1391,8 @@
                 }
                 // For REROUTE, check destination centers/airports
                 if (i.entityType === 'REROUTE') {
-                    const dests = (i.destCenters || '').toUpperCase().split(/[,\s]+/);
-                    const destApts = (i.destAirports || '').toUpperCase().split(/[,\s]+/);
+                    const dests = tokenizeScope(i.destCenters);
+                    const destApts = tokenizeScope(i.destAirports);
                     return dests.some(d => expandedProv.has(d)) || destApts.some(a => expandedProv.has(a));
                 }
                 // For ENTRY, check providing facility
@@ -1487,8 +1488,7 @@
             title = PERTII18n.t('tmiActive.programDetailTitle', { type: item.entryType || PERTII18n.t('tmiActive.fallback.program') });
             editUrl = 'gdt?edit=' + item.entityId;
 
-            const scopeCenters = item.scopeCenters ?
-                (typeof item.scopeCenters === 'string' ? JSON.parse(item.scopeCenters) : item.scopeCenters).join(', ') : '-';
+            const scopeCenters = normalizeDisplayText(item.scopeCenters, ', ') || '-';
 
             detailHtml = `
                 <div class="restriction-detail">
@@ -1535,11 +1535,11 @@
                     <table class="table table-sm table-borderless">
                         <tr><th width="140">${PERTII18n.t('tmiActive.detailTable.name')}</th><td class="font-weight-bold">${escapeHtml(item.name || '-')}</td></tr>
                         <tr><th>${PERTII18n.t('tmiActive.detailTable.advisoryNum')}</th><td>${escapeHtml(item.advisoryNumber || '-')}</td></tr>
-                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originCenters')}</th><td>${escapeHtml(item.originCenters || '-')}</td></tr>
-                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originAirports')}</th><td>${escapeHtml(item.originAirports || '-')}</td></tr>
-                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destCenters')}</th><td>${escapeHtml(item.destCenters || '-')}</td></tr>
-                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destAirports')}</th><td>${escapeHtml(item.destAirports || '-')}</td></tr>
-                        <tr><th>${PERTII18n.t('tmiActive.detailTable.constrainedArea')}</th><td>${escapeHtml(item.constrainedArea || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originCenters')}</th><td>${escapeHtml(normalizeDisplayText(item.originCenters) || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.originAirports')}</th><td>${escapeHtml(normalizeDisplayText(item.originAirports) || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destCenters')}</th><td>${escapeHtml(normalizeDisplayText(item.destCenters) || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.destAirports')}</th><td>${escapeHtml(normalizeDisplayText(item.destAirports) || '-')}</td></tr>
+                        <tr><th>${PERTII18n.t('tmiActive.detailTable.constrainedArea')}</th><td>${escapeHtml(normalizeDisplayText(item.constrainedArea) || '-')}</td></tr>
                         <tr><th>${PERTII18n.t('tmiActive.detailTable.protectedSegment')}</th><td>${escapeHtml(item.protectedSegment || item.protectedFixes || '-')}</td></tr>
                         <tr><th>${PERTII18n.t('tmiActive.detailTable.avoidFixes')}</th><td>${escapeHtml(item.avoidFixes || '-')}</td></tr>
                         <tr><th>${PERTII18n.t('tmiActive.detailTable.cause')}</th><td>${escapeHtml(item.impactingCondition || '-')}</td></tr>
@@ -2587,6 +2587,49 @@
     // ===========================================
     // Utilities
     // ===========================================
+
+    function normalizeDisplayText(value, separator = '/') {
+        if (value === null || value === undefined) {return '';}
+
+        if (Array.isArray(value)) {
+            const items = value
+                .map(v => normalizeDisplayText(v, separator))
+                .filter(Boolean);
+            return items.join(separator);
+        }
+
+        let str = String(value).trim();
+        if (!str || str === '[]' || str === '{}' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+            return '';
+        }
+
+        // Parse JSON encoded arrays/objects from legacy rows.
+        if ((str.startsWith('[') && str.endsWith(']')) || (str.startsWith('{') && str.endsWith('}'))) {
+            try {
+                const parsed = JSON.parse(str);
+                return normalizeDisplayText(parsed, separator);
+            } catch (e) {
+                // Keep original string when not valid JSON.
+            }
+        }
+
+        if (/^[A-Za-z0-9]{2,8}(?:[\/,\s]+[A-Za-z0-9]{2,8})+$/.test(str)) {
+            const parts = str.split(/[\/,\s]+/).map(s => s.trim()).filter(Boolean);
+            return Array.from(new Set(parts)).join(separator);
+        }
+
+        return str;
+    }
+
+    function tokenizeScope(value) {
+        const normalized = normalizeDisplayText(value, ',');
+        if (!normalized) {return [];}
+        return normalized
+            .toUpperCase()
+            .split(/[,\s/]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
 
     function formatFaaDateTime(isoString) {
         if (!isoString) {return '-';}
