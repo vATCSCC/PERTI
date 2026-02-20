@@ -7062,7 +7062,7 @@
                 </span>
             </div>
             <div class="nod-flow-gate-members">
-                ${members.length > 0 ? members.map(el => renderFlowElementRow(el)).join('') : '<div class="p-1 text-muted small">${PERTII18n.t('nod.flows.noMemberFixes')}</div>'}
+                ${members.length > 0 ? members.map(el => renderFlowElementRow(el)).join('') : `<div class="p-1 text-muted small">${PERTII18n.t('nod.flows.noMemberFixes')}</div>`}
             </div>`;
         });
 
