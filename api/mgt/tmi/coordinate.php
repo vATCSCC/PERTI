@@ -1006,6 +1006,7 @@ function handleListProposals($includeAll = false) {
                 'facility_count' => (int)$prop['facility_count'],
                 'approved_count' => (int)$prop['approved_count'],
                 'facilities' => $facilityMap[$propId] ?? [],
+                'org_code' => $prop['org_code'] ?? 'vatcscc',
                 'dcc_override' => (bool)$prop['dcc_override'],
                 'dcc_override_action' => $prop['dcc_override_action'],
                 'discord_message_id' => $prop['discord_message_id'],
