@@ -8031,7 +8031,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         if (bounds.length < 2) return;
 
-        // Build route lines from fix sequences
+        // Build route lines from fix sequences (skip airway tokens that lack coordinates)
         const routeLines = [];
         (data.required_routes || []).forEach((rt, idx) => {
             const routeStr = rt.route || '';
@@ -8043,7 +8043,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const c = fixCoords[o.trim()];
                 if (c) coords.push([c.lon, c.lat]);
             });
-            // Add intermediate fixes
+            // Add intermediate fixes (airway names without coords are skipped automatically)
             tokens.forEach(tok => {
                 const c = fixCoords[tok];
                 if (c) coords.push([c.lon, c.lat]);
@@ -8058,6 +8058,29 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     properties: { name: `Route ${idx + 1}`, orig: rt.orig, dest: rt.dest }
                 });
             }
+        });
+
+        // Build flight trajectory features colored by compliance
+        const trajFeatures = [];
+        const allFlights = data.flights || [];
+        allFlights.forEach(f => {
+            if (!f.trajectory_coords || f.trajectory_coords.length < 2) return;
+            const status = (f.final_status || f.filed_status || '').toUpperCase();
+            let color = '#888888'; // grey = no status / unknown
+            if (status.includes('COMPLIANT') && !status.includes('NON')) color = '#4caf50'; // green
+            else if (status.includes('PARTIAL')) color = '#ff9800'; // orange
+            else if (status.includes('NON_COMPLIANT')) color = '#f44336'; // red
+            else if (status.includes('MONITORING')) color = '#2196f3'; // blue
+            trajFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: f.trajectory_coords },
+                properties: {
+                    callsign: f.callsign,
+                    status: status,
+                    color: color,
+                    filed_pct: f.filed_match_pct || 0
+                }
+            });
         });
 
         const map = new maplibregl.Map({
@@ -8078,7 +8101,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         });
 
         map.on('load', () => {
-            // Route lines
+            // Flight trajectories (rendered first, behind route lines)
+            if (trajFeatures.length > 0) {
+                map.addSource('reroute-trajectories', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: trajFeatures }
+                });
+                map.addLayer({
+                    id: 'reroute-traj-lines', type: 'line', source: 'reroute-trajectories',
+                    paint: {
+                        'line-color': ['get', 'color'],
+                        'line-width': 1.5,
+                        'line-opacity': 0.5
+                    }
+                });
+            }
+
+            // Route lines (solid cyan, matching route.php style)
             if (routeLines.length > 0) {
                 map.addSource('reroute-lines', {
                     type: 'geojson',
@@ -8086,11 +8125,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 });
                 map.addLayer({
                     id: 'reroute-lines-glow', type: 'line', source: 'reroute-lines',
-                    paint: { 'line-color': '#00bcd4', 'line-width': 5, 'line-opacity': 0.3 }
+                    paint: { 'line-color': '#00bcd4', 'line-width': 6, 'line-opacity': 0.2 }
                 });
                 map.addLayer({
                     id: 'reroute-lines-main', type: 'line', source: 'reroute-lines',
-                    paint: { 'line-color': '#00bcd4', 'line-width': 2, 'line-opacity': 0.8, 'line-dasharray': [4, 2] }
+                    paint: { 'line-color': '#00bcd4', 'line-width': 3, 'line-opacity': 0.9 }
                 });
             }
 
@@ -8104,19 +8143,28 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             map.addLayer({
                 id: 'reroute-origins', type: 'circle', source: 'reroute-points',
                 filter: ['==', ['get', 'role'], 'origin'],
-                paint: { 'circle-radius': 6, 'circle-color': '#2196f3', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 6, 12, 8],
+                    'circle-color': '#2196f3', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#fff'
+                }
             });
             // Destination airports (orange)
             map.addLayer({
                 id: 'reroute-dests', type: 'circle', source: 'reroute-points',
                 filter: ['==', ['get', 'role'], 'destination'],
-                paint: { 'circle-radius': 6, 'circle-color': '#ff9800', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 6, 12, 8],
+                    'circle-color': '#ff9800', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#fff'
+                }
             });
             // Required fixes (yellow/gold)
             map.addLayer({
                 id: 'reroute-fixes', type: 'circle', source: 'reroute-points',
                 filter: ['==', ['get', 'role'], 'fix'],
-                paint: { 'circle-radius': 5, 'circle-color': '#ffc107', 'circle-stroke-width': 1, 'circle-stroke-color': '#fff' }
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 12, 7],
+                    'circle-color': '#ffc107', 'circle-stroke-width': 1, 'circle-stroke-color': '#000'
+                }
             });
 
             // Labels
@@ -8124,13 +8172,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 id: 'reroute-labels', type: 'symbol', source: 'reroute-points',
                 layout: {
                     'text-field': ['get', 'name'],
-                    'text-size': 11,
+                    'text-size': ['interpolate', ['linear'], ['zoom'], 4, 9, 8, 11, 12, 13],
                     'text-offset': [0, 1.2],
                     'text-anchor': 'top',
-                    'text-font': ['Open Sans Regular']
+                    'text-font': ['Noto Sans Bold']
                 },
-                paint: { 'text-color': '#fff', 'text-halo-color': '#000', 'text-halo-width': 1 }
+                paint: { 'text-color': '#fff', 'text-halo-color': '#000', 'text-halo-width': 2 },
+                minzoom: 5
             });
+
+            // Trajectory legend (only if trajectories are present)
+            if (trajFeatures.length > 0) {
+                const legend = document.createElement('div');
+                legend.style.cssText = 'position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.75);padding:6px 10px;border-radius:4px;font-size:11px;color:#fff;z-index:10;';
+                const compliant = allFlights.filter(f => { const s = (f.final_status||f.filed_status||'').toUpperCase(); return s.includes('COMPLIANT') && !s.includes('NON'); }).length;
+                const nonCompliant = allFlights.filter(f => { const s = (f.final_status||f.filed_status||'').toUpperCase(); return s.includes('NON_COMPLIANT'); }).length;
+                const other = allFlights.length - compliant - nonCompliant;
+                legend.innerHTML = `<span style="color:#4caf50;">&#9632;</span> Compliant (${compliant}) &nbsp; <span style="color:#f44336;">&#9632;</span> Non-compliant (${nonCompliant})` +
+                    (other > 0 ? ` &nbsp; <span style="color:#888;">&#9632;</span> Other (${other})` : '');
+                container.style.position = 'relative';
+                container.appendChild(legend);
+            }
 
             // Fit to bounds
             if (bounds.length >= 2) {
@@ -8139,6 +8201,22 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const latMin = Math.min(...bounds.map(b => b[1]));
                 const latMax = Math.max(...bounds.map(b => b[1]));
                 map.fitBounds([[lngMin, latMin], [lngMax, latMax]], { padding: 40 });
+            }
+
+            // Popup on trajectory hover
+            if (trajFeatures.length > 0) {
+                const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+                map.on('mouseenter', 'reroute-traj-lines', (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    const p = e.features[0].properties;
+                    popup.setLngLat(e.lngLat).setHTML(
+                        `<b>${p.callsign}</b><br>Status: ${(p.status||'').replace(/_/g,' ')}<br>Filed: ${p.filed_pct}%`
+                    ).addTo(map);
+                });
+                map.on('mouseleave', 'reroute-traj-lines', () => {
+                    map.getCanvas().style.cursor = '';
+                    popup.remove();
+                });
             }
         });
 

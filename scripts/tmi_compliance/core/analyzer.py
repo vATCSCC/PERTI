@@ -21,7 +21,8 @@ from .models import (
     REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
     HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
     HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
-    HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC, HOLD_FIX_MATCH_RADIUS_NM
+    HOLD_MIN_ALTITUDE_FT, HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC,
+    HOLD_FIX_MATCH_RADIUS_NM
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -333,6 +334,103 @@ def cluster_crossings_by_bearing(crossings: List, gap_threshold_deg: float = 30.
         result[-1] = without_bearing
 
     return result
+
+
+def cluster_crossings_by_position(crossings: List, gis_conn=None,
+                                   eps_nm: float = 15.0,
+                                   min_points: int = 2) -> Dict[int, List]:
+    """
+    Cluster crossings by their geographic crossing position using PostGIS DBSCAN.
+
+    For boundary-based measurement, crossings at different points along the
+    facility boundary represent distinct geographic crossing areas (e.g., the
+    3 areas where ZME->ZFW traffic crosses the ZFW/ZME boundary). This clusters
+    them by proximity of their crossing lat/lon.
+
+    Args:
+        crossings: List of CrossingResult with lat/lon fields
+        gis_conn: PostGIS connection for ST_ClusterDBSCAN
+        eps_nm: DBSCAN epsilon in nautical miles (default 15nm)
+        min_points: Minimum points to form a cluster (default 2)
+
+    Returns:
+        Dict mapping cluster_id to list of CrossingResult.
+        Cluster -1 contains noise points (unassigned).
+    """
+    if not crossings:
+        return {}
+    if len(crossings) < min_points:
+        return {0: crossings}
+
+    # Filter to crossings with valid positions
+    valid = [(i, c) for i, c in enumerate(crossings) if c.lat and c.lon]
+    if len(valid) < min_points:
+        return {0: crossings}
+
+    if not gis_conn:
+        # No PostGIS — single cluster fallback
+        return {0: crossings}
+
+    cursor = gis_conn.cursor()
+    eps_deg = eps_nm / 60.0
+
+    try:
+        cursor.execute("DROP TABLE IF EXISTS _tmp_bnd_pos_cluster")
+        cursor.execute("""
+            CREATE TEMP TABLE _tmp_bnd_pos_cluster (
+                crossing_idx INT,
+                callsign VARCHAR(20),
+                geom GEOMETRY(Point, 4326)
+            )
+        """)
+
+        insert_sql = """
+            INSERT INTO _tmp_bnd_pos_cluster (crossing_idx, callsign, geom)
+            VALUES (%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))
+        """
+        for idx, c in valid:
+            cursor.execute(insert_sql, (idx, c.callsign, c.lon, c.lat))
+
+        cursor.execute(f"""
+            SELECT crossing_idx,
+                   ST_ClusterDBSCAN(geom, eps := {eps_deg}, minpoints := {min_points})
+                   OVER () AS cluster_id
+            FROM _tmp_bnd_pos_cluster
+        """)
+
+        rows = cursor.fetchall()
+        cluster_map = {}
+        assigned_indices = set()
+
+        for idx, cid in rows:
+            cid = cid if cid is not None else -1
+            if cid not in cluster_map:
+                cluster_map[cid] = []
+            cluster_map[cid].append(crossings[idx])
+            assigned_indices.add(idx)
+
+        # Any crossings without valid lat/lon go to noise cluster
+        for i, c in enumerate(crossings):
+            if i not in assigned_indices:
+                if -1 not in cluster_map:
+                    cluster_map[-1] = []
+                cluster_map[-1].append(c)
+
+        cursor.execute("DROP TABLE IF EXISTS _tmp_bnd_pos_cluster")
+        gis_conn.commit()
+
+        if not cluster_map:
+            return {0: crossings}
+
+        return cluster_map
+
+    except Exception as e:
+        logger.warning(f"  PostGIS position clustering failed ({e})")
+        try:
+            gis_conn.rollback()
+        except Exception:
+            pass
+        return {0: crossings}
 
 
 def cluster_crossings_by_trajectory(crossings: List, trajectory_cache: dict,
@@ -991,6 +1089,10 @@ def _finalize_hold(trajectory: List[Dict[str, Any]],
     if avg_gs < HOLD_MIN_GROUNDSPEED_KTS:
         return
 
+    # Altitude filter: only assess airborne holding
+    if avg_alt < HOLD_MIN_ALTITUDE_FT:
+        return
+
     turn_direction = 'R' if turn_sign_sum >= 0 else 'L'
 
     # 5. Data resolution / low-confidence check
@@ -1561,13 +1663,16 @@ class TMIComplianceAnalyzer:
         for name, coords_list in candidates.items():
             if len(coords_list) == 1:
                 lat, lon = coords_list[0]
-            elif centroid_lat is not None:
-                # Pick the candidate closest to the geographic context
-                lat, lon = min(coords_list,
-                               key=lambda c: haversine_nm(c[0], c[1], centroid_lat, centroid_lon))
             else:
-                # No context yet — use first candidate
-                lat, lon = coords_list[0]
+                # CONUS preference: if multiple candidates and some are in CONUS, prefer those
+                conus = [(la, lo) for la, lo in coords_list
+                         if 24.0 <= la <= 50.0 and -130.0 <= lo <= -60.0]
+                pool = conus if conus else coords_list
+                if centroid_lat is not None:
+                    lat, lon = min(pool,
+                                   key=lambda c: haversine_nm(c[0], c[1], centroid_lat, centroid_lon))
+                else:
+                    lat, lon = pool[0]
 
             self.fix_coords[name] = {'lat': lat, 'lon': lon}
             if len(coords_list) > 1:
@@ -2801,11 +2906,35 @@ class TMIComplianceAnalyzer:
                             break
 
     def _detect_all_holding_patterns(self) -> list:
-        """Scan all flights in trajectory cache for holding patterns.
+        """Scan all flights in trajectory cache for airborne holding patterns.
         Called once after _preload_trajectories(), before TMI-specific analysis.
+        Only includes holds within geographic scope of the event's featured facilities.
         """
         all_events = []
         flights_with_holds = 0
+        out_of_scope = 0
+
+        # Build geographic scope from featured facilities for hold filtering
+        # Only include holds within 500nm of a featured facility
+        scope_coords = []
+        featured = list(self.event.destinations) if self.event.destinations else []
+        for prog in getattr(self.event, 'gs_programs', []):
+            if prog.airport and prog.airport not in featured:
+                featured.append(prog.airport)
+        for prog in getattr(self.event, 'reroute_programs', []):
+            for apt in (prog.origins or []):
+                if apt and apt not in featured:
+                    featured.append(apt)
+            for apt in (prog.destinations or []):
+                if apt and apt not in featured:
+                    featured.append(apt)
+        for apt in featured:
+            for code in [apt, f'K{apt}']:
+                if code in self.fix_coords:
+                    scope_coords.append((self.fix_coords[code]['lat'],
+                                         self.fix_coords[code]['lon']))
+                    break
+        HOLD_SCOPE_RADIUS_NM = 500.0
 
         # Load waypoints for all flights that have trajectories
         flight_uids = [meta['flight_uid'] for meta in self._trajectory_metadata.values()
@@ -2830,11 +2959,24 @@ class TMIComplianceAnalyzer:
             raw_events = detect_flight_holding(trajectory, dest_lat, dest_lon)
 
             if raw_events:
-                flights_with_holds += 1
                 flight_uid = meta.get('flight_uid', 0)
                 dept = meta.get('dept', '')
+                flight_has_hold = False
 
                 for evt in raw_events:
+                    # Geographic scope filter: skip holds far from featured facilities
+                    if scope_coords:
+                        hold_lat = evt.get('center_lat')
+                        hold_lon = evt.get('center_lon')
+                        if hold_lat is not None and hold_lon is not None:
+                            in_scope = any(
+                                haversine_nm(hold_lat, hold_lon, slat, slon) <= HOLD_SCOPE_RADIUS_NM
+                                for slat, slon in scope_coords
+                            )
+                            if not in_scope:
+                                out_of_scope += 1
+                                continue
+
                     evt['callsign'] = callsign
                     evt['flight_uid'] = flight_uid
                     evt['dept'] = dept
@@ -2846,9 +2988,16 @@ class TMIComplianceAnalyzer:
                                             self._star_fixes_cache)
 
                     all_events.append(evt)
+                    flight_has_hold = True
+
+                if flight_has_hold:
+                    flights_with_holds += 1
 
         logger.info(f"Holding detection: {len(all_events)} events across "
                     f"{flights_with_holds} flights (scanned {len(self._trajectory_cache)})")
+        if out_of_scope > 0:
+            logger.info(f"  Filtered {out_of_scope} holds outside event scope "
+                       f"(>{HOLD_SCOPE_RADIUS_NM}nm from featured facilities)")
 
         return all_events
 
@@ -3048,21 +3197,21 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
         # 3. For each flight, select the appropriate crossing point
-        # MIT measurement: the FIX is always the measurement point (where spacing
-        # is enforced). The facility pair (provider:requestor) is a FILTER that
-        # identifies which traffic flow is subject to this MIT.
+        # For facility-pair MITs, the BOUNDARY (handoff point) is the measurement
+        # point — spacing is enforced where the providing facility hands off to
+        # the requesting facility. The FIX identifies the traffic flow.
         #
-        # "CAMRN 25MIT N90:ZNY" = measure 25nm spacing AT CAMRN, for flights
-        # crossing the ZNY→N90 boundary.
+        # "SEEVR 25MIT ZFW:ZME" = ZFW requests ZME provide 25nm spacing,
+        # measured AT the ZME->ZFW boundary, for traffic in the SEEVR flow.
         #
         # Strategy when fix + boundary are available:
-        #   a) Fix + boundary: use FIX (boundary confirms correct traffic flow)
+        #   a) Fix + boundary: use BOUNDARY (fix confirms correct traffic flow)
         #   b) Fix only, split MIT: SKIP (can't confirm which provider)
-        #   b') Fix only, non-split: use FIX (boundary detection may have missed)
+        #   b') Fix only, non-split: use FIX as fallback (boundary detection missed)
         #   c) Boundary only, near fix: use boundary (fix detection missed)
         #   d) Boundary only, far from fix: skip (wrong traffic flow)
         #
-        # When no fix is specified, boundary IS the measurement point.
+        # When no facility pair, FIX is the measurement point.
         has_facility_pair = bool(tmi.provider and tmi.requestor)
         is_split_mit = bool(tmi.group_id)  # Multiple providers for same fix
         fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
@@ -3081,7 +3230,7 @@ class TMIComplianceAnalyzer:
             bnd_cx = boundary_crossings_map.get(callsign)
 
             if has_facility_pair and fix and fix_lat_coord is not None:
-                # Facility-pair MIT with a fix: FIX = measurement, boundary = filter
+                # Facility-pair MIT: BOUNDARY = measurement, fix = flow filter
                 has_fix_cx = fix_cx is not None
                 has_bnd_cx = bnd_cx is not None
                 bnd_near_fix = False
@@ -3090,15 +3239,15 @@ class TMIComplianceAnalyzer:
                                                 fix_lat_coord, fix_lon_coord) <= proximity_nm
 
                 if has_fix_cx and has_bnd_cx:
-                    # Both crossings: boundary confirms traffic flow, fix is measurement
-                    crossings.append(fix_cx)
-                    measurement_stats['fix'] += 1
+                    # Both: fix confirms flow, boundary is measurement point
+                    crossings.append(bnd_cx)
+                    measurement_stats['boundary'] += 1
                 elif has_fix_cx and not has_bnd_cx:
                     if is_split_mit:
                         # Split MIT: can't determine which provider without boundary
                         skipped_no_boundary += 1
                     else:
-                        # Non-split: fix crossing is sufficient
+                        # Non-split: fix crossing as fallback measurement
                         crossings.append(fix_cx)
                         measurement_stats['fix'] += 1
                 elif has_bnd_cx and bnd_near_fix:
@@ -3125,22 +3274,22 @@ class TMIComplianceAnalyzer:
                        f"no {tmi.provider}->{tmi.requestor} boundary detected")
 
         # Determine overall measurement type based on what was actually used
-        if fix and measurement_stats['fix'] > 0:
-            # Fix specified and used — measurement is at the fix
-            measurement_type = MeasurementType.FIX
-            if has_facility_pair:
-                measurement_point = f"{fix} ({tmi.provider}->{tmi.requestor})"
-            else:
-                measurement_point = fix
-        elif has_facility_pair and measurement_stats['boundary'] > 0:
+        # Priority: boundary measurement for facility-pair MITs, fix otherwise
+        if has_facility_pair and measurement_stats['boundary'] > 0:
             measurement_type = MeasurementType.BOUNDARY
             measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
+            if fix:
+                measurement_point += f" ({fix} flow)"
+        elif has_facility_pair and measurement_stats['fix'] > 0:
+            # Fallback: boundary detection missed, using fix as proxy
+            measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
+            measurement_point = f"{fix} ({tmi.provider}->{tmi.requestor}, fix fallback)"
+        elif fix and measurement_stats['fix'] > 0:
+            measurement_type = MeasurementType.FIX
+            measurement_point = fix
         elif has_facility_pair:
             measurement_type = MeasurementType.BOUNDARY
             measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
-        elif measurement_stats['fix'] > 0:
-            measurement_type = MeasurementType.FIX
-            measurement_point = fix
         else:
             measurement_type = MeasurementType.FIX
             measurement_point = fix or 'unknown'
@@ -3325,14 +3474,31 @@ class TMIComplianceAnalyzer:
                 stream_groups[dept].append(c)
             logger.info(f"  Stream grouping: PER_AIRPORT ({len(stream_groups)} groups)")
         else:
-            # Default: cluster by trajectory position (spatial DBSCAN)
-            # Geography-based: samples trajectory positions upstream from fix and
-            # clusters spatially, correctly separating converging corridors that
-            # approach the fix at similar bearings but from different geographic paths
             fix_lat = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
             fix_lon = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
 
-            if fix_lat is not None and self._trajectory_cache_loaded:
+            # For facility-pair MITs with boundary measurement, cluster by
+            # boundary crossing position — each distinct area where traffic
+            # crosses the boundary is a natural measurement cluster.
+            # E.g., ZME->ZFW boundary has ~3 geographic crossing areas.
+            use_boundary_clustering = (
+                has_facility_pair and
+                measurement_stats['boundary'] > measurement_stats['fix'] and
+                self.gis_conn
+            )
+
+            if use_boundary_clustering:
+                stream_groups = cluster_crossings_by_position(
+                    sorted_crossings, gis_conn=self.gis_conn,
+                    eps_nm=15.0, min_points=2
+                )
+                logger.info(f"  Stream grouping: boundary position DBSCAN ({len(stream_groups)} clusters)")
+                for sid, sc in stream_groups.items():
+                    meta = compute_stream_metadata(sc)
+                    logger.info(f"    Cluster {sid}: {len(sc)} crossings, "
+                               f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
+            elif fix_lat is not None and self._trajectory_cache_loaded:
+                # Fix-based measurement: cluster by trajectory position upstream
                 stream_groups = cluster_crossings_by_trajectory(
                     sorted_crossings, self._trajectory_cache,
                     fix_lat, fix_lon,
@@ -3342,40 +3508,40 @@ class TMIComplianceAnalyzer:
                     eps_nm=8.0
                 )
                 logger.info(f"  Stream grouping: PostGIS DBSCAN ({len(stream_groups)} streams)")
+                for sid, sc in stream_groups.items():
+                    meta = compute_stream_metadata(sc)
+                    logger.info(f"    Stream {sid}: {len(sc)} crossings, "
+                               f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
+
+                # Sub-branch splitting: within each stream, detect route branches
+                # using tighter DBSCAN. At converging fixes like SEEVR, multiple
+                # airways merge from the same direction — flights on different
+                # branches shouldn't be paired.
+                if self.gis_conn and fix_lat is not None:
+                    refined = {}
+                    next_id = 0
+                    for sid, crossings_list in stream_groups.items():
+                        if sid == -1 or len(crossings_list) < 6:
+                            refined[next_id] = crossings_list
+                            next_id += 1
+                            continue
+                        sub = _split_stream_into_branches(
+                            crossings_list, self._trajectory_cache,
+                            fix_lat, fix_lon, self.gis_conn)
+                        if sub and len(sub) > 1:
+                            for sub_cx in sub.values():
+                                refined[next_id] = sub_cx
+                                next_id += 1
+                            logger.info(f"    Stream {sid} split into {len(sub)} sub-branches")
+                        else:
+                            refined[next_id] = crossings_list
+                            next_id += 1
+                    stream_groups = refined
+                    logger.info(f"  After sub-branch splitting: {len(stream_groups)} total streams")
             else:
                 # Fallback to bearing-based when no trajectory cache or fix coords
                 stream_groups = cluster_crossings_by_bearing(sorted_crossings, gap_threshold_deg=30.0)
                 logger.info(f"  Stream grouping: bearing-based fallback ({len(stream_groups)} streams)")
-            for sid, sc in stream_groups.items():
-                meta = compute_stream_metadata(sc)
-                logger.info(f"    Stream {sid}: {len(sc)} crossings, "
-                           f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
-
-            # Sub-branch splitting: within each stream, detect route branches
-            # using tighter DBSCAN (same approach as JS track_density.php Phase 2).
-            # At converging fixes like SEEVR, multiple airways merge from the same
-            # direction — flights on different branches shouldn't be paired.
-            if self.gis_conn and fix_lat is not None:
-                refined = {}
-                next_id = 0
-                for sid, crossings_list in stream_groups.items():
-                    if sid == -1 or len(crossings_list) < 6:
-                        refined[next_id] = crossings_list
-                        next_id += 1
-                        continue
-                    sub = _split_stream_into_branches(
-                        crossings_list, self._trajectory_cache,
-                        fix_lat, fix_lon, self.gis_conn)
-                    if sub and len(sub) > 1:
-                        for sub_cx in sub.values():
-                            refined[next_id] = sub_cx
-                            next_id += 1
-                        logger.info(f"    Stream {sid} split into {len(sub)} sub-branches")
-                    else:
-                        refined[next_id] = crossings_list
-                        next_id += 1
-                stream_groups = refined
-                logger.info(f"  After sub-branch splitting: {len(stream_groups)} total streams")
 
         # Pair within each stream
         pairs = []
@@ -4167,7 +4333,8 @@ class TMIComplianceAnalyzer:
                         dest,
                         flight.get('fp_route', ''),
                         first_seen,
-                        flight.get('last_seen')
+                        flight.get('last_seen'),
+                        flight.get('route_expanded', '')
                     ))
 
         logger.info(f"  Filtered to {len(flights)} flights in reroute time window")
@@ -4217,6 +4384,12 @@ class TMIComplianceAnalyzer:
         if fixes_to_load:
             self._load_fix_coordinates(fixes_to_load)
 
+        # Load airport coordinates for origins/destinations (for map display)
+        airports_to_load = [a for a in ((tmi.origins or []) + (tmi.destinations or []))
+                           if a not in self.fix_coords and len(a) >= 3]
+        if airports_to_load:
+            self._load_airport_coordinates(airports_to_load)
+
         # Pre-load trajectories for all flights if not already cached
         all_callsigns = [row[0] for row in flights]
         if not self._trajectory_cache_loaded:
@@ -4230,12 +4403,15 @@ class TMIComplianceAnalyzer:
         flown_non_compliant = []
 
         for row in flights:
-            callsign, dept, dest, fp_route, first_seen, last_seen = row
+            callsign, dept, dest, fp_route, first_seen, last_seen, route_expanded = row
             first_seen = normalize_datetime(first_seen)
             fp_route = fp_route or ''
+            route_expanded = route_expanded or ''
 
             # === FILED ROUTE ANALYSIS ===
-            route_upper = fp_route.upper()
+            # Use expanded route (airways resolved to fixes) if available, fall back to raw
+            match_route = route_expanded if route_expanded else fp_route
+            route_upper = match_route.upper()
             filed_matched_fixes = [f for f in required_fixes if f in route_upper]
             filed_match_pct = len(filed_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
             filed_status = 'FILED_COMPLIANT' if filed_match_pct >= 50 else 'FILED_NON_COMPLIANT'
@@ -4282,12 +4458,19 @@ class TMIComplianceAnalyzer:
             if not has_trajectory:
                 flown_status = 'NO_TRAJECTORY'
 
+            # Downsample trajectory for map display (every 3rd point, max 150)
+            traj_coords = None
+            if has_trajectory:
+                sampled = trajectory[::3][:150]
+                traj_coords = [[round(pt['lon'], 4), round(pt['lat'], 4)] for pt in sampled]
+
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
                 'dest': dest,
                 'dept_time': first_seen.strftime('%H:%M:%SZ') if first_seen else None,
                 'filed_route': fp_route,
+                'route_expanded': route_expanded if route_expanded else None,
                 # Filed compliance
                 'filed_matched_fixes': filed_matched_fixes,
                 'filed_match_pct': round(filed_match_pct, 1),
@@ -4298,6 +4481,8 @@ class TMIComplianceAnalyzer:
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
+                # Trajectory for map display
+                'trajectory_coords': traj_coords,
                 # Overall status (filed takes precedence for reporting, flown for verification)
                 'filed_but_not_flown': filed_status == 'FILED_COMPLIANT' and flown_status == 'FLOWN_NON_COMPLIANT',
                 'flown_but_not_filed': filed_status == 'FILED_NON_COMPLIANT' and flown_status == 'FLOWN_COMPLIANT'
@@ -4345,6 +4530,9 @@ class TMIComplianceAnalyzer:
             'destinations': tmi.destinations,
             'required_routes': tmi.reroute_routes,
             'required_fixes': required_fixes,
+            'fix_coordinates': {name: self.fix_coords[name] for name in set(
+                required_fixes + (tmi.origins or []) + (tmi.destinations or [])
+            ) if name in self.fix_coords},
             'total_flights': len(flights),
             'flights': flight_results,
             # Filed compliance (what pilots filed)
@@ -4360,9 +4548,9 @@ class TMIComplianceAnalyzer:
             'filed_but_not_flown': filed_but_not_flown,
             'flown_but_not_filed': flown_but_not_filed,
             # Legacy fields for backward compatibility
-            'using_route': filed_compliant,  # Alias for backward compat
-            'not_using_route': filed_non_compliant,  # Alias for backward compat
-            'compliance_pct': filed_compliance_pct,  # Alias for backward compat
+            'using_route': filed_compliant,
+            'not_using_route': filed_non_compliant,
+            'compliance_pct': filed_compliance_pct,
             # Metadata
             'reason': tmi.reason,
             'facilities': tmi.artccs
@@ -4719,6 +4907,12 @@ class TMIComplianceAnalyzer:
             flown_level = flown_status.replace('FLOWN_', '') if flown_status != 'NO_TRAJECTORY' else filed_level
             final_status = max([filed_level, flown_level], key=lambda s: status_priority.get(s, 4))
 
+            # Downsample trajectory for map display (every 3rd point, max 150)
+            traj_coords = None
+            if has_trajectory:
+                sampled = trajectory[::3][:150]
+                traj_coords = [[round(pt['lon'], 4), round(pt['lat'], 4)] for pt in sampled]
+
             flight_info = {
                 'callsign': callsign,
                 'dept': dept,
@@ -4733,6 +4927,7 @@ class TMIComplianceAnalyzer:
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
+                'trajectory_coords': traj_coords,
                 'final_status': final_status,
                 'required_fixes': required_fixes,
                 'route_source': 'expanded' if route_expanded else 'filed'

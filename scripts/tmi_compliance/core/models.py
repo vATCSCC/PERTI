@@ -162,6 +162,7 @@ HOLD_FIX_MATCH_RADIUS_NM = 5.0       # Fix search radius for matching
 HOLD_CIRCLING_ALT_AGL_FT = 2000      # Exclude circling approaches below this AGL
 HOLD_CIRCLING_DIST_NM = 5.0          # Exclude approaches within this of destination
 HOLD_MIN_GROUNDSPEED_KTS = 100       # Exclude ground ops (taxi/pushback/parking)
+HOLD_MIN_ALTITUDE_FT = 2000          # Exclude ground/low-altitude ops (airborne holds only)
 HOLD_GAP_RESET_SEC = 180             # Reset heading accumulator if gap > 3 min
 HOLD_LOW_CONFIDENCE_INTERVAL_SEC = 120  # Flag if avg data interval sparser than this
 
