@@ -1349,21 +1349,6 @@ include("load/i18n.php");
                     <span class="nod-layer-color" style="background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);"></span>
                     <label for="layer-demand"><?= __('nod.page.trafficDemand') ?></label>
                 </div>
-                <div class="nod-layer-item ml-3" id="demand-add-controls" style="display: none;">
-                    <button class="btn btn-sm btn-outline-info py-0 px-1" id="demand-add-fix-btn"
-                            onclick="NODDemandLayer.toggleClickMode('fix')" title="Click map to add fix monitor">
-                        <i class="fas fa-map-marker-alt"></i> Fix
-                    </button>
-                    <button class="btn btn-sm btn-outline-info py-0 px-1 ml-1" id="demand-add-segment-btn"
-                            onclick="NODDemandLayer.toggleClickMode('segment')" title="Click two points for segment">
-                        <i class="fas fa-route"></i> Segment
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary py-0 px-1 ml-1" onclick="NODDemandLayer.clearMonitors()"
-                            title="Clear all monitors">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                    <span class="small text-muted ml-2" id="demand-click-status" style="display: none;"></span>
-                </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-public-routes" checked onchange="NOD.toggleLayer('public-routes', this.checked)">
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>

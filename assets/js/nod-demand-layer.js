@@ -344,10 +344,6 @@ const NODDemandLayer = (function() {
         refresh();
         state.refreshTimer = setInterval(refresh, CONFIG.refreshInterval);
 
-        // Show add controls
-        const addControls = document.getElementById('demand-add-controls');
-        if (addControls) {addControls.style.display = 'block';}
-
         // Show demand section in toolbar
         const demandControls = document.getElementById('demandControls');
         if (demandControls) {demandControls.style.display = '';}
@@ -377,10 +373,6 @@ const NODDemandLayer = (function() {
         if (state.clickMode) {
             toggleClickMode(null);
         }
-
-        // Hide add controls
-        const addControls = document.getElementById('demand-add-controls');
-        if (addControls) {addControls.style.display = 'none';}
 
         const demandControls = document.getElementById('demandControls');
         if (demandControls) {demandControls.style.display = 'none';}
@@ -1067,27 +1059,6 @@ const NODDemandLayer = (function() {
         // Update cursor
         const canvas = state.map.getCanvas();
         canvas.style.cursor = mode ? 'crosshair' : '';
-
-        // Update button states
-        const fixBtn = document.getElementById('demand-add-fix-btn');
-        const segmentBtn = document.getElementById('demand-add-segment-btn');
-
-        if (fixBtn) {fixBtn.classList.toggle('active', mode === 'fix');}
-        if (segmentBtn) {segmentBtn.classList.toggle('active', mode === 'segment');}
-
-        // Update status message
-        const status = document.getElementById('demand-click-status');
-        if (status) {
-            if (mode === 'fix') {
-                status.textContent = PERTII18n.t('nod.demand.clickToAddFix');
-                status.style.display = 'block';
-            } else if (mode === 'segment') {
-                status.textContent = PERTII18n.t('nod.demand.clickFirstFix');
-                status.style.display = 'block';
-            } else {
-                status.style.display = 'none';
-            }
-        }
 
         console.log('[DemandLayer] Click mode:', mode || 'off');
     }
