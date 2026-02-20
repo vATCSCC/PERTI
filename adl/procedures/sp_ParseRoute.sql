@@ -329,6 +329,8 @@ BEGIN
     DECLARE @distance_nm INT;
     DECLARE @base_lat FLOAT;
     DECLARE @base_lon FLOAT;
+    DECLARE @mag_var FLOAT;
+    DECLARE @true_bearing FLOAT;
     DECLARE @ref_lat FLOAT;
     DECLARE @ref_lon FLOAT;
 
@@ -368,10 +370,10 @@ BEGIN
         SET @ref_lon = @next_lon;
     END
 
-    -- Resolve base fix with proximity disambiguation
+    -- Resolve base fix with proximity disambiguation (also fetch mag_var for bearing correction)
     IF @ref_lat IS NOT NULL
     BEGIN
-        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon
+        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon, @mag_var = nf.mag_var
         FROM dbo.nav_fixes nf
         WHERE nf.fix_name = @base_fix
           AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
@@ -381,13 +383,20 @@ BEGIN
     END
     ELSE
     BEGIN
-        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon
+        SELECT TOP 1 @base_lat = nf.lat, @base_lon = nf.lon, @mag_var = nf.mag_var
         FROM dbo.nav_fixes nf
         WHERE nf.fix_name = @base_fix
           AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL;
     END
 
     IF @base_lat IS NULL RETURN;
+
+    -- Convert magnetic bearing to true bearing
+    -- mag_var: positive = East, negative = West; True = Magnetic + mag_var
+    SET @true_bearing = CAST(@bearing_deg AS FLOAT) + ISNULL(@mag_var, 0);
+    -- Normalize to 0-360
+    IF @true_bearing < 0 SET @true_bearing = @true_bearing + 360;
+    IF @true_bearing >= 360 SET @true_bearing = @true_bearing - 360;
 
     -- Forward geodesic projection using spherical Earth formula
     -- phi2 = asin(sin(phi1)*cos(d/R) + cos(phi1)*sin(d/R)*cos(theta))
@@ -396,7 +405,7 @@ BEGIN
     DECLARE @d FLOAT = @distance_nm * 1852.0;  -- distance in meters
     DECLARE @phi1 FLOAT = RADIANS(@base_lat);
     DECLARE @lam1 FLOAT = RADIANS(@base_lon);
-    DECLARE @theta FLOAT = RADIANS(CAST(@bearing_deg AS FLOAT));
+    DECLARE @theta FLOAT = RADIANS(@true_bearing);
     DECLARE @phi2 FLOAT;
     DECLARE @lam2 FLOAT;
 

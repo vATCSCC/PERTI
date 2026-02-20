@@ -234,6 +234,8 @@ DECLARE
     v_projected GEOGRAPHY;
     v_ref_lat DECIMAL(10,7);
     v_ref_lon DECIMAL(11,7);
+    v_mag_var DECIMAL(5,2);
+    v_true_bearing FLOAT;
 BEGIN
     -- Validate token: 2-5 uppercase letters followed by exactly 6 digits
     IF p_token !~ '^[A-Z]{2,5}\d{6}$' THEN
@@ -265,7 +267,7 @@ BEGIN
     END IF;
 
     IF v_ref_lat IS NOT NULL THEN
-        SELECT nf.lat, nf.lon INTO v_base_lat, v_base_lon
+        SELECT nf.lat, nf.lon, nf.mag_var INTO v_base_lat, v_base_lon, v_mag_var
         FROM nav_fixes nf
         WHERE nf.fix_name = v_base_fix
           AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
@@ -275,7 +277,7 @@ BEGIN
         )
         LIMIT 1;
     ELSE
-        SELECT nf.lat, nf.lon INTO v_base_lat, v_base_lon
+        SELECT nf.lat, nf.lon, nf.mag_var INTO v_base_lat, v_base_lon, v_mag_var
         FROM nav_fixes nf
         WHERE nf.fix_name = v_base_fix
           AND nf.lat IS NOT NULL AND nf.lon IS NOT NULL
@@ -286,12 +288,19 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Project from base fix along bearing for distance
+    -- Convert magnetic bearing to true bearing
+    -- mag_var: positive = East, negative = West; True = Magnetic + mag_var
+    v_true_bearing := v_bearing_deg::FLOAT + COALESCE(v_mag_var, 0)::FLOAT;
+    -- Normalize to 0-360
+    IF v_true_bearing < 0 THEN v_true_bearing := v_true_bearing + 360; END IF;
+    IF v_true_bearing >= 360 THEN v_true_bearing := v_true_bearing - 360; END IF;
+
+    -- Project from base fix along true bearing for distance
     -- ST_Project(geography, distance_meters, azimuth_radians)
     v_projected := ST_Project(
         ST_SetSRID(ST_MakePoint(v_base_lon, v_base_lat), 4326)::geography,
         v_distance_nm * 1852.0,
-        RADIANS(v_bearing_deg::FLOAT)
+        RADIANS(v_true_bearing)
     );
 
     RETURN QUERY SELECT

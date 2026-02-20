@@ -15,6 +15,7 @@ $(document).ready(function() {
     const overlays = [];
 
     const points = {};
+    const navaidMagVar = {}; // FIX_NAME -> [{lat, lon, magVar}] for FBD magnetic correction
     const facilityCodes = new Set();
     const areaCenters = {
         // ═══════════════════════════════════════════════════════════════════════════
@@ -470,12 +471,34 @@ $(document).ready(function() {
         const baseLat = basePoint[1];
         const baseLon = basePoint[2];
 
+        // Look up magnetic variation for the base fix (FBD bearings are magnetic)
+        let magVar = 0;
+        const magEntries = navaidMagVar[baseFix];
+        if (magEntries && magEntries.length > 0) {
+            if (magEntries.length === 1) {
+                magVar = magEntries[0].magVar;
+            } else {
+                // Multiple entries - pick closest to resolved base fix coords
+                let bestDist = Infinity;
+                for (const e of magEntries) {
+                    const dlat = e.lat - baseLat, dlon = e.lon - baseLon;
+                    const dist = dlat * dlat + dlon * dlon;
+                    if (dist < bestDist) { bestDist = dist; magVar = e.magVar; }
+                }
+            }
+        }
+
+        // Convert magnetic bearing to true bearing (True = Magnetic + magVar)
+        let trueBearing = bearingDeg + magVar;
+        if (trueBearing < 0) trueBearing += 360;
+        if (trueBearing >= 360) trueBearing -= 360;
+
         // Forward geodesic projection (spherical Earth)
         const R = 6371000.0; // Earth radius in meters
         const d = distanceNm * 1852.0;
         const phi1 = baseLat * Math.PI / 180;
         const lam1 = baseLon * Math.PI / 180;
-        const theta = bearingDeg * Math.PI / 180;
+        const theta = trueBearing * Math.PI / 180;
 
         const phi2 = Math.asin(Math.sin(phi1) * Math.cos(d / R) + Math.cos(phi1) * Math.sin(d / R) * Math.cos(theta));
         const lam2 = lam1 + Math.atan2(Math.sin(theta) * Math.sin(d / R) * Math.cos(phi1), Math.cos(d / R) - Math.sin(phi1) * Math.sin(phi2));
@@ -892,6 +915,27 @@ $(document).ready(function() {
         console.log('[MAPLIBRE] Loaded points.csv:', Object.keys(points).length, 'fixes');
     }).fail(function(xhr, status, error) {
         console.error('[MAPLIBRE] Failed to load points.csv:', error);
+    });
+
+    // Load navaid magnetic variation data for FBD bearing correction
+    $.ajax({
+        type: 'GET',
+        url: 'assets/data/navaid_magvar.csv',
+        async: false,
+    }).done(function(data) {
+        let count = 0;
+        for (const line of data.split('\n')) {
+            const parts = line.split(',');
+            if (parts.length < 4) continue;
+            const name = (parts[0] || '').trim().toUpperCase();
+            if (!name) continue;
+            if (!navaidMagVar[name]) navaidMagVar[name] = [];
+            navaidMagVar[name].push({ lat: +parts[1], lon: +parts[2], magVar: +parts[3] });
+            count++;
+        }
+        console.log('[MAPLIBRE] Loaded navaid_magvar.csv:', count, 'entries');
+    }).fail(function() {
+        console.warn('[MAPLIBRE] navaid_magvar.csv not available; FBD will use uncorrected bearings');
     });
 
     $.ajax({
