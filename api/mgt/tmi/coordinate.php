@@ -86,7 +86,7 @@ define('FACILITY_ROLE_PATTERNS', [
     'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
     'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
     // US Alaska/Hawaii/Oceanic
-    'ZAN', 'ZHN', 'ZAK', 'ZAP', 'ZWY', 'ZHO', 'ZMO', 'ZUA',
+    'ZAN', 'ZHN', 'ZAK', 'ZAP', 'ZWY', 'ZHO', 'ZMO', 'ZUA', 'ZAO', 'ZSU',
     // Canadian FIRs (from facility-hierarchy.js)
     'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'
 ]);
@@ -188,6 +188,38 @@ define('TRACON_TO_ARTCC', [
     'SLC' => 'ZLC',   // Salt Lake City TRACON
     // Honolulu
     'HCF' => 'ZHN',   // Honolulu Control Facility
+]);
+
+// Oceanic facility → parent ARTCC mapping (for emoji inheritance)
+// Oceanic facilities don't have their own custom Discord emojis; use parent's
+define('OCEANIC_TO_PARENT', [
+    'ZWY' => 'ZNY',   // New York Oceanic
+    'ZAK' => 'ZOA',   // Oakland Oceanic
+    'ZAP' => 'ZAN',   // Anchorage Pacific
+    'ZAO' => 'ZAN',   // Anchorage Arctic Oceanic
+    'ZHO' => 'ZHU',   // Houston Oceanic
+    'ZMO' => 'ZMA',   // Miami Oceanic
+    'ZHN' => 'HCF',   // Honolulu CERAP
+    'ZUA' => 'HCF',   // Guam → Honolulu
+    'ZSU' => 'CAR',   // San Juan → Caribbean
+]);
+
+// Custom Discord emoji display names (for message text, not reactions)
+// These render as custom emojis in Discord message content (e.g., :ZNY: shows the ZNY logo)
+define('FACILITY_CUSTOM_EMOJI', [
+    // US ARTCCs
+    'ZAB' => ':ZAB:', 'ZAN' => ':ZAN:', 'ZAU' => ':ZAU:', 'ZBW' => ':ZBW:',
+    'ZDC' => ':ZDC:', 'ZDV' => ':ZDV:', 'ZFW' => ':ZFW:', 'ZHU' => ':ZHU:',
+    'ZID' => ':ZID:', 'ZJX' => ':ZJX:', 'ZKC' => ':ZKC:', 'ZLA' => ':ZLA:',
+    'ZLC' => ':ZLC:', 'ZMA' => ':ZMA:', 'ZME' => ':ZME:', 'ZMP' => ':ZMP:',
+    'ZNY' => ':ZNY:', 'ZOA' => ':ZOA:', 'ZOB' => ':ZOB:', 'ZSE' => ':ZSE:',
+    'ZTL' => ':ZTL:',
+    // Canadian FIRs (truncated to 3-char)
+    'CZEG' => ':CZE:', 'CZVR' => ':CZV:', 'CZWG' => ':CZW:', 'CZYZ' => ':CZY:',
+    'CZQM' => ':CZQ:', 'CZQX' => ':CZX:', 'CZQO' => ':CZO:', 'CZUL' => ':CZU:',
+    // Special facilities
+    'HCF' => ':HCF:', 'DCC' => ':DCC:', 'CANOC' => ':CANOC:',
+    'MEX' => ':MEX:', 'CAR' => ':CAR:', 'ECFMP' => ':ECFMP:',
 ]);
 
 // =============================================================================
@@ -490,7 +522,19 @@ function getEmojiForFacility($facilityCode, &$usedEmojis = []) {
         }
     }
 
-    // 2. Check if facility has a parent ARTCC with an emoji
+    // 2. Check oceanic-to-parent mapping (oceanic facilities inherit parent emoji)
+    if (isset(OCEANIC_TO_PARENT[$facilityCode])) {
+        $oceanicParent = OCEANIC_TO_PARENT[$facilityCode];
+        if (isset(FACILITY_REGIONAL_EMOJI_MAP[$oceanicParent])) {
+            $emoji = FACILITY_REGIONAL_EMOJI_MAP[$oceanicParent];
+            if (!in_array($emoji, $usedEmojis)) {
+                $usedEmojis[] = $emoji;
+                return ['emoji' => $emoji, 'type' => 'parent', 'parent' => $oceanicParent];
+            }
+        }
+    }
+
+    // 3. Check if facility has a parent ARTCC with an emoji
     $parentArtcc = getParentArtcc($facilityCode);
     if ($parentArtcc && isset(FACILITY_REGIONAL_EMOJI_MAP[$parentArtcc])) {
         $emoji = FACILITY_REGIONAL_EMOJI_MAP[$parentArtcc];
@@ -500,7 +544,7 @@ function getEmojiForFacility($facilityCode, &$usedEmojis = []) {
         }
     }
 
-    // 3. Use a fallback emoji
+    // 4. Use a fallback emoji
     foreach (FALLBACK_EMOJIS as $fallbackEmoji) {
         if (!in_array($fallbackEmoji, $usedEmojis)) {
             $usedEmojis[] = $fallbackEmoji;
@@ -573,6 +617,8 @@ function handleSubmitForCoordination() {
     $facilities = $input['facilities'] ?? [];
     $userCid = $input['userCid'] ?? null;
     $userName = $input['userName'] ?? 'Unknown';
+    $userOI = $input['userOI'] ?? null;
+    $userFacility = $input['userFacility'] ?? null;
 
     if (!$entry || !$deadlineUtc) {
         http_response_code(400);
@@ -767,21 +813,33 @@ function handleSubmitForCoordination() {
         // Post to Discord coordination channel
         // ===================================================
         error_log("[TMI_COORD] About to call postProposalToDiscord with facilities: " . json_encode($facilities));
-        $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName);
+        $proposerMeta = [
+            'cid' => $userCid,
+            'oi' => $userOI,
+            'facility' => $userFacility ?: $requestingFacility,
+            'org_code' => 'VATCSCC',
+        ];
+        $discordResult = postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName, $proposerMeta);
         error_log("[TMI_COORD] postProposalToDiscord returned: " . json_encode($discordResult));
 
         list($channelId, $messageId) = resolveProposalDiscordTarget($discordResult);
+        $logMessageId = is_array($discordResult) ? ($discordResult['log_message_id'] ?? null) : null;
+        $starterMessageId = is_array($discordResult) ? ($discordResult['id'] ?? null) : null;
         if ($channelId !== null && $messageId !== null) {
-            // Update proposal with Discord IDs.
+            // Update proposal with Discord IDs (thread, actions message, log message, starter)
             $updateSql = "UPDATE dbo.tmi_proposals SET
                               discord_channel_id = :channel,
                               discord_message_id = :message_id,
+                              discord_log_message_id = :log_msg_id,
+                              discord_starter_message_id = :starter_msg_id,
                               discord_posted_at = SYSUTCDATETIME()
                           WHERE proposal_id = :prop_id";
             $updateStmt = $conn->prepare($updateSql);
             $updateStmt->execute([
                 ':channel' => $channelId,
                 ':message_id' => $messageId,
+                ':log_msg_id' => $logMessageId,
+                ':starter_msg_id' => $starterMessageId,
                 ':prop_id' => $proposalId
             ]);
         }
@@ -1440,6 +1498,9 @@ function handleProcessReaction() {
                     error_log("Failed to post web facility approve to Discord thread: " . $e->getMessage());
                 }
             }
+
+            // Update the auto-updating coordination log message
+            updateCoordLogMessage($conn, $proposalId, $proposal);
         } elseif ($facilityCode && $reactionType === 'FACILITY_DENY') {
             // Update facility denial status
             // Privileged users can change an already-responded facility (no PENDING filter)
@@ -1489,6 +1550,9 @@ function handleProcessReaction() {
                     error_log("Failed to post web facility deny to Discord thread: " . $e->getMessage());
                 }
             }
+
+            // Update the auto-updating coordination log message
+            updateCoordLogMessage($conn, $proposalId, $proposal);
         }
 
         // Check if proposal should be approved/denied
@@ -2580,55 +2644,51 @@ function normalizeRouteTmiIdText($text, $entry) {
  */
 function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
     try {
-        // Get the original Discord message ID
-        $discordMessageId = $proposal['discord_message_id'] ?? null;
-        if (!$discordMessageId) {
-            return; // No Discord message to update
-        }
-
-        // Build approval banner with timestamps
-        $utcTime = gmdate('Y-m-d H:i:s') . 'Z';
-        $unixTime = time();
-        $discordLong = "<t:{$unixTime}:f>";
-        $discordRelative = "<t:{$unixTime}:R>";
-
-        $approvalBanner = [
-            "╔════════════════════════════════════════════════════════════════════╗",
-            "║  ✅  **PROPOSAL APPROVED** - All facilities have approved          ║",
-            "║      Approved: `{$utcTime}` {$discordLong} ({$discordRelative})    ║",
-            "║      Ready for publication in TMI Publisher queue                  ║",
-            "╚════════════════════════════════════════════════════════════════════╝",
-            ""
-        ];
-
-        // Get the original message content
-        $originalContent = $proposal['raw_text'] ?? '';
-        if (empty($originalContent)) {
-            // Try to get from entry_data_json
-            $entryData = json_decode($proposal['entry_data_json'] ?? '{}', true);
-            $originalContent = formatEntryForDiscord($entryData);
-        }
-
-        // Extract just the header (everything before "ROUTES:")
-        // This keeps the advisory info without the lengthy route tables
-        $headerContent = $originalContent;
-        if (preg_match('/^(.*?)(?=\nROUTES:)/s', $originalContent, $matches)) {
-            $headerContent = trim($matches[1]);
-        }
-
-        // Combine approval banner with header only (not full route tables)
-        $newContent = implode("\n", $approvalBanner) . "\n" . $headerContent;
-
-        // Update Discord message
         $discord = new DiscordAPI();
-        if ($discord->isConfigured()) {
-            $discordChannelId = $proposal['discord_channel_id'] ?? DISCORD_COORDINATION_CHANNEL;
-            $discord->editMessage($discordChannelId, $discordMessageId, [
-                'content' => $newContent
-            ]);
+        if (!$discord->isConfigured()) {
+            return;
+        }
+
+        $threadId = $proposal['discord_channel_id'] ?? null;
+
+        // 1. Update the starter message (main channel) to show APPROVED status
+        $starterMsgId = $proposal['discord_starter_message_id'] ?? null;
+        if ($starterMsgId) {
+            // Fetch the original starter message to update the status line
+            try {
+                $channelForStarter = DISCORD_COORDINATION_CHANNEL;
+                $origMsg = $discord->getMessage($channelForStarter, $starterMsgId);
+                $origContent = $origMsg['content'] ?? '';
+
+                // Replace "PENDING" with "APPROVED" in the second line
+                $newContent = preg_replace('/\| PENDING \|/', '| ✅ APPROVED |', $origContent, 1);
+                if ($newContent !== $origContent) {
+                    $discord->editMessage($channelForStarter, $starterMsgId, [
+                        'content' => $newContent
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log("Failed to update starter message status: " . $e->getMessage());
+            }
+        }
+
+        // 2. Update the coordination log message with final state
+        updateCoordLogMessage($conn, $proposalId, $proposal);
+
+        // 3. Post an approval notification to the thread
+        if ($threadId) {
+            $unixTime = time();
+            $approvalNotice = "## ✅ PROPOSAL APPROVED\n"
+                . "All facilities have approved. <t:{$unixTime}:f> (<t:{$unixTime}:R>)\n"
+                . "Ready for publication in TMI Publisher queue.";
+            try {
+                $discord->sendMessageToThread($threadId, ['content' => $approvalNotice]);
+            } catch (Exception $e) {
+                error_log("Failed to post approval notice to thread: " . $e->getMessage());
+            }
         }
     } catch (Exception $e) {
-        error_log("Failed to update Discord message on approval: " . $e->getMessage());
+        error_log("Failed to update Discord on approval: " . $e->getMessage());
     }
 }
 
@@ -2641,211 +2701,157 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
  * 3. Post full coordination details INSIDE the thread
  * 4. Add reactions to the message INSIDE the thread (not main channel)
  */
-function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName) {
+function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $userName, $proposerMeta = []) {
     $logFile = __DIR__ . '/coordination_debug.log';
     $log = function($msg) use ($logFile) {
         $line = date('[Y-m-d H:i:s] ') . $msg;
         @file_put_contents($logFile, $line . "\n", FILE_APPEND);
-        error_log("[TMI_COORD] " . $msg); // Also log to PHP error log
+        error_log("[TMI_COORD] " . $msg);
     };
 
     $log("=== Starting Discord post for proposal #{$proposalId} ===");
-    $log("Channel ID: " . DISCORD_COORDINATION_CHANNEL);
-    $log("Facilities passed: " . json_encode($facilities));
-    $log("Facilities count: " . count($facilities));
 
     try {
         $discord = new DiscordAPI();
-        $log("DiscordAPI instantiated");
-
         if (!$discord->isConfigured()) {
-            $log("ERROR: Discord is not configured (no bot token)");
+            $log("ERROR: Discord is not configured");
             return null;
         }
-        $log("Discord is configured");
 
-        // Build thread title
+        // Build proposer string: "firstName lastName (OIs) (CID/facility)"
+        $userCid = $proposerMeta['cid'] ?? null;
+        $userOI = $proposerMeta['oi'] ?? null;
+        $userFacility = $proposerMeta['facility'] ?? null;
+        $orgCode = $proposerMeta['org_code'] ?? 'VATCSCC';
+        $proposerString = buildProposerString($userName, $userCid, $userOI, $userFacility);
+
+        // Build thread title (Discord max 100 chars)
         $threadTitle = buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities);
-        $log("Thread title: " . $threadTitle);
+        $log("Thread title: {$threadTitle}");
 
-        // Step 1: Post brief starter message to main channel
-        // This message will become the thread entry point - keep it minimal
-        $starterMessage = "**{$threadTitle}**\n_Click thread to view details and react to approve/deny_";
-        $log("Posting starter message to channel: " . DISCORD_COORDINATION_CHANNEL);
-
+        // ── Step 1: Post Title (starter message) to main channel ──
+        $starterContent = buildCoordStarterContent($proposalId, $entry, $deadline, $facilities, $proposerString);
         $starterResult = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
-            'content' => $starterMessage
+            'content' => $starterContent
         ]);
-
-        $log("Starter message result: " . json_encode($starterResult));
 
         if (!$starterResult || !isset($starterResult['id'])) {
             $log("FAILED - No starter message ID returned");
-            $log("Last HTTP code: " . $discord->getLastHttpCode());
-            $log("Last error: " . ($discord->getLastError() ?? 'none'));
             return null;
         }
+        $log("Starter message posted: " . $starterResult['id']);
 
-        $log("Starter message posted with ID: " . $starterResult['id']);
-
-        // Step 2: Create thread from the starter message
-        $log("Creating thread with title: " . $threadTitle);
+        // ── Step 2: Create thread from starter message ──
         $threadResult = $discord->createThreadFromMessage(
             DISCORD_COORDINATION_CHANNEL,
             $starterResult['id'],
             $threadTitle,
-            1440 // Auto-archive after 24 hours of inactivity
+            1440
         );
 
         if (!$threadResult || !isset($threadResult['id'])) {
-            $log("Thread creation failed: " . ($discord->getLastError() ?? 'unknown error'));
-            // Return the starter message result even if thread fails
+            $log("Thread creation failed");
             return $starterResult;
         }
 
         $threadId = $threadResult['id'];
-        $log("Thread created with ID: " . $threadId);
         $starterResult['thread_id'] = $threadId;
+        $log("Thread created: {$threadId}");
 
-        // Step 3: Post full coordination details INSIDE the thread
-        $content = formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName);
-        $log("Posting coordination details to thread, content length: " . strlen($content));
+        // ── Step 3: Post Message 1 (Summary) ──
+        $summaryContent = buildCoordSummaryMessage($entry, $facilities, $orgCode);
+        $summaryMsg = $discord->sendMessageToThread($threadId, ['content' => $summaryContent]);
+        if ($summaryMsg && isset($summaryMsg['id'])) {
+            $log("Summary message posted: " . $summaryMsg['id']);
+        }
+        usleep(200000);
 
-        $threadMessage = $discord->sendMessageToThread($threadId, [
-            'content' => $content
-        ]);
+        // ── Step 4: Post Message 2 (Body / raw text) ──
+        $bodyContent = buildCoordBodyMessage($entry);
+        $bodyMsg = $discord->sendMessageToThread($threadId, ['content' => $bodyContent]);
+        if ($bodyMsg && isset($bodyMsg['id'])) {
+            $log("Body message posted: " . $bodyMsg['id']);
+        }
+        usleep(200000);
 
-        if (!$threadMessage || !isset($threadMessage['id'])) {
-            $log("Failed to post detailed thread message: " . ($discord->getLastError() ?? 'unknown error'));
-
-            // Fallback: post a minimal, globally-safe message so reactions still work.
-            $fallbackContent = "**TMI Coordination Request**\n"
-                . "Proposal #{$proposalId}\n"
-                . "Details could not be posted in full; review summary and reactions below.\n"
-                . "Deadline: <t:{$deadline->getTimestamp()}:F> (<t:{$deadline->getTimestamp()}:R>)";
-
-            $threadMessage = $discord->sendMessageToThread($threadId, [
-                'content' => $fallbackContent
+        // Post overflow body chunks (if advisory text > 1860 chars)
+        $overflowChunks = getBodyOverflowChunks($entry);
+        foreach ($overflowChunks as $idx => $chunk) {
+            $partNum = $idx + 2;
+            $total = count($overflowChunks) + 1;
+            $overflowMsg = $discord->sendMessageToThread($threadId, [
+                'content' => "*(Part {$partNum}/{$total})*\n```\n{$chunk}\n```"
             ]);
-
-            if (!$threadMessage || !isset($threadMessage['id'])) {
-                $log("Fallback thread message also failed: " . ($discord->getLastError() ?? 'unknown error'));
-                return $starterResult;
-            }
+            usleep(150000);
         }
 
-        $threadMessageId = $threadMessage['id'];
-        $log("Thread message posted with ID: " . $threadMessageId);
-        $starterResult['thread_message_id'] = $threadMessageId;
+        // ── Step 5: Post Message 3 (Actions Required) + add reactions ──
+        $actionsContent = buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $orgCode);
+        $actionsMsg = $discord->sendMessageToThread($threadId, ['content' => $actionsContent]);
 
-        // Brief delay to let Discord process the message before adding reactions
-        usleep(500000); // 500ms
+        $actionsMessageId = null;
+        if ($actionsMsg && isset($actionsMsg['id'])) {
+            $actionsMessageId = $actionsMsg['id'];
+            $log("Actions message posted: {$actionsMessageId}");
+            $starterResult['thread_message_id'] = $actionsMessageId;
+        }
+        usleep(500000);
 
-        // Step 4: Add reactions to the message INSIDE the thread (not main channel)
-        $usedEmojis = [];
-        $log("Processing " . count($facilities) . " facilities for emoji reactions");
-        $log("Thread ID for reactions: {$threadId}");
-        $log("Message ID for reactions: {$threadMessageId}");
-
-        try {
+        // Add reactions to the Actions message
+        if ($actionsMessageId) {
+            $usedEmojis = [];
             $reactionResults = [];
+
             foreach ($facilities as $facility) {
                 $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
                 $facCode = strtoupper(trim($facCode));
                 $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
-                $log("Processing facility: {$facCode}");
 
-                // Add custom emoji (for Nitro users)
+                // Custom emoji (server-specific)
                 if ($facEmoji) {
-                    $log("Adding custom emoji to thread: {$facEmoji} for facility {$facCode}");
                     try {
-                        $success = $discord->createReaction($threadId, $threadMessageId, $facEmoji);
-                        $log("Custom emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-                        $reactionResults["{$facCode}_custom"] = $success;
+                        $discord->createReaction($threadId, $actionsMessageId, $facEmoji);
+                        $reactionResults["{$facCode}_custom"] = true;
                     } catch (Throwable $e) {
-                        $log("Custom emoji error for {$facCode}: " . $e->getMessage());
                         $reactionResults["{$facCode}_custom"] = false;
                     }
+                    usleep(350000);
                 }
 
-                // Add alternate emoji (ARTCC, parent ARTCC, or fallback)
+                // Fallback Unicode emoji
                 $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
-                $altEmoji = $emojiInfo['emoji'];
-                $emojiType = $emojiInfo['type'];
-                $parentArtcc = $emojiInfo['parent'] ?? null;
-
-                $log("Adding alternate emoji to thread: {$altEmoji} for facility {$facCode} (type: {$emojiType}, parent: " . ($parentArtcc ?? 'none') . ")");
                 try {
-                    $success = $discord->createReaction($threadId, $threadMessageId, $altEmoji);
-                    $log("Alternate emoji result: " . ($success ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-                    $reactionResults["{$facCode}_alt"] = $success;
+                    $discord->createReaction($threadId, $actionsMessageId, $emojiInfo['emoji']);
+                    $reactionResults["{$facCode}_alt"] = true;
                 } catch (Throwable $e) {
-                    $log("Alternate emoji error for {$facCode}: " . $e->getMessage());
                     $reactionResults["{$facCode}_alt"] = false;
                 }
-
-                usleep(350000); // 350ms delay between reactions to avoid rate limiting
+                usleep(350000);
             }
 
-            // Add deny reactions to thread message
-            $log("Adding deny reactions to thread message");
+            // Deny reactions
             try {
-                $success1 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI);
-                $log("Deny emoji 1 result: " . ($success1 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-                $reactionResults['deny1'] = $success1;
+                $discord->createReaction($threadId, $actionsMessageId, DENY_EMOJI);
+                usleep(350000);
+                $discord->createReaction($threadId, $actionsMessageId, DENY_EMOJI_ALT);
             } catch (Throwable $e) {
-                $log("Deny emoji 1 error: " . $e->getMessage());
-                $reactionResults['deny1'] = false;
-            }
-            usleep(350000);
-            try {
-                $success2 = $discord->createReaction($threadId, $threadMessageId, DENY_EMOJI_ALT);
-                $log("Deny emoji 2 result: " . ($success2 ? 'SUCCESS' : 'FAILED - ' . ($discord->getLastError() ?? 'unknown')));
-                $reactionResults['deny2'] = $success2;
-            } catch (Throwable $e) {
-                $log("Deny emoji 2 error: " . $e->getMessage());
-                $reactionResults['deny2'] = false;
+                $log("Deny reaction error: " . $e->getMessage());
             }
 
-            // Store reaction results for debugging
-            $anySuccess = in_array(true, $reactionResults, true);
-            $starterResult['reactions_added'] = $anySuccess;
+            $starterResult['reactions_added'] = !empty(array_filter($reactionResults));
             $starterResult['reaction_results'] = $reactionResults;
-
-            // VERIFICATION: Fetch the message to check if reactions are actually present
-            usleep(500000); // 500ms delay before verification
-            $log("Verifying reactions on message...");
-            $verifyResult = $discord->getMessage($threadId, $threadMessageId);
-            $actualReactions = [];
-            if ($verifyResult && isset($verifyResult['reactions'])) {
-                foreach ($verifyResult['reactions'] as $r) {
-                    $emojiName = $r['emoji']['name'] ?? 'unknown';
-                    $actualReactions[] = $emojiName;
-                }
-                $log("Actual reactions found on message: " . json_encode($actualReactions));
-            } else {
-                $log("Could not verify reactions - getMessage returned: " . json_encode($verifyResult));
-            }
-
-            // Include target IDs in debug info
-            $starterResult['reaction_debug'] = [
-                'target_channel_id' => $threadId,
-                'target_message_id' => $threadMessageId,
-                'facilities_processed' => count($facilities),
-                'any_success' => $anySuccess,
-                'results_count' => count($reactionResults),
-                'verified_reactions' => $actualReactions,
-                'last_http_code' => $discord->getLastHttpCode()
-            ];
-            $log("Reaction results: " . json_encode($reactionResults));
-        } catch (Throwable $emojiEx) {
-            $log("EMOJI EXCEPTION: " . $emojiEx->getMessage());
-            $log("Emoji exception trace: " . $emojiEx->getTraceAsString());
-            $starterResult['reactions_added'] = false;
-            $starterResult['reactions_error'] = $emojiEx->getMessage();
         }
 
-        // Step 5: For ROUTE/REROUTE entries, post a Route Plotter link and full advisory text.
+        // ── Step 6: Post Message 4 (Coordination Log — auto-updating) ──
+        usleep(200000);
+        $logContent = buildCoordLogMessage($proposalId);
+        $logMsg = $discord->sendMessageToThread($threadId, ['content' => $logContent]);
+        if ($logMsg && isset($logMsg['id'])) {
+            $starterResult['log_message_id'] = $logMsg['id'];
+            $log("Log message posted: " . $logMsg['id']);
+        }
+
+        // ── Step 7: For ROUTE/REROUTE, post route plotter link ──
         $entryTypeUpper = strtoupper($entry['entryType'] ?? '');
         if ($entryTypeUpper === 'ROUTE' || $entryTypeUpper === 'REROUTE') {
             $fullAdvisory = trim((string) buildNtmlText($entry));
@@ -2853,51 +2859,25 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
             try {
                 $plotter = buildRoutePlotterUrl($entry, $fullAdvisory);
                 if (!empty($plotter['url'])) {
-                    $plotterLines = [
-                        "**Route Plotter**",
-                        $plotter['url'],
-                    ];
-
+                    $plotterLines = ["**Route Plotter**", $plotter['url']];
                     if (!empty($plotter['truncated'])) {
-                        $plotterLines[] = "_Preloaded with first routes due URL length limits. Full advisory is posted below._";
+                        $plotterLines[] = "_Preloaded with first routes due URL length limits._";
                     } elseif (!empty($plotter['prefilled'])) {
                         $plotterLines[] = "_Preloaded from this proposal._";
-                    } else {
-                        $plotterLines[] = "_Open link, then paste the advisory text from the messages below._";
                     }
-
-                    $plotterPost = $discord->sendMessageToThread($threadId, [
-                        'content' => implode("\n", $plotterLines)
-                    ]);
-
+                    $discord->sendMessageToThread($threadId, ['content' => implode("\n", $plotterLines)]);
                     $starterResult['route_plotter_url'] = $plotter['url'];
-                    $starterResult['route_plotter_prefilled'] = (bool)($plotter['prefilled'] ?? false);
-                    $starterResult['route_plotter_posted'] = (bool)($plotterPost && isset($plotterPost['id']));
                 }
-            } catch (Throwable $plotterEx) {
-                $log("Failed posting route plotter link: " . $plotterEx->getMessage());
-                $starterResult['route_plotter_error'] = $plotterEx->getMessage();
-            }
-
-            try {
-                if ($fullAdvisory !== '') {
-                    $fullPost = postLongCodeBlockToThread($discord, $threadId, 'Full Proposed Advisory', $fullAdvisory);
-                    $starterResult['full_advisory_parts'] = $fullPost;
-                    $log("Posted full advisory parts: " . json_encode($fullPost));
-                }
-            } catch (Throwable $fullEx) {
-                $log("Failed posting full advisory parts: " . $fullEx->getMessage());
-                $starterResult['full_advisory_error'] = $fullEx->getMessage();
+            } catch (Throwable $e) {
+                $log("Route plotter error: " . $e->getMessage());
             }
         }
 
         $log("=== Discord post complete for proposal #{$proposalId} ===");
-        $starterResult['last_discord_error'] = $discord->getLastError();
         return $starterResult;
 
     } catch (Exception $e) {
         $log("EXCEPTION: " . $e->getMessage());
-        $log("Stack trace: " . $e->getTraceAsString());
         error_log("Discord post failed: " . $e->getMessage());
         return null;
     }
@@ -2936,13 +2916,13 @@ function addFacilityReactionsToMessage($discord, $threadId, $messageId, $facilit
 }
 
 /**
- * Build thread title for coordination
- * Format: "TMI Coordination | FROM {requestors} | TO {providers} | FOR {entry type} | PERIOD {valid period} | DUE {due date/time} | #{TMI ID}"
+ * Build thread title for coordination (Discord thread name, max 100 chars)
+ * Format: "COORD {TYPE} {REQ}>{PROV} DUE {dd/hhmmZ} #{ID}"
  */
 function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities) {
     $data = $entry['data'] ?? [];
     $entryType = strtoupper($entry['entryType'] ?? 'TMI');
-    $dueStr = $deadline->format('Hi') . 'Z';
+    $dueStr = formatDdHhmmZ($deadline);
 
     $requestor = strtoupper($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC');
     $providerCodes = [];
@@ -2960,8 +2940,7 @@ function buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilitie
 
     if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
         $routeName = preg_replace('/\s+/', '_', strtoupper(trim((string)($data['name'] ?? 'UNNAMED'))));
-        $constrainedArea = strtoupper(trim((string)($data['constrained_area'] ?? 'TBD')));
-        $title = "COORD {$entryType} {$routeName} {$constrainedArea} DUE {$dueStr} #{$proposalId}";
+        $title = "COORD {$entryType} {$routeName} DUE {$dueStr} #{$proposalId}";
     } else {
         $title = "COORD {$entryType} {$requestor}>{$providersShort} DUE {$dueStr} #{$proposalId}";
     }
@@ -2995,151 +2974,395 @@ function resolveProposalDiscordTarget($discordResult) {
 }
 
 /**
- * Format proposal message for Discord
+ * Get the custom Discord emoji display name for a facility code.
+ * Falls back to oceanic parent, then generic :CODE: format.
  */
-function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName) {
+function getCustomEmojiName($facilityCode) {
+    $facilityCode = strtoupper(trim($facilityCode));
+    if (isset(FACILITY_CUSTOM_EMOJI[$facilityCode])) {
+        return FACILITY_CUSTOM_EMOJI[$facilityCode];
+    }
+    // Check oceanic parent
+    if (isset(OCEANIC_TO_PARENT[$facilityCode])) {
+        $parent = OCEANIC_TO_PARENT[$facilityCode];
+        if (isset(FACILITY_CUSTOM_EMOJI[$parent])) {
+            return FACILITY_CUSTOM_EMOJI[$parent];
+        }
+    }
+    return ":{$facilityCode}:";
+}
+
+/**
+ * Format a UTC timestamp as dd/hhmmZ (e.g., "20/1845Z")
+ */
+function formatDdHhmmZ($dateTime) {
+    if (!$dateTime instanceof DateTime && !$dateTime instanceof DateTimeImmutable) {
+        try {
+            $dateTime = new DateTime($dateTime, new DateTimeZone('UTC'));
+        } catch (Exception $e) {
+            return 'TBD';
+        }
+    }
+    return $dateTime->format('d/Hi') . 'Z';
+}
+
+/**
+ * Build validity period string with UTC, local, and relative Discord timestamps.
+ * Format: {startUTC}-{endUTC} | {startLocal}-{endLocal} | (starts {relative})
+ */
+function buildValidityString($validFrom, $validUntil) {
+    $fromUtc = 'TBD';
+    $untilUtc = 'TBD';
+    $localPart = '';
+    $relativePart = '';
+
+    try {
+        if ($validFrom) {
+            $fromDt = new DateTime($validFrom, new DateTimeZone('UTC'));
+            $fromUtc = formatDdHhmmZ($fromDt);
+            $fromTs = $fromDt->getTimestamp();
+            $localPart = "<t:{$fromTs}:t>";
+            $relativePart = "(starts <t:{$fromTs}:R>)";
+        }
+        if ($validUntil) {
+            $untilDt = new DateTime($validUntil, new DateTimeZone('UTC'));
+            $untilUtc = formatDdHhmmZ($untilDt);
+            $untilTs = $untilDt->getTimestamp();
+            if ($localPart) {
+                $localPart .= "-<t:{$untilTs}:t>";
+            }
+        }
+    } catch (Exception $e) {
+        // Fall through with TBD values
+    }
+
+    $parts = ["{$fromUtc}-{$untilUtc}"];
+    if ($localPart) $parts[] = $localPart;
+    if ($relativePart) $parts[] = $relativePart;
+    return implode(' | ', $parts);
+}
+
+/**
+ * Build the proposer display string.
+ * Format: firstName lastName (OIs) (CID/facilityRepresented)
+ */
+function buildProposerString($userName, $userCid, $userOI = null, $userFacility = null) {
+    $parts = [$userName ?: 'Unknown'];
+    if ($userOI) {
+        $parts[] = "({$userOI})";
+    }
+    $cidPart = $userCid ?: '?';
+    if ($userFacility) {
+        $cidPart .= "/{$userFacility}";
+    }
+    $parts[] = "({$cidPart})";
+    return implode(' ', $parts);
+}
+
+/**
+ * Build thread starter message content (Title).
+ * Line 1 (bold): {TMI Type} | {facilities} | {valid period} | {deadline}
+ * Line 2 (regular): TMI ID: {ID} | {status} | {proposed by}
+ */
+function buildCoordStarterContent($proposalId, $entry, $deadline, $facilities, $proposerString) {
     $entryType = strtoupper($entry['entryType'] ?? 'TMI');
     $data = $entry['data'] ?? [];
 
-    $ntmlText = trim((string) buildNtmlText($entry));
-    $deadlineUnix = $deadline->getTimestamp();
-    $deadlineDiscordFull = "<t:{$deadlineUnix}:F>";
-    $deadlineDiscordRelative = "<t:{$deadlineUnix}:R>";
-
-    $requestor = strtoupper(trim((string)($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC')));
-
-    // Build compact facility approval legend.
-    $usedEmojis = [];
-    $facilityApprovalList = [];
+    // Build facility list
+    $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+    $facCodes = [];
     foreach ($facilities as $fac) {
-        $facCode = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
-        $facCode = strtoupper(trim($facCode));
-        $primaryEmoji = is_array($fac) ? ($fac['emoji'] ?? ":$facCode:") : ":$facCode:";
-        $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
-        $altEmoji = $emojiInfo['emoji'];
-        $parentSuffix = ($emojiInfo['type'] === 'parent' && !empty($emojiInfo['parent']))
-            ? " ({$emojiInfo['parent']})"
-            : '';
-        $facilityApprovalList[] = "{$facCode}: {$primaryEmoji} / {$altEmoji}{$parentSuffix}";
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $facCodes[] = strtoupper(trim($code));
     }
 
-    $lines = [
-        "ATCSCC COORDINATION TELEX",
-        "STATUS: PROPOSED (NOT ACTIVE)",
-        "ID: #{$proposalId}",
-        "TYPE: {$entryType}",
-        "FROM: {$requestor}",
-        "PROPOSED BY: {$userName}",
-        "DUE UTC: {$deadlineDiscordFull} ({$deadlineDiscordRelative})",
-        "",
-    ];
+    // Facility display: REQ:PROV1/PROV2 for NTML, or list for reroutes
+    if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
+        $facDisplay = implode(', ', $facCodes);
+    } else {
+        $facDisplay = $requestor . ':' . implode('/', $facCodes);
+    }
+
+    // Valid period
+    $validFrom = $data['valid_from'] ?? null;
+    $validUntil = $data['valid_until'] ?? null;
+    $validPeriod = 'TBD';
+    try {
+        $parts = [];
+        if ($validFrom) $parts[] = formatDdHhmmZ($validFrom);
+        else $parts[] = 'TBD';
+        $parts[] = '-';
+        if ($validUntil) $parts[] = formatDdHhmmZ($validUntil);
+        else $parts[] = 'TBD';
+        $validPeriod = implode('', $parts);
+    } catch (Exception $e) { /* keep TBD */ }
+
+    $deadlineStr = formatDdHhmmZ($deadline);
+
+    $line1 = "**{$entryType} | {$facDisplay} | {$validPeriod} | DUE {$deadlineStr}**";
+    $line2 = "TMI ID: #{$proposalId} | PENDING | {$proposerString}";
+
+    return "{$line1}\n{$line2}";
+}
+
+/**
+ * Build Message 1: Summary (## COORDINATION REQUEST)
+ * Type-specific structured fields.
+ */
+function buildCoordSummaryMessage($entry, $facilities, $orgCode = 'VATCSCC') {
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $data = $entry['data'] ?? [];
+    $orgDisplay = strtoupper($orgCode ?: 'VATCSCC');
+
+    $lines = ["## {$orgDisplay} COORDINATION REQUEST"];
 
     if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
-        $routes = is_array($data['routes'] ?? null) ? $data['routes'] : [];
-        $routeCount = count($routes);
+        // Reroute Advisory format
+        $routeName = strtoupper(trim($data['name'] ?? 'UNNAMED'));
+        $reason = strtoupper(trim($data['reason'] ?? 'VOLUME'));
 
-        $origins = [];
-        $dests = [];
-        foreach ($routes as $route) {
-            $origin = strtoupper(trim($route['origin'] ?? ''));
-            $dest = strtoupper(trim($route['destination'] ?? $route['dest'] ?? ''));
-            if ($origin !== '') { $origins[$origin] = true; }
-            if ($dest !== '') { $dests[$dest] = true; }
+        // Facilities included
+        $facCodes = [];
+        foreach ($facilities as $fac) {
+            $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            $facCodes[] = strtoupper(trim($code));
         }
+        $facDisplay = implode(', ', $facCodes);
 
-        $validFrom = trim((string)($data['valid_from'] ?? ''));
-        $validUntil = trim((string)($data['valid_until'] ?? ''));
-        $validText = 'TBD';
-        try {
-            $fromDiscord = null;
-            $untilDiscord = null;
-            if ($validFrom !== '') {
-                $fromTs = (new DateTime($validFrom, new DateTimeZone('UTC')))->getTimestamp();
-                $fromDiscord = "<t:{$fromTs}:f>";
-            }
-            if ($validUntil !== '') {
-                $untilTs = (new DateTime($validUntil, new DateTimeZone('UTC')))->getTimestamp();
-                $untilDiscord = "<t:{$untilTs}:f>";
-            }
+        $lines[] = "**Route Name:** {$routeName}";
+        $lines[] = "**Facilities Included:** {$facDisplay}";
+        $lines[] = "**Reason:** {$reason}";
 
-            if ($fromDiscord && $untilDiscord) {
-                $validText = "{$fromDiscord} -> {$untilDiscord}";
-            } elseif ($fromDiscord) {
-                $validText = "{$fromDiscord} -> TBD";
-            }
-        } catch (Exception $e) {
-            if ($validFrom !== '' && $validUntil !== '') {
-                $validText = "{$validFrom} -> {$validUntil}";
-            } elseif ($validFrom !== '') {
-                $validText = "{$validFrom} -> TBD";
+        $validStr = buildValidityString($data['valid_from'] ?? null, $data['valid_until'] ?? null);
+        $lines[] = "**Valid:** {$validStr}";
+
+        // Route plotter link
+        $baseUrl = getPublicSiteBaseUrl();
+        if ($baseUrl) {
+            $plotter = buildRoutePlotterUrl($entry);
+            if (!empty($plotter['url'])) {
+                $lines[] = "**Route link:** {$plotter['url']}";
             }
         }
 
-        $includeTraffic = truncateForDiscord((string)($data['include_traffic'] ?? ''), 120);
-        $remarks = truncateForDiscord((string)($data['remarks'] ?? ''), 100);
-        $routeName = strtoupper(trim((string)($data['name'] ?? 'UNNAMED')));
-        $routeType = strtoupper(trim((string)($data['route_type'] ?? 'ROUTE')));
-        $constrainedArea = strtoupper(trim((string)($data['constrained_area'] ?? 'TBD')));
-        $reason = strtoupper(trim((string)($data['reason'] ?? 'WEATHER')));
+    } elseif (in_array($entryType, ['MIT', 'MINIT', 'AFP', 'GS', 'GDP', 'RESTRICTION'])) {
+        // NTML entry format
+        $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+        $provider = strtoupper(trim($data['prov_facility'] ?? $data['providing_facility'] ?? ''));
+        $restriction = trim($data['restriction'] ?? $data['ctl_element'] ?? '');
+        $reason = strtoupper(trim($data['reason'] ?? ''));
+        $qualifiers = trim($data['qualifiers'] ?? $data['qualifier'] ?? '');
+        $exclusions = trim($data['exclusions'] ?? $data['exclusion'] ?? '');
 
-        $lines[] = "NAME: {$routeName}";
-        $lines[] = "ROUTE TYPE: {$routeType}";
-        $lines[] = "AREA: {$constrainedArea}";
-        $lines[] = "REASON: {$reason}";
-        $lines[] = "VALID UTC: {$validText}";
-        $lines[] = "ROUTES: {$routeCount} (ORG " . count($origins) . " / DEST " . count($dests) . ")";
-        if ($includeTraffic !== '') {
-            $lines[] = "TRAFFIC: {$includeTraffic}";
+        // Provider list from facilities
+        $provCodes = [];
+        foreach ($facilities as $fac) {
+            $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            $provCodes[] = strtoupper(trim($code));
         }
-        if ($remarks !== '') {
-            $lines[] = "REMARKS: {$remarks}";
-        }
-        $lines[] = "MAP: ROUTE PLOTTER LINK POSTED BELOW";
+        $provDisplay = implode(', ', $provCodes);
 
-        // Include only a compact header preview (not route tables).
-        $headerOnly = extractAdvisoryHeader($ntmlText);
-        if ($headerOnly !== '') {
-            $headerPreview = truncateForDiscord($headerOnly, 420);
-            $lines[] = "";
-            $lines[] = "HEADER PREVIEW:";
-            foreach (explode("\n", $headerPreview) as $headerLine) {
-                $lines[] = trim($headerLine);
-            }
-        }
+        $lines[] = "**Requestor(s):** {$requestor}";
+        $lines[] = "**Provider(s):** {$provDisplay}";
+        if ($restriction) $lines[] = "**Restriction:** {$restriction}";
+        if ($qualifiers) $lines[] = "**Qualifier(s):** {$qualifiers}";
+        if ($exclusions) $lines[] = "**Exclusion(s):** {$exclusions}";
+        if ($reason) $lines[] = "**Reason:** {$reason}";
+
+        $validStr = buildValidityString($data['valid_from'] ?? null, $data['valid_until'] ?? null);
+        $lines[] = "**Valid:** {$validStr}";
+
     } else {
-        $ntmlPreview = truncateForDiscord($ntmlText, 500);
-        if ($ntmlPreview !== '') {
-            $lines[] = "TEXT PREVIEW:";
-            foreach (explode("\n", $ntmlPreview) as $previewLine) {
-                $lines[] = trim($previewLine);
-            }
-            $lines[] = "";
-        }
+        // All other advisory types
+        $lines[] = "*See following advisory text*";
     }
 
-    $lines[] = "APPROVALS REQUIRED:";
-    foreach ($facilityApprovalList as $approvalLine) {
-        $lines[] = $approvalLine;
+    return implode("\n", $lines);
+}
+
+/**
+ * Build Message 2: Body (## TEXT with raw TMI in code block)
+ */
+function buildCoordBodyMessage($entry) {
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $ntmlText = trim((string) buildNtmlText($entry));
+
+    // Determine header: ADVISORY TEXT or NTML TEXT
+    $isAdvisory = in_array($entryType, ['ROUTE', 'REROUTE', 'ADVISORY']);
+    $header = $isAdvisory ? 'ADVISORY TEXT' : 'NTML TEXT';
+
+    if ($ntmlText === '') {
+        return "## {$header}\n```\nNo text available\n```";
     }
+
+    // Split into chunks if too long for one message (1900 chars for code block + header)
+    $maxCodeLen = 1860;
+    if (strlen($ntmlText) <= $maxCodeLen) {
+        return "## {$header}\n```\n{$ntmlText}\n```";
+    }
+
+    // Return just the first chunk; additional chunks posted separately
+    $chunks = splitMessageForDiscord($ntmlText, $maxCodeLen);
+    return "## {$header}\n```\n{$chunks[0]}\n```";
+}
+
+/**
+ * Get any overflow body chunks beyond the first (for long advisory text).
+ */
+function getBodyOverflowChunks($entry) {
+    $ntmlText = trim((string) buildNtmlText($entry));
+    if ($ntmlText === '' || strlen($ntmlText) <= 1860) {
+        return [];
+    }
+    $chunks = splitMessageForDiscord($ntmlText, 1860);
+    array_shift($chunks); // Remove first chunk (already in Message 2)
+    return $chunks;
+}
+
+/**
+ * Build Message 3: Actions Required
+ * Emoji legend, deny/override instructions, web link.
+ */
+function buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $orgCode = 'VATCSCC') {
+    $data = $entry['data'] ?? [];
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $orgDisplay = strtoupper($orgCode ?: 'VATCSCC');
+    $deadlineUnix = $deadline->getTimestamp();
+
+    // Requestor
+    $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+
+    // Provider/facility list
+    $facCodes = [];
+    foreach ($facilities as $fac) {
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $facCodes[] = strtoupper(trim($code));
+    }
+
+    $lines = ["## ACTIONS REQUIRED"];
+    $lines[] = "**Requestor(s):** {$requestor}";
+    $lines[] = "**Due by** " . formatDdHhmmZ($deadline) . " | <t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)";
+    $lines[] = "**Responses required by:** " . implode(', ', $facCodes);
     $lines[] = "";
-    $lines[] = "ACTIONS:";
-    $lines[] = "APPROVE = FACILITY EMOJI";
-    $lines[] = "DENY = ❌ OR 🚫";
-    $lines[] = "DCC OVERRIDE = :DCC:";
+    $lines[] = "Facilities must react with their facility's emoji:";
 
-    $body = implode("\n", $lines);
-    $maxBodyLen = 1990;
-    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        if (mb_strlen($body, 'UTF-8') > $maxBodyLen) {
-            $body = mb_substr($body, 0, $maxBodyLen - 3, 'UTF-8') . '...';
+    // Build emoji legend
+    $usedEmojis = [];
+    foreach ($facCodes as $facCode) {
+        $customEmoji = getCustomEmojiName($facCode);
+        $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+        $altEmoji = $emojiInfo['emoji'];
+        $parentNote = ($emojiInfo['type'] === 'parent' && !empty($emojiInfo['parent']))
+            ? " ({$emojiInfo['parent']})"
+            : '';
+        $lines[] = "> **{$facCode}**: {$customEmoji} / {$altEmoji}{$parentNote}";
+    }
+
+    $lines[] = "";
+    $lines[] = "Deny by reacting with ❌ or 🚫";
+
+    // Org override emoji
+    $orgEmoji = getCustomEmojiName($orgDisplay === 'VATCSCC' ? 'DCC' : $orgDisplay);
+    $lines[] = "{$orgDisplay} override with {$orgEmoji}";
+
+    $lines[] = "";
+    $lines[] = "Alternatively, facilities may respond via the [PERTI TMI Publish webpage](https://perti.vatcscc.org/tmi-publish.php#coordinationPanel)";
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Build Message 4: Coordination Log (initially empty, auto-updated)
+ * Uses diff syntax highlighting for color: + green (approved), - red (denied)
+ */
+function buildCoordLogMessage($proposalId) {
+    return "## COORDINATION LOG\n```diff\n  Awaiting facility responses...\n```";
+}
+
+/**
+ * Build updated log message content from current facility states.
+ * Each response is a line in the diff block.
+ */
+function buildUpdatedLogContent($conn, $proposalId) {
+    $sql = "SELECT facility_code, approval_status, reacted_at, reacted_by_username, reacted_by_oi
+            FROM dbo.tmi_proposal_facilities
+            WHERE proposal_id = :prop_id
+            ORDER BY reacted_at ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':prop_id' => $proposalId]);
+    $facilities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $logLines = [];
+    $hasAnyResponse = false;
+
+    foreach ($facilities as $fac) {
+        $status = strtoupper($fac['approval_status'] ?? 'PENDING');
+        $code = strtoupper($fac['facility_code'] ?? '');
+
+        if ($status === 'PENDING') {
+            $logLines[] = "  {$code} ... PENDING";
+            continue;
         }
-    } else {
-        if (strlen($body) > $maxBodyLen) {
-            $body = substr($body, 0, $maxBodyLen - 3) . '...';
+
+        $hasAnyResponse = true;
+        $timestamp = 'TBD';
+        if ($fac['reacted_at']) {
+            try {
+                $dt = new DateTime($fac['reacted_at'], new DateTimeZone('UTC'));
+                $timestamp = formatDdHhmmZ($dt);
+            } catch (Exception $e) { /* keep TBD */ }
+        }
+
+        $who = trim(($fac['reacted_by_oi'] ?? '') . ' ' . ($fac['reacted_by_username'] ?? ''));
+        if ($who === '') $who = 'Unknown';
+
+        if ($status === 'APPROVED') {
+            $logLines[] = "+ {$timestamp}    {$code} APPROVED    {$who}";
+        } elseif ($status === 'DENIED') {
+            $logLines[] = "- {$timestamp}    {$code} DENIED      {$who}";
+        } else {
+            $logLines[] = "  {$timestamp}    {$code} {$status}    {$who}";
         }
     }
 
-    return $body;
+    if (!$hasAnyResponse) {
+        return "## COORDINATION LOG\n```diff\n  Awaiting facility responses...\n```";
+    }
+
+    return "## COORDINATION LOG\n```diff\n" . implode("\n", $logLines) . "\n```";
+}
+
+/**
+ * Update the auto-updating log message in the Discord coordination thread.
+ */
+function updateCoordLogMessage($conn, $proposalId, $proposal) {
+    try {
+        $logMessageId = $proposal['discord_log_message_id'] ?? null;
+        $threadId = $proposal['discord_channel_id'] ?? null;
+        if (!$logMessageId || !$threadId) {
+            return;
+        }
+
+        $newContent = buildUpdatedLogContent($conn, $proposalId);
+
+        $discord = new DiscordAPI();
+        if ($discord->isConfigured()) {
+            $discord->editMessage($threadId, $logMessageId, [
+                'content' => $newContent
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Failed to update coordination log message: " . $e->getMessage());
+    }
+}
+
+/**
+ * Legacy: Format proposal message for Discord (kept for backward compat with thread reuse edits)
+ * @deprecated Use buildCoordSummaryMessage + buildCoordBodyMessage + buildCoordActionsMessage
+ */
+function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName) {
+    // Delegate to new summary format for reuse contexts
+    return buildCoordSummaryMessage($entry, $facilities);
 }
 
 /**

@@ -1740,6 +1740,15 @@
 
     // Build facility options for dropdowns
     function buildFacilityOptions() {
+        // Use PERTI facility data when available, otherwise fall back to hardcoded list
+        if (typeof PERTI !== 'undefined' && PERTI.FACILITY && PERTI.FACILITY.FACILITY_NAME_MAP) {
+            const map = PERTI.FACILITY.FACILITY_NAME_MAP;
+            const allCodes = Object.keys(map).sort();
+            return allCodes.map(code =>
+                `<option value="${code}">${code} - ${map[code]}</option>`,
+            ).join('');
+        }
+
         const facilities = [
             // US ARTCCs
             { code: 'ZAB', name: 'Albuquerque Center' },
@@ -1764,6 +1773,13 @@
             { code: 'ZOB', name: 'Cleveland Center' },
             { code: 'ZSE', name: 'Seattle Center' },
             { code: 'ZTL', name: 'Atlanta Center' },
+            // US Oceanic
+            { code: 'ZAK', name: 'Oakland Oceanic' },
+            { code: 'ZAP', name: 'Anchorage Oceanic' },
+            { code: 'ZHO', name: 'Houston Oceanic' },
+            { code: 'ZMO', name: 'Miami Oceanic' },
+            { code: 'ZUA', name: 'Guam CERAP' },
+            { code: 'ZWY', name: 'New York Oceanic' },
             // TRACONs
             { code: 'A80', name: 'Atlanta TRACON' },
             { code: 'A90', name: 'Boston TRACON' },
@@ -1779,13 +1795,20 @@
             // Canadian FIRs
             { code: 'CZEG', name: 'Edmonton FIR' },
             { code: 'CZQM', name: 'Moncton FIR' },
+            { code: 'CZQO', name: 'Gander Oceanic FIR' },
             { code: 'CZQX', name: 'Gander FIR' },
+            { code: 'CZUL', name: 'Montreal FIR' },
             { code: 'CZVR', name: 'Vancouver FIR' },
             { code: 'CZWG', name: 'Winnipeg FIR' },
             { code: 'CZYZ', name: 'Toronto FIR' },
-            // International
-            { code: 'MMEX', name: 'Mexico' },
-            { code: 'CARIBBEAN', name: 'Caribbean' },
+            // Mexico
+            { code: 'MMMX', name: 'Mexico City ACC' },
+            { code: 'MMTY', name: 'Monterrey ACC' },
+            { code: 'MMZT', name: 'Mazatlan ACC' },
+            // Caribbean
+            { code: 'TJZS', name: 'San Juan FIR' },
+            { code: 'MKJK', name: 'Kingston FIR' },
+            { code: 'MUFH', name: 'Havana FIR' },
         ];
 
         return facilities.map(f =>
@@ -4899,6 +4922,8 @@
                 facilities: facilities,
                 userCid: CONFIG.userCid,
                 userName: CONFIG.userName || 'Unknown',
+                userOI: CONFIG.userOI || null,
+                userFacility: CONFIG.userFacility || null,
             };
 
             try {
@@ -5070,6 +5095,8 @@
                 facilities: facilities,
                 userCid: CONFIG.userCid,
                 userName: CONFIG.userName || 'Unknown',
+                userOI: CONFIG.userOI || null,
+                userFacility: CONFIG.userFacility || null,
             };
 
             try {
