@@ -7042,7 +7042,7 @@
         if (badge) badge.textContent = gates.length;
 
         if (gates.length === 0) {
-            container.innerHTML = '<div class="nod-empty"><p>${PERTII18n.t('nod.flows.noGatesConfigured')}</p></div>';
+            container.innerHTML = `<div class="nod-empty"><p>${PERTII18n.t('nod.flows.noGatesConfigured')}</p></div>`;
             return;
         }
 
