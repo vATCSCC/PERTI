@@ -2885,89 +2885,74 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Boundary crossings ({tmi.provider}->{tmi.requestor}): {len(boundary_crossings_map)}")
 
         # 3. For each flight, select the appropriate crossing point
-        # For facility-pair MITs (e.g., DEPDY 25MIT N90:ZDC):
-        #   - The BOUNDARY (handoff point) is the measurement point
-        #   - The FIX is a FILTER (only flights that pass through this fix)
-        # Strategy: fix crossing gates the flight in, boundary is measurement
-        #   a) Fix crossing + boundary: use BOUNDARY (handoff = measurement)
-        #   b) Fix crossing only, split MIT: SKIP (can't determine provider)
-        #   b') Fix crossing only, non-split: use fix (boundary detection missed handoff)
-        #   c) Boundary only, near fix: use boundary (sparse trajectory missed fix)
-        #   d) Boundary only, far from fix: skip (flight doesn't traverse this fix)
+        # MIT measurement: the FIX is always the measurement point (where spacing
+        # is enforced). The facility pair (provider:requestor) is a FILTER that
+        # identifies which traffic flow is subject to this MIT.
+        #
+        # "CAMRN 25MIT N90:ZNY" = measure 25nm spacing AT CAMRN, for flights
+        # crossing the ZNY→N90 boundary.
+        #
+        # Strategy when fix + boundary are available:
+        #   a) Fix + boundary: use FIX (boundary confirms correct traffic flow)
+        #   b) Fix only, split MIT: SKIP (can't confirm which provider)
+        #   b') Fix only, non-split: use FIX (boundary detection may have missed)
+        #   c) Boundary only, near fix: use boundary (fix detection missed)
+        #   d) Boundary only, far from fix: skip (wrong traffic flow)
+        #
+        # When no fix is specified, boundary IS the measurement point.
         has_facility_pair = bool(tmi.provider and tmi.requestor)
         is_split_mit = bool(tmi.group_id)  # Multiple providers for same fix
         fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
         fix_lon_coord = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
 
-        # Proximity thresholds for boundary crossing validation
-        # Strict: boundary-only fallback (no fix crossing confirmation)
+        # Tight proximity for boundary-only fallback (no fix crossing confirmation)
         proximity_nm = 40.0
-        # Generous: boundary with fix confirmation (just verify correct boundary edge)
-        boundary_range_nm = 80.0
 
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
         skipped_far = 0
         skipped_no_boundary = 0
-        skipped_wrong_edge = 0
 
         for callsign in all_callsigns:
             fix_cx = fix_crossings_map.get(callsign)
             bnd_cx = boundary_crossings_map.get(callsign)
 
             if has_facility_pair and fix and fix_lat_coord is not None:
-                # Facility-pair MIT: fix crossing gates entry, boundary is measurement
+                # Facility-pair MIT with a fix: FIX = measurement, boundary = filter
                 has_fix_cx = fix_cx is not None
+                has_bnd_cx = bnd_cx is not None
                 bnd_near_fix = False
-                bnd_in_range = False
                 if bnd_cx and bnd_cx.lat and bnd_cx.lon:
-                    bnd_dist = haversine_nm(bnd_cx.lat, bnd_cx.lon,
-                                            fix_lat_coord, fix_lon_coord)
-                    bnd_near_fix = bnd_dist <= proximity_nm
-                    bnd_in_range = bnd_dist <= boundary_range_nm
+                    bnd_near_fix = haversine_nm(bnd_cx.lat, bnd_cx.lon,
+                                                fix_lat_coord, fix_lon_coord) <= proximity_nm
 
-                if has_fix_cx and bnd_cx and bnd_in_range:
-                    # Flight confirmed through fix AND boundary is on correct edge
-                    # Use boundary (handoff point) as measurement
-                    crossings.append(bnd_cx)
-                    measurement_stats['boundary'] += 1
-                elif has_fix_cx and bnd_cx and not bnd_in_range:
-                    # Flight passed through fix but boundary crossing is on the
-                    # wrong edge of the provider/requestor boundary (e.g., 180nm
-                    # away at the opposite side of a TRACON). Use fix as fallback.
+                if has_fix_cx and has_bnd_cx:
+                    # Both crossings: boundary confirms traffic flow, fix is measurement
                     crossings.append(fix_cx)
                     measurement_stats['fix'] += 1
-                    skipped_wrong_edge += 1
-                elif has_fix_cx and not bnd_cx:
+                elif has_fix_cx and not has_bnd_cx:
                     if is_split_mit:
-                        # Split MIT: can't determine which provider without boundary.
-                        # Skip to prevent cross-provider contamination.
-                        # (e.g., SEEVR flight from ZKC skipped for ZFW:ZME sub-MIT)
+                        # Split MIT: can't determine which provider without boundary
                         skipped_no_boundary += 1
                     else:
-                        # Single-provider MIT: fix crossing is sufficient proof
-                        # that flight passes through this fix's traffic flow.
-                        # Boundary detection may have missed the handoff.
+                        # Non-split: fix crossing is sufficient
                         crossings.append(fix_cx)
                         measurement_stats['fix'] += 1
-                elif bnd_near_fix:
-                    # No fix crossing but boundary is very close to fix —
-                    # trajectory too sparse for fix detection, accept boundary
+                elif has_bnd_cx and bnd_near_fix:
+                    # No fix crossing but boundary is close to fix — sparse trajectory
                     crossings.append(bnd_cx)
                     measurement_stats['boundary'] += 1
-                elif bnd_cx:
-                    # Boundary far from fix, no fix crossing — flight doesn't
-                    # traverse this fix (e.g., KATL traffic at TPA TRACON
-                    # boundary counted against MAATY MIT)
+                elif has_bnd_cx:
+                    # Boundary far from fix, no fix crossing — wrong traffic flow
                     skipped_far += 1
-                # else: no crossing at all for this callsign
-            elif bnd_cx:
-                # No facility pair or no fix — use boundary crossing as-is
-                crossings.append(bnd_cx)
-                measurement_stats['boundary'] += 1
             elif fix_cx:
+                # Fix only (no facility pair) — measure at fix
                 crossings.append(fix_cx)
                 measurement_stats['fix'] += 1
+            elif bnd_cx:
+                # Boundary only (no fix specified) — measure at boundary
+                crossings.append(bnd_cx)
+                measurement_stats['boundary'] += 1
 
         if skipped_far > 0:
             logger.info(f"  Filtered {skipped_far} boundary crossings: no fix crossing "
@@ -2975,19 +2960,21 @@ class TMIComplianceAnalyzer:
         if skipped_no_boundary > 0:
             logger.info(f"  Skipped {skipped_no_boundary} fix-only crossings: split MIT, "
                        f"no {tmi.provider}->{tmi.requestor} boundary detected")
-        if skipped_wrong_edge > 0:
-            logger.info(f"  Replaced {skipped_wrong_edge} boundary crossings with fix: "
-                       f"boundary >{boundary_range_nm}nm from {fix} (wrong edge)")
 
         # Determine overall measurement type based on what was actually used
-        if has_facility_pair:
-            if measurement_stats['boundary'] > 0:
-                measurement_type = MeasurementType.BOUNDARY
-                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
+        if fix and measurement_stats['fix'] > 0:
+            # Fix specified and used — measurement is at the fix
+            measurement_type = MeasurementType.FIX
+            if has_facility_pair:
+                measurement_point = f"{fix} ({tmi.provider}->{tmi.requestor})"
             else:
-                # No boundary crossings found at all - nothing to analyze
-                measurement_type = MeasurementType.BOUNDARY
-                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
+                measurement_point = fix
+        elif has_facility_pair and measurement_stats['boundary'] > 0:
+            measurement_type = MeasurementType.BOUNDARY
+            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
+        elif has_facility_pair:
+            measurement_type = MeasurementType.BOUNDARY
+            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
         elif measurement_stats['fix'] > 0:
             measurement_type = MeasurementType.FIX
             measurement_point = fix

@@ -4202,7 +4202,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             })
             .catch(err => {
                 console.error('Map data fetch error:', err);
-                this.showMapError(mapId, PERTII18n.t('tmiCompliance.errorLoadingMapMsg', { error: err.message }));
+                const is503 = err.message && err.message.includes('503');
+                if (is503) {
+                    this.showMapError(mapId, 'Map service temporarily unavailable (503). Close the map and reopen it to retry.');
+                } else {
+                    this.showMapError(mapId, PERTII18n.t('tmiCompliance.errorLoadingMapMsg', { error: err.message }));
+                }
             });
     },
 
@@ -4265,6 +4270,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         });
 
         this.activeMaps[mapId] = map;
+
+        map.on('error', (e) => {
+            console.warn('Map error:', e.error?.message || e);
+            if (e.error?.message?.includes('503') || e.error?.status === 503) {
+                this.showMapError(mapId, 'Map tiles unavailable (503). Close the map and reopen it to retry.');
+            }
+        });
 
         map.on('load', () => {
             // Catch race condition: if fetchBranchAnalysis() completed before map activation,
