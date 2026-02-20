@@ -632,7 +632,7 @@ GET /api/gis/boundaries.php?action=artcc_airports&artcc=ZFW
   "airports": [
     {"icao": "KDFW", "name": "Dallas/Fort Worth International"},
     {"icao": "KDAL", "name": "Dallas Love Field"},
-    {"icao": "KIAH", "name": "George Bush Intercontinental"},
+    {"icao": "KIAH", "name": "Houston Intercontinental"},
     {"icao": "KHOU", "name": "William P. Hobby"}
   ],
   "count": 47

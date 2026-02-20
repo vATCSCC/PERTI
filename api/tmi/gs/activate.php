@@ -48,6 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
+require_once(__DIR__ . '/../../../load/airport_aliases.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -265,7 +266,7 @@ if ($publish_swim) {
             'type' => 'ground_stop',
             'program_id' => $program_id,
             'airport' => $program['ctl_element'],
-            'airport_name' => $program['airport_name'],
+            'airport_name' => applyAirportDisplayName($program['airport_name'] ?? ''),
             'artcc' => $program['artcc'],
             'name' => $program['program_name'] ?? 'CDM GROUND STOP',
             'reason' => $program['impacting_condition'],

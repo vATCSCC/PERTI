@@ -19,6 +19,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 include("../../load/config.php");
 include("../../load/connect.php");
+include("../../load/airport_aliases.php");
 
 // Get plan ID
 $plan_id = isset($_GET['id']) ? get_int('id') : 0;
@@ -64,7 +65,7 @@ if (!empty($airport_icaos) && isset($conn_adl)) {
     
     if ($apt_result) {
         while ($row = sqlsrv_fetch_array($apt_result, SQLSRV_FETCH_ASSOC)) {
-            $airport_details[$row['ICAO_ID']] = $row['ARPT_NAME'];
+            $airport_details[$row['ICAO_ID']] = applyAirportDisplayName($row['ARPT_NAME']);
         }
         sqlsrv_free_stmt($apt_result);
     }

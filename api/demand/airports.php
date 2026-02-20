@@ -13,6 +13,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once("../../load/config.php");
 require_once("../../load/input.php");
+require_once("../../load/airport_aliases.php");
 
 // Check ADL database configuration
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
@@ -635,7 +636,7 @@ $airports = [];
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $airports[] = [
         "icao" => $row['ICAO_ID'],
-        "name" => $row['ARPT_NAME'],
+        "name" => applyAirportDisplayName($row['ARPT_NAME']),
         "artcc" => $row['RESP_ARTCC_ID'],
         "dcc_region" => $row['DCC_REGION'],
         "is_aspm82" => $row['ASPM82'] == 1,

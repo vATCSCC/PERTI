@@ -303,7 +303,7 @@ Average entries per active day: **11.4** (across 465 active days).
 | Top qualifier | AS ONE (30x) |
 | Avg MIT restriction | 27.6 NM |
 
-### DCA - Ronald Reagan Washington
+### DCA - Washington National
 
 | Metric | Value |
 |--------|-------|
