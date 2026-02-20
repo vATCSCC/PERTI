@@ -6581,6 +6581,8 @@
 
     function showEditProposalDialog(proposal, facilities) {
         const entryData = proposal.entry_data || {};
+        const proposalType = (proposal.entry_type || entryData.entryType || '').toUpperCase();
+        const isRouteLike = proposalType === 'ROUTE' || proposalType === 'REROUTE';
         // Format UTC datetime string for datetime-local input without timezone conversion
         // Database stores UTC times, so we keep them as-is for the datetime-local input
         const formatForInput = (dateStr) => {
@@ -6598,6 +6600,40 @@
             return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
         };
 
+        const labels = isRouteLike ? {
+            controlElement: 'Route Name',
+            requestingFacility: 'Constrained Area',
+            providingFacility: 'Facilities Included',
+            restrictionValue: 'Include Traffic',
+            unit: 'Reason',
+            restrictionText: 'Advisory Text',
+            ntmlTextHint: 'This is the advisory text that facilities will see',
+        } : {
+            controlElement: PERTII18n.t('tmiPublish.editProposal.controlElement'),
+            requestingFacility: PERTII18n.t('tmiPublish.editProposal.requestingFacility'),
+            providingFacility: PERTII18n.t('tmiPublish.editProposal.providingFacility'),
+            restrictionValue: PERTII18n.t('tmiPublish.editProposal.restrictionValue'),
+            unit: PERTII18n.t('tmiPublish.editProposal.unit'),
+            restrictionText: PERTII18n.t('tmiPublish.editProposal.restrictionText'),
+            ntmlTextHint: PERTII18n.t('tmiPublish.editProposal.ntmlTextHint'),
+        };
+
+        const ctlElementValue = isRouteLike
+            ? (proposal.ctl_element || entryData.name || entryData.route_name || entryData.ctl_element || '')
+            : (proposal.ctl_element || entryData.ctl_element || '');
+        const reqFacValue = isRouteLike
+            ? (proposal.requesting_facility || entryData.constrained_area || entryData.requesting_facility || entryData.req_facility || '')
+            : (proposal.requesting_facility || entryData.requesting_facility || '');
+        const provFacValue = isRouteLike
+            ? (proposal.providing_facility || entryData.facilities_included || entryData.facilities || entryData.providing_facility || entryData.prov_facility || '')
+            : (proposal.providing_facility || entryData.providing_facility || '');
+        const valueFieldValue = isRouteLike
+            ? (entryData.include_traffic || entryData.origin_filter || entryData.destination_filter || '')
+            : (entryData.restriction_value || entryData.value || '');
+        const unitFieldValue = isRouteLike
+            ? (entryData.reason || '')
+            : (entryData.restriction_unit || entryData.unit || '');
+
         Swal.fire({
             title: `<i class="fas fa-edit text-info"></i> ${PERTII18n.t('tmiPublish.editProposal.title', { id: proposal.proposal_id })}`,
             html: `
@@ -6612,21 +6648,21 @@
                             <input type="text" class="form-control form-control-sm bg-light" value="${escapeHtml(proposal.entry_type || 'TMI')}" readonly>
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.controlElement')}</label>
+                            <label class="small font-weight-bold">${labels.controlElement}</label>
                             <input type="text" id="editPropCtlElement" class="form-control form-control-sm text-uppercase"
-                                   value="${escapeHtml(proposal.ctl_element || entryData.ctl_element || '')}">
+                                   value="${escapeHtml(ctlElementValue)}">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.requestingFacility')}</label>
+                            <label class="small font-weight-bold">${labels.requestingFacility}</label>
                             <input type="text" id="editPropReqFac" class="form-control form-control-sm text-uppercase"
-                                   value="${escapeHtml(proposal.requesting_facility || entryData.requesting_facility || '')}">
+                                   value="${escapeHtml(reqFacValue)}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.providingFacility')}</label>
+                            <label class="small font-weight-bold">${labels.providingFacility}</label>
                             <input type="text" id="editPropProvFac" class="form-control form-control-sm text-uppercase"
-                                   value="${escapeHtml(proposal.providing_facility || entryData.providing_facility || '')}">
+                                   value="${escapeHtml(provFacValue)}">
                         </div>
                     </div>
                     <div class="row mb-2">
@@ -6643,23 +6679,28 @@
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.restrictionValue')}</label>
-                            <input type="number" id="editPropValue" class="form-control form-control-sm"
-                                   value="${entryData.restriction_value || entryData.value || ''}" placeholder="e.g., 20">
+                            <label class="small font-weight-bold">${labels.restrictionValue}</label>
+                            <input type="${isRouteLike ? 'text' : 'number'}" id="editPropValue" class="form-control form-control-sm"
+                                   value="${escapeHtml(valueFieldValue)}" placeholder="${isRouteLike ? '' : 'e.g., 20'}">
                         </div>
                         <div class="col-6">
-                            <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.unit')}</label>
-                            <select id="editPropUnit" class="form-control form-control-sm">
-                                <option value="MIT" ${(entryData.restriction_unit || entryData.unit) === 'MIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.mitMiles')}</option>
-                                <option value="MINIT" ${(entryData.restriction_unit || entryData.unit) === 'MINIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.minitMinutes')}</option>
-                            </select>
+                            <label class="small font-weight-bold">${labels.unit}</label>
+                            ${isRouteLike ? `
+                                <input type="text" id="editPropUnit" class="form-control form-control-sm"
+                                       value="${escapeHtml(unitFieldValue)}">
+                            ` : `
+                                <select id="editPropUnit" class="form-control form-control-sm">
+                                    <option value="MIT" ${unitFieldValue === 'MIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.mitMiles')}</option>
+                                    <option value="MINIT" ${unitFieldValue === 'MINIT' ? 'selected' : ''}>${PERTII18n.t('tmiPublish.editProposal.minitMinutes')}</option>
+                                </select>
+                            `}
                         </div>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.restrictionText')}</label>
+                        <label class="small font-weight-bold">${labels.restrictionText}</label>
                         <textarea id="editPropRawText" class="form-control form-control-sm" rows="4"
                                   style="font-family: monospace; font-size: 11px;">${escapeHtml(proposal.raw_text || '')}</textarea>
-                        <small class="text-muted">${PERTII18n.t('tmiPublish.editProposal.ntmlTextHint')}</small>
+                        <small class="text-muted">${labels.ntmlTextHint}</small>
                     </div>
                     <div class="form-group mb-2">
                         <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.editReason')}</label>
@@ -6684,6 +6725,9 @@
                 const origUnit = unitSelect.value;
 
                 const updateRawText = () => {
+                    if (isRouteLike) {
+                        return;
+                    }
                     const newValue = valueInput.value;
                     const newUnit = unitSelect.value;
                     const rawText = rawTextArea.value;
@@ -6710,17 +6754,25 @@
                     Swal.showValidationMessage(PERTII18n.t('tmiPublish.editProposal.provideReason'));
                     return false;
                 }
-                return {
+                const baseUpdates = {
                     ctl_element: document.getElementById('editPropCtlElement').value.trim().toUpperCase(),
                     requesting_facility: document.getElementById('editPropReqFac').value.trim().toUpperCase(),
                     providing_facility: document.getElementById('editPropProvFac').value.trim().toUpperCase(),
                     valid_from: document.getElementById('editPropValidFrom').value,
                     valid_until: document.getElementById('editPropValidUntil').value,
-                    restriction_value: document.getElementById('editPropValue').value,
-                    restriction_unit: document.getElementById('editPropUnit').value,
                     raw_text: document.getElementById('editPropRawText').value,
                     edit_reason: reason,
                 };
+
+                if (isRouteLike) {
+                    baseUpdates.route_include_traffic = document.getElementById('editPropValue').value;
+                    baseUpdates.route_reason = document.getElementById('editPropUnit').value;
+                } else {
+                    baseUpdates.restriction_value = document.getElementById('editPropValue').value;
+                    baseUpdates.restriction_unit = document.getElementById('editPropUnit').value;
+                }
+
+                return baseUpdates;
             },
         }).then((result) => {
             if (result.isConfirmed) {

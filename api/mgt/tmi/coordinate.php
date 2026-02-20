@@ -1754,6 +1754,8 @@ function handleEditProposal($input) {
 
         $wasApproved = ($proposal['status'] === 'APPROVED');
 
+        $existingEntryData = json_decode($proposal['entry_data_json'], true) ?: [];
+
         // Store old values for diff display
         $oldData = [
             'ctl_element' => $proposal['ctl_element'],
@@ -1761,6 +1763,8 @@ function handleEditProposal($input) {
             'providing_facility' => $proposal['providing_facility'],
             'valid_from' => $proposal['valid_from'],
             'valid_until' => $proposal['valid_until'],
+            'route_include_traffic' => $existingEntryData['include_traffic'] ?? '',
+            'route_reason' => $existingEntryData['reason'] ?? '',
             'raw_text' => $proposal['raw_text']
         ];
 
@@ -1798,7 +1802,7 @@ function handleEditProposal($input) {
         }
 
         // Update entry_data_json with new values
-        $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+        $entryData = $existingEntryData;
         if (isset($updates['restriction_value'])) {
             $entryData['restriction_value'] = $updates['restriction_value'];
             $entryData['value'] = $updates['restriction_value'];
@@ -1806,6 +1810,12 @@ function handleEditProposal($input) {
         if (isset($updates['restriction_unit'])) {
             $entryData['restriction_unit'] = $updates['restriction_unit'];
             $entryData['unit'] = $updates['restriction_unit'];
+        }
+        if (isset($updates['route_include_traffic'])) {
+            $entryData['include_traffic'] = $updates['route_include_traffic'];
+        }
+        if (isset($updates['route_reason'])) {
+            $entryData['reason'] = $updates['route_reason'];
         }
         $setClauses[] = 'entry_data_json = :entry_data';
         $params[':entry_data'] = json_encode($entryData);
@@ -1985,7 +1995,9 @@ function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $ne
                 'valid_from' => 'Valid From',
                 'valid_until' => 'Valid Until',
                 'restriction_value' => 'Restriction Value',
-                'raw_text' => 'Restriction Text'
+                'route_include_traffic' => 'Include Traffic',
+                'route_reason' => 'Reason',
+                'raw_text' => 'Advisory/Restriction Text'
             ];
 
             foreach ($fieldLabels as $field => $label) {
