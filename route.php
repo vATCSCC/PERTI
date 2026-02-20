@@ -567,35 +567,19 @@ include("load/i18n.php");
             }
         }
         
-        /* Button groups - keep on one line, allow shrinking */
+        /* Button groups - wrap to second row when sidebar is narrow */
         .route-btn-group {
             display: flex;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             gap: 0.25rem;
             width: 100%;
         }
-        
+
         .route-btn-group .btn {
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             white-space: nowrap;
             font-size: 0.8rem;
             padding: 0.375rem 0.5rem;
-        }
-        
-        @media (max-width: 500px) {
-            .route-btn-group .btn {
-                font-size: 0.75rem;
-                padding: 0.3rem 0.4rem;
-            }
-        }
-        
-        @media (max-width: 380px) {
-            .route-btn-group .btn i.mr-1 {
-                margin-right: 0 !important;
-            }
-            .route-btn-group .btn-text {
-                display: none;
-            }
         }
         
         /* Export buttons */
