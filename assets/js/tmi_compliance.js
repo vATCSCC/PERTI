@@ -7862,9 +7862,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         this._selectedHoldingFix = fixIdx;
         this.selectedTmiId = null; // Deselect any TMI
 
-        // Remove selected class from TMI list items, add to holding item
+        // Remove selected class from all list items, add to the clicked holding item
         $('.tmi-list-item').removeClass('selected');
-        $(`.tmi-list-item`).eq(-1).addClass('selected'); // Will be updated by re-render
+        $('[data-section="holding"] .tmi-list-item').eq(fixIdx).addClass('selected');
 
         this.renderHoldingDetail(fixIdx);
     },
