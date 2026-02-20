@@ -567,6 +567,169 @@ def _cluster_via_postgis(crossings, trajectory_cache, fix_lat, fix_lon,
     return result
 
 
+def _split_stream_into_branches(stream_crossings, trajectory_cache,
+                                fix_lat, fix_lon, gis_conn,
+                                eps_nm=3.0, min_points=3,
+                                min_dist_nm=100.0, max_dist_nm=250.0):
+    """
+    Split a single stream into sub-branches using tighter DBSCAN.
+
+    Within a directional stream (e.g., traffic from the east toward SEEVR),
+    multiple route branches may exist (different airways/routes converging on
+    the same fix). This function detects those sub-branches by running a
+    tighter spatial clustering on trajectory segments farther upstream
+    (100-250nm from fix) where branches are still geographically separated.
+
+    Returns sub-branch dict {branch_id: [crossings]} if >1 branch found with
+    >=2 flights each, otherwise returns None (keep original stream).
+    """
+    cursor = gis_conn.cursor()
+    eps_deg = eps_nm / 60.0
+    min_dist_m = min_dist_nm * 1852
+    max_dist_m = max_dist_nm * 1852
+
+    # Build trajectory segment midpoints for flights in this stream
+    segments = []
+    callsign_set = set()
+
+    for crossing in stream_crossings:
+        cs = crossing.callsign
+        trajectory = trajectory_cache.get(cs, [])
+        if len(trajectory) < 2:
+            continue
+        callsign_set.add(cs)
+        for i in range(len(trajectory) - 1):
+            p1, p2 = trajectory[i], trajectory[i + 1]
+            mid_lat = (p1['lat'] + p2['lat']) / 2.0
+            mid_lon = (p1['lon'] + p2['lon']) / 2.0
+            segments.append((cs, i, mid_lat, mid_lon))
+
+    if not segments or len(callsign_set) < 4:
+        return None
+
+    # Create temp table (different name from parent clustering)
+    cursor.execute("DROP TABLE IF EXISTS _tmp_branch_segs")
+    cursor.execute("""
+        CREATE TEMP TABLE _tmp_branch_segs (
+            callsign VARCHAR(20),
+            seg_idx INT,
+            geom GEOMETRY(Point, 4326)
+        )
+    """)
+
+    batch_size = 500
+    for i in range(0, len(segments), batch_size):
+        batch = segments[i:i + batch_size]
+        values = []
+        params = []
+        for j, (cs, idx, lat, lon) in enumerate(batch):
+            values.append(f"(%s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))")
+            params.extend([cs, idx, lon, lat])
+        sql = "INSERT INTO _tmp_branch_segs (callsign, seg_idx, geom) VALUES " + ",".join(values)
+        cursor.execute(sql, params)
+
+    # Run tighter DBSCAN on segments within 100-250nm distance band
+    cursor.execute("""
+        WITH fix AS (
+            SELECT ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography AS geom
+        ),
+        filtered AS (
+            SELECT s.callsign, s.seg_idx, s.geom
+            FROM _tmp_branch_segs s
+            CROSS JOIN fix f
+            WHERE ST_DWithin(s.geom::geography, f.geom, %s)
+              AND ST_Distance(s.geom::geography, f.geom) > %s
+        ),
+        clustered AS (
+            SELECT callsign, seg_idx,
+                   ST_ClusterDBSCAN(geom, eps := %s, minpoints := %s) OVER () AS cluster_id
+            FROM filtered
+        )
+        SELECT callsign, cluster_id, COUNT(*) as seg_count
+        FROM clustered
+        WHERE cluster_id IS NOT NULL
+        GROUP BY callsign, cluster_id
+        ORDER BY callsign, seg_count DESC
+    """, (fix_lon, fix_lat, max_dist_m, min_dist_m, eps_deg, min_points))
+
+    # Majority-vote each flight to its dominant cluster
+    flight_clusters = {}
+    for row in cursor.fetchall():
+        cs, cid, cnt = row
+        if cs not in flight_clusters:
+            flight_clusters[cs] = {}
+        flight_clusters[cs][cid] = cnt
+
+    flight_assignment = {}
+    for cs, clusters in flight_clusters.items():
+        best_cluster = max(clusters, key=clusters.get)
+        flight_assignment[cs] = best_cluster
+
+    # Cleanup temp table
+    cursor.execute("DROP TABLE IF EXISTS _tmp_branch_segs")
+    gis_conn.commit()
+
+    # Check if we actually found multiple branches
+    unique_clusters = set(flight_assignment.values())
+    if len(unique_clusters) < 2:
+        return None
+
+    # Renumber clusters to 0-based
+    cluster_remap = {old: new for new, old in enumerate(sorted(unique_clusters))}
+
+    # Build result dict
+    result = {}
+    unassigned = []
+    for crossing in stream_crossings:
+        cs = crossing.callsign
+        if cs in flight_assignment:
+            bid = cluster_remap[flight_assignment[cs]]
+            if bid not in result:
+                result[bid] = []
+            result[bid].append(crossing)
+        else:
+            unassigned.append(crossing)
+
+    # Assign unassigned flights to nearest branch by crossing position
+    if unassigned and result:
+        branch_centroids = {}
+        for bid, cx_list in result.items():
+            lats = [c.lat for c in cx_list if c.lat]
+            lons = [c.lon for c in cx_list if c.lon]
+            if lats and lons:
+                branch_centroids[bid] = (sum(lats) / len(lats), sum(lons) / len(lons))
+
+        for crossing in unassigned:
+            if crossing.lat and crossing.lon and branch_centroids:
+                best_bid = min(branch_centroids,
+                              key=lambda b: haversine_nm(
+                                  crossing.lat, crossing.lon,
+                                  branch_centroids[b][0], branch_centroids[b][1]))
+            else:
+                best_bid = max(result, key=lambda b: len(result[b]))
+            result[best_bid].append(crossing)
+
+    # Only return if we have >1 branch with >=2 flights each
+    viable = {bid: cx for bid, cx in result.items() if len(cx) >= 2}
+    if len(viable) < 2:
+        return None
+
+    # Re-merge non-viable (single-flight) branches into nearest viable branch
+    for bid, cx_list in result.items():
+        if bid not in viable:
+            # Find nearest viable branch
+            if viable:
+                for crossing in cx_list:
+                    best = min(viable, key=lambda b: haversine_nm(
+                        crossing.lat, crossing.lon,
+                        sum(c.lat for c in viable[b]) / len(viable[b]),
+                        sum(c.lon for c in viable[b]) / len(viable[b])
+                    ) if crossing.lat and crossing.lon else len(viable[b]))
+                    viable[best].append(crossing)
+
+    return viable
+
+
 def compute_stream_metadata(stream_crossings: List) -> dict:
     """Compute metadata for a stream of crossings (circular mean bearing, spread, count)."""
     bearings = [c.bearing for c in stream_crossings if c.bearing is not None]
@@ -3073,6 +3236,39 @@ class TMIComplianceAnalyzer:
                            f"outside TMI scope (dest={tmi.destinations}, orig={tmi.origins})")
                 valid_crossings = scope_ok
 
+        # Filter departure overflights — flights departing from airports near
+        # the MIT fix heading to distant destinations. These are climb-out
+        # overflights, not part of the arrival/enroute flow being measured.
+        # Example: DAL1694 DFW->MEM overflying SEEVR area on departure.
+        if fix and fix in self.fix_coords:
+            fix_lat_c = self.fix_coords[fix]['lat']
+            fix_lon_c = self.fix_coords[fix]['lon']
+            departure_overfly = 0
+            kept = []
+            for c in valid_crossings:
+                dept_near = False
+                dest_far = False
+                if c.dept and c.dept in self.fix_coords:
+                    d = haversine_nm(self.fix_coords[c.dept]['lat'],
+                                    self.fix_coords[c.dept]['lon'],
+                                    fix_lat_c, fix_lon_c)
+                    dept_near = d <= 80.0
+                if c.dest and c.dest in self.fix_coords:
+                    d = haversine_nm(self.fix_coords[c.dest]['lat'],
+                                    self.fix_coords[c.dest]['lon'],
+                                    fix_lat_c, fix_lon_c)
+                    dest_far = d > 200.0
+                if dept_near and dest_far:
+                    departure_overfly += 1
+                    logger.debug(f"    Filtered departure overflight: {c.callsign} "
+                                f"({c.dept}->{c.dest})")
+                    continue
+                kept.append(c)
+            if departure_overfly > 0:
+                logger.info(f"  Filtered {departure_overfly} departure overflights "
+                           f"(dept <80nm from fix, dest >200nm)")
+                valid_crossings = kept
+
         if len(valid_crossings) < 2:
             return {
                 'fix': fix,
@@ -3154,6 +3350,32 @@ class TMIComplianceAnalyzer:
                 meta = compute_stream_metadata(sc)
                 logger.info(f"    Stream {sid}: {len(sc)} crossings, "
                            f"mean bearing={meta['mean_bearing']}, spread={meta['bearing_spread']}")
+
+            # Sub-branch splitting: within each stream, detect route branches
+            # using tighter DBSCAN (same approach as JS track_density.php Phase 2).
+            # At converging fixes like SEEVR, multiple airways merge from the same
+            # direction — flights on different branches shouldn't be paired.
+            if self.gis_conn and fix_lat is not None:
+                refined = {}
+                next_id = 0
+                for sid, crossings_list in stream_groups.items():
+                    if sid == -1 or len(crossings_list) < 6:
+                        refined[next_id] = crossings_list
+                        next_id += 1
+                        continue
+                    sub = _split_stream_into_branches(
+                        crossings_list, self._trajectory_cache,
+                        fix_lat, fix_lon, self.gis_conn)
+                    if sub and len(sub) > 1:
+                        for sub_cx in sub.values():
+                            refined[next_id] = sub_cx
+                            next_id += 1
+                        logger.info(f"    Stream {sid} split into {len(sub)} sub-branches")
+                    else:
+                        refined[next_id] = crossings_list
+                        next_id += 1
+                stream_groups = refined
+                logger.info(f"  After sub-branch splitting: {len(stream_groups)} total streams")
 
         # Pair within each stream
         pairs = []
