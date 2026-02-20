@@ -286,6 +286,9 @@
       "loginRequired": "Login to participate in coordination",
       "dccOverrideApprove": "NOC Override: Approve",
       "dccOverrideDeny": "NOC Override: Deny",
+      "overrideApprove": "{org} Override: Approve",
+      "overrideDeny": "{org} Override: Deny",
+      "overrideNote": "This is a {org} override action.",
       "extendDeadline": "Extend Deadline"
     }
   },

@@ -6198,15 +6198,17 @@
             showExtendDeadlineDialog(proposalId, currentDeadline);
         });
 
-        // Approve/Deny buttons (delegated events)
+        // Override approve/deny buttons (delegated events)
         $(document).on('click', '.approve-proposal-btn', function() {
             const proposalId = $(this).data('proposal-id');
-            handleProposalAction(proposalId, 'APPROVE');
+            const orgCode = $(this).data('org-code');
+            handleProposalAction(proposalId, 'APPROVE', orgCode);
         });
 
         $(document).on('click', '.deny-proposal-btn', function() {
             const proposalId = $(this).data('proposal-id');
-            handleProposalAction(proposalId, 'DENY');
+            const orgCode = $(this).data('org-code');
+            handleProposalAction(proposalId, 'DENY', orgCode);
         });
 
         // Facility-level approve/deny buttons (delegated events)
@@ -6945,6 +6947,21 @@
     }
 
     /**
+     * Get the org-specific override label (DCC, CANOC, ECFMP, etc.)
+     */
+    function getOrgOverrideLabel(orgCode) {
+        const orgMap = {
+            'vatcscc': 'DCC',
+            'vatcan': 'CANOC',
+            'ecfmp': 'ECFMP'
+        };
+        if (orgCode && orgMap[orgCode]) return orgMap[orgCode];
+        // Try discordOrgs config for dynamic org names
+        if (orgCode && CONFIG.discordOrgs[orgCode]) return CONFIG.discordOrgs[orgCode].name;
+        return 'DCC';
+    }
+
+    /**
      * Render per-facility approval status badges/buttons for a proposal
      */
     function renderFacilityStatus(proposal) {
@@ -7164,18 +7181,22 @@
                                             title="${PERTII18n.t('tmiPublish.editProposal.title', { id: p.proposal_id })}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    ${CONFIG.userPrivileged ? `
+                                    ${CONFIG.userPrivileged ? (() => {
+                                        const orgLabel = getOrgOverrideLabel(p.org_code);
+                                        return `
                                     <button class="btn btn-outline-success approve-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="${PERTII18n.t('tmiPublish.coordination.dccOverrideApprove')}">
+                                            data-org-code="${escapeHtml(p.org_code || 'vatcscc')}"
+                                            title="${PERTII18n.t('tmiPublish.coordination.overrideApprove', { org: orgLabel })}">
                                         <i class="fas fa-check"></i>
                                     </button>
                                     <button class="btn btn-outline-danger deny-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="${PERTII18n.t('tmiPublish.coordination.dccOverrideDeny')}">
+                                            data-org-code="${escapeHtml(p.org_code || 'vatcscc')}"
+                                            title="${PERTII18n.t('tmiPublish.coordination.overrideDeny', { org: orgLabel })}">
                                         <i class="fas fa-times"></i>
-                                    </button>
-                                    ` : ''}
+                                    </button>`;
+                                    })() : ''}
                                     <button class="btn btn-outline-primary extend-deadline-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-current-deadline="${escapeHtml(p.approval_deadline_utc || '')}"
@@ -7402,17 +7423,22 @@
         });
     }
 
-    function handleProposalAction(proposalId, action) {
+    function handleProposalAction(proposalId, action, orgCode) {
+        const orgLabel = getOrgOverrideLabel(orgCode);
         const actionText = action === 'APPROVE' ? 'approve' : 'deny';
         const actionColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
 
         Swal.fire({
-            title: action === 'APPROVE' ? PERTII18n.t('tmiPublish.proposalAction.approveTitle') : PERTII18n.t('tmiPublish.proposalAction.denyTitle'),
+            title: action === 'APPROVE'
+                ? PERTII18n.t('tmiPublish.proposalAction.approveTitle')
+                : PERTII18n.t('tmiPublish.proposalAction.denyTitle'),
             html: `<p>${PERTII18n.t('tmiPublish.proposalAction.confirmAction', { action: `<strong>${actionText}</strong>`, id: proposalId })}</p>
-                   <p class="small text-muted">${PERTII18n.t('tmiPublish.proposalAction.dccOverride')}</p>`,
+                   <p class="small text-muted">${PERTII18n.t('tmiPublish.coordination.overrideNote', { org: orgLabel })}</p>`,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: action === 'APPROVE' ? PERTII18n.t('tmiPublish.proposalAction.approveBtn') : PERTII18n.t('tmiPublish.proposalAction.denyBtn'),
+            confirmButtonText: action === 'APPROVE'
+                ? PERTII18n.t('tmiPublish.proposalAction.approveBtn')
+                : PERTII18n.t('tmiPublish.proposalAction.denyBtn'),
             confirmButtonColor: actionColor,
         }).then((result) => {
             if (result.isConfirmed) {
@@ -7438,6 +7464,7 @@
                 dcc_action: action,
                 discord_user_id: CONFIG.userCid,
                 discord_username: CONFIG.userName || 'DCC',
+                operating_initials: CONFIG.userOI
             }),
             success: function(response) {
                 PERTIDialog.close();

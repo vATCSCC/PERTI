@@ -65,6 +65,9 @@
       "loginRequired": "Login to participate in coordination",
       "dccOverrideApprove": "ECFMP Override: Approve",
       "dccOverrideDeny": "ECFMP Override: Deny",
+      "overrideApprove": "{org} Override: Approve",
+      "overrideDeny": "{org} Override: Deny",
+      "overrideNote": "This is a {org} override action.",
       "extendDeadline": "Extend Deadline"
     }
   },

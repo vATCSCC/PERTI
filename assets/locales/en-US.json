@@ -960,6 +960,9 @@
       "loginRequired": "Login to participate in coordination",
       "dccOverrideApprove": "DCC Override: Approve",
       "dccOverrideDeny": "DCC Override: Deny",
+      "overrideApprove": "{org} Override: Approve",
+      "overrideDeny": "{org} Override: Deny",
+      "overrideNote": "This is a {org} override action.",
       "extendDeadline": "Extend Deadline"
     },
     "entryDetail": {
