@@ -40,6 +40,7 @@ $perm = true; // Always allow access - JS will check if profile is set before po
 $userCid = null;
 $userName = null;
 $userPrivileged = false;
+$userRole = null;
 $userHomeOrg = 'vatcscc';
 
 // If logged in via VATSIM, use that info
@@ -52,13 +53,17 @@ if (isset($_SESSION['VATSIM_CID'])) {
     if ($p_check) {
         $row = $p_check->fetch_assoc();
         $privilegedRoles = ['Admin', 'NAS Ops', 'NTMO', 'NTMS'];
-        if ($row && isset($row['role']) && in_array($row['role'], $privilegedRoles)) {
-            $userPrivileged = true;
+        if ($row && isset($row['role'])) {
+            $userRole = $row['role'];
+            if (in_array($row['role'], $privilegedRoles)) {
+                $userPrivileged = true;
+            }
         }
     }
 } elseif (defined('DEV')) {
     // Dev mode defaults
     $userPrivileged = true;
+    $userRole = 'Admin';
     $userCid = $_SESSION['VATSIM_CID'] = 0;
     $userName = $_SESSION['VATSIM_FIRST_NAME'] = 'Dev';
     $_SESSION['VATSIM_LAST_NAME'] = 'User';
@@ -1749,6 +1754,7 @@ window.TMI_PUBLISHER_CONFIG = {
     userName: <?= json_encode($userName) ?>,
     userOI: <?= json_encode($userOI) ?>,
     userPrivileged: <?= json_encode($userPrivileged) ?>,
+    userRole: <?= json_encode($userRole) ?>,
     userHomeOrg: <?= json_encode($userHomeOrg) ?>,
     discordOrgs: <?= json_encode($discordOrgs) ?>,
     stagingRequired: <?= defined('TMI_STAGING_REQUIRED') && TMI_STAGING_REQUIRED ? 'true' : 'false' ?>,

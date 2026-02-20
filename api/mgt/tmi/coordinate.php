@@ -926,11 +926,9 @@ function handleListProposals($includeAll = false) {
     }
 
     try {
-        // On-demand sync for pending view so approvals update promptly
-        // even if external cron cadence is delayed.
-        if (!$includeAll) {
-            syncProposalReactionsForUi();
-        }
+        // Note: sync moved to client-side fire-and-forget cron call.
+        // The JS triggers api/cron.php?type=tmi in parallel with this list
+        // fetch, so reactions update without blocking the list response.
 
         // Build query based on filter
         if ($includeAll) {
@@ -1171,6 +1169,8 @@ function handleProcessReaction() {
         $facilityCode = null;
         $isDccOverride = false;
         $dccAction = null;
+        $isPrivilegedChange = false;
+        $facRow = null;
 
         // Check for web-based DCC override first (from TMI Publisher UI)
         if ($isWebDccOverride) {
@@ -1193,13 +1193,24 @@ function handleProcessReaction() {
                 return;
             }
 
+            // Allow privileged users to change an already-responded facility
+            $isPrivilegedChange = false;
             if ($facRow['approval_status'] !== 'PENDING') {
-                echo json_encode([
-                    'success' => true,
-                    'message' => "Facility {$webFacilityCode} already responded: {$facRow['approval_status']}",
-                    'status' => $facRow['approval_status']
-                ]);
-                return;
+                // Check if user has privileged role (Admin, NAS Ops, NTMO, NTMS)
+                $privilegedRoles = ['Admin', 'NAS Ops', 'NTMO', 'NTMS'];
+                $hasPrivilegedRole = !empty(array_intersect($userRoles, $privilegedRoles));
+
+                if ($hasPrivilegedRole) {
+                    $isPrivilegedChange = true;
+                    // Allow the change to proceed — will overwrite existing response
+                } else {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => "Facility {$webFacilityCode} already responded: {$facRow['approval_status']}",
+                        'status' => $facRow['approval_status']
+                    ]);
+                    return;
+                }
             }
 
             $facilityCode = $webFacilityCode;
@@ -1382,6 +1393,9 @@ function handleProcessReaction() {
             ]);
         } elseif ($facilityCode && $reactionType === 'FACILITY_APPROVE') {
             // Update facility approval status
+            // Privileged users can change an already-responded facility (no PENDING filter)
+            $facStatusFilter = ($isWebFacilityAction && !empty($isPrivilegedChange))
+                ? '' : "AND approval_status = 'PENDING'";
             $updateFacSql = "UPDATE dbo.tmi_proposal_facilities SET
                                  approval_status = 'APPROVED',
                                  reacted_at = SYSUTCDATETIME(),
@@ -1389,7 +1403,7 @@ function handleProcessReaction() {
                                  reacted_by_username = :username,
                                  reacted_by_oi = :oi
                              WHERE proposal_id = :prop_id AND facility_code = :fac_code
-                             AND approval_status = 'PENDING'";
+                             {$facStatusFilter}";
             $updateFacStmt = $conn->prepare($updateFacSql);
             $updateFacStmt->execute([
                 ':user_id' => $discordUserId,
@@ -1399,8 +1413,9 @@ function handleProcessReaction() {
                 ':fac_code' => $facilityCode
             ]);
 
-            // Log facility approval
-            logCoordinationActivity($conn, $proposalId, 'FACILITY_APPROVE', [
+            // Log facility approval (include 'changed' flag if overriding previous response)
+            $logAction = !empty($isPrivilegedChange) ? 'FACILITY_APPROVE_CHANGED' : 'FACILITY_APPROVE';
+            logCoordinationActivity($conn, $proposalId, $logAction, [
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
@@ -1408,7 +1423,8 @@ function handleProcessReaction() {
                 'emoji' => $emoji,
                 'via' => $isWebFacilityAction ? 'web' : 'discord',
                 'entry_type' => $proposal['entry_type'] ?? '',
-                'ctl_element' => $proposal['ctl_element'] ?? ''
+                'ctl_element' => $proposal['ctl_element'] ?? '',
+                'previous_status' => !empty($isPrivilegedChange) ? ($facRow['approval_status'] ?? null) : null
             ]);
 
             // Post notification to Discord coordination thread for web actions
@@ -1416,8 +1432,9 @@ function handleProcessReaction() {
                 try {
                     $discord = new DiscordAPI();
                     $oiLabel = $operatingInitials ? "{$operatingInitials} / " : '';
+                    $changedNote = !empty($isPrivilegedChange) ? ' (changed)' : '';
                     $discord->sendMessageToThread($proposal['discord_channel_id'], [
-                        'content' => "✅ **{$facilityCode}** approved via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
+                        'content' => "✅ **{$facilityCode}** approved{$changedNote} via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
                     ]);
                 } catch (Exception $e) {
                     error_log("Failed to post web facility approve to Discord thread: " . $e->getMessage());
@@ -1425,6 +1442,9 @@ function handleProcessReaction() {
             }
         } elseif ($facilityCode && $reactionType === 'FACILITY_DENY') {
             // Update facility denial status
+            // Privileged users can change an already-responded facility (no PENDING filter)
+            $facStatusFilter = ($isWebFacilityAction && !empty($isPrivilegedChange))
+                ? '' : "AND approval_status = 'PENDING'";
             $updateFacSql = "UPDATE dbo.tmi_proposal_facilities SET
                                  approval_status = 'DENIED',
                                  reacted_at = SYSUTCDATETIME(),
@@ -1432,7 +1452,7 @@ function handleProcessReaction() {
                                  reacted_by_username = :username,
                                  reacted_by_oi = :oi
                              WHERE proposal_id = :prop_id AND facility_code = :fac_code
-                             AND approval_status = 'PENDING'";
+                             {$facStatusFilter}";
             $updateFacStmt = $conn->prepare($updateFacSql);
             $updateFacStmt->execute([
                 ':user_id' => $discordUserId,
@@ -1442,8 +1462,9 @@ function handleProcessReaction() {
                 ':fac_code' => $facilityCode
             ]);
 
-            // Log facility denial
-            logCoordinationActivity($conn, $proposalId, 'FACILITY_DENY', [
+            // Log facility denial (include 'changed' flag if overriding previous response)
+            $logAction = !empty($isPrivilegedChange) ? 'FACILITY_DENY_CHANGED' : 'FACILITY_DENY';
+            logCoordinationActivity($conn, $proposalId, $logAction, [
                 'facility' => $facilityCode,
                 'user_cid' => $discordUserId,
                 'user_name' => $discordUsername,
@@ -1451,7 +1472,8 @@ function handleProcessReaction() {
                 'emoji' => $emoji,
                 'via' => $isWebFacilityAction ? 'web' : 'discord',
                 'entry_type' => $proposal['entry_type'] ?? '',
-                'ctl_element' => $proposal['ctl_element'] ?? ''
+                'ctl_element' => $proposal['ctl_element'] ?? '',
+                'previous_status' => !empty($isPrivilegedChange) ? ($facRow['approval_status'] ?? null) : null
             ]);
 
             // Post notification to Discord coordination thread for web actions
@@ -1459,8 +1481,9 @@ function handleProcessReaction() {
                 try {
                     $discord = new DiscordAPI();
                     $oiLabel = $operatingInitials ? "{$operatingInitials} / " : '';
+                    $changedNote = !empty($isPrivilegedChange) ? ' (changed)' : '';
                     $discord->sendMessageToThread($proposal['discord_channel_id'], [
-                        'content' => "❌ **{$facilityCode}** denied via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
+                        'content' => "❌ **{$facilityCode}** denied{$changedNote} via web by {$oiLabel}{$discordUsername} (CID {$discordUserId})"
                     ]);
                 } catch (Exception $e) {
                     error_log("Failed to post web facility deny to Discord thread: " . $e->getMessage());
@@ -2013,52 +2036,111 @@ function handleEditProposal($input) {
             'ctl_element' => $proposal['ctl_element'] ?? ''
         ]);
 
-        // Re-post to Discord coordination channel (restart coordination)
-        // This posts a NEW message marked as EDITED for re-approval
-        $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
-        $facStmt = $conn->prepare($facSql);
-        $facStmt->execute([':id' => $proposalId]);
-        $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
-        $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
-
-        // Get updated entry data
-        $updatedEntryData = json_decode($params[':entry_data'], true) ?: $entryData;
-
-        // Set new deadline (6 hours from now)
+        // Post update to EXISTING Discord thread (preserve coordination context)
         $newDeadline = new DateTime('now', new DateTimeZone('UTC'));
         $newDeadline->modify('+6 hours');
 
-        // Post new coordination message marked as EDITED
-        $discordResult = postProposalToDiscord(
-            $proposalId,
-            $updatedEntryData,
-            $newDeadline,
-            $facilityList,
-            $userName . ' (EDITED)'
-        );
+        $existingThreadId = $proposal['discord_channel_id'] ?? null;
+        $threadUpdated = false;
 
-        // Update proposal with new Discord message ID and deadline
-        list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
-        if ($discordChannelId !== null && $discordMessageId !== null) {
-            $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
-                                     discord_channel_id = :channel_id,
-                                     discord_message_id = :msg_id,
-                                     approval_deadline_utc = :deadline
-                                 WHERE proposal_id = :prop_id";
-            $conn->prepare($updateDiscordSql)->execute([
-                ':channel_id' => $discordChannelId,
-                ':msg_id' => $discordMessageId,
-                ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
-                ':prop_id' => $proposalId
-            ]);
+        if ($existingThreadId) {
+            // Post edit notification to existing thread
+            try {
+                $discord = new DiscordAPI();
+                if ($discord->isConfigured()) {
+                    $editNotice = "**PROPOSAL EDITED** by {$userName}\n"
+                        . "All previous approvals have been cleared. Please re-review.\n"
+                        . "New deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)";
+
+                    // Show what changed
+                    $changes = [];
+                    $fieldLabels = [
+                        'ctl_element' => 'Control Element',
+                        'valid_from' => 'Valid From',
+                        'valid_until' => 'Valid Until',
+                        'raw_text' => 'Text'
+                    ];
+                    foreach ($fieldLabels as $field => $label) {
+                        $oldVal = trim((string)($oldData[$field] ?? ''));
+                        $newVal = trim((string)($updates[$field] ?? $oldData[$field] ?? ''));
+                        if ($oldVal !== $newVal && ($oldVal || $newVal)) {
+                            $changes[] = "**{$label}:** `{$oldVal}` -> `{$newVal}`";
+                        }
+                    }
+                    if (!empty($changes)) {
+                        $editNotice .= "\n\n" . implode("\n", $changes);
+                    }
+
+                    $discord->sendMessageToThread($existingThreadId, ['content' => $editNotice]);
+
+                    // Re-add facility emoji reactions to the thread message for re-approval
+                    $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+                    $facStmt = $conn->prepare($facSql);
+                    $facStmt->execute([':id' => $proposalId]);
+                    $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                    // Post re-formatted coordination details
+                    $updatedEntryData = json_decode($params[':entry_data'], true) ?: $entryData;
+                    $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
+                    $content = formatProposalMessage($proposalId, $updatedEntryData, $newDeadline, $facilityList, $userName . ' (EDITED)');
+                    $threadMsg = $discord->sendMessageToThread($existingThreadId, ['content' => $content]);
+
+                    // Add reactions to the new thread message for re-approval
+                    if ($threadMsg && isset($threadMsg['id'])) {
+                        addFacilityReactionsToMessage($discord, $existingThreadId, $threadMsg['id'], $facilityCodes);
+                    }
+
+                    $threadUpdated = true;
+                }
+            } catch (Exception $e) {
+                error_log("Failed to post edit update to existing Discord thread: " . $e->getMessage());
+            }
         }
+
+        // If no existing thread or thread update failed, create a new thread as fallback
+        if (!$threadUpdated) {
+            $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+            $facStmt = $conn->prepare($facSql);
+            $facStmt->execute([':id' => $proposalId]);
+            $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
+            $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
+            $updatedEntryData = json_decode($params[':entry_data'], true) ?: $entryData;
+
+            $discordResult = postProposalToDiscord(
+                $proposalId,
+                $updatedEntryData,
+                $newDeadline,
+                $facilityList,
+                $userName . ' (EDITED)'
+            );
+
+            list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
+            if ($discordChannelId !== null && $discordMessageId !== null) {
+                $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                         discord_channel_id = :channel_id,
+                                         discord_message_id = :msg_id
+                                     WHERE proposal_id = :prop_id";
+                $conn->prepare($updateDiscordSql)->execute([
+                    ':channel_id' => $discordChannelId,
+                    ':msg_id' => $discordMessageId,
+                    ':prop_id' => $proposalId
+                ]);
+            }
+        }
+
+        // Update deadline regardless
+        $updateDeadlineSql = "UPDATE dbo.tmi_proposals SET approval_deadline_utc = :deadline WHERE proposal_id = :prop_id";
+        $conn->prepare($updateDeadlineSql)->execute([
+            ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
+            ':prop_id' => $proposalId
+        ]);
 
         echo json_encode([
             'success' => true,
             'proposal_id' => $proposalId,
             'message' => 'Proposal updated and coordination restarted',
             'approvals_cleared' => true,
-            'new_discord_message' => !empty($discordMessageId)
+            'thread_reused' => $threadUpdated
         ]);
 
     } catch (Exception $e) {
@@ -2232,7 +2314,6 @@ function handleRescindProposal() {
                              WHERE proposal_id = :prop_id";
                 $conn->prepare($resetSql)->execute([':prop_id' => $proposalId]);
 
-                // Re-post to Discord coordination channel
                 $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
                 $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
                 $facStmt = $conn->prepare($facSql);
@@ -2240,34 +2321,68 @@ function handleRescindProposal() {
                 $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
                 $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
 
-                // Set new deadline (current time + original deadline duration, or 6 hours default)
                 $newDeadline = new DateTime('now', new DateTimeZone('UTC'));
                 $newDeadline->modify('+6 hours');
 
-                // Post new coordination message
-                $discordResult = postProposalToDiscord(
-                    $proposalId,
-                    $entryData,
-                    $newDeadline,
-                    $facilityList,
-                    $userName . ' (REOPENED)'
-                );
+                // Try to reuse existing Discord thread
+                $existingThreadId = $proposal['discord_channel_id'] ?? null;
+                $threadReused = false;
 
-                // Update proposal with new deadline and Discord message ID
-                list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
-                if ($discordChannelId !== null && $discordMessageId !== null) {
-                    $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
-                                             discord_channel_id = :channel_id,
-                                             discord_message_id = :msg_id,
-                                             approval_deadline_utc = :deadline
-                                         WHERE proposal_id = :prop_id";
-                    $conn->prepare($updateDiscordSql)->execute([
-                        ':channel_id' => $discordChannelId,
-                        ':msg_id' => $discordMessageId,
-                        ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
-                        ':prop_id' => $proposalId
-                    ]);
+                if ($existingThreadId) {
+                    try {
+                        $discord = new DiscordAPI();
+                        if ($discord->isConfigured()) {
+                            $reopenNotice = "**PROPOSAL REOPENED** by {$userName}\n"
+                                . "All previous approvals have been cleared. Please re-review.\n"
+                                . "New deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)";
+                            $discord->sendMessageToThread($existingThreadId, ['content' => $reopenNotice]);
+
+                            // Post re-formatted coordination details
+                            $content = formatProposalMessage($proposalId, $entryData, $newDeadline, $facilityList, $userName . ' (REOPENED)');
+                            $threadMsg = $discord->sendMessageToThread($existingThreadId, ['content' => $content]);
+
+                            // Add reactions for re-approval
+                            if ($threadMsg && isset($threadMsg['id'])) {
+                                addFacilityReactionsToMessage($discord, $existingThreadId, $threadMsg['id'], $facilityCodes);
+                            }
+
+                            $threadReused = true;
+                        }
+                    } catch (Exception $e) {
+                        error_log("Failed to reuse Discord thread for reopen: " . $e->getMessage());
+                    }
                 }
+
+                // Fallback: create new thread if no existing or reuse failed
+                if (!$threadReused) {
+                    $discordResult = postProposalToDiscord(
+                        $proposalId,
+                        $entryData,
+                        $newDeadline,
+                        $facilityList,
+                        $userName . ' (REOPENED)'
+                    );
+
+                    list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
+                    if ($discordChannelId !== null && $discordMessageId !== null) {
+                        $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
+                                                 discord_channel_id = :channel_id,
+                                                 discord_message_id = :msg_id
+                                             WHERE proposal_id = :prop_id";
+                        $conn->prepare($updateDiscordSql)->execute([
+                            ':channel_id' => $discordChannelId,
+                            ':msg_id' => $discordMessageId,
+                            ':prop_id' => $proposalId
+                        ]);
+                    }
+                }
+
+                // Update deadline regardless
+                $updateDeadlineSql = "UPDATE dbo.tmi_proposals SET approval_deadline_utc = :deadline WHERE proposal_id = :prop_id";
+                $conn->prepare($updateDeadlineSql)->execute([
+                    ':deadline' => $newDeadline->format('Y-m-d H:i:s'),
+                    ':prop_id' => $proposalId
+                ]);
                 break;
 
             case 'CANCEL':
@@ -2785,6 +2900,38 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $log("Stack trace: " . $e->getTraceAsString());
         error_log("Discord post failed: " . $e->getMessage());
         return null;
+    }
+}
+
+/**
+ * Add facility emoji reactions to a message in a Discord thread.
+ * Used by both initial proposal posting and thread reuse on edit/reopen.
+ *
+ * @param DiscordAPI $discord
+ * @param string $threadId
+ * @param string $messageId
+ * @param array $facilityCodes Array of facility code strings
+ */
+function addFacilityReactionsToMessage($discord, $threadId, $messageId, $facilityCodes) {
+    $usedEmojis = [];
+    foreach ($facilityCodes as $facCode) {
+        $facCode = strtoupper(trim($facCode));
+        $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+        try {
+            $discord->createReaction($threadId, $messageId, $emojiInfo['emoji']);
+        } catch (Throwable $e) {
+            error_log("Failed to add reaction for {$facCode}: " . $e->getMessage());
+        }
+        usleep(350000); // Rate limit delay
+    }
+
+    // Add deny reactions
+    try {
+        $discord->createReaction($threadId, $messageId, DENY_EMOJI);
+        usleep(350000);
+        $discord->createReaction($threadId, $messageId, DENY_EMOJI_ALT);
+    } catch (Throwable $e) {
+        error_log("Failed to add deny reactions: " . $e->getMessage());
     }
 }
 

@@ -6215,13 +6215,15 @@
         $(document).on('click', '.facility-approve-btn', function() {
             const proposalId = $(this).data('proposal-id');
             const facilityCode = $(this).data('facility-code');
-            handleFacilityAction(proposalId, facilityCode, 'APPROVE');
+            const isChange = $(this).data('is-change') === true;
+            handleFacilityAction(proposalId, facilityCode, 'APPROVE', isChange);
         });
 
         $(document).on('click', '.facility-deny-btn', function() {
             const proposalId = $(this).data('proposal-id');
             const facilityCode = $(this).data('facility-code');
-            handleFacilityAction(proposalId, facilityCode, 'DENY');
+            const isChange = $(this).data('is-change') === true;
+            handleFacilityAction(proposalId, facilityCode, 'DENY', isChange);
         });
 
         // Reopen button (for resolved proposals)
@@ -6933,17 +6935,12 @@
             });
         };
 
-        // Trigger reaction polling immediately, then refresh proposal tables.
-        // This avoids waiting on scheduler cadence for Discord reaction updates.
-        $.ajax({
-            url: 'api/cron.php?type=tmi',
-            method: 'GET',
-            dataType: 'json',
-            timeout: 7000,
-            complete: function() {
-                fetchProposalTables();
-            },
-        });
+        // Fire-and-forget cron sync for Discord reactions.
+        // Runs in parallel with the proposal list fetch — no blocking wait.
+        $.ajax({ url: 'api/cron.php?type=tmi', method: 'GET', timeout: 7000 });
+
+        // Fetch proposal tables immediately (don't wait for cron).
+        fetchProposalTables();
     }
 
     /**
@@ -6986,6 +6983,15 @@
                     cid: escapeHtml(fac.reacted_by_user_id || '')
                 });
                 html += `<span class="badge badge-success" title="${who}"><i class="fas fa-check fa-xs mr-1"></i>${code}</span>`;
+                // Privileged users can change an already-approved facility
+                if (proposal.status === 'PENDING' && CONFIG.userPrivileged) {
+                    html += `<button class="btn btn-outline-danger btn-xs facility-deny-btn py-0 px-1 ml-1"
+                                data-proposal-id="${proposal.proposal_id}"
+                                data-facility-code="${code}"
+                                data-is-change="true"
+                                title="${PERTII18n.t('tmiPublish.coordination.changeToDeny', { facility: code })}"
+                                style="font-size: 0.65rem;"><i class="fas fa-exchange-alt fa-xs"></i></button>`;
+                }
             } else if (fac.approval_status === 'DENIED') {
                 const who = PERTII18n.t('tmiPublish.coordination.deniedBy', {
                     facility: code,
@@ -6994,6 +7000,15 @@
                     cid: escapeHtml(fac.reacted_by_user_id || '')
                 });
                 html += `<span class="badge badge-danger" title="${who}"><i class="fas fa-times fa-xs mr-1"></i>${code}</span>`;
+                // Privileged users can change an already-denied facility
+                if (proposal.status === 'PENDING' && CONFIG.userPrivileged) {
+                    html += `<button class="btn btn-outline-success btn-xs facility-approve-btn py-0 px-1 ml-1"
+                                data-proposal-id="${proposal.proposal_id}"
+                                data-facility-code="${code}"
+                                data-is-change="true"
+                                title="${PERTII18n.t('tmiPublish.coordination.changeToApprove', { facility: code })}"
+                                style="font-size: 0.65rem;"><i class="fas fa-exchange-alt fa-xs"></i></button>`;
+                }
             } else if (isUserLoggedIn() && isProfileComplete()) {
                 // PENDING + logged in + profile complete: show approve/deny buttons
                 html += `<div class="btn-group btn-group-sm" role="group">
@@ -7024,8 +7039,9 @@
 
     /**
      * Handle facility approve/deny button click
+     * @param {boolean} isChange - True if changing an already-responded facility (privileged action)
      */
-    function handleFacilityAction(proposalId, facilityCode, action) {
+    function handleFacilityAction(proposalId, facilityCode, action, isChange) {
         if (!isProfileComplete()) {
             PERTIDialog.error(
                 PERTII18n.t('tmiPublish.coordination.profileRequired'),
@@ -7034,18 +7050,31 @@
             return;
         }
 
-        const titleKey = action === 'APPROVE' ? 'tmiPublish.coordination.approveConfirm' : 'tmiPublish.coordination.denyConfirm';
         const confirmColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
+        const statusLabel = action === 'APPROVE' ? 'Approved' : 'Denied';
+
+        let title, htmlNote, confirmText;
+        if (isChange) {
+            const fromStatus = action === 'APPROVE' ? 'Denied' : 'Approved';
+            title = PERTII18n.t('tmiPublish.coordination.changeConfirm', { facility: facilityCode, from: fromStatus, to: statusLabel });
+            htmlNote = PERTII18n.t('tmiPublish.coordination.changeNote');
+            confirmText = `<i class="fas fa-exchange-alt mr-1"></i>${PERTII18n.t(action === 'APPROVE' ? 'tmiPublish.coordination.changeToApprove' : 'tmiPublish.coordination.changeToDeny', { facility: facilityCode })}`;
+        } else {
+            const titleKey = action === 'APPROVE' ? 'tmiPublish.coordination.approveConfirm' : 'tmiPublish.coordination.denyConfirm';
+            title = PERTII18n.t(titleKey, { id: proposalId, facility: facilityCode });
+            htmlNote = PERTII18n.t('tmiPublish.coordination.webNote');
+            confirmText = action === 'APPROVE'
+                ? `<i class="fas fa-check mr-1"></i>${PERTII18n.t('tmiPublish.coordination.approveFor', { facility: facilityCode })}`
+                : `<i class="fas fa-times mr-1"></i>${PERTII18n.t('tmiPublish.coordination.denyFor', { facility: facilityCode })}`;
+        }
 
         Swal.fire({
-            title: PERTII18n.t(titleKey, { id: proposalId, facility: facilityCode }),
-            html: PERTII18n.t('tmiPublish.coordination.webNote'),
-            icon: action === 'APPROVE' ? 'question' : 'warning',
+            title: title,
+            html: htmlNote,
+            icon: isChange ? 'warning' : (action === 'APPROVE' ? 'question' : 'warning'),
             showCancelButton: true,
             confirmButtonColor: confirmColor,
-            confirmButtonText: action === 'APPROVE'
-                ? `<i class="fas fa-check mr-1"></i>${PERTII18n.t('tmiPublish.coordination.approveFor', { facility: facilityCode })}`
-                : `<i class="fas fa-times mr-1"></i>${PERTII18n.t('tmiPublish.coordination.denyFor', { facility: facilityCode })}`,
+            confirmButtonText: confirmText,
             cancelButtonText: PERTII18n.t('common.cancel')
         }).then(result => {
             if (result.isConfirmed) {
@@ -7066,18 +7095,24 @@
             didOpen: () => Swal.showLoading()
         });
 
+        const payload = {
+            proposal_id: proposalId,
+            reaction_type: reactionType,
+            facility_code: facilityCode,
+            discord_user_id: CONFIG.userCid,
+            discord_username: CONFIG.userName,
+            operating_initials: CONFIG.userOI
+        };
+        // Pass user roles so backend can verify privilege for changing responses
+        if (CONFIG.userRole) {
+            payload.user_roles = [CONFIG.userRole];
+        }
+
         $.ajax({
             url: 'api/mgt/tmi/coordinate.php',
             method: 'PUT',
             contentType: 'application/json',
-            data: JSON.stringify({
-                proposal_id: proposalId,
-                reaction_type: reactionType,
-                facility_code: facilityCode,
-                discord_user_id: CONFIG.userCid,
-                discord_username: CONFIG.userName,
-                operating_initials: CONFIG.userOI
-            }),
+            data: JSON.stringify(payload),
             dataType: 'json',
             success: function(resp) {
                 Swal.close();

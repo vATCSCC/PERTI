@@ -963,7 +963,12 @@
       "overrideApprove": "{org} Override: Approve",
       "overrideDeny": "{org} Override: Deny",
       "overrideNote": "This is a {org} override action.",
-      "extendDeadline": "Extend Deadline"
+      "extendDeadline": "Extend Deadline",
+      "changeToApprove": "Change {facility} to Approved",
+      "changeToDeny": "Change {facility} to Denied",
+      "changeConfirm": "Change {facility} response from {from} to {to}?",
+      "changeNote": "This privileged action will override the current facility response and be logged.",
+      "facilityChanged": "{facility} changed to {status}"
     },
     "entryDetail": {
       "reason": "Reason:",
