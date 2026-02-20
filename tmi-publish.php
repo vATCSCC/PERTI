@@ -1385,7 +1385,7 @@ $perm = true;
                                     <th style="min-width: 150px;">RESTRICTION</th>
                                     <th style="width: 100px;">PROPOSED BY</th>
                                     <th style="width: 100px;">DEADLINE</th>
-                                    <th style="width: 70px;">APPROVALS</th>
+                                    <th style="min-width: 180px;">APPROVALS</th>
                                     <th style="width: 80px;">STATUS</th>
                                     <th style="width: 160px; min-width: 160px;">ACTIONS</th>
                                 </tr>

@@ -63,6 +63,7 @@ function logToCoordinationChannel($conn, $proposalId, $action, $details = []) {
  */
 function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
     $userName = $details['user_name'] ?? $details['created_by_name'] ?? 'System';
+    $oi = !empty($details['oi']) ? " [{$details['oi']}]" : '';
 
     // Get Unix timestamp for Discord formatting
     $unixTime = time();
@@ -243,7 +244,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✅ **FACILITY APPROVED**";
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
             if ($facility) $parts[] = "| {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'FACILITY_DENY':
@@ -253,7 +254,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
             if ($facility) $parts[] = "| {$facility}";
             if ($reason) $parts[] = "| Reason: {$reason}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'DCC_OVERRIDE':
@@ -262,7 +263,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "⚡ **DCC OVERRIDE** ({$overrideType})";
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
             if ($facility) $parts[] = "| {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROPOSAL_APPROVED':
