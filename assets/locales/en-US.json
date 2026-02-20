@@ -5563,7 +5563,8 @@
       "siteArtcc": "Site/ARTCC",
       "affected": "Affected",
       "mission": "Mission",
-      "level": "Level"
+      "level": "Level",
+      "sourcePlan": "Source Plan"
     },
     "error": {
       "facilityRequired": "Facility is required",

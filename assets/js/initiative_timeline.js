@@ -807,7 +807,13 @@ class InitiativeTimeline {
         rowsEl.querySelectorAll('.dcccp-item').forEach(el => {
             el.addEventListener('mouseenter', e => this.showTooltip(e, el.dataset.id));
             el.addEventListener('mouseleave', () => this.hideTooltip());
-            el.addEventListener('click', () => { if (this.hasPerm) { this.hideTooltip(); this.openEditModal(el.dataset.id); }});
+            el.addEventListener('click', () => {
+                if (this.hasPerm) {
+                    const clickItem = this.data.find(d => d.id == el.dataset.id);
+                    if (clickItem && clickItem.from_other_plan) return;
+                    this.hideTooltip(); this.openEditModal(el.dataset.id);
+                }
+            });
         });
 
         this.renderGridLines(startTime, endTime);
@@ -876,7 +882,8 @@ class InitiativeTimeline {
             top = `${4 + lane * 26}px`;
         }
 
-        return `<div class="dcccp-item level-${item.level}" data-id="${item.id}" style="left:${left}%;width:${width}%;top:${top};" title="${label}"><span class="dcccp-item-text">${label}</span></div>`;
+        const globalClass = item.from_other_plan ? ' dcccp-item-global' : '';
+        return `<div class="dcccp-item level-${item.level}${globalClass}" data-id="${item.id}" style="left:${left}%;width:${width}%;top:${top};" title="${label}"><span class="dcccp-item-text">${label}</span></div>`;
     }
 
     buildLabel(item) {
@@ -1024,13 +1031,14 @@ class InitiativeTimeline {
         tip.innerHTML = `
             <div class="dcccp-tooltip-header">
                 <span class="dcccp-tooltip-title">${label}</span>
-                ${this.hasPerm ? `<button class="dcccp-tooltip-edit-btn" data-id="${item.id}">${PERTII18n.t('common.edit')}</button>` : ''}
+                ${this.hasPerm && !item.from_other_plan ? `<button class="dcccp-tooltip-edit-btn" data-id="${item.id}">${PERTII18n.t('common.edit')}</button>` : ''}
             </div>
             <div class="dcccp-tooltip-body">
                 ${locationRows}
                 <div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.level')}</span><span class="dcccp-tooltip-value">${this.levels[item.level]?.name || item.level}</span></div>
                 ${detailRows}
                 ${item.notes ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.label.notes')}</span><span class="dcccp-tooltip-value">${item.notes}</span></div>` : ''}
+                ${item.from_other_plan && item.source_plan_name ? `<div class="dcccp-tooltip-row"><span class="dcccp-tooltip-label">${PERTII18n.t('initiative.tooltip.sourcePlan', {}, 'Source Plan')}</span><span class="dcccp-tooltip-value">${item.source_plan_name}</span></div>` : ''}
                 <div class="dcccp-tooltip-time">${this.formatTooltipTime(item.start_datetime, item.end_datetime)}</div>
             </div>
         `;

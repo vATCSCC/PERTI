@@ -405,6 +405,16 @@
     color: #fff;
 }
 
+/* Global items from other plans */
+.dcccp-item.dcccp-item-global {
+    opacity: 0.7;
+    border: 1px dashed rgba(255, 255, 255, 0.6);
+    cursor: default;
+}
+.dcccp-item.dcccp-item-global:hover {
+    transform: none;
+}
+
 /* NOW Line */
 .dcccp-now-line {
     position: absolute;

@@ -96,28 +96,31 @@ switch ($method) {
             exit;
         }
 
-        // Simple query - just get plan-specific items
-        $sql = "SELECT * FROM p_terminal_init_timeline WHERE p_id = ? ORDER BY start_datetime ASC";
+        // Get plan-specific items + global items from all other plans
+        $sql = "SELECT t.*, p.event_name AS source_plan_name
+                FROM p_terminal_init_timeline t
+                LEFT JOIN p_plans p ON t.p_id = p.id
+                WHERE t.p_id = ? OR (t.is_global = 1 AND t.p_id != ?)
+                ORDER BY t.start_datetime ASC";
         $stmt = $conn_sqli->prepare($sql);
-        
         if (!$stmt) {
             http_response_code(500);
             echo json_encode(['error' => 'Query preparation failed: ' . $conn_sqli->error]);
             exit;
         }
-        
-        $stmt->bind_param("i", $p_id);
-        
+        $stmt->bind_param("ii", $p_id, $p_id);
+
         if (!$stmt->execute()) {
             http_response_code(500);
             echo json_encode(['error' => 'Query execution failed: ' . $stmt->error]);
             exit;
         }
-        
+
         $result = $stmt->get_result();
         $data = [];
-        
+
         while ($row = $result->fetch_assoc()) {
+            $from_other = intval($row['p_id']) !== $p_id;
             $item = [
                 'id' => intval($row['id']),
                 'p_id' => intval($row['p_id']),
@@ -134,11 +137,15 @@ switch ($method) {
                 'updated_at' => isset($row['updated_at']) ? $row['updated_at'] : null,
                 'created_by' => isset($row['created_by']) ? $row['created_by'] : null,
                 'is_global' => isset($row['is_global']) ? intval($row['is_global']) : 0,
-                'advzy_number' => isset($row['advzy_number']) ? $row['advzy_number'] : null
+                'advzy_number' => isset($row['advzy_number']) ? $row['advzy_number'] : null,
+                'from_other_plan' => $from_other,
             ];
+            if ($from_other && isset($row['source_plan_name'])) {
+                $item['source_plan_name'] = $row['source_plan_name'];
+            }
             $data[] = $item;
         }
-        
+
         $stmt->close();
         echo json_encode(['success' => true, 'data' => $data]);
         break;
