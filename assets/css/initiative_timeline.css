@@ -128,7 +128,9 @@
     border-radius: 0.25rem;
     padding: 12px;
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    max-width: 420px;
+    max-width: 480px;
+    max-height: 420px;
+    overflow-y: auto;
     margin-top: 2px;
     display: none;
 }
@@ -157,6 +159,27 @@
     border-radius: 0.25rem;
     font-size: 12px;
     white-space: nowrap;
+}
+
+.dcccp-filter-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.dcccp-filter-type-badge {
+    background: var(--gray-200);
+    color: var(--gray-700);
+}
+
+.dcccp-filter-tag-type {
+    background: var(--gray-300);
+    font-style: italic;
 }
 
 /* Time Navigation */

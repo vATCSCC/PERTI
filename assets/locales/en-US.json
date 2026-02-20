@@ -5686,6 +5686,8 @@
       "other": "Other"
     },
     "clearFilters": "Clear filters",
+    "filterByLevel": "Element Type",
+    "filterByType": "TMI / Sub-Type",
     "tmiTypeLabel": {
       "GS": "GS",
       "GDP": "GDP",

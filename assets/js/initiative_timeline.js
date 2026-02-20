@@ -20,6 +20,7 @@ class InitiativeTimeline {
         this.timeOffsetHours = 0; // Offset from center (for scrolling)
         this.sortOrder = 'geographical';
         this.filteredOut = new Set();
+        this.filteredOutTypes = new Set();
         this.data = [];
         this.rowHeight = 32;
 
@@ -147,11 +148,24 @@ class InitiativeTimeline {
                                 <span class="dcccp-filter-tag-none">${PERTII18n.t('common.none')}</span>
                             </div>
                             <div class="dcccp-filter-dropdown" id="${this.containerId}-filter-dropdown">
+                                <div class="dcccp-filter-section-label">${PERTII18n.t('initiative.filterByLevel', {}, 'Element Type')}</div>
                                 <div class="dcccp-filter-grid">
                                     ${activeLevels.map(l => `
                                         <label class="dcccp-filter-item">
                                             <input type="checkbox" class="dcccp-filter-cb" data-level="${l}">
                                             <span class="dcccp-filter-badge level-${l}">${this.levels[l].name}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                                <div class="dcccp-filter-section-label" style="margin-top:10px">${PERTII18n.t('initiative.filterByType', {}, 'TMI / Sub-Type')}</div>
+                                <div class="dcccp-filter-grid">
+                                    ${[...this.tmiTypes, ...this.constraintTypes.filter(t => !this.tmiTypes.includes(t)),
+                                       ...this.vipTypes.filter(t => !this.tmiTypes.includes(t) && !this.constraintTypes.includes(t)),
+                                       ...this.spaceTypes.filter(t => !this.tmiTypes.includes(t) && !this.constraintTypes.includes(t) && !this.vipTypes.includes(t))
+                                    ].map(t => `
+                                        <label class="dcccp-filter-item">
+                                            <input type="checkbox" class="dcccp-filter-type-cb" data-tmitype="${t}">
+                                            <span class="dcccp-filter-badge dcccp-filter-type-badge">${t}</span>
                                         </label>
                                     `).join('')}
                                 </div>
@@ -637,18 +651,30 @@ class InitiativeTimeline {
         if (clear) {
             clear.addEventListener('click', () => {
                 this.filteredOut.clear();
-                wrapper.querySelectorAll('.dcccp-filter-cb').forEach(cb => cb.checked = false);
+                this.filteredOutTypes.clear();
+                wrapper.querySelectorAll('.dcccp-filter-cb, .dcccp-filter-type-cb').forEach(cb => cb.checked = false);
                 this.updateFilterTags();
                 this.renderTimeline();
             });
         }
 
-        // Filter checkboxes
+        // Level filter checkboxes
         wrapper.querySelectorAll('.dcccp-filter-cb').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 const level = e.target.dataset.level;
                 if (e.target.checked) {this.filteredOut.add(level);}
                 else {this.filteredOut.delete(level);}
+                this.updateFilterTags();
+                this.renderTimeline();
+            });
+        });
+
+        // TMI type filter checkboxes
+        wrapper.querySelectorAll('.dcccp-filter-type-cb').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const tmiType = e.target.dataset.tmitype;
+                if (e.target.checked) {this.filteredOutTypes.add(tmiType);}
+                else {this.filteredOutTypes.delete(tmiType);}
                 this.updateFilterTags();
                 this.renderTimeline();
             });
@@ -664,11 +690,14 @@ class InitiativeTimeline {
         const container = document.getElementById(`${this.containerId}-filter-tags`);
         if (!container) {return;}
 
-        if (this.filteredOut.size === 0) {
+        if (this.filteredOut.size === 0 && this.filteredOutTypes.size === 0) {
             container.innerHTML = `<span class="dcccp-filter-tag-none">${PERTII18n.t('common.none')}</span>`;
         } else {
-            container.innerHTML = Array.from(this.filteredOut)
-                .map(l => `<span class="dcccp-filter-tag">${this.levels[l].name}</span>`).join('');
+            let tags = Array.from(this.filteredOut)
+                .map(l => `<span class="dcccp-filter-tag">${this.levels[l].name}</span>`);
+            tags = tags.concat(Array.from(this.filteredOutTypes)
+                .map(t => `<span class="dcccp-filter-tag dcccp-filter-tag-type">${t}</span>`));
+            container.innerHTML = tags.join('');
         }
     }
 
@@ -747,7 +776,7 @@ class InitiativeTimeline {
             navLabel.textContent = `${fmt(startTime)} — ${fmt(endTime)}`;
         }
 
-        const data = this.data.filter(i => !this.filteredOut.has(i.level));
+        const data = this.data.filter(i => !this.filteredOut.has(i.level) && !this.filteredOutTypes.has(i.tmi_type));
 
         const groups = {};
         data.forEach(i => {
