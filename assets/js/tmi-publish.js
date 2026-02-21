@@ -7078,11 +7078,11 @@
         }
 
         const confirmColor = action === 'APPROVE' ? '#28a745' : '#dc3545';
-        const statusLabel = action === 'APPROVE' ? 'Approved' : 'Denied';
+        const statusLabel = action === 'APPROVE' ? PERTII18n.t('tmiPublish.coordination.statusApproved') : PERTII18n.t('tmiPublish.coordination.statusDenied');
 
         let title, htmlNote, confirmText;
         if (isChange) {
-            const fromStatus = action === 'APPROVE' ? 'Denied' : 'Approved';
+            const fromStatus = action === 'APPROVE' ? PERTII18n.t('tmiPublish.coordination.statusDenied') : PERTII18n.t('tmiPublish.coordination.statusApproved');
             title = PERTII18n.t('tmiPublish.coordination.changeConfirm', { facility: facilityCode, from: fromStatus, to: statusLabel });
             htmlNote = PERTII18n.t('tmiPublish.coordination.changeNote');
             confirmText = `<i class="fas fa-exchange-alt mr-1"></i>${PERTII18n.t(action === 'APPROVE' ? 'tmiPublish.coordination.changeToApprove' : 'tmiPublish.coordination.changeToDeny', { facility: facilityCode })}`;
@@ -7209,28 +7209,28 @@
                                 ${isUserLoggedIn() ? `
                                     <button class="btn btn-outline-info edit-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
-                                            title="Edit proposal (restarts coordination)">
+                                            title="${PERTII18n.t('tmiPublish.coordination.editRestartsCoordination')}">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <button class="btn btn-success publish-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
                                             data-ctl-element="${escapeHtml(p.ctl_element || '')}"
-                                            title="Publish to Discord">
+                                            title="${PERTII18n.t('tmiPublish.coordination.publishToDiscord')}">
                                         <i class="fas fa-broadcast-tower"></i>
                                     </button>
                                     <button class="btn btn-outline-danger cancel-proposal-btn"
                                             data-proposal-id="${p.proposal_id}"
                                             data-entry-type="${escapeHtml(p.entry_type || 'TMI')}"
                                             data-ctl-element="${escapeHtml(p.ctl_element || '')}"
-                                            title="Cancel proposal">
+                                            title="${PERTII18n.t('tmiPublish.coordination.cancelProposal')}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 ` : `
-                                    <button class="btn btn-outline-secondary" disabled title="Login required">
+                                    <button class="btn btn-outline-secondary" disabled title="${PERTII18n.t('tmiPublish.coordination.loginRequiredShort')}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-secondary" disabled title="Login required to publish">
+                                    <button class="btn btn-secondary" disabled title="${PERTII18n.t('tmiPublish.coordination.loginRequiredToPublish')}">
                                         <i class="fas fa-broadcast-tower"></i>
                                     </button>
                                 `}

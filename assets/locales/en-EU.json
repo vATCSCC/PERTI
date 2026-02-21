@@ -73,7 +73,14 @@
       "changeToDeny": "Change {facility} to Denied",
       "changeConfirm": "Change {facility} response from {from} to {to}?",
       "changeNote": "This privileged action will override the current facility response and be logged.",
-      "facilityChanged": "{facility} changed to {status}"
+      "facilityChanged": "{facility} changed to {status}",
+      "statusApproved": "Approved",
+      "statusDenied": "Denied",
+      "editRestartsCoordination": "Edit proposal (restarts coordination)",
+      "publishToDiscord": "Publish to Discord",
+      "cancelProposal": "Cancel proposal",
+      "loginRequiredShort": "Login required",
+      "loginRequiredToPublish": "Login required to publish"
     }
   },
   "tmiActive": {

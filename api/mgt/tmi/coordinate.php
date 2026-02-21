@@ -790,6 +790,8 @@ function handleSubmitForCoordination() {
                 'ctl_element' => $ctlElement,
                 'created_by' => $userCid,
                 'created_by_name' => $userName,
+                'oi' => $userOI ?? null,
+                'via' => 'web',
                 'reason' => "Internal {$reqArtcc} TMI - all facilities under same ARTCC",
                 'facilities' => $facilityCodes
             ]);
@@ -855,6 +857,8 @@ function handleSubmitForCoordination() {
             'ctl_element' => $ctlElement,
             'created_by' => $userCid,
             'created_by_name' => $userName,
+            'oi' => $userOI ?? null,
+            'via' => 'web',
             'deadline' => $deadline->format('Y-m-d H:i') . 'Z',
             'facilities' => array_map(fn($f) => is_array($f) ? $f['code'] : $f, $facilities),
             'discord_posted' => $discordPosted
@@ -4487,7 +4491,7 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
             if ($facilities) $parts[] = "| To: {$facilities}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'DCC_APPROVE':
@@ -4552,7 +4556,7 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "🔄 **REOPENED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}{$via}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             if (!empty($details['reason'])) $parts[] = "| reason: {$details['reason']}";
             break;
 
@@ -4562,14 +4566,14 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "🗑️ **CANCELLED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}{$via}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'DEADLINE_EXTENDED':
             $newDeadlineUnix = strtotime($details['new_deadline'] ?? 'now');
             $parts[] = "⏰ **DEADLINE EXTENDED** Prop #{$proposalId}";
             $parts[] = "| new: <t:{$newDeadlineUnix}:f>";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROPOSAL_EDITED':
@@ -4578,8 +4582,32 @@ function formatCoordinationLogMessage($proposalId, $action, $details, $timestamp
             $parts[] = "✏️ **PROPOSAL EDITED** Prop #{$proposalId}";
             if ($entryType) $parts[] = "| {$entryType}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             $parts[] = "| ⚠️ Approvals cleared, coordination restarted";
+            break;
+
+        case 'PUBLISHED':
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "📢 **PUBLISHED** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
+            break;
+
+        case 'BATCH_PUBLISHED':
+            $count = $details['count'] ?? '';
+            $parts[] = "📢 **BATCH PUBLISHED** {$count} proposals";
+            $parts[] = "| by {$userName}{$oi}{$via}";
+            break;
+
+        case 'DCC_PUBLISH_NOW':
+            $entryType = $details['entry_type'] ?? '';
+            $element = $details['ctl_element'] ?? '';
+            $parts[] = "⚡ **DCC PUBLISH NOW** Prop #{$proposalId}";
+            if ($entryType) $parts[] = "| {$entryType}";
+            if ($element) $parts[] = "| {$element}";
+            $parts[] = "| by {$userName}{$oi}{$via}";
             break;
 
         case 'EXPIRED':

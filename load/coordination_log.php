@@ -84,7 +84,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($entryId) $parts[] = "ID #{$entryId}";
             if ($element) $parts[] = "| {$element}";
             if ($facility) $parts[] = "| Fac: {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'TMI_EDITED':
@@ -96,7 +96,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($entryId) $parts[] = "ID #{$entryId}";
             if ($element) $parts[] = "| {$element}";
             if ($facility) $parts[] = "| Fac: {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'TMI_CANCELLED':
@@ -106,7 +106,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "🗑️ **TMI CANCELLED** {$entryType}";
             if ($entryId) $parts[] = "ID #{$entryId}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'ADVISORY_CREATED':
@@ -116,7 +116,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "📢 **ADVISORY CREATED** {$advType}";
             if ($advNum) $parts[] = "#{$advNum}";
             if ($facility) $parts[] = "| Fac: {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'ADVISORY_EDITED':
@@ -126,7 +126,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✏️ **ADVISORY EDITED** {$advType}";
             if ($advNum) $parts[] = "#{$advNum}";
             if ($facility) $parts[] = "| Fac: {$facility}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'ADVISORY_CANCELLED':
@@ -134,7 +134,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $advNum = $details['advisory_number'] ?? '';
             $parts[] = "🗑️ **ADVISORY CANCELLED** {$advType}";
             if ($advNum) $parts[] = "#{$advNum}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'REROUTE_CREATED':
@@ -146,7 +146,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($rerouteId) $parts[] = "ID #{$rerouteId}";
             if ($routeName) $parts[] = "| {$routeName}";
             if ($origin && $dest) $parts[] = "| {$origin}→{$dest}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'REROUTE_CANCELLED':
@@ -155,7 +155,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "🗑️ **REROUTE CANCELLED**";
             if ($rerouteId) $parts[] = "ID #{$rerouteId}";
             if ($routeName) $parts[] = "| {$routeName}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'REROUTE_EDITED':
@@ -164,7 +164,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✏️ **REROUTE EDITED**";
             if ($rerouteId) $parts[] = "ID #{$rerouteId}";
             if ($routeName) $parts[] = "| {$routeName}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROGRAM_CREATED':
@@ -176,7 +176,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($programId) $parts[] = "ID #{$programId}";
             if ($element) $parts[] = "| {$element}";
             if ($airports) $parts[] = "| Arpts: {$airports}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROGRAM_EDITED':
@@ -186,7 +186,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✏️ **PROGRAM EDITED** {$programName}";
             if ($programId) $parts[] = "ID #{$programId}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROGRAM_CANCELLED':
@@ -196,7 +196,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "🗑️ **PROGRAM CANCELLED** {$programName}";
             if ($programId) $parts[] = "ID #{$programId}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PUBLICROUTE_CREATED':
@@ -205,7 +205,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "🛣️ **PUBLIC ROUTE CREATED**";
             if ($routeId) $parts[] = "ID #{$routeId}";
             if ($routeName) $parts[] = "| {$routeName}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PUBLICROUTE_EDITED':
@@ -214,7 +214,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✏️ **PUBLIC ROUTE EDITED**";
             if ($routeId) $parts[] = "ID #{$routeId}";
             if ($routeName) $parts[] = "| {$routeName}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PUBLICROUTE_CANCELLED':
@@ -223,7 +223,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "🗑️ **PUBLIC ROUTE CANCELLED**";
             if ($routeId) $parts[] = "ID #{$routeId}";
             if ($routeName) $parts[] = "| {$routeName}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         // Proposal coordination actions
@@ -235,7 +235,7 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
             if ($element) $parts[] = "| {$element}";
             if ($facilities) $parts[] = "| To: {$facilities}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'FACILITY_APPROVE':
@@ -293,20 +293,20 @@ function formatCoordinationMessage($proposalId, $action, $details, $timestamp) {
             $parts[] = "✏️ **PROPOSAL EDITED** {$entryType}";
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
             if ($element) $parts[] = "| {$element}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         case 'PROPOSAL_REOPENED':
             $entryType = $details['entry_type'] ?? 'TMI';
             $parts[] = "🔄 **PROPOSAL REOPENED** {$entryType}";
             if ($proposalId) $parts[] = "Prop #{$proposalId}";
-            $parts[] = "| by {$userName}";
+            $parts[] = "| by {$userName}{$oi}";
             break;
 
         default:
             $parts[] = "📋 **{$action}**";
             if ($proposalId) $parts[] = "| Proposal #{$proposalId}";
-            if ($userName) $parts[] = "| by {$userName}";
+            if ($userName) $parts[] = "| by {$userName}{$oi}";
     }
 
     return implode(' ', $parts);
