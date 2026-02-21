@@ -5484,40 +5484,46 @@ $(document).ready(function() {
 
     const ADV_US_FACILITY_CODES = ADV_FACILITY_CODES;
 
-    // Check if token is an ARTCC/FIR/ACC (international)
-    // US ARTCCs: Z + 2 alpha (ZNY, ZDC, ZMA)
-    // Canadian FIRs: CZ + 2 alpha (CZYZ, CZUL, CZQX)
-    // ICAO FIR/UIR codes: 4-letter codes checked against known patterns
+    // Check if token is an ARTCC/FIR/ACC/UIR (global)
+    // Uses FacilityHierarchy.isArtcc() which covers US ARTCCs (Z**),
+    // Canadian FIRs (CZ**), Mexican ACCs, Caribbean FIRs, European FIRs, etc.
+    // Falls back to Z** regex if FacilityHierarchy is not loaded.
     function advIsArtcc(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (/^Z[A-Z]{2}$/.test(t)) {return true;}    // US ARTCCs
-        if (/^CZ[A-Z]{2}$/.test(t)) {return true;}   // Canadian FIRs (CZYZ, CZUL, etc.)
-        return false;
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
+            return FacilityHierarchy.isArtcc(t);
+        }
+        // Fallback: US ARTCCs only
+        return /^Z[A-Z]{2}$/.test(t);
     }
 
-    // Check if token is a TRACON/TCA (letter + 2 digits)
+    // Check if token is a TRACON/TCA (global)
+    // Uses FacilityHierarchy.isTracon() if available, falls back to letter+2digits.
     function advIsTracon(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isTracon) {
+            return FacilityHierarchy.isTracon(t);
+        }
         return /^[A-Z][0-9]{2}$/.test(t);
     }
 
     // Check if token is an airport — all 4-letter all-alpha ICAO codes
-    // ICAO airports are always 4 alpha chars (KJFK, EGLL, TJSJ, TBPB, MDCS, etc.)
+    // ICAO airports are always 4 alpha chars (KJFK, EGLL, TJSJ, TBPB, etc.)
     // No conflict: VORs=3 chars, fixes=5 chars, airways=alpha+digits, ARTCCs=3 chars
-    // Canadian FIRs (CZ**) are excluded by checking advIsArtcc first in callers
+    // Known FIR/ACC codes (EGTT, LFFF, CZYZ, etc.) are excluded via advIsArtcc
     function advIsAirport(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         if (!/^[A-Z]{4}$/.test(t)) {return false;}
-        // Exclude Canadian FIR codes (handled by advIsArtcc)
-        if (/^CZ[A-Z]{2}$/.test(t)) {return false;}
+        // Exclude known FIR/ACC codes (handled by advIsArtcc)
+        if (advIsArtcc(t)) {return false;}
         return true;
     }
 
     // Check if token is any facility (ARTCC/FIR, TRACON/TCA, or Airport)
-    // Check order: ARTCC first (so CZ** FIRs aren't misclassified as airports)
+    // Check order: ARTCC first (so FIR codes aren't misclassified as airports)
     function advIsFacility(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
