@@ -3155,8 +3155,10 @@ function buildCoordSummaryMessage($entry, $facilities, $orgCode = 'VATCSCC') {
         $provider = strtoupper(trim($data['prov_facility'] ?? $data['providing_facility'] ?? ''));
         $restriction = trim($data['restriction'] ?? $data['ctl_element'] ?? '');
         $reason = strtoupper(trim($data['reason'] ?? ''));
-        $qualifiers = trim($data['qualifiers'] ?? $data['qualifier'] ?? '');
-        $exclusions = trim($data['exclusions'] ?? $data['exclusion'] ?? '');
+        $rawQualifiers = $data['qualifiers'] ?? $data['qualifier'] ?? '';
+        $qualifiers = trim(is_array($rawQualifiers) ? implode(', ', $rawQualifiers) : $rawQualifiers);
+        $rawExclusions = $data['exclusions'] ?? $data['exclusion'] ?? '';
+        $exclusions = trim(is_array($rawExclusions) ? implode(', ', $rawExclusions) : $rawExclusions);
 
         // Provider list from facilities
         $provCodes = [];
@@ -4068,8 +4070,10 @@ function createTmiEntryFromProposal($conn, $proposal, $entryData, $rawText) {
 
     $restrictionUnit = strtoupper($data['restriction_unit'] ?? $data['unit'] ?? '');
     $conditionText = $data['via'] ?? $data['condition_text'] ?? '';
-    $qualifiers = $data['qualifiers'] ?? '';
-    $exclusions = $data['exclusions'] ?? '';
+    $rawQ = $data['qualifiers'] ?? '';
+    $qualifiers = is_array($rawQ) ? implode(', ', $rawQ) : $rawQ;
+    $rawE = $data['exclusions'] ?? '';
+    $exclusions = is_array($rawE) ? implode(', ', $rawE) : $rawE;
     $reasonCode = strtoupper($data['reason_code'] ?? '');
     $reasonDetail = $data['reason_detail'] ?? '';
 
@@ -4420,21 +4424,6 @@ function logCoordinationActivity($conn, $proposalId, $action, $details = []) {
         // ===================================================
         // 1. Save to database (with structured audit columns)
         // ===================================================
-        $sql = "IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tmi_coordination_log')
-                CREATE TABLE dbo.tmi_coordination_log (
-                    log_id INT IDENTITY(1,1) PRIMARY KEY,
-                    proposal_id INT NOT NULL,
-                    action VARCHAR(50) NOT NULL,
-                    details NVARCHAR(MAX),
-                    user_cid NVARCHAR(32) NULL,
-                    user_name NVARCHAR(128) NULL,
-                    operating_initials NVARCHAR(4) NULL,
-                    facility_code NVARCHAR(8) NULL,
-                    via NVARCHAR(16) NULL,
-                    created_at DATETIME2 DEFAULT SYSUTCDATETIME()
-                )";
-        $conn->exec($sql);
-
         $insertSql = "INSERT INTO dbo.tmi_coordination_log
                           (proposal_id, action, details, user_cid, user_name, operating_initials, facility_code, via)
                       VALUES (:prop_id, :action, :details, :cid, :uname, :oi, :fac, :via)";
