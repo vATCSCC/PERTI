@@ -9940,9 +9940,20 @@
             });
 
             if (origins.size && dests.size) {
+                const isArtccCode = function(c) {
+                    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
+                        return FacilityHierarchy.isArtcc(c);
+                    }
+                    return /^Z[A-Z]{2}$/i.test(c);
+                };
                 const toIcao = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
                     ? function(a) { return PERTI.normalizeIcao(a); }
-                    : function(a) { return a.startsWith('K') ? a : 'K' + a; };
+                    : function(a) {
+                        // 4+ letter codes are already ICAO; ARTCC/FIR/ACC codes stay as-is
+                        if (a.length >= 4 || isArtccCode(a)) {return a;}
+                        // Only prepend K for 3-letter FAA airport codes
+                        return a.startsWith('K') ? a : 'K' + a;
+                    };
                 const originStr = Array.from(origins).map(toIcao).join('/');
                 const destStr = Array.from(dests).map(toIcao).join('/');
 
