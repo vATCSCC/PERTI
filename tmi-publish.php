@@ -633,7 +633,7 @@ $perm = true;
                                               placeholder="<?= __('tmiPublish.page.optionalRemarks') ?>"></textarea>
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0">Route Color</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.routeColor') ?></label>
                                     <input type="color" class="form-control" id="rr_color" value="#e74c3c"
                                            style="height: 62px; padding: 2px; cursor: pointer;">
                                 </div>
@@ -641,12 +641,12 @@ $perm = true;
 
                             <div class="form-row">
                                 <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0">Associated Restrictions</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.associatedRestrictions') ?></label>
                                     <input type="text" class="form-control" id="rr_restrictions"
                                            placeholder="e.g., FL310 AND ABOVE">
                                 </div>
                                 <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0">Modifications</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.modifications') ?></label>
                                     <input type="text" class="form-control" id="rr_modifications"
                                            placeholder="e.g., AMDT, CNCL, CORRN">
                                 </div>
@@ -752,14 +752,14 @@ $perm = true;
 
                     <!-- Route Format Options -->
                     <div class="d-flex align-items-center mb-3 border rounded p-2 bg-light">
-                        <span class="small font-weight-bold mr-3">Format:</span>
+                        <span class="small font-weight-bold mr-3"><?= __('tmiPublish.page.format') ?>:</span>
                         <div class="custom-control custom-radio mr-3">
                             <input type="radio" class="custom-control-input" id="rr_format_full" name="rr_format" value="full" checked>
-                            <label class="custom-control-label small" for="rr_format_full">Full (ORIG/DEST/ROUTE)</label>
+                            <label class="custom-control-label small" for="rr_format_full"><?= __('tmiPublish.page.fullFormat') ?></label>
                         </div>
                         <div class="custom-control custom-radio mr-3">
                             <input type="radio" class="custom-control-input" id="rr_format_split" name="rr_format" value="split">
-                            <label class="custom-control-label small" for="rr_format_split">Split (FROM/TO segments)</label>
+                            <label class="custom-control-label small" for="rr_format_split"><?= __('tmiPublish.page.splitFormat') ?></label>
                         </div>
                         <button class="btn btn-sm btn-outline-info ml-auto" id="rr_detect_common" type="button"
                                 title="Detect common route segments and split into ORIGIN/DESTINATION sections">

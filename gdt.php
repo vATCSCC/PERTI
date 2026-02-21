@@ -1245,15 +1245,15 @@ include("load/i18n.php");
                                 <div class="card-header py-1 px-2 bg-info text-white d-flex justify-content-between align-items-center">
                                     <small class="text-uppercase font-weight-bold">
                                         <i class="fas fa-chart-area mr-1"></i>
-                                        <span id="gs_demand_chart_title">Demand Profile</span>
+                                        <span id="gs_demand_chart_title"><?= __('gdt.page.demandProfile') ?></span>
                                         <span class="badge badge-light text-dark ml-2" id="gs_demand_airport_badge">--</span>
                                     </small>
                                     <div class="d-flex align-items-center">
                                         <!-- Direction Toggle -->
                                         <div class="btn-group btn-group-sm mr-2" role="group">
-                                            <button class="btn btn-light btn-sm active" id="gs_demand_dir_both" title="Show Both">Both</button>
-                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_arr" title="Arrivals Only">Arr</button>
-                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_dep" title="Departures Only">Dep</button>
+                                            <button class="btn btn-light btn-sm active" id="gs_demand_dir_both" title="<?= __('gdt.page.showBoth') ?>"><?= __('gdt.page.both') ?></button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_arr" title="<?= __('gdt.page.arrivalsOnly') ?>"><?= __('gdt.page.arr') ?></button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_dir_dep" title="<?= __('gdt.page.departuresOnly') ?>"><?= __('gdt.page.dep') ?></button>
                                         </div>
                                         <!-- Granularity Toggle -->
                                         <div class="btn-group btn-group-sm mr-2" role="group">

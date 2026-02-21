@@ -2302,7 +2302,7 @@ input[type="datetime-local"] {
                     <button class="btn btn-xs btn-outline-secondary" id="areas-hide-all-btn"><?= __('splits.page.hideAll') ?></button>
                 </div>
                 <div id="areas-toggle-list" style="max-height: 300px; overflow-y: auto;">
-                    <div class="text-muted text-center py-3" style="font-size: 11px;">Loading areas...</div>
+                    <div class="text-muted text-center py-3" style="font-size: 11px;"><?= __('splits.page.loadingAreas') ?></div>
                 </div>
             </div>
         </div>
@@ -2327,7 +2327,7 @@ input[type="datetime-local"] {
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="artcc" id="layer-artcc" checked>
                     <span class="layer-color" style="background: #FF00FF;"></span>
-                    <label for="layer-artcc">ARTCC</label>
+                    <label for="layer-artcc"><?= __('splits.feature.artcc') ?></label>
                     <div class="layer-sub-controls">
                         <button class="btn btn-xs layer-fill-btn" data-layer="artcc" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
                         <button class="btn btn-xs layer-line-btn active" data-layer="artcc" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
@@ -2367,7 +2367,7 @@ input[type="datetime-local"] {
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="tracon" id="layer-tracon">
                     <span class="layer-color" style="background: #4682B4;"></span>
-                    <label for="layer-tracon">TRACON</label>
+                    <label for="layer-tracon"><?= __('splits.feature.tracon') ?></label>
                     <div class="layer-sub-controls">
                         <button class="btn btn-xs layer-fill-btn active" data-layer="tracon" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
                         <button class="btn btn-xs layer-line-btn active" data-layer="tracon" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
@@ -2603,7 +2603,7 @@ input[type="datetime-local"] {
                             <h6 class="card-title" id="review-config-name"><?= __('splits.page.configurationNameTitle') ?></h6>
                             <div class="row">
                                 <div class="col-md-4">
-                                    <small class="text-muted">ARTCC</small>
+                                    <small class="text-muted"><?= __('splits.feature.artcc') ?></small>
                                     <div id="review-artcc">-</div>
                                 </div>
                                 <div class="col-md-4">
@@ -2770,16 +2770,16 @@ input[type="datetime-local"] {
                                         </div>
                                         <div class="col-md-4">
                                             <div class="form-group mb-2">
-                                                <label class="small">Ceiling (FL)</label>
+                                                <label class="small"><?= __('splits.page.ceilingFl') ?></label>
                                                 <input type="text" id="filter-ceiling" class="form-control form-control-sm" placeholder="e.g., 350" maxlength="3" pattern="[0-9]{3}">
-                                                <small class="text-muted">Format: 000</small>
+                                                <small class="text-muted"><?= __('splits.page.flFormat') ?></small>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="form-group mb-2">
-                                                <label class="small">Block (FL)</label>
+                                                <label class="small"><?= __('splits.page.blockFl') ?></label>
                                                 <input type="text" id="filter-block" class="form-control form-control-sm" placeholder="e.g., 240B350" maxlength="7" pattern="[0-9]{3}B[0-9]{3}">
-                                                <small class="text-muted">Format: 000B000</small>
+                                                <small class="text-muted"><?= __('splits.page.blockFormat') ?></small>
                                             </div>
                                         </div>
                                     </div>
@@ -2790,7 +2790,7 @@ input[type="datetime-local"] {
                         <!-- Aircraft Filters -->
                         <div class="filter-section">
                             <div class="filter-section-header" data-toggle="collapse" data-target="#aircraft-filters">
-                                <i class="fas fa-plane mr-1"></i> Aircraft Filters
+                                <i class="fas fa-plane mr-1"></i> <?= __('splits.page.aircraftFilters') ?>
                                 <i class="fas fa-chevron-down float-right"></i>
                             </div>
                             <div class="collapse" id="aircraft-filters">
@@ -2798,18 +2798,18 @@ input[type="datetime-local"] {
                                     <div class="row">
                                         <div class="col-md-4">
                                             <div class="form-group mb-2">
-                                                <label class="small">Type</label>
+                                                <label class="small"><?= __('splits.page.type') ?></label>
                                                 <select id="filter-acft-type" class="form-control form-control-sm">
-                                                    <option value="">Any</option>
-                                                    <option value="JETS">JETS</option>
-                                                    <option value="TURBOPROPS">TURBOPROPS</option>
-                                                    <option value="PROPS">PROPS</option>
+                                                    <option value=""><?= __('splits.page.any') ?></option>
+                                                    <option value="JETS"><?= __('splits.page.jets') ?></option>
+                                                    <option value="TURBOPROPS"><?= __('splits.page.turboprops') ?></option>
+                                                    <option value="PROPS"><?= __('splits.page.props') ?></option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="form-group mb-2">
-                                                <label class="small">Speed (KTS)</label>
+                                                <label class="small"><?= __('splits.page.speedKts') ?></label>
                                                 <input type="text" id="filter-speed" class="form-control form-control-sm" placeholder="e.g., >250">
                                             </div>
                                         </div>
@@ -2817,9 +2817,9 @@ input[type="datetime-local"] {
                                             <div class="form-group mb-2">
                                                 <label class="small">RVSM</label>
                                                 <select id="filter-rvsm" class="form-control form-control-sm">
-                                                    <option value="">Any</option>
-                                                    <option value="RVSM">RVSM only</option>
-                                                    <option value="NON-RVSM">Non-RVSM only</option>
+                                                    <option value=""><?= __('splits.page.any') ?></option>
+                                                    <option value="RVSM"><?= __('splits.page.rvsmOnly') ?></option>
+                                                    <option value="NON-RVSM"><?= __('splits.page.nonRvsmOnly') ?></option>
                                                 </select>
                                             </div>
                                         </div>
@@ -2827,14 +2827,14 @@ input[type="datetime-local"] {
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="form-group mb-2">
-                                                <label class="small">Nav Equipment</label>
-                                                <input type="text" id="filter-nav-equip" class="form-control form-control-sm" placeholder="e.g., RNAV, RNP">
+                                                <label class="small"><?= __('splits.page.navEquipment') ?></label>
+                                                <input type="text" id="filter-nav-equip" class="form-control form-control-sm" placeholder="<?= __('splits.page.navEquipPlaceholder') ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="form-group mb-0">
-                                                <label class="small">Other Aircraft Notes</label>
-                                                <input type="text" id="filter-acft-other" class="form-control form-control-sm" placeholder="Any other criteria">
+                                                <label class="small"><?= __('splits.page.otherAircraftNotes') ?></label>
+                                                <input type="text" id="filter-acft-other" class="form-control form-control-sm" placeholder="<?= __('splits.page.otherAircraftNotesPlaceholder') ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -2845,13 +2845,13 @@ input[type="datetime-local"] {
                         <!-- Other Filters -->
                         <div class="filter-section">
                             <div class="filter-section-header" data-toggle="collapse" data-target="#other-filters">
-                                <i class="fas fa-ellipsis-h mr-1"></i> Other Notes
+                                <i class="fas fa-ellipsis-h mr-1"></i> <?= __('splits.page.otherNotes') ?>
                                 <i class="fas fa-chevron-down float-right"></i>
                             </div>
                             <div class="collapse" id="other-filters">
                                 <div class="filter-section-body">
                                     <div class="form-group mb-0">
-                                        <textarea id="filter-other" class="form-control form-control-sm" rows="2" placeholder="Any additional notes or criteria"></textarea>
+                                        <textarea id="filter-other" class="form-control form-control-sm" rows="2" placeholder="<?= __('splits.page.otherNotesPlaceholder') ?>"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -2860,8 +2860,8 @@ input[type="datetime-local"] {
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="save-split-btn">Add Position</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('splits.page.cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="save-split-btn"><?= __('splits.page.addPosition') ?></button>
             </div>
         </div>
     </div>
@@ -2872,99 +2872,99 @@ input[type="datetime-local"] {
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">Manage Areas</h5>
+                <h5 class="modal-title"><?= __('splits.page.manageAreas') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Areas are pre-defined groups of sectors (e.g., "ZNY A" = ZNY07+ZNY08+ZNY09...). They can be used for quick sector selection when creating splits.</p>
+                <p class="text-muted mb-3"><?= __('splits.page.areasDescription') ?></p>
                 
                 <div class="row">
                     <div class="col-md-4 border-right border-secondary">
                         <!-- Area List -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Defined Areas</strong>
-                            <button class="btn btn-xs btn-outline-primary" id="new-area-btn">+ New Area</button>
+                            <strong><?= __('splits.page.definedAreas') ?></strong>
+                            <button class="btn btn-xs btn-outline-primary" id="new-area-btn"><?= __('splits.page.newArea') ?></button>
                         </div>
                         <div class="form-group">
                             <select id="areas-artcc-filter" class="form-control form-control-sm">
-                                <option value="">All ARTCCs</option>
+                                <option value=""><?= __('splits.page.allArtccs') ?></option>
                             </select>
                         </div>
                         <div id="areas-list" style="max-height: 350px; overflow-y: auto;">
-                            <div class="text-muted text-center py-3">Loading...</div>
+                            <div class="text-muted text-center py-3"><?= __('splits.page.loading') ?></div>
                         </div>
                     </div>
                     <div class="col-md-8">
                         <!-- Area Editor -->
                         <div id="area-editor" style="display: none;">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <strong>Edit Area</strong>
-                                <button class="btn btn-xs btn-outline-danger" id="delete-area-btn">Delete</button>
+                                <strong><?= __('splits.page.editArea') ?></strong>
+                                <button class="btn btn-xs btn-outline-danger" id="delete-area-btn"><?= __('common.delete') ?></button>
                             </div>
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label>ARTCC *</label>
+                                        <label><?= __('splits.page.artccRequired') ?></label>
                                         <select id="area-artcc" class="form-control form-control-sm">
-                                            <option value="">Select ARTCC</option>
+                                            <option value=""><?= __('splits.page.selectArtcc') ?></option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label>Area Name *</label>
-                                        <input type="text" id="area-name" class="form-control form-control-sm" placeholder="e.g., A, B, WEST">
+                                        <label><?= __('splits.page.areaName') ?></label>
+                                        <input type="text" id="area-name" class="form-control form-control-sm" placeholder="<?= __('splits.page.areaNamePlaceholder') ?>">
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
-                                        <label>Description</label>
-                                        <input type="text" id="area-description" class="form-control form-control-sm" placeholder="Optional description">
+                                        <label><?= __('splits.page.description') ?></label>
+                                        <input type="text" id="area-description" class="form-control form-control-sm" placeholder="<?= __('splits.page.descriptionAreaPlaceholder') ?>">
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label>Sectors *</label>
+                                <label><?= __('splits.page.sectors') ?></label>
                                 <div class="d-flex mb-2 flex-wrap">
-                                    <button class="btn btn-xs btn-outline-secondary mr-1 mb-1" id="area-load-sectors-btn">Load ARTCC Sectors</button>
+                                    <button class="btn btn-xs btn-outline-secondary mr-1 mb-1" id="area-load-sectors-btn"><?= __('splits.page.loadArtccSectors') ?></button>
                                     <button class="btn btn-xs btn-outline-info mr-1 mb-1" id="area-select-on-map-btn">
-                                        <i class="fas fa-map-marker-alt"></i> Select on Map
+                                        <i class="fas fa-map-marker-alt"></i> <?= __('splits.page.selectOnMap') ?>
                                     </button>
-                                    <button class="btn btn-xs btn-outline-secondary mr-1 mb-1" id="area-select-all-btn">Select All</button>
-                                    <button class="btn btn-xs btn-outline-secondary mb-1" id="area-clear-all-btn">Clear All</button>
+                                    <button class="btn btn-xs btn-outline-secondary mr-1 mb-1" id="area-select-all-btn"><?= __('splits.page.selectAll') ?></button>
+                                    <button class="btn btn-xs btn-outline-secondary mb-1" id="area-clear-all-btn"><?= __('splits.page.clearAll') ?></button>
                                 </div>
                                 <div class="sector-input-row mb-2">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="area-sector-input" class="form-control form-control-sm" 
-                                               placeholder="e.g., ZDC50,ZDC51 or 50,51,52">
+                                        <input type="text" id="area-sector-input" class="form-control form-control-sm"
+                                               placeholder="<?= __('splits.page.sectorInputPlaceholder') ?>">
                                         <div class="input-group-append">
-                                            <button class="btn btn-outline-primary btn-sm" id="area-sector-input-apply-btn" type="button">Apply</button>
+                                            <button class="btn btn-outline-primary btn-sm" id="area-sector-input-apply-btn" type="button"><?= __('splits.page.apply') ?></button>
                                         </div>
                                     </div>
                                     <small class="text-muted d-block mt-1" style="font-size: 9px;">
-                                        Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ARTCC.
+                                        <?= __('splits.page.sectorInputHint') ?>
                                     </small>
                                 </div>
                                 <div id="area-sector-grid" class="sector-grid" style="max-height: 200px; overflow-y: auto;"></div>
                             </div>
                             
                             <div class="form-group">
-                                <label>Selected Sectors</label>
+                                <label><?= __('splits.page.selectedSectors') ?></label>
                                 <div id="area-selected-sectors" class="p-2 bg-secondary rounded" style="min-height: 40px; font-size: 12px;"></div>
                             </div>
                             
                             <div class="text-right">
-                                <button class="btn btn-secondary" id="cancel-area-btn">Cancel</button>
-                                <button class="btn btn-primary" id="save-area-btn">Save Area</button>
+                                <button class="btn btn-secondary" id="cancel-area-btn"><?= __('splits.page.cancel') ?></button>
+                                <button class="btn btn-primary" id="save-area-btn"><?= __('splits.page.saveArea') ?></button>
                             </div>
                         </div>
                         
                         <div id="no-area-selected" class="text-center text-muted py-5">
                             <div style="font-size: 32px;">📍</div>
-                            <div class="mt-2">Select an area to edit or click "+ New Area" to create one.</div>
+                            <div class="mt-2"><?= __('splits.page.selectAreaPrompt') ?></div>
                             <div class="mt-3">
-                                <small class="text-muted">Tip: Use "Select on Map" when editing to click sectors directly on the map!</small>
+                                <small class="text-muted"><?= __('splits.page.selectAreaTip') ?></small>
                             </div>
                         </div>
                     </div>
@@ -2979,16 +2979,16 @@ input[type="datetime-local"] {
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="preset-modal-title">New Preset</h5>
+                <h5 class="modal-title" id="preset-modal-title"><?= __('splits.page.newPreset') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Step Indicator -->
                 <div class="d-flex justify-content-center mb-4">
                     <div class="step-indicator" id="preset-step-indicator">
-                        <span class="step active" data-step="1">1. Preset Details</span>
+                        <span class="step active" data-step="1"><?= __('splits.page.presetDetails') ?></span>
                         <span class="step-arrow">→</span>
-                        <span class="step" data-step="2">2. Define Positions</span>
+                        <span class="step" data-step="2"><?= __('splits.page.definePositions') ?></span>
                     </div>
                 </div>
                 
@@ -2997,28 +2997,27 @@ input[type="datetime-local"] {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Preset Name *</label>
-                                <input type="text" id="preset-name" class="form-control" placeholder="e.g., Standard Day Split">
+                                <label><?= __('splits.page.presetName') ?></label>
+                                <input type="text" id="preset-name" class="form-control" placeholder="<?= __('splits.page.presetNamePlaceholder') ?>">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>ARTCC *</label>
+                                <label><?= __('splits.page.artccRequired') ?></label>
                                 <select id="preset-artcc" class="form-control">
-                                    <option value="">Select ARTCC...</option>
+                                    <option value=""><?= __('splits.page.selectArtcc') ?></option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Description (optional)</label>
-                        <textarea id="preset-description" class="form-control" rows="2" placeholder="Brief description of when to use this preset..."></textarea>
+                        <label><?= __('splits.page.descriptionOptional') ?></label>
+                        <textarea id="preset-description" class="form-control" rows="2" placeholder="<?= __('splits.page.presetDescriptionPlaceholder') ?>"></textarea>
                     </div>
                     
                     <div class="alert alert-warning mt-3 mb-0" style="font-size: 12px;">
                         <i class="fas fa-star mr-1"></i>
-                        <strong>Presets</strong> are reusable position templates without time constraints. 
-                        Define your positions once, then quickly load them into new configurations whenever needed.
+                        <?= __('splits.page.presetInfo') ?>
                     </div>
                 </div>
                 
@@ -3028,67 +3027,67 @@ input[type="datetime-local"] {
                         <div class="col-md-5">
                             <!-- Position List -->
                             <div class="section-header d-flex justify-content-between align-items-center">
-                                <span>Positions/Splits</span>
-                                <button class="btn btn-xs btn-outline-primary" id="preset-add-position-btn">+ Add Position</button>
+                                <span><?= __('splits.page.positionsSplits') ?></span>
+                                <button class="btn btn-xs btn-outline-primary" id="preset-add-position-btn"><?= __('splits.page.addPositionBtn') ?></button>
                             </div>
                             <div id="preset-positions-list" style="max-height: 400px; overflow-y: auto;">
                                 <div class="empty-state py-4">
-                                    <div class="empty-state-text">No positions added yet.<br>Click "+ Add Position" to start.</div>
+                                    <div class="empty-state-text"><?= __('splits.page.noPositionsAdded') ?><br><?= __('splits.page.noPositionsAddedHint') ?></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-7">
                             <!-- Sector Selection -->
                             <div id="preset-sector-selection-area" style="display: none;">
-                                <div class="section-header">Select Sectors for: <span id="preset-editing-position-name" class="text-primary"></span></div>
+                                <div class="section-header"><?= __('splits.page.selectSectorsFor') ?> <span id="preset-editing-position-name" class="text-primary"></span></div>
                                 
                                 <!-- Quick Actions -->
                                 <div class="sector-selection-header">
                                     <div class="sector-selection-actions">
-                                        <button class="btn btn-outline-info btn-xs" id="preset-select-on-map-btn" title="Click sectors directly on the main map">
-                                            <i class="fas fa-map-marker-alt"></i> Select on Map
+                                        <button class="btn btn-outline-info btn-xs" id="preset-select-on-map-btn" title="<?= __('splits.page.selectOnMap') ?>">
+                                            <i class="fas fa-map-marker-alt"></i> <?= __('splits.page.selectOnMap') ?>
                                         </button>
-                                        <button class="btn btn-outline-secondary btn-xs" id="preset-select-all-sectors">Select All</button>
-                                        <button class="btn btn-outline-secondary btn-xs" id="preset-clear-all-sectors">Clear All</button>
+                                        <button class="btn btn-outline-secondary btn-xs" id="preset-select-all-sectors"><?= __('splits.page.selectAll') ?></button>
+                                        <button class="btn btn-outline-secondary btn-xs" id="preset-clear-all-sectors"><?= __('splits.page.clearAll') ?></button>
                                     </div>
                                 </div>
                                 
                                 <!-- Sector Input -->
                                 <div class="sector-input-row mb-2">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="preset-sector-input" class="form-control form-control-sm" 
-                                               placeholder="e.g., ZDC50,ZDC51 or 50,51,52">
+                                        <input type="text" id="preset-sector-input" class="form-control form-control-sm"
+                                               placeholder="<?= __('splits.page.sectorInputPlaceholder') ?>">
                                         <div class="input-group-append">
-                                            <button class="btn btn-outline-primary btn-sm" id="preset-sector-input-apply-btn" type="button">Apply</button>
+                                            <button class="btn btn-outline-primary btn-sm" id="preset-sector-input-apply-btn" type="button"><?= __('splits.page.apply') ?></button>
                                         </div>
                                     </div>
                                     <small class="text-muted d-block mt-1" style="font-size: 9px;">
-                                        Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ARTCC.
+                                        <?= __('splits.page.sectorInputHint') ?>
                                     </small>
                                 </div>
                                 
                                 <!-- Area Groups -->
                                 <div class="area-groups" id="preset-area-groups-container">
-                                    <label class="d-block mb-1 text-light" style="font-size: 10px;">Quick Select Area:</label>
+                                    <label class="d-block mb-1 text-light" style="font-size: 10px;"><?= __('splits.page.quickSelectArea') ?></label>
                                 </div>
 
                                 <!-- Strata Filter -->
                                 <div class="strata-filter-controls mb-2 d-flex align-items-center">
-                                    <span class="text-muted small mr-2">Show:</span>
+                                    <span class="text-muted small mr-2"><?= __('splits.page.show') ?></span>
                                     <label class="strata-filter-label mr-2 mb-0">
                                         <input type="checkbox" id="preset-strata-low" checked>
                                         <span class="strata-dot" style="background:#228B22; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
-                                        <span class="small">Low</span>
+                                        <span class="small"><?= __('splits.page.low') ?></span>
                                     </label>
                                     <label class="strata-filter-label mr-2 mb-0">
                                         <input type="checkbox" id="preset-strata-high" checked>
                                         <span class="strata-dot" style="background:#FF6347; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
-                                        <span class="small">High</span>
+                                        <span class="small"><?= __('splits.page.high') ?></span>
                                     </label>
                                     <label class="strata-filter-label mb-0">
                                         <input type="checkbox" id="preset-strata-superhigh" checked>
                                         <span class="strata-dot" style="background:#9932CC; width:10px; height:10px; border-radius:50%; display:inline-block; margin:0 3px;"></span>
-                                        <span class="small">Super</span>
+                                        <span class="small"><?= __('splits.page.super') ?></span>
                                     </label>
                                 </div>
 
@@ -3096,7 +3095,7 @@ input[type="datetime-local"] {
                                 <div class="sector-grid" id="preset-sector-grid" style="max-height: 250px;"></div>
                                 
                                 <div class="text-right mt-2">
-                                    <button class="btn btn-sm btn-primary" id="preset-done-selecting-btn">Done Selecting</button>
+                                    <button class="btn btn-sm btn-primary" id="preset-done-selecting-btn"><?= __('splits.page.doneSelecting') ?></button>
                                 </div>
                             </div>
                             
@@ -3109,12 +3108,12 @@ input[type="datetime-local"] {
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-danger mr-auto" id="delete-preset-btn" style="display: none;">Delete Preset</button>
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-secondary" id="preset-prev-btn" style="display: none;">← Previous</button>
-                <button type="button" class="btn btn-primary" id="preset-next-btn">Next →</button>
+                <button type="button" class="btn btn-danger mr-auto" id="delete-preset-btn" style="display: none;"><?= __('splits.page.deletePreset') ?></button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('splits.page.cancel') ?></button>
+                <button type="button" class="btn btn-secondary" id="preset-prev-btn" style="display: none;">← <?= __('splits.page.previous') ?></button>
+                <button type="button" class="btn btn-primary" id="preset-next-btn"><?= __('splits.page.next') ?> →</button>
                 <button type="button" class="btn btn-warning" id="save-preset-modal-btn" style="display: none;">
-                    <i class="fas fa-save mr-1"></i> Save Preset
+                    <i class="fas fa-save mr-1"></i> <?= __('splits.page.savePreset') ?>
                 </button>
             </div>
         </div>
@@ -3126,29 +3125,29 @@ input[type="datetime-local"] {
     <div class="modal-dialog modal-md modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="preset-position-modal-title">Add Position</h5>
+                <h5 class="modal-title" id="preset-position-modal-title"><?= __('splits.page.addPosition') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>Position Name *</label>
-                    <input type="text" id="preset-position-name" class="form-control" placeholder="e.g., HIGH EAST">
+                    <label><?= __('splits.page.positionName') ?></label>
+                    <input type="text" id="preset-position-name" class="form-control" placeholder="<?= __('splits.page.positionNamePlaceholder') ?>">
                 </div>
                 <div class="form-group">
-                    <label>Frequency</label>
-                    <input type="text" id="preset-position-frequency" class="form-control" placeholder="e.g., 132.450">
-                    <small class="text-muted">Format: 123.456</small>
+                    <label><?= __('splits.page.frequency') ?></label>
+                    <input type="text" id="preset-position-frequency" class="form-control" placeholder="<?= __('splits.page.frequencyPlaceholder') ?>">
+                    <small class="text-muted"><?= __('splits.page.frequencyFormat') ?></small>
                 </div>
                 <div class="form-group">
-                    <label>Color</label>
+                    <label><?= __('splits.page.color') ?></label>
                     <div class="d-flex flex-wrap" id="preset-position-color-picker">
                         <!-- Colors populated by JS -->
                     </div>
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="save-preset-position-btn">Add Position</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('splits.page.cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="save-preset-position-btn"><?= __('splits.page.addPosition') ?></button>
             </div>
         </div>
     </div>

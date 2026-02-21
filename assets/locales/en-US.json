@@ -755,7 +755,9 @@
       "privilegedTooltip": "Privileged: Can post to all organizations",
       "clickToEditProfile": "Click to edit profile",
       "programDataFromGdt": "Program data received from GDT",
-      "noProgramDataLoaded": "No program data loaded..."
+      "noProgramDataLoaded": "No program data loaded...",
+      "optionalRemarks": "Optional coordination remarks",
+      "dccOverrideTooltip": "DCC Override: Publish without coordination"
     },
     "form": {
       "aarType": "AAR Type",
@@ -1870,6 +1872,9 @@
       "both": "Both",
       "arr": "Arr",
       "dep": "Dep",
+      "showBoth": "Show Both",
+      "arrivalsOnly": "Arrivals Only",
+      "departuresOnly": "Departures Only",
       "config": "Config:",
       "rates": "Rates:",
       "lastUpdate": "Last Update:",

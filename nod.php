@@ -1788,7 +1788,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="gs-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1801,7 +1801,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="gdp-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1814,7 +1814,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="reroutes-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1822,12 +1822,12 @@ include("load/i18n.php");
                 <!-- Public Routes Section -->
                 <div class="nod-section" id="section-public-routes">
                     <div class="nod-section-header" onclick="NOD.toggleSection('public-routes')">
-                        <span class="nod-section-title"><i class="fas fa-share-alt mr-2"></i>Public Routes</span>
+                        <span class="nod-section-title"><i class="fas fa-share-alt mr-2"></i><?= __('nod.page.publicRoutes') ?></span>
                         <span class="nod-section-badge" id="public-routes-count">0</span>
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="public-routes-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1835,12 +1835,12 @@ include("load/i18n.php");
                 <!-- MITs / AFPs Section -->
                 <div class="nod-section" id="section-mit">
                     <div class="nod-section-header" onclick="NOD.toggleSection('mit')">
-                        <span class="nod-section-title"><i class="fas fa-arrows-alt-h mr-2"></i>MITs / AFPs</span>
+                        <span class="nod-section-title"><i class="fas fa-arrows-alt-h mr-2"></i><?= __('nod.page.mitsAfps') ?></span>
                         <span class="nod-section-badge" id="mit-count">0</span>
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="mit-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1848,12 +1848,12 @@ include("load/i18n.php");
                 <!-- Delay Reports Section -->
                 <div class="nod-section" id="section-delays">
                     <div class="nod-section-header" onclick="NOD.toggleSection('delays')">
-                        <span class="nod-section-title"><i class="fas fa-hourglass-half mr-2"></i>Delay Reports</span>
+                        <span class="nod-section-title"><i class="fas fa-hourglass-half mr-2"></i><?= __('nod.page.delayReports') ?></span>
                         <span class="nod-section-badge" id="delays-count">0</span>
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="delays-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1861,14 +1861,14 @@ include("load/i18n.php");
                 <!-- Discord TMIs Section -->
                 <div class="nod-section" id="section-discord">
                     <div class="nod-section-header" onclick="NOD.toggleSection('discord')">
-                        <span class="nod-section-title"><i class="fab fa-discord mr-2"></i>Discord TMIs</span>
+                        <span class="nod-section-title"><i class="fab fa-discord mr-2"></i><?= __('nod.page.discordTmis') ?></span>
                         <span class="nod-section-badge" id="discord-count">0</span>
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="discord-list">
                             <div class="nod-empty">
                                 <i class="fab fa-discord"></i>
-                                <p>Discord integration not configured</p>
+                                <p><?= __('nod.page.discordNotConfigured') ?></p>
                             </div>
                         </div>
                     </div>
@@ -1879,14 +1879,14 @@ include("load/i18n.php");
             <div class="nod-tab-pane" id="tab-advisories">
                 <div class="nod-section expanded">
                     <div class="nod-section-header">
-                        <span class="nod-section-title"><i class="fas fa-bullhorn mr-2"></i>Today's Advisories</span>
+                        <span class="nod-section-title"><i class="fas fa-bullhorn mr-2"></i><?= __('nod.page.todaysAdvisories') ?></span>
                         <button class="btn btn-sm btn-outline-secondary" onclick="NOD.showAdvisoryModal()">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="nod-section-body" style="max-height: none;">
                         <div class="nod-section-body-inner" id="advisories-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1896,14 +1896,14 @@ include("load/i18n.php");
             <div class="nod-tab-pane" id="tab-incidents">
                 <div class="nod-section expanded">
                     <div class="nod-section-header">
-                        <span class="nod-section-title"><i class="fas fa-broadcast-tower mr-2"></i>Active Incidents</span>
+                        <span class="nod-section-title"><i class="fas fa-broadcast-tower mr-2"></i><?= __('nod.page.activeIncidents') ?></span>
                         <a href="jatoc.php" class="btn btn-sm btn-outline-info" target="_blank">
                             <i class="fas fa-external-link-alt"></i>
                         </a>
                     </div>
                     <div class="nod-section-body" style="max-height: none;">
                         <div class="nod-section-body-inner" id="incidents-list">
-                            <div class="nod-loading"><i class="fas fa-spinner"></i> Loading...</div>
+                            <div class="nod-loading"><i class="fas fa-spinner"></i> <?= __('nod.page.loading') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1914,30 +1914,30 @@ include("load/i18n.php");
                 <!-- Facility / Config Selectors -->
                 <div class="nod-flow-selector">
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">FACILITY</label>
+                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.facility') ?></label>
                         <select id="flow-facility" class="form-control form-control-sm bg-dark text-light border-secondary"
                                 onchange="NOD.onFacilityChange(this.value)">
-                            <option value="">Select facility...</option>
+                            <option value=""><?= __('nod.page.selectFacility') ?></option>
                         </select>
                     </div>
                     <div class="form-group mb-2">
-                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">CONFIGURATION</label>
+                        <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.configuration') ?></label>
                         <div class="d-flex align-items-center">
                             <select id="flow-config" class="form-control form-control-sm bg-dark text-light border-secondary flex-grow-1 mr-1"
                                     onchange="NOD.onConfigChange(this.value)" disabled>
-                                <option value="">Select config...</option>
+                                <option value=""><?= __('nod.page.selectConfig') ?></option>
                             </select>
                         </div>
                     </div>
                     <div class="nod-flow-actions mb-2">
                         <button class="btn btn-sm btn-outline-info" onclick="NOD.createFlowConfig()" id="flow-btn-new" disabled>
-                            <i class="fas fa-plus"></i> New
+                            <i class="fas fa-plus"></i> <?= __('nod.page.new') ?>
                         </button>
                         <button class="btn btn-sm btn-outline-success" onclick="NOD.saveFlowConfig()" id="flow-btn-save" disabled>
-                            <i class="fas fa-save"></i> Save
+                            <i class="fas fa-save"></i> <?= __('nod.page.save') ?>
                         </button>
                         <button class="btn btn-sm btn-outline-danger" onclick="NOD.deleteFlowConfig()" id="flow-btn-delete" disabled>
-                            <i class="fas fa-trash"></i> Delete
+                            <i class="fas fa-trash"></i> <?= __('nod.page.delete') ?>
                         </button>
                     </div>
                 </div>
@@ -1945,7 +1945,7 @@ include("load/i18n.php");
                 <!-- Arrival Fixes Section -->
                 <div class="nod-section" id="section-flow-arr-fixes">
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-arr-fixes')">
-                        <span class="nod-section-title"><i class="fas fa-plane-arrival mr-2"></i>Arrival Fixes</span>
+                        <span class="nod-section-title"><i class="fas fa-plane-arrival mr-2"></i><?= __('nod.page.arrivalFixes') ?></span>
                         <span class="nod-section-badge" id="flow-arr-fixes-count">0</span>
                         <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'ARRIVAL')" title="Add fix">
                             <i class="fas fa-plus"></i>
@@ -1953,7 +1953,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="flow-arr-fixes-list">
-                            <div class="nod-empty"><p>No arrival fixes configured</p></div>
+                            <div class="nod-empty"><p><?= __('nod.page.noArrivalFixes') ?></p></div>
                         </div>
                     </div>
                 </div>
@@ -1961,7 +1961,7 @@ include("load/i18n.php");
                 <!-- Departure Fixes Section -->
                 <div class="nod-section" id="section-flow-dep-fixes">
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-dep-fixes')">
-                        <span class="nod-section-title"><i class="fas fa-plane-departure mr-2"></i>Departure Fixes</span>
+                        <span class="nod-section-title"><i class="fas fa-plane-departure mr-2"></i><?= __('nod.page.departureFixes') ?></span>
                         <span class="nod-section-badge" id="flow-dep-fixes-count">0</span>
                         <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'DEPARTURE')" title="Add fix">
                             <i class="fas fa-plus"></i>
@@ -1969,7 +1969,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="flow-dep-fixes-list">
-                            <div class="nod-empty"><p>No departure fixes configured</p></div>
+                            <div class="nod-empty"><p><?= __('nod.page.noDepartureFixes') ?></p></div>
                         </div>
                     </div>
                 </div>
@@ -1977,7 +1977,7 @@ include("load/i18n.php");
                 <!-- Gates Section -->
                 <div class="nod-section" id="section-flow-gates">
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-gates')">
-                        <span class="nod-section-title"><i class="fas fa-door-open mr-2"></i>Gates</span>
+                        <span class="nod-section-title"><i class="fas fa-door-open mr-2"></i><?= __('nod.page.gates') ?></span>
                         <span class="nod-section-badge" id="flow-gates-count">0</span>
                         <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddGate()" title="Add gate">
                             <i class="fas fa-plus"></i>
@@ -1985,7 +1985,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="flow-gates-list">
-                            <div class="nod-empty"><p>No gates configured</p></div>
+                            <div class="nod-empty"><p><?= __('nod.page.noGates') ?></p></div>
                         </div>
                     </div>
                 </div>
@@ -1993,7 +1993,7 @@ include("load/i18n.php");
                 <!-- Procedures Section -->
                 <div class="nod-section" id="section-flow-procedures">
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-procedures')">
-                        <span class="nod-section-title"><i class="fas fa-route mr-2"></i>Procedures</span>
+                        <span class="nod-section-title"><i class="fas fa-route mr-2"></i><?= __('nod.page.procedures') ?></span>
                         <span class="nod-section-badge" id="flow-procedures-count">0</span>
                         <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('PROCEDURE', 'ARRIVAL')" title="Add procedure">
                             <i class="fas fa-plus"></i>
@@ -2001,7 +2001,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="flow-procedures-list">
-                            <div class="nod-empty"><p>No procedures configured</p></div>
+                            <div class="nod-empty"><p><?= __('nod.page.noProcedures') ?></p></div>
                         </div>
                     </div>
                 </div>
@@ -2009,7 +2009,7 @@ include("load/i18n.php");
                 <!-- Routes Section -->
                 <div class="nod-section" id="section-flow-routes">
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-routes')">
-                        <span class="nod-section-title"><i class="fas fa-map-signs mr-2"></i>Routes</span>
+                        <span class="nod-section-title"><i class="fas fa-map-signs mr-2"></i><?= __('nod.page.routes') ?></span>
                         <span class="nod-section-badge" id="flow-routes-count">0</span>
                         <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('ROUTE', 'ARRIVAL')" title="Add route">
                             <i class="fas fa-plus"></i>
@@ -2017,7 +2017,7 @@ include("load/i18n.php");
                     </div>
                     <div class="nod-section-body">
                         <div class="nod-section-body-inner" id="flow-routes-list">
-                            <div class="nod-empty"><p>No routes configured</p></div>
+                            <div class="nod-empty"><p><?= __('nod.page.noRoutes') ?></p></div>
                         </div>
                     </div>
                 </div>
@@ -2025,10 +2025,10 @@ include("load/i18n.php");
                 <!-- Bulk FEA Actions -->
                 <div class="nod-flow-bulk px-2 py-2">
                     <button class="btn btn-sm btn-outline-info btn-block mb-1" onclick="NOD.bulkCreateFEA()" id="flow-btn-monitor-all" disabled>
-                        <i class="fas fa-chart-bar mr-1"></i> Monitor All as FEA
+                        <i class="fas fa-chart-bar mr-1"></i> <?= __('nod.page.monitorAllFea') ?>
                     </button>
                     <button class="btn btn-sm btn-outline-secondary btn-block" onclick="NOD.bulkClearFEA()" id="flow-btn-clear-fea" disabled>
-                        <i class="fas fa-times mr-1"></i> Clear FEAs
+                        <i class="fas fa-times mr-1"></i> <?= __('nod.page.clearFeas') ?>
                     </button>
                 </div>
             </div>
@@ -2055,7 +2055,7 @@ include("load/i18n.php");
             <div class="modal-header border-secondary">
                 <h5 class="modal-title">
                     <i class="fas fa-bullhorn mr-2"></i>
-                    <span id="advisoryModalTitle">New Advisory</span>
+                    <span id="advisoryModalTitle"><?= __('nod.page.newAdvisory') ?></span>
                 </h5>
                 <button type="button" class="close text-light" data-dismiss="modal">
                     <span>&times;</span>
@@ -2067,48 +2067,48 @@ include("load/i18n.php");
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">TYPE</label>
+                                <label class="text-muted small"><?= __('nod.page.type') ?></label>
                                 <select id="advisoryType" class="form-control bg-dark text-light border-secondary" required>
-                                    <option value="OPERATIONS_PLAN">Operations Plan</option>
-                                    <option value="REROUTE">Reroute</option>
+                                    <option value="OPERATIONS_PLAN"><?= __('nod.page.operationsPlan') ?></option>
+                                    <option value="REROUTE"><?= __('nod.page.reroute') ?></option>
                                     <option value="GDP">GDP</option>
                                     <option value="GS">Ground Stop</option>
                                     <option value="AFP">AFP</option>
-                                    <option value="FACILITY_OUTAGE">Facility Outage</option>
+                                    <option value="FACILITY_OUTAGE"><?= __('nod.page.facilityOutage') ?></option>
                                     <option value="WEATHER">Weather</option>
-                                    <option value="GENERAL">General</option>
+                                    <option value="GENERAL"><?= __('nod.page.general') ?></option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">PRIORITY</label>
+                                <label class="text-muted small"><?= __('nod.page.priority') ?></label>
                                 <select id="advisoryPriority" class="form-control bg-dark text-light border-secondary">
-                                    <option value="1">High</option>
-                                    <option value="2" selected>Normal</option>
-                                    <option value="3">Low</option>
+                                    <option value="1"><?= __('nod.page.high') ?></option>
+                                    <option value="2" selected><?= __('nod.page.normal') ?></option>
+                                    <option value="3"><?= __('nod.page.low') ?></option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="text-muted small">SUBJECT</label>
+                        <label class="text-muted small"><?= __('nod.page.subject') ?></label>
                         <input type="text" id="advisorySubject" class="form-control bg-dark text-light border-secondary" required placeholder="Brief subject line">
                     </div>
                     <div class="form-group">
-                        <label class="text-muted small">BODY TEXT</label>
+                        <label class="text-muted small"><?= __('nod.page.bodyText') ?></label>
                         <textarea id="advisoryBody" class="form-control bg-dark text-light border-secondary" rows="6" required placeholder="Full advisory text..."></textarea>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">VALID START (UTC)</label>
+                                <label class="text-muted small"><?= __('nod.page.validStartUtc') ?></label>
                                 <input type="datetime-local" id="advisoryStart" class="form-control bg-dark text-light border-secondary" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">VALID END (UTC) <span class="text-muted">(optional)</span></label>
+                                <label class="text-muted small"><?= __('nod.page.validEndUtc') ?> <span class="text-muted"><?= __('nod.page.optional') ?></span></label>
                                 <input type="datetime-local" id="advisoryEnd" class="form-control bg-dark text-light border-secondary">
                             </div>
                         </div>
@@ -2116,13 +2116,13 @@ include("load/i18n.php");
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">IMPACTED AREA</label>
+                                <label class="text-muted small"><?= __('nod.page.impactedArea') ?></label>
                                 <input type="text" id="advisoryArea" class="form-control bg-dark text-light border-secondary" placeholder="e.g., NY METRO, NE CORRIDOR">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">FACILITIES <span class="text-muted">(comma-separated)</span></label>
+                                <label class="text-muted small"><?= __('nod.page.facilities') ?> <span class="text-muted"><?= __('nod.page.facilitiesHint') ?></span></label>
                                 <input type="text" id="advisoryFacilities" class="form-control bg-dark text-light border-secondary" placeholder="e.g., ZNY, ZDC, ZBW">
                             </div>
                         </div>
@@ -2130,9 +2130,9 @@ include("load/i18n.php");
                 </form>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('nod.page.cancel') ?></button>
                 <button type="button" class="btn btn-primary" onclick="NOD.saveAdvisory()">
-                    <i class="fas fa-save mr-1"></i> Save Advisory
+                    <i class="fas fa-save mr-1"></i> <?= __('nod.page.saveAdvisory') ?>
                 </button>
             </div>
         </div>
@@ -2144,7 +2144,7 @@ include("load/i18n.php");
     <div class="modal-dialog modal-lg">
         <div class="modal-content bg-dark text-light">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="advisoryDetailTitle">Advisory Details</h5>
+                <h5 class="modal-title" id="advisoryDetailTitle"><?= __('nod.page.advisoryDetails') ?></h5>
                 <button type="button" class="close text-light" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
@@ -2153,7 +2153,7 @@ include("load/i18n.php");
                 <!-- Populated dynamically -->
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('nod.page.close') ?></button>
             </div>
         </div>
     </div>
