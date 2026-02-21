@@ -1302,37 +1302,37 @@ include("load/i18n.php");
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-artcc" checked onchange="NOD.toggleLayer('artcc', this.checked)">
                     <span class="nod-layer-color" style="background: #4a9eff;"></span>
-                    <label for="layer-artcc">ARTCC</label>
+                    <label for="layer-artcc"><?= __('nod.page.artccLabel') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-artcc" min="0" max="100" value="70"
-                           title="Opacity" onchange="NOD.setLayerOpacity('artcc', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('artcc', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tracon" onchange="NOD.toggleLayer('tracon', this.checked)">
                     <span class="nod-layer-color" style="background: #28a745;"></span>
-                    <label for="layer-tracon">TRACON</label>
+                    <label for="layer-tracon"><?= __('nod.page.traconLabel') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-tracon" min="0" max="100" value="60"
-                           title="Opacity" onchange="NOD.setLayerOpacity('tracon', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('tracon', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-high" onchange="NOD.toggleLayer('high', this.checked)">
                     <span class="nod-layer-color" style="background: #6f42c1;"></span>
                     <label for="layer-high"><?= __('nod.page.highSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-high" min="0" max="100" value="50"
-                           title="Opacity" onchange="NOD.setLayerOpacity('high', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('high', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-low" onchange="NOD.toggleLayer('low', this.checked)">
                     <span class="nod-layer-color" style="background: #20c997;"></span>
                     <label for="layer-low"><?= __('nod.page.lowSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-low" min="0" max="100" value="50"
-                           title="Opacity" onchange="NOD.setLayerOpacity('low', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('low', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-superhigh" onchange="NOD.toggleLayer('superhigh', this.checked)">
                     <span class="nod-layer-color" style="background: #e83e8c;"></span>
                     <label for="layer-superhigh"><?= __('nod.page.superhighSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-superhigh" min="0" max="100" value="50"
-                           title="Opacity" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
                 </div>
 
                 <!-- Overlays -->
@@ -1342,7 +1342,7 @@ include("load/i18n.php");
                     <span class="nod-layer-color" style="background: #fff;"></span>
                     <label for="layer-traffic"><?= __('nod.page.liveTraffic') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-traffic" min="0" max="100" value="100"
-                           title="Opacity" onchange="NOD.setLayerOpacity('traffic', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('traffic', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-demand" onchange="NOD.toggleDemandLayer(this.checked)">
@@ -1354,7 +1354,7 @@ include("load/i18n.php");
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>
                     <label for="layer-public-routes"><?= __('nod.page.publicReroutes') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-public-routes" min="0" max="100" value="90" 
-                           title="Opacity" onchange="NOD.setLayerOpacity('public-routes', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('public-routes', this.value/100)">
                 </div>
                 <div class="nod-layer-item ml-3">
                     <input type="checkbox" id="layer-route-labels" checked onchange="NOD.toggleRouteLabels(this.checked)">
@@ -1366,26 +1366,26 @@ include("load/i18n.php");
                     <span class="nod-layer-color" style="background: #fd7e14;"></span>
                     <label for="layer-splits"><?= __('nod.page.activeSplits') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-splits" min="0" max="100" value="70" 
-                           title="Opacity" onchange="NOD.setLayerOpacity('splits', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('splits', this.value/100)">
                 </div>
                 <!-- Splits Strata Filters -->
                 <div class="nod-layer-item ml-3" id="splits-strata-filters" style="display: none;">
                     <input type="checkbox" id="layer-splits-low" checked onchange="NOD.toggleSplitsStrata('low', this.checked)">
                     <span class="nod-layer-color" style="background: #20c997;"></span>
-                    <label for="layer-splits-low">Low</label>
+                    <label for="layer-splits-low"><?= __('nod.page.lowStrata') ?></label>
                     <input type="checkbox" id="layer-splits-high" checked onchange="NOD.toggleSplitsStrata('high', this.checked)" class="ml-2">
                     <span class="nod-layer-color" style="background: #6f42c1;"></span>
-                    <label for="layer-splits-high">High</label>
+                    <label for="layer-splits-high"><?= __('nod.page.highStrata') ?></label>
                     <input type="checkbox" id="layer-splits-superhigh" checked onchange="NOD.toggleSplitsStrata('superhigh', this.checked)" class="ml-2">
                     <span class="nod-layer-color" style="background: #e83e8c;"></span>
-                    <label for="layer-splits-superhigh">Super</label>
+                    <label for="layer-splits-superhigh"><?= __('nod.page.superStrata') ?></label>
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-incidents" checked onchange="NOD.toggleLayer('incidents', this.checked)">
                     <span class="nod-layer-color" style="background: #dc3545;"></span>
                     <label for="layer-incidents"><?= __('nod.page.jatocIncidents') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-incidents" min="0" max="100" value="80" 
-                           title="Opacity" onchange="NOD.setLayerOpacity('incidents', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('incidents', this.value/100)">
                 </div>
                 
                 <!-- Weather -->
@@ -1395,21 +1395,21 @@ include("load/i18n.php");
                     <span class="nod-layer-color" style="background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);"></span>
                     <label for="layer-radar"><?= __('nod.page.nexradRadar') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-radar" min="0" max="100" value="60"
-                           title="Opacity" onchange="NOD.setLayerOpacity('radar', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('radar', this.value/100)">
                 </div><!-- /nod-layer-item radar -->
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-facility-flows" checked onchange="NOD.toggleLayer('facility-flows', this.checked)">
                     <span class="nod-layer-color" style="background: #17a2b8;"></span>
                     <label for="layer-facility-flows"><?= __('nod.page.facilityFlows') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-facility-flows" min="0" max="100" value="80"
-                           title="Opacity" onchange="NOD.setLayerOpacity('facility-flows', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('facility-flows', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tmi-status" checked onchange="NOD.toggleLayer('tmi-status', this.checked)">
                     <span class="nod-layer-color" style="background: #dc3545;"></span>
                     <label for="layer-tmi-status"><?= __('nod.page.tmiStatus') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-tmi-status" min="0" max="100" value="80"
-                           title="Opacity" onchange="NOD.setLayerOpacity('tmi-status', this.value/100)">
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('tmi-status', this.value/100)">
                 </div>
                     </div><!-- /nod-toolbar-dropdown-content -->
                 </div><!-- /nod-toolbar-dropdown -->
@@ -1510,11 +1510,11 @@ include("load/i18n.php");
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.originDestination') ?></label>
                     <div class="d-flex">
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mr-1" 
-                               id="nod_filter_origin" placeholder="Origin" title="ARTCC (ZNY) or Airport (KJFK)" 
+                               id="nod_filter_origin" placeholder="<?= __('nod.page.originPlaceholder') ?>" title="<?= __('nod.page.originTooltip') ?>" 
                                style="flex: 1;" onchange="NOD.applyFilters()">
                         <span class="text-muted align-self-center mx-1">→</span>
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" 
-                               id="nod_filter_dest" placeholder="Dest" title="ARTCC (ZMA) or Airport (KMIA)" 
+                               id="nod_filter_dest" placeholder="<?= __('nod.page.destPlaceholder') ?>" title="<?= __('nod.page.destTooltip') ?>" 
                                style="flex: 1;" onchange="NOD.applyFilters()">
                     </div>
                 </div>
@@ -1524,15 +1524,15 @@ include("load/i18n.php");
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.carrierAltitude') ?></label>
                     <div class="d-flex align-items-center">
                         <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mr-2" 
-                               id="nod_filter_carrier" placeholder="Carrier" title="e.g., AAL, UAL" style="width: 70px;" 
+                               id="nod_filter_carrier" placeholder="<?= __('nod.page.carrierPlaceholder') ?>" title="<?= __('nod.page.carrierTooltip') ?>" style="width: 70px;" 
                                onchange="NOD.applyFilters()">
                         <span class="text-muted small mr-1">FL</span>
                         <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary mr-1" 
-                               id="nod_filter_alt_min" placeholder="Min" style="width: 50px;" 
+                               id="nod_filter_alt_min" placeholder="<?= __('nod.page.minPlaceholder') ?>" style="width: 50px;" 
                                onchange="NOD.applyFilters()">
                         <span class="text-muted">-</span>
                         <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary ml-1" 
-                               id="nod_filter_alt_max" placeholder="Max" style="width: 50px;" 
+                               id="nod_filter_alt_max" placeholder="<?= __('nod.page.maxPlaceholder') ?>" style="width: 50px;" 
                                onchange="NOD.applyFilters()">
                     </div>
                 </div>
@@ -1544,16 +1544,16 @@ include("load/i18n.php");
                         <span id="nod_stats_total"><strong>0</strong> <?= __('nod.page.totalLabel') ?></span>
                     </small>
                     <div>
-                        <button class="btn btn-sm btn-outline-info mr-1" onclick="NOD.drawAllFilteredRoutes()" title="Draw routes for all filtered flights">
+                        <button class="btn btn-sm btn-outline-info mr-1" onclick="NOD.drawAllFilteredRoutes()" title="<?= __('nod.page.drawRoutesTooltip') ?>">
                             <i class="fas fa-route"></i><i class="fas fa-plus" style="font-size:8px;margin-left:2px;"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-warning mr-1" onclick="NOD.clearFlightRoutes()" title="Clear all drawn flight routes">
+                        <button class="btn btn-sm btn-outline-warning mr-1" onclick="NOD.clearFlightRoutes()" title="<?= __('nod.page.clearRoutesTooltip') ?>">
                             <i class="fas fa-route"></i><i class="fas fa-times" style="font-size:8px;margin-left:2px;"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary mr-1" onclick="NOD.resetFilters()" title="Clear all filters">
+                        <button class="btn btn-sm btn-outline-secondary mr-1" onclick="NOD.resetFilters()" title="<?= __('nod.page.resetFiltersTooltip') ?>">
                             <i class="fas fa-eraser"></i>
                         </button>
-                        <button class="btn btn-sm btn-info" onclick="NOD.applyFilters()" title="Apply filters">
+                        <button class="btn btn-sm btn-info" onclick="NOD.applyFilters()" title="<?= __('nod.page.applyFiltersTooltip') ?>">
                             <i class="fas fa-check"></i>
                         </button>
                     </div>
@@ -1577,12 +1577,12 @@ include("load/i18n.php");
                     <div class="input-group input-group-sm">
                         <input type="text" class="form-control bg-dark text-light border-secondary"
                                id="demand-monitor-input"
-                               placeholder="e.g. MERIT, J48, KBOS arr via MERIT"
+                               placeholder="<?= __('nod.page.monitorPlaceholder') ?>"
                                onkeydown="if(event.key==='Enter') NODDemandLayer.addMonitorFromInput(this.value)">
                         <div class="input-group-append">
                             <button class="btn btn-outline-info" type="button"
                                     onclick="NODDemandLayer.addMonitorFromInput(document.getElementById('demand-monitor-input').value)"
-                                    title="Add monitor">
+                                    title="<?= __('nod.page.addMonitorTooltip') ?>">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
@@ -1684,7 +1684,7 @@ include("load/i18n.php");
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.timeView') ?></label>
                     <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-2" id="demand-time-now"
-                                onclick="NODDemandLayer.setBucket(null)" title="Show current +60min aggregate">
+                                onclick="NODDemandLayer.setBucket(null)" title="<?= __('nod.page.aggregateTooltip') ?>">
                             <i class="fas fa-clock"></i> <?= __('nod.page.nowPlus60m') ?>
                         </button>
                         <span class="small text-light" id="demand-slider-current">Now+60m</span>
@@ -1742,7 +1742,7 @@ include("load/i18n.php");
             <div class="nod-status">
                 <div class="nod-status-item">
                     <span><?= __('nod.page.tmuOpLevel') ?></span>
-                    <span class="nod-status-badge tmu-none" id="tmuOpsLevelBadge" title="No active event">—</span>
+                    <span class="nod-status-badge tmu-none" id="tmuOpsLevelBadge" title="<?= __('nod.page.noActiveEvent') ?>">—</span>
                 </div>
                 <div class="nod-status-item">
                     <span><?= __('nod.page.jatocOpLevel') ?></span>
@@ -1947,7 +1947,7 @@ include("load/i18n.php");
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-arr-fixes')">
                         <span class="nod-section-title"><i class="fas fa-plane-arrival mr-2"></i><?= __('nod.page.arrivalFixes') ?></span>
                         <span class="nod-section-badge" id="flow-arr-fixes-count">0</span>
-                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'ARRIVAL')" title="Add fix">
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'ARRIVAL')" title="<?= __('nod.page.addFixTooltip') ?>">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -1963,7 +1963,7 @@ include("load/i18n.php");
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-dep-fixes')">
                         <span class="nod-section-title"><i class="fas fa-plane-departure mr-2"></i><?= __('nod.page.departureFixes') ?></span>
                         <span class="nod-section-badge" id="flow-dep-fixes-count">0</span>
-                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'DEPARTURE')" title="Add fix">
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('FIX', 'DEPARTURE')" title="<?= __('nod.page.addFixTooltip') ?>">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -1979,7 +1979,7 @@ include("load/i18n.php");
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-gates')">
                         <span class="nod-section-title"><i class="fas fa-door-open mr-2"></i><?= __('nod.page.gates') ?></span>
                         <span class="nod-section-badge" id="flow-gates-count">0</span>
-                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddGate()" title="Add gate">
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddGate()" title="<?= __('nod.page.addGateTooltip') ?>">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -1995,7 +1995,7 @@ include("load/i18n.php");
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-procedures')">
                         <span class="nod-section-title"><i class="fas fa-route mr-2"></i><?= __('nod.page.procedures') ?></span>
                         <span class="nod-section-badge" id="flow-procedures-count">0</span>
-                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('PROCEDURE', 'ARRIVAL')" title="Add procedure">
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('PROCEDURE', 'ARRIVAL')" title="<?= __('nod.page.addProcedureTooltip') ?>">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -2011,7 +2011,7 @@ include("load/i18n.php");
                     <div class="nod-section-header" onclick="NOD.toggleSection('flow-routes')">
                         <span class="nod-section-title"><i class="fas fa-map-signs mr-2"></i><?= __('nod.page.routes') ?></span>
                         <span class="nod-section-badge" id="flow-routes-count">0</span>
-                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('ROUTE', 'ARRIVAL')" title="Add route">
+                        <button class="btn btn-sm btn-link text-info p-0 ml-auto" onclick="event.stopPropagation(); NOD.showAddFlowElement('ROUTE', 'ARRIVAL')" title="<?= __('nod.page.addRouteTooltip') ?>">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -2042,7 +2042,7 @@ include("load/i18n.php");
     </button>
     
     <!-- Legend Toggle Button (shown when legend is hidden) -->
-    <button class="nod-map-legend-show" id="mapLegendShowBtn" onclick="NOD.toggleMapLegend()" title="Show color legend" style="display: none;">
+    <button class="nod-map-legend-show" id="mapLegendShowBtn" onclick="NOD.toggleMapLegend()" title="<?= __('nod.page.showLegendTooltip') ?>" style="display: none;">
         <i class="fas fa-palette"></i>
     </button>
     
@@ -2093,11 +2093,11 @@ include("load/i18n.php");
                     </div>
                     <div class="form-group">
                         <label class="text-muted small"><?= __('nod.page.subject') ?></label>
-                        <input type="text" id="advisorySubject" class="form-control bg-dark text-light border-secondary" required placeholder="Brief subject line">
+                        <input type="text" id="advisorySubject" class="form-control bg-dark text-light border-secondary" required placeholder="<?= __('nod.page.subjectPlaceholder') ?>">
                     </div>
                     <div class="form-group">
                         <label class="text-muted small"><?= __('nod.page.bodyText') ?></label>
-                        <textarea id="advisoryBody" class="form-control bg-dark text-light border-secondary" rows="6" required placeholder="Full advisory text..."></textarea>
+                        <textarea id="advisoryBody" class="form-control bg-dark text-light border-secondary" rows="6" required placeholder="<?= __('nod.page.bodyPlaceholder') ?>"></textarea>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -2117,13 +2117,13 @@ include("load/i18n.php");
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="text-muted small"><?= __('nod.page.impactedArea') ?></label>
-                                <input type="text" id="advisoryArea" class="form-control bg-dark text-light border-secondary" placeholder="e.g., NY METRO, NE CORRIDOR">
+                                <input type="text" id="advisoryArea" class="form-control bg-dark text-light border-secondary" placeholder="<?= __('nod.page.areaPlaceholder') ?>">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="text-muted small"><?= __('nod.page.facilities') ?> <span class="text-muted"><?= __('nod.page.facilitiesHint') ?></span></label>
-                                <input type="text" id="advisoryFacilities" class="form-control bg-dark text-light border-secondary" placeholder="e.g., ZNY, ZDC, ZBW">
+                                <input type="text" id="advisoryFacilities" class="form-control bg-dark text-light border-secondary" placeholder="<?= __('nod.page.facilitiesPlaceholder') ?>">
                             </div>
                         </div>
                     </div>

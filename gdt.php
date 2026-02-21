@@ -526,20 +526,20 @@ include("load/i18n.php");
                             <div class="perti-stat-section">
                                 <div class="perti-info-sublabel"><?= __('gdt.page.dccRegion') ?></div>
                                 <div class="perti-badge-group">
-                                    <span class="badge badge-light" title="Northeast"><strong>NE</strong> <span id="tmi_stats_dcc_ne">-</span></span>
-                                    <span class="badge badge-light" title="Southeast"><strong>SE</strong> <span id="tmi_stats_dcc_se">-</span></span>
-                                    <span class="badge badge-light" title="Midwest"><strong>MW</strong> <span id="tmi_stats_dcc_mw">-</span></span>
-                                    <span class="badge badge-light" title="South Central"><strong>SC</strong> <span id="tmi_stats_dcc_sc">-</span></span>
-                                    <span class="badge badge-light" title="West"><strong>W</strong> <span id="tmi_stats_dcc_w">-</span></span>
+                                    <span class="badge badge-light" title="<?= __('gdt.page.northeastTooltip') ?>"><strong>NE</strong> <span id="tmi_stats_dcc_ne">-</span></span>
+                                    <span class="badge badge-light" title="<?= __('gdt.page.southeastTooltip') ?>"><strong>SE</strong> <span id="tmi_stats_dcc_se">-</span></span>
+                                    <span class="badge badge-light" title="<?= __('gdt.page.midwestTooltip') ?>"><strong>MW</strong> <span id="tmi_stats_dcc_mw">-</span></span>
+                                    <span class="badge badge-light" title="<?= __('gdt.page.southCentralTooltip') ?>"><strong>SC</strong> <span id="tmi_stats_dcc_sc">-</span></span>
+                                    <span class="badge badge-light" title="<?= __('gdt.page.westTooltip') ?>"><strong>W</strong> <span id="tmi_stats_dcc_w">-</span></span>
                                 </div>
                             </div>
                             <!-- By Airport Tier -->
                             <div class="perti-stat-section">
                                 <div class="perti-info-sublabel"><?= __('gdt.page.airportTier') ?></div>
                                 <div class="perti-badge-group">
-                                    <span class="badge badge-warning text-dark" title="ASPM 82 Airports"><strong>ASPM82</strong> <span id="tmi_stats_aspm82">-</span></span>
-                                    <span class="badge badge-primary" title="OEP 35 Airports"><strong>OEP35</strong> <span id="tmi_stats_oep35">-</span></span>
-                                    <span class="badge badge-danger" title="Core 30 Airports"><strong>Core30</strong> <span id="tmi_stats_core30">-</span></span>
+                                    <span class="badge badge-warning text-dark" title="<?= __('gdt.page.aspm82Tooltip') ?>"><strong>ASPM82</strong> <span id="tmi_stats_aspm82">-</span></span>
+                                    <span class="badge badge-primary" title="<?= __('gdt.page.oep35Tooltip') ?>"><strong>OEP35</strong> <span id="tmi_stats_oep35">-</span></span>
+                                    <span class="badge badge-danger" title="<?= __('gdt.page.core30Tooltip') ?>"><strong>Core30</strong> <span id="tmi_stats_core30">-</span></span>
                                 </div>
                             </div>
                         </div>
@@ -554,7 +554,7 @@ include("load/i18n.php");
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card h-100">
                     <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="Switch between US DCC and Canadian NOC advisory formats">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="AdvisoryConfig.showConfigModal();" data-toggle="tooltip" title="<?= __('gdt.page.advisoryFormatTooltip') ?>">
                             <i class="fas fa-globe mr-1"></i> <span id="advisoryOrgDisplay">DCC</span>
                         </button>
                     </div>
@@ -575,7 +575,7 @@ include("load/i18n.php");
                 <div>
                     <button class="btn btn-sm btn-outline-light mr-1" id="gdt_new_program_btn"
                             onclick="event.stopPropagation(); resetAndNewProgram();"
-                            data-toggle="tooltip" title="Create a new program">
+                            data-toggle="tooltip" title="<?= __('gdt.page.createProgramTooltip') ?>">
                         <i class="fas fa-plus mr-1"></i> <?= __('gdt.page.newProgram') ?>
                     </button>
                     <i class="fas fa-chevron-down" id="gdt_dashboard_chevron"></i>
@@ -659,7 +659,7 @@ include("load/i18n.php");
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_ctl_element"><?= __('gdt.page.ctlElement') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_ctl_element"
-                                   placeholder="ATL">
+                                   placeholder="<?= __('gdt.page.placeholderAirport') ?>">
                         </div>
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_element_type"><?= __('gdt.page.elementType') ?></label>
@@ -671,7 +671,7 @@ include("load/i18n.php");
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_adv_number"><?= __('gdt.page.advNumber') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_adv_number"
-                                   placeholder="001">
+                                   placeholder="<?= __('gdt.page.placeholderAdvisoryNum') ?>">
                         </div>
                     </div>
 
@@ -691,7 +691,7 @@ include("load/i18n.php");
                     <div class="form-group">
                         <label class="tmi-label mb-0" for="gs_airports"><?= __('gdt.page.arrivalAirports') ?></label>
                         <input type="text" class="form-control form-control-sm tmi-airports-input" id="gs_airports"
-                               placeholder="e.g. KATL KBOS KJFK (space-separated list)">
+                               placeholder="<?= __('gdt.page.placeholderAirportsList') ?>">
                         <small class="form-text text-muted">
                             <?= __('gdt.page.arrivalAirportsHelp') ?>
                         </small>
@@ -710,7 +710,7 @@ include("load/i18n.php");
                         <div class="form-group col-md-6">
                             <label class="tmi-label mb-0" for="gs_origin_airports"><?= __('gdt.page.originAirports') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_origin_airports"
-                                   placeholder="optional: origin airport list">
+                                   placeholder="<?= __('gdt.page.placeholderOriginList') ?>">
                         </div>
                     </div>
 
@@ -719,7 +719,7 @@ include("load/i18n.php");
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_flt_incl_carrier"><?= __('gdt.page.fltInclCarrier') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_flt_incl_carrier"
-                                   placeholder="e.g. DAL UAL AAL">
+                                   placeholder="<?= __('gdt.page.placeholderCarriers') ?>">
                         </div>
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_flt_incl_type"><?= __('gdt.page.aircraftType') ?></label>
@@ -732,7 +732,7 @@ include("load/i18n.php");
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_dep_facilities"><?= __('gdt.page.depFacilitiesIncluded') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_dep_facilities"
-                                   placeholder="ALL or ZTL ZJX ZMA">
+                                   placeholder="<?= __('gdt.page.placeholderFacilities') ?>">
                         </div>
                     </div>
 
@@ -741,12 +741,12 @@ include("load/i18n.php");
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_prob_ext"><?= __('gdt.page.probabilityOfExtension') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_prob_ext"
-                                   placeholder="Low / Medium / High">
+                                   placeholder="<?= __('gdt.page.placeholderProbability') ?>">
                         </div>
                         <div class="form-group col-md-8">
                             <label class="tmi-label mb-0" for="gs_impacting_condition"><?= __('gdt.page.impactingCondition') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_impacting_condition"
-                                   placeholder="Primary driver or constraint (WX / EQUIP / VOLUME)">
+                                   placeholder="<?= __('gdt.page.placeholderConstraint') ?>">
                         </div>
                     </div>
 
@@ -773,17 +773,17 @@ include("load/i18n.php");
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptAirports') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_airports"
-                                                   placeholder="e.g. KJFK KLGA KEWR">
+                                                   placeholder="<?= __('gdt.page.placeholderArrAirports') ?>">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptTracons') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_tracons"
-                                                   placeholder="e.g. N90 A80 PCT">
+                                                   placeholder="<?= __('gdt.page.placeholderMeters') ?>">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptArtccs') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_orig_artccs"
-                                                   placeholder="e.g. ZNY ZDC ZBW">
+                                                   placeholder="<?= __('gdt.page.placeholderImpactFacilities') ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -795,17 +795,17 @@ include("load/i18n.php");
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptAirports') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_airports"
-                                                   placeholder="e.g. KORD KDFW">
+                                                   placeholder="<?= __('gdt.page.placeholderImpactArrivals') ?>">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptTracons') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_tracons"
-                                                   placeholder="e.g. C90 D10">
+                                                   placeholder="<?= __('gdt.page.placeholderImpactTracons') ?>">
                                         </div>
                                         <div class="form-group col-md-4 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptArtccs') ?></label>
                                             <input type="text" class="form-control form-control-sm" id="gs_exempt_dest_artccs"
-                                                   placeholder="e.g. ZAU ZFW">
+                                                   placeholder="<?= __('gdt.page.placeholderImpactArtccs') ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -848,7 +848,7 @@ include("load/i18n.php");
                                             <label class="small mb-0"><?= __('gdt.page.exemptDepartingWithin') ?></label>
                                             <div class="input-group input-group-sm">
                                                 <input type="number" class="form-control form-control-sm" id="gs_exempt_depart_within" 
-                                                       placeholder="0" min="0" max="120" value="">
+                                                       placeholder="<?= __('gdt.page.placeholderDelayMin') ?>" min="0" max="120" value="">
                                                 <div class="input-group-append">
                                                     <span class="input-group-text"><?= __('gdt.page.minutes') ?></span>
                                                 </div>
@@ -864,12 +864,12 @@ include("load/i18n.php");
                                         <div class="form-group col-md-6 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptBelowFl') ?></label>
                                             <input type="number" class="form-control form-control-sm" id="gs_exempt_alt_below"
-                                                   placeholder="e.g. 180 (FL180)" min="0" max="600">
+                                                   placeholder="<?= __('gdt.page.placeholderMinAlt') ?>" min="0" max="600">
                                         </div>
                                         <div class="form-group col-md-6 mb-1">
                                             <label class="small mb-0"><?= __('gdt.page.exemptAboveFl') ?></label>
                                             <input type="number" class="form-control form-control-sm" id="gs_exempt_alt_above"
-                                                   placeholder="e.g. 410 (FL410)" min="0" max="600">
+                                                   placeholder="<?= __('gdt.page.placeholderMaxAlt') ?>" min="0" max="600">
                                         </div>
                                     </div>
                                 </div>
@@ -880,7 +880,7 @@ include("load/i18n.php");
                                     <div class="form-group mb-1">
                                         <label class="small mb-0"><?= __('gdt.page.exemptSpecificFlights') ?></label>
                                         <input type="text" class="form-control form-control-sm" id="gs_exempt_flights"
-                                               placeholder="e.g. DAL123 UAL456 AAL789 (space-separated)">
+                                               placeholder="<?= __('gdt.page.placeholderCallsigns') ?>">
                                         <small class="form-text text-muted"><?= __('gdt.page.exemptSpecificFlightsHelp') ?></small>
                                     </div>
                                 </div>
@@ -897,7 +897,7 @@ include("load/i18n.php");
                     <div class="form-group">
                         <label class="tmi-label mb-0" for="gs_comments"><?= __('gdt.page.comments') ?></label>
                         <textarea class="form-control form-control-sm" id="gs_comments" rows="2"
-                                  placeholder="WX / EQUIP / VOLUME, convective impact area, notes"></textarea>
+                                  placeholder="<?= __('gdt.page.placeholderComments') ?>"></textarea>
                     </div>
 
                     <!-- Buttons -->
@@ -920,7 +920,7 @@ include("load/i18n.php");
                     <span class="tmi-section-title">
                         <i class="fas fa-file-alt mr-1"></i> <?= __('gdt.page.advisoryPreviewTitle') ?>
                     </span>
-                    <button class="btn btn-sm btn-outline-secondary" id="gs_copy_advisory_btn" type="button" title="Copy advisory to clipboard for Discord">
+                    <button class="btn btn-sm btn-outline-secondary" id="gs_copy_advisory_btn" type="button" title="<?= __('gdt.page.copyAdvisoryTooltip') ?>">
                         <i class="fas fa-copy"></i> <?= __('gdt.page.copy') ?>
                     </button>
                 </div>
@@ -939,34 +939,34 @@ include("load/i18n.php");
                         <span class="badge badge-pill badge-info ml-2" id="gs_flight_count_badge">0</span>
                     </span>
                     <div>
-                        <span class="badge badge-secondary tmi-badge-status" id="gs_adl_mode_badge" title="Current dataset">ADL: LIVE</span>
+                        <span class="badge badge-secondary tmi-badge-status" id="gs_adl_mode_badge" title="<?= __('gdt.page.currentDatasetTooltip') ?>">ADL: LIVE</span>
                     </div>
                 </div>
                 <div class="card-body p-2">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <small class="text-muted" id="gs_adl_status"></small>
-                        <div class="btn-toolbar" role="toolbar" aria-label="GS workflow controls">
+                        <div class="btn-toolbar" role="toolbar" aria-label="<?= __('gdt.page.gsWorkflowControls') ?>">
                             <div class="btn-group btn-group-sm mr-1" role="group">
-                                <button class="btn btn-outline-info" id="gs_preview_btn" type="button" title="Preview flights from live ADL"><?= __('gdt.page.preview') ?></button>
-                                <button class="btn btn-outline-primary" id="gs_simulate_btn" type="button" title="Simulate GS and calculate EDCTs"><?= __('gdt.page.simulate') ?></button>
-                                <button class="btn btn-outline-success" id="gs_submit_tmi_btn" type="button" title="Run 'Simulate' first, then submit to TMI Publishing" disabled>
+                                <button class="btn btn-outline-info" id="gs_preview_btn" type="button" title="<?= __('gdt.page.previewTooltip') ?>"><?= __('gdt.page.preview') ?></button>
+                                <button class="btn btn-outline-primary" id="gs_simulate_btn" type="button" title="<?= __('gdt.page.simulateTooltip') ?>"><?= __('gdt.page.simulate') ?></button>
+                                <button class="btn btn-outline-success" id="gs_submit_tmi_btn" type="button" title="<?= __('gdt.page.submitToTmiTooltip') ?>" disabled>
                                     <i class="fas fa-paper-plane mr-1"></i><?= __('gdt.page.submitToTmi') ?>
                                 </button>
-                                <button class="btn btn-success" id="gs_send_actual_btn" type="button" title="Activate GS program immediately" disabled>
+                                <button class="btn btn-success" id="gs_send_actual_btn" type="button" title="<?= __('gdt.page.sendActualTooltip') ?>" disabled>
                                     <i class="fas fa-bolt mr-1"></i><?= __('gdt.page.sendActual') ?>
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm mr-1" role="group">
-                                <button class="btn btn-outline-secondary" id="gs_view_flight_list_btn" type="button" title="View GS Flight List">
-                                    <i class="fas fa-list-alt mr-1"></i>List
+                                <button class="btn btn-outline-secondary" id="gs_view_flight_list_btn" type="button" title="<?= __('gdt.page.viewFlightListTooltip') ?>">
+                                    <i class="fas fa-list-alt mr-1"></i><?= __('gdt.page.listButton') ?>
                                 </button>
-                                <button class="btn btn-outline-primary" id="gs_open_model_btn" type="button" title="Open Model GS Data Graph">
-                                    <i class="fas fa-chart-line mr-1"></i>Model
+                                <button class="btn btn-outline-primary" id="gs_open_model_btn" type="button" title="<?= __('gdt.page.openModelTooltip') ?>">
+                                    <i class="fas fa-chart-line mr-1"></i><?= __('gdt.page.modelButton') ?>
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-warning" id="gs_purge_local_btn" type="button" title="Clear simulation sandbox"><?= __('gdt.page.purgeLocal') ?></button>
-                                <button class="btn btn-outline-danger" id="gs_purge_all_btn" type="button" title="Clear all GS controls from live ADL"><?= __('gdt.page.purgeAll') ?></button>
+                                <button class="btn btn-outline-warning" id="gs_purge_local_btn" type="button" title="<?= __('gdt.page.clearSandboxTooltip') ?>"><?= __('gdt.page.purgeLocal') ?></button>
+                                <button class="btn btn-outline-danger" id="gs_purge_all_btn" type="button" title="<?= __('gdt.page.clearAllGsTooltip') ?>"><?= __('gdt.page.purgeAll') ?></button>
                             </div>
                         </div>
                     </div>
@@ -1230,11 +1230,11 @@ include("load/i18n.php");
                         </div>
                         <div class="col-md-3">
                             <label class="tmi-label mb-0"><?= __('gdt.page.filterByOriginArtcc') ?></label>
-                            <input type="text" class="form-control form-control-sm" id="gs_model_filter_artcc" placeholder="e.g., ZTL ZDC ZNY">
+                            <input type="text" class="form-control form-control-sm" id="gs_model_filter_artcc" placeholder="<?= __('gdt.page.placeholderFilterArtcc') ?>">
                         </div>
                         <div class="col-md-3">
                             <label class="tmi-label mb-0"><?= __('gdt.page.filterByCarrier') ?></label>
-                            <input type="text" class="form-control form-control-sm" id="gs_model_filter_carrier" placeholder="e.g., DAL UAL AAL">
+                            <input type="text" class="form-control form-control-sm" id="gs_model_filter_carrier" placeholder="<?= __('gdt.page.placeholderFilterCarrier') ?>">
                         </div>
                     </div>
 
@@ -1257,12 +1257,12 @@ include("load/i18n.php");
                                         </div>
                                         <!-- Granularity Toggle -->
                                         <div class="btn-group btn-group-sm mr-2" role="group">
-                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_15" title="15-minute bins">15</button>
-                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_30" title="30-minute bins">30</button>
-                                            <button class="btn btn-light btn-sm active" id="gs_demand_gran_60" title="Hourly bins">60</button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_15" title="<?= __('gdt.page.bins15min') ?>">15</button>
+                                            <button class="btn btn-outline-light btn-sm" id="gs_demand_gran_30" title="<?= __('gdt.page.bins30min') ?>">30</button>
+                                            <button class="btn btn-light btn-sm active" id="gs_demand_gran_60" title="<?= __('gdt.page.binsHourly') ?>">60</button>
                                         </div>
                                         <!-- Refresh Button -->
-                                        <button class="btn btn-outline-light btn-sm" id="gs_demand_refresh_btn" title="Refresh Demand Data">
+                                        <button class="btn btn-outline-light btn-sm" id="gs_demand_refresh_btn" title="<?= __('gdt.page.refreshDemandTooltip') ?>">
                                             <i class="fas fa-sync-alt"></i>
                                         </button>
                                     </div>
@@ -1301,8 +1301,8 @@ include("load/i18n.php");
                                 <div class="card-header py-1 px-2 bg-info text-white d-flex justify-content-between align-items-center">
                                     <small class="text-uppercase font-weight-bold"><i class="fas fa-chart-bar mr-1"></i> <span id="gs_model_chart_title">Data Graph - Delay Statistics by Hour</span></small>
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-light btn-sm" id="gs_model_chart_type_bar" title="Bar Chart"><i class="fas fa-chart-bar"></i></button>
-                                        <button class="btn btn-outline-light btn-sm" id="gs_model_chart_type_line" title="Line Chart"><i class="fas fa-chart-line"></i></button>
+                                        <button class="btn btn-light btn-sm" id="gs_model_chart_type_bar" title="<?= __('gdt.page.barChartTooltip') ?>"><i class="fas fa-chart-bar"></i></button>
+                                        <button class="btn btn-outline-light btn-sm" id="gs_model_chart_type_line" title="<?= __('gdt.page.lineChartTooltip') ?>"><i class="fas fa-chart-line"></i></button>
                                     </div>
                                 </div>
                                 <div class="card-body p-2">
@@ -1522,7 +1522,7 @@ include("load/i18n.php");
                 <h5 class="modal-title" id="ecr_modal_label">
                     <i class="fas fa-clock mr-2"></i><?= __('gdt.page.ecrTitle') ?>
                 </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="<?= __('gdt.page.closeLabel') ?>">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -1545,15 +1545,15 @@ include("load/i18n.php");
                         <div class="form-row">
                             <div class="form-group col-md-4 mb-1">
                                 <label class="small mb-0"><?= __('gdt.page.acidCallsign') ?></label>
-                                <input type="text" class="form-control form-control-sm" id="ecr_acid" placeholder="e.g. DAL123">
+                                <input type="text" class="form-control form-control-sm" id="ecr_acid" placeholder="<?= __('gdt.page.placeholderAcid') ?>">
                             </div>
                             <div class="form-group col-md-4 mb-1">
                                 <label class="small mb-0"><?= __('gdt.page.originOrig') ?></label>
-                                <input type="text" class="form-control form-control-sm" id="ecr_orig" placeholder="e.g. KATL">
+                                <input type="text" class="form-control form-control-sm" id="ecr_orig" placeholder="<?= __('gdt.page.placeholderOrig') ?>">
                             </div>
                             <div class="form-group col-md-4 mb-1">
                                 <label class="small mb-0"><?= __('gdt.page.destinationDest') ?></label>
-                                <input type="text" class="form-control form-control-sm" id="ecr_dest" placeholder="e.g. KJFK">
+                                <input type="text" class="form-control form-control-sm" id="ecr_dest" placeholder="<?= __('gdt.page.placeholderDest') ?>">
                             </div>
                         </div>
                         <div class="form-row align-items-end">
@@ -1741,7 +1741,7 @@ include("load/i18n.php");
                 <h5 class="modal-title" id="gs_flight_list_modal_label">
                     <i class="fas fa-list-alt mr-2"></i><?= __('gdt.page.gsFlightListTitle') ?>
                 </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="<?= __('gdt.page.closeLabel') ?>">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -1831,13 +1831,13 @@ include("load/i18n.php");
                         <span class="badge badge-info ml-2" id="gs_flt_list_count_badge">0 flights</span>
                     </div>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" id="gs_flt_list_copy_btn" type="button" title="Copy to clipboard">
+                        <button class="btn btn-outline-secondary" id="gs_flt_list_copy_btn" type="button" title="<?= __('gdt.page.copyToClipboardTooltip') ?>">
                             <i class="fas fa-copy"></i> <?= __('gdt.page.copy') ?>
                         </button>
-                        <button class="btn btn-outline-secondary" id="gs_flt_list_export_csv_btn" type="button" title="Export as CSV">
+                        <button class="btn btn-outline-secondary" id="gs_flt_list_export_csv_btn" type="button" title="<?= __('gdt.page.exportCsvTooltip') ?>">
                             <i class="fas fa-file-csv"></i> <?= __('gdt.page.csv') ?>
                         </button>
-                        <button class="btn btn-outline-secondary" id="gs_flt_list_print_btn" type="button" title="Print flight list">
+                        <button class="btn btn-outline-secondary" id="gs_flt_list_print_btn" type="button" title="<?= __('gdt.page.printFlightListTooltip') ?>">
                             <i class="fas fa-print"></i> <?= __('gdt.page.print') ?>
                         </button>
                     </div>
@@ -2017,7 +2017,7 @@ include("load/i18n.php");
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold"><?= __('gdt.page.extensionComments') ?></label>
-                    <textarea class="form-control form-control-sm" id="gdt_extend_comments" rows="2" placeholder="Extension reason..."></textarea>
+                    <textarea class="form-control form-control-sm" id="gdt_extend_comments" rows="2" placeholder="<?= __('gdt.page.placeholderExtensionReason') ?>"></textarea>
                 </div>
                 <!-- Advisory Preview -->
                 <div class="form-group">
@@ -2054,11 +2054,11 @@ include("load/i18n.php");
                 <div class="form-row">
                     <div class="form-group col-md-4">
                         <label class="font-weight-bold"><?= __('gdt.page.programRateArrHr') ?></label>
-                        <input type="number" class="form-control form-control-sm" id="gdt_revise_rate" min="1" max="120" placeholder="e.g. 36">
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_rate" min="1" max="120" placeholder="<?= __('gdt.page.placeholderRate') ?>">
                     </div>
                     <div class="form-group col-md-4">
                         <label class="font-weight-bold"><?= __('gdt.page.delayCapMinutes') ?></label>
-                        <input type="number" class="form-control form-control-sm" id="gdt_revise_delay_cap" min="0" max="600" placeholder="e.g. 300">
+                        <input type="number" class="form-control form-control-sm" id="gdt_revise_delay_cap" min="0" max="600" placeholder="<?= __('gdt.page.placeholderDelayCap') ?>">
                     </div>
                     <div class="form-group col-md-4">
                         <label class="font-weight-bold"><?= __('gdt.page.newEndTimeUtc') ?></label>
@@ -2088,7 +2088,7 @@ include("load/i18n.php");
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold"><?= __('gdt.page.revisionComments') ?></label>
-                    <textarea class="form-control form-control-sm" id="gdt_revise_comments" rows="2" placeholder="What changed and why..."></textarea>
+                    <textarea class="form-control form-control-sm" id="gdt_revise_comments" rows="2" placeholder="<?= __('gdt.page.placeholderChangedWhy') ?>"></textarea>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold"><?= __('gdt.page.advisoryPreviewLabel') ?></label>
@@ -2151,11 +2151,11 @@ include("load/i18n.php");
                         </div>
                         <div class="form-group col-md-4">
                             <label class="font-weight-bold"><?= __('gdt.page.programRateArrHr') ?></label>
-                            <input type="number" class="form-control form-control-sm" id="gdt_transition_rate" min="1" max="120" placeholder="e.g. 36">
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_rate" min="1" max="120" placeholder="<?= __('gdt.page.placeholderTransitionRate') ?>">
                         </div>
                         <div class="form-group col-md-4">
                             <label class="font-weight-bold"><?= __('gdt.page.reserveRate') ?></label>
-                            <input type="number" class="form-control form-control-sm" id="gdt_transition_reserve" min="0" max="30" placeholder="GAAP/UDP only">
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_reserve" min="0" max="30" placeholder="<?= __('gdt.page.placeholderReserve') ?>">
                         </div>
                     </div>
                     <div class="form-row">
@@ -2165,7 +2165,7 @@ include("load/i18n.php");
                         </div>
                         <div class="form-group col-md-4">
                             <label class="font-weight-bold"><?= __('gdt.page.delayCapMinutes') ?></label>
-                            <input type="number" class="form-control form-control-sm" id="gdt_transition_delay_cap" min="0" max="600" value="180" placeholder="e.g. 300">
+                            <input type="number" class="form-control form-control-sm" id="gdt_transition_delay_cap" min="0" max="600" value="180" placeholder="<?= __('gdt.page.placeholderTransitionDelay') ?>">
                         </div>
                         <div class="form-group col-md-4">
                             <label class="font-weight-bold"><?= __('gdt.page.impactingConditionLabel') ?></label>
@@ -2180,7 +2180,7 @@ include("load/i18n.php");
                     </div>
                     <div class="form-group">
                         <label class="font-weight-bold"><?= __('gdt.page.extensionComments') ?></label>
-                        <textarea class="form-control form-control-sm" id="gdt_transition_comments" rows="2" placeholder="e.g. ARR 4R, DEP 4R."></textarea>
+                        <textarea class="form-control form-control-sm" id="gdt_transition_comments" rows="2" placeholder="<?= __('gdt.page.placeholderTransitionComments') ?>"></textarea>
                     </div>
                 </div>
 

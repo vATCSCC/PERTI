@@ -844,7 +844,7 @@ include("load/i18n.php");
                     <div class="form-group mb-0" id="phase-filter-inline-container">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <label class="demand-label mb-0"><?= __('demand.page.flightStatus') ?></label>
-                            <button type="button" class="phase-filter-popout-btn" id="phase-filter-popout-btn" title="Pop out to floating panel">
+                            <button type="button" class="phase-filter-popout-btn" id="phase-filter-popout-btn" title="<?= __('demand.page.popoutTooltip') ?>">
                                 <i class="fas fa-external-link-alt"></i>
                             </button>
                         </div>
@@ -1081,7 +1081,7 @@ include("load/i18n.php");
                         <i class="fas fa-list mr-1"></i> <?= __('demand.page.flightSummary') ?>
                         <span class="badge badge-light ml-2" id="demand_flight_count" style="color: #2c3e50;">0 <?= __('demand.page.flights') ?></span>
                     </span>
-                    <button class="btn btn-sm btn-outline-light" id="demand_toggle_flights" type="button" title="Toggle flight details">
+                    <button class="btn btn-sm btn-outline-light" id="demand_toggle_flights" type="button" title="<?= __('demand.page.toggleFlightsTooltip') ?>">
                         <i class="fas fa-chevron-down"></i>
                     </button>
                 </div>
@@ -1173,7 +1173,7 @@ include("load/i18n.php");
         if ($(this).is(':checked')) {
             statusEl.text('15s').removeClass('demand-status-paused').addClass('demand-status-active');
         } else {
-            statusEl.text('Paused').removeClass('demand-status-active').addClass('demand-status-paused');
+            statusEl.text('<?= __('demand.page.paused') ?>').removeClass('demand-status-active').addClass('demand-status-paused');
         }
     });
 
