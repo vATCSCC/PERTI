@@ -298,15 +298,15 @@ include("load/i18n.php");
         <div class="left-col">
             <div>
                 <div class="section-header green"><?= __('jatoc.page.potus') ?> <button class="btn btn-sm btn-link text-white float-right py-0 px-1" onclick="JATOC.editDailyOps('POTUS')" style="font-size:0.7rem"><i class="fas fa-edit"></i></button></div>
-                <div class="ops-calendar" id="potusCalendar"><div class="text-muted small p-2">Loading...</div></div>
+                <div class="ops-calendar" id="potusCalendar"><div class="text-muted small p-2"><?= __('common.loading') ?></div></div>
             </div>
             <div>
                 <div class="section-header green"><?= __('jatoc.page.space') ?> <button class="btn btn-sm btn-link text-white float-right py-0 px-1" onclick="JATOC.editDailyOps('SPACE')" style="font-size:0.7rem"><i class="fas fa-edit"></i></button></div>
-                <div class="ops-calendar" id="spaceCalendar"><div class="text-muted small p-2">Loading...</div></div>
+                <div class="ops-calendar" id="spaceCalendar"><div class="text-muted small p-2"><?= __('common.loading') ?></div></div>
             </div>
             <div style="flex:1">
                 <div class="section-header green"><?= __('jatoc.page.vatusaEvents') ?></div>
-                <div class="vatusa-section" id="vatusaEvents" style="max-height:none; height:calc(100% - 26px);"><div class="text-muted small">Loading...</div></div>
+                <div class="vatusa-section" id="vatusaEvents" style="max-height:none; height:calc(100% - 26px);"><div class="text-muted small"><?= __('common.loading') ?></div></div>
             </div>
         </div>
         
@@ -321,7 +321,7 @@ include("load/i18n.php");
                     <div class="jatoc-map-legend-item"><div class="jatoc-map-legend-dot" style="background-color: #3b82f6;"></div><?= __('jatoc.page.legendAtcLimited') ?></div>
                     <div class="jatoc-map-legend-item"><div class="jatoc-map-legend-dot" style="background-color: #8b5cf6;"></div><?= __('jatoc.page.legendNonResponsive') ?></div>
                     <hr style="border-color: #4b5563; margin: 4px 0;">
-                    <div style="font-size: 0.55rem; color: #9ca3af;">NEXRAD (dBZ)</div>
+                    <div style="font-size: 0.55rem; color: #9ca3af;"><?= __('jatoc.page.nexradDbz') ?></div>
                     <div style="display: flex; gap: 1px;">
                         <div style="width: 12px; height: 8px; background: #02fd02;" title="20"></div>
                         <div style="width: 12px; height: 8px; background: #fdf802;" title="35"></div>
@@ -339,7 +339,7 @@ include("load/i18n.php");
             <div style="background:#1e293b; border-radius: 0 0 4px 4px; flex:1; overflow-y: auto;">
                 <table class="table table-sm table-dark mb-0 personnel-table">
                     <thead><tr><th style="width:55px; color:#94a3b8"><?= __('jatoc.page.colElem') ?></th><th style="width:35px; color:#94a3b8"><?= __('jatoc.page.colOis') ?></th><th style="color:#94a3b8"><?= __('jatoc.page.colName') ?></th></tr></thead>
-                    <tbody id="personnelTableBody"><tr><td colspan="3" class="text-center text-muted py-2">Loading...</td></tr></tbody>
+                    <tbody id="personnelTableBody"><tr><td colspan="3" class="text-center text-muted py-2"><?= __('common.loading') ?></td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -370,7 +370,7 @@ include("load/i18n.php");
                 <th data-sort="start_utc"><?= __('jatoc.page.colStart') ?> <i class="fas fa-sort sort-icon"></i></th>
                 <th style="width:180px; text-align:center; cursor:default"><?= __('jatoc.page.colQuickActions') ?></th>
             </tr></thead>
-        <tbody id="eventsTableBody"><tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr></tbody></table>
+        <tbody id="eventsTableBody"><tr><td colspan="7" class="text-center text-muted py-4"><?= __('common.loading') ?></td></tr></tbody></table>
     </div>
 </div>
 
@@ -444,12 +444,12 @@ include("load/i18n.php");
                 </div>
                 <div class="custom-facility-row" id="customFacilityRow">
                     <div style="flex:1">
-                        <label class="small text-muted">NAME</label>
-                        <input type="text" id="customFacilityName" class="form-control form-control-dark form-control-sm" placeholder="Organization Name">
+                        <label class="small text-muted"><?= __('jatoc.page.customName') ?></label>
+                        <input type="text" id="customFacilityName" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.customNamePlaceholder') ?>">
                     </div>
                     <div style="width:100px">
-                        <label class="small text-muted">CODE</label>
-                        <input type="text" id="customFacilityCode" class="form-control form-control-dark form-control-sm" placeholder="CODE" maxlength="10" style="text-transform:uppercase">
+                        <label class="small text-muted"><?= __('jatoc.page.customCode') ?></label>
+                        <input type="text" id="customFacilityCode" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.customCodePlaceholder') ?>" maxlength="10" style="text-transform:uppercase">
                     </div>
                 </div>
                 <div class="row mt-2">
@@ -524,7 +524,7 @@ include("load/i18n.php");
                         <div class="section-header slate" style="font-size:0.7rem"><?= __('jatoc.page.remarksHeader') ?></div>
                         <div id="detailsRemarks" class="mb-2">-</div>
                         <div class="section-header slate" style="font-size:0.7rem"><?= __('jatoc.page.updateHistory') ?></div>
-                        <div id="detailsUpdates" style="max-height: 200px; overflow-y: auto; background:#0f172a; border-radius:0 0 4px 4px; padding:6px;"><div class="text-muted text-center py-2">Loading...</div></div>
+                        <div id="detailsUpdates" style="max-height: 200px; overflow-y: auto; background:#0f172a; border-radius:0 0 4px 4px; padding:6px;"><div class="text-muted text-center py-2"><?= __('common.loading') ?></div></div>
                     </div>
                     <div class="col-lg-4">
                         <div class="section-header indigo" style="font-size:0.7rem"><?= __('jatoc.page.addUpdate') ?></div>
@@ -537,7 +537,7 @@ include("load/i18n.php");
                                 <option value="RESOLUTION"><?= __('jatoc.page.updateTypeResolution') ?></option>
                                 <option value="COORDINATION"><?= __('jatoc.page.updateTypeCoordination') ?></option>
                             </select>
-                            <textarea id="updateRemarks" class="form-control form-control-dark form-control-sm mb-2" rows="2" placeholder="&lt; text &gt; for priority" style="font-family: 'Courier New', monospace;"></textarea>
+                            <textarea id="updateRemarks" class="form-control form-control-dark form-control-sm mb-2" rows="2" placeholder="<?= __('jatoc.page.updatePlaceholder') ?>" style="font-family: 'Courier New', monospace;"></textarea>
                             <button class="btn btn-block btn-jatoc btn-sm" onclick="JATOC.addUpdate()"><?= __('jatoc.page.addUpdateBtn') ?></button>
                         </div>
                         <div class="section-header ops-change" style="font-size:0.7rem"><?= __('jatoc.page.changeOpsLevel') ?></div>
@@ -629,7 +629,7 @@ include("load/i18n.php");
                     <div class="text-muted text-center py-3"><?= __('jatoc.page.enterCriteria') ?></div>
                 </div>
             </div>
-            <div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button></div>
+            <div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('jatoc.page.close') ?></button></div>
         </div>
     </div>
 </div>
@@ -637,25 +637,25 @@ include("load/i18n.php");
 <!-- Daily Ops Edit Modal -->
 <div class="modal fade modal-jatoc" id="dailyOpsModal" tabindex="-1">
     <div class="modal-dialog"><div class="modal-content">
-        <div class="modal-header py-2"><h5 class="modal-title">Edit <span id="dailyOpsTypeLabel">-</span></h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+        <div class="modal-header py-2"><h5 class="modal-title"><?= __('jatoc.page.editDailyOps') ?> <span id="dailyOpsTypeLabel">-</span></h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
         <div class="modal-body py-2">
             <input type="hidden" id="dailyOpsType">
-            <textarea id="dailyOpsContent" class="form-control form-control-dark" rows="5" placeholder="Enter custom content (blank = auto)"></textarea>
+            <textarea id="dailyOpsContent" class="form-control form-control-dark" rows="5" placeholder="<?= __('jatoc.page.dailyOpsPlaceholder') ?>"></textarea>
         </div>
-        <div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button><button type="button" class="btn btn-jatoc btn-sm" onclick="JATOC.saveDailyOps()">Save</button></div>
+        <div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('jatoc.page.cancel') ?></button><button type="button" class="btn btn-jatoc btn-sm" onclick="JATOC.saveDailyOps()"><?= __('jatoc.page.save') ?></button></div>
     </div></div>
 </div>
 
 <!-- Personnel Edit Modal -->
 <div class="modal fade modal-jatoc" id="personnelModal" tabindex="-1">
     <div class="modal-dialog modal-sm"><div class="modal-content">
-        <div class="modal-header py-2"><h5 class="modal-title">Edit <span id="personnelElement">-</span></h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+        <div class="modal-header py-2"><h5 class="modal-title"><?= __('jatoc.page.editPersonnel') ?> <span id="personnelElement">-</span></h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
         <div class="modal-body py-2">
             <input type="hidden" id="personnelElementInput">
-            <div class="row"><div class="col-4"><label class="small text-muted">INIT</label><input type="text" id="personnelInitials" class="form-control form-control-dark form-control-sm" maxlength="4"></div>
-            <div class="col-8"><label class="small text-muted">NAME</label><input type="text" id="personnelName" class="form-control form-control-dark form-control-sm"></div></div>
+            <div class="row"><div class="col-4"><label class="small text-muted"><?= __('jatoc.page.personnelInit') ?></label><input type="text" id="personnelInitials" class="form-control form-control-dark form-control-sm" maxlength="4"></div>
+            <div class="col-8"><label class="small text-muted"><?= __('jatoc.page.personnelName') ?></label><input type="text" id="personnelName" class="form-control form-control-dark form-control-sm"></div></div>
         </div>
-        <div class="modal-footer py-1"><button type="button" class="btn btn-outline-danger btn-sm mr-auto" onclick="JATOC.clearPersonnel()">Clear</button><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button><button type="button" class="btn btn-jatoc btn-sm" onclick="JATOC.savePersonnel()">Save</button></div>
+        <div class="modal-footer py-1"><button type="button" class="btn btn-outline-danger btn-sm mr-auto" onclick="JATOC.clearPersonnel()"><?= __('jatoc.page.clear') ?></button><button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('jatoc.page.cancel') ?></button><button type="button" class="btn btn-jatoc btn-sm" onclick="JATOC.savePersonnel()"><?= __('jatoc.page.save') ?></button></div>
     </div></div>
 </div>
 

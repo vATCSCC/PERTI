@@ -2262,7 +2262,7 @@ input[type="datetime-local"] {
             <div class="mode-content" id="mode-scheduled">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <label class="mb-0 text-light" style="font-size: 11px;"><?= __('splits.page.upcomingSplitConfigs') ?></label>
-                    <button class="btn btn-xs btn-outline-secondary" id="refresh-scheduled-btn" title="Refresh">
+                    <button class="btn btn-xs btn-outline-secondary" id="refresh-scheduled-btn" title="<?= __('common.refresh') ?>">
                         <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
