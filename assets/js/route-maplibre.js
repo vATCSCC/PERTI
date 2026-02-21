@@ -5484,57 +5484,60 @@ $(document).ready(function() {
 
     const ADV_US_FACILITY_CODES = ADV_FACILITY_CODES;
 
-    // Check if token is an ARTCC (Z + 2 chars)
+    // Check if token is an ARTCC/FIR/ACC (international)
+    // US ARTCCs: Z + 2 alpha (ZNY, ZDC, ZMA)
+    // Canadian FIRs: CZ + 2 alpha (CZYZ, CZUL, CZQX)
+    // ICAO FIR/UIR codes: 4-letter codes checked against known patterns
     function advIsArtcc(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        return /^Z[A-Z]{2}$/.test(t);
+        if (/^Z[A-Z]{2}$/.test(t)) {return true;}    // US ARTCCs
+        if (/^CZ[A-Z]{2}$/.test(t)) {return true;}   // Canadian FIRs (CZYZ, CZUL, etc.)
+        return false;
     }
 
-    // Check if token is a TRACON (letter + 2 digits)
+    // Check if token is a TRACON/TCA (letter + 2 digits)
     function advIsTracon(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         return /^[A-Z][0-9]{2}$/.test(t);
     }
 
-    // Check if token is an airport (4 chars with ICAO prefix)
-    // K = US, C = Canada, P = Pacific, M = Mexico/Central America
-    // Also handle European (E, L), Asian (R, Z not ARTCC)
+    // Check if token is an airport — all 4-letter all-alpha ICAO codes
+    // ICAO airports are always 4 alpha chars (KJFK, EGLL, TJSJ, TBPB, MDCS, etc.)
+    // No conflict: VORs=3 chars, fixes=5 chars, airways=alpha+digits, ARTCCs=3 chars
+    // Canadian FIRs (CZ**) are excluded by checking advIsArtcc first in callers
     function advIsAirport(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         if (!/^[A-Z]{4}$/.test(t)) {return false;}
-        // US airports start with K
-        if (/^K[A-Z]{3}$/.test(t)) {return true;}
-        // Canadian airports start with C (but not like CABLO which is a fix)
-        if (/^CY[A-Z]{2}$/.test(t)) {return true;}  // CYYZ, CYUL, etc.
-        if (/^CZ[A-Z]{2}$/.test(t)) {return true;}  // CZ airports
-        // Pacific (Hawaii, Guam, etc.) start with P
-        if (/^P[A-Z]{3}$/.test(t)) {return true;}
-        // Mexico starts with MM
-        if (/^MM[A-Z]{2}$/.test(t)) {return true;}
-        // Don't match generic 4-letter codes - those are likely fixes
-        return false;
+        // Exclude Canadian FIR codes (handled by advIsArtcc)
+        if (/^CZ[A-Z]{2}$/.test(t)) {return false;}
+        return true;
     }
 
-    // Check if token is any facility (ARTCC, TRACON, or Airport)
+    // Check if token is any facility (ARTCC/FIR, TRACON/TCA, or Airport)
+    // Check order: ARTCC first (so CZ** FIRs aren't misclassified as airports)
     function advIsFacility(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
         if (!t) {return false;}
-        if (advIsAirport(t)) {return true;}  // Check with proper airport logic
-        if (/^Z[A-Z]{2}$/.test(t)) {return true;}  // ARTCC
-        if (/^[A-Z][0-9]{2}$/.test(t)) {return true;}  // TRACON
+        if (advIsArtcc(t)) {return true;}
+        if (advIsAirport(t)) {return true;}
+        if (advIsTracon(t)) {return true;}
         return false;
     }
 
-    // Check if token is an airspace element (not a NAVAID/fix)
-    // Airways: J###, Q###, V###, T###, etc.
+    // Check if token is an airway (ICAO standard)
+    // Single prefix: A, B, G, H, J, L, M, N, P, Q, R, T, U, V, W, Y + digits
+    // Double prefix: UA, UB, UG, UL, UM, UR, UT, etc. (upper airspace) + digits
+    // Caribbean/local: RTE + digits (RTE4, RTE7, RTE12)
     function advIsAirway(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        return /^[JQVT]\d+$/.test(t);
+        if (/^[A-Z]{1,2}\d{1,4}$/.test(t)) {return true;}
+        if (/^RTE\d+$/.test(t)) {return true;}
+        return false;
     }
 
     // Check if token is a NAVAID or fix (not facility, not airway, not DP/STAR)
@@ -6271,12 +6274,13 @@ $(document).ready(function() {
                 // Skip airways - they are NOT facilities
                 if (advIsAirway(clean)) {continue;}
 
-                if (advIsAirport(clean)) {
-                    facilityIdxs.push(i);
-                    airportIdxs.push(i);
-                } else if (advIsArtcc(clean)) {
+                // Check ARTCC/FIR first so CZ** codes aren't misclassified as airports
+                if (advIsArtcc(clean)) {
                     facilityIdxs.push(i);
                     artccIdxs.push(i);
+                } else if (advIsAirport(clean)) {
+                    facilityIdxs.push(i);
+                    airportIdxs.push(i);
                 } else if (advIsTracon(clean)) {
                     facilityIdxs.push(i);
                 }
