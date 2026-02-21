@@ -1232,6 +1232,25 @@
       "transitionToGdp": "Transition to GDP",
       "userRequest": "User request",
       "weatherImprovement": "Weather improvement"
+    },
+    "rerouteBuilder": {
+      "filtersDetected": "Filters Detected",
+      "filtersApplied": "Applied {count} automatic filter(s) to overlapping routes.",
+      "noFiltersNeeded": "No Filters Needed",
+      "noOverlapping": "No overlapping ARTCC/airport routes detected.",
+      "needMoreRoutes": "Need More Routes",
+      "needMoreRoutesText": "Need at least 2 routes to detect common segments.",
+      "noPivotWaypoints": "No Pivot Waypoints Found",
+      "noPivotWaypointsText": "No waypoint found in at least 3 routes (or 30% of {count} routes).",
+      "noPivotWaypointsHint": "Routes will be displayed grouped by origin and destination.",
+      "noPreview": "No Preview",
+      "noPreviewText": "Generate a preview first before copying.",
+      "copyFailed": "Copy Failed",
+      "copyFailedText": "Could not copy to clipboard. Please select and copy manually.",
+      "resetForm": "Reset Form?",
+      "resetFormText": "This will clear all fields.",
+      "cancelComingSoon": "Cancel functionality will be implemented shortly",
+      "publishedToProduction": "Entry published to production channels."
     }
   },
   "reroute": {
@@ -1596,6 +1615,20 @@
       "wakeTurbulence": "Wake Turbulence",
       "weightClass": "Weight Class",
       "width": "Width"
+    },
+    "alert": {
+      "shareLinkNotFound": "Share link not found",
+      "shareLinkNotFoundText": "This share link may have been deleted or does not exist.",
+      "mapNotReady": "Please wait for the map to initialize.",
+      "noRoutesForAdvisory": "No routes found to build an advisory.",
+      "noRoutesPlotted": "No Routes Plotted",
+      "noRoutesPlottedText": "Plot some routes first before drafting a TMI reroute advisory.",
+      "plotRoutesFirst": "No routes plotted. Plot routes first, then click the magic wand.",
+      "facilityCalcError": "Error calculating facilities: {message}",
+      "storageError": "Storage Error",
+      "storageErrorText": "Failed to prepare reroute data. Please try again.",
+      "draftError": "Failed to prepare reroute draft: {message}",
+      "preparing": "Preparing..."
     }
   },
   "weather": {

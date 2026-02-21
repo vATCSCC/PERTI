@@ -239,7 +239,7 @@ $(document).ready(function() {
                     if (!data.success || !data.route_text) {
                         console.warn('[MAPLIBRE] Share code not found:', code);
                         if (typeof Swal !== 'undefined') {
-                            Swal.fire({ icon: 'warning', title: 'Share link not found', text: 'This share link may have been deleted or does not exist.' });
+                            Swal.fire({ icon: 'warning', title: PERTII18n.t('route.alert.shareLinkNotFound'), text: PERTII18n.t('route.alert.shareLinkNotFoundText') });
                         }
                         return false;
                     }
@@ -5238,7 +5238,7 @@ $(document).ready(function() {
 
             if (!graphic_map) {
                 console.warn('[ADL-ML] Map not initialized yet.');
-                alert('Please wait for the map to initialize.');
+                alert(PERTII18n.t('route.alert.mapNotReady'));
                 $('#adl_toggle').prop('checked', false);
                 return;
             }
@@ -6349,7 +6349,7 @@ $(document).ready(function() {
         const usedProcedures = collectResult.procedures || [];
 
         if (!routeStrings.length) {
-            alert('No routes found to build an advisory.');
+            alert(PERTII18n.t('route.alert.noRoutesForAdvisory'));
             return;
         }
 
@@ -6717,7 +6717,7 @@ $(document).ready(function() {
         console.log('[ADV-ML] Expanded routes:', routes);
 
         if (!routes || routes.length === 0) {
-            alert('No routes plotted. Plot routes first, then click the magic wand.');
+            alert(PERTII18n.t('route.alert.plotRoutesFirst'));
             return;
         }
 
@@ -6774,7 +6774,7 @@ $(document).ready(function() {
 
         } catch (err) {
             console.error('[ADV-ML] Error calculating facilities:', err);
-            alert('Error calculating facilities: ' + err.message);
+            alert(PERTII18n.t('route.alert.facilityCalcError', { message: err.message }));
         } finally {
             $btn.html(originalHtml).prop('disabled', false);
         }
@@ -6866,9 +6866,9 @@ $(document).ready(function() {
         if (!routeStrings.length) {
             Swal.fire({
                 icon: 'warning',
-                title: 'No Routes Plotted',
-                text: 'Plot some routes first before drafting a TMI reroute advisory.',
-                confirmButtonText: 'OK',
+                title: PERTII18n.t('route.alert.noRoutesPlotted'),
+                text: PERTII18n.t('route.alert.noRoutesPlottedText'),
+                confirmButtonText: PERTII18n.t('common.ok'),
             });
             return;
         }
@@ -6876,7 +6876,7 @@ $(document).ready(function() {
         // Show loading indicator
         const $btn = $('#adv_draft_tmi');
         const originalHtml = $btn.html();
-        $btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Preparing...').prop('disabled', true);
+        $btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> ' + PERTII18n.t('route.alert.preparing')).prop('disabled', true);
 
         try {
             // Collect comprehensive route data
@@ -6964,8 +6964,8 @@ $(document).ready(function() {
                 console.error('[DRAFT-TMI] Failed to store in sessionStorage:', e);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Storage Error',
-                    text: 'Failed to prepare reroute data. Please try again.',
+                    title: PERTII18n.t('route.alert.storageError'),
+                    text: PERTII18n.t('route.alert.storageErrorText'),
                 });
                 return;
             }
@@ -6977,8 +6977,8 @@ $(document).ready(function() {
             console.error('[DRAFT-TMI] Error preparing draft:', err);
             Swal.fire({
                 icon: 'error',
-                title: 'Error',
-                text: 'Failed to prepare reroute draft: ' + err.message,
+                title: PERTII18n.t('common.error'),
+                text: PERTII18n.t('route.alert.draftError', { message: err.message }),
             });
         } finally {
             $btn.html(originalHtml).prop('disabled', false);

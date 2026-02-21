@@ -289,57 +289,57 @@ $perm = true;
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2 selected" data-type="MIT">
                                         <div class="ntml-type-icon"><i class="fas fa-ruler-horizontal"></i></div>
-                                        <div class="small font-weight-bold">MIT</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Miles-In-Trail</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.mit') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.mitDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="MINIT">
                                         <div class="ntml-type-icon"><i class="fas fa-stopwatch"></i></div>
-                                        <div class="small font-weight-bold">MINIT</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Minutes-In-Trail</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.minit') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.minitDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="DELAY">
                                         <div class="ntml-type-icon"><i class="fas fa-clock"></i></div>
-                                        <div class="small font-weight-bold">Delay</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">E/D, A/D, D/D</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.delay') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.delayDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="CONFIG">
                                         <div class="ntml-type-icon"><i class="fas fa-plane-arrival"></i></div>
-                                        <div class="small font-weight-bold">Config</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Airport Config</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.config') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.configDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="STOP">
                                         <div class="ntml-type-icon"><i class="fas fa-hand-paper"></i></div>
-                                        <div class="small font-weight-bold">STOP</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Flow Stoppage</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.stop') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.stopDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="APREQ">
                                         <div class="ntml-type-icon"><i class="fas fa-phone-alt"></i></div>
-                                        <div class="small font-weight-bold">APREQ/CFR</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Call for Release</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.apreqCfr') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.apreqCfrDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="TBM">
                                         <div class="ntml-type-icon"><i class="fas fa-tachometer-alt"></i></div>
-                                        <div class="small font-weight-bold">TBM</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Time-Based Metering</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.tbm') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.tbmDesc') ?></div>
                                     </div>
                                 </div>
                                 <div class="col-md-3 col-6 mb-2">
                                     <div class="card ntml-type-card text-center p-2" data-type="CANCEL">
                                         <div class="ntml-type-icon"><i class="fas fa-times-circle"></i></div>
-                                        <div class="small font-weight-bold">Cancel</div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">Cancel TMI</div>
+                                        <div class="small font-weight-bold"><?= __('tmiPublish.page.cancelType') ?></div>
+                                        <div class="text-muted" style="font-size: 0.65rem;"><?= __('tmiPublish.page.cancelTypeDesc') ?></div>
                                     </div>
                                 </div>
                             </div>
@@ -364,7 +364,7 @@ $perm = true;
                             </span>
                         </div>
                         <div class="card-body">
-                            <pre id="ntml_preview" class="ntml-preview">Enter details to preview...</pre>
+                            <pre id="ntml_preview" class="ntml-preview"><?= __('tmiPublish.page.enterDetailsPreview') ?></pre>
                         </div>
                     </div>
                     
@@ -372,7 +372,7 @@ $perm = true;
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                <i class="fab fa-discord mr-1"></i> <?= __('tmiPublish.page.postToOrgs') ?>
                             </span>
                         </div>
                         <div class="card-body">
@@ -424,11 +424,11 @@ $perm = true;
                             <div class="card-body">
                                 <div class="form-row">
                                     <div class="form-group col-md-4">
-                                        <label class="tmi-label mb-0">Advisory #</label>
+                                        <label class="tmi-label mb-0"><?= __('tmiPublish.page.advisoryNumber') ?></label>
                                         <input type="text" class="form-control" id="adv_number" placeholder="001">
                                     </div>
                                     <div class="form-group col-md-4">
-                                        <label class="tmi-label mb-0">Facility</label>
+                                        <label class="tmi-label mb-0"><?= __('tmiPublish.page.facility') ?></label>
                                         <input type="text" class="form-control" id="adv_facility" value="DCC">
                                     </div>
                                     <div class="form-group col-md-4">
@@ -438,16 +438,16 @@ $perm = true;
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Valid From (UTC)</label>
+                                        <label class="tmi-label mb-0"><?= __('tmiPublish.page.validFromUtc') ?></label>
                                         <input type="datetime-local" class="form-control" id="adv_start" value="<?= $defaultStartDatetime ?>">
                                     </div>
                                     <div class="form-group col-md-6">
-                                        <label class="tmi-label mb-0">Valid Until (UTC)</label>
+                                        <label class="tmi-label mb-0"><?= __('tmiPublish.page.validUntilUtc') ?></label>
                                         <input type="datetime-local" class="form-control" id="adv_end" value="<?= $defaultEndDatetime ?>">
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="tmi-label mb-0">Plan Details</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.planDetails') ?></label>
                                     <textarea class="form-control" id="adv_body" rows="6" placeholder="Operations plan details..."></textarea>
                                 </div>
                             </div>
@@ -469,12 +469,12 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span class="tmi-section-title">
-                                <i class="fas fa-eye mr-1"></i> Advisory Preview
+                                <i class="fas fa-eye mr-1"></i> <?= __('tmiPublish.page.advisoryPreview') ?>
                             </span>
                             <span class="char-count" id="preview_char_count">0 / 2000</span>
                         </div>
                         <div class="card-body">
-                            <pre id="adv_preview" class="tmi-advisory-preview">Select an advisory type to begin...</pre>
+                            <pre id="adv_preview" class="tmi-advisory-preview"><?= __('tmiPublish.page.selectAdvisoryType') ?></pre>
                         </div>
                         <div class="card-footer">
                             <button class="btn btn-sm btn-outline-secondary" id="adv_copy" type="button">
@@ -487,7 +487,7 @@ $perm = true;
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                <i class="fab fa-discord mr-1"></i> <?= __('tmiPublish.page.postToOrgs') ?>
                             </span>
                         </div>
                         <div class="card-body">
@@ -514,7 +514,7 @@ $perm = true;
                     <!-- Reroute Source Info -->
                     <div class="alert alert-info mb-3" id="rerouteSourceInfo" style="display: none;">
                         <i class="fas fa-info-circle mr-1"></i>
-                        <strong>Routes loaded from Route Plotter</strong>
+                        <strong><?= __('tmiPublish.page.routesLoadedFromPlotter') ?></strong>
                         <span id="rerouteRouteCount"></span>
                     </div>
 
@@ -528,21 +528,21 @@ $perm = true;
                         <div class="card-body">
                             <div class="form-row">
                                 <div class="form-group col-md-2">
-                                    <label class="tmi-label mb-0">Advisory #</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.advisoryNumber') ?></label>
                                     <input type="text" class="form-control" id="rr_adv_number"
                                            placeholder="Auto" readonly style="background: #f8f9fa;">
                                 </div>
                                 <div class="form-group col-md-2">
-                                    <label class="tmi-label mb-0">Facility</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.facility') ?></label>
                                     <input type="text" class="form-control" id="rr_facility" value="DCC">
                                 </div>
                                 <div class="form-group col-md-4">
-                                    <label class="tmi-label mb-0">Route Name</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.routeName') ?></label>
                                     <input type="text" class="form-control" id="rr_name"
                                            placeholder="e.g., FEA:N90_TO_MIA_ARS">
                                 </div>
                                 <div class="form-group col-md-2">
-                                    <label class="tmi-label mb-0">Type</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.type') ?></label>
                                     <select class="form-control" id="rr_route_type">
                                         <option value="ROUTE" selected>ROUTE</option>
                                         <option value="FEA">FEA</option>
@@ -553,7 +553,7 @@ $perm = true;
                                     </select>
                                 </div>
                                 <div class="form-group col-md-2">
-                                    <label class="tmi-label mb-0">Compliance</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.compliance') ?></label>
                                     <select class="form-control" id="rr_compliance">
                                         <option value="RQD" selected>RQD</option>
                                         <option value="RMD">RMD</option>
@@ -565,12 +565,12 @@ $perm = true;
 
                             <div class="form-row">
                                 <div class="form-group col-md-4">
-                                    <label class="tmi-label mb-0">Constrained Area</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.constrainedArea') ?></label>
                                     <input type="text" class="form-control" id="rr_constrained_area"
                                            placeholder="e.g., ZNY">
                                 </div>
                                 <div class="form-group col-md-4">
-                                    <label class="tmi-label mb-0">Reason</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.reason') ?></label>
                                     <select class="form-control" id="rr_reason">
                                         <option value="WEATHER">WEATHER</option>
                                         <option value="VOLUME">VOLUME</option>
@@ -580,7 +580,7 @@ $perm = true;
                                     </select>
                                 </div>
                                 <div class="form-group col-md-4">
-                                    <label class="tmi-label mb-0">Prob. Extension</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.probExtension') ?></label>
                                     <select class="form-control" id="rr_prob_extension">
                                         <option value="NONE">NONE</option>
                                         <option value="LOW">LOW</option>
@@ -592,12 +592,12 @@ $perm = true;
 
                             <div class="form-row">
                                 <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0">Valid From (UTC)</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.validFromUtc') ?></label>
                                     <input type="datetime-local" class="form-control" id="rr_valid_from"
                                            value="<?= $defaultStartDatetime ?>">
                                 </div>
                                 <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0">Valid Until (UTC)</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.validUntilUtc') ?></label>
                                     <input type="datetime-local" class="form-control" id="rr_valid_until"
                                            value="<?= $defaultEndDatetime ?>">
                                 </div>
@@ -605,32 +605,32 @@ $perm = true;
 
                             <div class="form-row">
                                 <div class="form-group col-md-6">
-                                    <label class="tmi-label mb-0">Include Traffic</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.includeTraffic') ?></label>
                                     <input type="text" class="form-control" id="rr_include_traffic"
                                            placeholder="e.g., KJFK/KLGA DEPARTURES TO KCLT">
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0">Time Basis</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.timeBasis') ?></label>
                                     <select class="form-control" id="rr_time_basis">
                                         <option value="ETD" selected>ETD</option>
                                         <option value="ETA">ETA</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <label class="tmi-label mb-0">Airborne Filter</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.airborneFilter') ?></label>
                                     <select class="form-control" id="rr_airborne_filter">
-                                        <option value="NOT_AIRBORNE" selected>Not Airborne Only</option>
-                                        <option value="ALL">All Flights</option>
-                                        <option value="AIRBORNE_ONLY">Airborne Only</option>
+                                        <option value="NOT_AIRBORNE" selected><?= __('tmiPublish.page.notAirborneOnly') ?></option>
+                                        <option value="ALL"><?= __('tmiPublish.page.allFlights') ?></option>
+                                        <option value="AIRBORNE_ONLY"><?= __('tmiPublish.page.airborneOnly') ?></option>
                                     </select>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group col-md-9">
-                                    <label class="tmi-label mb-0">Remarks</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.remarks') ?></label>
                                     <textarea class="form-control" id="rr_remarks" rows="2"
-                                              placeholder="Optional additional remarks"></textarea>
+                                              placeholder="<?= __('tmiPublish.page.optionalRemarks') ?>"></textarea>
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label class="tmi-label mb-0">Route Color</label>
@@ -795,7 +795,7 @@ $perm = true;
                         <div class="card shadow-sm mb-3">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <span class="tmi-section-title">
-                                    <i class="fas fa-eye mr-1"></i> Advisory Preview
+                                    <i class="fas fa-eye mr-1"></i> <?= __('tmiPublish.page.advisoryPreview') ?>
                                 </span>
                                 <button class="btn btn-sm btn-outline-secondary" id="rr_copy_preview" title="Copy to clipboard">
                                     <i class="far fa-copy"></i>
@@ -803,7 +803,7 @@ $perm = true;
                             </div>
                             <div class="card-body p-2">
                                 <pre id="rr_preview_text" class="ntml-preview"
-                                     style="max-height: calc(100vh - 380px); overflow-y: auto; font-size: 0.7rem; white-space: pre; overflow-x: auto; min-width: 520px;">Generate preview to see advisory text...</pre>
+                                     style="max-height: calc(100vh - 380px); overflow-y: auto; font-size: 0.7rem; white-space: pre; overflow-x: auto; min-width: 520px;"><?= __('tmiPublish.page.generatePreview') ?></pre>
                             </div>
                         </div>
 
@@ -830,7 +830,7 @@ $perm = true;
                         <div class="card shadow-sm">
                             <div class="card-header py-2">
                                 <span class="tmi-section-title">
-                                    <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                    <i class="fab fa-discord mr-1"></i> <?= __('tmiPublish.page.postToOrgs') ?>
                                 </span>
                             </div>
                             <div class="card-body py-2">
@@ -857,16 +857,16 @@ $perm = true;
             <!-- Source Info Banner -->
             <div class="alert alert-info mb-3" id="gsgdpSourceInfo" style="display: none;">
                 <i class="fas fa-info-circle mr-1"></i>
-                <strong>Program data received from GDT</strong>
+                <strong><?= __('tmiPublish.page.programDataFromGdt') ?></strong>
                 <span id="gsgdpSourceDetails"></span>
             </div>
 
             <!-- No Handoff Warning -->
             <div class="alert alert-warning mb-3" id="gsgdpNoHandoff">
                 <i class="fas fa-exclamation-triangle mr-1"></i>
-                <strong>No Program Data</strong> - Use the GDT page to model a GS or GDP, then click "Submit to TMI" to continue here.
+                <strong><?= __('tmiPublish.page.noProgramData') ?></strong> - <?= __('tmiPublish.page.noProgramDataText') ?>
                 <div class="mt-2">
-                    <a href="gdt.php" class="btn btn-sm btn-primary"><i class="fas fa-arrow-left mr-1"></i> Go to GDT</a>
+                    <a href="gdt.php" class="btn btn-sm btn-primary"><i class="fas fa-arrow-left mr-1"></i> <?= __('tmiPublish.page.goToGdt') ?></a>
                 </div>
             </div>
 
@@ -878,22 +878,22 @@ $perm = true;
                         <div class="card-header d-flex justify-content-between align-items-center" id="gsgdpProgramHeader">
                             <span class="tmi-section-title">
                                 <i class="fas fa-plane-departure mr-1"></i>
-                                <span id="gsgdpProgramTitle">Program Details</span>
+                                <span id="gsgdpProgramTitle"><?= __('tmiPublish.page.programDetails') ?></span>
                             </span>
                             <span class="badge badge-lg" id="gsgdpTypeBadge">--</span>
                         </div>
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">CTL Element</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.ctlElement') ?></label>
                                     <div class="h5 mb-0" id="gsgdpCtlElement">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Start Time (UTC)</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.startTimeUtc') ?></label>
                                     <div class="h5 mb-0" id="gsgdpStartTime">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">End Time (UTC)</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.endTimeUtc') ?></label>
                                     <div class="h5 mb-0" id="gsgdpEndTime">--</div>
                                 </div>
                             </div>
@@ -901,15 +901,15 @@ $perm = true;
                             <!-- GDP-specific fields -->
                             <div class="row mt-2" id="gsgdpGdpFields" style="display: none;">
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Program Rate</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.programRate') ?></label>
                                     <div class="h5 mb-0" id="gsgdpProgramRate">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Avg Delay</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.avgDelay') ?></label>
                                     <div class="h5 mb-0" id="gsgdpAvgDelay">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Max Delay</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.maxDelay') ?></label>
                                     <div class="h5 mb-0" id="gsgdpMaxDelay">--</div>
                                 </div>
                             </div>
@@ -917,15 +917,15 @@ $perm = true;
                             <!-- GS-specific fields -->
                             <div class="row mt-2" id="gsgdpGsFields" style="display: none;">
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Scope</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.scope') ?></label>
                                     <div class="h5 mb-0" id="gsgdpScope">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Affected Flights</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.affectedFlights') ?></label>
                                     <div class="h5 mb-0" id="gsgdpAffectedFlights">--</div>
                                 </div>
                                 <div class="col-md-4 mb-2">
-                                    <label class="tmi-label mb-0">Duration</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.duration') ?></label>
                                     <div class="h5 mb-0" id="gsgdpDuration">--</div>
                                 </div>
                             </div>
@@ -936,7 +936,7 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center py-2">
                             <span class="tmi-section-title">
-                                <i class="fas fa-list mr-1"></i> Flight List
+                                <i class="fas fa-list mr-1"></i> <?= __('tmiPublish.page.flightList') ?>
                                 <span class="badge badge-secondary ml-2" id="gsgdpFlightCount">0</span>
                                 <span class="badge badge-info ml-1" id="gsgdpFlightStats" style="display: none;"></span>
                             </span>
@@ -945,7 +945,7 @@ $perm = true;
                                     <i class="fas fa-sync-alt"></i>
                                 </button>
                                 <button class="btn btn-sm btn-outline-secondary" id="gsgdpToggleFlights">
-                                    <i class="fas fa-chevron-down"></i> Show
+                                    <i class="fas fa-chevron-down"></i> <?= __('tmiPublish.show') ?>
                                 </button>
                             </div>
                         </div>
@@ -965,7 +965,7 @@ $perm = true;
                                     </thead>
                                     <tbody id="gsgdpFlightListBody">
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-3">No flights</td>
+                                            <td colspan="7" class="text-center text-muted py-3"><?= __('tmiPublish.page.noFlights') ?></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -977,13 +977,13 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header bg-warning">
                             <span class="tmi-section-title">
-                                <i class="fas fa-handshake mr-1"></i> Coordination
+                                <i class="fas fa-handshake mr-1"></i> <?= __('tmiPublish.page.coordination') ?>
                             </span>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="tmi-label mb-1">Facilities for Coordination</label>
-                                <div class="small text-muted mb-2">Select facilities that should be notified/coordinated with:</div>
+                                <label class="tmi-label mb-1"><?= __('tmiPublish.page.facilitiesCoord') ?></label>
+                                <div class="small text-muted mb-2"><?= __('tmiPublish.page.selectFacilitiesNotify') ?></div>
                                 <div id="gsgdpFacilitiesGrid" class="d-flex flex-wrap">
                                     <?php
                                     foreach (PERTI_ARTCC_CONUS as $artcc):
@@ -1001,7 +1001,7 @@ $perm = true;
 
                             <div class="form-row">
                                 <div class="form-group col-md-6 mb-2">
-                                    <label class="tmi-label mb-0">Coordination Deadline (min)</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.coordDeadline') ?></label>
                                     <select class="form-control form-control-sm" id="gsgdpCoordDeadline">
                                         <option value="15">15 minutes</option>
                                         <option value="30" selected>30 minutes</option>
@@ -1009,7 +1009,7 @@ $perm = true;
                                     </select>
                                 </div>
                                 <div class="form-group col-md-6 mb-2">
-                                    <label class="tmi-label mb-0">Reason</label>
+                                    <label class="tmi-label mb-0"><?= __('tmiPublish.page.reason') ?></label>
                                     <select class="form-control form-control-sm" id="gsgdpReason">
                                         <option value="WEATHER">WEATHER</option>
                                         <option value="VOLUME">VOLUME</option>
@@ -1021,8 +1021,8 @@ $perm = true;
                             </div>
 
                             <div class="form-group mb-0">
-                                <label class="tmi-label mb-0">Remarks</label>
-                                <textarea class="form-control form-control-sm" id="gsgdpRemarks" rows="2" placeholder="Optional coordination remarks"></textarea>
+                                <label class="tmi-label mb-0"><?= __('tmiPublish.page.remarks') ?></label>
+                                <textarea class="form-control form-control-sm" id="gsgdpRemarks" rows="2" placeholder="<?= __('tmiPublish.page.optionalRemarks') ?>"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1031,18 +1031,18 @@ $perm = true;
                     <div class="d-flex justify-content-between mb-3">
                         <div>
                             <button class="btn btn-outline-secondary mr-2" id="gsgdpBackToGdt">
-                                <i class="fas fa-arrow-left mr-1"></i> Back to GDT
+                                <i class="fas fa-arrow-left mr-1"></i> <?= __('tmiPublish.page.backToGdt') ?>
                             </button>
                             <button class="btn btn-outline-danger" id="gsgdpDiscard">
-                                <i class="fas fa-times mr-1"></i> Discard
+                                <i class="fas fa-times mr-1"></i> <?= __('tmiPublish.page.discard') ?>
                             </button>
                         </div>
                         <div>
                             <button class="btn btn-warning mr-2" id="gsgdpSubmitCoord">
-                                <i class="fas fa-handshake mr-1"></i> Submit for Coordination
+                                <i class="fas fa-handshake mr-1"></i> <?= __('tmiPublish.page.submitForCoordination') ?>
                             </button>
-                            <button class="btn btn-success" id="gsgdpPublishDirect" title="DCC Override: Publish without coordination">
-                                <i class="fas fa-broadcast-tower mr-1"></i> Publish Direct
+                            <button class="btn btn-success" id="gsgdpPublishDirect" title="<?= __('tmiPublish.page.dccOverrideTooltip') ?>">
+                                <i class="fas fa-broadcast-tower mr-1"></i> <?= __('tmiPublish.page.publishDirect') ?>
                             </button>
                         </div>
                     </div>
@@ -1056,14 +1056,14 @@ $perm = true;
                         <div class="card shadow-sm mb-3">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <span class="tmi-section-title">
-                                    <i class="fas fa-eye mr-1"></i> Advisory Preview
+                                    <i class="fas fa-eye mr-1"></i> <?= __('tmiPublish.page.advisoryPreview') ?>
                                 </span>
                                 <button class="btn btn-sm btn-outline-secondary" id="gsgdpCopyPreview" title="Copy to clipboard">
                                     <i class="far fa-copy"></i>
                                 </button>
                             </div>
                             <div class="card-body p-2">
-                                <pre id="gsgdpAdvisoryPreview" class="ntml-preview" style="max-height: 350px; overflow-y: auto; font-size: 0.75rem; white-space: pre-wrap;">No program data loaded...</pre>
+                                <pre id="gsgdpAdvisoryPreview" class="ntml-preview" style="max-height: 350px; overflow-y: auto; font-size: 0.75rem; white-space: pre-wrap;"><?= __('tmiPublish.page.noProgramDataLoaded') ?></pre>
                             </div>
                         </div>
 
@@ -1071,7 +1071,7 @@ $perm = true;
                         <div class="card shadow-sm">
                             <div class="card-header py-2">
                                 <span class="tmi-section-title">
-                                    <i class="fab fa-discord mr-1"></i> Post To Organizations
+                                    <i class="fab fa-discord mr-1"></i> <?= __('tmiPublish.page.postToOrgs') ?>
                                 </span>
                             </div>
                             <div class="card-body py-2">
@@ -1100,17 +1100,17 @@ $perm = true;
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span class="tmi-section-title">
-                                <i class="fas fa-list mr-1"></i> Entry Queue
+                                <i class="fas fa-list mr-1"></i> <?= __('tmiPublish.page.entryQueue') ?>
                             </span>
                             <button class="btn btn-sm btn-outline-danger" id="clearQueue">
-                                <i class="fas fa-trash mr-1"></i> Clear All
+                                <i class="fas fa-trash mr-1"></i> <?= __('tmiPublish.page.clearAll') ?>
                             </button>
                         </div>
                         <div class="card-body p-0">
                             <div id="entryQueueList">
                                 <div class="text-center text-muted py-4" id="emptyQueueMsg">
                                     <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                                    No entries queued. Add entries from NTML or Advisory tabs.
+                                    <?= __('tmiPublish.page.noEntriesQueued') ?>
                                 </div>
                             </div>
                         </div>
@@ -1122,34 +1122,34 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fas fa-paper-plane mr-1"></i> Publish
+                                <i class="fas fa-paper-plane mr-1"></i> <?= __('tmiPublish.page.publish') ?>
                             </span>
                         </div>
                         <div class="card-body">
                             <div class="mb-3 text-center">
                                 <div class="h3 mb-0">
                                     <span id="submitCount">0</span>
-                                    <small class="text-muted">entries ready</small>
+                                    <small class="text-muted"><?= __('tmiPublish.page.entriesReady') ?></small>
                                 </div>
                             </div>
                             
                             <div class="mb-3">
-                                <strong>Target Mode:</strong>
+                                <strong><?= __('tmiPublish.page.targetMode') ?></strong>
                                 <span id="targetModeDisplay" class="badge badge-warning ml-2">STAGING</span>
                             </div>
                             
                             <div class="mb-3">
-                                <strong>Organizations:</strong>
+                                <strong><?= __('tmiPublish.page.organizations') ?></strong>
                                 <div id="targetOrgsDisplay" class="small text-muted">vATCSCC</div>
                             </div>
                             
                             <button class="btn btn-success btn-lg btn-block" id="submitAllBtn" disabled>
                                 <i class="fas fa-paper-plane mr-1"></i>
-                                <span id="submitBtnText">Submit to Staging</span>
+                                <span id="submitBtnText"><?= __('tmiPublish.page.submitToStaging') ?></span>
                             </button>
                             
                             <div class="mt-2 small text-muted text-center" id="submitHint">
-                                Posts to staging channels for review
+                                <?= __('tmiPublish.page.postsToStaging') ?>
                             </div>
                         </div>
                     </div>
@@ -1158,7 +1158,7 @@ $perm = true;
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fas fa-clock mr-1"></i> Staged (Awaiting Promotion)
+                                <i class="fas fa-clock mr-1"></i> <?= __('tmiPublish.page.staged') ?>
                             </span>
                         </div>
                         <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;">
@@ -1180,16 +1180,16 @@ $perm = true;
             <div class="tmi-status-header mb-3">
                 <div class="row align-items-center">
                     <div class="col-md-6">
-                        <h5 class="mb-0"><i class="fas fa-broadcast-tower mr-2"></i>Current Restrictions &amp; Advisories</h5>
+                        <h5 class="mb-0"><i class="fas fa-broadcast-tower mr-2"></i><?= __('tmiPublish.page.currentRestrictions') ?></h5>
                     </div>
                     <div class="col-md-6 text-md-right">
                         <div class="refresh-timer d-inline-block mr-3">
                             <i class="fas fa-sync-alt mr-1"></i>
-                            <span>Refreshes every minute. Last updated: <span id="lastRefreshTime">--:--:-- UTC</span></span>
+                            <span><?= __('tmiPublish.page.refreshTimer') ?> <span id="lastRefreshTime">--:--:-- UTC</span></span>
                             <span class="ml-2 countdown" id="refreshCountdown">60s</span>
                         </div>
                         <button class="btn btn-sm btn-light" id="refreshActiveTmis">
-                            <i class="fas fa-sync-alt"></i> Refresh Now
+                            <i class="fas fa-sync-alt"></i> <?= __('tmiPublish.page.refreshNow') ?>
                         </button>
                     </div>
                 </div>
@@ -1201,7 +1201,7 @@ $perm = true;
                     <div class="card bg-success text-white h-100">
                         <div class="card-body py-2 text-center">
                             <div class="tmi-status-count" id="activeCount">0</div>
-                            <div class="tmi-status-label">Active</div>
+                            <div class="tmi-status-label"><?= __('tmiPublish.page.active') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1209,7 +1209,7 @@ $perm = true;
                     <div class="card bg-info text-white h-100">
                         <div class="card-body py-2 text-center">
                             <div class="tmi-status-count" id="scheduledCount">0</div>
-                            <div class="tmi-status-label">Scheduled</div>
+                            <div class="tmi-status-label"><?= __('tmiPublish.page.scheduled') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1217,7 +1217,7 @@ $perm = true;
                     <div class="card bg-danger text-white h-100">
                         <div class="card-body py-2 text-center">
                             <div class="tmi-status-count" id="cancelledCount">0</div>
-                            <div class="tmi-status-label">Cancelled (4h)</div>
+                            <div class="tmi-status-label"><?= __('tmiPublish.page.cancelledRecent') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1225,7 +1225,7 @@ $perm = true;
                     <div class="card bg-primary text-white h-100">
                         <div class="card-body py-2 text-center">
                             <div class="tmi-status-count" id="advisoryCount">0</div>
-                            <div class="tmi-status-label">Advisories</div>
+                            <div class="tmi-status-label"><?= __('tmiPublish.page.advisories') ?></div>
                         </div>
                     </div>
                 </div>
@@ -1235,25 +1235,25 @@ $perm = true;
             <div id="activeTmiFilters" class="mb-3">
                 <div class="row align-items-end">
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Source</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.source') ?></label>
                         <select class="form-control form-control-sm" id="filterSource">
-                            <option value="ALL">All Sources</option>
+                            <option value="ALL"><?= __('tmiPublish.page.allSources') ?></option>
                             <option value="PRODUCTION" selected>Production</option>
                             <option value="STAGING">Staging</option>
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Requesting</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.requesting') ?></label>
                         <select class="form-control form-control-sm facility-filter-select" id="filterReqFac" multiple="multiple" data-placeholder="All Facilities">
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Providing</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.providing') ?></label>
                         <select class="form-control form-control-sm facility-filter-select" id="filterProvFac" multiple="multiple" data-placeholder="All Facilities">
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Type</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.type') ?></label>
                         <select class="form-control form-control-sm" id="filterType" multiple="multiple" data-placeholder="All Types">
                             <option value="MIT">MIT</option>
                             <option value="MINIT">MINIT</option>
@@ -1268,7 +1268,7 @@ $perm = true;
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Status</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.status') ?></label>
                         <select class="form-control form-control-sm" id="filterStatus" multiple="multiple" data-placeholder="All Status">
                             <option value="ACTIVE" selected>Active</option>
                             <option value="SCHEDULED" selected>Scheduled</option>
@@ -1277,7 +1277,7 @@ $perm = true;
                         </select>
                     </div>
                     <div class="col-md-2 col-6 mb-2">
-                        <label class="small text-muted mb-0">Date</label>
+                        <label class="small text-muted mb-0"><?= __('tmiPublish.page.date') ?></label>
                         <input type="date" class="form-control form-control-sm" id="filterDate" placeholder="Today">
                     </div>
                     <div class="col-md-1 col-6 mb-2">
@@ -1299,13 +1299,13 @@ $perm = true;
             <div class="card shadow-sm mb-3">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background-color: #1a5276;">
                     <span class="text-white font-weight-bold">
-                        <i class="fas fa-ruler-horizontal mr-1"></i> Current Restrictions
+                        <i class="fas fa-ruler-horizontal mr-1"></i> <?= __('tmiPublish.page.currentRestrictionsHeader') ?>
                         <span class="badge badge-light ml-2" id="restrictionCount">0</span>
                     </span>
                     <div id="batchCancelControls" style="display: none;">
-                        <span class="text-white small mr-2"><span id="selectedCount">0</span> selected</span>
-                        <button class="btn btn-sm btn-danger" id="batchCancelBtn" title="Cancel Selected">
-                            <i class="fas fa-times-circle"></i> Cancel Selected
+                        <span class="text-white small mr-2"><span id="selectedCount">0</span> <?= __('tmiPublish.page.selected') ?></span>
+                        <button class="btn btn-sm btn-danger" id="batchCancelBtn" title="<?= __('tmiPublish.page.cancelSelected') ?>">
+                            <i class="fas fa-times-circle"></i> <?= __('tmiPublish.page.cancelSelected') ?>
                         </button>
                     </div>
                 </div>
@@ -1327,7 +1327,7 @@ $perm = true;
                                 <tr>
                                     <td colspan="7" class="text-center text-muted py-4">
                                         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                        Loading restrictions...
+                                        <?= __('tmiPublish.page.loadingRestrictions') ?>
                                     </td>
                                 </tr>
                             </tbody>
@@ -1340,14 +1340,14 @@ $perm = true;
             <div class="card shadow-sm mb-3">
                 <div class="card-header py-2 bg-primary text-white">
                     <span class="font-weight-bold">
-                        <i class="fas fa-bullhorn mr-1"></i> Active Advisories
+                        <i class="fas fa-bullhorn mr-1"></i> <?= __('tmiPublish.page.activeAdvisories') ?>
                         <span class="badge badge-light ml-2" id="advisoryCountHeader">0</span>
                     </span>
                 </div>
                 <div class="card-body p-2" id="advisoriesContainer">
                     <div class="text-center text-muted py-4">
                         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                        Loading advisories...
+                        <?= __('tmiPublish.page.loadingAdvisories') ?>
                     </div>
                 </div>
             </div>
@@ -1359,23 +1359,23 @@ $perm = true;
             <!-- Coordination Info -->
             <div class="alert alert-info mb-3">
                 <i class="fas fa-info-circle mr-1"></i>
-                <strong>TMI Coordination</strong> - TMIs submitted for coordination require approval from all specified facilities before becoming active.
-                Facilities approve via Discord emoji reactions. DCC can override any proposal.
+                <strong><?= __('tmiPublish.page.coordination') ?></strong> - <?= __('tmiPublish.page.coordinationInfo') ?>
+                <?= __('tmiPublish.page.coordinationDiscord') ?>
             </div>
 
             <!-- Pending Proposals -->
             <div class="card shadow-sm mb-3">
                 <div class="card-header py-2 bg-warning">
                     <span class="font-weight-bold">
-                        <i class="fas fa-clock mr-1"></i> Pending Proposals
+                        <i class="fas fa-clock mr-1"></i> <?= __('tmiPublish.page.pendingProposals') ?>
                         <span class="badge badge-dark ml-2" id="pendingCount">0</span>
                     </span>
                     <div class="float-right">
                         <button class="btn btn-sm btn-success mr-2" id="batchPublishApproved" style="display: none;" title="Publish all approved proposals">
-                            <i class="fas fa-broadcast-tower"></i> Publish All Approved
+                            <i class="fas fa-broadcast-tower"></i> <?= __('tmiPublish.page.publishAllApproved') ?>
                         </button>
                         <button class="btn btn-sm btn-outline-dark" id="refreshProposals">
-                            <i class="fas fa-sync-alt"></i> Refresh
+                            <i class="fas fa-sync-alt"></i> <?= __('common.refresh') ?>
                         </button>
                     </div>
                 </div>
@@ -1399,7 +1399,7 @@ $perm = true;
                                 <tr>
                                     <td colspan="9" class="text-center text-muted py-4">
                                         <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                        Loading proposals...
+                                        <?= __('tmiPublish.page.loadingProposals') ?>
                                     </td>
                                 </tr>
                             </tbody>
@@ -1412,7 +1412,7 @@ $perm = true;
             <div class="card shadow-sm mb-3">
                 <div class="card-header py-2 bg-dark text-white">
                     <span class="font-weight-bold">
-                        <i class="fas fa-history mr-1"></i> Recent Proposals (Last 24h)
+                        <i class="fas fa-history mr-1"></i> <?= __('tmiPublish.page.recentProposals') ?>
                         <span class="badge badge-light ml-2" id="recentCount">0</span>
                     </span>
                 </div>
@@ -1434,7 +1434,7 @@ $perm = true;
                             <tbody id="recentProposalsTableBody">
                                 <tr>
                                     <td colspan="8" class="text-center text-muted py-3">
-                                        <em>No recent proposals</em>
+                                        <em><?= __('tmiPublish.page.noRecentProposals') ?></em>
                                     </td>
                                 </tr>
                             </tbody>
@@ -1473,9 +1473,9 @@ $perm = true;
     <?php else: ?>
     
     <div class="alert alert-danger">
-        <h4><i class="fas fa-lock"></i> Access Denied</h4>
-        <p>You must be logged in with appropriate permissions to access the TMI Publisher.</p>
-        <a href="login/" class="btn btn-primary">Login with VATSIM</a>
+        <h4><i class="fas fa-lock"></i> <?= __('tmiPublish.page.accessDenied') ?></h4>
+        <p><?= __('tmiPublish.page.accessDeniedText') ?></p>
+        <a href="login/" class="btn btn-primary"><?= __('tmiPublish.page.loginWithVatsim') ?></a>
     </div>
     
     <?php endif; ?>
@@ -1487,12 +1487,12 @@ $perm = true;
     <div class="modal-dialog modal-lg">
         <div class="modal-content bg-dark text-white">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title"><i class="fas fa-eye"></i> Message Preview</h5>
+                <h5 class="modal-title"><i class="fas fa-eye"></i> <?= __('tmiPublish.page.messagePreview') ?></h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body" id="previewModalContent" style="font-family: monospace; white-space: pre-wrap;"></div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.close') ?></button>
             </div>
         </div>
     </div>
@@ -1503,12 +1503,12 @@ $perm = true;
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-check-circle text-success"></i> Post Results</h5>
+                <h5 class="modal-title"><i class="fas fa-check-circle text-success"></i> <?= __('tmiPublish.page.postResults') ?></h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body" id="resultModalContent"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+                <button type="button" class="btn btn-primary" data-dismiss="modal"><?= __('common.ok') ?></button>
             </div>
         </div>
     </div>
@@ -1519,32 +1519,32 @@ $perm = true;
     <div class="modal-dialog">
         <div class="modal-content bg-dark text-white">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title"><i class="fas fa-user mr-2"></i>User Profile</h5>
+                <h5 class="modal-title"><i class="fas fa-user mr-2"></i><?= __('tmiPublish.page.userProfileTitle') ?></h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <?php if (!$userName): ?>
                 <div class="alert alert-info small mb-3">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Set your profile to use TMI Publisher. All fields are required.
+                    <?= __('tmiPublish.page.profileHint') ?>
                 </div>
                 <?php endif; ?>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">Name <span class="text-danger">*</span></label>
+                    <label class="form-label small text-muted"><?= __('tmiPublish.page.name') ?> <span class="text-danger">*</span></label>
                     <input type="text" class="form-control <?= $userName ? 'bg-secondary text-white' : '' ?>" id="profileName" value="<?= htmlspecialchars($userName ?? '') ?>" <?= $userName ? 'readonly' : 'placeholder="Your Name"' ?>>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">CID <span class="text-danger">*</span></label>
+                    <label class="form-label small text-muted"><?= __('tmiPublish.page.cid') ?> <span class="text-danger">*</span></label>
                     <input type="text" class="form-control <?= $userCid ? 'bg-secondary text-white' : '' ?>" id="profileCid" value="<?= htmlspecialchars($userCid ?? '') ?>" <?= $userCid ? 'readonly' : 'placeholder="VATSIM CID"' ?>>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">Operating Initials</label>
+                    <label class="form-label small text-muted"><?= __('tmiPublish.page.operatingInitials') ?></label>
                     <input type="text" class="form-control text-uppercase" id="profileOI" maxlength="3" placeholder="XX" style="max-width: 80px;">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small text-muted">Home Facility</label>
+                    <label class="form-label small text-muted"><?= __('tmiPublish.page.homeFacility') ?></label>
                     <select class="form-control" id="profileFacility">
-                        <option value="">-- Select Facility --</option>
+                        <option value=""><?= __('tmiPublish.page.selectFacility') ?></option>
                         <optgroup label="ARTCCs (US)">
                             <option value="ZAB">ZAB - Albuquerque Center</option>
                             <option value="ZAN">ZAN - Anchorage Center</option>
@@ -1628,8 +1628,8 @@ $perm = true;
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-primary" onclick="TMIPublisher.saveProfile()">Save</button>
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="TMIPublisher.saveProfile()"><?= __('common.save') ?></button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.cancel') ?></button>
             </div>
         </div>
     </div>

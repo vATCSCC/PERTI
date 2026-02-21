@@ -5462,7 +5462,7 @@
         ).then((result) => {
             if (result.isConfirmed) {
                 PERTIDialog.info('tmiPublish.comingSoon', null, {}, {
-                    text: 'Cancel functionality will be implemented shortly',
+                    text: PERTII18n.t('tmiPublish.rerouteBuilder.cancelComingSoon'),
                 });
             }
         });
@@ -5557,7 +5557,7 @@
             success: function(response) {
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.promote.promoted', null, {}, {
-                        text: 'Entry published to production channels.',
+                        text: PERTII18n.t('tmiPublish.rerouteBuilder.publishedToProduction'),
                         timer: 2000,
                     });
                     loadStagedEntries();
@@ -8228,16 +8228,16 @@
             if (filterCount > 0) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Filters Detected',
-                    text: `Applied ${filterCount} automatic filter(s) to overlapping routes.`,
+                    title: PERTII18n.t('tmiPublish.rerouteBuilder.filtersDetected'),
+                    text: PERTII18n.t('tmiPublish.rerouteBuilder.filtersApplied', { count: filterCount }),
                     timer: 2500,
                     showConfirmButton: false,
                 });
             } else {
                 Swal.fire({
                     icon: 'info',
-                    title: 'No Filters Needed',
-                    text: 'No overlapping ARTCC/airport routes detected.',
+                    title: PERTII18n.t('tmiPublish.rerouteBuilder.noFiltersNeeded'),
+                    text: PERTII18n.t('tmiPublish.rerouteBuilder.noOverlapping'),
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -9234,8 +9234,8 @@
             if (routes.length < 2) {
                 Swal.fire({
                     icon: 'info',
-                    title: 'Need More Routes',
-                    text: 'Need at least 2 routes to detect common segments.',
+                    title: PERTII18n.t('tmiPublish.rerouteBuilder.needMoreRoutes'),
+                    text: PERTII18n.t('tmiPublish.rerouteBuilder.needMoreRoutesText'),
                     timer: 2000,
                     showConfirmButton: false,
                 });
@@ -9386,10 +9386,10 @@
             } else {
                 Swal.fire({
                     icon: 'info',
-                    title: 'No Pivot Waypoints Found',
+                    title: PERTII18n.t('tmiPublish.rerouteBuilder.noPivotWaypoints'),
                     html: `
-                        <p>No waypoint found in at least 3 routes (or 30% of ${routes.length} routes).</p>
-                        <p class="small text-muted">Routes will be displayed grouped by origin and destination.</p>
+                        <p>${PERTII18n.t('tmiPublish.rerouteBuilder.noPivotWaypointsText', { count: routes.length })}</p>
+                        <p class="small text-muted">${PERTII18n.t('tmiPublish.rerouteBuilder.noPivotWaypointsHint')}</p>
                     `,
                     timer: 3000,
                     showConfirmButton: false,
@@ -9830,8 +9830,8 @@
                 if (!previewText || previewText === 'Generate preview to see advisory text...') {
                     Swal.fire({
                         icon: 'warning',
-                        title: 'No Preview',
-                        text: 'Generate a preview first before copying.',
+                        title: PERTII18n.t('tmiPublish.rerouteBuilder.noPreview'),
+                        text: PERTII18n.t('tmiPublish.rerouteBuilder.noPreviewText'),
                         timer: 2000,
                         showConfirmButton: false,
                     });
@@ -9850,8 +9850,8 @@
                     console.error('Failed to copy:', err);
                     Swal.fire({
                         icon: 'error',
-                        title: 'Copy Failed',
-                        text: 'Could not copy to clipboard. Please select and copy manually.',
+                        title: PERTII18n.t('tmiPublish.rerouteBuilder.copyFailed'),
+                        text: PERTII18n.t('tmiPublish.rerouteBuilder.copyFailedText'),
                         timer: 3000,
                         showConfirmButton: false,
                     });
@@ -9892,11 +9892,11 @@
 
             $('#rr_reset').on('click', () => {
                 Swal.fire({
-                    title: 'Reset Form?',
-                    text: 'This will clear all fields.',
+                    title: PERTII18n.t('tmiPublish.rerouteBuilder.resetForm'),
+                    text: PERTII18n.t('tmiPublish.rerouteBuilder.resetFormText'),
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Reset',
+                    confirmButtonText: PERTII18n.t('common.reset'),
                 }).then((result) => {
                     if (result.isConfirmed) {
                         self.resetForm();

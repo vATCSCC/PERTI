@@ -9795,7 +9795,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     copyNtmlSummary: function() {
         const text = this.buildNtmlDiscordSummary();
         if (!text) {
-            Swal.fire({ icon: 'warning', title: 'No NTML data to copy', toast: true,
+            Swal.fire({ icon: 'warning', title: PERTII18n.t('tmiCompliance.noNtmlData'), toast: true,
                         position: 'top-end', showConfirmButton: false, timer: 2000 });
             return;
         }
@@ -9808,7 +9808,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     copyGsSummary: function() {
         const text = this.buildGsDiscordSummary();
         if (!text) {
-            Swal.fire({ icon: 'warning', title: 'No Ground Stop data to copy', toast: true,
+            Swal.fire({ icon: 'warning', title: PERTII18n.t('tmiCompliance.noGsData'), toast: true,
                         position: 'top-end', showConfirmButton: false, timer: 2000 });
             return;
         }
@@ -9821,7 +9821,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
     _copyToClipboard: function(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
-                Swal.fire({ icon: 'success', title: 'Copied to clipboard', toast: true,
+                Swal.fire({ icon: 'success', title: PERTII18n.t('tmiCompliance.copiedToClipboard'), toast: true,
                             position: 'top-end', showConfirmButton: false, timer: 2000 });
             }).catch(function() {
                 TMICompliance._fallbackCopy(text);
@@ -9840,7 +9840,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        Swal.fire({ icon: 'success', title: 'Copied to clipboard', toast: true,
+        Swal.fire({ icon: 'success', title: PERTII18n.t('tmiCompliance.copiedToClipboard'), toast: true,
                     position: 'top-end', showConfirmButton: false, timer: 2000 });
     },
 };
