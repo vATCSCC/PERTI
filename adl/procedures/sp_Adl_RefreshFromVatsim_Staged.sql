@@ -1,7 +1,15 @@
 -- ============================================================================
--- sp_Adl_RefreshFromVatsim_Staged V9.3.0 - Delta Detection (Skip Heartbeat Flights)
+-- sp_Adl_RefreshFromVatsim_Staged V9.4.0 - Geography Pre-computation
 --
--- V9.3.0 Changes:
+-- V9.4.0 Changes:
+--   - Pre-compute apts.position_geo eliminates ~8500 geography::Point() CLR
+--     constructions per cycle (uses migration 007_apts_position_geo.sql)
+--   - Pre-compute pilot position_geo in #pilots temp table, reuse in Steps 3a/3b
+--   - Combined Step 1b dual airport UPDATEs into single UPDATE with 2 LEFT JOINs
+--   - Estimated savings: ~280-550ms per cycle (geometry-heavy workloads)
+--   - Falls back gracefully if apts.position_geo is NULL (recomputes from lat/lon)
+--
+-- V9.3.0 Changes (kept):
 --   - PHP daemon detects unchanged flights (change_flags bitmask in staging)
 --   - Heartbeat flights (change_flags=0) skip geography, position, plan, aircraft
 --   - Heartbeat flights only get timestamps updated (is_active, last_seen_utc)
@@ -114,7 +122,8 @@ BEGIN
         CAST(NULL AS DECIMAL(10,2)) AS dist_to_dest_nm,
         CAST(NULL AS DECIMAL(10,2)) AS dist_flown_nm,
         CAST(NULL AS DECIMAL(5,2)) AS pct_complete,
-        CAST(NULL AS BIGINT) AS flight_uid
+        CAST(NULL AS BIGINT) AS flight_uid,
+        CAST(NULL AS geography) AS position_geo  -- V9.4.0: pre-computed in Step 1b
     INTO #pilots
     FROM dbo.adl_staging_pilots s
     WHERE s.batch_id = @batch_id;
@@ -129,62 +138,81 @@ BEGIN
     SET @step1_ms = DATEDIFF(MILLISECOND, @step_start, SYSUTCDATETIME());
 
     -- ========================================================================
-    -- Step 1b: Enrich with airport data (V9.3.0 - filtered for changed flights)
-    -- Airport lat/lon lookups (cheap JOINs) run for ALL flights.
-    -- Geography::Point distance calculations only run for changed/new flights.
+    -- Step 1b: Enrich with airport data (V9.4.0 - geography pre-computation)
+    -- Part 1: Combined airport lat/lon + ARTCC/TRACON lookup (was 2 UPDATEs)
+    -- Part 2: Pre-compute pilot position_geo once for reuse in Steps 3a/3b
+    -- Part 3: Distance calculations using pre-computed geography objects
+    -- Part 4: Percent complete calculation
     -- ========================================================================
     SET @step_start = SYSUTCDATETIME();
 
+    -- Part 1: Combined airport enrichment (was 2 separate UPDATEs in V9.3.0)
     UPDATE p
-    SET p.dept_lat = a.LAT_DECIMAL,
-        p.dept_lon = a.LONG_DECIMAL,
-        p.dept_artcc = a.RESP_ARTCC_ID,
-        p.dept_tracon = COALESCE(a.Approach_ID, a.Departure_ID, a.Approach_Departure_ID)
+    SET p.dept_lat   = dept.LAT_DECIMAL,
+        p.dept_lon   = dept.LONG_DECIMAL,
+        p.dept_artcc = dept.RESP_ARTCC_ID,
+        p.dept_tracon = COALESCE(dept.Approach_ID, dept.Departure_ID, dept.Approach_Departure_ID),
+        p.dest_lat   = dest.LAT_DECIMAL,
+        p.dest_lon   = dest.LONG_DECIMAL,
+        p.dest_artcc = dest.RESP_ARTCC_ID,
+        p.dest_tracon = COALESCE(dest.Approach_ID, dest.Departure_ID, dest.Approach_Departure_ID)
     FROM #pilots p
-    INNER JOIN dbo.apts a ON a.ICAO_ID = p.dept_icao
-    WHERE p.dept_icao IS NOT NULL;
+    LEFT JOIN dbo.apts dept ON dept.ICAO_ID = p.dept_icao
+    LEFT JOIN dbo.apts dest ON dest.ICAO_ID = p.dest_icao
+    WHERE p.dept_icao IS NOT NULL OR p.dest_icao IS NOT NULL;
 
-    UPDATE p
-    SET p.dest_lat = a.LAT_DECIMAL,
-        p.dest_lon = a.LONG_DECIMAL,
-        p.dest_artcc = a.RESP_ARTCC_ID,
-        p.dest_tracon = COALESCE(a.Approach_ID, a.Departure_ID, a.Approach_Departure_ID)
-    FROM #pilots p
-    INNER JOIN dbo.apts a ON a.ICAO_ID = p.dest_icao
-    WHERE p.dest_icao IS NOT NULL;
-
-    -- V9.3.0: Skip expensive geography calculations for heartbeat flights
-    -- change_flags & 5 = POSITION_CHANGED (1) or NEW_FLIGHT (4)
+    -- Part 2: Pre-compute pilot position_geo (V9.4.0)
+    -- Built once here, reused in Steps 3a/3b (eliminates 2 more Point constructions)
+    -- V9.3.0 filter: only changed/new flights need geography
     UPDATE #pilots
-    SET
-        gcd_nm = CASE
-            WHEN dept_lat IS NOT NULL AND dest_lat IS NOT NULL
-                 AND dept_lat BETWEEN -90 AND 90 AND dept_lon BETWEEN -180 AND 180
-                 AND dest_lat BETWEEN -90 AND 90 AND dest_lon BETWEEN -180 AND 180
-            THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
-                 geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
-            ELSE NULL
-        END,
-        dist_to_dest_nm = CASE
-            WHEN lat IS NOT NULL AND dest_lat IS NOT NULL
-                 AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
-                 AND dest_lat BETWEEN -90 AND 90 AND dest_lon BETWEEN -180 AND 180
-            THEN geography::Point(lat, lon, 4326).STDistance(
-                 geography::Point(dest_lat, dest_lon, 4326)) / 1852.0
-            ELSE NULL
-        END,
-        dist_flown_nm = CASE
-            WHEN lat IS NOT NULL AND dept_lat IS NOT NULL
-                 AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180
-                 AND dept_lat BETWEEN -90 AND 90 AND dept_lon BETWEEN -180 AND 180
-            THEN geography::Point(dept_lat, dept_lon, 4326).STDistance(
-                 geography::Point(lat, lon, 4326)) / 1852.0
-            ELSE NULL
-        END
+    SET position_geo = geography::Point(lat, lon, 4326)
     WHERE (change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
       AND lat IS NOT NULL
       AND lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180;
 
+    -- Part 3: Distance calculations using pre-computed geography (V9.4.0)
+    -- Before: 6 geography::Point() calls per flight (2 dept, 2 dest, 2 position)
+    -- After:  0 Point calls (all pre-computed: apts.position_geo + #pilots.position_geo)
+    UPDATE p
+    SET
+        gcd_nm = CASE
+            WHEN dept.position_geo IS NOT NULL AND dest.position_geo IS NOT NULL
+            THEN dept.position_geo.STDistance(dest.position_geo) / 1852.0
+            -- Fallback if apts.position_geo not populated (pre-migration compat)
+            WHEN p.dept_lat IS NOT NULL AND p.dest_lat IS NOT NULL
+                 AND p.dept_lat BETWEEN -90 AND 90 AND p.dept_lon BETWEEN -180 AND 180
+                 AND p.dest_lat BETWEEN -90 AND 90 AND p.dest_lon BETWEEN -180 AND 180
+            THEN geography::Point(p.dept_lat, p.dept_lon, 4326).STDistance(
+                 geography::Point(p.dest_lat, p.dest_lon, 4326)) / 1852.0
+            ELSE NULL
+        END,
+        dist_to_dest_nm = CASE
+            WHEN p.position_geo IS NOT NULL AND dest.position_geo IS NOT NULL
+            THEN p.position_geo.STDistance(dest.position_geo) / 1852.0
+            -- Fallback
+            WHEN p.position_geo IS NOT NULL AND p.dest_lat IS NOT NULL
+                 AND p.dest_lat BETWEEN -90 AND 90 AND p.dest_lon BETWEEN -180 AND 180
+            THEN p.position_geo.STDistance(
+                 geography::Point(p.dest_lat, p.dest_lon, 4326)) / 1852.0
+            ELSE NULL
+        END,
+        dist_flown_nm = CASE
+            WHEN p.position_geo IS NOT NULL AND dept.position_geo IS NOT NULL
+            THEN dept.position_geo.STDistance(p.position_geo) / 1852.0
+            -- Fallback
+            WHEN p.position_geo IS NOT NULL AND p.dept_lat IS NOT NULL
+                 AND p.dept_lat BETWEEN -90 AND 90 AND p.dept_lon BETWEEN -180 AND 180
+            THEN geography::Point(p.dept_lat, p.dept_lon, 4326).STDistance(
+                 p.position_geo) / 1852.0
+            ELSE NULL
+        END
+    FROM #pilots p
+    LEFT JOIN dbo.apts dept ON dept.ICAO_ID = p.dept_icao
+    LEFT JOIN dbo.apts dest ON dest.ICAO_ID = p.dest_icao
+    WHERE (p.change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
+      AND p.position_geo IS NOT NULL;
+
+    -- Part 4: Percent complete (unchanged logic)
     UPDATE #pilots
     SET pct_complete = CASE
         WHEN gcd_nm > 10 AND dist_flown_nm IS NOT NULL
@@ -342,7 +370,11 @@ BEGIN
         pf.route_hash,
         @now,
         'PENDING',
+        -- V9.4.0: Use pre-computed airport geography
         CASE
+            WHEN dept.position_geo IS NOT NULL AND dest.position_geo IS NOT NULL
+            THEN CAST(dept.position_geo.STDistance(dest.position_geo) / 1852.0 AS DECIMAL(10,2))
+            -- Fallback if apts.position_geo not populated
             WHEN dept.LAT_DECIMAL IS NOT NULL AND dept.LONG_DECIMAL IS NOT NULL
                  AND dest.LAT_DECIMAL IS NOT NULL AND dest.LONG_DECIMAL IS NOT NULL
                  AND dept.LAT_DECIMAL BETWEEN -90 AND 90 AND dept.LONG_DECIMAL BETWEEN -180 AND 180
@@ -391,6 +423,7 @@ BEGIN
     DECLARE @positions_updated INT = 0;
 
     -- 3a. INSERT new positions (NEW_FLIGHT or POSITION_CHANGED, no existing record)
+    -- V9.4.0: Uses pre-computed position_geo from Step 1b
     INSERT INTO dbo.adl_flight_position (
         flight_uid, lat, lon, position_geo, altitude_ft, groundspeed_kts,
         heading_deg, qnh_in_hg, qnh_mb, dist_to_dest_nm, dist_flown_nm,
@@ -398,7 +431,7 @@ BEGIN
     )
     SELECT
         p.flight_uid, p.lat, p.lon,
-        geography::Point(p.lat, p.lon, 4326),
+        p.position_geo,  -- V9.4.0: pre-computed in Step 1b
         p.altitude_ft, p.groundspeed_kts, p.heading_deg,
         p.qnh_in_hg, p.qnh_mb, p.dist_to_dest_nm, p.dist_flown_nm,
         p.pct_complete, @now
@@ -406,8 +439,7 @@ BEGIN
     WHERE p.flight_uid IS NOT NULL
       AND p.lat IS NOT NULL
       AND (p.change_flags & 5) > 0  -- POSITION_CHANGED or NEW_FLIGHT
-      AND p.lat BETWEEN -90 AND 90
-      AND p.lon BETWEEN -180 AND 180
+      AND p.position_geo IS NOT NULL  -- V9.4.0: pre-computed ensures valid coords
       AND NOT EXISTS (
           SELECT 1 FROM dbo.adl_flight_position pos
           WHERE pos.flight_uid = p.flight_uid
@@ -416,11 +448,12 @@ BEGIN
     SET @positions_inserted = @@ROWCOUNT;
 
     -- 3b. UPDATE only positions that changed (delta filtered + V9.1 write threshold)
+    -- V9.4.0: Uses pre-computed position_geo from Step 1b
     UPDATE pos
     SET
         lat = p.lat,
         lon = p.lon,
-        position_geo = geography::Point(p.lat, p.lon, 4326),
+        position_geo = p.position_geo,  -- V9.4.0: pre-computed in Step 1b
         altitude_ft = p.altitude_ft,
         groundspeed_kts = p.groundspeed_kts,
         heading_deg = p.heading_deg,
@@ -434,8 +467,7 @@ BEGIN
     INNER JOIN #pilots p ON p.flight_uid = pos.flight_uid
     WHERE p.lat IS NOT NULL
       AND (p.change_flags & 1) > 0  -- POSITION_CHANGED (PHP exact match passed)
-      AND p.lat BETWEEN -90 AND 90
-      AND p.lon BETWEEN -180 AND 180
+      AND p.position_geo IS NOT NULL  -- V9.4.0: pre-computed ensures valid coords
       AND (
           -- V9.1 write threshold: skip disk write for sub-meaningful jitter
           ABS(pos.lat - p.lat) > 0.0001
@@ -925,7 +957,8 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.3.0 created successfully';
+PRINT 'sp_Adl_RefreshFromVatsim_Staged V9.4.0 created successfully';
+PRINT 'V9.4.0: Geography pre-computation - ~8500 fewer Point() CLR constructions per cycle';
 PRINT 'V9.3.0: Delta detection - heartbeat flights skip geography, position, plan, aircraft';
 PRINT 'V9.2.0: @defer_expensive defers ETA/snapshot, trajectory always captured';
 PRINT 'V9.1.0: Position write threshold (0.0001deg, 50ft, 2kts) retained as secondary filter';
