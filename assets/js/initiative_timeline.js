@@ -896,9 +896,17 @@ class InitiativeTimeline {
     renderItem(item, startTime, totalMs, lane = 0) {
         const s = this.parseUTC(item.start_datetime);
         const e = this.parseUTC(item.end_datetime);
-        const left = Math.max(0, ((s.getTime() - startTime.getTime()) / totalMs) * 100);
-        const width = Math.max(0.5, Math.min(100 - left, ((e.getTime() - s.getTime()) / totalMs) * 100));
-        if (left >= 100 || left + width <= 0) {return '';}
+        const windowStart = startTime.getTime();
+        const windowEnd = windowStart + totalMs;
+
+        // Skip items entirely outside the visible window
+        if (e.getTime() <= windowStart || s.getTime() >= windowEnd) return '';
+
+        // Clip item to the visible window so partial overlaps render correctly
+        const visibleStart = Math.max(s.getTime(), windowStart);
+        const visibleEnd = Math.min(e.getTime(), windowEnd);
+        const left = ((visibleStart - windowStart) / totalMs) * 100;
+        const width = Math.max(0.5, ((visibleEnd - visibleStart) / totalMs) * 100);
 
         const label = this.buildLabel(item);
 

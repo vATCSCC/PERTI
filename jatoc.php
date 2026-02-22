@@ -8,6 +8,14 @@
  */
 include("load/config.php");
 include("load/i18n.php");
+
+// Start session before output so JATOC_CONFIG can read login state
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+$logged_in = isset($_SESSION['VATSIM_CID']) && !empty($_SESSION['VATSIM_CID']);
+$user_cid = $logged_in ? $_SESSION['VATSIM_CID'] : '';
+$user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($_SESSION['VATSIM_LAST_NAME'] ?? '')) : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -663,7 +671,7 @@ include("load/i18n.php");
 window.JATOC_CONFIG = { 
     sessionUserName: '<?= addslashes($user_name) ?>', 
     sessionUserCid: '<?= $user_cid ?>',
-    isLoggedIn: <?= isset($_SESSION['VATSIM_CID']) ? 'true' : 'false' ?>
+    isLoggedIn: <?= $logged_in ? 'true' : 'false' ?>
 };
 
 // Facility data for JATOC profile
