@@ -195,7 +195,8 @@ if (isset($conn_tmi) && $conn_tmi !== null && $conn_tmi !== false) {
 // -----------------------------------------------------------------------------
 // GIS (PostgreSQL/PostGIS) Connection Check
 // -----------------------------------------------------------------------------
-if (isset($conn_gis) && $conn_gis !== null && $conn_gis !== false) {
+$conn_gis = get_conn_gis();
+if ($conn_gis !== null && $conn_gis !== false) {
     $liveData['gis_connected'] = true;
 
     try {

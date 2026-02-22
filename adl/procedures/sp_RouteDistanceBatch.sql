@@ -143,10 +143,16 @@ PRINT 'Created procedure dbo.sp_BackfillRouteDistances';
 GO
 
 -- ============================================================================
--- sp_UpdateRouteDistancesBatch
--- 
+-- sp_UpdateRouteDistancesBatch  (V2.2 - Set-based rewrite)
+--
 -- Updates route_dist_to_dest_nm for active flights using the parsed route
 -- and current position. Called during refresh cycle.
+--
+-- V2.0: Replaced cursor + msTVF with set-based temp tables + window functions.
+-- V2.1: Switched to geodesic LINESTRING STDistance for closest-segment detection
+--        (planar perpendicular distance diverged on long oceanic segments).
+-- V2.2: Two-pass optimization - LINESTRING STDistance for closest segment only,
+--        endpoint distances computed only for the winner (~900 vs ~19000 calls).
 -- ============================================================================
 
 IF OBJECT_ID('dbo.sp_UpdateRouteDistancesBatch', 'P') IS NOT NULL
@@ -159,14 +165,229 @@ CREATE PROCEDURE dbo.sp_UpdateRouteDistancesBatch
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @start_time DATETIME2(3) = SYSUTCDATETIME();
     SET @flights_updated = 0;
-    
-    -- Update route distances for active flights with parsed routes
-    -- This uses the fn_CalculateRouteDistanceRemaining function
-    
-    -- First, build a temp table with results (more efficient than calling TVF per row)
+
+    -- ========================================================================
+    -- Step A: Collect active flights with parsed routes and current positions
+    -- ========================================================================
+    CREATE TABLE #rd_flights (
+        flight_uid BIGINT PRIMARY KEY,
+        current_pos GEOGRAPHY,
+        route_total_nm DECIMAL(10,2),
+        waypoint_count INT,
+        route_geometry GEOGRAPHY
+    );
+
+    INSERT INTO #rd_flights (flight_uid, current_pos, route_total_nm, waypoint_count, route_geometry)
+    SELECT c.flight_uid, pos.position_geo, fp.route_total_nm, fp.waypoint_count,
+           CASE WHEN fp.route_geometry IS NOT NULL THEN fp.route_geometry.MakeValid() ELSE NULL END
+    FROM dbo.adl_flight_core c
+    INNER JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
+    INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+    WHERE c.is_active = 1
+      AND pos.position_geo IS NOT NULL
+      AND fp.route_total_nm IS NOT NULL
+      AND fp.route_total_nm > 0;
+
+    IF @debug = 1
+    BEGIN
+        DECLARE @flight_count INT;
+        SELECT @flight_count = COUNT(*) FROM #rd_flights;
+        PRINT 'Step A: ' + CAST(@flight_count AS VARCHAR) + ' flights to process';
+    END
+
+    -- ========================================================================
+    -- Step B: Build all route segments for all flights at once
+    -- Adjacent waypoint pairs with lat/lon, excluding zero-length (V1.1)
+    -- ========================================================================
+    CREATE TABLE #rd_segments (
+        flight_uid BIGINT,
+        seg_start_seq INT,
+        seg_end_seq INT,
+        seg_start_lat DECIMAL(10,7),
+        seg_start_lon DECIMAL(11,7),
+        seg_end_lat DECIMAL(10,7),
+        seg_end_lon DECIMAL(11,7),
+        seg_start_geo GEOGRAPHY,
+        seg_end_geo GEOGRAPHY,
+        seg_start_cum_dist DECIMAL(10,2),
+        seg_end_cum_dist DECIMAL(10,2),
+        segment_length_nm DECIMAL(10,2),
+        INDEX IX_rd_seg_flight (flight_uid)
+    );
+
+    INSERT INTO #rd_segments
+    SELECT w1.flight_uid, w1.sequence_num, w2.sequence_num,
+           w1.lat, w1.lon, w2.lat, w2.lon,
+           COALESCE(w1.position_geo, geography::Point(w1.lat, w1.lon, 4326)),
+           COALESCE(w2.position_geo, geography::Point(w2.lat, w2.lon, 4326)),
+           ISNULL(w1.cum_dist_nm, 0), ISNULL(w2.cum_dist_nm, 0),
+           ISNULL(w2.segment_dist_nm, 0)
+    FROM dbo.adl_flight_waypoints w1
+    INNER JOIN dbo.adl_flight_waypoints w2
+        ON w2.flight_uid = w1.flight_uid AND w2.sequence_num = w1.sequence_num + 1
+    INNER JOIN #rd_flights f ON f.flight_uid = w1.flight_uid
+    WHERE w1.lat IS NOT NULL AND w2.lat IS NOT NULL
+      AND NOT (w1.lat = w2.lat AND w1.lon = w2.lon);
+
+    IF @debug = 1
+    BEGIN
+        DECLARE @seg_count INT;
+        SELECT @seg_count = COUNT(*) FROM #rd_segments;
+        PRINT 'Step B: ' + CAST(@seg_count AS VARCHAR) + ' total segments';
+    END
+
+    -- ========================================================================
+    -- Step C: Classify flights into SEGMENT vs GEOMETRY path
+    -- SEGMENT = has cum_dist data;  GEOMETRY = all segments have cum_dist=0
+    -- ========================================================================
+    CREATE TABLE #rd_segment_flights (flight_uid BIGINT PRIMARY KEY);
+    CREATE TABLE #rd_geometry_flights (flight_uid BIGINT PRIMARY KEY);
+
+    INSERT INTO #rd_segment_flights (flight_uid)
+    SELECT s.flight_uid
+    FROM #rd_segments s
+    GROUP BY s.flight_uid
+    HAVING MAX(s.seg_end_cum_dist) > 0;
+
+    INSERT INTO #rd_geometry_flights (flight_uid)
+    SELECT s.flight_uid
+    FROM #rd_segments s
+    WHERE s.flight_uid NOT IN (SELECT flight_uid FROM #rd_segment_flights)
+    GROUP BY s.flight_uid;
+
+    IF @debug = 1
+    BEGIN
+        DECLARE @seg_flight_count INT, @geo_flight_count INT;
+        SELECT @seg_flight_count = COUNT(*) FROM #rd_segment_flights;
+        SELECT @geo_flight_count = COUNT(*) FROM #rd_geometry_flights;
+        PRINT 'Step C: SEGMENT=' + CAST(@seg_flight_count AS VARCHAR) + ' GEOMETRY=' + CAST(@geo_flight_count AS VARCHAR);
+    END
+
+    -- ========================================================================
+    -- Step D: SEGMENT path - find closest segment per flight (two-pass)
+    -- Pass 1: Geodesic LINESTRING STDistance to find closest segment (exact V1 match)
+    -- Pass 2: Law of cosines projection on closest segment only (~900 vs ~19000 calls)
+    -- ========================================================================
+
+    -- D1 (Pass 1): LINESTRING STDistance to find closest segment (geodesic, exact V1 match)
+    -- Materialized into temp table to avoid double LINESTRING computation in CTE
+    SELECT
+        s.flight_uid,
+        s.seg_start_seq,
+        s.seg_end_seq,
+        s.seg_start_cum_dist,
+        s.segment_length_nm,
+        f.current_pos.STDistance(
+            geography::STGeomFromText(
+                'LINESTRING(' +
+                CAST(s.seg_start_lon AS VARCHAR(20)) + ' ' + CAST(s.seg_start_lat AS VARCHAR(20)) + ', ' +
+                CAST(s.seg_end_lon AS VARCHAR(20)) + ' ' + CAST(s.seg_end_lat AS VARCHAR(20)) + ')',
+                4326
+            )
+        ) AS dist_to_segment_m
+    INTO #rd_seg_dists
+    FROM #rd_segments s
+    INNER JOIN #rd_flights f ON f.flight_uid = s.flight_uid
+    WHERE s.flight_uid IN (SELECT flight_uid FROM #rd_segment_flights);
+
+    -- Pick closest segment per flight
+    ;WITH ranked AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY flight_uid ORDER BY dist_to_segment_m, seg_start_seq) AS rn
+        FROM #rd_seg_dists
+    )
+    SELECT flight_uid, seg_start_seq, seg_end_seq, seg_start_cum_dist, segment_length_nm
+    INTO #rd_closest_seg
+    FROM ranked WHERE rn = 1;
+
+    DROP TABLE #rd_seg_dists;
+
+    -- D2 (Pass 2): Compute projection on closest segment only
+    -- endpoint distances computed here (not for all 19000 segments)
+    ;WITH projected AS (
+        SELECT
+            c.flight_uid,
+            c.seg_start_seq,
+            c.seg_end_seq,
+            c.seg_start_cum_dist,
+            c.segment_length_nm,
+            CASE WHEN c.segment_length_nm > 0.1
+                THEN (POWER(f.current_pos.STDistance(s.seg_start_geo) / 1852.0, 2)
+                    + POWER(c.segment_length_nm, 2)
+                    - POWER(f.current_pos.STDistance(s.seg_end_geo) / 1852.0, 2))
+                    / (2.0 * c.segment_length_nm)
+                ELSE 0
+            END AS raw_projection
+        FROM #rd_closest_seg c
+        INNER JOIN #rd_flights f ON f.flight_uid = c.flight_uid
+        INNER JOIN #rd_segments s ON s.flight_uid = c.flight_uid AND s.seg_start_seq = c.seg_start_seq
+    )
+    SELECT flight_uid, seg_start_seq, seg_end_seq, seg_start_cum_dist,
+           CASE WHEN raw_projection < 0 THEN 0
+                WHEN raw_projection > segment_length_nm THEN segment_length_nm
+                ELSE raw_projection END AS projection,
+           seg_start_cum_dist + CASE WHEN raw_projection < 0 THEN 0
+                WHEN raw_projection > segment_length_nm THEN segment_length_nm
+                ELSE raw_projection END AS dist_flown_nm
+    INTO #rd_closest
+    FROM projected;
+
+    DROP TABLE #rd_closest_seg;
+
+    IF @debug = 1
+    BEGIN
+        DECLARE @closest_count INT;
+        SELECT @closest_count = COUNT(*) FROM #rd_closest;
+        PRINT 'Step D: ' + CAST(@closest_count AS VARCHAR) + ' flights matched via SEGMENT path';
+    END
+
+    -- ========================================================================
+    -- Step E: GEOMETRY fallback - find closest waypoint for flights without cum_dist
+    -- Same algorithm as msTVF GEOMETRY path: closest waypoint by position_geo,
+    -- off-route check (>50nm from route_geometry), cum_dist estimation
+    -- ========================================================================
+    IF EXISTS (SELECT 1 FROM #rd_geometry_flights)
+    BEGIN
+        ;WITH closest_wp AS (
+            SELECT
+                f.flight_uid,
+                w.sequence_num,
+                ISNULL(w.cum_dist_nm,
+                    (SELECT ISNULL(SUM(w2.segment_dist_nm), 0)
+                     FROM dbo.adl_flight_waypoints w2
+                     WHERE w2.flight_uid = f.flight_uid AND w2.sequence_num <= w.sequence_num)
+                ) AS cum_dist,
+                f.current_pos.STDistance(w.position_geo.MakeValid()) / 1852.0 AS dist_nm,
+                ROW_NUMBER() OVER (
+                    PARTITION BY f.flight_uid
+                    ORDER BY f.current_pos.STDistance(w.position_geo.MakeValid())
+                ) AS rn
+            FROM #rd_flights f
+            INNER JOIN dbo.adl_flight_waypoints w
+                ON w.flight_uid = f.flight_uid AND w.position_geo IS NOT NULL
+            WHERE f.flight_uid IN (SELECT flight_uid FROM #rd_geometry_flights)
+              AND f.route_geometry IS NOT NULL
+              AND f.current_pos.STDistance(f.route_geometry) / 1852.0 <= 50
+        )
+        INSERT INTO #rd_closest (flight_uid, seg_start_seq, seg_end_seq, seg_start_cum_dist, projection, dist_flown_nm)
+        SELECT flight_uid, sequence_num, sequence_num, cum_dist, 0, cum_dist
+        FROM closest_wp WHERE rn = 1;
+
+        IF @debug = 1
+        BEGIN
+            DECLARE @geo_matched INT;
+            SELECT @geo_matched = COUNT(*) FROM #rd_closest c
+            INNER JOIN #rd_geometry_flights g ON g.flight_uid = c.flight_uid;
+            PRINT 'Step E: ' + CAST(@geo_matched AS VARCHAR) + ' flights matched via GEOMETRY path';
+        END
+    END
+
+    -- ========================================================================
+    -- Step F: Compute final results with next waypoint
+    -- Same output columns as fn_CalculateRouteDistanceRemaining
+    -- ========================================================================
     CREATE TABLE #route_distances (
         flight_uid BIGINT PRIMARY KEY,
         route_dist_remaining_nm DECIMAL(10,2),
@@ -177,48 +398,42 @@ BEGIN
         next_waypoint_name NVARCHAR(64),
         dist_to_next_waypoint_nm DECIMAL(10,2)
     );
-    
-    -- Get active flights with positions and parsed routes
-    DECLARE @flight_uid BIGINT;
-    DECLARE @lat DECIMAL(10,7);
-    DECLARE @lon DECIMAL(11,7);
-    
-    DECLARE flight_cursor CURSOR LOCAL FAST_FORWARD FOR
-        SELECT c.flight_uid, p.lat, p.lon
-        FROM dbo.adl_flight_core c
-        INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
-        INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        WHERE c.is_active = 1
-          AND p.lat IS NOT NULL
-          AND fp.route_total_nm IS NOT NULL
-          AND fp.route_total_nm > 0;
-    
-    OPEN flight_cursor;
-    FETCH NEXT FROM flight_cursor INTO @flight_uid, @lat, @lon;
-    
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        INSERT INTO #route_distances
-        SELECT 
-            @flight_uid,
-            route_dist_remaining_nm,
-            route_total_nm,
-            route_dist_flown_nm,
-            route_pct_complete,
-            next_waypoint_seq,
-            next_waypoint_name,
-            dist_to_next_waypoint_nm
-        FROM dbo.fn_CalculateRouteDistanceRemaining(@flight_uid, @lat, @lon);
-        
-        FETCH NEXT FROM flight_cursor INTO @flight_uid, @lat, @lon;
-    END
-    
-    CLOSE flight_cursor;
-    DEALLOCATE flight_cursor;
-    
-    -- Update positions with calculated route distances
+
+    INSERT INTO #route_distances
+    SELECT
+        r.flight_uid,
+        -- route_dist_remaining_nm (clamped to >= 0)
+        CASE WHEN f.route_total_nm - r.dist_flown_nm < 0 THEN 0
+             ELSE CAST(f.route_total_nm - r.dist_flown_nm AS DECIMAL(10,2)) END,
+        f.route_total_nm,
+        CAST(r.dist_flown_nm AS DECIMAL(10,2)),
+        -- route_pct_complete (capped at 100)
+        CASE WHEN f.route_total_nm > 0
+             THEN CASE WHEN (r.dist_flown_nm / f.route_total_nm) * 100.0 > 100 THEN CAST(100 AS DECIMAL(5,2))
+                       ELSE CAST((r.dist_flown_nm / f.route_total_nm) * 100.0 AS DECIMAL(5,2)) END
+             ELSE CAST(0 AS DECIMAL(5,2)) END,
+        nw.sequence_num,
+        nw.fix_name,
+        CASE WHEN nw.wp_geo IS NOT NULL
+             THEN CAST(f.current_pos.STDistance(nw.wp_geo) / 1852.0 AS DECIMAL(10,2))
+             ELSE NULL END
+    FROM #rd_closest r
+    INNER JOIN #rd_flights f ON f.flight_uid = r.flight_uid
+    OUTER APPLY (
+        SELECT TOP 1 w.sequence_num, w.fix_name,
+               w.position_geo.MakeValid() AS wp_geo
+        FROM dbo.adl_flight_waypoints w
+        WHERE w.flight_uid = r.flight_uid
+          AND w.sequence_num >= r.seg_end_seq
+          AND w.position_geo IS NOT NULL
+        ORDER BY w.sequence_num
+    ) nw;
+
+    -- ========================================================================
+    -- Step G: Final UPDATE to adl_flight_position (unchanged from V1)
+    -- ========================================================================
     UPDATE p
-    SET 
+    SET
         p.route_dist_to_dest_nm = rd.route_dist_remaining_nm,
         p.route_pct_complete = rd.route_pct_complete,
         p.next_waypoint_seq = rd.next_waypoint_seq,
@@ -227,22 +442,28 @@ BEGIN
     FROM dbo.adl_flight_position p
     INNER JOIN #route_distances rd ON rd.flight_uid = p.flight_uid
     WHERE rd.route_dist_remaining_nm IS NOT NULL;
-    
+
     SET @flights_updated = @@ROWCOUNT;
-    
+
+    -- Cleanup
     DROP TABLE #route_distances;
-    
+    DROP TABLE #rd_closest;
+    DROP TABLE #rd_segment_flights;
+    DROP TABLE #rd_geometry_flights;
+    DROP TABLE #rd_segments;
+    DROP TABLE #rd_flights;
+
     IF @debug = 1
     BEGIN
         DECLARE @elapsed_ms INT = DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME());
-        PRINT 'Route distance update complete:';
+        PRINT 'Route distance update complete (V2.2 two-pass geodesic):';
         PRINT '  Flights updated: ' + CAST(@flights_updated AS VARCHAR);
         PRINT '  Elapsed: ' + CAST(@elapsed_ms AS VARCHAR) + 'ms';
     END
 END;
 GO
 
-PRINT 'Created procedure dbo.sp_UpdateRouteDistancesBatch';
+PRINT 'Created procedure dbo.sp_UpdateRouteDistancesBatch V2.2 (two-pass geodesic)';
 GO
 
 -- ============================================================================

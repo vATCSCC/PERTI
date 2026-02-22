@@ -369,7 +369,9 @@ if (!defined('PERTI_MYSQL_ONLY')) {
     $conn_swim = get_conn_swim();
     $conn_tmi = get_conn_tmi();
     $conn_ref = get_conn_ref();
-    $conn_gis = get_conn_gis();
+    // GIS is NOT eagerly loaded — call get_conn_gis() only where needed.
+    // Eager GIS loading was exhausting the PostgreSQL connection pool
+    // (max ~25-50 connections) since every PHP-FPM worker opened one.
 }
 
 // -------------------------------------------------------------------------
