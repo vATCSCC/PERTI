@@ -1112,15 +1112,64 @@ function executeDeferredProcessing($conn, array $config, array &$stats, float $c
         $result['log'] = ['ms' => round((microtime(true) - $start) * 1000)];
     }
 
-    // Phase snapshot
-    if ($budget > 100) {
+    // Phase snapshot — every 5 minutes (chart displays 5-min buckets anyway)
+    static $lastSnapshotTime = 0;
+    $timeSinceSnapshot = microtime(true) - $lastSnapshotTime;
+
+    if ($timeSinceSnapshot >= 300 && $budget > 100) {
         $start = microtime(true);
         $stmt = sqlsrv_query($conn, "EXEC dbo.sp_CapturePhaseSnapshot", [], ['QueryTimeout' => 5]);
         if ($stmt !== false) {
             while (sqlsrv_next_result($stmt)) {}
             sqlsrv_free_stmt($stmt);
+            $lastSnapshotTime = microtime(true);
         }
         $result['snapshot'] = ['ms' => round((microtime(true) - $start) * 1000)];
+        $budget -= $result['snapshot']['ms'];
+    }
+
+    // Gap detection & OOOI backfill — every ~50 cycles when budget healthy
+    static $lastGapCheckRun = 0;
+    if ($stats['runs'] - $lastGapCheckRun >= 50 && $budget > 2000) {
+        $lastGapCheckRun = $stats['runs'];
+
+        $gapSql = "
+            WITH ordered AS (
+                SELECT snapshot_utc,
+                       LEAD(snapshot_utc) OVER (ORDER BY snapshot_utc) AS next_utc
+                FROM dbo.flight_phase_snapshot
+                WHERE snapshot_utc > DATEADD(HOUR, -48, SYSUTCDATETIME())
+            )
+            SELECT TOP 1 snapshot_utc AS gap_start, next_utc AS gap_end
+            FROM ordered
+            WHERE DATEDIFF(MINUTE, snapshot_utc, next_utc) > 10
+            ORDER BY snapshot_utc ASC";
+
+        $gapStmt = sqlsrv_query($conn, $gapSql, [], ['QueryTimeout' => 3]);
+        if ($gapStmt !== false) {
+            $gapRow = sqlsrv_fetch_array($gapStmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($gapStmt);
+
+            if ($gapRow && $gapRow['gap_start'] && $gapRow['gap_end']) {
+                $filled = 0;
+                $bfStmt = sqlsrv_query($conn,
+                    "EXEC dbo.sp_BackfillPhaseSnapshotGap @gap_start=?, @gap_end=?, @max_rows=10, @filled=?",
+                    [
+                        $gapRow['gap_start'],
+                        $gapRow['gap_end'],
+                        [&$filled, SQLSRV_PARAM_INOUT, null, SQLSRV_SQLTYPE_INT],
+                    ],
+                    ['QueryTimeout' => 15]
+                );
+                if ($bfStmt !== false) {
+                    while (sqlsrv_next_result($bfStmt)) {}
+                    sqlsrv_free_stmt($bfStmt);
+                }
+                if ($filled > 0) {
+                    $result['backfill'] = $filled;
+                }
+            }
+        }
     }
 
     $result['elapsed_ms'] = round((microtime(true) - $deferStart) * 1000);
@@ -2434,6 +2483,9 @@ function runDaemon(array $config): void {
                     }
                     if ($deferredResult['eta_batch'] !== null) {
                         $logContext['def_eta2'] = $deferredResult['eta_batch']['count'];
+                    }
+                    if (isset($deferredResult['backfill'])) {
+                        $logContext['bf'] = $deferredResult['backfill'];
                     }
                 }
             }
