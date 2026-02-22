@@ -3261,7 +3261,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="status-section">
                     <div class="status-section-header">
                         <span><i class="fas fa-sync-alt mr-2"></i><?= __('statusPage.adlRefreshProcedure') ?></span>
-                        <span class="cycle-badge">V8.9.12 &bull; 15s Cycle + Daemon Background</span>
+                        <span class="cycle-badge">V9.4.0 &bull; 15s Cycle + Daemon Background</span>
                     </div>
                     <!-- Live Stats Header -->
                     <div class="procedure-header-stats">
