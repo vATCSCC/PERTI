@@ -3242,7 +3242,7 @@ class TMIComplianceAnalyzer:
         # measured AT the ZME->ZFW boundary, for traffic in the SEEVR flow.
         #
         # Strategy when fix + boundary are available:
-        #   a) Fix + boundary: use BOUNDARY (fix confirms correct traffic flow)
+        #   a) Fix + boundary: use whichever is UPSTREAM (earlier crossing time)
         #   b) Fix only, split MIT: SKIP (can't confirm which provider)
         #   b') Fix only, non-split: use FIX as fallback (boundary detection missed)
         #   c) Boundary only, near fix: use boundary (fix detection missed)
@@ -3254,8 +3254,11 @@ class TMIComplianceAnalyzer:
         fix_lat_coord = self.fix_coords[fix]['lat'] if fix and fix in self.fix_coords else None
         fix_lon_coord = self.fix_coords[fix]['lon'] if fix and fix in self.fix_coords else None
 
-        # Tight proximity for boundary-only fallback (no fix crossing confirmation)
-        proximity_nm = 40.0
+        # Tight proximity for boundary-only fallback (no fix crossing confirmation).
+        # Must be small enough to exclude adjacent TRACON boundary fixes (typically
+        # 15-30nm apart, e.g. BEUTY/PUCKY/CAMRN on N90) while catching sparse
+        # Tier 4 trajectories (~21nm gaps) whose boundary crossing is near the fix.
+        proximity_nm = 15.0
 
         crossings = []
         all_callsigns = set(fix_crossings_map.keys()) | set(boundary_crossings_map.keys())
@@ -3267,7 +3270,7 @@ class TMIComplianceAnalyzer:
             bnd_cx = boundary_crossings_map.get(callsign)
 
             if has_facility_pair and fix and fix_lat_coord is not None:
-                # Facility-pair MIT: BOUNDARY = measurement, fix = flow filter
+                # Facility-pair MIT: select measurement point
                 has_fix_cx = fix_cx is not None
                 has_bnd_cx = bnd_cx is not None
                 bnd_near_fix = False
@@ -3276,9 +3279,16 @@ class TMIComplianceAnalyzer:
                                                 fix_lat_coord, fix_lon_coord) <= proximity_nm
 
                 if has_fix_cx and has_bnd_cx:
-                    # Both: fix confirms flow, boundary is measurement point
-                    crossings.append(bnd_cx)
-                    measurement_stats['boundary'] += 1
+                    # Both available: use whichever the flight encountered FIRST
+                    # (farther upstream). The upstream crossing is where spacing
+                    # is enforced — either the boundary handoff or the fix,
+                    # whichever the flight reaches first on its route.
+                    if bnd_cx.crossing_time <= fix_cx.crossing_time:
+                        crossings.append(bnd_cx)
+                        measurement_stats['boundary'] += 1
+                    else:
+                        crossings.append(fix_cx)
+                        measurement_stats['fix'] += 1
                 elif has_fix_cx and not has_bnd_cx:
                     if is_split_mit:
                         # Split MIT: can't determine which provider without boundary
@@ -3310,23 +3320,32 @@ class TMIComplianceAnalyzer:
             logger.info(f"  Skipped {skipped_no_boundary} fix-only crossings: split MIT, "
                        f"no {tmi.provider}->{tmi.requestor} boundary detected")
 
-        # Determine overall measurement type based on what was actually used
-        # Priority: boundary measurement for facility-pair MITs, fix otherwise
-        if has_facility_pair and measurement_stats['boundary'] > 0:
-            measurement_type = MeasurementType.BOUNDARY
-            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
-            if fix:
-                measurement_point += f" ({fix} flow)"
-        elif has_facility_pair and measurement_stats['fix'] > 0:
-            # Fallback: boundary detection missed, using fix as proxy
-            measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
-            measurement_point = f"{fix} ({tmi.provider}->{tmi.requestor}, fix fallback)"
+        # Determine overall measurement type based on what was actually used.
+        # With upstream selection, the dominant type reflects which crossing
+        # point (fix or boundary) was upstream for most flights.
+        if has_facility_pair:
+            bnd_count = measurement_stats['boundary']
+            fix_count = measurement_stats['fix']
+            if bnd_count > fix_count:
+                # Boundary was upstream for most flights
+                measurement_type = MeasurementType.BOUNDARY
+                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary"
+                if fix:
+                    measurement_point += f" ({fix} flow)"
+            elif fix_count > 0 and bnd_count > 0:
+                # Fix was upstream for most flights (boundary is downstream)
+                measurement_type = MeasurementType.FIX
+                measurement_point = fix
+            elif fix_count > 0:
+                # All fix, no boundary detected — genuine fallback
+                measurement_type = MeasurementType.BOUNDARY_FALLBACK_FIX
+                measurement_point = f"{fix} ({tmi.provider}->{tmi.requestor}, fix fallback)"
+            else:
+                measurement_type = MeasurementType.BOUNDARY
+                measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
         elif fix and measurement_stats['fix'] > 0:
             measurement_type = MeasurementType.FIX
             measurement_point = fix
-        elif has_facility_pair:
-            measurement_type = MeasurementType.BOUNDARY
-            measurement_point = f"{tmi.provider}->{tmi.requestor} boundary (no crossings)"
         else:
             measurement_type = MeasurementType.FIX
             measurement_point = fix or 'unknown'
@@ -3922,21 +3941,19 @@ class TMIComplianceAnalyzer:
                 flight_info['reason'] = 'Airborne before GS issued'
                 exempt.append(flight_info)
             elif dep_time > gs_end:
-                # Only count if departed within reasonable window after GS ended
-                gs_duration_min = (gs_end - gs_start).total_seconds() / 60
-                max_hold_window_min = max(gs_duration_min * 3, 120)
-                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
-                if time_after_gs_min > max_hold_window_min:
-                    continue  # Not GS-related, just normal traffic
+                # Flight departed after GS ended — only COMPLIANT if it was
+                # ready during the GS and was correctly held until release.
+                ready_time = normalize_datetime(out_utc) if out_utc else (normalize_datetime(first_seen) if first_seen else None)
+                if not ready_time or ready_time >= gs_end:
+                    continue  # Connected after GS ended — never held
+
                 flight_info['status'] = 'COMPLIANT'
                 flight_info['reason'] = 'Departed after GS ended'
                 compliant.append(flight_info)
-                # Calculate hold time: delay from the GS (overlap of ready time with GS window)
-                ready_time = normalize_datetime(out_utc) if out_utc else (normalize_datetime(first_seen) if first_seen else None)
-                if ready_time and ready_time < gs_end:
-                    hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
-                    if hold_min > 0:
-                        flight_info['hold_time_min'] = round(hold_min, 1)
+                # Hold time: overlap of ready window with GS period
+                hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
+                if hold_min > 0:
+                    flight_info['hold_time_min'] = round(hold_min, 1)
             else:
                 flight_info['status'] = 'NON-COMPLIANT'
                 flight_info['reason'] = 'Departed during GS window'
@@ -4175,24 +4192,8 @@ class TMIComplianceAnalyzer:
                 per_origin[dept]['exempt'] += 1
                 per_carrier[carrier]['exempt'] += 1
             elif gs_end and dep_time > gs_end:
-                # Only count as GS-affected if departed within reasonable window after GS ended
-                # Flights departing hours later are normal traffic, not held by the GS
-                gs_duration_min = (gs_end - gs_start).total_seconds() / 60 if gs_start else 60
-                max_hold_window_min = max(gs_duration_min * 3, 120)  # 3x GS duration or 2 hours, whichever is larger
-                time_after_gs_min = (dep_time - gs_end).total_seconds() / 60
-                if time_after_gs_min > max_hold_window_min:
-                    continue  # Skip - departed too long after GS to be related
-
-                flight_info['status'] = 'COMPLIANT'
-                flight_info['reason'] = 'Departed after GS ended'
-                compliant.append(flight_info)
-                per_origin[dept]['compliant'] += 1
-                per_carrier[carrier]['compliant'] += 1
-                # Calculate hold time: delay incurred as a result of the GS
-                # = overlap between when the flight was ready and the GS window
-                # Ready time: first_seen + connect_ref (estimated setup completion)
-                # This adjusts raw connect time to approximate when pilot was ready
-                # For GS-held flights, out_utc is AFTER the GS ended so we prefer first_seen
+                # Flight departed after GS ended — only COMPLIANT if it was
+                # ready during the GS and was correctly held until release.
                 ready_time = None
                 if first_seen:
                     connect_sec = self._get_connect_reference(dept)
@@ -4200,7 +4201,16 @@ class TMIComplianceAnalyzer:
                 elif out_utc:
                     ready_time = normalize_datetime(out_utc)
 
-                if ready_time and gs_start and gs_end and ready_time < gs_end:
+                if not ready_time or ready_time >= gs_end:
+                    continue  # Connected after GS ended — not held
+
+                flight_info['status'] = 'COMPLIANT'
+                flight_info['reason'] = 'Departed after GS ended'
+                compliant.append(flight_info)
+                per_origin[dept]['compliant'] += 1
+                per_carrier[carrier]['compliant'] += 1
+                # Calculate hold time: overlap of ready window with GS period
+                if gs_start:
                     hold_min = (gs_end - max(ready_time, gs_start)).total_seconds() / 60
                     if hold_min > 0:
                         hold_times.append(hold_min)
