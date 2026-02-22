@@ -2261,7 +2261,7 @@ if ($org_mismatch):
 <script src="assets/js/plan.js"></script>
 
 <!-- Insert Initiative Timeline Script -->
-<script src="assets/js/initiative_timeline.js"></script>
+<script src="assets/js/initiative_timeline.js?v=<?= filemtime(__DIR__ . '/assets/js/initiative_timeline.js') ?>"></script>
 <script>
     // Initialize Initiative Timelines when DOM is ready
     $(function() {

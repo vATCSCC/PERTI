@@ -776,7 +776,15 @@ class InitiativeTimeline {
             navLabel.textContent = `${fmt(startTime)} — ${fmt(endTime)}`;
         }
 
-        const data = this.data.filter(i => !this.filteredOut.has(i.level) && !this.filteredOutTypes.has(i.tmi_type));
+        const windowStartMs = startTime.getTime();
+        const windowEndMs = endTime.getTime();
+        const data = this.data.filter(i => {
+            if (this.filteredOut.has(i.level) || this.filteredOutTypes.has(i.tmi_type)) return false;
+            // Exclude items entirely outside the visible window
+            const iEnd = this.parseUTC(i.end_datetime).getTime();
+            const iStart = this.parseUTC(i.start_datetime).getTime();
+            return iEnd > windowStartMs && iStart < windowEndMs;
+        });
 
         const groups = {};
         data.forEach(i => {
