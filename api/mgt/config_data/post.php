@@ -45,6 +45,24 @@ $config_name = isset($_POST['config_name']) ? trim(post_input('config_name')) : 
 $config_code = isset($_POST['config_code']) ? trim(post_input('config_code')) : null;
 $arr_runways = isset($_POST['arr_runways']) ? trim(post_input('arr_runways')) : (isset($_POST['arr']) ? trim(post_input('arr')) : '');
 $dep_runways = isset($_POST['dep_runways']) ? trim(post_input('dep_runways')) : (isset($_POST['dep']) ? trim(post_input('dep')) : '');
+$allowed_config_modifiers = [
+    'SIMOS', 'STAGGERED', 'SIDE_BY_SIDE', 'IN_TRAIL',
+    'ILS', 'VOR', 'RNAV', 'LDA', 'LOC', 'FMS_VISUAL',
+    'LAHSO', 'SINGLE_RWY', 'CIRCLING', 'VAP',
+    'CAT_II', 'CAT_III', 'WINTER', 'NOISE', 'DAY', 'NIGHT'
+];
+$posted_modifiers = $_POST['config_modifiers'] ?? [];
+if (!is_array($posted_modifiers)) {
+    $posted_modifiers = explode(',', (string)$posted_modifiers);
+}
+$config_modifiers = [];
+foreach ($posted_modifiers as $modifier) {
+    $modifier = strtoupper(trim((string)$modifier));
+    if ($modifier !== '' && in_array($modifier, $allowed_config_modifiers, true)) {
+        $config_modifiers[$modifier] = true;
+    }
+}
+$config_modifiers = array_keys($config_modifiers);
 
 // Get ICAO - use user-provided value if given, otherwise look up from apts table
 $airport_faa = $airport;
@@ -199,7 +217,18 @@ try {
         }
     }
 
-    // 4. Insert VATSIM rates
+    // 4. Insert config-level modifiers
+    foreach ($config_modifiers as $modifier_code) {
+        $sql = "INSERT INTO dbo.config_modifier (config_id, runway_id, modifier_code, original_value, variant_value)
+                VALUES (?, NULL, ?, NULL, NULL)";
+        $stmt = sqlsrv_query($conn_adl, $sql, [$config_id, $modifier_code]);
+        if ($stmt === false) {
+            throw new Exception("Failed to insert config modifier: " . adl_sql_error_message());
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // 5. Insert VATSIM rates
     foreach ($vatsim_rates as $rate) {
         if ($rate['value'] !== null && $rate['value'] > 0) {
             $sql = "INSERT INTO dbo.airport_config_rate (config_id, source, weather, rate_type, rate_value) VALUES (?, 'VATSIM', ?, ?, ?)";
@@ -211,7 +240,7 @@ try {
         }
     }
 
-    // 5. Insert Real-World rates
+    // 6. Insert Real-World rates
     foreach ($rw_rates as $rate) {
         if ($rate['value'] !== null && $rate['value'] > 0) {
             $sql = "INSERT INTO dbo.airport_config_rate (config_id, source, weather, rate_type, rate_value) VALUES (?, 'RW', ?, ?, ?)";

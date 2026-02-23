@@ -381,6 +381,14 @@ if (!$conn_adl) {
             $configMods = $allModifiers[$configId]['config'] ?? [];
             $runwayMods = $allModifiers[$configId]['runways'] ?? [];
             $runways = $allRunways[$configId] ?? ['ARR' => [], 'DEP' => []];
+            $configModifierCodes = [];
+            foreach ($configMods as $mod) {
+                $modCode = strtoupper(trim($mod['modifier_code'] ?? ''));
+                if ($modCode !== '') {
+                    $configModifierCodes[$modCode] = true;
+                }
+            }
+            $configModifierCsv = implode(',', array_keys($configModifierCodes));
 
             echo '<tr class="' . $rowClass . '" data-active="' . ($isActive ? 'true' : 'false') . '" data-config-id="' . $configId . '">';
 
@@ -540,6 +548,7 @@ if (!$conn_adl) {
                 echo 'data-config_code="' . htmlspecialchars($data['config_code'] ?? '') . '" ';
                 echo 'data-arr_runways="' . htmlspecialchars($data['arr_runways'] ?? '') . '" ';
                 echo 'data-dep_runways="' . htmlspecialchars($data['dep_runways'] ?? '') . '" ';
+                echo 'data-config_modifiers="' . htmlspecialchars($configModifierCsv) . '" ';
 
                 // VATSIM rates
                 echo 'data-vatsim_vmc_aar="' . ($data['vatsim_vmc_aar'] ?? '') . '" ';

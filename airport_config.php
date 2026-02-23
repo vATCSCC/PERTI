@@ -49,8 +49,18 @@ include("sessions/handler.php");
             font-size: 0.85rem;
         }
         .rate-grid input {
-            width: 60px;
+            width: 78px;
+            min-width: 78px;
             text-align: center;
+        }
+        .rate-grid input[type="number"] {
+            padding-right: 1.2rem;
+        }
+        @media (max-width: 768px) {
+            .rate-grid input {
+                width: 66px;
+                min-width: 66px;
+            }
         }
         .rate-grid th, .rate-grid td {
             padding: 4px 8px;
@@ -637,6 +647,46 @@ include('load/nav.php');
                         </div>
                     </div>
 
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <label>Config Modifiers</label>
+                            <input type="hidden" name="config_modifiers[]" value="">
+                            <select class="form-control" name="config_modifiers[]" id="add_config_modifiers" multiple size="8">
+                                <optgroup label="Parallel Operations">
+                                    <option value="SIMOS">SIMOS</option>
+                                    <option value="STAGGERED">Staggered</option>
+                                    <option value="SIDE_BY_SIDE">Side-by-Side</option>
+                                    <option value="IN_TRAIL">In-Trail</option>
+                                </optgroup>
+                                <optgroup label="Approach Type">
+                                    <option value="ILS">ILS</option>
+                                    <option value="VOR">VOR</option>
+                                    <option value="RNAV">RNAV</option>
+                                    <option value="LDA">LDA</option>
+                                    <option value="LOC">LOC</option>
+                                    <option value="FMS_VISUAL">FMS Visual</option>
+                                </optgroup>
+                                <optgroup label="Special Operations">
+                                    <option value="LAHSO">LAHSO</option>
+                                    <option value="SINGLE_RWY">Single Runway</option>
+                                    <option value="CIRCLING">Circling</option>
+                                    <option value="VAP">Visual Approach</option>
+                                </optgroup>
+                                <optgroup label="Visibility Category">
+                                    <option value="CAT_II">CAT II</option>
+                                    <option value="CAT_III">CAT III</option>
+                                </optgroup>
+                                <optgroup label="Weather/Time">
+                                    <option value="WINTER">Winter</option>
+                                    <option value="NOISE">Noise Abatement</option>
+                                    <option value="DAY">Day Only</option>
+                                    <option value="NIGHT">Night Only</option>
+                                </optgroup>
+                            </select>
+                            <small class="text-muted">Config-level only. Hold Ctrl/Cmd to select multiple.</small>
+                        </div>
+                    </div>
+
                     <hr>
 
                     <!-- VATSIM Rates -->
@@ -780,6 +830,46 @@ include('load/nav.php');
                             <label><?= __('airportConfig.page.departureRunways') ?></label>
                             <input type="text" class="form-control" name="dep_runways" id="dep_runways" maxlength="32" placeholder="22L/21R" required>
                             <small class="text-muted">Separate with / in priority order</small>
+                        </div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <label>Config Modifiers</label>
+                            <input type="hidden" name="config_modifiers[]" value="">
+                            <select class="form-control" name="config_modifiers[]" id="config_modifiers" multiple size="8">
+                                <optgroup label="Parallel Operations">
+                                    <option value="SIMOS">SIMOS</option>
+                                    <option value="STAGGERED">Staggered</option>
+                                    <option value="SIDE_BY_SIDE">Side-by-Side</option>
+                                    <option value="IN_TRAIL">In-Trail</option>
+                                </optgroup>
+                                <optgroup label="Approach Type">
+                                    <option value="ILS">ILS</option>
+                                    <option value="VOR">VOR</option>
+                                    <option value="RNAV">RNAV</option>
+                                    <option value="LDA">LDA</option>
+                                    <option value="LOC">LOC</option>
+                                    <option value="FMS_VISUAL">FMS Visual</option>
+                                </optgroup>
+                                <optgroup label="Special Operations">
+                                    <option value="LAHSO">LAHSO</option>
+                                    <option value="SINGLE_RWY">Single Runway</option>
+                                    <option value="CIRCLING">Circling</option>
+                                    <option value="VAP">Visual Approach</option>
+                                </optgroup>
+                                <optgroup label="Visibility Category">
+                                    <option value="CAT_II">CAT II</option>
+                                    <option value="CAT_III">CAT III</option>
+                                </optgroup>
+                                <optgroup label="Weather/Time">
+                                    <option value="WINTER">Winter</option>
+                                    <option value="NOISE">Noise Abatement</option>
+                                    <option value="DAY">Day Only</option>
+                                    <option value="NIGHT">Night Only</option>
+                                </optgroup>
+                            </select>
+                            <small class="text-muted">Config-level only. Hold Ctrl/Cmd to select multiple.</small>
                         </div>
                     </div>
 
@@ -1396,6 +1486,9 @@ include('load/nav.php');
                 modal.find('#config_code').val(button.data('config_code'));
                 modal.find('#arr_runways').val(button.data('arr_runways'));
                 modal.find('#dep_runways').val(button.data('dep_runways'));
+                var configModifiersRaw = (button.data('config_modifiers') || '').toString();
+                var configModifiers = configModifiersRaw ? configModifiersRaw.split(',') : [];
+                modal.find('#config_modifiers').val(configModifiers);
 
                 // VATSIM rates
                 modal.find('#vatsim_vmc_aar').val(button.data('vatsim_vmc_aar'));
