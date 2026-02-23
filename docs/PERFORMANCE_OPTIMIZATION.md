@@ -74,21 +74,16 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 - **Risk**: None — `_v()` is already defined in header.php, included by all pages
 
 ### 8. Cache-Control for static reference APIs
-- **Files**: ~5 reference API endpoints (fixes, routes, tiers, sectors, airspace elements)
-- **Change**: Add `Cache-Control: max-age=300` to `max-age=3600`
-- **NOT applied to**: Any operational, TMI, ADL, demand, weather, or plan data endpoints
-
-### 9. JS/CSS minification in CI/CD
-- **File**: `.github/workflows/azure-webapp-vatcscc.yml`
-- **Change**: Add terser + cssnano build step before deploy
-- **Impact**: ~60-70% JS/CSS size reduction before gzip
-
-### 8. Cache-Control for static reference APIs
 - **File**: `api/data/fixes.php`
 - **Change**: Added `Cache-Control: public, max-age=3600` (navaid data changes only at AIRAC cycles)
 - **Impact**: Browsers cache navaid fix lookups for 1 hour
 - **Note**: `api/tiers.php` (5min) and `api/splits/sectors.php` (1h) already had caching
 - **NOT applied to**: Any operational, TMI, ADL, demand, weather, or plan data endpoints
+
+### 9. JS/CSS minification in CI/CD (Planned)
+- **File**: `.github/workflows/azure-webapp-vatcscc.yml`
+- **Change**: Add terser + cssnano build step before deploy
+- **Impact**: ~60-70% JS/CSS size reduction before gzip (4.8MB JS → ~2MB minified → ~500KB gzipped)
 
 ### 10. PERTI_MYSQL_ONLY expansion
 - **Files**: 12 API files that were unnecessarily opening 4 Azure SQL connections
@@ -98,9 +93,15 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 
 ## Tier 3: Larger Refactors (Planned)
 
-### 10. Batch plan data API
-### 11. Lazy-load page-specific JS
-### 12. Exclude T_T100D from deploy
+### 11. Batch plan data API
+- Reduce plan.php from 16 parallel API requests to 1 batched request
+- Create `api/data/plans/batch.php` endpoint
+
+### 12. Lazy-load page-specific JS
+- Move `facility-hierarchy.js` (61KB) from header.php to only pages that use it
+
+### 13. Exclude T_T100D from deploy
+- Remove 15MB `T_T100D_SEGMENT_US_CARRIER_ONLY.csv` from deploy package
 
 ## Data Freshness Policy
 
