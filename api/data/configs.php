@@ -98,6 +98,23 @@ function formatRunwayWithModifiers($runway, $modifiers) {
 
 // Helper: Format config name for better readability
 function formatConfigName($configName, $arrRunways = null, $depRunways = null, $configCode = null) {
+    // Always prefer actual ARR/DEP runway fields from the database.
+    $arrText = formatRunwayList($arrRunways);
+    $depText = formatRunwayList($depRunways);
+    if ($arrText !== '-' || $depText !== '-') {
+        $html = '<span class="config-formatted">';
+        $html .= '<span class="config-arr"><span class="config-label">ARR:</span> ' . $arrText . '</span>';
+        $html .= '<span class="config-sep">|</span>';
+        $html .= '<span class="config-dep"><span class="config-label">DEP:</span> ' . $depText . '</span>';
+        $html .= '</span>';
+
+        if ($configCode) {
+            $html .= ' <small class="text-muted">(' . htmlspecialchars($configCode) . ')</small>';
+        }
+
+        return $html;
+    }
+
     // Check if it's a simple descriptive name (no slashes, not all caps with underscores)
     $isSimpleName = (strpos($configName, ' / ') === false && strpos($configName, '/') === false)
                     || preg_match('/^[A-Za-z]+ Flow$/i', $configName)
