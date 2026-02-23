@@ -2776,21 +2776,6 @@
       "deleted": "You have successfully deleted the selected TMU personnel/position.",
       "deleteError": "There was an error in deleting this TMU personnel/position."
     },
-    "dcc": {
-      "facilityType": "Type",
-      "service": "Service",
-      "facility": "Facility",
-      "role": "Role",
-      "selectType": "Select Type...",
-      "selectService": "Select Service...",
-      "selectFacility": "Select Facility...",
-      "selectRole": "Select Role...",
-      "selectTypeFirst": "Select a type first",
-      "selectServiceFirst": "Select a service first",
-      "selectFacilityFirst": "Select a facility first",
-      "commandCenter": "Command Center",
-      "atcFacility": "ATC Facility"
-    },
     "historical": {
       "added": "You have successfully added historical data for this plan.",
       "addError": "There was an error in adding historical data for this plan.",
@@ -2988,7 +2973,19 @@
       "position": "Position",
       "personnelNameLabel": "Personnel Name",
       "personnelOis": "Personnel OIs",
-      "leaveBlankForVacancy": "Leave Blank for Vacancy"
+      "leaveBlankForVacancy": "Leave Blank for Vacancy",
+      "facilityType": "Type",
+      "service": "Service",
+      "role": "Role",
+      "selectType": "Select Type...",
+      "selectService": "Select Service...",
+      "selectFacility": "Select Facility...",
+      "selectRole": "Select Role...",
+      "selectTypeFirst": "Select a type first",
+      "selectServiceFirst": "Select a service first",
+      "selectFacilityFirst": "Select a facility first",
+      "commandCenter": "Command Center",
+      "atcFacility": "ATC Facility"
     },
     "historicalTab": {
       "addData": "Add Data",
