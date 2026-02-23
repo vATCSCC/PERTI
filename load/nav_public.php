@@ -117,6 +117,10 @@ if (!function_exists('render_dropdown_public')) {
 
 ?>
 
+<!-- Page Loading Indicator -->
+<div id="perti-page-loader"><div class="bar"></div></div>
+<div id="perti-loader-overlay"></div>
+
 <!-- Enable Tooltips -->
 <script>
     $(document).ready(function() {

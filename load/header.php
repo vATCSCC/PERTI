@@ -41,6 +41,13 @@ function _v($path) {
 <!-- Title -->
 <title><?= isset($page_title) ? $page_title : 'PERTI Planning - vATCSCC'; ?></title>
 
+<!-- Page Loading Indicator (inline CSS for instant rendering) -->
+<style>
+#perti-page-loader{position:fixed;top:0;left:0;width:100%;height:3px;z-index:99999;pointer-events:none}
+#perti-page-loader .bar{height:100%;width:30%;background:linear-gradient(90deg,#239BCD,#17a2b8);border-radius:0 2px 2px 0;animation:perti-lp 1.5s ease-in-out infinite}
+@keyframes perti-lp{0%{width:10%;margin-left:0}50%{width:40%;margin-left:30%}100%{width:10%;margin-left:90%}}
+#perti-loader-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;cursor:wait}
+</style>
 
 <!-- Load Initial Bootstrap Source --> 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">

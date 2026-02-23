@@ -90,3 +90,17 @@
     </div>
 
 </footer>
+
+<!-- Dismiss page loading indicator when all resources are loaded -->
+<script>
+(function(){
+    function dismiss(){
+        var l=document.getElementById('perti-page-loader'),
+            o=document.getElementById('perti-loader-overlay');
+        if(l){l.style.transition='opacity .3s';l.style.opacity='0';setTimeout(function(){l.remove()},350);}
+        if(o)o.remove();
+    }
+    window.addEventListener('load',dismiss);
+    setTimeout(dismiss,15000);
+})();
+</script>
