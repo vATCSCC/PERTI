@@ -3,6 +3,16 @@
 include_once("config.php");
 $filepath = "";
 
+// Cache-busting helper: appends file modification time as query param
+// Ensures users always get fresh assets after deployments
+$_rootDir = dirname(__DIR__);
+function _v($path) {
+    global $_rootDir;
+    $fullPath = $_rootDir . '/' . $path;
+    $mtime = @filemtime($fullPath);
+    return $mtime ? "?v={$mtime}" : '';
+}
+
 ?>
 
 <!-- Base URL for relative paths -->
@@ -36,10 +46,10 @@ $filepath = "";
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-bs4.min.css">
-<link rel="stylesheet" href="<?= $filepath; ?>assets/css/plugins/datetimepicker.css">
+<link rel="stylesheet" href="<?= $filepath; ?>assets/css/plugins/datetimepicker.css<?= _v('assets/css/plugins/datetimepicker.css') ?>">
 
 <!-- Load jQuery/Javascript Sources -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/javascript.util/0.12.12/javascript.util.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/javascript.util/0.12.12/javascript.util.min.js"></script>
 <script src="https://code.jquery.com/jquery-2.2.4.js" integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI=" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
@@ -59,17 +69,15 @@ $filepath = "";
 <?php
 if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 ?>
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti-colors.css">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/theme.css">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti_theme.css">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/tmi-compliance.css?v=4">
-  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/mobile.css">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti-colors.css<?= _v('assets/css/perti-colors.css') ?>">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/theme.css<?= _v('assets/css/theme.css') ?>">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/perti_theme.css<?= _v('assets/css/perti_theme.css') ?>">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/tmi-compliance.css<?= _v('assets/css/tmi-compliance.css') ?>">
+  <link rel="stylesheet" href="<?= $filepath; ?>assets/css/mobile.css<?= _v('assets/css/mobile.css') ?>">
 <?php } ?>
     
-<!-- Load Fontawesome Source -->
+<!-- Load Fontawesome Source (CSS only — Kit JS removed, was duplicate + sometimes returned 403) -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-<!-- FontAwesome Kit (backup, may fail with 403) -->
-<script src="https://kit.fontawesome.com/2b05d84399.js" crossorigin="anonymous"></script>
 
 <!-- Load Swal Source -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -80,13 +88,13 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <!-- Load PERTI Centralized Namespace -->
-<script src="<?= $filepath; ?>assets/js/lib/perti.js"></script>
-<script src="<?= $filepath; ?>assets/js/lib/colors.js"></script>
-<script src="<?= $filepath; ?>assets/js/facility-hierarchy.js"></script>
+<script src="<?= $filepath; ?>assets/js/lib/perti.js<?= _v('assets/js/lib/perti.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/js/lib/colors.js<?= _v('assets/js/lib/colors.js') ?>"></script>
+<script defer src="<?= $filepath; ?>assets/js/facility-hierarchy.js<?= _v('assets/js/facility-hierarchy.js') ?>"></script>
 
 <!-- Internationalization (i18n) -->
-<script src="<?= $filepath; ?>assets/js/lib/i18n.js"></script>
-<script src="<?= $filepath; ?>assets/locales/index.js"></script>
+<script src="<?= $filepath; ?>assets/js/lib/i18n.js<?= _v('assets/js/lib/i18n.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
 
 <!-- Organization Context -->
 <?php
@@ -107,7 +115,7 @@ window.PERTI_ORG = {
 };
 </script>
 
-<script src="<?= $filepath; ?>assets/js/lib/dialog.js"></script>
+<script src="<?= $filepath; ?>assets/js/lib/dialog.js<?= _v('assets/js/lib/dialog.js') ?>"></script>
 
 <!-- Deep Link Utility -->
-<script src="<?= $filepath; ?>assets/js/lib/deeplink.js"></script>
+<script defer src="<?= $filepath; ?>assets/js/lib/deeplink.js<?= _v('assets/js/lib/deeplink.js') ?>"></script>

@@ -9,6 +9,23 @@ server {
     # Allow large POST bodies (trajectory data can exceed 1MB default)
     client_max_body_size 50m;
 
+    # Gzip compression — ~75% bandwidth reduction on text-based responses
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/xml
+        image/svg+xml
+        application/font-woff2
+        font/woff2;
+
     # Disable automatic directory slash redirect
     absolute_redirect off;
 

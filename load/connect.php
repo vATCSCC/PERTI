@@ -144,7 +144,8 @@ if (!function_exists('get_conn_adl')) {
             "Database" => ADL_SQL_DATABASE,
             "UID"      => ADL_SQL_USERNAME,
             "PWD"      => ADL_SQL_PASSWORD,
-            "ConnectionPooling" => 1
+            "ConnectionPooling" => 1,
+            "LoginTimeout" => 5
         ];
 
         $_conn_cache['adl'] = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
@@ -190,7 +191,8 @@ if (!function_exists('get_conn_swim')) {
             "Database" => SWIM_SQL_DATABASE,
             "UID"      => SWIM_SQL_USERNAME,
             "PWD"      => SWIM_SQL_PASSWORD,
-            "ConnectionPooling" => 1
+            "ConnectionPooling" => 1,
+            "LoginTimeout" => 5
         ];
 
         $_conn_cache['swim'] = sqlsrv_connect(SWIM_SQL_HOST, $connectionInfo);
@@ -236,7 +238,8 @@ if (!function_exists('get_conn_tmi')) {
             "Database" => TMI_SQL_DATABASE,
             "UID"      => TMI_SQL_USERNAME,
             "PWD"      => TMI_SQL_PASSWORD,
-            "ConnectionPooling" => 1
+            "ConnectionPooling" => 1,
+            "LoginTimeout" => 5
         ];
 
         $_conn_cache['tmi'] = sqlsrv_connect(TMI_SQL_HOST, $connectionInfo);
@@ -282,7 +285,8 @@ if (!function_exists('get_conn_ref')) {
             "Database" => REF_SQL_DATABASE,
             "UID"      => REF_SQL_USERNAME,
             "PWD"      => REF_SQL_PASSWORD,
-            "ConnectionPooling" => 1
+            "ConnectionPooling" => 1,
+            "LoginTimeout" => 5
         ];
 
         $_conn_cache['ref'] = sqlsrv_connect(REF_SQL_HOST, $connectionInfo);

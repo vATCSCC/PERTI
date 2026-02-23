@@ -210,6 +210,23 @@ echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
 echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 echo "========================================"
 
+# Configure OPcache for production performance
+# Eliminates PHP script re-parsing (~10-50ms saved per request)
+# validate_timestamps=1 with revalidate_freq=60 means changes are
+# picked up within 60s of deployment — safe for CI/CD
+echo "Configuring PHP OPcache..."
+PHP_INI="/usr/local/etc/php/conf.d/opcache-perti.ini"
+cat > "$PHP_INI" << 'OPCACHE_EOF'
+opcache.enable=1
+opcache.memory_consumption=128
+opcache.max_accelerated_files=10000
+opcache.validate_timestamps=1
+opcache.revalidate_freq=60
+opcache.interned_strings_buffer=16
+opcache.fast_shutdown=1
+OPCACHE_EOF
+echo "  OPcache configured (128MB, revalidate every 60s)"
+
 # Configure PHP-FPM for higher concurrency
 # Default is only 5 workers which causes request queueing under load
 #
