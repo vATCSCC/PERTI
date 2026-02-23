@@ -10,6 +10,7 @@
  */
 
 header('Content-Type: application/json');
+header('Cache-Control: public, max-age=3600'); // Navaid fixes change only at AIRAC cycles (~28 days)
 
 // Try database first, then fall back to static file
 $fixes = [];

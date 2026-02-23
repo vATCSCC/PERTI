@@ -16,6 +16,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../../../load/config.php';
+define('PERTI_MYSQL_ONLY', true);
 require_once __DIR__ . '/../../../load/connect.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

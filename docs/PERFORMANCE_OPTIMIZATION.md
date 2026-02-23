@@ -83,10 +83,18 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 - **Change**: Add terser + cssnano build step before deploy
 - **Impact**: ~60-70% JS/CSS size reduction before gzip
 
+### 8. Cache-Control for static reference APIs
+- **File**: `api/data/fixes.php`
+- **Change**: Added `Cache-Control: public, max-age=3600` (navaid data changes only at AIRAC cycles)
+- **Impact**: Browsers cache navaid fix lookups for 1 hour
+- **Note**: `api/tiers.php` (5min) and `api/splits/sectors.php` (1h) already had caching
+- **NOT applied to**: Any operational, TMI, ADL, demand, weather, or plan data endpoints
+
 ### 10. PERTI_MYSQL_ONLY expansion
-- **Files**: ~30 API files currently making unnecessary Azure SQL connections
-- **Change**: Add `define('PERTI_MYSQL_ONLY', true)` where safe
-- **Impact**: 100-200ms saved per unnecessary connection set
+- **Files**: 12 API files that were unnecessarily opening 4 Azure SQL connections
+- **Change**: Added `define('PERTI_MYSQL_ONLY', true)` to: `personnel.php`, `schedule.php`, `routes.php`, `reroutes.php`, `plans.l.php`, `tmi/ground_stop.php`, `tmi/ground_stops.php`, `review/tmr_export.php`, `review/tmr_ops_plan.php`, `review/tmr_report.php`, `review/tmr_parse_ntml.php`, `review/tmr_staffing.php`, `review/tmr_weather.php`
+- **Impact**: 100-200ms saved per request on these endpoints (skips 4 Azure SQL TCP connections)
+- **Total PERTI_MYSQL_ONLY coverage**: 115 of ~387 API files (was 102)
 
 ## Tier 3: Larger Refactors (Planned)
 
