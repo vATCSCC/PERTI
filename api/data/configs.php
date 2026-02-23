@@ -104,7 +104,7 @@ function formatConfigName($configName, $arrRunways = null, $depRunways = null, $
     if ($arrText !== '-' || $depText !== '-') {
         $html = '<span class="config-formatted">';
         $html .= '<span class="config-arr"><span class="config-label">ARR:</span> ' . $arrText . '</span>';
-        $html .= '<span class="config-sep">|</span>';
+        $html .= '<br>';
         $html .= '<span class="config-dep"><span class="config-label">DEP:</span> ' . $depText . '</span>';
         $html .= '</span>';
 
@@ -146,7 +146,7 @@ function formatConfigName($configName, $arrRunways = null, $depRunways = null, $
         // Format with explicit labels
         $html = '<span class="config-formatted">';
         $html .= '<span class="config-arr"><span class="config-label">ARR:</span> ' . formatRunwayList($arrPart) . '</span>';
-        $html .= '<span class="config-sep">|</span>';
+        $html .= '<br>';
         $html .= '<span class="config-dep"><span class="config-label">DEP:</span> ' . formatRunwayList($depPart) . '</span>';
         $html .= '</span>';
 
@@ -403,6 +403,14 @@ if (!$conn_adl) {
                 $modCode = strtoupper(trim($mod['modifier_code'] ?? ''));
                 if ($modCode !== '') {
                     $configModifierCodes[$modCode] = true;
+                }
+            }
+            foreach ($runwayMods as $rwyId => $mods) {
+                foreach ($mods as $mod) {
+                    $modCode = strtoupper(trim($mod['modifier_code'] ?? ''));
+                    if ($modCode !== '') {
+                        $configModifierCodes[$modCode] = true;
+                    }
                 }
             }
             $configModifierCsv = implode(',', array_keys($configModifierCodes));

@@ -351,10 +351,12 @@ include("sessions/handler.php");
 
         /* Config name formatting */
         .config-name-cell {
-            white-space: nowrap;
+            white-space: normal;
+            line-height: 1.2;
         }
         .config-formatted {
-            display: inline;
+            display: inline-block;
+            text-align: left;
         }
         .config-label {
             font-size: 0.7rem;
@@ -378,8 +380,7 @@ include("sessions/handler.php");
             font-family: 'Consolas', 'Monaco', monospace;
         }
         .config-sep {
-            margin: 0 6px;
-            color: #6c757d;
+            display: none;
         }
         .runway-id {
             font-family: 'Consolas', 'Monaco', monospace;
@@ -1363,6 +1364,53 @@ include('load/nav.php');
             }
         }
 
+        // Infer modifiers from free-text config/runway fields (legacy naming patterns)
+        function detectModifierCodes(configName, arrRunways, depRunways) {
+            var source = [configName || '', arrRunways || '', depRunways || ''].join(' ').toUpperCase();
+            var found = {};
+            var rules = [
+                { code: 'SIMOS', regex: /\bSIMOS\b/ },
+                { code: 'STAGGERED', regex: /\bSTAGGER(?:ED)?\b/ },
+                { code: 'SIDE_BY_SIDE', regex: /\bSIDE[\s_-]*BY[\s_-]*SIDE\b|\bSIDEBY\b/ },
+                { code: 'IN_TRAIL', regex: /\bIN[\s_-]*TRAIL\b|\bINTRAIL\b/ },
+                { code: 'ILS', regex: /(^|[\s_\/-])ILS($|[\s_\/-])/ },
+                { code: 'VOR', regex: /(^|[\s_\/-])VOR($|[\s_\/-])/ },
+                { code: 'RNAV', regex: /(^|[\s_\/-])RNAV($|[\s_\/-])/ },
+                { code: 'LDA', regex: /(^|[\s_\/-])LDA($|[\s_\/-])/ },
+                { code: 'LOC', regex: /(^|[\s_\/-])LOC($|[\s_\/-])/ },
+                { code: 'FMS_VISUAL', regex: /\bFMS[\s_-]*VISUAL\b/ },
+                { code: 'LAHSO', regex: /\bLAHSO\b/ },
+                { code: 'SINGLE_RWY', regex: /\bSINGLE[\s_-]*(RWY|RUNWAY)\b|\bSRO\b/ },
+                { code: 'CIRCLING', regex: /\bCIRCL(?:ING)?\b/ },
+                { code: 'VAP', regex: /(^|[\s_\/-])VAP($|[\s_\/-])|\bVISUAL\s+APPROACH\b/ },
+                { code: 'CAT_II', regex: /\bCAT[\s_-]*II\b/ },
+                { code: 'CAT_III', regex: /\bCAT[\s_-]*III\b/ },
+                { code: 'WINTER', regex: /\bWINTER\b|\bSNOW\b/ },
+                { code: 'NOISE', regex: /\bNOISE\b/ },
+                { code: 'DAY', regex: /\bDAY\b/ },
+                { code: 'NIGHT', regex: /\bNIGHT\b|\bNGT\b/ }
+            ];
+
+            rules.forEach(function(rule) {
+                if (rule.regex.test(source)) {
+                    found[rule.code] = true;
+                }
+            });
+
+            return Object.keys(found);
+        }
+
+        function mergeAndSetModifiers(selectSelector, selectedCodes, configName, arrRunways, depRunways) {
+            var merged = {};
+            (selectedCodes || []).forEach(function(code) {
+                if (code) merged[code] = true;
+            });
+            detectModifierCodes(configName, arrRunways, depRunways).forEach(function(code) {
+                merged[code] = true;
+            });
+            $(selectSelector).val(Object.keys(merged));
+        }
+
         $(document).ready(function() {
             loadData($('#search').val());
 
@@ -1488,7 +1536,13 @@ include('load/nav.php');
                 modal.find('#dep_runways').val(button.data('dep_runways'));
                 var configModifiersRaw = (button.data('config_modifiers') || '').toString();
                 var configModifiers = configModifiersRaw ? configModifiersRaw.split(',') : [];
-                modal.find('#config_modifiers').val(configModifiers);
+                mergeAndSetModifiers(
+                    '#config_modifiers',
+                    configModifiers,
+                    button.data('config_name'),
+                    button.data('arr_runways'),
+                    button.data('dep_runways')
+                );
 
                 // VATSIM rates
                 modal.find('#vatsim_vmc_aar').val(button.data('vatsim_vmc_aar'));
