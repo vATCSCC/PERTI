@@ -94,6 +94,22 @@
             // Roles will be populated when a service is selected
             roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
         }
+        // Check if this is a CANOC Services type (hierarchical, parallel to DCC)
+        else if (DATA.CANOC_SERVICES_TYPE && DATA.CANOC_SERVICES_TYPE.includes(facType)) {
+            const services = DATA.CANOC_SERVICES || [];
+            if (services.length === 0) {
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noServicesAvailable') + '</option>';
+            } else {
+                facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccService') + '</option>';
+                services.forEach(svc => {
+                    const opt = document.createElement('option');
+                    opt.value = svc.code;
+                    opt.textContent = svc.name;
+                    facilitySelect.appendChild(opt);
+                });
+            }
+            roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
+        }
         // Check if this is a single org type (no facility dropdown needed)
         else if (DATA.SINGLE_ORG_TYPES && DATA.SINGLE_ORG_TYPES.includes(facType)) {
             facilitySelectRow.style.display = 'none';
@@ -117,7 +133,8 @@
             facilitySelectRow.style.display = 'none';
             orgIdentifierRow.classList.add('show');
             // Set placeholder
-            const placeholder = facType === 'VATUSA' ? 'VATUSA3' : 'VATGOV1, VATEUD2';
+            const placeholders = { 'VATUSA': 'VATUSA3', 'VATCAN': 'VATCAN1', 'VATSIM': 'VATGOV1, VATEUD2' };
+            const placeholder = placeholders[facType] || 'VATGOV1';
             document.getElementById('orgIdentifier').placeholder = `e.g., ${placeholder}`;
 
             // Populate roles
@@ -174,12 +191,36 @@
                 facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noFacilitiesAvailable') + '</option>';
             } else {
                 facilitySelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectFacility') + '</option>';
-                facilities.forEach(fac => {
-                    const opt = document.createElement('option');
-                    opt.value = fac.code;
-                    opt.textContent = `${fac.code} - ${fac.name}`;
-                    facilitySelect.appendChild(opt);
-                });
+
+                // For TRACON, add US facilities then Canadian optgroup
+                if (facType === 'TRACON' && DATA.TRACON_CANADA && DATA.TRACON_CANADA.length > 0) {
+                    const usGroup = document.createElement('optgroup');
+                    usGroup.label = 'United States';
+                    facilities.forEach(fac => {
+                        const opt = document.createElement('option');
+                        opt.value = fac.code;
+                        opt.textContent = `${fac.code} - ${fac.name}`;
+                        usGroup.appendChild(opt);
+                    });
+                    facilitySelect.appendChild(usGroup);
+
+                    const caGroup = document.createElement('optgroup');
+                    caGroup.label = 'Canada';
+                    DATA.TRACON_CANADA.forEach(fac => {
+                        const opt = document.createElement('option');
+                        opt.value = fac.code;
+                        opt.textContent = `${fac.code} - ${fac.name}`;
+                        caGroup.appendChild(opt);
+                    });
+                    facilitySelect.appendChild(caGroup);
+                } else {
+                    facilities.forEach(fac => {
+                        const opt = document.createElement('option');
+                        opt.value = fac.code;
+                        opt.textContent = `${fac.code} - ${fac.name}`;
+                        facilitySelect.appendChild(opt);
+                    });
+                }
             }
 
             // Populate roles
@@ -229,6 +270,34 @@
             } else {
                 roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
             }
+        }
+        // Check if this is CANOC type - roles depend on selected service
+        else if (DATA.CANOC_SERVICES_TYPE && DATA.CANOC_SERVICES_TYPE.includes(facType)) {
+            roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectRole') + '</option>';
+
+            if (facility && DATA.CANOC_ROLES && DATA.CANOC_ROLES[facility]) {
+                const roles = DATA.CANOC_ROLES[facility];
+                roles.forEach(role => {
+                    const opt = document.createElement('option');
+                    opt.value = role.code;
+                    opt.textContent = `${role.code} - ${role.name}`;
+                    roleSelect.appendChild(opt);
+                });
+            } else if (facility) {
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.noRolesForService') + '</option>';
+            } else {
+                roleSelect.innerHTML = '<option value="">' + PERTII18n.t('jatoc.facilityPatch.selectDccServiceFirst') + '</option>';
+            }
+        }
+        // For ATC facility types, append FACILITY_EXTRAS if applicable
+        else if (DATA.ATC_FACILITY_TYPES && DATA.ATC_FACILITY_TYPES.includes(facType) && facility && DATA.FACILITY_EXTRAS && DATA.FACILITY_EXTRAS[facility]) {
+            const extras = DATA.FACILITY_EXTRAS[facility];
+            extras.forEach(role => {
+                const opt = document.createElement('option');
+                opt.value = role.code;
+                opt.textContent = `${role.code} - ${role.name}`;
+                roleSelect.appendChild(opt);
+            });
         }
 
         JATOC.updateProfilePreview();
@@ -313,6 +382,12 @@
                 return;
             }
         } else if (DATA.DCC_SERVICES_TYPE && DATA.DCC_SERVICES_TYPE.includes(facType)) {
+            facility = document.getElementById('profileFacility').value;
+            if (!facility) {
+                alert(PERTII18n.t('jatoc.facilityPatch.validation.selectDccService'));
+                return;
+            }
+        } else if (DATA.CANOC_SERVICES_TYPE && DATA.CANOC_SERVICES_TYPE.includes(facType)) {
             facility = document.getElementById('profileFacility').value;
             if (!facility) {
                 alert(PERTII18n.t('jatoc.facilityPatch.validation.selectDccService'));
@@ -429,6 +504,10 @@
                 } else if (DATA.DCC_SERVICES_TYPE && DATA.DCC_SERVICES_TYPE.includes(facType)) {
                     document.getElementById('profileFacility').value = profile.facility || '';
                     // Trigger facility change to populate DCC roles
+                    JATOC.onFacilityChange();
+                } else if (DATA.CANOC_SERVICES_TYPE && DATA.CANOC_SERVICES_TYPE.includes(facType)) {
+                    document.getElementById('profileFacility').value = profile.facility || '';
+                    // Trigger facility change to populate CANOC roles
                     JATOC.onFacilityChange();
                 } else if (!DATA.SINGLE_ORG_TYPES || !DATA.SINGLE_ORG_TYPES.includes(facType)) {
                     document.getElementById('profileFacility').value = profile.facility || '';

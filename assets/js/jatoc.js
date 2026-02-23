@@ -274,11 +274,11 @@
     }
 
     function startAutoRefresh() {
-        state.countdown = 5; // Live updates - 5 second refresh
+        state.countdown = 15; // Live updates - 15 second refresh
         setInterval(() => {
             state.countdown--;
             document.getElementById('refreshCountdown').textContent = state.countdown;
-            if (state.countdown <= 0) { loadIncidents(); state.countdown = 5; }
+            if (state.countdown <= 0) { loadIncidents(); state.countdown = 15; }
         }, 1000);
     }
 

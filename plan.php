@@ -650,70 +650,34 @@ if ($org_mismatch):
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    <?= __('plan.dcc.facility') ?>:
-                    <select class="form-control" name="position_facility" required>
-                        <option value="DCC">DCC - Command Center</option>
-                        <option value="VATCAN">VATCAN - Command Center</option>
-                        <option value="ECFMP">ECFMP - EUROCONTROL</option>
-                        <option value="ZLA">ZLA - Los Angeles ARTCC</option>
-                        <option value="ZOA">ZOA - Oakland ARTCC</option>
-                        <option value="ZAK">ZAK - Oakland OCA</option>
-                        <option value="HCF">HCF - Honolulu Control Facility</option>
-                        <option value="ZAN">ZAN - Anchorage ARTCC</option>
-                        <option value="ZUA">ZUA - Guam CERAP</option>
-                        <option value="ZLC">ZLC - Salt Lake City ARTCC</option>
-                        <option value="ZSE">ZSE - Seattle ARTCC</option>
-                        <option value="ZAB">ZAB - Albuquerque ARTCC</option>
-                        <option value="ZFW">ZFW - Fort Worth ARTCC</option>
-                        <option value="ZHU">ZHU - Houston ARTCC</option>
-                        <option value="ZME">ZME - Memphis ARTCC</option>
-                        <option value="ZAU">ZAU - Chicago ARTCC</option>
-                        <option value="ZDV">ZDV - Denver ARTCC</option>
-                        <option value="ZKC">ZKC - Kansas City ARTCC</option>
-                        <option value="ZMP">ZMP - Minneapolis ARTCC</option>
-                        <option value="ZBW">ZBW - Boston ARTCC</option>
-                        <option value="ZOB">ZOB - Cleveland ARTCC</option>
-                        <option value="ZNY">ZNY - New York ARTCC</option>
-                        <option value="ZWY">ZWY - New York OCA</option>
-                        <option value="ZDC">ZDC - Washington D.C. ARTCC</option>
-                        <option value="ZTL">ZTL - Atlanta ARTCC</option>
-                        <option value="ZID">ZID - Indianapolis ARTCC</option>
-                        <option value="ZJX">ZJX - Jacksonville ARTCC</option>
-                        <option value="ZMA">ZMA - Miami ARTCC</option>
-                        <option value="ZMO">ZMO - Miami OCA</option>
-                        <option value="TJZS">TJZS - San Juan FIR</option>
-                        <option value="CZVR">CZVR - Vancouver FIR</option>
-                        <option value="CZEG">CZEG - Edmonton FIR</option>
-                        <option value="CZWG">CZWG - Winnipeg FIR</option>
-                        <option value="CZYZ">CZYZ - Toronto FIR</option>
-                        <option value="CZUL">CZUL - Montreal FIR</option>
-                        <option value="CZQM">CZQM - Moncton FIR</option>
-
-                        <option value="CZQX">CZQX - Gander FIR</option>
-                        <option value="CZQO">CZQO - Gander OCA</option>
-                        <option value="MUFH">MUFH - Havana FIR</option>
-                        <option value="MYNN">MYNN - Nassau FIR</option>
-                        <option value="MMZT">MMZT - Mazatlan FIR</option>
-                        <option value="MMTY">MMTY - Monterrey FIR</option>
-                        <option value="MMID">MMID - Merida FIR</option>
+                    <?= __('plan.dcc.facilityType') ?>:
+                    <select class="form-control" id="add_dcc_type" onchange="planDcc.onTypeChange('add')">
+                        <option value=""><?= __('plan.dcc.selectType') ?></option>
                     </select>
 
-                    <?= __('plan.dcc.position') ?>:
-                    <select class="form-control" name="position_name" required>
-                        <option>Traffic Management Coordinator (TMC/STMC)</option>
-                        <option>Western NTMS/NTMO (VATUSA94)</option>
-                        <option>South Central NTMS/NTMO (VATUSA95)</option>
-                        <option>Midwestern NTMS/NTMO (VATUSA96)</option>
-                        <option>Northeastern NTMS/NTMO (VATUSA97)</option>
-                        <option>Southeastern NTMS/NTMO (VATUSA98)</option>
-                        <option>Canada Traffic Management (VATCAN)</option>
-                        <option>Mexico Traffic Management (VATMEX)</option>
-                        <option>Caribbean Traffic Management (VATCAR)</option>
-                        <option>Gander OCA Coordinator</option>
-                        <option>Operations Planner (OP)</option>
-                        <option>National Operations Manager (NOM)</option>
-                        <option>Network Manager (NM)</option>
-                    </select>
+                    <div id="add_dcc_service_row" style="display:none; margin-top:8px;">
+                        <?= __('plan.dcc.service') ?>:
+                        <select class="form-control" id="add_dcc_service" onchange="planDcc.onServiceChange('add')">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <div id="add_dcc_facility_row" style="display:none; margin-top:8px;">
+                        <?= __('plan.dcc.facility') ?>:
+                        <select class="form-control" id="add_dcc_facility">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        <?= __('plan.dcc.role') ?>:
+                        <select class="form-control" id="add_dcc_role">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="position_facility" id="add_position_facility">
+                    <input type="hidden" name="position_name" id="add_position_name">
 
                     <hr>
 
@@ -752,70 +716,34 @@ if ($org_mismatch):
 
                     <input type="hidden" name="id" id="id">
 
-                    <?= __('plan.dcc.facility') ?>:
-                    <select class="form-control" name="position_facility" id="position_facility" required>
-                        <option value="DCC">DCC - Command Center</option>
-                        <option value="VATCAN">VATCAN - Command Center</option>
-                        <option value="ECFMP">ECFMP - EUROCONTROL</option>
-                        <option value="ZLA">ZLA - Los Angeles ARTCC</option>
-                        <option value="ZOA">ZOA - Oakland ARTCC</option>
-                        <option value="ZAK">ZAK - Oakland OCA</option>
-                        <option value="HCF">HCF - Honolulu Control Facility</option>
-                        <option value="ZAN">ZAN - Anchorage ARTCC</option>
-                        <option value="ZUA">ZUA - Guam CERAP</option>
-                        <option value="ZLC">ZLC - Salt Lake City ARTCC</option>
-                        <option value="ZSE">ZSE - Seattle ARTCC</option>
-                        <option value="ZAB">ZAB - Albuquerque ARTCC</option>
-                        <option value="ZFW">ZFW - Fort Worth ARTCC</option>
-                        <option value="ZHU">ZHU - Houston ARTCC</option>
-                        <option value="ZME">ZME - Memphis ARTCC</option>
-                        <option value="ZAU">ZAU - Chicago ARTCC</option>
-                        <option value="ZDV">ZDV - Denver ARTCC</option>
-                        <option value="ZKC">ZKC - Kansas City ARTCC</option>
-                        <option value="ZMP">ZMP - Minneapolis ARTCC</option>
-                        <option value="ZBW">ZBW - Boston ARTCC</option>
-                        <option value="ZOB">ZOB - Cleveland ARTCC</option>
-                        <option value="ZNY">ZNY - New York ARTCC</option>
-                        <option value="ZWY">ZWY - New York OCA</option>
-                        <option value="ZDC">ZDC - Washington D.C. ARTCC</option>
-                        <option value="ZTL">ZTL - Atlanta ARTCC</option>
-                        <option value="ZID">ZID - Indianapolis ARTCC</option>
-                        <option value="ZJX">ZJX - Jacksonville ARTCC</option>
-                        <option value="ZMA">ZMA - Miami ARTCC</option>
-                        <option value="ZMO">ZMO - Miami OCA</option>
-                        <option value="TJZS">TJZS - San Juan FIR</option>
-                        <option value="CZVR">CZVR - Vancouver FIR</option>
-                        <option value="CZEG">CZEG - Edmonton FIR</option>
-                        <option value="CZWG">CZWG - Winnipeg FIR</option>
-                        <option value="CZYZ">CZYZ - Toronto FIR</option>
-                        <option value="CZUL">CZUL - Montreal FIR</option>
-                        <option value="CZQM">CZQM - Moncton FIR</option>
-
-                        <option value="CZQX">CZQX - Gander FIR</option>
-                        <option value="CZQO">CZQO - Gander OCA</option>
-                        <option value="MUFH">MUFH - Havana FIR</option>
-                        <option value="MYNN">MYNN - Nassau FIR</option>
-                        <option value="MMZT">MMZT - Mazatlan FIR</option>
-                        <option value="MMTY">MMTY - Monterrey FIR</option>
-                        <option value="MMID">MMID - Merida FIR</option>
+                    <?= __('plan.dcc.facilityType') ?>:
+                    <select class="form-control" id="edit_dcc_type" onchange="planDcc.onTypeChange('edit')">
+                        <option value=""><?= __('plan.dcc.selectType') ?></option>
                     </select>
 
-                    <?= __('plan.dcc.position') ?>:
-                    <select class="form-control" name="position_name" id="position_name" required>
-                        <option>Traffic Management Coordinator (TMC/STMC)</option>
-                        <option>Western NTMS/NTMO (VATUSA94)</option>
-                        <option>South Central NTMS/NTMO (VATUSA95)</option>
-                        <option>Midwestern NTMS/NTMO (VATUSA96)</option>
-                        <option>Northeastern NTMS/NTMO (VATUSA97)</option>
-                        <option>Southeastern NTMS/NTMO (VATUSA98)</option>
-                        <option>Canada Traffic Management (VATCAN)</option>
-                        <option>Mexico Traffic Management (VATMEX)</option>
-                        <option>Caribbean Traffic Management (VATCAR)</option>
-                        <option>Gander OCA Coordinator</option>
-                        <option>Operations Planner (OP)</option>
-                        <option>National Operations Manager (NOM)</option>
-                        <option>Network Manager (NM)</option>
-                    </select>
+                    <div id="edit_dcc_service_row" style="display:none; margin-top:8px;">
+                        <?= __('plan.dcc.service') ?>:
+                        <select class="form-control" id="edit_dcc_service" onchange="planDcc.onServiceChange('edit')">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <div id="edit_dcc_facility_row" style="display:none; margin-top:8px;">
+                        <?= __('plan.dcc.facility') ?>:
+                        <select class="form-control" id="edit_dcc_facility">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        <?= __('plan.dcc.role') ?>:
+                        <select class="form-control" id="edit_dcc_role">
+                            <option value=""><?= __('plan.dcc.selectTypeFirst') ?></option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="position_facility" id="edit_position_facility">
+                    <input type="hidden" name="position_name" id="edit_position_name">
 
                     <hr>
 
@@ -2256,6 +2184,9 @@ if ($org_mismatch):
 
 <!-- Insert advisory-config.js Script -->
 <script src="assets/js/advisory-config.js<?= _v('assets/js/advisory-config.js') ?>"></script>
+
+<!-- Insert facility-roles config (shared with JATOC) -->
+<script src="assets/js/config/facility-roles.js<?= _v('assets/js/config/facility-roles.js') ?>"></script>
 
 <!-- Insert plan.js Script -->
 <script src="assets/js/plan.js<?= _v('assets/js/plan.js') ?>"></script>

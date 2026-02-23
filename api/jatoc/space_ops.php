@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 
 include("../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("../../load/connect.php");
 
 if (!isset($conn_sqli) || $conn_sqli->connect_error) {

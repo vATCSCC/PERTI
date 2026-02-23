@@ -321,9 +321,339 @@ function deleteGoal(id) {
     });
 }
 
+// =====================================================
+// DCC Staffing Dynamic Dropdowns
+// =====================================================
+const planDcc = (function() {
+    const DATA = window.PERTI_FACILITY_DATA || {};
+
+    function buildTypeOptions(sel) {
+        sel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectType') + '</option>';
+
+        // Command center org types
+        const orgGroup = document.createElement('optgroup');
+        orgGroup.label = PERTII18n.t('plan.dcc.commandCenter');
+        (DATA.PLAN_ORG_TYPES || []).forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t;
+            // Friendly labels
+            const labels = { DCC: 'DCC', CANOC: 'CANOC', ECFMP: 'ECFMP', CTP: 'CTP', WF: 'WorldFlight' };
+            opt.textContent = labels[t] || t;
+            orgGroup.appendChild(opt);
+        });
+        sel.appendChild(orgGroup);
+
+        // ATC facility types
+        const facGroup = document.createElement('optgroup');
+        facGroup.label = PERTII18n.t('plan.dcc.atcFacility');
+        (DATA.PLAN_FACILITY_TYPES || []).forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            facGroup.appendChild(opt);
+        });
+        sel.appendChild(facGroup);
+    }
+
+    function onTypeChange(prefix) {
+        const typeSel = document.getElementById(prefix + '_dcc_type');
+        const serviceRow = document.getElementById(prefix + '_dcc_service_row');
+        const serviceSel = document.getElementById(prefix + '_dcc_service');
+        const facilityRow = document.getElementById(prefix + '_dcc_facility_row');
+        const facilitySel = document.getElementById(prefix + '_dcc_facility');
+        const roleSel = document.getElementById(prefix + '_dcc_role');
+        const val = typeSel.value;
+
+        // Reset downstream
+        serviceRow.style.display = 'none';
+        facilityRow.style.display = 'none';
+        roleSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectTypeFirst') + '</option>';
+
+        if (!val) return;
+
+        if (val === 'DCC') {
+            // Show service dropdown filtered to PLAN_DCC_SERVICES
+            serviceRow.style.display = '';
+            serviceSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectService') + '</option>';
+            const allowed = DATA.PLAN_DCC_SERVICES || [];
+            (DATA.DCC_SERVICES || []).forEach(function(s) {
+                if (allowed.indexOf(s.code) !== -1) {
+                    const opt = document.createElement('option');
+                    opt.value = s.code;
+                    opt.textContent = s.name;
+                    serviceSel.appendChild(opt);
+                }
+            });
+        } else if (val === 'CANOC') {
+            // Show service dropdown filtered to PLAN_CANOC_SERVICES
+            serviceRow.style.display = '';
+            serviceSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectService') + '</option>';
+            const allowed = DATA.PLAN_CANOC_SERVICES || [];
+            (DATA.CANOC_SERVICES || []).forEach(function(s) {
+                if (allowed.indexOf(s.code) !== -1) {
+                    const opt = document.createElement('option');
+                    opt.value = s.code;
+                    opt.textContent = s.name;
+                    serviceSel.appendChild(opt);
+                }
+            });
+        } else if (DATA.SINGLE_ORG_TYPES && DATA.SINGLE_ORG_TYPES.indexOf(val) !== -1) {
+            // ECFMP, CTP, WF - direct roles, no facility
+            populateRoles(roleSel, DATA.ROLES[val] || []);
+        } else if (DATA.PLAN_FACILITY_TYPES && DATA.PLAN_FACILITY_TYPES.indexOf(val) !== -1) {
+            // ARTCC, TRACON, FIR - show facility dropdown
+            facilityRow.style.display = '';
+            populateFacilities(facilitySel, val);
+            roleSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectFacilityFirst') + '</option>';
+        }
+    }
+
+    function onServiceChange(prefix) {
+        const typeSel = document.getElementById(prefix + '_dcc_type');
+        const serviceSel = document.getElementById(prefix + '_dcc_service');
+        const roleSel = document.getElementById(prefix + '_dcc_role');
+        const typeVal = typeSel.value;
+        const serviceVal = serviceSel.value;
+
+        if (!serviceVal) {
+            roleSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectServiceFirst') + '</option>';
+            return;
+        }
+
+        if (typeVal === 'DCC') {
+            populateRoles(roleSel, (DATA.DCC_ROLES || {})[serviceVal] || []);
+        } else if (typeVal === 'CANOC') {
+            populateRoles(roleSel, (DATA.CANOC_ROLES || {})[serviceVal] || []);
+        }
+    }
+
+    function onFacilityChange(prefix) {
+        const typeSel = document.getElementById(prefix + '_dcc_type');
+        const facilitySel = document.getElementById(prefix + '_dcc_facility');
+        const roleSel = document.getElementById(prefix + '_dcc_role');
+        const typeVal = typeSel.value;
+        const facVal = facilitySel.value;
+
+        if (!facVal) {
+            roleSel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectFacilityFirst') + '</option>';
+            return;
+        }
+
+        // Base FACILITY roles
+        const roles = (DATA.ROLES && DATA.ROLES.FACILITY) ? DATA.ROLES.FACILITY.slice() : [];
+
+        // Append FACILITY_EXTRAS if any
+        if (DATA.FACILITY_EXTRAS && DATA.FACILITY_EXTRAS[facVal]) {
+            DATA.FACILITY_EXTRAS[facVal].forEach(function(r) { roles.push(r); });
+        }
+
+        populateRoles(roleSel, roles);
+    }
+
+    function populateRoles(sel, roles) {
+        sel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectRole') + '</option>';
+        roles.forEach(function(r) {
+            const opt = document.createElement('option');
+            opt.value = r.name + ' (' + r.code + ')';
+            opt.textContent = r.code + ' - ' + r.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function populateFacilities(sel, facType) {
+        sel.innerHTML = '<option value="">' + PERTII18n.t('plan.dcc.selectFacility') + '</option>';
+        const list = DATA[facType] || [];
+
+        if (facType === 'TRACON' && DATA.TRACON_CANADA && DATA.TRACON_CANADA.length > 0) {
+            // Split into US and Canada optgroups
+            const usGroup = document.createElement('optgroup');
+            usGroup.label = 'United States';
+            list.forEach(function(f) {
+                const opt = document.createElement('option');
+                opt.value = f.code;
+                opt.textContent = f.code + ' - ' + f.name;
+                usGroup.appendChild(opt);
+            });
+            sel.appendChild(usGroup);
+
+            const caGroup = document.createElement('optgroup');
+            caGroup.label = 'Canada';
+            DATA.TRACON_CANADA.forEach(function(f) {
+                const opt = document.createElement('option');
+                opt.value = f.code;
+                opt.textContent = f.code + ' - ' + f.name;
+                caGroup.appendChild(opt);
+            });
+            sel.appendChild(caGroup);
+        } else {
+            list.forEach(function(f) {
+                const opt = document.createElement('option');
+                opt.value = f.code;
+                opt.textContent = f.code + ' - ' + f.name;
+                sel.appendChild(opt);
+            });
+        }
+    }
+
+    // Set hidden form fields before submit
+    function setHiddenFields(prefix) {
+        const typeSel = document.getElementById(prefix + '_dcc_type');
+        const serviceSel = document.getElementById(prefix + '_dcc_service');
+        const facilitySel = document.getElementById(prefix + '_dcc_facility');
+        const roleSel = document.getElementById(prefix + '_dcc_role');
+        const hiddenFacility = document.getElementById(prefix + '_position_facility');
+        const hiddenName = document.getElementById(prefix + '_position_name');
+        const val = typeSel.value;
+
+        if (val === 'DCC' || val === 'CANOC') {
+            hiddenFacility.value = val;
+        } else if ((DATA.SINGLE_ORG_TYPES || []).indexOf(val) !== -1) {
+            hiddenFacility.value = val;
+        } else {
+            // ATC facility types - use the facility code
+            hiddenFacility.value = facilitySel.value;
+        }
+        hiddenName.value = roleSel.value;
+    }
+
+    // Reverse-map stored position_facility + position_name back to dropdown selections
+    function restoreForEdit(posFacility, posName) {
+        const prefix = 'edit';
+        const typeSel = document.getElementById(prefix + '_dcc_type');
+        const serviceSel = document.getElementById(prefix + '_dcc_service');
+        const facilitySel = document.getElementById(prefix + '_dcc_facility');
+        const roleSel = document.getElementById(prefix + '_dcc_role');
+
+        // Determine type from position_facility
+        const ccCodes = DATA.PLAN_COMMAND_CENTER_CODES || [];
+        let detectedType = '';
+        let detectedService = '';
+        let detectedFacility = '';
+
+        if (posFacility === 'DCC') {
+            detectedType = 'DCC';
+            // Try to detect service from position_name
+            detectedService = detectDCCService(posName);
+        } else if (posFacility === 'CANOC') {
+            detectedType = 'CANOC';
+            detectedService = detectCANOCService(posName);
+        } else if ((DATA.SINGLE_ORG_TYPES || []).indexOf(posFacility) !== -1) {
+            detectedType = posFacility;
+        } else {
+            // Must be an ATC facility code - detect which type
+            detectedType = detectFacilityType(posFacility);
+            detectedFacility = posFacility;
+        }
+
+        // Set type and cascade
+        typeSel.value = detectedType;
+        onTypeChange(prefix);
+
+        if (detectedService && serviceSel) {
+            serviceSel.value = detectedService;
+            onServiceChange(prefix);
+        }
+
+        if (detectedFacility && facilitySel) {
+            facilitySel.value = detectedFacility;
+            onFacilityChange(prefix);
+        }
+
+        // Set role value
+        if (posName && roleSel) {
+            // Try exact match first
+            for (let i = 0; i < roleSel.options.length; i++) {
+                if (roleSel.options[i].value === posName) {
+                    roleSel.value = posName;
+                    return;
+                }
+            }
+            // Fallback: add as custom option (legacy data)
+            const opt = document.createElement('option');
+            opt.value = posName;
+            opt.textContent = posName;
+            opt.selected = true;
+            roleSel.appendChild(opt);
+        }
+    }
+
+    function detectDCCService(posName) {
+        if (!posName) return '';
+        const dccRoles = DATA.DCC_ROLES || {};
+        for (const svc in dccRoles) {
+            for (let i = 0; i < dccRoles[svc].length; i++) {
+                const r = dccRoles[svc][i];
+                if (posName === r.name + ' (' + r.code + ')') return svc;
+            }
+        }
+        // Default to TMU if no match (most common)
+        return 'TMU';
+    }
+
+    function detectCANOCService(posName) {
+        if (!posName) return '';
+        const roles = DATA.CANOC_ROLES || {};
+        for (const svc in roles) {
+            for (let i = 0; i < roles[svc].length; i++) {
+                const r = roles[svc][i];
+                if (posName === r.name + ' (' + r.code + ')') return svc;
+            }
+        }
+        return 'TMU';
+    }
+
+    function detectFacilityType(code) {
+        if (!code) return '';
+        // Check ARTCC
+        if ((DATA.ARTCC || []).some(function(f) { return f.code === code; })) return 'ARTCC';
+        // Check TRACON (US + Canada)
+        if ((DATA.TRACON || []).some(function(f) { return f.code === code; })) return 'TRACON';
+        if ((DATA.TRACON_CANADA || []).some(function(f) { return f.code === code; })) return 'TRACON';
+        // Check FIR
+        if ((DATA.FIR || []).some(function(f) { return f.code === code; })) return 'FIR';
+        // Fallback to ARTCC (Z-prefix heuristic)
+        if (code.charAt(0) === 'Z') return 'ARTCC';
+        return 'ARTCC';
+    }
+
+    function init() {
+        const addSel = document.getElementById('add_dcc_type');
+        const editSel = document.getElementById('edit_dcc_type');
+        if (addSel) buildTypeOptions(addSel);
+        if (editSel) buildTypeOptions(editSel);
+
+        // Bind facility change events
+        var addFac = document.getElementById('add_dcc_facility');
+        var editFac = document.getElementById('edit_dcc_facility');
+        if (addFac) addFac.addEventListener('change', function() { onFacilityChange('add'); });
+        if (editFac) editFac.addEventListener('change', function() { onFacilityChange('edit'); });
+    }
+
+    return {
+        onTypeChange: onTypeChange,
+        onServiceChange: onServiceChange,
+        onFacilityChange: onFacilityChange,
+        setHiddenFields: setHiddenFields,
+        restoreForEdit: restoreForEdit,
+        init: init
+    };
+})();
+
+// Initialize plan DCC dropdowns
+planDcc.init();
+
+// Reset add modal when shown
+$('#add_dccstaffingModal').on('show.bs.modal', function() {
+    document.getElementById('add_dcc_type').value = '';
+    planDcc.onTypeChange('add');
+    $(this).find('input[name="personnel_name"]').val('');
+    $(this).find('input[name="personnel_ois"]').val('');
+});
+
 // AJAX: #add_dccstaffing POST
 $('#add_dccstaffing').submit(function(e) {
     e.preventDefault();
+    planDcc.setHiddenFields('add');
 
     const url = 'api/mgt/dcc/post';
 
@@ -359,19 +689,23 @@ $('#add_dccstaffing').submit(function(e) {
 // edit_dccstaffing Modal
 $('#edit_dccstaffingModal').on('show.bs.modal', function(event) {
     const button = $(event.relatedTarget);
-
-    const modal= $(this);
+    const modal = $(this);
 
     modal.find('.modal-body #id').val(button.data('id'));
     modal.find('.modal-body #personnel_name').val(button.data('personnel_name'));
     modal.find('.modal-body #personnel_ois').val(button.data('personnel_ois'));
-    modal.find('.modal-body #position_name').val(button.data('position_name')).trigger('change');
-    modal.find('.modal-body #position_facility').val(button.data('position_facility')).trigger('change');
+
+    // Reverse-map position_facility + position_name to dynamic dropdowns
+    planDcc.restoreForEdit(
+        button.data('position_facility'),
+        button.data('position_name')
+    );
 });
 
 // AJAX: #edit_dccstaffing POST
 $('#edit_dccstaffing').submit(function(e) {
     e.preventDefault();
+    planDcc.setHiddenFields('edit');
 
     const url = 'api/mgt/dcc/update';
 

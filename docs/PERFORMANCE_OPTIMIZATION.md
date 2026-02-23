@@ -40,7 +40,7 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 
 ### 3. Azure SQL LoginTimeout
 - **File**: `load/connect.php`
-- **Change**: Added `"LoginTimeout" => 5` to all 5 sqlsrv connection arrays
+- **Change**: Added `"LoginTimeout" => 5` to all 4 sqlsrv connection arrays (ADL, SWIM, TMI, REF)
 - **Impact**: Failed Azure SQL connections timeout in 5s instead of 30s
 - **Risk**: None — 5s is generous for same-region Azure SQL
 
@@ -60,7 +60,7 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 
 ### 6. Cache-busting with `_v()` helper (header.php)
 - **File**: `load/header.php`
-- **Change**: Added `_v()` helper function using `filemtime()` to append modification timestamps to all 12 local JS/CSS includes. Replaces manual version strings.
+- **Change**: Added `_v()` helper function using `filemtime()` to append modification timestamps to all 13 local JS/CSS includes. Replaces manual version strings.
 - **Pattern**: `<script src="assets/js/foo.js<?= _v('assets/js/foo.js') ?>">` → `assets/js/foo.js?v=1740268200`
 - **Impact**: Users always get fresh assets after every deployment — no more stale browser cache
 - **Note**: `_v()` is defined once at top of header.php, uses `dirname(__DIR__)` for path resolution
@@ -69,9 +69,10 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 
 ### 7. Extend filemtime() cache-busting to all pages
 - **Files**: `tmi-publish.php`, `gdt.php`, `route.php`, `demand.php`, `review.php`, `nod.php`, `splits.php`, `plan.php`, `schedule.php`, `sua.php`, `jatoc.php`, `sheet.php`, `data.php`, `status.php`
-- **Change**: Applied `_v()` cache-busting pattern to all 42 local JS/CSS includes across 14 pages
+- **Change**: Applied `_v()` cache-busting pattern to all local JS/CSS includes across 14 pages + `load/footer.php` (5 local plugin scripts)
 - **Impact**: Complete cache-busting coverage across the entire site — no more stale browser cache after deploys
 - **Risk**: None — `_v()` is already defined in header.php, included by all pages
+- **Note**: `footer.php` scripts (datetimepicker, parallax, jarallax, theme.min) were initially missed; added in follow-up fix
 
 ### 8. Cache-Control for static reference APIs
 - **File**: `api/data/fixes.php`
@@ -86,10 +87,16 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 - **Impact**: ~60-70% JS/CSS size reduction before gzip (4.8MB JS → ~2MB minified → ~500KB gzipped)
 
 ### 10. PERTI_MYSQL_ONLY expansion
-- **Files**: 12 API files that were unnecessarily opening 4 Azure SQL connections
+- **Files**: 13 API files that were unnecessarily opening 4 Azure SQL connections
 - **Change**: Added `define('PERTI_MYSQL_ONLY', true)` to: `personnel.php`, `schedule.php`, `routes.php`, `reroutes.php`, `plans.l.php`, `tmi/ground_stop.php`, `tmi/ground_stops.php`, `review/tmr_export.php`, `review/tmr_ops_plan.php`, `review/tmr_report.php`, `review/tmr_parse_ntml.php`, `review/tmr_staffing.php`, `review/tmr_weather.php`
 - **Impact**: 100-200ms saved per request on these endpoints (skips 4 Azure SQL TCP connections)
 - **Total PERTI_MYSQL_ONLY coverage**: 115 of ~387 API files (was 102)
+
+### 10b. Page loading indicator
+- **Files**: `load/header.php`, `load/nav.php`, `load/nav_public.php`, `load/footer.php`
+- **Change**: Added thin animated progress bar across top of every page with transparent click-blocking overlay. Bar shows while deferred scripts load, dismissed on `window.onload` (or 15s fallback).
+- **Impact**: Users see visual feedback during load and can't interact with incomplete UI
+- **Risk**: None — bar self-removes on `window.onload`; 15s fallback prevents permanent display
 
 ## Tier 3: Larger Refactors (Planned)
 
@@ -105,12 +112,12 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 
 ## Data Freshness Policy
 
-**CRITICAL**: The following endpoint categories must NEVER have client-side caching:
-- All ADL flight data (`api/adl/*`)
-- All demand/rate data (`api/demand/*`)
-- All TMI data (`api/mgt/tmi/*`, `api/tmi/*`)
-- All weather data (`api/weather/*`)
-- All PERTI plan data (`api/data/plans/*`, `api/data/sheet/*`, `api/mgt/perti/*`)
-- All SUA activations, schedule data
+**CRITICAL**: The following endpoint categories must NOT have long-term client-side caching:
+- All ADL flight data (`api/adl/*`) — max 60s (`demand/batch.php` uses 60s)
+- All TMI data (`api/mgt/tmi/*`, `api/tmi/*`) — no-cache
+- All PERTI plan data (`api/data/plans/*`, `api/data/sheet/*`, `api/mgt/perti/*`) — no-cache
+- All weather data (`api/weather/*`) — short cache OK (15-60s: `impact.php` 15s, `alerts.php` 60s, `weather.php` 60s)
+- All SUA activations (`api/data/sua/activations.php`) — 60s cache
+- SUA definitions/geometry (`api/data/sua/sua_list.php`, `sua_geojson.php`) — 300s cache
 
-TMU personnel rely on live data for operational decisions. Only truly static reference data (navaid fixes, airway definitions, tier structures) may be cached.
+TMU personnel rely on live data for operational decisions. Short caches (15-60s) are acceptable for frequently-polled endpoints to reduce server load. Only truly static reference data (navaid fixes, airway definitions, tier structures) may use long caches (5min+).

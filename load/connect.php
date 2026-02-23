@@ -368,11 +368,15 @@ $conn_gis = null;
 // For backward compatibility with code that checks $conn_adl directly,
 // we connect eagerly here. Pages that only need MySQL can define
 // PERTI_MYSQL_ONLY before including connect.php to skip Azure connections.
+// Pages that only need MySQL + ADL can define PERTI_ADL_ONLY to skip
+// SWIM/TMI/REF connections (~1.5s saved per request).
 if (!defined('PERTI_MYSQL_ONLY')) {
     $conn_adl = get_conn_adl();
-    $conn_swim = get_conn_swim();
-    $conn_tmi = get_conn_tmi();
-    $conn_ref = get_conn_ref();
+    if (!defined('PERTI_ADL_ONLY')) {
+        $conn_swim = get_conn_swim();
+        $conn_tmi = get_conn_tmi();
+        $conn_ref = get_conn_ref();
+    }
     // GIS is NOT eagerly loaded — call get_conn_gis() only where needed.
     // Eager GIS loading was exhausting the PostgreSQL connection pool
     // (max ~25-50 connections) since every PHP-FPM worker opened one.

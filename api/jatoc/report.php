@@ -8,6 +8,7 @@
 include("../../sessions/handler.php");
 if (session_status() == PHP_SESSION_NONE) session_start();
 include("../../load/config.php");
+define('PERTI_ADL_ONLY', true);
 include("../../load/connect.php");
 
 // Include JATOC utilities

@@ -3,11 +3,11 @@
 <!-- Load Plugins -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-bs4.min.js"></script>
-<script src="<?= $filepath; ?>assets/js/plugins/datetimepicker.js"> </script>
-<script src="<?= $filepath; ?>assets/vendor/parallax-js/dist/parallax.min.js"></script>
-<script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax.min.js"></script>
-<script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax-element.min.js"></script>
-<script src="<?= $filepath; ?>assets/js/theme.min.js"></script>
+<script src="<?= $filepath; ?>assets/js/plugins/datetimepicker.js<?= _v('assets/js/plugins/datetimepicker.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/vendor/parallax-js/dist/parallax.min.js<?= _v('assets/vendor/parallax-js/dist/parallax.min.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax.min.js<?= _v('assets/vendor/jarallax/dist/jarallax.min.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/vendor/jarallax/dist/jarallax-element.min.js<?= _v('assets/vendor/jarallax/dist/jarallax-element.min.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/js/theme.min.js<?= _v('assets/js/theme.min.js') ?>"></script>
 
 <!-- Mobile Navigation Handler -->
 <script>
