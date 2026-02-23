@@ -65,12 +65,13 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 - **Impact**: Users always get fresh assets after every deployment — no more stale browser cache
 - **Note**: `_v()` is defined once at top of header.php, uses `dirname(__DIR__)` for path resolution
 
-## Tier 2: Medium Effort (Planned)
+## Tier 2: Medium Effort (2026-02-23)
 
 ### 7. Extend filemtime() cache-busting to all pages
-- **Files**: `tmi-publish.php`, `gdt.php`, `route.php`, `demand.php`, `review.php`, `nod.php`, `splits.php`, `plan.php`
-- **Change**: Apply `_v()` pattern or `filemtime()` to page-specific JS/CSS includes
-- **Impact**: Complete cache-busting coverage across the site
+- **Files**: `tmi-publish.php`, `gdt.php`, `route.php`, `demand.php`, `review.php`, `nod.php`, `splits.php`, `plan.php`, `schedule.php`, `sua.php`, `jatoc.php`, `sheet.php`, `data.php`, `status.php`
+- **Change**: Applied `_v()` cache-busting pattern to all 42 local JS/CSS includes across 14 pages
+- **Impact**: Complete cache-busting coverage across the entire site — no more stale browser cache after deploys
+- **Risk**: None — `_v()` is already defined in header.php, included by all pages
 
 ### 8. Cache-Control for static reference APIs
 - **Files**: ~5 reference API endpoints (fixes, routes, tiers, sectors, airspace elements)

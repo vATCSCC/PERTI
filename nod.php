@@ -2196,15 +2196,15 @@ window.addEventListener('resize', updateNavbarHeight);
 </script>
 
 <!-- Phase Colors Configuration -->
-<script src="assets/js/config/phase-colors.js"></script>
+<script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
 <!-- Filter Colors Configuration -->
-<script src="assets/js/config/filter-colors.js"></script>
+<script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
 
 <!-- NOD Module -->
-<script src="assets/js/nod.js"></script>
+<script src="assets/js/nod.js<?= _v('assets/js/nod.js') ?>"></script>
 
 <!-- NOD Demand Layer -->
-<script src="assets/js/nod-demand-layer.js"></script>
+<script src="assets/js/nod-demand-layer.js<?= _v('assets/js/nod-demand-layer.js') ?>"></script>
 
 </body>
 </html>

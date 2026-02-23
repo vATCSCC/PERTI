@@ -1309,7 +1309,7 @@ include("load/i18n.php");
     </style>
 
     <!-- Info Bar Shared Styles -->
-    <link rel="stylesheet" href="assets/css/info-bar.css">
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
 
     <!-- Embed Mode Styles -->
     <style>
@@ -2281,20 +2281,20 @@ include('load/footer.php');
 ?>
 
 <!-- Phase Colors Configuration -->
-<script src="assets/js/config/phase-colors.js"></script>
+<script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
 <!-- Filter Colors Configuration -->
-<script src="assets/js/config/filter-colors.js"></script>
+<script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
 
 <!-- Graphical Map Generation (Leaflet or MapLibre) -->
-<script src="assets/js/awys.js"></script>
-<script src="assets/js/procs_enhanced.js"></script>
-<script src="assets/js/route-symbology.js"></script>
+<script src="assets/js/awys.js<?= _v('assets/js/awys.js') ?>"></script>
+<script src="assets/js/procs_enhanced.js<?= _v('assets/js/procs_enhanced.js') ?>"></script>
+<script src="assets/js/route-symbology.js<?= _v('assets/js/route-symbology.js') ?>"></script>
 <?php if (defined('SWIM_PUBLIC_ROUTES_KEY') && SWIM_PUBLIC_ROUTES_KEY): ?>
 <script>window.SWIM_PUBLIC_ROUTES_KEY = '<?php echo SWIM_PUBLIC_ROUTES_KEY; ?>';</script>
 <?php endif; ?>
-<script src="assets/js/public-routes.js"></script>
-<script src="assets/js/playbook-cdr-search.js"></script>
-<script src="assets/js/route-maplibre.js?v=20260221"></script>
+<script src="assets/js/public-routes.js<?= _v('assets/js/public-routes.js') ?>"></script>
+<script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
+<script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
 
 <!-- Simple JS to toggle Plot Routes help panel -->
 <script>

@@ -12,17 +12,17 @@ include("load/i18n.php");
     <?php $page_title = "vATCSCC " . __('demand.page.title'); include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
-    <link rel="stylesheet" href="assets/css/info-bar.css">
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
 
     <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
     <!-- Shared Phase Color Configuration -->
-    <script src="assets/js/config/phase-colors.js"></script>
+    <script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
     <!-- Rate Line Color Configuration -->
-    <script src="assets/js/config/rate-colors.js"></script>
+    <script src="assets/js/config/rate-colors.js<?= _v('assets/js/config/rate-colors.js') ?>"></script>
     <!-- Filter Color Configuration -->
-    <script src="assets/js/config/filter-colors.js"></script>
+    <script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
 
     <style>
         /* ═══════════════════════════════════════════════════════════════════════════
@@ -1125,7 +1125,7 @@ include("load/i18n.php");
 <?php include("load/footer.php"); ?>
 
 <!-- Demand JavaScript -->
-<script src="assets/js/demand.js"></script>
+<script src="assets/js/demand.js<?= _v('assets/js/demand.js') ?>"></script>
 
 <script>
     /**

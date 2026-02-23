@@ -241,6 +241,6 @@ include('load/nav.php');
 </div>
 
 <!-- Insert schedule.js Script -->
-<script src="assets/js/schedule.js"></script>
+<script src="assets/js/schedule.js<?= _v('assets/js/schedule.js') ?>"></script>
 
 </html>

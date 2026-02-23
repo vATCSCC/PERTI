@@ -10,7 +10,7 @@ include("load/i18n.php");
     <?php $page_title = "vATCSCC " . __('gdt.page.title'); include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
-    <link rel="stylesheet" href="assets/css/info-bar.css">
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
 
     <style>
         .tmi-label {
@@ -1943,11 +1943,11 @@ include("load/i18n.php");
 <!-- ECharts for Demand Visualization -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <!-- Shared Phase Color Configuration -->
-<script src="assets/js/config/phase-colors.js"></script>
+<script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
 <!-- Rate Line Color Configuration -->
-<script src="assets/js/config/rate-colors.js"></script>
+<script src="assets/js/config/rate-colors.js<?= _v('assets/js/config/rate-colors.js') ?>"></script>
 <!-- Shared Demand Chart Core (from demand.js) -->
-<script src="assets/js/demand.js"></script>
+<script src="assets/js/demand.js<?= _v('assets/js/demand.js') ?>"></script>
 
 <?php include("load/footer.php"); ?>
 
@@ -2210,12 +2210,12 @@ include("load/i18n.php");
     </div>
 </div>
 
-<script src="assets/js/advisory-config.js"></script>
+<script src="assets/js/advisory-config.js<?= _v('assets/js/advisory-config.js') ?>"></script>
 <!-- FIR (International) Scope Support -->
-<script src="assets/js/fir-scope.js"></script>
-<script src="assets/js/fir-integration.js"></script>
-<script src="assets/js/gdt.js"></script>
-<script src="assets/js/gdp.js"></script>
+<script src="assets/js/fir-scope.js<?= _v('assets/js/fir-scope.js') ?>"></script>
+<script src="assets/js/fir-integration.js<?= _v('assets/js/fir-integration.js') ?>"></script>
+<script src="assets/js/gdt.js<?= _v('assets/js/gdt.js') ?>"></script>
+<script src="assets/js/gdp.js<?= _v('assets/js/gdp.js') ?>"></script>
 
 </body>
 </html>

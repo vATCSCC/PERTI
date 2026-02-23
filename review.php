@@ -1309,13 +1309,13 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <?php } ?>
 
 <!-- Scripts -->
-<script src="assets/js/config/phase-colors.js"></script>
-<script src="assets/js/config/filter-colors.js"></script>
-<script src="assets/js/statsim_rates.js?v=2" defer></script>
-<script src="assets/js/demand.js?v=2"></script>
-<script src="assets/js/review.js"></script>
-<script src="assets/js/tmr_report.js?v=7"></script>
+<script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
+<script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
+<script src="assets/js/statsim_rates.js<?= _v('assets/js/statsim_rates.js') ?>" defer></script>
+<script src="assets/js/demand.js<?= _v('assets/js/demand.js') ?>"></script>
+<script src="assets/js/review.js<?= _v('assets/js/review.js') ?>"></script>
+<script src="assets/js/tmr_report.js<?= _v('assets/js/tmr_report.js') ?>"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
-<script src="assets/js/tmi_compliance.js?v=3"></script>
+<script src="assets/js/tmi_compliance.js<?= _v('assets/js/tmi_compliance.js') ?>"></script>
 
 </html>

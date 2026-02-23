@@ -480,6 +480,6 @@ if ($org_mismatch):
 </div>
 
 <!-- Insert sheet.js Script -->
-<script src="assets/js/sheet.js"></script>
+<script src="assets/js/sheet.js<?= _v('assets/js/sheet.js') ?>"></script>
 
 </html>

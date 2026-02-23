@@ -2264,7 +2264,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <!-- Shared Phase Color Configuration -->
-    <script src="assets/js/config/phase-colors.js"></script>
+    <script src="assets/js/config/phase-colors.js<?= _v('assets/js/config/phase-colors.js') ?>"></script>
 </head>
 <body>
     <?php include('load/nav.php'); ?>

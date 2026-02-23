@@ -779,7 +779,7 @@
 <!-- MapLibre Draw (Mapbox GL Draw compatible) -->
 <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js" crossorigin=""></script>
 
-<script src="assets/js/sua.js"></script>
+<script src="assets/js/sua.js<?= _v('assets/js/sua.js') ?>"></script>
 
 </body>
 </html>

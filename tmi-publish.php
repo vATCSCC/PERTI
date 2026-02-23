@@ -139,8 +139,8 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <html lang="en">
 <head>
     <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
-    <link rel="stylesheet" href="assets/css/info-bar.css">
-<link rel="stylesheet" href="assets/css/tmi-publish.css?v=1.7">
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
+<link rel="stylesheet" href="assets/css/tmi-publish.css<?= _v('assets/css/tmi-publish.css') ?>">
 </head>
 <body>
 
@@ -1763,11 +1763,11 @@ window.TMI_PUBLISHER_CONFIG = {
     defaultValidUntil: <?= json_encode($defaultEndFormatted) ?>
 };
 </script>
-<script src="assets/js/advisory-config.js?v=1.0.0"></script>
-<script src="advisory-templates.js?v=1.0.0"></script>
-<script src="assets/js/tmi-publish.js?v=1.10.3"></script>
-<script src="assets/js/tmi-active-display.js?v=1.2.0"></script>
-<script src="assets/js/tmi-gdp.js?v=1.1.0"></script>
+<script src="assets/js/advisory-config.js<?= _v('assets/js/advisory-config.js') ?>"></script>
+<script src="advisory-templates.js<?= _v('advisory-templates.js') ?>"></script>
+<script src="assets/js/tmi-publish.js<?= _v('assets/js/tmi-publish.js') ?>"></script>
+<script src="assets/js/tmi-active-display.js<?= _v('assets/js/tmi-active-display.js') ?>"></script>
+<script src="assets/js/tmi-gdp.js<?= _v('assets/js/tmi-gdp.js') ?>"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
 (function() {

@@ -22,7 +22,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
 <head>
     <?php $page_title = "vATCSCC JATOC"; include("load/header.php"); ?>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/info-bar.css">
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
     <style>
     /* Dark mode base */
@@ -1604,8 +1604,8 @@ window.JATOC_FACILITY_DATA = {
     ATC_FACILITY_TYPES: ['ARTCC', 'TRACON', 'LOCAL', 'FIR']
 };
 </script>
-<script src="assets/js/jatoc.js"></script>
-<script src="assets/js/jatoc-facility-patch.js"></script>
+<script src="assets/js/jatoc.js<?= _v('assets/js/jatoc.js') ?>"></script>
+<script src="assets/js/jatoc-facility-patch.js<?= _v('assets/js/jatoc-facility-patch.js') ?>"></script>
 
 <?php include("load/footer.php"); ?>
 </body>

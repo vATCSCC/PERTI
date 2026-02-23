@@ -51,7 +51,7 @@ include("sessions/handler.php");
         $page_title = "PERTI Plan";
         include("load/header.php");
     ?>
-    <link rel="stylesheet" href="assets/css/initiative_timeline.css">
+    <link rel="stylesheet" href="assets/css/initiative_timeline.css<?= _v('assets/css/initiative_timeline.css') ?>">
 
     <script>
         function tooltips() {
@@ -2255,13 +2255,13 @@ if ($org_mismatch):
 <!-- End Advisory Organization Config Modal -->
 
 <!-- Insert advisory-config.js Script -->
-<script src="assets/js/advisory-config.js"></script>
+<script src="assets/js/advisory-config.js<?= _v('assets/js/advisory-config.js') ?>"></script>
 
 <!-- Insert plan.js Script -->
-<script src="assets/js/plan.js"></script>
+<script src="assets/js/plan.js<?= _v('assets/js/plan.js') ?>"></script>
 
 <!-- Insert Initiative Timeline Script -->
-<script src="assets/js/initiative_timeline.js?v=<?= filemtime(__DIR__ . '/assets/js/initiative_timeline.js') ?>"></script>
+<script src="assets/js/initiative_timeline.js<?= _v('assets/js/initiative_timeline.js') ?>"></script>
 <script>
     // Initialize Initiative Timelines when DOM is ready
     $(function() {

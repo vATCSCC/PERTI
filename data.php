@@ -47,7 +47,7 @@ include("sessions/handler.php");
         var plan_id = <?= $id ?>;
     </script>
 
-    <link rel="stylesheet" href="assets/css/initiative_timeline.css">
+    <link rel="stylesheet" href="assets/css/initiative_timeline.css<?= _v('assets/css/initiative_timeline.css') ?>">
 
     <script>
         function tooltips() {
@@ -444,6 +444,6 @@ include("load/footer.php");
 </div>
 
 <!-- Insert sheet.js Script -->
-<script src="assets/js/sheet.js"></script>
+<script src="assets/js/sheet.js<?= _v('assets/js/sheet.js') ?>"></script>
 
 </html>
