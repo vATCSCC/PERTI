@@ -19,33 +19,21 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
-$c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')")->fetch_assoc();
+header('Content-Type: application/json');
 
-if ($c_q['total'] > 0) {
-    $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')");
+$query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')");
 
-    while ($data = mysqli_fetch_array($query)) {
-        echo '<tr>';
-            if (!isset($_GET['position_facility'])) {
-                echo '<td class="text-center" style="width: 10%;">'.$data['position_facility'].'</td>';
-            }
-
-            echo '<td class="text-center" style="width: 10%;">'.$data['personnel_ois'].'</td>';
-            echo '<td>'.$data['personnel_name'].'</td>';
-
-            if (isset($_GET['position_facility'])) {
-                echo '<td>'.$data['position_name'].'</td>';
-            }
-    
-            echo '<td class="w-25"><center>';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#edit_dccstaffingModal" data-id="'.$data['id'].'" data-personnel_name="'.$data['personnel_name'].'" data-personnel_ois="'.$data['personnel_ois'].'" data-position_name="'.$data['position_name'].'" data-position_facility="'.$data['position_facility'].'">
-                    <i class="fas fa-pencil-alt"></i> Edit</span></a>';
-            echo '</center></td>';
-    
-        echo '</tr>';
+$rows = [];
+if ($query) {
+    while ($data = mysqli_fetch_assoc($query)) {
+        $rows[] = [
+            'id' => (int)$data['id'],
+            'position_facility' => $data['position_facility'],
+            'position_name' => $data['position_name'],
+            'personnel_name' => $data['personnel_name'],
+            'personnel_ois' => $data['personnel_ois'],
+        ];
     }
-} else {
-    echo '<tr><td class="text-center" colspan="4">No Personnel Rostered</td></tr>';
 }
 
-?>
+echo json_encode(['perm' => true, 'rows' => $rows]);

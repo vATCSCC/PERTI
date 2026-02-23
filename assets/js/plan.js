@@ -33,17 +33,11 @@ function loadGoals() {
 
 function loadDCCStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/plans/dcc_staffing?p_id=${p_id}&position_facility=DCC`).done(function(data) {
-        $('#dcc_table').html(data);
-
-        $.get(`api/data/plans/dcc_staffing?p_id=${p_id}`).done(function(data) {
-            $('#dcc_staffing_table').html(data);
-            tooltips();
-            if (typeof opsPlanUpdateMessage === 'function') {
-                opsPlanUpdateMessage();
-            }
-
-        });
+    PlanTables.loadDCCStaffing().then(function() {
+        tooltips();
+        if (typeof opsPlanUpdateMessage === 'function') {
+            opsPlanUpdateMessage();
+        }
     });
 }
 
@@ -77,18 +71,12 @@ function loadTermInits() {
 
 function loadTermStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/plans/term_staffing?p_id=${p_id}`).done(function(data) {
-        $('#term_staffing_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadTermStaffing().then(function() { tooltips(); });
 }
 
 function loadConfigs() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/plans/configs?p_id=${p_id}`).done(function(data) {
-        $('#configs_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadConfigs().then(function() { tooltips(); });
 }
 
 function loadTermPlanning() {
@@ -125,10 +113,7 @@ function loadEnrouteInits() {
 
 function loadEnrouteStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/plans/enroute_staffing?p_id=${p_id}`).done(function(data) {
-        $('#enroute_staffing_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadEnrouteStaffing().then(function() { tooltips(); });
 }
 
 function loadEnroutePlanning() {
@@ -171,40 +156,41 @@ function loadOutlook() {
 (function loadAllSections() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
 
-    Promise.all([
+    // Load sortable tables via PlanTables module (configs, staffing, DCC)
+    const tablesReady = PlanTables.init({
+        apiBase: 'api/data/plans',
+        p_id: p_id,
+        hasDccPersonnel: true,
+    });
+
+    // Load remaining HTML-rendered sections in parallel
+    const sectionsReady = Promise.all([
         $.get(`api/data/plans/goals?p_id=${p_id}`),
-        $.get(`api/data/plans/dcc_staffing?p_id=${p_id}&position_facility=DCC`),
-        $.get(`api/data/plans/dcc_staffing?p_id=${p_id}`),
         $.get(`api/data/plans/historical?p_id=${p_id}`),
         $.get(`api/data/plans/forecast?p_id=${p_id}`),
         $.get(`api/data/plans/term_inits?p_id=${p_id}`),
-        $.get(`api/data/plans/term_staffing?p_id=${p_id}`),
-        $.get(`api/data/plans/configs?p_id=${p_id}`),
         $.get(`api/data/plans/term_planning?p_id=${p_id}`),
         $.get(`api/data/plans/term_constraints?p_id=${p_id}`),
         $.get(`api/data/plans/enroute_inits?p_id=${p_id}`),
-        $.get(`api/data/plans/enroute_staffing?p_id=${p_id}`),
         $.get(`api/data/plans/enroute_planning?p_id=${p_id}`),
         $.get(`api/data/plans/enroute_constraints?p_id=${p_id}`),
         $.get(`api/data/plans/group_flights?p_id=${p_id}`),
         $.get(`api/data/plans/outlook?p_id=${p_id}`)
     ]).then(function(results) {
         $('#goals_table').html(results[0]);
-        $('#dcc_table').html(results[1]);
-        $('#dcc_staffing_table').html(results[2]);
-        $('#historicaldata').html(results[3]);
-        $('#forecastdata').html(results[4]);
-        $('#term_inits').html(results[5]);
-        $('#term_staffing_table').html(results[6]);
-        $('#configs_table').html(results[7]);
-        $('#termplanningdata').html(results[8]);
-        $('#term_constraints_table').html(results[9]);
-        $('#enroute_inits').html(results[10]);
-        $('#enroute_staffing_table').html(results[11]);
-        $('#enrouteplanningdata').html(results[12]);
-        $('#enroute_constraints_table').html(results[13]);
-        $('#group_flights_table').html(results[14]);
-        $('#outlook_data').html(results[15]);
+        $('#historicaldata').html(results[1]);
+        $('#forecastdata').html(results[2]);
+        $('#term_inits').html(results[3]);
+        $('#termplanningdata').html(results[4]);
+        $('#term_constraints_table').html(results[5]);
+        $('#enroute_inits').html(results[6]);
+        $('#enrouteplanningdata').html(results[7]);
+        $('#enroute_constraints_table').html(results[8]);
+        $('#group_flights_table').html(results[9]);
+        $('#outlook_data').html(results[10]);
+    });
+
+    Promise.all([tablesReady, sectionsReady]).then(function() {
         tooltips();
         if (typeof opsPlanUpdateMessage === 'function') {
             opsPlanUpdateMessage();

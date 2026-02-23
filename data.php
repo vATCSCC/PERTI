@@ -177,11 +177,13 @@ include('load/nav_public.php');
 
                     <!-- Tab: DCC Staffing -->
                     <div class="tab-pane fade" id="dcc_staffing">
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccFacility"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility</b></th>
-                                <th class="text-center"><b>OIs</b></th>
-                                <th><b>Personnel Name</b></th>
+                                <th class="text-center sortable" data-sort="position_facility" data-table="dccFacility"><b><?= __('plan.dcc.facility') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="personnel_ois" data-table="dccFacility"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="sortable" data-sort="personnel_name" data-table="dccFacility"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
                                 <th></th>
                             </thead>
                             <tbody id="dcc_staffing_table"></tbody>
@@ -190,12 +192,14 @@ include('load/nav_public.php');
 
                     <!-- Tab: Terminal Staffing -->
                     <div class="tab-pane fade" id="t_staffing">
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="termStaffing"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center sortable" data-sort="facility_name" data-table="termStaffing"><b><?= __('plan.staffing.facilityName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_status" data-table="termStaffing"><b><?= __('plan.staffing.status') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_quantity" data-table="termStaffing"><b><?= __('plan.staffing.quantity') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="term_staffing_table"></tbody>
@@ -204,15 +208,17 @@ include('load/nav_public.php');
 
                     <!-- Tab: Field Configs -->
                     <div class="tab-pane fade" id="configs">
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="configs"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Field</b></th>
-                                <th class="text-center"><b>Conditions</b></th>
-                                <th class="text-center"><b>Arriving</b></th>
-                                <th class="text-center"><b>Departing</b></th>
-                                <th class="text-center"><b>AAR</b></th>
-                                <th class="text-center"><b>ADR</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center sortable" data-sort="airport" data-table="configs"><b><?= __('plan.configTab.field') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="weather" data-table="configs"><b><?= __('plan.configTab.conditions') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="arrive" data-table="configs"><b><?= __('plan.configTab.arriving') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="depart" data-table="configs"><b><?= __('plan.configTab.departing') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="aar" data-table="configs"><b>AAR</b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="adr" data-table="configs"><b>ADR</b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="configs_table"></tbody>
@@ -221,12 +227,14 @@ include('load/nav_public.php');
 
                     <!-- Tab: Enroute Staffing -->
                     <div class="tab-pane fade" id="e_staffing">
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="enrouteStaffing"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b>Facility Name</b></th>
-                                <th class="text-center"><b>Status</b></th>
-                                <th class="text-center"><b>Quantity</b></th>
-                                <th class="text-center"><b>Comments</b></th>
+                                <th class="text-center sortable" data-sort="facility_name" data-table="enrouteStaffing"><b><?= __('plan.staffing.facilityName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_status" data-table="enrouteStaffing"><b><?= __('plan.staffing.status') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_quantity" data-table="enrouteStaffing"><b><?= __('plan.staffing.quantity') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <th></th>
                             </thead>
                             <tbody id="enroute_staffing_table"></tbody>
@@ -443,7 +451,8 @@ include("load/footer.php");
     </div>
 </div>
 
-<!-- Insert sheet.js Script -->
+<!-- Insert plan-tables.js + sheet.js Scripts -->
+<script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
 <script src="assets/js/sheet.js<?= _v('assets/js/sheet.js') ?>"></script>
 
 </html>

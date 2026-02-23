@@ -19,42 +19,21 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
-$c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_terminal_staffing WHERE p_id='$p_id'")->fetch_assoc();
+header('Content-Type: application/json');
 
+$rows = [];
+$query = $conn_sqli->query("SELECT * FROM p_terminal_staffing WHERE p_id='$p_id'");
 
-if ($c_q['total'] > 0) {
-    $query = $conn_sqli->query("SELECT * FROM p_terminal_staffing WHERE p_id='$p_id'");
-
-    while ($data = mysqli_fetch_array($query)) {
-        echo '<tr>';
-
-            echo '<td class="text-center" style="width: 40%;">'.$data['facility_name'].'</td>';
-
-            if ($data['staffing_status'] == 0) {
-                echo '<td class="text-center" style="width: 10%; background-color: #FFFF5C;">Unknown</td>';
-            } elseif ($data['staffing_status'] == 1) {
-                echo '<td class="text-center" style="width: 10%; background-color: #00D100;">Top Down</td>'; 
-            } elseif ($data['staffing_status'] == 2) {
-                echo '<td class="text-center" style="width: 10%; background-color: #5CFF5C;">Yes</td>'; 
-            } elseif ($data['staffing_status'] == 3) {
-                echo '<td class="text-center" style="width: 10%; background-color: #FFCD00;">Understaffed</td>'; 
-            } else {
-                echo '<td class="text-center bg-danger" style="width: 10%;">No</td>';  
-            }
-
-            echo '<td class="text-center" style="width: 10%;">'.$data['staffing_quantity'].'</td>';
-            echo '<td class="text-center">'.$data['comments'].'</td>';
-    
-            echo '<td style="width: 10%;"><center>';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Staffing"><span class="badge badge-warning" data-toggle="modal" data-target="#edittermstaffingModal" data-id="'.$data['id'].'" data-facility_name="'.$data['facility_name'].'" data-staffing_status="'.$data['staffing_status'].'" data-staffing_quantity="'.$data['staffing_quantity'].'" data-comments="'.$data['comments'].'">
-                    <i class="fas fa-pencil-alt"></i> Edit</span></a>';
-            echo '</center></td>';
-    
-        echo '</tr>';
+if ($query) {
+    while ($data = mysqli_fetch_assoc($query)) {
+        $rows[] = [
+            'id' => (int)$data['id'],
+            'facility_name' => $data['facility_name'],
+            'staffing_status' => (int)$data['staffing_status'],
+            'staffing_quantity' => (int)$data['staffing_quantity'],
+            'comments' => $data['comments'],
+        ];
     }
-} else {
-    echo '<tr><td class="text-center" colspan="5">No Staffing Filed</td></tr>';
 }
 
-
-?>
+echo json_encode(['perm' => true, 'rows' => $rows]);

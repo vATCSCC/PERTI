@@ -339,12 +339,13 @@ if ($org_mismatch):
                         <div class="row">
                             <div class="col-6">
                                 <h4><b><?= __('plan.dcc.dccPersonnel') ?></b></h4>
+                                <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccPersonnel"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 
                                 <table class="table table-striped table-bordered">
                                     <thead>
-                                        <th class="text-center"><b><?= __('plan.dcc.ois') ?></b></th>
-                                        <th><b><?= __('plan.dcc.personnelName') ?></b></th>
-                                        <th><b><?= __('plan.dcc.positionName') ?></b></th>
+                                        <th class="text-center sortable" data-sort="personnel_ois" data-table="dccPersonnel"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-sort="personnel_name" data-table="dccPersonnel"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-sort="position_name" data-table="dccPersonnel"><b><?= __('plan.dcc.positionName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
                                         <?php if ($perm == true) {
                                             echo '<th></th>';
                                         }
@@ -356,12 +357,13 @@ if ($org_mismatch):
 
                             <div class="col-6">
                                 <h4><b><?= __('plan.dcc.facilityPersonnel') ?></b></h4>
+                                <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccFacility"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 
                                 <table class="table table-striped table-bordered">
                                     <thead>
-                                        <th class="text-center"><b><?= __('plan.dcc.facility') ?></b></th>
-                                        <th class="text-center"><b><?= __('plan.dcc.ois') ?></b></th>
-                                        <th><b><?= __('plan.dcc.personnelName') ?></b></th>
+                                        <th class="text-center sortable" data-sort="position_facility" data-table="dccFacility"><b><?= __('plan.dcc.facility') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                        <th class="text-center sortable" data-sort="personnel_ois" data-table="dccFacility"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                        <th class="sortable" data-sort="personnel_name" data-table="dccFacility"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
                                         <?php if ($perm == true) {
                                             echo '<th></th>';
                                         }
@@ -423,11 +425,13 @@ if ($org_mismatch):
                         <?php } ?>
 
 
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="termStaffing"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b><?= __('plan.staffing.facilityName') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.staffing.status') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.staffing.quantity') ?></b></th>
+                                <th class="text-center sortable" data-sort="facility_name" data-table="termStaffing"><b><?= __('plan.staffing.facilityName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_status" data-table="termStaffing"><b><?= __('plan.staffing.status') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_quantity" data-table="termStaffing"><b><?= __('plan.staffing.quantity') ?></b> <i class="fas fa-sort sort-icon"></i></th>
                                 <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
@@ -447,14 +451,16 @@ if ($org_mismatch):
                             <hr>
                         <?php } ?>
 
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="configs"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b><?= __('plan.configTab.field') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.configTab.conditions') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.configTab.arriving') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.configTab.departing') ?></b></th>
-                                <th class="text-center"><b>AAR</b></th>
-                                <th class="text-center"><b>ADR</b></th>
+                                <th class="text-center sortable" data-sort="airport" data-table="configs"><b><?= __('plan.configTab.field') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="weather" data-table="configs"><b><?= __('plan.configTab.conditions') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="arrive" data-table="configs"><b><?= __('plan.configTab.arriving') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="depart" data-table="configs"><b><?= __('plan.configTab.departing') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="aar" data-table="configs"><b>AAR</b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="adr" data-table="configs"><b>ADR</b> <i class="fas fa-sort sort-icon"></i></th>
                                 <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
@@ -501,11 +507,13 @@ if ($org_mismatch):
                             <hr>
                         <?php } ?>
 
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="enrouteStaffing"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+
                         <center><table class="table table-sm table-striped table-bordered w-75">
                             <thead>
-                                <th class="text-center"><b><?= __('plan.staffing.facilityName') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.staffing.status') ?></b></th>
-                                <th class="text-center"><b><?= __('plan.staffing.quantity') ?></b></th>
+                                <th class="text-center sortable" data-sort="facility_name" data-table="enrouteStaffing"><b><?= __('plan.staffing.facilityName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_status" data-table="enrouteStaffing"><b><?= __('plan.staffing.status') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="staffing_quantity" data-table="enrouteStaffing"><b><?= __('plan.staffing.quantity') ?></b> <i class="fas fa-sort sort-icon"></i></th>
                                 <th class="text-center"><b><?= __('plan.staffing.comments') ?></b></th>
                                 <?php if ($perm == true) {
                                     echo '<th></th>';
@@ -2188,7 +2196,8 @@ if ($org_mismatch):
 <!-- Insert facility-roles config (shared with JATOC) -->
 <script src="assets/js/config/facility-roles.js<?= _v('assets/js/config/facility-roles.js') ?>"></script>
 
-<!-- Insert plan.js Script -->
+<!-- Insert plan-tables.js + plan.js Scripts -->
+<script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
 <script src="assets/js/plan.js<?= _v('assets/js/plan.js') ?>"></script>
 
 <!-- Insert Initiative Timeline Script -->

@@ -39,47 +39,25 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
+header('Content-Type: application/json');
+
 if (isset($_GET['position_facility'])) {
-    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility IN ('DCC','CANOC','ECFMP','CTP','WF')")->fetch_assoc();
+    $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility IN ('DCC','CANOC','ECFMP','CTP','WF')");
 } else {
-    $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')")->fetch_assoc();
+    $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')");
 }
 
-
-if ($c_q['total'] > 0) {
-    if (isset($_GET['position_facility'])) {
-        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility IN ('DCC','CANOC','ECFMP','CTP','WF')");
-    } else {
-        $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')");
+$rows = [];
+if ($query) {
+    while ($data = mysqli_fetch_assoc($query)) {
+        $rows[] = [
+            'id' => (int)$data['id'],
+            'position_facility' => $data['position_facility'],
+            'position_name' => $data['position_name'],
+            'personnel_name' => $data['personnel_name'],
+            'personnel_ois' => $data['personnel_ois'],
+        ];
     }
-
-    while ($data = mysqli_fetch_array($query)) {
-        echo '<tr>';
-            if (!isset($_GET['position_facility'])) {
-                echo '<td class="text-center" style="width: 10%;">'.$data['position_facility'].'</td>';
-            }
-
-            echo '<td class="text-center" style="width: 10%;">'.$data['personnel_ois'].'</td>';
-            echo '<td>'.$data['personnel_name'].'</td>';
-
-            if (isset($_GET['position_facility'])) {
-                echo '<td>'.$data['position_name'].'</td>';
-            }
-    
-            if ($perm == true) {
-                echo '<td class="w-25"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#edit_dccstaffingModal" data-id="'.$data['id'].'" data-personnel_name="'.$data['personnel_name'].'" data-personnel_ois="'.$data['personnel_ois'].'" data-position_name="'.$data['position_name'].'" data-position_facility="'.$data['position_facility'].'">
-                        <i class="fas fa-pencil-alt"></i> Edit</span></a>';
-                    echo ' ';
-                    echo '<a href="javascript:void(0)" onclick="deleteDCCStaffing('.$data['id'].')" data-toggle="tooltip" title="Delete Personnel"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
-                echo '</center></td>';
-            }
-    
-        echo '</tr>';
-    }
-} else {
-    echo '<tr><td class="text-center" colspan="4">No Personnel Rostered</td></tr>';
 }
 
-
-?>
+echo json_encode(['perm' => $perm, 'rows' => $rows]);
