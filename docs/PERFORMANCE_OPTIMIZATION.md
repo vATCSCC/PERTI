@@ -98,16 +98,37 @@ Full audit plan: `.claude/plans/unified-puzzling-pie.md`
 - **Impact**: Users see visual feedback during load and can't interact with incomplete UI
 - **Risk**: None — bar self-removes on `window.onload`; 15s fallback prevents permanent display
 
+### 11. JATOC API connection optimization (PERTI_ADL_ONLY)
+- **Files**: `load/connect.php`, 8 JATOC API files, `api/jatoc/space_ops.php`
+- **Change**: Added `PERTI_ADL_ONLY` flag to `connect.php` (opens MySQL + ADL only, skips SWIM/TMI/REF). Applied to 8 JATOC endpoints that only use `$conn_adl`. Applied `PERTI_MYSQL_ONLY` to `space_ops.php` (MySQL only).
+- **Files with PERTI_ADL_ONLY**: `incidents.php`, `incident.php`, `updates.php`, `personnel.php`, `oplevel.php`, `daily_ops.php`, `report.php`, `special_emphasis.php`
+- **Measured improvement**:
+  | Endpoint | Before | After | Improvement |
+  |----------|--------|-------|-------------|
+  | `incident.php?id=N` | ~2000ms | ~644ms | 68% faster |
+  | `incidents.php` (list) | ~1979ms | ~802ms | 59% faster |
+  | `space_ops.php` | ~2000ms | ~313ms | 84% faster |
+  | `personnel.php` | ~2000ms | ~636ms | 68% faster |
+  | `oplevel.php` | ~2600ms | ~653ms | 75% faster |
+- **Root cause**: Each JATOC API call was opening 4 Azure SQL connections (ADL+SWIM+TMI+REF) but only using ADL — ~1.3s wasted on 3 unused TCP+TLS+auth handshakes per request
+- **Risk**: Low — `PERTI_ADL_ONLY` is a subset of existing `PERTI_MYSQL_ONLY` pattern
+
+### 12. JATOC auto-refresh interval (5s → 15s)
+- **File**: `assets/js/jatoc.js`
+- **Change**: Increased `state.countdown` from 5 to 15 seconds in `startAutoRefresh()`
+- **Impact**: 3x fewer polling requests, dramatically reducing PHP-FPM worker contention
+- **Risk**: Low — 15s is still responsive for operational awareness; incidents are not time-critical to the second
+
 ## Tier 3: Larger Refactors (Planned)
 
-### 11. Batch plan data API
+### 13. Batch plan data API
 - Reduce plan.php from 16 parallel API requests to 1 batched request
 - Create `api/data/plans/batch.php` endpoint
 
-### 12. Lazy-load page-specific JS
+### 14. Lazy-load page-specific JS
 - Move `facility-hierarchy.js` (61KB) from header.php to only pages that use it
 
-### 13. Exclude T_T100D from deploy
+### 15. Exclude T_T100D from deploy
 - Remove 15MB `T_T100D_SEGMENT_US_CARRIER_ONLY.csv` from deploy package
 
 ## Data Freshness Policy
