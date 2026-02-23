@@ -541,3 +541,30 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
   cursor: pointer;
   font-size: 0.85em;
 }
+
+/* ===========================================
+   Plan Tables — Sortable & Grouped Headers
+   =========================================== */
+.plan-group-header td {
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-bottom: 2px solid rgba(0,0,0,0.1);
+}
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+.sort-icon {
+  opacity: 0.3;
+  margin-left: 4px;
+  font-size: 0.75rem;
+}
+.sort-active .sort-icon {
+  opacity: 1;
+}
+.plan-group-toggle {
+  font-size: 0.8rem;
+}

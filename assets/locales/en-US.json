@@ -3033,6 +3033,19 @@
       "statusYes": "Yes",
       "statusNo": "No"
     },
+    "tables": {
+      "groupByArtcc": "Group by ARTCC",
+      "flatView": "Flat View",
+      "noConfigs": "No Configs Filed",
+      "noStaffing": "No Staffing Filed",
+      "noPersonnel": "No Personnel Rostered",
+      "ungrouped": "Other",
+      "editConfig": "Edit Config",
+      "deleteConfig": "Delete Config",
+      "editStaffing": "Edit Staffing",
+      "deleteStaffing": "Delete Staffing",
+      "deletePersonnel": "Delete Personnel"
+    },
     "configTab": {
       "addConfig": "Add Config",
       "field": "Field",

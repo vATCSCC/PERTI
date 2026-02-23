@@ -13,52 +13,41 @@ function loadGoals() {
 
 function loadDCCStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/sheet/dcc_staffing?p_id=${p_id}`).done(function(data) {
-        $('#dcc_staffing_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadDCCStaffing().then(function() { tooltips(); });
 }
 
 function loadTermStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/sheet/term_staffing?p_id=${p_id}`).done(function(data) {
-        $('#term_staffing_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadTermStaffing().then(function() { tooltips(); });
 }
 
 function loadConfigs() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/sheet/configs?p_id=${p_id}`).done(function(data) {
-        $('#configs_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadConfigs().then(function() { tooltips(); });
 }
 
 function loadEnrouteStaffing() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/sheet/enroute_staffing?p_id=${p_id}`).done(function(data) {
-        $('#enroute_staffing_table').html(data);
-        tooltips();
-    });
+    PlanTables.loadEnrouteStaffing().then(function() { tooltips(); });
 }
 
 // Load all sheet sections in parallel for faster page load
 (function loadAllSections() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
 
-    Promise.all([
-        $.get(`api/data/plans/goals?p_id=${p_id}`),
-        $.get(`api/data/sheet/dcc_staffing?p_id=${p_id}`),
-        $.get(`api/data/sheet/term_staffing?p_id=${p_id}`),
-        $.get(`api/data/sheet/configs?p_id=${p_id}`),
-        $.get(`api/data/sheet/enroute_staffing?p_id=${p_id}`)
-    ]).then(function(results) {
-        $('#goals_table').html(results[0]);
-        $('#dcc_staffing_table').html(results[1]);
-        $('#term_staffing_table').html(results[2]);
-        $('#configs_table').html(results[3]);
-        $('#enroute_staffing_table').html(results[4]);
+    // PlanTables handles the 4 sortable/grouped tables
+    const tablesReady = PlanTables.init({
+        apiBase: 'api/data/sheet',
+        p_id: p_id,
+        hasDccPersonnel: false
+    });
+
+    // Goals still uses server-rendered HTML
+    const goalsReady = $.get(`api/data/plans/goals?p_id=${p_id}`).then(function(data) {
+        $('#goals_table').html(data);
+    });
+
+    Promise.all([tablesReady, goalsReady]).then(function() {
         tooltips();
     });
 })();
