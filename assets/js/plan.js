@@ -1,6 +1,6 @@
 ﻿const pathname = $(location).attr('href');
 const uri = pathname.split('?');
-const p_id = uri[1];
+const p_id = uri[1] ? uri[1].split('#')[0] : '';
 
 const summernoteFields = [
     'atp_comments',
