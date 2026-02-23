@@ -19,10 +19,10 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
-$c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility!='DCC' AND position_facility!='CANOC' AND position_facility!='ECFMP'")->fetch_assoc();
+$c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')")->fetch_assoc();
 
 if ($c_q['total'] > 0) {
-    $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility!='DCC' AND position_facility!='CANOC' AND position_facility!='ECFMP'");
+    $query = $conn_sqli->query("SELECT * FROM p_dcc_staffing WHERE p_id='$p_id' AND position_facility NOT IN ('DCC','CANOC','ECFMP','CTP','WF')");
 
     while ($data = mysqli_fetch_array($query)) {
         echo '<tr>';
