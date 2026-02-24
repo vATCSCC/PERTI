@@ -1,0 +1,386 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PLAYBOOK PAGE STYLES
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Catalog Panel */
+.pb-catalog-panel {
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding-bottom: 1rem;
+}
+
+.pb-catalog-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Search & Filters */
+.pb-search-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.pb-search-bar input {
+    font-size: 0.85rem;
+}
+
+.pb-filter-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.pb-filter-row select {
+    font-size: 0.8rem;
+    max-width: 140px;
+}
+
+/* Play Cards */
+.pb-play-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.pb-play-card {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+}
+
+.pb-play-card:hover {
+    border-color: #239BCD;
+    box-shadow: 0 2px 8px rgba(35, 155, 205, 0.15);
+}
+
+.pb-play-card.active {
+    border-color: #239BCD;
+    box-shadow: 0 2px 12px rgba(35, 155, 205, 0.25);
+}
+
+.pb-play-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+}
+
+.pb-play-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    font-family: 'Inconsolata', monospace;
+    color: #2c3e50;
+    word-break: break-all;
+}
+
+.pb-play-meta {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.pb-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pb-badge-faa {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.pb-badge-dcc {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.pb-badge-category {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.pb-badge-routes {
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-family: 'Inconsolata', monospace;
+}
+
+.pb-badge-archived {
+    background: #eceff1;
+    color: #546e7a;
+}
+
+.pb-badge-draft {
+    background: #fff8e1;
+    color: #f57f17;
+}
+
+/* Play Detail Panel */
+.pb-play-detail {
+    display: none;
+    padding: 0 0.75rem 0.75rem;
+    border-top: 1px solid #eee;
+}
+
+.pb-play-card.active .pb-play-detail {
+    display: block;
+}
+
+.pb-play-description {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.pb-play-facilities {
+    font-size: 0.75rem;
+    color: #888;
+    font-family: 'Inconsolata', monospace;
+    margin-bottom: 0.5rem;
+}
+
+/* Route Table */
+.pb-route-table {
+    width: 100%;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.pb-route-table th {
+    background: #f8f9fa;
+    padding: 4px 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.pb-route-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #f0f0f0;
+    font-family: 'Inconsolata', monospace;
+    word-break: break-all;
+}
+
+.pb-route-table tr:hover td {
+    background: #f8f9fa;
+}
+
+.pb-route-table .pb-route-check {
+    width: 24px;
+    text-align: center;
+}
+
+/* Action Buttons */
+.pb-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.pb-actions .btn {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+}
+
+/* Map Section */
+.pb-map-section {
+    position: relative;
+}
+
+.pb-map-section #map_wrapper {
+    position: relative;
+    height: calc(100vh - 120px);
+}
+
+.pb-map-section #placeholder,
+.pb-map-section #graphic {
+    width: 100%;
+    height: 100%;
+}
+
+/* Route Textarea (hidden, for map integration) */
+#routeSearch {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.9rem;
+}
+
+/* Catalog Stats */
+.pb-catalog-stats {
+    font-size: 0.75rem;
+    color: #888;
+    padding: 0.25rem 0;
+}
+
+/* Create/Edit Modal */
+.pb-modal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.pb-modal .form-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.pb-modal .form-control-sm {
+    font-size: 0.85rem;
+}
+
+.pb-route-edit-table {
+    width: 100%;
+    font-size: 0.8rem;
+}
+
+.pb-route-edit-table th {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    padding: 4px;
+    background: #f8f9fa;
+}
+
+.pb-route-edit-table td {
+    padding: 3px;
+}
+
+.pb-route-edit-table input,
+.pb-route-edit-table textarea {
+    font-size: 0.8rem;
+    font-family: 'Inconsolata', monospace;
+}
+
+/* Changelog Panel */
+.pb-changelog {
+    margin-top: 0.5rem;
+}
+
+.pb-changelog-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #239BCD;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.pb-changelog-header i {
+    transition: transform 0.2s;
+}
+
+.pb-changelog-header.expanded i {
+    transform: rotate(90deg);
+}
+
+.pb-changelog-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.25rem 0 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.pb-changelog-item {
+    font-size: 0.7rem;
+    padding: 3px 0;
+    border-bottom: 1px solid #f5f5f5;
+    color: #666;
+}
+
+.pb-changelog-action {
+    font-weight: 600;
+    color: #333;
+}
+
+.pb-changelog-field {
+    color: #239BCD;
+}
+
+.pb-changelog-diff {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.65rem;
+}
+
+.pb-changelog-old {
+    color: #dc3545;
+    text-decoration: line-through;
+}
+
+.pb-changelog-new {
+    color: #28a745;
+}
+
+/* Empty State */
+.pb-empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #999;
+}
+
+.pb-empty-state i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Loading */
+.pb-loading {
+    text-align: center;
+    padding: 2rem;
+}
+
+.pb-loading .spinner-border {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+/* Select All / Deselect All */
+.pb-select-all {
+    font-size: 0.7rem;
+    cursor: pointer;
+    color: #239BCD;
+    user-select: none;
+}
+
+.pb-select-all:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+    .pb-catalog-panel {
+        height: auto;
+        max-height: 50vh;
+    }
+
+    .pb-map-section #map_wrapper {
+        height: 50vh;
+    }
+}
+
+@media (max-width: 575px) {
+    .pb-filter-row select {
+        max-width: 110px;
+    }
+
+    .pb-play-name {
+        font-size: 0.8rem;
+    }
+}

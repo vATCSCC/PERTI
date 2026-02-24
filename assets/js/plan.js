@@ -160,6 +160,9 @@ $('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
         PlanTables.loadSplitsOverview();
     }
 });
+$('#btn_refresh_splits').on('click', function() {
+    PlanTables.loadSplitsOverview();
+});
 
 // Load all plan sections in parallel for faster page load
 (function loadAllSections() {

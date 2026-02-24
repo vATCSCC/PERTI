@@ -54,6 +54,7 @@ $nav_config = [
             ['label' => __('nav.plans'), 'path' => './'],
             ['label' => __('nav.configs'), 'path' => './airport_config'],
             ['label' => __('nav.routes'), 'path' => './route'],
+            ['label' => __('nav.playbook'), 'path' => './playbook'],
             ['label' => __('nav.simulator'), 'path' => './simulator'],
         ]
     ],
