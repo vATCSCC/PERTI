@@ -180,18 +180,27 @@ include('load/nav_public.php');
 
                                 <hr>
 
-                                <h4><b>Resources</b></h4>
+                                <h4><b><?= __('plan.overview.resources') ?></b></h4>
                                 <ul>
-                                    <li>TMU Dashboard for operational status and real-time issue tracking <a href="https://vats.im/vATCSCC_TMU_Dashboard" target="_blank">here</a>.</li>
-                                    <li>JATOC AWO Incident Monitor for incident management and real-time tracking <a href="https://vats.im/JATOC" target="_blank">here</a>.</li>
-                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for TMI data logging.</li>
-                                    <li>VATUSA NTOS for public-facing, real-time TMI notices <a href="https://www.vatusa.net/mgt/tmu#notices" target="_blank">here</a>.
-                                        <ul><li><b>ALL</b> NTOS entries must be accompanied by an NTML entry.</li></ul></li>
+                                    <li><a href="https://perti.vatcscc.org/nod" target="_blank"><?= __('plan.overview.resourceNod') ?></a> <?= __('plan.overview.resourceNodDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/splits" target="_blank"><?= __('plan.overview.resourceSplits') ?></a> <?= __('plan.overview.resourceSplitsDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/gdt" target="_blank"><?= __('plan.overview.resourceGdt') ?></a> <?= __('plan.overview.resourceGdtDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/jatoc" target="_blank"><?= __('plan.overview.resourceJatoc') ?></a> <?= __('plan.overview.resourceJatocDesc') ?></li>
+                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> <?= __('plan.overview.resourceDiscord') ?></li>
                                     <?php if (stripos($plan_info['hotline'] ?? '', 'Canada') !== false): ?>
-                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> channel for real-time operational coordination.</li>
+                                    <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> <?= __('plan.overview.resourceHotlineVatcan') ?>
+                                        <ul><li><?= __('plan.overview.resourceCredentials') ?></li>
+                                        <li>The VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <?= $plan_info['hotline'] ?? ''; ?> <?= __('plan.overview.resourcePrimaryBackupVatusa') ?></li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline'] ?? ''; ?> <?= __('plan.overview.resourceSecondaryBackup') ?></li></ul></li>
                                     <?php else: ?>
-                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline'] ?? ''; ?></b></span> Hotline for real-time operational coordination.</li>
+                                    <li>VATUSA <a href="ts3server://ts.vatusa.net" target="_blank">TeamSpeak</a>, <span class="text-danger"><b><?= $plan_info['hotline'] ?? ''; ?></b></span> <?= __('plan.overview.resourceHotlineVatusa') ?>
+                                        <ul><li><?= __('plan.overview.resourceCredentials') ?></li>
+                                        <li>The VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, TMU Hang <?= __('plan.overview.resourcePrimaryBackupVatcan') ?></li>
+                                        <li>The vATCSCC Discord, <?= $plan_info['hotline'] ?? ''; ?> <?= __('plan.overview.resourceSecondaryBackup') ?></li></ul></li>
                                     <?php endif; ?>
+                                    <li><?= __('plan.overview.resourceGroupFlights') ?> <a href="https://bit.ly/NTML_Entry" target="_blank"><?= __('plan.overview.resourceGroupFlightsLink') ?></a>.</li>
+                                    <li><?= __('plan.overview.resourceCallsigns') ?> <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank"><?= __('plan.overview.resourceCallsignsLink') ?></a>.</li>
+                                    <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank"><?= __('plan.overview.resourceTransgression') ?></a> <?= __('plan.overview.resourceTransgressionDesc') ?></li>
                                 </ul>
 
                             </div>
