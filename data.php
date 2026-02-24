@@ -43,6 +43,9 @@ include("sessions/handler.php");
         include("load/header.php");
     ?>
 
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
     <script>
         var plan_id = <?= $id ?>;
         var PERTI_EVENT_DATE     = <?= json_encode($plan_info['event_date']); ?>;
@@ -286,6 +289,24 @@ include('load/nav_public.php');
                                 </a>
                             </div>
                         </div>
+                        <div id="plan_splits_map" style="width:100%;height:450px;border-radius:6px;margin-bottom:12px;display:none;"></div>
+                        <div id="plan_splits_map_controls" class="mb-3" style="display:none;">
+                            <div class="d-flex align-items-center flex-wrap small">
+                                <span class="mr-2 font-weight-bold"><?= __('plan.splits.mapLayers') ?>:</span>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_active" checked>
+                                    <label class="custom-control-label" for="splits_layer_active">
+                                        <span class="badge badge-success"><?= __('plan.splits.active') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_scheduled" checked>
+                                    <label class="custom-control-label" for="splits_layer_scheduled">
+                                        <span class="badge badge-info"><?= __('plan.splits.scheduled') ?></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         <div id="plan_splits_container">
                             <div class="text-center text-muted py-4">
                                 <i class="fas fa-spinner fa-spin"></i> <?= __('common.loading') ?>
@@ -503,8 +524,9 @@ include("load/footer.php");
     </div>
 </div>
 
-<!-- Insert plan-tables.js + sheet.js Scripts -->
+<!-- Insert plan-tables.js + plan-splits-map.js + sheet.js Scripts -->
 <script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
+<script src="assets/js/plan-splits-map.js<?= _v('assets/js/plan-splits-map.js') ?>"></script>
 <script src="assets/js/sheet.js<?= _v('assets/js/sheet.js') ?>"></script>
 <script>
 // Lazy-load splits overview on first tab visit
@@ -512,11 +534,18 @@ var _splitsTabLoaded = false;
 $('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
     if (!_splitsTabLoaded) {
         _splitsTabLoaded = true;
+        if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.init();
         PlanTables.loadSplitsOverview();
     }
 });
 $('#btn_refresh_splits').on('click', function() {
     PlanTables.loadSplitsOverview();
+});
+$('#splits_layer_active').on('change', function() {
+    if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible('active', this.checked);
+});
+$('#splits_layer_scheduled').on('change', function() {
+    if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible('scheduled', this.checked);
 });
 </script>
 

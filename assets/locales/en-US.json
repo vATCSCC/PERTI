@@ -2876,7 +2876,8 @@
       "sectors": "sectors",
       "active": "Active",
       "scheduled": "Scheduled",
-      "indefinite": "indefinite"
+      "indefinite": "indefinite",
+      "mapLayers": "Layers"
     },
     "enrouteConstraint": {
       "added": "You have successfully added an enroute constraint entry for this plan.",

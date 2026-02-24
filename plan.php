@@ -106,6 +106,9 @@ include("sessions/handler.php");
         }
     </style>
 
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
     <script>
         // PERTI Discord Notification globals
         var PERTI_EVENT_NAME     = <?= json_encode($plan_info['event_name']); ?>;
@@ -547,6 +550,24 @@ if ($org_mismatch):
                                 <a href="./splits" class="btn btn-sm btn-outline-primary" target="_blank">
                                     <i class="fas fa-external-link-alt mr-1"></i><?= __('plan.splits.configureSplits') ?>
                                 </a>
+                            </div>
+                        </div>
+                        <div id="plan_splits_map" style="width:100%;height:450px;border-radius:6px;margin-bottom:12px;display:none;"></div>
+                        <div id="plan_splits_map_controls" class="mb-3" style="display:none;">
+                            <div class="d-flex align-items-center flex-wrap small">
+                                <span class="mr-2 font-weight-bold"><?= __('plan.splits.mapLayers') ?>:</span>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_active" checked>
+                                    <label class="custom-control-label" for="splits_layer_active">
+                                        <span class="badge badge-success"><?= __('plan.splits.active') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_scheduled" checked>
+                                    <label class="custom-control-label" for="splits_layer_scheduled">
+                                        <span class="badge badge-info"><?= __('plan.splits.scheduled') ?></span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <div id="plan_splits_container">
@@ -2217,8 +2238,9 @@ if ($org_mismatch):
 <!-- Insert facility-roles config (shared with JATOC) -->
 <script src="assets/js/config/facility-roles.js<?= _v('assets/js/config/facility-roles.js') ?>"></script>
 
-<!-- Insert plan-tables.js + plan.js Scripts -->
+<!-- Insert plan-tables.js + plan-splits-map.js + plan.js Scripts -->
 <script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
+<script src="assets/js/plan-splits-map.js<?= _v('assets/js/plan-splits-map.js') ?>"></script>
 <script src="assets/js/plan.js<?= _v('assets/js/plan.js') ?>"></script>
 
 <!-- Insert Initiative Timeline Script -->

@@ -157,11 +157,18 @@ var _splitsTabLoaded = false;
 $('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
     if (!_splitsTabLoaded) {
         _splitsTabLoaded = true;
+        if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.init();
         PlanTables.loadSplitsOverview();
     }
 });
 $('#btn_refresh_splits').on('click', function() {
     PlanTables.loadSplitsOverview();
+});
+$('#splits_layer_active').on('change', function() {
+    if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible('active', this.checked);
+});
+$('#splits_layer_scheduled').on('change', function() {
+    if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible('scheduled', this.checked);
 });
 
 // Load all plan sections in parallel for faster page load

@@ -677,6 +677,9 @@
             }
 
             renderSplitsCards(container, configs);
+            if (typeof PlanSplitsMap !== 'undefined') {
+                PlanSplitsMap.render(configs);
+            }
         }).fail(function() {
             if (container) {
                 container.innerHTML =

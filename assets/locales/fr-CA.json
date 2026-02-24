@@ -2428,7 +2428,8 @@
       "sectors": "secteurs",
       "active": "Actif",
       "scheduled": "Planifié",
-      "indefinite": "indéfini"
+      "indefinite": "indéfini",
+      "mapLayers": "Couches"
     },
     "enrouteConstraint": {
       "added": "Vous avez ajouté une contrainte en route avec succès.",
