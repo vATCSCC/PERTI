@@ -92,7 +92,7 @@ include('load/nav_public.php');
 ?>
 
     <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">
-        <div class="position-absolute top-0 left-0 w-100 h-100">
+        <div class="container-fluid pt-2 pb-5 py-lg-6">
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
 
             <center>

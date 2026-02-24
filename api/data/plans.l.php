@@ -251,11 +251,10 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
 
     $ol = (int)$data['oplevel'];
     $ol_classes = [1 => 'text-dark', 2 => 'text-success', 3 => 'text-warning', 4 => 'text-danger'];
-    $ol_labels  = [1 => 'Steady State', 2 => 'Localized', 3 => 'Regional', 4 => 'NAS-Wide'];
-    $ol_full    = [1 => 'Steady State', 2 => 'Localized Impact', 3 => 'Regional Impact', 4 => 'NAS-Wide Impact'];
-    echo '<td class="' . ($ol_classes[$ol] ?? 'text-dark') . ' text-center" style="white-space:nowrap;" data-toggle="tooltip" title="' . ($ol_full[$ol] ?? '') . '">' . $ol . ' - ' . ($ol_labels[$ol] ?? '') . '</td>';
+    $ol_labels  = [1 => 'Steady State', 2 => 'Localized Impact', 3 => 'Regional Impact', 4 => 'NAS-Wide Impact'];
+    echo '<td class="' . ($ol_classes[$ol] ?? 'text-dark') . ' text-center" style="white-space:nowrap;">' . $ol . ' - ' . ($ol_labels[$ol] ?? '') . '</td>';
 
-    echo '<td class="text-center" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . $data['updated_at'] . '</td>';
+    echo '<td class="text-center" style="white-space:nowrap;">' . $data['updated_at'] . '</td>';
 
     echo '<td style="white-space:nowrap;"><center>';
     echo '<a href="plan?' . $data['id'] . '" data-toggle="tooltip" title="View PERTI Plan"><span class="badge badge-primary"><i class="fas fa-eye"></i> View</span></a> ';
