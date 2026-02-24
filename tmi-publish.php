@@ -91,6 +91,14 @@ if (defined('DISCORD_ORGANIZATIONS')) {
     }
 }
 
+// Global scope: pre-select all Discord orgs
+if (is_org_global()) {
+    foreach ($discordOrgs as &$dOrgRef) {
+        $dOrgRef['default'] = true;
+    }
+    unset($dOrgRef);
+}
+
 if (empty($discordOrgs)) {
     $discordOrgs['vatcscc'] = [
         'name' => 'vATCSCC',

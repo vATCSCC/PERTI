@@ -64,6 +64,11 @@ $hotline = post_input('hotline');
 $org_code_raw = post_input('org_code');
 $org_code_val = ($org_code_raw !== '' && $org_code_raw !== null) ? $org_code_raw : null;
 
+// Global org stores as NULL (visible to all orgs)
+if ($org_code_val === 'global') {
+    $org_code_val = null;
+}
+
 // Update Data in Database (prepared statement, validate_plan_org already checked access)
 if (is_org_global()) {
     $stmt = $conn_sqli->prepare("UPDATE p_plans SET event_name=?, event_date=?, event_start=?, event_end_date=?, event_end_time=?, event_banner=?, oplevel=?, hotline=?, org_code=? WHERE id=?");

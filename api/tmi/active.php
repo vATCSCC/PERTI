@@ -30,8 +30,9 @@ tmi_init(false);
 
 global $conn_tmi;
 
-// Get active org code for filtering
-$org_code = tmi_get_org_code();
+// Get org scope for filtering (global users see all)
+$org_filter = tmi_org_scope_sql();
+$org_params = tmi_org_scope_params();
 
 // Parse include parameter
 $include_param = tmi_param('include', 'entries,programs,advisories,reroutes,routes');
@@ -51,9 +52,9 @@ if (in_array('entries', $include)) {
             exclusions, reason_code, reason_detail, valid_from, valid_until,
             status, source_type, created_at
          FROM dbo.vw_tmi_active_entries
-         WHERE org_code = ?
+         WHERE $org_filter
          ORDER BY created_at DESC",
-        [$org_code]
+        $org_params
     );
     $response['entries'] = $entries ?: [];
     $response['entry_count'] = count($response['entries']);
@@ -70,9 +71,9 @@ if (in_array('programs', $include)) {
             total_flights, controlled_flights, exempt_flights,
             avg_delay_min, max_delay_min, created_at, activated_at
          FROM dbo.vw_tmi_active_programs
-         WHERE org_code = ?
+         WHERE $org_filter
          ORDER BY start_utc ASC",
-        [$org_code]
+        $org_params
     );
     $response['programs'] = $programs ?: [];
     $response['program_count'] = count($response['programs']);
@@ -101,9 +102,9 @@ if (in_array('advisories', $include)) {
             reroute_name, mit_miles, mit_type, mit_fix,
             status, source_type, created_at
          FROM dbo.vw_tmi_active_advisories
-         WHERE org_code = ?
+         WHERE $org_filter
          ORDER BY created_at DESC",
-        [$org_code]
+        $org_params
     );
     $response['advisories'] = $advisories ?: [];
     $response['advisory_count'] = count($response['advisories']);
@@ -119,9 +120,9 @@ if (in_array('reroutes', $include)) {
             total_assigned, compliant_count, non_compliant_count,
             compliance_rate, created_at, activated_at
          FROM dbo.vw_tmi_active_reroutes
-         WHERE org_code = ?
+         WHERE $org_filter
          ORDER BY start_utc ASC",
-        [$org_code]
+        $org_params
     );
     $response['reroutes'] = $reroutes ?: [];
     $response['reroute_count'] = count($response['reroutes']);
@@ -136,9 +137,9 @@ if (in_array('routes', $include)) {
             valid_start_utc, valid_end_utc, constrained_area, reason,
             route_geojson, created_at
          FROM dbo.vw_tmi_active_public_routes
-         WHERE org_code = ?
+         WHERE $org_filter
          ORDER BY created_at DESC",
-        [$org_code]
+        $org_params
     );
     $response['public_routes'] = $routes ?: [];
     $response['route_count'] = count($response['public_routes']);

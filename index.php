@@ -33,7 +33,7 @@ include("sessions/handler.php");
 
     // Load organizations for plan org selector
     $org_options = [];
-    $org_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations ORDER BY display_name");
+    $org_result = $conn_sqli->query("SELECT org_code, display_name FROM organizations WHERE org_code != 'global' ORDER BY display_name");
     if ($org_result) {
         while ($org_row = $org_result->fetch_assoc()) {
             $org_options[] = $org_row;

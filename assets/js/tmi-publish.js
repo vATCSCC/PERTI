@@ -1514,18 +1514,19 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.keyInitiatives')}</label>
-                        <textarea class="form-control" id="adv_initiatives" rows="4" placeholder="List key TMIs and initiatives for the operational period..."></textarea>
+                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.narrative')}</label>
+                        <textarea class="form-control" id="adv_narrative" rows="3" placeholder="${PERTII18n.t('tmiPublish.form.narrativePlaceholder')}"></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.terminalEnrouteConstraints')}</label>
-                        <textarea class="form-control" id="adv_weather" rows="2" placeholder="Summarize weather impacts and constraints..."></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.specialEvents')}</label>
-                        <textarea class="form-control" id="adv_events" rows="2" placeholder="List any special events affecting traffic..."></textarea>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small text-muted mb-0">${PERTII18n.t('tmiPublish.form.structuredBody')}</label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="btnToggleStructuredEdit" style="font-size:0.68rem;">
+                                <i class="fas fa-lock-open mr-1"></i>${PERTII18n.t('tmiPublish.form.editStructuredBody')}
+                            </button>
+                        </div>
+                        <textarea class="form-control font-monospace" id="adv_structured_body" rows="14" readonly style="font-size:0.72rem;line-height:1.35;background:#f8f9fa;"></textarea>
+                        <small class="text-muted">${PERTII18n.t('tmiPublish.form.structuredBodyHint')}</small>
                     </div>
                 </div>
             </div>
@@ -2520,10 +2521,23 @@
             });
         }
 
-        // Handle Ops Plan PERTI Plan import
+        // Handle Ops Plan PERTI Plan import + structured body toggle
         if (type === 'OPS_PLAN' || type === 'OPSPLAN') {
             $('#btnImportPertiPlan').on('click', function() {
                 importPertiPlan();
+            });
+
+            // Toggle structured body edit/lock
+            $('#btnToggleStructuredEdit').on('click', function() {
+                const $ta = $('#adv_structured_body');
+                const isReadonly = $ta.prop('readonly');
+                if (isReadonly) {
+                    $ta.prop('readonly', false).css('background', '#fff');
+                    $(this).html('<i class="fas fa-lock mr-1"></i>' + PERTII18n.t('tmiPublish.form.lockStructuredBody'));
+                } else {
+                    $ta.prop('readonly', true).css('background', '#f8f9fa');
+                    $(this).html('<i class="fas fa-lock-open mr-1"></i>' + PERTII18n.t('tmiPublish.form.editStructuredBody'));
+                }
             });
         }
     }
@@ -2698,84 +2712,22 @@
     function populateOpsPlanFromPerti(plan) {
         console.log('[TMI-Publish] Populating from plan:', plan);
         console.log('[TMI-Publish] Debug info from API:', plan._debug);
-        console.log('[TMI-Publish] Available fields:', {
-            initiativesSummary: plan.initiativesSummary,
-            constraintsSummary: plan.constraintsSummary,
-            eventsSummary: plan.eventsSummary,
-            tmisCount: plan.tmis ? plan.tmis.length : 0,
-            eventsCount: plan.events ? plan.events.length : 0,
-        });
 
-        // Check if form fields exist
-        const fieldsExist = {
-            initiatives: $('#adv_initiatives').length > 0,
-            weather: $('#adv_weather').length > 0,
-            events: $('#adv_events').length > 0,
-        };
-        console.log('[TMI-Publish] Form fields exist:', fieldsExist);
-
-        // Use pre-built initiative summary from API, or build from TMIs
-        const initiativesSummary = normalizeLegacyTextBlock(plan.initiativesSummary);
-        if (initiativesSummary) {
-            console.log('[TMI-Publish] Setting initiatives from initiativesSummary');
-            $('#adv_initiatives').val(initiativesSummary);
-        } else if (plan.tmis && plan.tmis.length > 0) {
-            // Fallback: build from TMIs array
-            console.log('[TMI-Publish] Building initiatives from TMIs array');
-            const initiatives = plan.tmis.map(tmi => {
-                const facility = normalizeLegacyTextBlock(tmi.airport || tmi.element || '');
-                const context = normalizeLegacyTextBlock(tmi.context || '');
-                if (tmi.type === 'terminal') {
-                    return `${facility}${context ? ' - ' + context : ''}`;
-                } else {
-                    return `${facility || 'Enroute'}${context ? ' - ' + context : ''}`;
-                }
-            }).filter(i => i.trim());
-            $('#adv_initiatives').val(initiatives.join('\n'));
-        } else {
-            console.log('[TMI-Publish] No initiatives data available');
+        // Populate narrative from op goals
+        const goals = (plan.goals || []).filter(g => g && g.trim());
+        if (goals.length) {
+            $('#adv_narrative').val(goals.join('\n'));
         }
 
-        // Use pre-built constraints summary from API
-        const constraintsSummary = normalizeLegacyTextBlock(plan.constraintsSummary);
-        if (constraintsSummary) {
-            console.log('[TMI-Publish] Setting constraints from constraintsSummary');
-            $('#adv_weather').val(constraintsSummary);
-        } else if (plan.weather) {
-            // Fallback: weather might be array or string
-            console.log('[TMI-Publish] Building constraints from weather data');
-            const weatherStr = normalizeLegacyTextBlock(plan.weather);
-            $('#adv_weather').val(weatherStr);
-        } else {
-            console.log('[TMI-Publish] No constraints data available');
-        }
-
-        // Use pre-built events summary from API, or build from events array
-        const eventsSummary = normalizeLegacyTextBlock(plan.eventsSummary);
-        if (eventsSummary) {
-            console.log('[TMI-Publish] Setting events from eventsSummary');
-            $('#adv_events').val(eventsSummary);
-        } else if (plan.events && plan.events.length > 0) {
-            // Fallback: build from events array
-            console.log('[TMI-Publish] Building events from events array');
-            const events = plan.events.map(ev => {
-                const title = normalizeLegacyTextBlock(ev.title || '');
-                const description = normalizeLegacyTextBlock(ev.description || '');
-                const time = normalizeLegacyTextBlock(ev.time || '');
-                let line = title;
-                if (description) {line += ': ' + description;}
-                if (time) {line += ' (' + time + ')';}
-                return line;
-            }).filter(e => e.trim());
-            $('#adv_events').val(events.join('\n'));
-        } else {
-            console.log('[TMI-Publish] No events data available');
+        // Populate structured body from API
+        const structuredBody = plan.structuredBody || '';
+        if (structuredBody) {
+            $('#adv_structured_body').val(structuredBody);
         }
 
         // Update validity times if plan has them
         if (plan.validFrom) {
             try {
-                // Handle various date formats
                 let fromStr = plan.validFrom;
                 if (!fromStr.includes('T')) {fromStr = fromStr.replace(' ', 'T');}
                 $('#adv_valid_from').val(fromStr.slice(0, 16));
@@ -2796,12 +2748,7 @@
         // Trigger preview update
         updateAdvisoryPreview();
 
-        // Log final field values
-        console.log('[TMI-Publish] Final field values:', {
-            initiatives: $('#adv_initiatives').val(),
-            weather: $('#adv_weather').val(),
-            events: $('#adv_events').val(),
-        });
+        console.log('[TMI-Publish] Populated narrative + structured body from plan');
     }
 
     /**
@@ -3052,54 +2999,55 @@
     function buildOpsPlanPreview() {
         const num = $('#adv_number').val() || '001';
         const facility = $('#adv_facility').val() || 'DCC';
-        const initiatives = $('#adv_initiatives').val() || '';
-        const weather = $('#adv_weather').val() || '';
-        const events = $('#adv_events').val() || '';
+        const narrative = ($('#adv_narrative').val() || '').trim();
+        const structuredBody = ($('#adv_structured_body').val() || '').trim();
 
         // Parse datetime-local values
         const validFrom = $('#adv_valid_from').val() || '';
         const validUntil = $('#adv_valid_until').val() || '';
 
         // Format datetime as DD/HHMM
-        const formatDateTime = (dt) => {
-            if (!dt) {return 'TBD';}
-            const d = new Date(dt + 'Z'); // Treat as UTC
+        const formatDayTime = (dt) => {
+            if (!dt) {return '__/____';}
+            const d = new Date(dt + 'Z');
             const day = String(d.getUTCDate()).padStart(2, '0');
             const hour = String(d.getUTCHours()).padStart(2, '0');
             const min = String(d.getUTCMinutes()).padStart(2, '0');
-            return `${day}${hour}${min}`;
+            return `${day}/${hour}${min}`;
         };
 
-        const startFormatted = formatDateTime(validFrom);
-        const endFormatted = formatDateTime(validUntil);
+        const startFormatted = formatDayTime(validFrom);
+        const endFormatted = formatDayTime(validUntil);
 
+        // Build header matching plan.php format
         const lines = [
             buildAdvisoryHeader(num, facility, 'OPERATIONS PLAN'),
-            `VALID FOR ${startFormatted}Z THRU ${endFormatted}Z`,
-            ``,
+            `EVENT TIME: ${startFormatted} - ${endFormatted}`,
+            '____________________________________________________________________',
         ];
 
-        if (weather) {
-            lines.push(`TERMINAL/ENROUTE CONSTRAINTS:`);
-            lines.push(wrapText(weather));
-            lines.push(``);
+        // Narrative
+        if (narrative) {
+            lines.push(narrative.toUpperCase());
+        } else {
+            lines.push('[ADD NARRATIVE HERE]');
+        }
+        lines.push('____________________________________________________________________');
+
+        // Structured body (all FAA sections)
+        if (structuredBody) {
+            lines.push(structuredBody);
         }
 
-        if (initiatives) {
-            lines.push(`KEY INITIATIVES:`);
-            lines.push(wrapText(initiatives));
-            lines.push(``);
-        }
-
-        if (events) {
-            lines.push(`SPECIAL EVENTS:`);
-            lines.push(wrapText(events));
-            lines.push(``);
-        }
-
-        lines.push(`***SUBMIT OPERATIONS PLAN ITEMS VIA PERTI***`);
-        lines.push(``);
-        lines.push(buildAdvisoryFooter(num, facility));
+        // Footer timestamp
+        const now = new Date();
+        const yy = String(now.getUTCFullYear()).slice(-2);
+        const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(now.getUTCDate()).padStart(2, '0');
+        const hh = String(now.getUTCHours()).padStart(2, '0');
+        const mn = String(now.getUTCMinutes()).padStart(2, '0');
+        lines.push(`${startFormatted.replace('/', '')}-${endFormatted.replace('/', '')}`);
+        lines.push(`${yy}/${mm}/${dd} ${hh}:${mn}`);
 
         return lines.join('\n');
     }

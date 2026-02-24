@@ -253,7 +253,7 @@ function checkTablesExist($conn) {
         'p_terminal_init', 'p_enroute_init',
         'p_terminal_init_timeline', 'p_enroute_init_timeline',
         'p_terminal_constraints', 'p_enroute_constraints',
-        'p_group_flights', 'p_op_goals',
+        'p_group_flights', 'p_op_goals', 'p_dcc_staffing',
         'p_terminal_planning', 'p_enroute_planning',
     ];
     $cache = [];
@@ -301,6 +301,7 @@ function buildFullPlanData($conn, $row) {
         'constraints' => [],
         'events' => [],
         'goals' => [],
+        'staffing' => [],
         'planning' => [],
     ];
 
@@ -415,6 +416,21 @@ function buildFullPlanData($conn, $row) {
         }
     }
 
+    // ---- DCC Staffing ----
+    if ($tablesExist['p_dcc_staffing']) {
+        $q = $conn->query("SELECT * FROM p_dcc_staffing WHERE p_id = $planId ORDER BY id");
+        if ($q) {
+            while ($s = $q->fetch_assoc()) {
+                $plan['staffing'][] = [
+                    'positionName'     => normalizeLegacyPlanText($s['position_name'] ?? ''),
+                    'positionFacility' => normalizeLegacyPlanText($s['position_facility'] ?? ''),
+                    'personnelName'    => normalizeLegacyPlanText($s['personnel_name'] ?? ''),
+                    'personnelOis'     => normalizeLegacyPlanText($s['personnel_ois'] ?? ''),
+                ];
+            }
+        }
+    }
+
     // ---- Planning notes ----
     foreach (['p_terminal_planning', 'p_enroute_planning'] as $tbl) {
         if ($tablesExist[$tbl]) {
@@ -439,6 +455,9 @@ function buildFullPlanData($conn, $row) {
     }
     $plan['constraintsSummary'] = buildConstraintsSummary($plan);
     $plan['eventsSummary'] = buildEventsSummary($plan['events']);
+
+    // ---- Build structured Ops Plan body (FAA format) ----
+    $plan['structuredBody'] = buildStructuredOpsPlan($plan);
 
     // Debug info
     $plan['_debug'] = [
@@ -640,6 +659,240 @@ function buildEventsSummary($events) {
     }
 
     return implode("\n", $lines);
+}
+
+/**
+ * Build structured Ops Plan body in FAA format.
+ *
+ * Produces the same sections as plan.php's opsPlanUpdateMessage():
+ *   STAFFING, TERMINAL CONSTRAINTS, TERMINAL ACTIVE, TERMINAL PLANNED,
+ *   EN ROUTE CONSTRAINTS, EN ROUTE ACTIVE, EN ROUTE PLANNED,
+ *   VIP MOVEMENTS, SPACE OPERATIONS, SPECIAL EVENTS, ADVISORIES,
+ *   CDR/SWAP, SIR REPORTS
+ *
+ * Each TMI line: DD/HHMM-DD/HHMM -FACILITY TMI_TYPE [CAUSE] PROBABILITY
+ */
+function buildStructuredOpsPlan($plan) {
+    $sections = [];
+
+    // --- STAFFING ---
+    $staffLines = ['STAFFING:'];
+    $nomNames = [];
+    $ntmoNames = [];
+    $facilityLines = [];
+
+    foreach ($plan['staffing'] as $s) {
+        $ois = strtoupper($s['personnelOis']);
+        $name = $s['personnelName'];
+        $fac = $s['positionFacility'];
+        $pos = $s['positionName'];
+        if (!$ois && !$name) continue;
+
+        $label = strtoupper($name);
+        if ($pos) $label .= ' (' . strtoupper($pos) . ')';
+
+        if (strpos($ois, 'NOM') !== false) $nomNames[] = $label;
+        if (strpos($ois, 'NTMO') !== false) $ntmoNames[] = $label;
+
+        // Facility positions (not NOM/NTMO)
+        if (strpos($ois, 'NOM') === false && strpos($ois, 'NTMO') === false) {
+            $line = '';
+            if ($fac) $line .= strtoupper($fac) . ' - ';
+            if ($name) $line .= strtoupper($name);
+            if ($ois) $line .= ' [' . $ois . ']';
+            if (trim($line)) $facilityLines[] = $line;
+        }
+    }
+
+    if (!empty($nomNames)) $staffLines[] = 'NOM           - ' . implode(', ', $nomNames);
+    if (!empty($ntmoNames)) $staffLines[] = 'NTMO          - ' . implode(', ', $ntmoNames);
+    foreach ($facilityLines as $fl) $staffLines[] = $fl;
+    if (count($staffLines) === 1) $staffLines[] = 'NONE';
+    $sections[] = implode("\n", $staffLines);
+
+    // --- Helper: filter + sort timeline by level ---
+    $allTimeline = $plan['timeline'] ?? [];
+    $termTimeline = array_filter($allTimeline, fn($e) => $e['scope'] === 'terminal');
+    $enrTimeline = array_filter($allTimeline, fn($e) => $e['scope'] === 'enroute');
+    $bothTimeline = $allTimeline;
+
+    // --- TERMINAL CONSTRAINTS ---
+    $sections[] = buildOpsPlanSection(
+        'TERMINAL CONSTRAINTS:',
+        $termTimeline,
+        ['Constraint_Terminal'],
+        'tmi'
+    );
+
+    // --- TERMINAL ACTIVE ---
+    $sections[] = buildOpsPlanSection(
+        'TERMINAL ACTIVE:',
+        $termTimeline,
+        ['Active'],
+        'tmi'
+    );
+
+    // --- TERMINAL PLANNED ---
+    $termPlannedSection = buildOpsPlanSection(
+        'TERMINAL PLANNED:',
+        $termTimeline,
+        ['Possible', 'Probable', 'Expected'],
+        'tmi'
+    );
+    // Append planning notes for terminal
+    $termPlanningNotes = array_filter($plan['planning'] ?? [], function($note) {
+        return true; // All planning notes included for now
+    });
+    if (!empty($termPlanningNotes)) {
+        $base = explode("\n", $termPlannedSection);
+        // Remove trailing NONE if we're adding planning notes
+        if (count($base) === 2 && trim(end($base)) === 'NONE') {
+            array_pop($base);
+        }
+        foreach ($termPlanningNotes as $note) {
+            $base[] = '__/____-__/____ -' . strtoupper($note);
+        }
+        $termPlannedSection = implode("\n", $base);
+    }
+    $sections[] = $termPlannedSection;
+
+    // --- EN ROUTE CONSTRAINTS ---
+    $sections[] = buildOpsPlanSection(
+        'EN ROUTE CONSTRAINTS:',
+        $enrTimeline,
+        ['Constraint_EnRoute'],
+        'tmi'
+    );
+
+    // --- EN ROUTE ACTIVE ---
+    $sections[] = buildOpsPlanSection(
+        'EN ROUTE ACTIVE:',
+        $enrTimeline,
+        ['Active'],
+        'tmi'
+    );
+
+    // --- EN ROUTE PLANNED ---
+    $sections[] = buildOpsPlanSection(
+        'EN ROUTE PLANNED:',
+        $enrTimeline,
+        ['Possible', 'Probable', 'Expected'],
+        'tmi'
+    );
+
+    // --- VIP MOVEMENTS ---
+    $sections[] = buildOpsPlanSection(
+        'VIP MOVEMENTS:',
+        $bothTimeline,
+        ['VIP'],
+        'special'
+    );
+
+    // --- SPACE OPERATIONS ---
+    $sections[] = buildOpsPlanSection(
+        'SPACE OPERATIONS:',
+        $bothTimeline,
+        ['Space_Op'],
+        'special'
+    );
+
+    // --- SPECIAL EVENTS ---
+    $sections[] = buildOpsPlanSection(
+        'SPECIAL EVENTS:',
+        $bothTimeline,
+        ['Special_Event'],
+        'special'
+    );
+
+    // --- ADVISORIES ---
+    $sections[] = buildOpsPlanSection(
+        'ADVISORIES:',
+        $bothTimeline,
+        ['Advisory_Terminal', 'Advisory_EnRoute'],
+        'advisory'
+    );
+
+    // --- CDR/SWAP ---
+    $sections[] = "CDRS/SWAP/CAPPING/TUNNELING/HOTLINE/DIVERSION RECOVERY:\nNONE";
+
+    // --- SIR REPORTS ---
+    $sections[] = "RUNWAY/EQUIPMENT/POSSIBLE SYSTEM IMPACT REPORTS (SIRs):\nNONE";
+
+    return implode("\n", $sections);
+}
+
+/**
+ * Build a single Ops Plan section from timeline data.
+ *
+ * @param string $header  Section header line
+ * @param array  $timeline Timeline entries
+ * @param array  $levels  Level values to filter on
+ * @param string $style   'tmi', 'advisory', or 'special'
+ * @return string Formatted section
+ */
+function buildOpsPlanSection($header, $timeline, $levels, $style = 'tmi') {
+    $lines = [$header];
+
+    $filtered = array_filter($timeline, function($e) use ($levels) {
+        return in_array($e['level'], $levels);
+    });
+
+    // Sort by start datetime
+    usort($filtered, function($a, $b) {
+        return strcmp($a['startDatetime'] ?? '', $b['startDatetime'] ?? '');
+    });
+
+    foreach ($filtered as $entry) {
+        $start = formatOpsPlanTime($entry['startDatetime']);
+        $end = formatOpsPlanTime($entry['endDatetime']);
+        $facility = strtoupper($entry['facility'] ?? '');
+        $tmiType = strtoupper($entry['tmiType'] ?? '');
+        $cause = strtoupper($entry['cause'] ?? '');
+        $area = strtoupper($entry['area'] ?? '');
+        $notes = strtoupper($entry['notes'] ?? '');
+        $advzy = $entry['advzyNumber'] ?? '';
+
+        $desc = $facility;
+        if ($tmiType) $desc .= ' ' . $tmiType;
+
+        if ($style === 'special') {
+            if ($area) $desc .= ' ' . $area;
+            if ($notes) {
+                $desc .= ' [' . $notes . ']';
+            } elseif ($cause) {
+                $desc .= ' [' . $cause . ']';
+            }
+        } elseif ($style === 'advisory') {
+            if ($advzy) $desc .= ' ADVZY ' . strtoupper($advzy);
+            if ($cause) $desc .= ' [' . $cause . ']';
+        } else {
+            // tmi style
+            if ($area) $desc .= ' ' . $area;
+            if ($cause) $desc .= ' [' . $cause . ']';
+        }
+
+        // Probability label for planned items
+        $probLabel = '';
+        if ($entry['level'] === 'Possible') $probLabel = ' POSSIBLE';
+        elseif ($entry['level'] === 'Probable') $probLabel = ' PROBABLE';
+        elseif ($entry['level'] === 'Expected') $probLabel = ' EXPECTED';
+
+        $lines[] = $start . '-' . $end . ' -' . $desc . $probLabel;
+    }
+
+    if (count($lines) === 1) $lines[] = 'NONE';
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Format datetime to DD/HHMM for Ops Plan.
+ */
+function formatOpsPlanTime($datetime) {
+    if (!$datetime) return '__/____';
+    $ts = strtotime($datetime);
+    if (!$ts) return '__/____';
+    return gmdate('d', $ts) . '/' . gmdate('Hi', $ts);
 }
 
 /**

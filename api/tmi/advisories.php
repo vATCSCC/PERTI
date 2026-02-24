@@ -68,9 +68,8 @@ function listAdvisories() {
     $where = [];
     $params = [];
 
-    // Scope to active org
-    $where[] = "org_code = ?";
-    $params[] = tmi_get_org_code();
+    // Scope to active org (global users see all)
+    tmi_add_org_filter($where, $params);
 
     // Status filter
     $status = tmi_param('status');
@@ -146,8 +145,8 @@ function getAdvisory($id) {
     tmi_init(false);
     
     $advisory = tmi_query_one(
-        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
 
     if (!$advisory) {
@@ -280,8 +279,8 @@ function updateAdvisory($id) {
     
     // Check advisory exists (scoped to org)
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Advisory not found', 404);
@@ -359,8 +358,8 @@ function deleteAdvisory($id) {
     $auth = tmi_init(true);
     
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_advisories WHERE advisory_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Advisory not found', 404);
