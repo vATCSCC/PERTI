@@ -537,18 +537,17 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
 }
 
 /* Event name cell: single-line truncation (requires table-layout:fixed on table) */
-.plan-event-name {
+.plan-event-name .plan-name-line {
+  display: inline-block;
+  max-width: clamp(180px, 20vw, 400px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  vertical-align: middle;
 }
 .plan-event-name .plan-badges-inline {
   white-space: nowrap;
-}
-/* On overlap/duplicate annotations, allow wrapping on a new line */
-.plan-event-name small {
-  display: block;
-  white-space: normal;
+  vertical-align: middle;
 }
 
 /* Past toggle link styling */
