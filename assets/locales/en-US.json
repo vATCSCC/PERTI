@@ -3232,7 +3232,10 @@
     "notFound": "{resource} not found",
     "unauthorized": "You are not authorized to perform this action",
     "timeout": "Request timed out",
-    "network": "Network error"
+    "network": "Network error",
+    "facilityOutOfScope": "{facility} is outside {org}'s jurisdiction",
+    "facilityNotRecognized": "Facility {facility} not recognized",
+    "airportNotInReference": "Airport {facility} not found in reference data"
   },
   "validation": {
     "required": "This field is required",

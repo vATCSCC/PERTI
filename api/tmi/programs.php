@@ -203,6 +203,10 @@ function createProgram() {
         TmiResponse::error('Invalid start_utc or end_utc format', 400);
     }
     
+    // Org-scope: validate facility is within org's jurisdiction
+    global $conn_sqli, $conn_adl;
+    require_facility_scope(strtoupper($body['ctl_element']), $conn_sqli, $conn_adl);
+
     // Build insert data
     $data = [
         'ctl_element' => strtoupper($body['ctl_element']),

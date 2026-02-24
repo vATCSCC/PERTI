@@ -73,6 +73,9 @@ if ($ctl_element === '') {
     ]);
 }
 
+// Org-scope: validate facility is within org's jurisdiction
+require_facility_scope($ctl_element, $conn_sqli, $conn_adl);
+
 if ($start_utc === null) {
     respond_json(400, [
         'status' => 'error',

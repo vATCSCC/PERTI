@@ -206,6 +206,12 @@ function createAdvisory() {
     // Generate advisory number
     $adv_number = $body['advisory_number'] ?? tmi_next_advisory_number();
     
+    // Org-scope: validate ctl_element is within org's jurisdiction
+    if (!empty($body['ctl_element'])) {
+        global $conn_sqli, $conn_adl;
+        require_facility_scope(strtoupper($body['ctl_element']), $conn_sqli, $conn_adl);
+    }
+
     // Build insert data
     $data = [
         'advisory_number' => $adv_number,

@@ -195,6 +195,13 @@ function createEntry() {
         TmiResponse::error('Invalid entry_type. Must be one of: ' . implode(', ', PERTI_ENTRY_TYPES), 400);
     }
     
+    // Org-scope: validate facilities are within org's jurisdiction
+    global $conn_sqli, $conn_adl;
+    $req_fac = isset($body['requesting_facility']) ? strtoupper($body['requesting_facility']) : null;
+    $prov_fac = isset($body['providing_facility']) ? strtoupper($body['providing_facility']) : null;
+    if ($req_fac) require_facility_scope($req_fac, $conn_sqli, $conn_adl);
+    if ($prov_fac) require_facility_scope($prov_fac, $conn_sqli, $conn_adl);
+
     // Build insert data
     $data = [
         'determinant_code' => strtoupper($body['determinant_code']),
@@ -202,8 +209,8 @@ function createEntry() {
         'entry_type' => strtoupper($body['entry_type']),
         'ctl_element' => isset($body['ctl_element']) ? strtoupper($body['ctl_element']) : null,
         'element_type' => isset($body['element_type']) ? strtoupper($body['element_type']) : null,
-        'requesting_facility' => isset($body['requesting_facility']) ? strtoupper($body['requesting_facility']) : null,
-        'providing_facility' => isset($body['providing_facility']) ? strtoupper($body['providing_facility']) : null,
+        'requesting_facility' => $req_fac,
+        'providing_facility' => $prov_fac,
         'restriction_value' => isset($body['restriction_value']) ? (int)$body['restriction_value'] : null,
         'restriction_unit' => isset($body['restriction_unit']) ? strtoupper($body['restriction_unit']) : null,
         'condition_text' => $body['condition_text'] ?? null,
