@@ -217,7 +217,11 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     echo '<tr class="' . $row_class . '">';
 
     // Event name + badges + annotations
-    echo '<td>' . $scope_badge . htmlspecialchars($data['event_name']) . ' <span class="badge badge-secondary" data-toggle="tooltip" title="' . htmlspecialchars($hotline) . ' Hotline">' . $hotline_badge . '</span>' . $status_badge;
+    echo '<td class="plan-event-name">';
+    echo '<span class="plan-name-line" data-toggle="tooltip" title="' . htmlspecialchars($data['event_name']) . '">';
+    echo $scope_badge . htmlspecialchars($data['event_name']);
+    echo '</span>';
+    echo ' <span class="plan-badges-inline"><span class="badge badge-secondary" data-toggle="tooltip" title="' . htmlspecialchars($hotline) . ' Hotline">' . $hotline_badge . '</span>' . $status_badge . '</span>';
 
     if (!empty($overlaps[$data['id']])) {
         $ov_count = count($overlaps[$data['id']]);

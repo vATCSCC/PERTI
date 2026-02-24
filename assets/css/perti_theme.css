@@ -536,6 +536,22 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
   animation: pulse-live 2s infinite;
 }
 
+/* Event name cell: single-line truncation with inline badges */
+.plan-event-name {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-event-name .plan-badges-inline {
+  white-space: nowrap;
+}
+/* On overlap/duplicate annotations, allow wrapping on a new line */
+.plan-event-name small {
+  display: block;
+  white-space: normal;
+}
+
 /* Past toggle link styling */
 .plan-past-toggle {
   cursor: pointer;
