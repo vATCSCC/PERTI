@@ -73,7 +73,7 @@ $nav_config = [
         'items' => [
             ['label' => __('nav.jatoc'), 'path' => './jatoc'],
             ['label' => __('nav.eventAar'), 'path' => './event-aar'],
-            ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish', 'perm' => true],
+            ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish'],
             ['label' => __('nav.status'), 'path' => './status'],
         ]
     ],
@@ -205,13 +205,13 @@ if (!function_exists('render_dropdown')) {
             // For anonymous users, show all active orgs so they can switch scope
             $is_anonymous = empty($_SESSION['VATSIM_CID']);
             if ($is_anonymous && isset($conn_sqli) && $conn_sqli) {
-                $all_orgs_result = $conn_sqli->query("SELECT org_code FROM organizations WHERE is_active = 1 ORDER BY org_code");
+                $all_orgs_result = $conn_sqli->query("SELECT org_code FROM organizations WHERE is_active = 1 AND org_code != 'global' ORDER BY org_code");
                 if ($all_orgs_result && $all_orgs_result->num_rows > 1) {
                     $org_all = [];
                     while ($r = $all_orgs_result->fetch_assoc()) { $org_all[] = $r['org_code']; }
                 }
             }
-            $org_colors = ['vatcscc' => '#1a73e8', 'canoc' => '#d32f2f', 'ecfmp' => '#7b1fa2'];
+            $org_colors = ['vatcscc' => '#1a73e8', 'canoc' => '#d32f2f', 'ecfmp' => '#7b1fa2', 'global' => '#f9a825'];
             $org_color = $org_colors[$org_code] ?? '#555';
             $multi_org = count($org_all) > 1;
         ?>
