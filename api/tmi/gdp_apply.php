@@ -21,6 +21,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once(__DIR__ . '/../../load/connect.php');
+require_once(__DIR__ . '/../../load/org_context.php');
 
 function split_codes($val) {
     if (is_array($val)) $val = implode(' ', $val);
@@ -84,6 +85,9 @@ if ($ctl_element === '') {
     echo json_encode(['status'=>'error','message'=>'gdp_airport (CTL element) is required.'], JSON_PRETTY_PRINT);
     exit;
 }
+
+// Org-scope: validate facility is within org's jurisdiction
+require_facility_scope($ctl_element, $conn_sqli, $conn_adl);
 if ($gdp_start === null || $gdp_end === null) {
     echo json_encode(['status'=>'error','message'=>'gdp_start and gdp_end are required.'], JSON_PRETTY_PRINT);
     exit;

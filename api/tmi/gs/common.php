@@ -20,6 +20,7 @@ if (!defined('PERTI_LOADED')) {
 }
 require_once(__DIR__ . '/../../../load/config.php');
 require_once(__DIR__ . '/../../../load/connect.php');
+require_once(__DIR__ . '/../../../load/org_context.php');
 
 /**
  * Send JSON response and exit

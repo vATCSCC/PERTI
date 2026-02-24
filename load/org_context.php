@@ -151,6 +151,153 @@ function load_org_context(int $cid, $conn, ?string $target_org = null): void {
 }
 
 /**
+ * Load the current org's facility codes into session cache.
+ * Called once per session, cached in $_SESSION['ORG_FACILITIES'].
+ * @param mysqli $conn MySQLi connection
+ * @return array Facility codes for the active org
+ */
+function load_org_facilities($conn): array {
+    $org = get_org_code();
+    $cache_key = 'ORG_FACILITIES_' . $org;
+
+    if (!empty($_SESSION[$cache_key])) {
+        return $_SESSION[$cache_key];
+    }
+
+    $stmt = mysqli_prepare($conn, "SELECT facility_code FROM org_facilities WHERE org_code = ?");
+    mysqli_stmt_bind_param($stmt, "s", $org);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $facilities = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $facilities[] = strtoupper($row['facility_code']);
+    }
+
+    $_SESSION[$cache_key] = $facilities;
+    return $facilities;
+}
+
+/**
+ * Validate that a facility code is within the current org's jurisdiction.
+ * - ARTCC/FIR codes: checked directly against org_facilities
+ * - Airport codes: resolved via apts.RESP_FIR_ID / RESP_ARTCC_ID then checked
+ * - Global users bypass all checks
+ *
+ * @param string $facility_code Facility, ARTCC, FIR, or airport code
+ * @param mysqli $conn_sqli MySQL connection (for org_facilities)
+ * @param resource|null $conn_adl Azure SQL connection (for apts lookup, optional)
+ * @return true|array True if allowed, or ['error' => msg, 'error_code' => key, 'params' => [...]]
+ */
+function validate_facility_scope(string $facility_code, $conn_sqli, $conn_adl = null) {
+    if (is_org_global()) {
+        return true;
+    }
+
+    $code = strtoupper(trim($facility_code));
+    if ($code === '') {
+        return true;
+    }
+
+    $org = get_org_code();
+    $org_info = get_org_info($conn_sqli);
+    $org_display = $org_info['display_name'] ?? strtoupper($org);
+    $facilities = load_org_facilities($conn_sqli);
+
+    // Direct match (ARTCC/FIR code in org_facilities)
+    if (in_array($code, $facilities)) {
+        return true;
+    }
+
+    // Airport resolution: look up responsible ARTCC/FIR
+    if ($conn_adl !== null) {
+        $sql = "SELECT RESP_FIR_ID, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID = ? OR ARPT_ID = ?";
+        $stmt = sqlsrv_query($conn_adl, $sql, [$code, $code]);
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            if ($row) {
+                $responsible = $row['RESP_FIR_ID'] ?? $row['RESP_ARTCC_ID'] ?? null;
+                if ($responsible && in_array(strtoupper($responsible), $facilities)) {
+                    return true;
+                }
+                // Airport found but responsible facility not in org
+                return [
+                    'error' => "$code is outside $org_display's jurisdiction",
+                    'error_code' => 'error.facilityOutOfScope',
+                    'params' => ['facility' => $code, 'org' => $org_display]
+                ];
+            }
+            // Airport not in apts table
+            // Fall through — might be a direct facility code not in org
+        }
+    }
+
+    // Code not recognized as a facility in this org
+    if (strlen($code) <= 4 && preg_match('/^[A-Z]{2,4}$/', $code)) {
+        // Looks like a facility code but not in org
+        return [
+            'error' => "$code is outside $org_display's jurisdiction",
+            'error_code' => 'error.facilityOutOfScope',
+            'params' => ['facility' => $code, 'org' => $org_display]
+        ];
+    }
+
+    return [
+        'error' => "Facility $code not recognized",
+        'error_code' => 'error.facilityNotRecognized',
+        'params' => ['facility' => $code]
+    ];
+}
+
+/**
+ * Validate multiple facility codes against org scope.
+ * @return true|array True if all allowed, or first error result
+ */
+function validate_facilities_scope(array $facility_codes, $conn_sqli, $conn_adl = null) {
+    foreach ($facility_codes as $code) {
+        $code = is_string($code) ? trim($code) : '';
+        if ($code === '') continue;
+        $result = validate_facility_scope($code, $conn_sqli, $conn_adl);
+        if ($result !== true) {
+            return $result;
+        }
+    }
+    return true;
+}
+
+/**
+ * Require facility to be within org scope, or exit with 403 JSON.
+ * @param string $facility_code Facility code to validate
+ * @param mysqli $conn_sqli MySQL connection
+ * @param resource|null $conn_adl Azure SQL connection (optional)
+ */
+function require_facility_scope(string $facility_code, $conn_sqli, $conn_adl = null): void {
+    $result = validate_facility_scope($facility_code, $conn_sqli, $conn_adl);
+    if ($result !== true) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
+}
+
+/**
+ * Require all facilities to be within org scope, or exit with 403 JSON.
+ * @param array $facility_codes Array of facility codes
+ * @param mysqli $conn_sqli MySQL connection
+ * @param resource|null $conn_adl Azure SQL connection (optional)
+ */
+function require_facilities_scope(array $facility_codes, $conn_sqli, $conn_adl = null): void {
+    $result = validate_facilities_scope($facility_codes, $conn_sqli, $conn_adl);
+    if ($result !== true) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
+}
+
+/**
  * Validate that a plan belongs to the current org or is global.
  * Global plans (org_code IS NULL) are accessible from any org.
  * @param int $p_id Plan ID

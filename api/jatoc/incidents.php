@@ -19,6 +19,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/datetime.php';
 require_once __DIR__ . '/validators.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../load/org_context.php';
 
 JatocAuth::setConnection($conn_adl);
 
@@ -181,6 +182,11 @@ try {
             http_response_code(400);
             echo json_encode(['success' => false, 'errors' => $errors]);
             exit;
+        }
+
+        // Org-scope: validate facility is within org's jurisdiction
+        if (!empty($input['facility'])) {
+            require_facility_scope(strtoupper($input['facility']), $conn_sqli, $conn_adl);
         }
 
         // Get trigger description from centralized config

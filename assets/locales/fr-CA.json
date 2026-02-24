@@ -2764,7 +2764,10 @@
     "invalidFormat": "Format invalide",
     "notFound": "{resource} introuvable",
     "unauthorized": "Non autorisé",
-    "timeout": "Délai d'attente dépassé"
+    "timeout": "Délai d'attente dépassé",
+    "facilityOutOfScope": "{facility} est hors de la juridiction de {org}",
+    "facilityNotRecognized": "L'installation {facility} n'est pas reconnue",
+    "airportNotInReference": "L'aéroport {facility} n'est pas dans les données de référence"
   },
   "validation": {
     "required": "Ce champ est requis",

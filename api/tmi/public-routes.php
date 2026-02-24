@@ -224,6 +224,15 @@ function createRoute() {
         TmiResponse::error('Invalid valid_start_utc or valid_end_utc format', 400);
     }
     
+    // Org-scope: validate facilities if provided
+    if (!empty($body['facilities'])) {
+        global $conn_sqli, $conn_adl;
+        $fac_list = is_array($body['facilities']) ? $body['facilities'] : array_filter(preg_split('/[\s,]+/', $body['facilities']));
+        if (!empty($fac_list)) {
+            require_facilities_scope($fac_list, $conn_sqli, $conn_adl);
+        }
+    }
+
     // Build insert data
     $data = [
         'status' => isset($body['status']) ? (int)$body['status'] : 1,
