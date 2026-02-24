@@ -151,29 +151,33 @@ if (!defined("SQL_USERNAME")) {
             'testing_only' => true  // Only available in dev/test
         ],
         
-        // CANOC - Canadian National Operations Centre
+        // CANOC - Canadian National Operations Centre (VATCAN Discord)
+        // Channels: #can-ntml, #can-advisories
         'canoc' => [
             'name' => 'CANOC',
             'region' => 'CA',
-            'guild_id' => null,          // VATCAN to provide
+            'guild_id' => null,              // VATCAN Discord guild ID
             'channels' => [
-                'ntml' => null,          // VATCAN to provide
-                'advisories' => null,    // VATCAN to provide
-                'ntml_staging' => null,  // VATCAN to provide (optional)
-                'advzy_staging' => null  // VATCAN to provide (optional)
+                'ntml' => '823308502696722432',          // #can-ntml
+                'advisories' => '823309153036402738',    // #can-advisories
+                'ntml_staging' => null,                  // Optional staging channel
+                'advzy_staging' => null                  // Optional staging channel
             ],
-            'enabled' => false,          // Enable when credentials received
-            'default' => false
+            'enabled' => false,
+            'default' => false,
+            'facilities' => ['CZYZ', 'CZUL', 'CZWG', 'CZVR', 'CZEG', 'CZQX', 'CZQM']
         ],
-        
+
         // ECFMP - European Collaborative Flow Management Program
+        // Single #flow-measures channel consolidates NTML + advisories
+        // ECFMP has its own publishing methodology
         'ecfmp' => [
             'name' => 'ECFMP',
             'region' => 'EU',
-            'guild_id' => null,          // Future integration
+            'guild_id' => null,              // ECFMP Discord guild ID
             'channels' => [
-                'ntml' => null,
-                'advisories' => null
+                'ntml' => '1003245503603015690',         // #flow-measures (consolidated)
+                'advisories' => '1003245503603015690'    // #flow-measures (consolidated)
             ],
             'enabled' => false,
             'default' => false
