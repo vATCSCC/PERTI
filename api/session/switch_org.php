@@ -42,7 +42,12 @@ if ($cid) {
 
     load_org_context((int)$cid, $conn_sqli, $target_org);
 } else {
-    // Anonymous user: validate org exists and is active
+    // Anonymous user: validate org exists and is active (never allow global)
+    if ($target_org === 'global') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid org_code']);
+        exit;
+    }
     $stmt = mysqli_prepare($conn_sqli, "SELECT org_code, display_name, default_locale FROM organizations WHERE org_code = ? AND is_active = 1");
     mysqli_stmt_bind_param($stmt, "s", $target_org);
     mysqli_stmt_execute($stmt);

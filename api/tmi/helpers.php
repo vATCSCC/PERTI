@@ -37,6 +37,56 @@ function tmi_get_org_code(): string {
 }
 
 /**
+ * Check if the current user has global TMI access (sees all orgs).
+ */
+function tmi_is_global(): bool {
+    return function_exists('is_org_global') && is_org_global();
+}
+
+/**
+ * Get org code for TMI write operations (INSERT).
+ * Returns the user's primary non-global org, never 'global'.
+ */
+function tmi_get_write_org_code(): string {
+    $code = tmi_get_org_code();
+    if ($code === 'global') {
+        $all = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+        foreach ($all as $o) {
+            if ($o !== 'global') return $o;
+        }
+        return 'vatcscc';
+    }
+    return $code;
+}
+
+/**
+ * Get SQL fragment for org_code filtering.
+ * Returns '1=1' for global users (no filter), 'org_code = ?' otherwise.
+ */
+function tmi_org_scope_sql(): string {
+    return tmi_is_global() ? '1=1' : 'org_code = ?';
+}
+
+/**
+ * Get parameters for org_code filtering.
+ * Returns [] for global users, [org_code] otherwise.
+ */
+function tmi_org_scope_params(): array {
+    return tmi_is_global() ? [] : [tmi_get_org_code()];
+}
+
+/**
+ * Add org_code filter to WHERE clause arrays (for list queries).
+ * Skips the filter entirely for global users.
+ */
+function tmi_add_org_filter(array &$where, array &$params): void {
+    if (!tmi_is_global()) {
+        $where[] = 'org_code = ?';
+        $params[] = tmi_get_org_code();
+    }
+}
+
+/**
  * TMI Response Helper
  */
 class TmiResponse {
@@ -570,9 +620,9 @@ function tmi_query_one($sql, $params = []) {
 function tmi_insert($table, $data) {
     global $conn_tmi;
 
-    // Auto-inject org_code if not already present
+    // Auto-inject org_code if not already present (never store 'global')
     if (!isset($data['org_code'])) {
-        $data['org_code'] = tmi_get_org_code();
+        $data['org_code'] = tmi_get_write_org_code();
     }
 
     $columns = array_keys($data);
@@ -610,9 +660,11 @@ function tmi_update($table, $data, $where, $where_params = []) {
         $values[] = $val;
     }
 
-    // Scope updates to the active org
-    $where .= ' AND org_code = ?';
-    $where_params[] = tmi_get_org_code();
+    // Scope updates to the active org (global users can update any org's records)
+    if (!tmi_is_global()) {
+        $where .= ' AND org_code = ?';
+        $where_params[] = tmi_get_org_code();
+    }
 
     $sql = "UPDATE dbo.$table SET " . implode(', ', $sets) . " WHERE $where";
     $params = array_merge($values, $where_params);
@@ -633,9 +685,11 @@ function tmi_update($table, $data, $where, $where_params = []) {
 function tmi_delete($table, $where, $params = []) {
     global $conn_tmi;
 
-    // Scope deletes to the active org
-    $where .= ' AND org_code = ?';
-    $params[] = tmi_get_org_code();
+    // Scope deletes to the active org (global users can delete any org's records)
+    if (!tmi_is_global()) {
+        $where .= ' AND org_code = ?';
+        $params[] = tmi_get_org_code();
+    }
 
     $sql = "DELETE FROM dbo.$table WHERE $where";
 

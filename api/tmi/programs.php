@@ -68,9 +68,8 @@ function listPrograms() {
     $where = [];
     $params = [];
 
-    // Scope to active org
-    $where[] = "org_code = ?";
-    $params[] = tmi_get_org_code();
+    // Scope to active org (global users see all)
+    tmi_add_org_filter($where, $params);
 
     // Status filter
     $status = tmi_param('status');
@@ -145,8 +144,8 @@ function getProgram($id) {
     tmi_init(false);
     
     $program = tmi_query_one(
-        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
 
     if (!$program) {
@@ -281,8 +280,8 @@ function updateProgram($id) {
     
     // Check program exists (scoped to org)
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Program not found', 404);
@@ -393,8 +392,8 @@ function deleteProgram($id) {
     $auth = tmi_init(true);
     
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_programs WHERE program_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Program not found', 404);

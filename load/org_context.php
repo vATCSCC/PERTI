@@ -32,7 +32,7 @@ function is_org_privileged(): bool {
  * @return bool
  */
 function is_org_global(): bool {
-    return !empty($_SESSION['ORG_GLOBAL']);
+    return !empty($_SESSION['ORG_GLOBAL']) || (($_SESSION['ORG_CODE'] ?? '') === 'global');
 }
 
 /**
@@ -144,6 +144,12 @@ function load_org_context(int $cid, $conn, ?string $target_org = null): void {
     $_SESSION['ORG_GLOBAL'] = $has_global;
     $_SESSION['ORG_ALL'] = $all_orgs;
 
+    // Global org membership implies global access and privilege
+    if ($active_org === 'global') {
+        $_SESSION['ORG_PRIVILEGED'] = true;
+        $_SESSION['ORG_GLOBAL'] = true;
+    }
+
     // Clear cached org info when switching
     foreach ($all_orgs as $org) {
         unset($_SESSION['ORG_INFO_' . $org]);
@@ -164,10 +170,15 @@ function load_org_facilities($conn): array {
         return $_SESSION[$cache_key];
     }
 
-    $stmt = mysqli_prepare($conn, "SELECT facility_code FROM org_facilities WHERE org_code = ?");
-    mysqli_stmt_bind_param($stmt, "s", $org);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
+    // Global org: return ALL facilities from ALL orgs
+    if ($org === 'global') {
+        $result = mysqli_query($conn, "SELECT DISTINCT facility_code FROM org_facilities");
+    } else {
+        $stmt = mysqli_prepare($conn, "SELECT facility_code FROM org_facilities WHERE org_code = ?");
+        mysqli_stmt_bind_param($stmt, "s", $org);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+    }
 
     $facilities = [];
     while ($row = mysqli_fetch_assoc($result)) {

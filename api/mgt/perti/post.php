@@ -57,6 +57,11 @@ $hotline = post_input('hotline');
 $org_code_raw = post_input('org_code');
 $org_code = ($org_code_raw !== '' && $org_code_raw !== null) ? $org_code_raw : null;
 
+// Global org stores as NULL (visible to all orgs)
+if ($org_code === 'global') {
+    $org_code = null;
+}
+
 // Non-global users can only create plans for their own orgs or global (null)
 if ($org_code !== null && !is_org_global()) {
     $allowed = get_user_orgs();

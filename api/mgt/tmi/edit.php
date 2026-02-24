@@ -66,6 +66,15 @@ if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
 $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+$is_global_scope = function_exists('is_org_global') && is_org_global();
+if ($org_code === 'global') {
+    $user_orgs = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+    $org_code = 'vatcscc';
+    foreach ($user_orgs as $uo) {
+        if ($uo !== 'global') { $org_code = $uo; break; }
+    }
+}
+$org_scope = $is_global_scope ? '1=1' : 'org_code = :org_code';
 
 if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE'])) {
     http_response_code(400);
@@ -205,7 +214,7 @@ try {
         $sql = "UPDATE dbo.tmi_entries
                 SET " . implode(', ', $setClauses) . "
                 WHERE entry_id = :entry_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -289,7 +298,7 @@ try {
         $sql = "UPDATE dbo.tmi_advisories
                 SET " . implode(', ', $setClauses) . "
                 WHERE advisory_id = :advisory_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -367,7 +376,7 @@ try {
         $sql = "UPDATE dbo.tmi_programs
                 SET " . implode(', ', $setClauses) . "
                 WHERE program_id = :program_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('PURGED', 'COMPLETED', 'SUPERSEDED')";
 
         $stmt = $tmiConn->prepare($sql);

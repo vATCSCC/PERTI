@@ -65,6 +65,15 @@ if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
 $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+$is_global_scope = function_exists('is_org_global') && is_org_global();
+if ($org_code === 'global') {
+    $user_orgs = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+    $org_code = 'vatcscc';
+    foreach ($user_orgs as $uo) {
+        if ($uo !== 'global') { $org_code = $uo; break; }
+    }
+}
+$org_scope = $is_global_scope ? '1=1' : 'org_code = :org_code';
 
 if (empty($entityType) || !in_array($entityType, ['ENTRY', 'ADVISORY', 'PROGRAM', 'REROUTE', 'PUBLICROUTE'])) {
     http_response_code(400);
@@ -126,7 +135,7 @@ try {
         $fetchSql = "SELECT e.*, p.proposal_id
                      FROM dbo.tmi_entries e
                      LEFT JOIN dbo.tmi_proposals p ON e.entry_id = p.activated_entry_id
-                     WHERE e.entry_id = :entry_id AND e.org_code = :org_code";
+                     WHERE e.entry_id = :entry_id" . ($is_global_scope ? '' : ' AND e.org_code = :org_code');
         $fetchStmt = $tmiConn->prepare($fetchSql);
         $fetchStmt->execute([':entry_id' => $entityId, ':org_code' => $org_code]);
         $entryData = $fetchStmt->fetch(PDO::FETCH_ASSOC);
@@ -139,7 +148,7 @@ try {
                     cancel_reason = :cancel_reason,
                     updated_at = SYSUTCDATETIME()
                 WHERE entry_id = :entry_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -178,7 +187,7 @@ try {
                     cancel_reason = :cancel_reason,
                     updated_at = SYSUTCDATETIME()
                 WHERE advisory_id = :advisory_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('CANCELLED', 'EXPIRED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -211,7 +220,7 @@ try {
                     modified_utc = SYSUTCDATETIME(),
                     modified_by = :modified_by
                 WHERE program_id = :program_id
-                  AND org_code = :org_code
+                  AND {$org_scope}
                   AND status NOT IN ('PURGED', 'COMPLETED', 'SUPERSEDED')";
 
         $stmt = $tmiConn->prepare($sql);
@@ -249,7 +258,7 @@ try {
                     SET status = 3,
                         updated_at = SYSUTCDATETIME()
                     WHERE route_id = :id
-                      AND org_code = :org_code
+                      AND {$org_scope}
                       AND status NOT IN (2, 3)";
 
             $stmt = $tmiConn->prepare($sql);
@@ -301,7 +310,7 @@ try {
                     SET status = 5,
                         updated_at = SYSUTCDATETIME()
                     WHERE reroute_id = :id
-                      AND org_code = :org_code
+                      AND {$org_scope}
                       AND status NOT IN (4, 5)";
 
             $stmt = $rerouteConn->prepare($sql);

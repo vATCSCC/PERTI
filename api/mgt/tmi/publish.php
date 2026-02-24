@@ -146,6 +146,18 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
 
+// Global scope: fall back to user's primary non-global org for TMI attribution
+if ($org_code === 'global') {
+    $user_orgs = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+    $org_code = 'vatcscc';
+    foreach ($user_orgs as $uo) {
+        if ($uo !== 'global') {
+            $org_code = $uo;
+            break;
+        }
+    }
+}
+
 if (empty($entries)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'No entries provided']);

@@ -74,6 +74,19 @@ if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
 $org_code = $_SESSION['ORG_CODE'] ?? 'vatcscc';
+$is_global_scope = function_exists('is_org_global') && is_org_global();
+
+// Resolve 'global' to real org for write operations
+if ($org_code === 'global') {
+    $user_orgs = $_SESSION['ORG_ALL'] ?? ['vatcscc'];
+    $org_code = 'vatcscc';
+    foreach ($user_orgs as $uo) {
+        if ($uo !== 'global') { $org_code = $uo; break; }
+    }
+}
+
+// Dynamic SQL fragment: global users bypass org filter, others filter by their org
+$org_scope = $is_global_scope ? '1=1' : 'org_code = :org_code';
 
 // Connect to TMI database (for entries, advisories, programs)
 $tmiConn = null;
@@ -342,7 +355,7 @@ function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOn
                 created_by_name
             FROM dbo.tmi_entries
             WHERE status IN {$statusIn}
-              AND org_code = :org_code
+              AND {$org_scope}
               AND (valid_until IS NULL OR valid_until > SYSUTCDATETIME())
               AND (valid_from IS NULL OR valid_from <= SYSUTCDATETIME())
             ORDER BY valid_from DESC";
@@ -413,7 +426,7 @@ function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagin
                 created_by_name
             FROM dbo.tmi_entries
             WHERE {$whereClause}
-              AND org_code = :org_code
+              AND {$org_scope}
             ORDER BY valid_from ASC";
 
     try {
@@ -468,7 +481,7 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
                 created_by_name
             FROM dbo.tmi_entries
             WHERE status = 'CANCELLED'
-              AND org_code = :org_code
+              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
 
@@ -524,7 +537,7 @@ function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnl
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status IN {$statusIn}
-              AND org_code = :org_code
+              AND {$org_scope}
               AND (effective_until IS NULL OR effective_until > SYSUTCDATETIME())
               AND (effective_from IS NULL OR effective_from <= SYSUTCDATETIME())
             ORDER BY effective_from DESC";
@@ -581,7 +594,7 @@ function getScheduledAdvisories($conn, $limit, $includeStaging = false, $staging
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status IN {$statusIn}
-              AND org_code = :org_code
+              AND {$org_scope}
               AND effective_from > SYSUTCDATETIME()
             ORDER BY effective_from ASC";
 
@@ -632,7 +645,7 @@ function getCancelledAdvisories($conn, $hours, $limit) {
                 created_by_name
             FROM dbo.tmi_advisories
             WHERE status = 'CANCELLED'
-              AND org_code = :org_code
+              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
 
@@ -833,7 +846,7 @@ function getActivePrograms($conn, $limit) {
                 activated_utc
             FROM dbo.tmi_programs
             WHERE status IN ('ACTIVE', 'MODELING')
-              AND org_code = :org_code
+              AND {$org_scope}
               AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME())
               AND (start_utc IS NULL OR start_utc <= SYSUTCDATETIME())
             ORDER BY start_utc DESC";
@@ -886,7 +899,7 @@ function getScheduledPrograms($conn, $limit) {
                 modified_utc
             FROM dbo.tmi_programs
             WHERE status IN ('PROPOSED', 'SCHEDULED')
-              AND org_code = :org_code
+              AND {$org_scope}
               AND start_utc > SYSUTCDATETIME()
             ORDER BY start_utc ASC";
 
@@ -940,7 +953,7 @@ function getCancelledPrograms($conn, $hours, $limit) {
                 purged_utc
             FROM dbo.tmi_programs
             WHERE status IN ('COMPLETED', 'PURGED', 'SUPERSEDED')
-              AND org_code = :org_code
+              AND {$org_scope}
               AND modified_utc > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY modified_utc DESC";
 
@@ -1071,7 +1084,7 @@ function getActiveReroutes($conn, $limit) {
                 activated_at AS activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
-              AND org_code = :org_code
+              AND {$org_scope}
               AND (end_utc IS NULL OR end_utc > GETUTCDATE())
               AND (start_utc IS NULL OR start_utc <= GETUTCDATE())
             ORDER BY start_utc DESC";
@@ -1122,7 +1135,7 @@ function getScheduledReroutes($conn, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (0, 1)  -- draft, proposed
-              AND org_code = :org_code
+              AND {$org_scope}
               AND start_utc > GETUTCDATE()
             ORDER BY start_utc ASC";
 
@@ -1172,7 +1185,7 @@ function getCancelledReroutes($conn, $hours, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (4, 5)  -- expired, cancelled
-              AND org_code = :org_code
+              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, GETUTCDATE())
             ORDER BY updated_at DESC";
 
@@ -1399,7 +1412,7 @@ function getActivePublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
-              AND org_code = :org_code
+              AND {$org_scope}
               AND (valid_end_utc IS NULL OR valid_end_utc > SYSUTCDATETIME())
               AND (valid_start_utc IS NULL OR valid_start_utc <= SYSUTCDATETIME())
             ORDER BY valid_start_utc DESC";
@@ -1447,7 +1460,7 @@ function getScheduledPublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
-              AND org_code = :org_code
+              AND {$org_scope}
               AND valid_start_utc > SYSUTCDATETIME()
             ORDER BY valid_start_utc ASC";
 
@@ -1494,7 +1507,7 @@ function getCancelledPublicRoutes($conn, $hours, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE (status = 0 OR valid_end_utc < SYSUTCDATETIME())
-              AND org_code = :org_code
+              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
 
@@ -1620,7 +1633,7 @@ function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeS
                 created_by,
                 created_by_name
             FROM dbo.tmi_entries
-            WHERE org_code = :org_code
+            WHERE {$org_scope}
               AND (valid_from <= :dateEnd OR valid_from IS NULL)
               AND (valid_until >= :dateStart OR valid_until IS NULL)
               AND created_at <= :dateEnd2
@@ -1676,7 +1689,7 @@ function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeSt
                 created_at,
                 created_by
             FROM dbo.tmi_advisories
-            WHERE org_code = :org_code
+            WHERE {$org_scope}
               AND (valid_from <= :dateEnd OR valid_from IS NULL)
               AND (valid_until >= :dateStart OR valid_until IS NULL)
               AND created_at <= :dateEnd2
@@ -1716,7 +1729,7 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
                 issued_utc, start_utc, end_utc, status,
                 parameters, remarks, created_at, created_by
             FROM dbo.tmi_programs
-            WHERE org_code = :org_code
+            WHERE {$org_scope}
               AND (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
               AND created_at <= :dateEnd2
@@ -1761,7 +1774,7 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
                 start_utc, end_utc,
                 created_at AS created_utc, updated_at AS updated_utc, activated_at AS activated_utc, created_by
             FROM dbo.tmi_reroutes
-            WHERE org_code = :org_code
+            WHERE {$org_scope}
               AND (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
               AND created_at <= :dateEnd2
@@ -1802,7 +1815,7 @@ function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
                 constrained_area, reason, origin_filter, dest_filter, facilities,
                 created_by, created_at, updated_at
             FROM dbo.tmi_public_routes
-            WHERE org_code = :org_code
+            WHERE {$org_scope}
               AND (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
               AND (valid_end_utc >= :dateStart OR valid_end_utc IS NULL)
               AND created_at <= :dateEnd2

@@ -72,9 +72,8 @@ function listEntries() {
     $where = [];
     $params = [];
 
-    // Scope to active org
-    $where[] = "org_code = ?";
-    $params[] = tmi_get_org_code();
+    // Scope to active org (global users see all)
+    tmi_add_org_filter($where, $params);
 
     // Status filter
     $status = tmi_param('status');
@@ -159,8 +158,8 @@ function getEntry($id) {
     
     tmi_init(false);
     
-    $sql = "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?";
-    $entry = tmi_query_one($sql, [$id, tmi_get_org_code()]);
+    $sql = "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND " . tmi_org_scope_sql();
+    $entry = tmi_query_one($sql, array_merge([$id], tmi_org_scope_params()));
     
     if (!$entry) {
         TmiResponse::error('Entry not found', 404);
@@ -285,8 +284,8 @@ function updateEntry($id) {
     
     // Check entry exists (scoped to org)
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Entry not found', 404);
@@ -347,8 +346,8 @@ function deleteEntry($id) {
     
     // Check entry exists (scoped to org)
     $existing = tmi_query_one(
-        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND org_code = ?",
-        [$id, tmi_get_org_code()]
+        "SELECT * FROM dbo.tmi_entries WHERE entry_id = ? AND " . tmi_org_scope_sql(),
+        array_merge([$id], tmi_org_scope_params())
     );
     if (!$existing) {
         TmiResponse::error('Entry not found', 404);
