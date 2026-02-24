@@ -135,16 +135,16 @@ include('load/nav.php');
                 <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#createplanModal" data-toggle="modal"><i class="fas fa-plus"></i> <?= __('home.createPlan') ?></button>
             <?php } ?>
 
-            <table class="table table-sm table-striped table-bordered w-100">
+            <table class="table table-sm table-striped table-bordered w-100" style="table-layout:fixed;">
                 <thead class="table-dark text-light">
-                    <th style="width: 20%;"><?= __('home.table.eventName') ?></th>
+                    <th style="width: 22%;"><?= __('home.table.eventName') ?></th>
                     <th class="text-center" style="width: 8%;"><?= __('home.table.startDate') ?></th>
-                    <th class="text-center" style="width: 6%;"><?= __('home.table.startTime') ?></th>
+                    <th class="text-center" style="width: 5%;"><?= __('home.table.startTime') ?></th>
                     <th class="text-center" style="width: 8%;"><?= __('home.table.endDate') ?></th>
-                    <th class="text-center" style="width: 6%;"><?= __('home.table.endTime') ?></th>
-                    <th class="text-center" style="width: 14%;"><?= __('home.table.tmuOpLevel') ?></th>
-                    <th class="text-center" style="width: 12%;"><?= __('home.table.lastUpdated') ?></th>
-                    <th></th>
+                    <th class="text-center" style="width: 5%;"><?= __('home.table.endTime') ?></th>
+                    <th class="text-center" style="width: 12%;"><?= __('home.table.tmuOpLevel') ?></th>
+                    <th class="text-center" style="width: 14%;"><?= __('home.table.lastUpdated') ?></th>
+                    <th style="width: 26%;"></th>
                 </thead>
 
                 <tbody id="plans_table"></tbody>

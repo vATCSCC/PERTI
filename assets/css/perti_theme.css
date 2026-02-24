@@ -536,9 +536,8 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
   animation: pulse-live 2s infinite;
 }
 
-/* Event name cell: single-line truncation with inline badges */
+/* Event name cell: single-line truncation (requires table-layout:fixed on table) */
 .plan-event-name {
-  max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
