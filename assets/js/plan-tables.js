@@ -651,6 +651,10 @@
         var container = document.getElementById('plan_splits_container');
         if (!container) return Promise.resolve();
 
+        // Spin the refresh button while loading
+        var btn = document.getElementById('btn_refresh_splits');
+        if (btn) { btn.disabled = true; btn.querySelector('i').className = 'fas fa-sync-alt fa-spin'; }
+
         // Build URL with event-period overlap filter when available
         var url = 'api/splits/active.php?include_scheduled=1';
         var eventStart = (typeof PERTI_EVENT_START_ISO !== 'undefined') ? PERTI_EVENT_START_ISO : null;
@@ -681,6 +685,8 @@
                     t('plan.splits.loadError') +
                     '</div>';
             }
+        }).always(function() {
+            if (btn) { btn.disabled = false; btn.querySelector('i').className = 'fas fa-sync-alt'; }
         });
     }
 
@@ -700,6 +706,13 @@
             var artccConfigs = byArtcc[artcc];
             var artccLabel = getArtccName(artcc);
 
+            // Sort: active first, then scheduled (by start time)
+            artccConfigs.sort(function(a, b) {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                return (a.start_time_utc || '').localeCompare(b.start_time_utc || '');
+            });
+
             html += '<div class="col-md-6 col-lg-4 mb-3">';
             html += '<div class="card h-100">';
             html += '<div class="card-header py-2 d-flex justify-content-between align-items-center">';
@@ -711,22 +724,30 @@
             artccConfigs.forEach(function(cfg, idx) {
                 if (idx > 0) html += '<hr class="my-2">';
 
-                // Config header: name + status badge + timing
-                var statusClass = cfg.status === 'active' ? 'badge-success' : 'badge-info';
-                var statusLabel = cfg.status === 'active' ? t('plan.splits.active') : t('plan.splits.scheduled');
+                var isScheduled = cfg.status === 'scheduled';
+                var statusClass = isScheduled ? 'badge-info' : 'badge-success';
+                var statusLabel = isScheduled ? t('plan.splits.scheduled') : t('plan.splits.active');
 
+                // Scheduled configs get a distinct visual: dashed left border + slightly muted
+                var wrapStyle = isScheduled
+                    ? 'border-left:3px dashed #17a2b8;padding-left:8px;opacity:0.85;'
+                    : 'border-left:3px solid #28a745;padding-left:8px;';
+                html += '<div style="' + wrapStyle + '">';
+
+                // Config header: name + status badge
                 html += '<div class="d-flex justify-content-between align-items-center mb-1">';
                 html += '<span class="font-weight-bold">' + escapeHtml(cfg.config_name) + '</span>';
                 html += '<span class="badge ' + statusClass + '">' + statusLabel + '</span>';
                 html += '</div>';
 
-                // Timing
+                // Timing — show date for scheduled, time-only for active
                 if (cfg.start_time_utc || cfg.end_time_utc) {
-                    var start = cfg.start_time_utc ? formatSplitsTime(cfg.start_time_utc) : '';
-                    var end = cfg.end_time_utc ? formatSplitsTime(cfg.end_time_utc) : '';
+                    var start = cfg.start_time_utc ? formatSplitsTime(cfg.start_time_utc, isScheduled) : '';
+                    var end = cfg.end_time_utc ? formatSplitsTime(cfg.end_time_utc, isScheduled) : '';
                     if (start || end) {
+                        var clockIcon = isScheduled ? 'fa-calendar-alt' : 'fa-clock';
                         html += '<div class="text-muted small mb-1">';
-                        html += '<i class="fas fa-clock mr-1"></i>';
+                        html += '<i class="fas ' + clockIcon + ' mr-1"></i>';
                         html += (start || '?') + ' - ' + (end || t('plan.splits.indefinite'));
                         html += '</div>';
                     }
@@ -749,6 +770,8 @@
                     });
                     html += '</div>';
                 }
+
+                html += '</div>'; // close wrapStyle div
             });
 
             html += '</div></div></div>';
@@ -758,14 +781,20 @@
         container.innerHTML = html;
     }
 
-    function formatSplitsTime(isoStr) {
+    function formatSplitsTime(isoStr, showDate) {
         if (!isoStr) return '';
         try {
             var d = new Date(isoStr.endsWith('Z') ? isoStr : isoStr + 'Z');
             if (isNaN(d.getTime())) return isoStr;
             var hh = String(d.getUTCHours()).padStart(2, '0');
             var mm = String(d.getUTCMinutes()).padStart(2, '0');
-            return hh + mm + 'Z';
+            var time = hh + mm + 'Z';
+            if (showDate) {
+                var mon = String(d.getUTCMonth() + 1).padStart(2, '0');
+                var day = String(d.getUTCDate()).padStart(2, '0');
+                return mon + '/' + day + ' ' + time;
+            }
+            return time;
         } catch (e) {
             return isoStr;
         }

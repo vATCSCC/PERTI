@@ -277,9 +277,14 @@ include('load/nav_public.php');
                     <div class="tab-pane fade" id="e_splits">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="mb-0"><?= __('plan.splits.title') ?></h5>
-                            <a href="./splits" class="btn btn-sm btn-outline-primary" target="_blank">
-                                <i class="fas fa-external-link-alt mr-1"></i><?= __('plan.splits.configureSplits') ?>
-                            </a>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary mr-1" id="btn_refresh_splits" title="<?= __('common.refresh') ?>">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <a href="./splits" class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <i class="fas fa-external-link-alt mr-1"></i><?= __('plan.splits.configureSplits') ?>
+                                </a>
+                            </div>
                         </div>
                         <div id="plan_splits_container">
                             <div class="text-center text-muted py-4">
@@ -509,6 +514,9 @@ $('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
         _splitsTabLoaded = true;
         PlanTables.loadSplitsOverview();
     }
+});
+$('#btn_refresh_splits').on('click', function() {
+    PlanTables.loadSplitsOverview();
 });
 </script>
 

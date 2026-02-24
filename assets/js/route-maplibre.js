@@ -7259,6 +7259,7 @@ $(document).ready(function() {
             updateRouteLabelDisplay();
         },
         resetLabelPositions: resetLabelPositions,
+        parseRoutesEnhanced: advParseRoutesEnhanced,
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
