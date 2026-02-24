@@ -2047,7 +2047,7 @@ if ($org_mismatch):
                                    placeholder="ZTL/ZDC/ZNY">
                             <div class="input-group-append">
                                 <button class="btn btn-outline-secondary" type="button" id="advFacilitiesToggle">
-                                    Select
+                                    <?= __('plan.pertiModal.select') ?>
                                 </button>
                             </div>
                         </div>
@@ -2144,7 +2144,7 @@ if ($org_mismatch):
                     <div class="form-group mt-2">
                         <label for="opsPlanMessage"><?= __('plan.opsPlanModal.outputLabel') ?></label>
                         <small class="form-text text-muted mb-1">
-                            Auto-generated from the PERTI plan. If the text exceeds Discord’s 2000-character limit, it will be split into multiple parts labeled <code>(PART 1 OF N)</code>, <code>(PART 2 OF N)</code>, etc.
+                            <?= __('plan.opsPlanModal.outputHint') ?>
                         </small>
                         <textarea class="form-control" id="opsPlanMessage" rows="18" style="font-family: Menlo, Consolas, monospace;"></textarea>
                     </div>

@@ -3735,14 +3735,14 @@ function pertiUpdateMessage() {
     lines.push('');
 
     lines.push(PERTII18n.t('plan.pertiNotification.reviewPlan'));
-    lines.push('[PERTI Plan](https://perti.vatcscc.org/plan?' + planNumber + ')');
-    lines.push('[Staffing Data](https://perti.vatcscc.org/data?' + planNumber + ')');
-    lines.push('[PERTI NAS Operations Dashboard (NOD)](https://perti.vatcscc.org/nod)');
-    lines.push('[PERTI Active Splits](https://perti.vatcscc.org/splits)');
-    lines.push('[PERTI Ground Delay Tool (GDT)](https://perti.vatcscc.org/gdt)');
-    lines.push('[PERTI Route Mapper](https://perti.vatcscc.org/route)');
-    lines.push('[Field Configs (VATSIM-applied AAR)](https://perti.vatcscc.org/airport_config)');
-    lines.push('[DCC Dashboard](https://docs.google.com/spreadsheets/d/1sps5ggCvSnsORlChliWsPsYD4Tl0yhUJfsTLynHq3TY/edit?usp=sharing)');
+    lines.push(PERTII18n.t('plan.pertiNotification.linkPertiPlan', { planNumber }));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkStaffingData', { planNumber }));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkNod'));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkSplits'));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkGdt'));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkRouteMapper'));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkFieldConfigs'));
+    lines.push(PERTII18n.t('plan.pertiNotification.linkDccDashboard'));
     lines.push('');
 
     const facilitiesText = ($('#advFacilities').val() || '').trim();
@@ -3767,8 +3767,14 @@ function pertiUpdateMessage() {
 
     lines.push(PERTII18n.t('plan.pertiNotification.coordinateInstructions'));
     lines.push('---------------------------------------------------------');
-    lines.push('<@&1268395359714021396> please react with your availability to NOM for this event.');
-    lines.push('<@&1268395210665361478> please react with your availability to shadow this event.');
+
+    const orgType = (typeof AdvisoryConfig !== 'undefined') ? AdvisoryConfig.getOrgType() : 'DCC';
+    if (orgType === 'NOC') {
+        lines.push(PERTII18n.t('plan.pertiNotification.canocReactRequest'));
+    } else {
+        lines.push(PERTII18n.t('plan.pertiNotification.nomReactRequest'));
+        lines.push(PERTII18n.t('plan.pertiNotification.traineeReactRequest'));
+    }
     lines.push('');
     lines.push(PERTII18n.t('plan.pertiNotification.availableEmoji'));
     lines.push(PERTII18n.t('plan.pertiNotification.partialEmoji'));
