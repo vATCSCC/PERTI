@@ -464,14 +464,18 @@ include('load/nav.php');
             loadData();
 
             // Past events expand/collapse
+            // NOTE: jQuery 2.2.4's .toggle() sets display:block on <tr>, breaking
+            // table-layout:fixed. We must explicitly use display:table-row.
             $(document).on('click', '.plan-past-toggle', function(e) {
                 e.preventDefault();
-                $('.plan-row-past-hidden').toggle();
+                var rows = $('.plan-row-past-hidden');
                 var total = $(this).data('total');
-                if ($('.plan-row-past-hidden').first().is(':visible')) {
-                    $(this).text(PERTII18n.t('home.section.showLess'));
-                } else {
+                if (rows.first().is(':visible')) {
+                    rows.css('display', '');  // remove inline style; CSS class hides them
                     $(this).text(PERTII18n.t('home.section.showAllPast', { count: total }));
+                } else {
+                    rows.css('display', 'table-row');  // override CSS display:none
+                    $(this).text(PERTII18n.t('home.section.showLess'));
                 }
                 tooltips();
             });
