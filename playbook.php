@@ -32,68 +32,62 @@ include("load/nav.php");
 
 <div class="container-fluid mt-3 px-3 px-lg-4 pb-2">
 
-    <div class="row">
-        <!-- Left Panel: Catalog Browser -->
-        <div class="col-12 col-lg-4 col-xl-3">
-            <div class="pb-catalog-panel">
-                <div class="pb-catalog-header">
-                    <h5 class="mb-2" style="font-weight: 700;">
-                        <i class="fas fa-book mr-1" style="color: #239BCD;"></i>
-                        <?= __('playbook.title') ?>
-                    </h5>
+    <!-- Map (full width, top) -->
+    <div class="pb-map-section mb-3">
+        <!-- Hidden textarea + button for route-maplibre integration -->
+        <textarea id="routeSearch" style="display:none;"></textarea>
+        <button id="plot_r" style="display:none;"></button>
 
-                    <!-- Search -->
-                    <div class="pb-search-bar">
-                        <input type="text" id="pb_search" class="form-control form-control-sm"
-                               placeholder="<?= __('playbook.searchPlaceholder') ?>">
-                        <?php if ($perm): ?>
-                        <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        <?php endif; ?>
-                    </div>
+        <div id="map_wrapper">
+            <div id="placeholder"></div>
+            <div id="graphic"></div>
+        </div>
+    </div>
 
-                    <!-- Filters -->
-                    <div class="pb-filter-row">
-                        <select id="pb_filter_category" class="form-control form-control-sm">
-                            <option value=""><?= __('playbook.allCategories') ?></option>
-                        </select>
-                        <select id="pb_filter_source" class="form-control form-control-sm">
-                            <option value=""><?= __('playbook.allSources') ?></option>
-                            <option value="FAA">FAA</option>
-                            <option value="DCC">DCC</option>
-                        </select>
-                        <select id="pb_filter_status" class="form-control form-control-sm">
-                            <option value="active"><?= __('playbook.statusActive') ?></option>
-                            <option value=""><?= __('common.all') ?></option>
-                            <option value="draft"><?= __('playbook.statusDraft') ?></option>
-                            <option value="archived"><?= __('playbook.statusArchived') ?></option>
-                        </select>
-                    </div>
-
+    <!-- Catalog Browser (full width, below map) -->
+    <div class="pb-catalog-panel">
+        <div class="pb-catalog-header">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0" style="font-weight: 700;">
+                    <i class="fas fa-book mr-1" style="color: #239BCD;"></i>
+                    <?= __('playbook.title') ?>
+                </h5>
+                <div class="d-flex align-items-center" style="gap:0.5rem;">
                     <div class="pb-catalog-stats" id="pb_stats"></div>
+                    <?php if ($perm): ?>
+                    <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
+                        <i class="fas fa-plus mr-1"></i><?= __('playbook.createPlay') ?>
+                    </button>
+                    <?php endif; ?>
                 </div>
+            </div>
 
-                <!-- Play List -->
-                <div id="pb_play_list_container">
-                    <div class="pb-loading">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <div class="mt-1" style="font-size:0.8rem;"><?= __('common.loading') ?></div>
-                    </div>
-                </div>
+            <!-- Search & Filters (single row) -->
+            <div class="pb-filter-row">
+                <input type="text" id="pb_search" class="form-control form-control-sm" style="max-width:300px;"
+                       placeholder="<?= __('playbook.searchPlaceholder') ?>">
+                <select id="pb_filter_category" class="form-control form-control-sm">
+                    <option value=""><?= __('playbook.allCategories') ?></option>
+                </select>
+                <select id="pb_filter_source" class="form-control form-control-sm">
+                    <option value=""><?= __('playbook.allSources') ?></option>
+                    <option value="FAA">FAA</option>
+                    <option value="DCC">DCC</option>
+                </select>
+                <select id="pb_filter_status" class="form-control form-control-sm">
+                    <option value="active"><?= __('playbook.statusActive') ?></option>
+                    <option value=""><?= __('common.all') ?></option>
+                    <option value="draft"><?= __('playbook.statusDraft') ?></option>
+                    <option value="archived"><?= __('playbook.statusArchived') ?></option>
+                </select>
             </div>
         </div>
 
-        <!-- Right Panel: Map -->
-        <div class="col-12 col-lg-8 col-xl-9 pb-map-section">
-            <!-- Hidden textarea + button for route-maplibre integration -->
-            <textarea id="routeSearch" style="display:none;"></textarea>
-            <button id="plot_r" style="display:none;"></button>
-
-            <!-- Map Container -->
-            <div id="map_wrapper">
-                <div id="placeholder"></div>
-                <div id="graphic"></div>
+        <!-- Play List -->
+        <div id="pb_play_list_container">
+            <div class="pb-loading">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div class="mt-1" style="font-size:0.8rem;"><?= __('common.loading') ?></div>
             </div>
         </div>
     </div>
