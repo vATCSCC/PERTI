@@ -249,7 +249,13 @@ function checkTablesExist($conn) {
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    $tables = ['p_terminal_init', 'p_enroute_init', 'p_events'];
+    $tables = [
+        'p_terminal_init', 'p_enroute_init',
+        'p_terminal_init_timeline', 'p_enroute_init_timeline',
+        'p_terminal_constraints', 'p_enroute_constraints',
+        'p_group_flights', 'p_op_goals',
+        'p_terminal_planning', 'p_enroute_planning',
+    ];
     $cache = [];
 
     foreach ($tables as $table) {
@@ -291,80 +297,161 @@ function buildFullPlanData($conn, $row) {
         'opLevel' => intval($row['oplevel'] ?? 1),
         'eventBanner' => $row['event_banner'] ?? null,
         'tmis' => [],
-        'weather' => [],
+        'timeline' => [],
         'constraints' => [],
-        'events' => []
+        'events' => [],
+        'goals' => [],
+        'planning' => [],
     ];
 
-    // Check if related tables exist before querying
     $tablesExist = checkTablesExist($conn);
 
-    // Get Terminal Initiatives (with error handling)
-    // Table schema: p_id, title, context
-    if ($tablesExist['p_terminal_init']) {
-        $termQuery = $conn->query("SELECT * FROM p_terminal_init WHERE p_id = $planId ORDER BY id");
-        if ($termQuery) {
-            while ($t = $termQuery->fetch_assoc()) {
-                $plan['tmis'][] = [
+    // ---- Initiative Timeline (primary source) ----
+    // p_terminal_init_timeline / p_enroute_init_timeline contain the actual
+    // TMI entries shown on the plan page (facility, tmi_type, cause, times, level).
+    if ($tablesExist['p_terminal_init_timeline']) {
+        $q = $conn->query(
+            "SELECT * FROM p_terminal_init_timeline WHERE p_id = $planId ORDER BY start_datetime, id"
+        );
+        if ($q) {
+            while ($t = $q->fetch_assoc()) {
+                $plan['timeline'][] = formatTimelineEntry($t, 'terminal');
+            }
+        }
+    }
+    if ($tablesExist['p_enroute_init_timeline']) {
+        $q = $conn->query(
+            "SELECT * FROM p_enroute_init_timeline WHERE p_id = $planId ORDER BY start_datetime, id"
+        );
+        if ($q) {
+            while ($t = $q->fetch_assoc()) {
+                $plan['timeline'][] = formatTimelineEntry($t, 'enroute');
+            }
+        }
+    }
+
+    // ---- Legacy p_terminal_init / p_enroute_init (fallback) ----
+    // Older plans may only have data here (title + context).
+    if (empty($plan['timeline'])) {
+        if ($tablesExist['p_terminal_init']) {
+            $q = $conn->query("SELECT * FROM p_terminal_init WHERE p_id = $planId ORDER BY id");
+            if ($q) {
+                while ($t = $q->fetch_assoc()) {
+                    $plan['tmis'][] = [
+                        'type' => 'terminal',
+                        'airport' => normalizeLegacyPlanText($t['title'] ?? ''),
+                        'context' => normalizeLegacyPlanText($t['context'] ?? null)
+                    ];
+                }
+            }
+        }
+        if ($tablesExist['p_enroute_init']) {
+            $q = $conn->query("SELECT * FROM p_enroute_init WHERE p_id = $planId ORDER BY id");
+            if ($q) {
+                while ($t = $q->fetch_assoc()) {
+                    $plan['tmis'][] = [
+                        'type' => 'enroute',
+                        'element' => normalizeLegacyPlanText($t['title'] ?? null),
+                        'context' => normalizeLegacyPlanText($t['context'] ?? null)
+                    ];
+                }
+            }
+        }
+    }
+
+    // ---- Constraints ----
+    if ($tablesExist['p_terminal_constraints']) {
+        $q = $conn->query("SELECT * FROM p_terminal_constraints WHERE p_id = $planId ORDER BY id");
+        if ($q) {
+            while ($c = $q->fetch_assoc()) {
+                $plan['constraints'][] = [
                     'type' => 'terminal',
-                    'airport' => normalizeLegacyPlanText($t['title'] ?? ''),
-                    'context' => normalizeLegacyPlanText($t['context'] ?? null)
+                    'location' => normalizeLegacyPlanText($c['location'] ?? ''),
+                    'context' => normalizeLegacyPlanText($c['context'] ?? ''),
+                    'impact' => normalizeLegacyPlanText($c['impact'] ?? ''),
                 ];
             }
         }
     }
-
-    // Get Enroute Initiatives (with error handling)
-    // Table schema: p_id, title, context
-    if ($tablesExist['p_enroute_init']) {
-        $enrouteQuery = $conn->query("SELECT * FROM p_enroute_init WHERE p_id = $planId ORDER BY id");
-        if ($enrouteQuery) {
-            while ($e = $enrouteQuery->fetch_assoc()) {
-                $plan['tmis'][] = [
+    if ($tablesExist['p_enroute_constraints']) {
+        $q = $conn->query("SELECT * FROM p_enroute_constraints WHERE p_id = $planId ORDER BY id");
+        if ($q) {
+            while ($c = $q->fetch_assoc()) {
+                $plan['constraints'][] = [
                     'type' => 'enroute',
-                    'element' => normalizeLegacyPlanText($e['title'] ?? null),
-                    'context' => normalizeLegacyPlanText($e['context'] ?? null)
+                    'location' => normalizeLegacyPlanText($c['location'] ?? ''),
+                    'context' => normalizeLegacyPlanText($c['context'] ?? ''),
+                    'impact' => normalizeLegacyPlanText($c['impact'] ?? ''),
                 ];
             }
         }
     }
 
-    // Get Weather constraints (from context field if it mentions weather)
-    foreach ($plan['tmis'] as $tmi) {
-        if (!empty($tmi['context']) && stripos($tmi['context'], 'weather') !== false) {
-            $plan['weather'][] = $tmi['context'];
-        }
-    }
-
-    // Get Special Events
-    if ($tablesExist['p_events']) {
-        $eventsQuery = $conn->query("SELECT * FROM p_events WHERE p_id = $planId ORDER BY id");
-        if ($eventsQuery) {
-            while ($ev = $eventsQuery->fetch_assoc()) {
+    // ---- Group Flights (special events) ----
+    if ($tablesExist['p_group_flights']) {
+        $q = $conn->query("SELECT * FROM p_group_flights WHERE p_id = $planId ORDER BY id");
+        if ($q) {
+            while ($gf = $q->fetch_assoc()) {
                 $plan['events'][] = [
-                    'title' => normalizeLegacyPlanText($ev['title'] ?? null),
-                    'description' => normalizeLegacyPlanText($ev['description'] ?? null),
-                    'time' => normalizeLegacyPlanText($ev['event_time'] ?? null)
+                    'title' => normalizeLegacyPlanText($gf['entity'] ?? ''),
+                    'description' => trim(($gf['dep'] ?? '') . '-' . ($gf['arr'] ?? '')),
+                    'time' => normalizeLegacyPlanText($gf['etd'] ?? ''),
+                    'pilotCount' => intval($gf['pilot_quantity'] ?? 0),
                 ];
             }
         }
     }
 
-    // Build formatted text summaries
-    $plan['initiativesSummary'] = buildInitiativesSummary($plan['tmis']);
+    // ---- Op Goals ----
+    if ($tablesExist['p_op_goals']) {
+        $q = $conn->query("SELECT * FROM p_op_goals WHERE p_id = $planId ORDER BY id");
+        if ($q) {
+            while ($g = $q->fetch_assoc()) {
+                $text = normalizeLegacyPlanText($g['comments'] ?? '');
+                if ($text !== '') {
+                    $plan['goals'][] = $text;
+                }
+            }
+        }
+    }
+
+    // ---- Planning notes ----
+    foreach (['p_terminal_planning', 'p_enroute_planning'] as $tbl) {
+        if ($tablesExist[$tbl]) {
+            $q = $conn->query("SELECT * FROM $tbl WHERE p_id = $planId ORDER BY id");
+            if ($q) {
+                while ($p = $q->fetch_assoc()) {
+                    $facility = normalizeLegacyPlanText($p['facility_name'] ?? '');
+                    $comments = normalizeLegacyPlanText($p['comments'] ?? '');
+                    if ($comments !== '') {
+                        $plan['planning'][] = ($facility ? $facility . ': ' : '') . $comments;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Build formatted text summaries ----
+    if (!empty($plan['timeline'])) {
+        $plan['initiativesSummary'] = buildTimelineSummary($plan['timeline']);
+    } else {
+        $plan['initiativesSummary'] = buildInitiativesSummary($plan['tmis']);
+    }
     $plan['constraintsSummary'] = buildConstraintsSummary($plan);
     $plan['eventsSummary'] = buildEventsSummary($plan['events']);
 
-    // Debug info - which tables were checked and counts
+    // Debug info
     $plan['_debug'] = [
         'planId' => $planId,
         'tablesChecked' => $tablesExist,
+        'timelineCount' => count($plan['timeline']),
         'tmiCount' => count($plan['tmis']),
-        'weatherCount' => count($plan['weather']),
-        'eventsCount' => count($plan['events'])
+        'constraintsCount' => count($plan['constraints']),
+        'eventsCount' => count($plan['events']),
+        'goalsCount' => count($plan['goals']),
     ];
 
-    // Calculate valid times with error handling
+    // Calculate valid times
     try {
         $eventStart = normalizeTime($row['event_start'] ?? '0000') ?: '00:00';
         $startDateTime = ($row['event_date'] ?? date('Y-m-d')) . 'T' . $eventStart;
@@ -373,7 +460,6 @@ function buildFullPlanData($conn, $row) {
         if (!empty($row['event_end_date']) && !empty($row['event_end_time'])) {
             $endDateTime = $row['event_end_date'] . 'T' . normalizeTime($row['event_end_time']);
         } else {
-            // Default to 4 hours after start
             $start = new DateTime($startDateTime);
             $start->modify('+4 hours');
             $endDateTime = $start->format('Y-m-d\TH:i');
@@ -381,7 +467,6 @@ function buildFullPlanData($conn, $row) {
         $plan['validFrom'] = $startDateTime;
         $plan['validUntil'] = $endDateTime;
     } catch (Exception $e) {
-        // Fallback to reasonable defaults
         $plan['validFrom'] = date('Y-m-d') . 'T00:00';
         $plan['validUntil'] = date('Y-m-d') . 'T04:00';
     }
@@ -390,7 +475,84 @@ function buildFullPlanData($conn, $row) {
 }
 
 /**
- * Build initiatives summary text
+ * Format a timeline entry from p_terminal_init_timeline / p_enroute_init_timeline
+ */
+function formatTimelineEntry($row, $scope) {
+    $facility = normalizeLegacyPlanText($row['facility'] ?? '');
+    $tmiType = normalizeLegacyPlanText($row['tmi_type'] ?? '');
+    $tmiTypeOther = normalizeLegacyPlanText($row['tmi_type_other'] ?? '');
+    $cause = normalizeLegacyPlanText($row['cause'] ?? '');
+    $level = normalizeLegacyPlanText($row['level'] ?? '');
+    $notes = normalizeLegacyPlanText($row['notes'] ?? '');
+
+    $type = $tmiType;
+    if ($tmiType === 'OTHER' && $tmiTypeOther !== '') {
+        $type = $tmiTypeOther;
+    }
+
+    return [
+        'scope' => $scope,
+        'facility' => $facility,
+        'area' => normalizeLegacyPlanText($row['area'] ?? ''),
+        'tmiType' => $type,
+        'cause' => $cause,
+        'level' => $level,
+        'startDatetime' => $row['start_datetime'] ?? null,
+        'endDatetime' => $row['end_datetime'] ?? null,
+        'notes' => $notes,
+        'advzyNumber' => normalizeLegacyPlanText($row['advzy_number'] ?? ''),
+    ];
+}
+
+/**
+ * Build initiatives summary from timeline entries (new format)
+ */
+function buildTimelineSummary($timeline) {
+    if (empty($timeline)) return '';
+
+    // Group by facility
+    $byFacility = [];
+    foreach ($timeline as $entry) {
+        $fac = $entry['facility'] ?: 'Unknown';
+        $byFacility[$fac][] = $entry;
+    }
+
+    $lines = [];
+    foreach ($byFacility as $facility => $entries) {
+        $parts = [];
+        foreach ($entries as $e) {
+            $tmi = $e['tmiType'] ?: 'TMI';
+            $cause = $e['cause'] ? ' - ' . $e['cause'] : '';
+            $lvl = $e['level'] ? ' (' . ucfirst($e['level']) . ')' : '';
+
+            // Format times as HHMMz
+            $start = '';
+            $end = '';
+            if ($e['startDatetime']) {
+                $ts = strtotime($e['startDatetime']);
+                if ($ts) $start = gmdate('Hi', $ts) . 'z';
+            }
+            if ($e['endDatetime']) {
+                $ts = strtotime($e['endDatetime']);
+                if ($ts) $end = gmdate('Hi', $ts) . 'z';
+            }
+            $timeRange = '';
+            if ($start && $end) {
+                $timeRange = " {$start}-{$end}";
+            } elseif ($start) {
+                $timeRange = " {$start}+";
+            }
+
+            $parts[] = "{$tmi}{$cause}{$lvl}{$timeRange}";
+        }
+        $lines[] = $facility . ': ' . implode('; ', $parts);
+    }
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Build initiatives summary from legacy init entries (fallback)
  */
 function buildInitiativesSummary($tmis) {
     if (empty($tmis)) return '';
@@ -419,18 +581,39 @@ function buildInitiativesSummary($tmis) {
 function buildConstraintsSummary($plan) {
     $lines = [];
 
-    if (!empty($plan['weather'])) {
-        $weather = array_filter(array_map('normalizeLegacyPlanText', $plan['weather']));
-        if (!empty($weather)) {
-            $lines[] = 'Weather: ' . implode(', ', $weather);
+    // Use explicit constraint entries first
+    if (!empty($plan['constraints'])) {
+        foreach ($plan['constraints'] as $c) {
+            $loc = $c['location'] ?: '';
+            $ctx = $c['context'] ?: '';
+            $impact = $c['impact'] ?: '';
+            $line = $loc;
+            if ($ctx !== '') $line .= ($line ? ': ' : '') . $ctx;
+            if ($impact !== '') $line .= ' (Impact: ' . $impact . ')';
+            if (trim($line) !== '') $lines[] = trim($line);
         }
     }
 
-    foreach ($plan['tmis'] as $tmi) {
-        $context = normalizeLegacyPlanText($tmi['context'] ?? '');
-        if ($context !== '') {
-            $element = normalizeLegacyPlanText($tmi['airport'] ?? $tmi['element'] ?? 'TMI');
-            $lines[] = $element . ': ' . $context;
+    // Fall back to timeline cause/notes for constraint-like info
+    if (empty($lines) && !empty($plan['timeline'])) {
+        foreach ($plan['timeline'] as $entry) {
+            if ($entry['cause'] !== '') {
+                $fac = $entry['facility'] ?: 'TMI';
+                $lines[] = $fac . ': ' . $entry['cause'];
+            }
+        }
+        // Deduplicate
+        $lines = array_values(array_unique($lines));
+    }
+
+    // Final fallback to legacy tmis context
+    if (empty($lines) && !empty($plan['tmis'])) {
+        foreach ($plan['tmis'] as $tmi) {
+            $context = normalizeLegacyPlanText($tmi['context'] ?? '');
+            if ($context !== '') {
+                $element = normalizeLegacyPlanText($tmi['airport'] ?? $tmi['element'] ?? 'TMI');
+                $lines[] = $element . ': ' . $context;
+            }
         }
     }
 
@@ -438,7 +621,7 @@ function buildConstraintsSummary($plan) {
 }
 
 /**
- * Build events summary text
+ * Build events summary text from group flights
  */
 function buildEventsSummary($events) {
     if (empty($events)) return '';
@@ -448,9 +631,11 @@ function buildEventsSummary($events) {
         $title = normalizeLegacyPlanText($ev['title'] ?? 'Event');
         $time = normalizeLegacyPlanText($ev['time'] ?? '');
         $description = normalizeLegacyPlanText($ev['description'] ?? '');
+        $pilotCount = intval($ev['pilotCount'] ?? 0);
         $line = $title !== '' ? $title : 'Event';
-        if ($time !== '') $line .= ' (' . $time . 'Z)';
-        if ($description !== '') $line .= ' - ' . $description;
+        if ($description !== '' && $description !== '-') $line .= ' ' . $description;
+        if ($time !== '') $line .= ' ETD ' . $time . 'z';
+        if ($pilotCount > 0) $line .= ' (' . $pilotCount . ' pilots)';
         $lines[] = $line;
     }
 
