@@ -211,6 +211,40 @@
         return keys.map(k => groups[k]);
     }
 
+    function groupByRegion(data, codeField, type) {
+        const groups = {};
+        data.forEach(row => {
+            const artccInfo = resolveGroup(row[codeField], type);
+            const regionKey = artccInfo.artcc !== '_OTHER'
+                ? (FacilityHierarchy.getRegion(artccInfo.artcc) || '_OTHER')
+                : '_OTHER';
+
+            let regionInfo;
+            if (regionKey === '_OTHER' || !regionKey) {
+                regionInfo = { region: '_OTHER', label: t('plan.tables.ungrouped'), bgColor: null };
+            } else {
+                const rd = FacilityHierarchy.DCC_REGIONS[regionKey];
+                regionInfo = {
+                    region: regionKey,
+                    label: rd ? rd.name : regionKey,
+                    bgColor: rd ? rd.bgColor : null,
+                };
+            }
+
+            row._group = regionInfo;
+            if (!groups[regionKey]) {
+                groups[regionKey] = { info: regionInfo, rows: [] };
+            }
+            groups[regionKey].rows.push(row);
+        });
+        const keys = Object.keys(groups).sort((a, b) => {
+            if (a === '_OTHER') return 1;
+            if (b === '_OTHER') return -1;
+            return a.localeCompare(b);
+        });
+        return keys.map(k => groups[k]);
+    }
+
     function buildGroupHeader(label, bgColor, colSpan) {
         const bg = bgColor ? ` style="background-color: ${bgColor};"` : '';
         return `<tr class="plan-group-header"${bg}><td colspan="${colSpan}" class="pl-2">${esc(label)}</td></tr>`;
@@ -393,7 +427,7 @@
         if (sorted.length === 0) {
             html = `<tr><td class="text-center" colspan="${colSpan}">${t('plan.tables.noStaffing')}</td></tr>`;
         } else if (s.grouped) {
-            const groups = groupByArtcc(sorted, 'facility_name', 'enroute');
+            const groups = groupByRegion(sorted, 'facility_name', 'enroute');
             groups.forEach(g => {
                 html += buildGroupHeader(g.info.label, g.info.bgColor, colSpan);
                 const groupSorted = sortData(g.rows, s.sortCol, s.sortDir);
@@ -430,7 +464,7 @@
     function renderDCCPersonnel() {
         const s = state.dccPersonnel;
         const sorted = sortData(s.data, s.sortCol, s.sortDir);
-        const colSpan = s.perm ? 4 : 3;
+        const colSpan = s.perm ? 5 : 4;
         let html = '';
 
         if (sorted.length === 0) {
@@ -453,9 +487,10 @@
 
     function renderDCCPersonnelRow(d, perm) {
         let html = '<tr>';
-        html += `<td class="text-center" style="width: 10%;">${esc(d.personnel_ois)}</td>`;
+        html += `<td class="text-center" style="width: 12%;">${esc(d.position_facility)}</td>`;
+        html += `<td style="width: 22%;">${esc(d.position_name)}</td>`;
+        html += `<td class="text-center" style="width: 8%;">${esc(d.personnel_ois)}</td>`;
         html += `<td>${esc(d.personnel_name)}</td>`;
-        html += `<td>${esc(d.position_name)}</td>`;
         if (perm) {
             html += '<td class="w-25"><center>';
             html += `<a href="javascript:void(0)" data-toggle="tooltip" title="${t('plan.dcc.editPersonnel')}"><span class="badge badge-warning" data-toggle="modal" data-target="#edit_dccstaffingModal" data-id="${d.id}" data-personnel_name="${esc(d.personnel_name)}" data-personnel_ois="${esc(d.personnel_ois)}" data-position_name="${esc(d.position_name)}" data-position_facility="${esc(d.position_facility)}"><i class="fas fa-pencil-alt"></i> ${t('common.edit')}</span></a> `;
@@ -469,7 +504,7 @@
     function renderDCCFacility() {
         const s = state.dccFacility;
         const sorted = sortData(s.data, s.sortCol, s.sortDir);
-        const colSpan = s.perm ? 4 : 3;
+        const colSpan = s.perm ? 5 : 4;
         let html = '';
 
         if (sorted.length === 0) {
@@ -492,8 +527,9 @@
 
     function renderDCCFacilityRow(d, perm) {
         let html = '<tr>';
-        html += `<td class="text-center" style="width: 10%;">${esc(d.position_facility)}</td>`;
-        html += `<td class="text-center" style="width: 10%;">${esc(d.personnel_ois)}</td>`;
+        html += `<td class="text-center" style="width: 12%;">${esc(d.position_facility)}</td>`;
+        html += `<td style="width: 22%;">${esc(d.position_name)}</td>`;
+        html += `<td class="text-center" style="width: 8%;">${esc(d.personnel_ois)}</td>`;
         html += `<td>${esc(d.personnel_name)}</td>`;
         if (perm) {
             html += '<td class="w-25"><center>';
@@ -574,10 +610,11 @@
 
             // Update button text
             const $btn = $(this);
+            const groupLabel = tableKey === 'enrouteStaffing' ? t('plan.tables.groupByRegion') : t('plan.tables.groupByArtcc');
             if (s.grouped) {
                 $btn.html(`<i class="fas fa-list"></i> ${t('plan.tables.flatView')}`);
             } else {
-                $btn.html(`<i class="fas fa-layer-group"></i> ${t('plan.tables.groupByArtcc')}`);
+                $btn.html(`<i class="fas fa-layer-group"></i> ${groupLabel}`);
             }
 
             // Persist preference
@@ -603,10 +640,11 @@
             const tableKey = $btn.data('table');
             const s = state[tableKey];
             if (s) {
+                const groupLabel = tableKey === 'enrouteStaffing' ? t('plan.tables.groupByRegion') : t('plan.tables.groupByArtcc');
                 if (s.grouped) {
                     $btn.html(`<i class="fas fa-list"></i> ${t('plan.tables.flatView')}`);
                 } else {
-                    $btn.html(`<i class="fas fa-layer-group"></i> ${t('plan.tables.groupByArtcc')}`);
+                    $btn.html(`<i class="fas fa-layer-group"></i> ${groupLabel}`);
                 }
             }
         });

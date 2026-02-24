@@ -340,43 +340,39 @@ if ($org_mismatch):
                             <hr>
                         <?php } ?>
 
-                        <div class="row">
-                            <div class="col-6">
-                                <h4><b><?= __('plan.dcc.dccPersonnel') ?></b></h4>
-                                <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccPersonnel"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+                        <h4><b><?= __('plan.dcc.dccPersonnel') ?></b></h4>
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccPersonnel"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 
-                                <table class="table table-striped table-bordered">
-                                    <thead>
-                                        <th class="text-center sortable" data-sort="personnel_ois" data-table="dccPersonnel"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <th class="sortable" data-sort="personnel_name" data-table="dccPersonnel"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <th class="sortable" data-sort="position_name" data-table="dccPersonnel"><b><?= __('plan.dcc.positionName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <?php if ($perm == true) {
-                                            echo '<th></th>';
-                                        }
-                                        ?>
-                                    </thead>
-                                    <tbody id="dcc_table"></tbody>
-                                </table>
-                            </div>
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <th class="text-center sortable" data-sort="position_facility" data-table="dccPersonnel" style="width:12%;"><b><?= __('plan.dcc.facility') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="sortable" data-sort="position_name" data-table="dccPersonnel" style="width:22%;"><b><?= __('plan.dcc.positionName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="personnel_ois" data-table="dccPersonnel" style="width:8%;"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="sortable" data-sort="personnel_name" data-table="dccPersonnel"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <?php if ($perm == true) {
+                                    echo '<th></th>';
+                                }
+                                ?>
+                            </thead>
+                            <tbody id="dcc_table"></tbody>
+                        </table>
 
-                            <div class="col-6">
-                                <h4><b><?= __('plan.dcc.facilityPersonnel') ?></b></h4>
-                                <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccFacility"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
+                        <h4 class="mt-4"><b><?= __('plan.dcc.facilityPersonnel') ?></b></h4>
+                        <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccFacility"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 
-                                <table class="table table-striped table-bordered">
-                                    <thead>
-                                        <th class="text-center sortable" data-sort="position_facility" data-table="dccFacility"><b><?= __('plan.dcc.facility') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <th class="text-center sortable" data-sort="personnel_ois" data-table="dccFacility"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <th class="sortable" data-sort="personnel_name" data-table="dccFacility"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
-                                        <?php if ($perm == true) {
-                                            echo '<th></th>';
-                                        }
-                                        ?>
-                                    </thead>
-                                    <tbody id="dcc_staffing_table"></tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <th class="text-center sortable" data-sort="position_facility" data-table="dccFacility" style="width:12%;"><b><?= __('plan.dcc.facility') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="sortable" data-sort="position_name" data-table="dccFacility" style="width:22%;"><b><?= __('plan.dcc.positionName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="text-center sortable" data-sort="personnel_ois" data-table="dccFacility" style="width:8%;"><b><?= __('plan.dcc.ois') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <th class="sortable" data-sort="personnel_name" data-table="dccFacility"><b><?= __('plan.dcc.personnelName') ?></b> <i class="fas fa-sort sort-icon"></i></th>
+                                <?php if ($perm == true) {
+                                    echo '<th></th>';
+                                }
+                                ?>
+                            </thead>
+                            <tbody id="dcc_staffing_table"></tbody>
+                        </table>
                     </div>
 
                     <!-- Tab: Historical Data -->
@@ -568,7 +564,39 @@ if ($org_mismatch):
                                         <span class="badge badge-info"><?= __('plan.splits.scheduled') ?></span>
                                     </label>
                                 </div>
+                                <span class="mx-2 text-muted">|</span>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_artcc" checked>
+                                    <label class="custom-control-label" for="splits_layer_artcc">
+                                        <span class="badge" style="background:#4682B4;color:#fff"><?= __('plan.splits.layerArtcc') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_superhigh">
+                                    <label class="custom-control-label" for="splits_layer_superhigh">
+                                        <span class="badge" style="background:#9932CC;color:#fff"><?= __('plan.splits.layerSuperhigh') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_high">
+                                    <label class="custom-control-label" for="splits_layer_high">
+                                        <span class="badge" style="background:#FF6347;color:#fff"><?= __('plan.splits.layerHigh') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_low">
+                                    <label class="custom-control-label" for="splits_layer_low">
+                                        <span class="badge" style="background:#228B22;color:#fff"><?= __('plan.splits.layerLow') ?></span>
+                                    </label>
+                                </div>
+                                <div class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="splits_layer_tracon">
+                                    <label class="custom-control-label" for="splits_layer_tracon">
+                                        <span class="badge" style="background:#20B2AA;color:#fff"><?= __('plan.splits.layerTracon') ?></span>
+                                    </label>
+                                </div>
                             </div>
+                            <div id="plan_splits_config_toggles" class="d-flex align-items-center flex-wrap small mt-1"></div>
                         </div>
                         <div id="plan_splits_container">
                             <div class="text-center text-muted py-4">

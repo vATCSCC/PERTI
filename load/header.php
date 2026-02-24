@@ -97,7 +97,7 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <!-- Load PERTI Centralized Namespace -->
 <script src="<?= $filepath; ?>assets/js/lib/perti.js<?= _v('assets/js/lib/perti.js') ?>"></script>
 <script src="<?= $filepath; ?>assets/js/lib/colors.js<?= _v('assets/js/lib/colors.js') ?>"></script>
-<script defer src="<?= $filepath; ?>assets/js/facility-hierarchy.js<?= _v('assets/js/facility-hierarchy.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/js/facility-hierarchy.js<?= _v('assets/js/facility-hierarchy.js') ?>"></script>
 
 <!-- Organization Context (must be before locale loader so {commandCenter} resolves) -->
 <?php

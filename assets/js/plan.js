@@ -170,6 +170,11 @@ $('#splits_layer_active').on('change', function() {
 $('#splits_layer_scheduled').on('change', function() {
     if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible('scheduled', this.checked);
 });
+['artcc', 'superhigh', 'high', 'low', 'tracon'].forEach(function(layer) {
+    $('#splits_layer_' + layer).on('change', function() {
+        if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible(layer, this.checked);
+    });
+});
 
 // Load all plan sections in parallel for faster page load
 (function loadAllSections() {

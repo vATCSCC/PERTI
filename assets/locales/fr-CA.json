@@ -2429,7 +2429,12 @@
       "active": "Actif",
       "scheduled": "Planifié",
       "indefinite": "indéfini",
-      "mapLayers": "Couches"
+      "mapLayers": "Couches",
+      "layerArtcc": "ARTCC",
+      "layerHigh": "High",
+      "layerLow": "Low",
+      "layerSuperhigh": "Super High",
+      "layerTracon": "TRACON"
     },
     "enrouteConstraint": {
       "added": "Vous avez ajouté une contrainte en route avec succès.",
@@ -2591,6 +2596,20 @@
       "statusTopDown": "Contrôle descendant",
       "statusYes": "Oui",
       "statusNo": "Non"
+    },
+    "tables": {
+      "groupByArtcc": "Grouper par ARTCC",
+      "groupByRegion": "Grouper par région",
+      "flatView": "Vue à plat",
+      "noConfigs": "Aucune configuration déposée",
+      "noStaffing": "Aucune dotation déposée",
+      "noPersonnel": "Aucun personnel inscrit",
+      "ungrouped": "Autre",
+      "editConfig": "Modifier la configuration",
+      "deleteConfig": "Supprimer la configuration",
+      "editStaffing": "Modifier la dotation",
+      "deleteStaffing": "Supprimer la dotation",
+      "deletePersonnel": "Supprimer le personnel"
     },
     "configTab": {
       "addConfig": "Ajouter une config.",

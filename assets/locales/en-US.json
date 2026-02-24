@@ -2877,7 +2877,12 @@
       "active": "Active",
       "scheduled": "Scheduled",
       "indefinite": "indefinite",
-      "mapLayers": "Layers"
+      "mapLayers": "Layers",
+      "layerArtcc": "ARTCC",
+      "layerHigh": "High",
+      "layerLow": "Low",
+      "layerSuperhigh": "Super High",
+      "layerTracon": "TRACON"
     },
     "enrouteConstraint": {
       "added": "You have successfully added an enroute constraint entry for this plan.",
@@ -3054,6 +3059,7 @@
     },
     "tables": {
       "groupByArtcc": "Group by ARTCC",
+      "groupByRegion": "Group by Region",
       "flatView": "Flat View",
       "noConfigs": "No Configs Filed",
       "noStaffing": "No Staffing Filed",
