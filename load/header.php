@@ -99,11 +99,7 @@ if (strpos($_SERVER['PHP_SELF'], "ids") == false) {
 <script src="<?= $filepath; ?>assets/js/lib/colors.js<?= _v('assets/js/lib/colors.js') ?>"></script>
 <script defer src="<?= $filepath; ?>assets/js/facility-hierarchy.js<?= _v('assets/js/facility-hierarchy.js') ?>"></script>
 
-<!-- Internationalization (i18n) -->
-<script src="<?= $filepath; ?>assets/js/lib/i18n.js<?= _v('assets/js/lib/i18n.js') ?>"></script>
-<script src="<?= $filepath; ?>assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
-
-<!-- Organization Context -->
+<!-- Organization Context (must be before locale loader so {commandCenter} resolves) -->
 <?php
     require_once __DIR__ . '/org_context.php';
     $org_info_header = ['default_locale' => 'en-US'];
@@ -121,6 +117,10 @@ window.PERTI_ORG = {
     orgInfo: <?= json_encode($org_info_header) ?>
 };
 </script>
+
+<!-- Internationalization (i18n) -->
+<script src="<?= $filepath; ?>assets/js/lib/i18n.js<?= _v('assets/js/lib/i18n.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
 
 <script src="<?= $filepath; ?>assets/js/lib/dialog.js<?= _v('assets/js/lib/dialog.js') ?>"></script>
 
