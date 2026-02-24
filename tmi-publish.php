@@ -153,17 +153,17 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 $perm = true;
 ?>
 
-<section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
-    <div class="container-fluid pt-2 pb-4 py-lg-5">
+<section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-4 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
+    <div class="container-fluid pt-1 pb-2 py-lg-3">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>
-            <h1><i class="fas fa-broadcast-tower"></i> <?= __('tmiPublish.page.title') ?></h1>
-            <p class="text-white-50 mb-0"><?= __('tmiPublish.page.subtitle') ?></p>
+            <h4 class="mb-0" style="font-family: 'Inconsolata', 'Consolas', monospace;"><i class="fas fa-broadcast-tower"></i> <?= __('tmiPublish.page.title') ?></h4>
+            <small class="text-white-50"><?= __('tmiPublish.page.subtitle') ?></small>
         </center>
     </div>
 </section>
 
-<div class="container-fluid mt-4 mb-5">
+<div class="container-fluid mt-2 mb-4">
 
     <?php if ($perm): ?>
     
