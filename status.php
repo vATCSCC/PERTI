@@ -4538,7 +4538,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             const phaseCtx = document.getElementById('phaseChart');
             if (phaseCtx) {
                 // Fetch data from API
-                fetch('/api/stats/flight_phase_history.php?hours=24&interval=5')
+                fetch('/api/stats/flight_phase_history.php?hours=24&interval=10')
                     .then(response => {
                         if (!response.ok) throw new Error('API returned ' + response.status);
                         return response.json();
@@ -4616,7 +4616,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.arrived,
                                             backgroundColor: hexToRgba(colors.arrived, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4625,7 +4626,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.disconnected,
                                             backgroundColor: hexToRgba(colors.disconnected, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4634,7 +4636,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.descending,
                                             backgroundColor: hexToRgba(colors.descending, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4643,7 +4646,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.enroute,
                                             backgroundColor: hexToRgba(colors.enroute, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4652,7 +4656,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.departed,
                                             backgroundColor: hexToRgba(colors.departed, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4661,7 +4666,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.taxiing,
                                             backgroundColor: hexToRgba(colors.taxiing, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4670,7 +4676,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.prefile,
                                             backgroundColor: hexToRgba(colors.prefile, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         },
                                         {
@@ -4679,7 +4686,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                             borderColor: colors.unknown,
                                             backgroundColor: hexToRgba(colors.unknown, 0.8),
                                             fill: true,
-                                            tension: 0.3,
+                                            tension: 0.4,
+                                            cubicInterpolationMode: 'monotone',
                                             pointRadius: 0
                                         }
                                     ]
