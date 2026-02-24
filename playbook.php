@@ -24,8 +24,13 @@ include("load/i18n.php");
 include("load/nav.php");
 ?>
 
-<main class="cs-content">
-<section class="container-fluid mt-5 pt-3 pb-2">
+<section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 120px" data-jarallax data-speed="0.3" style="pointer-events: all;">
+    <div class="container-fluid pt-2 pb-3">
+        <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
+    </div>
+</section>
+
+<div class="container-fluid mt-3 px-3 px-lg-4 pb-2">
 
     <div class="row">
         <!-- Left Panel: Catalog Browser -->
@@ -93,8 +98,7 @@ include("load/nav.php");
         </div>
     </div>
 
-</section>
-</main>
+</div>
 
 <!-- Create/Edit Play Modal -->
 <div class="modal fade pb-modal" id="pb_play_modal" tabindex="-1">

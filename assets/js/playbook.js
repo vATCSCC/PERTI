@@ -177,14 +177,30 @@
 
             var html = '';
 
+            // Play metadata
+            var metaParts = [];
+            if (play.category) metaParts.push('<span class="pb-badge pb-badge-category">' + escHtml(play.category) + '</span>');
+            if (play.scenario_type) metaParts.push('<span class="badge badge-secondary" style="font-size:0.7rem;">' + escHtml(play.scenario_type) + '</span>');
+            if (play.source) metaParts.push('<span class="pb-badge pb-badge-' + (play.source || 'dcc').toLowerCase() + '">' + escHtml(play.source) + '</span>');
+            if (play.airac_cycle) metaParts.push('<span style="font-size:0.7rem;color:#888;">AIRAC ' + escHtml(play.airac_cycle) + '</span>');
+            if (metaParts.length) {
+                html += '<div class="d-flex flex-wrap align-items-center mb-1" style="gap:4px;">' + metaParts.join('') + '</div>';
+            }
+
+            // Display name (if different from play_name)
+            if (play.display_name && play.display_name !== play.play_name) {
+                html += '<div style="font-size:0.85rem;font-weight:600;margin-bottom:4px;">' + escHtml(play.display_name) + '</div>';
+            }
+
             // Description
             if (play.description) {
                 html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
             }
 
-            // Facilities
-            if (play.facilities_involved) {
-                html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(play.facilities_involved) + '</div>';
+            // Facilities / Impacted area
+            if (play.facilities_involved || play.impacted_area) {
+                var facDisplay = play.impacted_area || play.facilities_involved;
+                html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(facDisplay) + '</div>';
             }
 
             // Route table
@@ -194,22 +210,34 @@
                 html += '<span style="font-size:0.7rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
                 html += '</div>';
 
-                html += '<div class="table-responsive" style="max-height:300px;overflow-y:auto;">';
+                html += '<div class="table-responsive" style="max-height:400px;overflow-y:auto;">';
                 html += '<table class="pb-route-table"><thead><tr>';
                 html += '<th class="pb-route-check"><input type="checkbox" id="pb_check_all"></th>';
-                html += '<th>' + t('playbook.origin') + '</th>';
-                html += '<th>' + t('playbook.destination') + '</th>';
+                html += '<th>Origin</th>';
+                html += '<th>TRACON</th>';
+                html += '<th>ARTCC</th>';
                 html += '<th>' + t('playbook.routeString') + '</th>';
+                html += '<th>Dest</th>';
+                html += '<th>TRACON</th>';
+                html += '<th>ARTCC</th>';
                 html += '</tr></thead><tbody>';
 
                 routes.forEach(function(r) {
-                    var origDisplay = r.origin || csvSplit(r.origin_airports).join(',') || '-';
-                    var destDisplay = r.dest || csvSplit(r.dest_airports).join(',') || '-';
+                    var origApt = r.origin_airports || r.origin || '-';
+                    var origTracon = r.origin_tracons || '-';
+                    var origArtcc = r.origin_artccs || '-';
+                    var destApt = r.dest_airports || r.dest || '-';
+                    var destTracon = r.dest_tracons || '-';
+                    var destArtcc = r.dest_artccs || '-';
                     html += '<tr data-route-id="' + r.route_id + '">';
                     html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"></td>';
-                    html += '<td>' + escHtml(origDisplay) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
-                    html += '<td>' + escHtml(destDisplay) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
+                    html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
+                    html += '<td>' + escHtml(origTracon) + '</td>';
+                    html += '<td>' + escHtml(origArtcc) + '</td>';
                     html += '<td>' + escHtml(r.route_string) + '</td>';
+                    html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
+                    html += '<td>' + escHtml(destTracon) + '</td>';
+                    html += '<td>' + escHtml(destArtcc) + '</td>';
                     html += '</tr>';
                 });
 
