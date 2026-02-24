@@ -152,6 +152,15 @@ function loadOutlook() {
     });
 }
 
+// Lazy-load splits overview on first tab visit
+var _splitsTabLoaded = false;
+$('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
+    if (!_splitsTabLoaded) {
+        _splitsTabLoaded = true;
+        PlanTables.loadSplitsOverview();
+    }
+});
+
 // Load all plan sections in parallel for faster page load
 (function loadAllSections() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
@@ -3218,7 +3227,7 @@ function opsPlanUpdateMessage() {
 
         let line = startTime + '-' + endTime + ' ' + loc;
         if (cause) {line += ' ' + opsPlanUpper(cause);}
-        if (impact) {line += ' [' + opsPlanUpper(impact) + ']';}
+        if (impact) {line += ' (' + opsPlanUpper(impact) + ')';}
         termConstraintLines.push(line);
     });
 
@@ -3252,7 +3261,7 @@ function opsPlanUpdateMessage() {
 
         let line = startTime + '-' + endTime + ' ' + loc;
         if (cause) {line += ' ' + opsPlanUpper(cause);}
-        if (impact) {line += ' [' + opsPlanUpper(impact) + ']';}
+        if (impact) {line += ' (' + opsPlanUpper(impact) + ')';}
         enrouteConstraintLines.push(line);
     });
 
@@ -3293,12 +3302,22 @@ function opsPlanUpdateMessage() {
 
         let desc = parts.join(' ');
 
-        // Add cause in brackets if present
-        if (item.cause) {
-            desc += ' [' + opsPlanUpper(item.cause) + ']';
-        }
-
         return desc;
+    }
+
+    // Multi-key comparator: start time, probability (Active>Expected>Probable>Possible>CDW), cause, facility, end time
+    var opsPlanProbOrder = {Active: 0, Expected: 1, Probable: 2, Possible: 3, CDW: 4};
+    function opsPlanCompareTimeline(a, b) {
+        var cmp = (a.start_datetime || '').localeCompare(b.start_datetime || '');
+        if (cmp !== 0) return cmp;
+        var pa = opsPlanProbOrder[a.level] !== undefined ? opsPlanProbOrder[a.level] : 5;
+        var pb = opsPlanProbOrder[b.level] !== undefined ? opsPlanProbOrder[b.level] : 5;
+        if (pa !== pb) return pa - pb;
+        cmp = (a.cause || '').toUpperCase().localeCompare((b.cause || '').toUpperCase());
+        if (cmp !== 0) return cmp;
+        cmp = (a.facility || '').toUpperCase().localeCompare((b.facility || '').toUpperCase());
+        if (cmp !== 0) return cmp;
+        return (a.end_datetime || '').localeCompare(b.end_datetime || '');
     }
 
     // Helper: Build TMI lines from timeline data
@@ -3310,23 +3329,23 @@ function opsPlanUpdateMessage() {
             return levelFilter.indexOf(item.level) !== -1;
         });
 
-        // Sort by start time
-        filtered.sort(function(a, b) {
-            return (a.start_datetime || '').localeCompare(b.start_datetime || '');
-        });
+        // Sort by: start time, probability (Active>Expected>Probable>Possible>CDW), cause, facility, end time
+        filtered.sort(opsPlanCompareTimeline);
 
         filtered.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
             const endTime = opsPlanFormatTmiTime(item.end_datetime);
             const desc = opsPlanBuildTmiDesc(item);
 
-            // For planned items (Possible/Probable/Expected), include probability
+            // Probability label before cause
             let probLabel = '';
             if (item.level === 'Possible') {probLabel = PERTII18n.t('plan.opsPlan.possible');}
             else if (item.level === 'Probable') {probLabel = PERTII18n.t('plan.opsPlan.probable');}
             else if (item.level === 'Expected') {probLabel = PERTII18n.t('plan.opsPlan.expected');}
+            else if (item.level === 'CDW') {probLabel = PERTII18n.t('plan.opsPlan.cdw');}
 
-            const line = startTime + '-' + endTime + ' -' + desc + probLabel;
+            let line = startTime + '-' + endTime + ' -' + desc + probLabel;
+            if (item.cause) {line += ' (' + opsPlanUpper(item.cause) + ')';}
             result.push(line);
         });
 
@@ -3342,9 +3361,7 @@ function opsPlanUpdateMessage() {
             return levelFilter.indexOf(item.level) !== -1;
         });
 
-        filtered.sort(function(a, b) {
-            return (a.start_datetime || '').localeCompare(b.start_datetime || '');
-        });
+        filtered.sort(opsPlanCompareTimeline);
 
         filtered.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
@@ -3361,7 +3378,7 @@ function opsPlanUpdateMessage() {
             desc += advzyNum;
 
             if (item.cause) {
-                desc += ' [' + opsPlanUpper(item.cause) + ']';
+                desc += ' (' + opsPlanUpper(item.cause) + ')';
             }
 
             const line = startTime + '-' + endTime + ' -' + desc;
@@ -3380,9 +3397,7 @@ function opsPlanUpdateMessage() {
             return levelFilter.indexOf(item.level) !== -1;
         });
 
-        filtered.sort(function(a, b) {
-            return (a.start_datetime || '').localeCompare(b.start_datetime || '');
-        });
+        filtered.sort(opsPlanCompareTimeline);
 
         filtered.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
@@ -3398,9 +3413,9 @@ function opsPlanUpdateMessage() {
             if (item.area) {desc += ' ' + opsPlanUpper(item.area);}
 
             if (item.notes) {
-                desc += ' [' + opsPlanUpper(item.notes) + ']';
+                desc += ' (' + opsPlanUpper(item.notes) + ')';
             } else if (item.cause) {
-                desc += ' [' + opsPlanUpper(item.cause) + ']';
+                desc += ' (' + opsPlanUpper(item.cause) + ')';
             }
 
             const line = startTime + '-' + endTime + ' -' + desc;

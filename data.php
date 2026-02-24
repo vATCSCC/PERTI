@@ -45,6 +45,28 @@ include("sessions/handler.php");
 
     <script>
         var plan_id = <?= $id ?>;
+        var PERTI_EVENT_DATE     = <?= json_encode($plan_info['event_date']); ?>;
+        var PERTI_EVENT_START    = <?= json_encode($plan_info['event_start']); ?>;
+        var PERTI_EVENT_END_DATE = <?= json_encode($plan_info['event_end_date'] ?? ''); ?>;
+        var PERTI_EVENT_END_TIME = <?= json_encode($plan_info['event_end_time'] ?? ''); ?>;
+        var PERTI_EVENT_START_ISO = null;
+        var PERTI_EVENT_END_ISO = null;
+        (function() {
+            if (PERTI_EVENT_DATE && PERTI_EVENT_START) {
+                var startTime = PERTI_EVENT_START.padStart(4, '0');
+                PERTI_EVENT_START_ISO = PERTI_EVENT_DATE + 'T' + startTime.substring(0,2) + ':' + startTime.substring(2,4) + ':00Z';
+            }
+            var endDate = PERTI_EVENT_END_DATE || PERTI_EVENT_DATE;
+            var endTime = PERTI_EVENT_END_TIME || '';
+            if (endDate && endTime.length >= 4) {
+                endTime = endTime.padStart(4, '0');
+                PERTI_EVENT_END_ISO = endDate + 'T' + endTime.substring(0,2) + ':' + endTime.substring(2,4) + ':00Z';
+            } else if (PERTI_EVENT_START_ISO) {
+                var startDt = new Date(PERTI_EVENT_START_ISO);
+                var endDt = new Date(startDt.getTime() + 6 * 60 * 60 * 1000);
+                PERTI_EVENT_END_ISO = endDt.toISOString();
+            }
+        })();
     </script>
 
     <link rel="stylesheet" href="assets/css/initiative_timeline.css<?= _v('assets/css/initiative_timeline.css') ?>">
@@ -88,6 +110,7 @@ include('load/nav_public.php');
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_splits"><?= __('plan.tabs.enrouteSplits') ?></a></li>
                 </ul>
             </div>
             <div class="col-10">
@@ -239,6 +262,21 @@ include('load/nav_public.php');
                             </thead>
                             <tbody id="enroute_staffing_table"></tbody>
                         </table></center>
+                    </div>
+
+                    <!-- Tab: Enroute Splits -->
+                    <div class="tab-pane fade" id="e_splits">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><?= __('plan.splits.title') ?></h5>
+                            <a href="./splits" class="btn btn-sm btn-outline-primary" target="_blank">
+                                <i class="fas fa-external-link-alt mr-1"></i><?= __('plan.splits.configureSplits') ?>
+                            </a>
+                        </div>
+                        <div id="plan_splits_container">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-spinner fa-spin"></i> <?= __('common.loading') ?>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -454,5 +492,15 @@ include("load/footer.php");
 <!-- Insert plan-tables.js + sheet.js Scripts -->
 <script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
 <script src="assets/js/sheet.js<?= _v('assets/js/sheet.js') ?>"></script>
+<script>
+// Lazy-load splits overview on first tab visit
+var _splitsTabLoaded = false;
+$('a[data-toggle="tab"][href="#e_splits"]').on('shown.bs.tab', function() {
+    if (!_splitsTabLoaded) {
+        _splitsTabLoaded = true;
+        PlanTables.loadSplitsOverview();
+    }
+});
+</script>
 
 </html>

@@ -641,6 +641,143 @@
     // Export
     // ==============================
 
+    // ==============================
+    // Splits Overview (read-only summary for plan/data pages)
+    // ==============================
+
+    var _splitsLoaded = false;
+
+    function loadSplitsOverview() {
+        var container = document.getElementById('plan_splits_container');
+        if (!container) return Promise.resolve();
+
+        // Build URL with event-period overlap filter when available
+        var url = 'api/splits/active.php?include_scheduled=1';
+        var eventStart = (typeof PERTI_EVENT_START_ISO !== 'undefined') ? PERTI_EVENT_START_ISO : null;
+        var eventEnd = (typeof PERTI_EVENT_END_ISO !== 'undefined') ? PERTI_EVENT_END_ISO : null;
+        if (eventStart && eventEnd) {
+            url += '&from=' + encodeURIComponent(eventStart) + '&to=' + encodeURIComponent(eventEnd);
+        }
+
+        return $.getJSON(url).done(function(data) {
+            var configs = data.configs || [];
+            _splitsLoaded = true;
+
+            if (configs.length === 0) {
+                container.innerHTML =
+                    '<div class="text-center text-muted py-4">' +
+                    '<i class="fas fa-info-circle mr-1"></i> ' +
+                    t('plan.splits.noActiveConfigs') +
+                    '</div>';
+                return;
+            }
+
+            renderSplitsCards(container, configs);
+        }).fail(function() {
+            if (container) {
+                container.innerHTML =
+                    '<div class="text-center text-danger py-4">' +
+                    '<i class="fas fa-exclamation-triangle mr-1"></i> ' +
+                    t('plan.splits.loadError') +
+                    '</div>';
+            }
+        });
+    }
+
+    function renderSplitsCards(container, configs) {
+        // Group by ARTCC
+        var byArtcc = {};
+        configs.forEach(function(cfg) {
+            var artcc = cfg.artcc || 'Unknown';
+            if (!byArtcc[artcc]) byArtcc[artcc] = [];
+            byArtcc[artcc].push(cfg);
+        });
+
+        var html = '<div class="row">';
+        var artccs = Object.keys(byArtcc).sort();
+
+        artccs.forEach(function(artcc) {
+            var artccConfigs = byArtcc[artcc];
+            var artccLabel = getArtccName(artcc);
+
+            html += '<div class="col-md-6 col-lg-4 mb-3">';
+            html += '<div class="card h-100">';
+            html += '<div class="card-header py-2 d-flex justify-content-between align-items-center">';
+            html += '<strong>' + artccLabel + '</strong>';
+            html += '<span class="badge badge-secondary">' + artcc + '</span>';
+            html += '</div>';
+            html += '<div class="card-body py-2">';
+
+            artccConfigs.forEach(function(cfg, idx) {
+                if (idx > 0) html += '<hr class="my-2">';
+
+                // Config header: name + status badge + timing
+                var statusClass = cfg.status === 'active' ? 'badge-success' : 'badge-info';
+                var statusLabel = cfg.status === 'active' ? t('plan.splits.active') : t('plan.splits.scheduled');
+
+                html += '<div class="d-flex justify-content-between align-items-center mb-1">';
+                html += '<span class="font-weight-bold">' + escapeHtml(cfg.config_name) + '</span>';
+                html += '<span class="badge ' + statusClass + '">' + statusLabel + '</span>';
+                html += '</div>';
+
+                // Timing
+                if (cfg.start_time_utc || cfg.end_time_utc) {
+                    var start = cfg.start_time_utc ? formatSplitsTime(cfg.start_time_utc) : '';
+                    var end = cfg.end_time_utc ? formatSplitsTime(cfg.end_time_utc) : '';
+                    if (start || end) {
+                        html += '<div class="text-muted small mb-1">';
+                        html += '<i class="fas fa-clock mr-1"></i>';
+                        html += (start || '?') + ' - ' + (end || t('plan.splits.indefinite'));
+                        html += '</div>';
+                    }
+                }
+
+                // Positions
+                var positions = cfg.positions || [];
+                if (positions.length === 0) {
+                    html += '<div class="text-muted small">' + t('plan.splits.noPositions') + '</div>';
+                } else {
+                    html += '<div class="d-flex flex-wrap">';
+                    positions.forEach(function(pos) {
+                        var sectorCount = (pos.sectors || []).length;
+                        var color = pos.color || '#808080';
+                        html += '<span class="mr-3 mb-1 small" title="' + sectorCount + ' ' + t('plan.splits.sectors') + '">';
+                        html += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';margin-right:4px;vertical-align:middle;"></span>';
+                        html += escapeHtml(pos.position_name);
+                        html += ' <span class="text-muted">(' + sectorCount + ')</span>';
+                        html += '</span>';
+                    });
+                    html += '</div>';
+                }
+            });
+
+            html += '</div></div></div>';
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function formatSplitsTime(isoStr) {
+        if (!isoStr) return '';
+        try {
+            var d = new Date(isoStr.endsWith('Z') ? isoStr : isoStr + 'Z');
+            if (isNaN(d.getTime())) return isoStr;
+            var hh = String(d.getUTCHours()).padStart(2, '0');
+            var mm = String(d.getUTCMinutes()).padStart(2, '0');
+            return hh + mm + 'Z';
+        } catch (e) {
+            return isoStr;
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+
     global.PlanTables = {
         init,
         state,
@@ -657,6 +794,9 @@
         renderEnrouteStaffing,
         renderDCCPersonnel,
         renderDCCFacility,
+
+        // Splits overview (read-only)
+        loadSplitsOverview,
 
         // Utility
         resolveGroup,

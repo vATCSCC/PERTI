@@ -818,7 +818,7 @@ function buildStructuredOpsPlan($plan) {
     // --- SIR REPORTS ---
     $sections[] = "RUNWAY/EQUIPMENT/POSSIBLE SYSTEM IMPACT REPORTS (SIRs):\nNONE";
 
-    return implode("\n", $sections);
+    return implode("\n\n", $sections);
 }
 
 /**
@@ -837,9 +837,19 @@ function buildOpsPlanSection($header, $timeline, $levels, $style = 'tmi') {
         return in_array($e['level'], $levels);
     });
 
-    // Sort by start datetime
-    usort($filtered, function($a, $b) {
-        return strcmp($a['startDatetime'] ?? '', $b['startDatetime'] ?? '');
+    // Sort by: start time, probability (Active>Expected>Probable>Possible>CDW), cause, facility, end time
+    $probOrder = ['Active' => 0, 'Expected' => 1, 'Probable' => 2, 'Possible' => 3, 'CDW' => 4];
+    usort($filtered, function($a, $b) use ($probOrder) {
+        $cmp = strcmp($a['startDatetime'] ?? '', $b['startDatetime'] ?? '');
+        if ($cmp !== 0) return $cmp;
+        $pa = $probOrder[$a['level']] ?? 5;
+        $pb = $probOrder[$b['level']] ?? 5;
+        if ($pa !== $pb) return $pa - $pb;
+        $cmp = strcmp(strtoupper($a['cause'] ?? ''), strtoupper($b['cause'] ?? ''));
+        if ($cmp !== 0) return $cmp;
+        $cmp = strcmp(strtoupper($a['facility'] ?? ''), strtoupper($b['facility'] ?? ''));
+        if ($cmp !== 0) return $cmp;
+        return strcmp($a['endDatetime'] ?? '', $b['endDatetime'] ?? '');
     });
 
     foreach ($filtered as $entry) {
@@ -857,27 +867,34 @@ function buildOpsPlanSection($header, $timeline, $levels, $style = 'tmi') {
 
         if ($style === 'special') {
             if ($area) $desc .= ' ' . $area;
-            if ($notes) {
-                $desc .= ' [' . $notes . ']';
-            } elseif ($cause) {
-                $desc .= ' [' . $cause . ']';
-            }
         } elseif ($style === 'advisory') {
             if ($advzy) $desc .= ' ADVZY ' . strtoupper($advzy);
-            if ($cause) $desc .= ' [' . $cause . ']';
         } else {
             // tmi style
             if ($area) $desc .= ' ' . $area;
-            if ($cause) $desc .= ' [' . $cause . ']';
         }
 
-        // Probability label for planned items
+        // Probability label before cause
         $probLabel = '';
         if ($entry['level'] === 'Possible') $probLabel = ' POSSIBLE';
         elseif ($entry['level'] === 'Probable') $probLabel = ' PROBABLE';
         elseif ($entry['level'] === 'Expected') $probLabel = ' EXPECTED';
+        elseif ($entry['level'] === 'CDW') $probLabel = ' CDW';
 
-        $lines[] = $start . '-' . $end . ' -' . $desc . $probLabel;
+        $desc .= $probLabel;
+
+        // Cause/notes in parentheses after probability
+        if ($style === 'special') {
+            if ($notes) {
+                $desc .= ' (' . $notes . ')';
+            } elseif ($cause) {
+                $desc .= ' (' . $cause . ')';
+            }
+        } elseif ($cause) {
+            $desc .= ' (' . $cause . ')';
+        }
+
+        $lines[] = $start . '-' . $end . ' -' . $desc;
     }
 
     if (count($lines) === 1) $lines[] = 'NONE';
