@@ -70,6 +70,75 @@
     // ==============================
 
     /**
+     * Try to resolve a code to parent ARTCC via multiple strategies
+     * @param {string} raw - Raw code string
+     * @returns {string|null} - ARTCC code or null
+     */
+    function tryResolveArtcc(raw) {
+        if (!raw) return null;
+        // 1. Direct lookup (handles ARTCC codes, TRACON codes, ICAO airports)
+        let artcc = FacilityHierarchy.getParentArtcc(raw);
+        if (artcc) return artcc;
+        // 2. Resolve aliases (ZEG→CZEG, ZVR→CZVR, etc.)
+        const resolved = FacilityHierarchy.resolveAlias(raw);
+        if (resolved !== raw) {
+            artcc = FacilityHierarchy.getParentArtcc(resolved);
+            if (artcc) return artcc;
+        }
+        // 3. Normalize as ICAO (YYZ→CYYZ, ANC→PANC, HNL→PHNL, SJU→TJSJ, ATL→KATL)
+        if (raw.length === 3 || raw.length === 4) {
+            const icao = FacilityHierarchy.normalizeIcao(raw);
+            if (icao && icao !== raw) {
+                artcc = FacilityHierarchy.getParentArtcc(icao);
+                if (artcc) return artcc;
+            }
+        }
+        // 4. FIR lookup for international airports
+        const firInfo = FacilityHierarchy.getFIR(
+            raw.length === 3 ? FacilityHierarchy.normalizeIcao(raw) : raw
+        );
+        if (firInfo && firInfo.fir) return firInfo.fir;
+        return null;
+    }
+
+    /**
+     * Extract facility code(s) from freetext and try to resolve each
+     * Handles: "SCT - SoCal TRACON", "ZLA", "ZLA - Los Angeles ARTCC", "N90", etc.
+     * @param {string} text - Freetext facility name
+     * @returns {string|null} - ARTCC code or null
+     */
+    function extractAndResolve(text) {
+        if (!text) return null;
+        const upper = text.toUpperCase().trim();
+        // Strategy 1: Try the prefix before " - " (most common format: "ZLA - Los Angeles ARTCC")
+        const dashParts = upper.split(/\s*-\s*/);
+        const prefix = dashParts[0].trim();
+        // Take first word of prefix in case of multi-word prefix
+        const firstWord = prefix.split(/\s+/)[0];
+        let artcc = tryResolveArtcc(firstWord);
+        if (artcc) return artcc;
+        // Strategy 2: Try the full prefix (in case it's multi-word like "CZYZ")
+        if (firstWord !== prefix) {
+            artcc = tryResolveArtcc(prefix);
+            if (artcc) return artcc;
+        }
+        // Strategy 3: Try the raw text itself (short entries like "ZLA", "SCT")
+        if (upper !== firstWord) {
+            artcc = tryResolveArtcc(upper);
+            if (artcc) return artcc;
+        }
+        // Strategy 4: Scan all words for a recognizable facility code
+        const words = upper.replace(/[^A-Z0-9\s]/g, '').split(/\s+/);
+        for (const word of words) {
+            if (word.length >= 2 && word.length <= 4) {
+                artcc = tryResolveArtcc(word);
+                if (artcc) return artcc;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Resolve a facility/airport code to its parent ARTCC group
      * @param {string} code - Airport code (BWI, CYYZ), TRACON code (SCT), ARTCC code (ZLA), or FIR code
      * @param {string} type - 'airport'|'terminal'|'enroute'|'dcc'
@@ -84,29 +153,14 @@
         let artcc = null;
 
         if (type === 'airport') {
-            // Airport codes: 3-letter (BWI → KBWI) or 4-letter ICAO (CYYZ)
-            if (upper.length === 3) {
-                artcc = FacilityHierarchy.getParentArtcc('K' + upper);
-                if (!artcc) artcc = FacilityHierarchy.getParentArtcc(upper);
-            } else if (upper.length === 4) {
-                artcc = FacilityHierarchy.getParentArtcc(upper);
-            }
-            // Fallback: try international FIR lookup
-            if (!artcc) {
-                const firInfo = FacilityHierarchy.getFIR(upper.length === 3 ? 'K' + upper : upper);
-                if (firInfo && firInfo.fir) artcc = firInfo.fir;
-            }
-        } else if (type === 'terminal') {
-            // Terminal staffing: freetext like "SCT - SoCal TRACON" or "SCT"
-            const prefix = upper.split(/\s*-\s*/)[0].trim().split(/\s+/)[0];
-            artcc = FacilityHierarchy.getParentArtcc(prefix);
-        } else if (type === 'enroute') {
-            // En route staffing: "ZLA - Los Angeles ARTCC" or "ZLA"
-            const prefix = upper.split(/\s*-\s*/)[0].trim();
-            artcc = FacilityHierarchy.getParentArtcc(prefix);
+            // Airport codes: 3-letter IATA (BWI, YYZ, ANC) or 4-letter ICAO (CYYZ, PANC)
+            artcc = tryResolveArtcc(upper);
+        } else if (type === 'terminal' || type === 'enroute') {
+            // Freetext: "SCT - SoCal TRACON", "ZLA - Los Angeles ARTCC", "N90", etc.
+            artcc = extractAndResolve(upper);
         } else if (type === 'dcc') {
-            // DCC facility staffing: direct ARTCC/FIR codes (ZDC, CZYZ)
-            artcc = FacilityHierarchy.getParentArtcc(upper);
+            // Direct ARTCC/FIR codes (ZDC, CZYZ, ZEG) with alias resolution
+            artcc = tryResolveArtcc(upper);
         }
 
         if (!artcc) {
