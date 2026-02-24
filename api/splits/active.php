@@ -20,13 +20,45 @@ if (!$conn_adl) {
 // Active means: status='active' AND currently within the time window
 // - start_time_utc must be NULL (immediate) or in the past/present
 // - end_time_utc must be NULL (indefinite) or in the future
+// Optional filters: ?artcc=ZDC, ?include_scheduled=1, ?from=ISO&to=ISO (event overlap)
+$params = [];
+
+// Build status + time filter
+$includeScheduled = !empty($_GET['include_scheduled']);
+$hasEventWindow = !empty($_GET['from']) && !empty($_GET['to']);
+
+if ($hasEventWindow) {
+    // Event-period overlap: config overlaps [from, to] window
+    // Overlap = config.start <= event.end AND config.end >= event.start (NULL = unbounded)
+    $statusList = $includeScheduled ? "('active', 'scheduled')" : "('active')";
+    $statusTimeFilter = "status IN $statusList
+        AND (start_time_utc IS NULL OR start_time_utc <= ?)
+        AND (end_time_utc IS NULL OR end_time_utc >= ?)";
+    $params[] = $_GET['to'];
+    $params[] = $_GET['from'];
+} elseif ($includeScheduled) {
+    $statusTimeFilter = "(
+        (status = 'active' AND (start_time_utc IS NULL OR start_time_utc <= GETUTCDATE()))
+        OR status = 'scheduled'
+    ) AND (end_time_utc IS NULL OR end_time_utc > GETUTCDATE())";
+} else {
+    $statusTimeFilter = "status = 'active'
+        AND (start_time_utc IS NULL OR start_time_utc <= GETUTCDATE())
+        AND (end_time_utc IS NULL OR end_time_utc > GETUTCDATE())";
+}
+
+$artccFilter = '';
+if (!empty($_GET['artcc'])) {
+    $artccFilter = ' AND artcc = ?';
+    $params[] = strtoupper(trim($_GET['artcc']));
+}
+
 $sql = "SELECT id, artcc, config_name, status, start_time_utc, end_time_utc
         FROM splits_configs
-        WHERE status = 'active'
-          AND (start_time_utc IS NULL OR start_time_utc <= GETUTCDATE())
-          AND (end_time_utc IS NULL OR end_time_utc > GETUTCDATE())
+        WHERE $statusTimeFilter
+          $artccFilter
         ORDER BY artcc";
-$stmt = sqlsrv_query($conn_adl, $sql);
+$stmt = sqlsrv_query($conn_adl, $sql, !empty($params) ? $params : []);
 
 if ($stmt === false) {
     http_response_code(500);

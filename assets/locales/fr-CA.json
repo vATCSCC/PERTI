@@ -2417,7 +2417,18 @@
       "edited": "Vous avez modifié une entrée de planification en route avec succès.",
       "editError": "Une erreur est survenue lors de la modification d’une entrée de planification en route.",
       "deleted": "Vous avez supprimé une entrée de planification en route avec succès.",
-      "deleteError": "Une erreur est survenue lors de la suppression d’une entrée de planification en route."
+      "deleteError": "Une erreur est survenue lors de la suppression d'une entrée de planification en route."
+    },
+    "splits": {
+      "title": "Découpage sectoriel en route",
+      "configureSplits": "Configurer le découpage",
+      "noActiveConfigs": "Aucune configuration de découpage active",
+      "loadError": "Échec du chargement des configurations de découpage",
+      "noPositions": "Aucune position définie",
+      "sectors": "secteurs",
+      "active": "Actif",
+      "scheduled": "Planifié",
+      "indefinite": "indéfini"
     },
     "enrouteConstraint": {
       "added": "Vous avez ajouté une contrainte en route avec succès.",
@@ -2476,6 +2487,7 @@
       "enrouteInitiatives": "Initiatives en route",
       "enrouteStaffing": "Dotation en route",
       "enroutePlanning": "Planification en route",
+      "enrouteSplits": "Découpage en route",
       "groupFlights": "Vols de groupe",
       "outlook": "Perspectives prolongées",
       "advisories": "Générateur d’avis"
@@ -2721,6 +2733,7 @@
       "possible": " POSSIBLE",
       "probable": " PROBABLE",
       "expected": " EXPECTED",
+      "cdw": " CDW",
       "partLabel": "(PARTIE {part} SUR {total})"
     },
     "pertiNotification": {

@@ -199,6 +199,7 @@ if ($org_mismatch):
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_initiatives"><?= __('plan.tabs.enrouteInitiatives') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing"><?= __('plan.tabs.enrouteStaffing') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_planning"><?= __('plan.tabs.enroutePlanning') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_splits"><?= __('plan.tabs.enrouteSplits') ?></a></li>
                     <hr>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#group_flights"><?= __('plan.tabs.groupFlights') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#outlook"><?= __('plan.tabs.outlook') ?></a></li>
@@ -533,6 +534,21 @@ if ($org_mismatch):
                         <?php } ?>
 
                         <div class="row gutters-tiny py-20" id="enrouteplanningdata"></div>
+                    </div>
+
+                    <!-- Tab: Enroute Splits -->
+                    <div class="tab-pane fade" id="e_splits">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><?= __('plan.splits.title') ?></h5>
+                            <a href="./splits" class="btn btn-sm btn-outline-primary" target="_blank">
+                                <i class="fas fa-external-link-alt mr-1"></i><?= __('plan.splits.configureSplits') ?>
+                            </a>
+                        </div>
+                        <div id="plan_splits_container">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-spinner fa-spin"></i> <?= __('common.loading') ?>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Tab: Group Flights -->

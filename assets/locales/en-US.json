@@ -2867,6 +2867,17 @@
       "deleted": "You have successfully deleted an enroute planning entry for this plan.",
       "deleteError": "There was an error in deleting an enroute planning entry for this plan."
     },
+    "splits": {
+      "title": "En-Route Sector Splits",
+      "configureSplits": "Configure Splits",
+      "noActiveConfigs": "No active split configurations",
+      "loadError": "Failed to load split configurations",
+      "noPositions": "No positions defined",
+      "sectors": "sectors",
+      "active": "Active",
+      "scheduled": "Scheduled",
+      "indefinite": "indefinite"
+    },
     "enrouteConstraint": {
       "added": "You have successfully added an enroute constraint entry for this plan.",
       "addError": "There was an error in adding an enroute constraint entry for this plan.",
@@ -2924,6 +2935,7 @@
       "enrouteInitiatives": "En-Route Initiatives",
       "enrouteStaffing": "En-Route Staffing",
       "enroutePlanning": "En-Route Planning",
+      "enrouteSplits": "En-Route Splits",
       "groupFlights": "Group Flights",
       "outlook": "Extended Outlook",
       "advisories": "Advisory Builder"
@@ -3184,6 +3196,7 @@
       "possible": " POSSIBLE",
       "probable": " PROBABLE",
       "expected": " EXPECTED",
+      "cdw": " CDW",
       "partLabel": "(PART {part} OF {total})"
     },
     "pertiNotification": {
