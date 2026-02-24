@@ -6405,7 +6405,9 @@ function getHashColor(str) {
             entryType: 'CONFIG',
             data: collected.data,
             preview: message,
-            orgs: ['vatcscc'],
+            orgs: window.PERTI_ORG && window.PERTI_ORG.global
+                ? window.PERTI_ORG.allOrgs.filter(o => o !== 'global')
+                : [window.PERTI_ORG ? window.PERTI_ORG.code : 'vatcscc'],
             timestamp: new Date().toISOString()
         };
 
