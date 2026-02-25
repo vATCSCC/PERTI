@@ -76,6 +76,70 @@ This document tracks significant changes to PERTI across versions.
   - Legacy admin migration scripts (`migrate_public_routes.php`, `migrate_reroutes.php`, etc.)
   - `test_star_parsing.php`
 
+#### vATCSCC Playbook System (PRs #75-84)
+
+- **Playbook Page** (`/playbook.php`) - Pre-coordinated route play catalog and management
+- Play CRUD with FAA and DCC source categories (standard/split route formats)
+- MapLibre GL route visualization with sector boundary overlays
+- Shareable playbook links with `?play=NAME` URL parameter
+- Play duplication with `_MODIFIED` suffix for creating variants
+- Bulk paste with ECFMP/CANOC source auto-detection
+- DCC play expansion on route.php with GIS route geometry
+- Client-side filtering by region, category, and status
+- Route remarks field for TMU annotations
+- Playbook changelog with full audit trail
+- Database: `playbook_plays`, `playbook_routes`, `playbook_changelog` tables in perti_site MySQL
+
+#### Canadian FIR Sector Expansion (PRs #79-84)
+
+- **CZYZ** (Toronto) - Low, high, superhigh sector boundaries
+- **CZWG** (Winnipeg) - Sector boundaries with ESE conversion
+- **CZEG** (Edmonton) - Sector boundaries
+- **CZUL** (Montreal) - Sector boundaries
+- **CZVR** (Vancouver) - Sector boundaries
+- **CZQM** (Moncton) - 5 low + 27 high = 32 sectors
+- **CZQX** (Gander) - 3 low + 39 high = 42 sectors
+- Generalized ESE-to-GeoJSON converter handling terminal keywords (RADIO, UNICOM, NO-CONTROL, TRANSITION) and LF-prefix airports
+- Total sector boundaries: 1,379 (1,002 US + 377 Canadian)
+
+#### Splits Enhancements (PRs #73, #84)
+
+- **Scheduled splits layer** with low/high/superhigh strata filtering
+- Sector map visualization on `splits.php` and plan page Splits tab
+- Personnel tables for staffing assignments
+- Region grouping for multi-ARTCC operations
+- Splits tab added to PERTI plan pages
+
+#### Ops Plan & Plan Page Enhancements (PRs #67-73)
+
+- **Structured FAA-format Ops Plan** with formatted output sections
+- Sortable columns in plan page tables (staffing, configs, initiatives)
+- ARTCC grouping in plan tables for multi-facility events
+- Ops Plan tab with structured output for DCC operations
+- Initiative timeline improvements (facility word-wrap, rotated time axis labels)
+- Auto-select inferred config modifiers, stacked ARR/DEP display
+
+#### Multi-Organization Support (PRs #68-72)
+
+- Org-scoped facility authorization for TMI and JATOC endpoints
+- Multi-org Discord posting via `tmi_discord_posts` queue
+- CANOC and ECFMP flow measure sources integrated
+- Org-aware i18n locale with `{commandCenter}` template resolution
+- `PERTI_ORG` config loaded before locale system
+
+#### TMI Publisher Enhancements (PR #69)
+
+- TMI Publisher visible in nav for all authenticated users
+- Compact layout with monospace fonts for NTML formatting
+- Org-scoped Discord notification with role mentions
+
+#### Additional i18n Coverage
+
+- **fr-CA** locale (near-complete French Canadian translation)
+- **en-CA** and **en-EU** locale overlays
+- i18n integrated across 28 PHP pages and 13+ JS modules
+- BC Canadian airports added to demand page
+
 ### Bug Fixes
 
 - Fix: PERTI_MYSQL_ONLY removed from `config_data/` endpoints that use Azure SQL (PR #17 hotfix)
@@ -84,6 +148,12 @@ This document tracks significant changes to PERTI across versions.
 - Fix: Missing MapLibre GL and i18n dependencies on review and demand pages
 - Fix: NOD loads i18n scripts required by merged main branch code
 - Fix: i18n key inconsistencies resolved in en-US.json
+- Fix: jQuery `.toggle()` on `<tr>` sets `display:block` — use explicit `display:table-row` (PR #76)
+- Fix: Playbook login/session handling and navbar visibility
+- Fix: Canadian FIR misclassification (oceanic vs domestic) for CZQM/CZQX
+- Fix: Initiative timeline facility word-wrap on `/` characters
+- Fix: Homepage table column alignment with `table-layout:fixed`
+- Fix: Duplicate i18n PHP include causing class redeclaration
 
 ### Infrastructure Changes
 
@@ -320,9 +390,11 @@ This document tracks significant changes to PERTI across versions.
 
 1. Apply NOD flow migrations: `database/migrations/nod/001_facility_flow_tables.sql`, `002_flow_element_fea_linkage.sql`
 2. Apply TMR migration: `r_tmr_reports` table in perti_site MySQL
-3. Deploy new API endpoints: `api/nod/flows/*`, `api/nod/fea.php`, `api/data/review/tmr_*.php`
-4. Ensure `assets/locales/en-US.json` and `assets/js/lib/i18n.js` are deployed
-5. Verify `PERTI_MYSQL_ONLY` is NOT set in any files that use Azure SQL connections
+3. Apply playbook migrations: `database/migrations/playbook/001-004` in perti_site MySQL
+4. Import Canadian sector GeoJSON files to `assets/data/` directory
+5. Deploy new API endpoints: `api/nod/flows/*`, `api/nod/fea.php`, `api/data/review/tmr_*.php`, `api/data/playbook/*`, `api/mgt/playbook/*`
+6. Ensure `assets/locales/en-US.json`, `fr-CA.json`, and `assets/js/lib/i18n.js` are deployed
+7. Verify `PERTI_MYSQL_ONLY` is NOT set in any files that use Azure SQL connections
 
 ### Upgrading to v17
 

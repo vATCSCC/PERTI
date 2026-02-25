@@ -52,6 +52,60 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 | `created_at` | DATETIME | Creation timestamp |
 | `updated_at` | DATETIME | Last update timestamp |
 
+### Playbook Tables (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `playbook_plays` | Playbook play definitions (name, category, source, status) |
+| `playbook_routes` | Routes per play (origin, destination, route string, remarks) |
+| `playbook_changelog` | Playbook audit trail (who changed what, when) |
+
+#### playbook_plays
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `play_id` | INT | Primary key (auto-increment) |
+| `play_name` | VARCHAR(100) | Play identifier (unique, normalized) |
+| `play_name_norm` | VARCHAR(100) | Normalized name for lookup |
+| `display_name` | VARCHAR(200) | Human-readable display name |
+| `description` | TEXT | Play description |
+| `category` | VARCHAR(50) | Category grouping |
+| `impacted_area` | VARCHAR(200) | Impacted geographic area |
+| `facilities_involved` | VARCHAR(500) | Involved facilities |
+| `scenario_type` | VARCHAR(50) | WEATHER, VOLUME, CONSTRUCTION, GENERAL |
+| `route_format` | ENUM | `standard` or `split` |
+| `source` | ENUM | `FAA`, `DCC`, `ECFMP`, `CANOC` |
+| `status` | ENUM | `active`, `draft`, `archived` |
+| `airac_cycle` | VARCHAR(10) | AIRAC cycle reference |
+| `route_count` | INT | Cached route count |
+| `org_code` | VARCHAR(20) | Organization code (multi-org support) |
+
+#### playbook_routes
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `route_id` | INT | Primary key (auto-increment) |
+| `play_id` | INT | FK to playbook_plays (CASCADE delete) |
+| `route_string` | TEXT | Route string |
+| `origin` | VARCHAR(200) | Origin airport(s) |
+| `dest` | VARCHAR(200) | Destination airport(s) |
+| `origin_filter` | VARCHAR(200) | Origin filter criteria |
+| `dest_filter` | VARCHAR(200) | Destination filter criteria |
+| `remarks` | VARCHAR(500) | TMU route remarks/annotations |
+
+#### playbook_changelog
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `changelog_id` | INT | Primary key (auto-increment) |
+| `play_id` | INT | FK to playbook_plays |
+| `action` | VARCHAR(50) | Action performed (create, update, delete) |
+| `field_name` | VARCHAR(100) | Changed field |
+| `old_value` | TEXT | Previous value |
+| `new_value` | TEXT | New value |
+| `changed_by` | VARCHAR(50) | User CID |
+| `changed_at` | DATETIME | Change timestamp |
+
 ### Configuration Tables
 
 | Table | Purpose |
@@ -1081,6 +1135,10 @@ Apply in numerical order within each category.
 | `database/migrations/nod/002_flow_element_fea_linkage.sql` | VATSIM_ADL | Flow element FEA (Flow Element Analysis) linkage |
 | `database/migrations/tmr/` | perti_site (MySQL) | TMR report table (`r_tmr_reports`) |
 | `adl/migrations/oooi/010_airport_taxi_reference.sql` | VATSIM_ADL | Airport taxi reference and detail tables, stored procedure |
+| `database/migrations/playbook/001_create_playbook_tables.sql` | perti_site (MySQL) | Playbook plays, routes, and changelog tables |
+| `database/migrations/playbook/002_add_source_enum.sql` | perti_site (MySQL) | Add ECFMP/CANOC to source enum |
+| `database/migrations/playbook/003_add_org_code.sql` | perti_site (MySQL) | Add org_code column for multi-org |
+| `database/migrations/playbook/004_add_route_remarks.sql` | perti_site (MySQL) | Add remarks column to playbook_routes |
 
 ### Earlier Migration Directories
 

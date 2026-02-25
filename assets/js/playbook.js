@@ -21,6 +21,11 @@
         'Snowbird', 'Space Ops', 'Special Ops', 'SUA Activity', 'West to East Transcon'
     ];
 
+    // Legacy consolidated TRACON aliases (FAA still uses these in playbook data)
+    var TRACON_ALIASES = {
+        'K90': 'A90',  // Cape TRACON → Boston TRACON (consolidated 2018)
+    };
+
     // State
     var allPlays = [];          // Full loaded set from API
     var filteredPlays = [];     // After client-side filters
@@ -32,6 +37,8 @@
     var activePlayId = null;
     var activePlayData = null;
     var selectedRouteIds = new Set();
+    var routeConfig = new Map(); // route_id → { color: null, mandatory: false }
+    var regionColorEnabled = false;
 
     // =========================================================================
     // HELPERS
@@ -76,6 +83,163 @@
     function getUrlPlayName() {
         var params = new URLSearchParams(window.location.search);
         return params.get('play') || '';
+    }
+
+    function unique(arr) {
+        var seen = {};
+        return arr.filter(function(v) {
+            if (seen[v]) return false;
+            seen[v] = true;
+            return true;
+        });
+    }
+
+    // =========================================================================
+    // SEARCH PARSER — Multi-token boolean search
+    // Operators: AND (space/&), OR (,/|), NOT (^ prefix)
+    // =========================================================================
+
+    function parseSearch(raw) {
+        if (!raw || !raw.trim()) return [];
+        // Split on whitespace or & → clauses (AND'd together)
+        var clauses = raw.split(/[\s&]+/).filter(Boolean);
+        return clauses.map(function(clause) {
+            // Split on , or | → alternatives (OR'd)
+            var alts = clause.split(/[,|]/).filter(Boolean);
+            return alts.map(function(alt) {
+                var negated = alt.charAt(0) === '^';
+                var term = negated ? alt.substring(1) : alt;
+                return { term: term.toUpperCase(), negated: negated };
+            }).filter(function(a) { return a.term; });
+        }).filter(function(c) { return c.length; });
+    }
+
+    function buildSearchIndex(p) {
+        if (!p._searchText) {
+            p._searchText = [
+                p.play_name, p.display_name, p.description,
+                p.category, p.impacted_area, p.facilities_involved,
+                p.agg_route_strings
+            ].filter(Boolean).join(' ').toUpperCase();
+        }
+        if (!p._facilityCodes) {
+            var codes = new Set();
+            [p.facilities_involved, p.agg_origin_airports, p.agg_origin_tracons,
+             p.agg_origin_artccs, p.agg_dest_airports, p.agg_dest_tracons,
+             p.agg_dest_artccs].forEach(function(field) {
+                csvSplit(field).forEach(function(c) { codes.add(c.toUpperCase()); });
+            });
+            // Also split impacted_area by / and ,
+            (p.impacted_area || '').split(/[\/,]/).forEach(function(c) {
+                var trimmed = c.trim().toUpperCase();
+                if (trimmed) codes.add(trimmed);
+            });
+            p._facilityCodes = codes;
+        }
+    }
+
+    function matchesSearch(p, clauses) {
+        if (!clauses.length) return true;
+        buildSearchIndex(p);
+        // Every clause must pass (AND)
+        for (var i = 0; i < clauses.length; i++) {
+            var alts = clauses[i];
+            var clausePassed = false;
+            for (var j = 0; j < alts.length; j++) {
+                var alt = alts[j];
+                var found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
+                if (alt.negated) {
+                    if (found) return false; // Negated term found → exclude
+                } else {
+                    if (found) clausePassed = true; // At least one positive alt matches
+                }
+            }
+            // If clause has only negated alts, it passes if none matched (already handled above)
+            var hasPositiveAlt = alts.some(function(a) { return !a.negated; });
+            if (hasPositiveAlt && !clausePassed) return false;
+        }
+        return true;
+    }
+
+    // =========================================================================
+    // TRACON/ARTCC CLASSIFICATION — for explicit origin/dest fields
+    // =========================================================================
+
+    function resolveTraconAlias(code) {
+        return TRACON_ALIASES[code] || code;
+    }
+
+    function classifyOriginDest(fieldValue) {
+        var airports = [], tracons = [], artccs = [];
+        var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
+        (fieldValue || '').split(/[\s,\/]+/).filter(Boolean).forEach(function(tok) {
+            tok = tok.toUpperCase();
+            var resolved = resolveTraconAlias(tok);
+            if (hasFH && FacilityHierarchy.isArtcc(resolved)) {
+                artccs.push(resolved);
+            } else if (hasFH && FacilityHierarchy.isTracon(resolved)) {
+                tracons.push(resolved);
+                var parent = FacilityHierarchy.getParentArtcc(resolved);
+                if (parent) artccs.push(parent);
+            } else if (/^[A-Z][0-9]{2}$/.test(tok)) {
+                // Regex fallback for TRACON codes (letter + 2 digits)
+                tracons.push(resolved);
+                if (hasFH) {
+                    var parent = FacilityHierarchy.getParentArtcc(resolved);
+                    if (parent) artccs.push(parent);
+                }
+            } else if (/^(Z[A-Z]{2}|CZ[A-Z])$/.test(tok)) {
+                // Regex fallback for ARTCC/FIR codes
+                artccs.push(tok);
+            } else if (/^[A-Z]{4}$/.test(tok) && !/^(Z[A-Z]{2}|CZ[A-Z])$/.test(tok.substring(0,3))) {
+                // 4-letter ICAO airport
+                airports.push(tok);
+                if (hasFH) {
+                    var tracon = FacilityHierarchy.AIRPORT_TO_TRACON ? FacilityHierarchy.AIRPORT_TO_TRACON[tok] : null;
+                    if (tracon) tracons.push(tracon);
+                    var artcc = FacilityHierarchy.getParentArtcc(tok);
+                    if (artcc) artccs.push(artcc);
+                }
+            } else if (/^[A-Z]{3}$/.test(tok)) {
+                // 3-letter FAA airport code — check if it's a TRACON first
+                if (hasFH && FacilityHierarchy.isTracon(tok)) {
+                    tracons.push(tok);
+                    var parent = FacilityHierarchy.getParentArtcc(tok);
+                    if (parent) artccs.push(parent);
+                } else {
+                    // Could be FAA airport ID — try to resolve parent
+                    airports.push(tok);
+                    if (hasFH) {
+                        var artcc = FacilityHierarchy.getParentArtcc(tok);
+                        if (artcc) artccs.push(artcc);
+                    }
+                }
+            }
+        });
+        return { airports: unique(airports), tracons: unique(tracons), artccs: unique(artccs) };
+    }
+
+    // =========================================================================
+    // REGION COLORING — wrap facility codes with DCC region colors
+    // =========================================================================
+
+    function regionColorWrap(code) {
+        if (!regionColorEnabled || typeof FacilityHierarchy === 'undefined' || !FacilityHierarchy.isLoaded) {
+            return escHtml(code);
+        }
+        var color = FacilityHierarchy.getRegionColor(code);
+        var bg = FacilityHierarchy.getRegionBgColor(code);
+        if (!color) return escHtml(code);
+        return '<span class="pb-region-code" style="color:' + color + ';background:' + bg + ';">' + escHtml(code) + '</span>';
+    }
+
+    function renderFacilityCodes(str, separator) {
+        if (!str) return '-';
+        var sep = separator || /[,\/]/;
+        var codes = str.split(sep).map(function(c) { return c.trim(); }).filter(Boolean);
+        if (!codes.length) return '-';
+        if (!regionColorEnabled) return escHtml(codes.join(separator === '/' ? '/' : ', '));
+        return codes.map(regionColorWrap).join(separator === '/' ? '/' : ', ');
     }
 
     // =========================================================================
@@ -172,6 +336,8 @@
             }
 
             allPlays = data.data || [];
+            // Invalidate search indexes on reload
+            allPlays.forEach(function(p) { delete p._searchText; delete p._facilityCodes; });
             applyFilters();
 
             // Auto-open play from URL ?play=NAME on initial load
@@ -205,20 +371,15 @@
     }
 
     function applyFilters() {
-        var search = searchText.toUpperCase();
+        var clauses = parseSearch(searchText);
 
         filteredPlays = allPlays.filter(function(p) {
             // Category filter
             if (activeCategory && p.category !== activeCategory) return false;
             // Source filter
             if (activeSource && p.source !== activeSource) return false;
-            // Search filter — match play name, display name, description, facilities
-            if (search) {
-                var haystack = ((p.play_name || '') + ' ' + (p.display_name || '') + ' ' +
-                    (p.description || '') + ' ' + (p.facilities_involved || '') + ' ' +
-                    (p.impacted_area || '') + ' ' + (p.category || '')).toUpperCase();
-                if (haystack.indexOf(search) === -1) return false;
-            }
+            // Multi-token boolean search
+            if (clauses.length && !matchesSearch(p, clauses)) return false;
             return true;
         });
 
@@ -267,6 +428,7 @@
     function loadPlayDetail(playId) {
         activePlayId = playId;
         selectedRouteIds.clear();
+        routeConfig.clear();
 
         // Highlight active row
         $('.pb-play-row').removeClass('active');
@@ -295,6 +457,74 @@
             // Auto-plot routes on map
             plotOnMap();
         });
+    }
+
+    function buildSelectionOptions(routes) {
+        var origins = { airports: new Set(), tracons: new Set(), artccs: new Set() };
+        var dests   = { airports: new Set(), tracons: new Set(), artccs: new Set() };
+        var regions = new Set();
+
+        routes.forEach(function(r) {
+            csvSplit(r.origin_airports).forEach(function(a) { if (a) origins.airports.add(a); });
+            csvSplit(r.origin_tracons).forEach(function(a) { if (a) origins.tracons.add(a); });
+            csvSplit(r.origin_artccs).forEach(function(a) {
+                if (a) {
+                    origins.artccs.add(a);
+                    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
+                        var reg = FacilityHierarchy.getRegion(a);
+                        if (reg) regions.add(reg);
+                    }
+                }
+            });
+            // Also pick up raw origin field for TRACON codes missed by auto-compute
+            if (r.origin && !r.origin_airports && !r.origin_artccs) {
+                var cls = classifyOriginDest(r.origin);
+                cls.tracons.forEach(function(a) { origins.tracons.add(a); });
+                cls.artccs.forEach(function(a) {
+                    origins.artccs.add(a);
+                    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
+                        var reg = FacilityHierarchy.getRegion(a);
+                        if (reg) regions.add(reg);
+                    }
+                });
+            }
+            csvSplit(r.dest_airports).forEach(function(a) { if (a) dests.airports.add(a); });
+            csvSplit(r.dest_tracons).forEach(function(a) { if (a) dests.tracons.add(a); });
+            csvSplit(r.dest_artccs).forEach(function(a) {
+                if (a) {
+                    dests.artccs.add(a);
+                    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegion) {
+                        var reg = FacilityHierarchy.getRegion(a);
+                        if (reg) regions.add(reg);
+                    }
+                }
+            });
+        });
+
+        return { origins: origins, dests: dests, regions: regions };
+    }
+
+    function buildOptgroups(facilitySet) {
+        var html = '<option value="">...</option>';
+        var artccs = Array.from(facilitySet.artccs).sort();
+        var tracons = Array.from(facilitySet.tracons).sort();
+        var airports = Array.from(facilitySet.airports).sort();
+        if (artccs.length) {
+            html += '<optgroup label="ARTCCs">';
+            artccs.forEach(function(c) { html += '<option value="artcc:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
+            html += '</optgroup>';
+        }
+        if (tracons.length) {
+            html += '<optgroup label="TRACONs">';
+            tracons.forEach(function(c) { html += '<option value="tracon:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
+            html += '</optgroup>';
+        }
+        if (airports.length) {
+            html += '<optgroup label="Airports">';
+            airports.forEach(function(c) { html += '<option value="airport:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
+            html += '</optgroup>';
+        }
+        return html;
     }
 
     function renderDetailPanel(play, routes) {
@@ -342,42 +572,71 @@
             html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
         }
 
-        // Facilities
+        // Facilities (with optional region coloring)
         if (play.facilities_involved || play.impacted_area) {
-            html += '<div class="pb-play-facilities"><strong>Facilities:</strong> ' + escHtml(play.impacted_area || play.facilities_involved) + '</div>';
+            var facStr = play.impacted_area || play.facilities_involved;
+            html += '<div class="pb-play-facilities"><strong>Facilities:</strong> ';
+            html += renderFacilityCodes(facStr, '/');
+            html += ' <label class="pb-region-toggle mb-0" title="Color by DCC region"><input type="checkbox" id="pb_region_color_toggle"' + (regionColorEnabled ? ' checked' : '') + '><span class="small">Region colors</span></label>';
+            html += '</div>';
         }
 
-        // Included Traffic summary (Route Advisory format)
+        // Included Traffic summary (with optional region coloring)
         if (routes.length) {
-            var origSet = new Set(), destSet = new Set(), facSet = new Set();
+            var origSet = new Set(), destSet = new Set();
             routes.forEach(function(r) {
                 csvSplit(r.origin_airports).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
-                csvSplit(r.origin_artccs).forEach(function(a) { if (a) { origSet.add(a.toUpperCase()); facSet.add(a.toUpperCase()); } });
-                csvSplit(r.origin_tracons).forEach(function(a) { if (a) facSet.add(a.toUpperCase()); });
+                csvSplit(r.origin_artccs).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
                 csvSplit(r.dest_airports).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
-                csvSplit(r.dest_artccs).forEach(function(a) { if (a) { destSet.add(a.toUpperCase()); facSet.add(a.toUpperCase()); } });
-                csvSplit(r.dest_tracons).forEach(function(a) { if (a) facSet.add(a.toUpperCase()); });
+                csvSplit(r.dest_artccs).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
             });
             var origArr = Array.from(origSet).sort();
             var destArr = Array.from(destSet).sort();
             if (origArr.length || destArr.length) {
-                var trafficParts = [];
-                if (origArr.length && destArr.length) {
-                    trafficParts.push(origArr.join('/') + ' departures to ' + destArr.join('/'));
-                } else if (origArr.length) {
-                    trafficParts.push(origArr.join('/') + ' departures');
-                } else {
-                    trafficParts.push('Arrivals to ' + destArr.join('/'));
+                html += '<div class="pb-play-traffic"><strong>Included Traffic:</strong> ';
+                if (origArr.length) {
+                    html += origArr.map(regionColorWrap).join('/') + ' departures';
                 }
-                html += '<div class="pb-play-traffic"><strong>Included Traffic:</strong> ' + escHtml(trafficParts[0]) + '</div>';
+                if (origArr.length && destArr.length) html += ' to ';
+                if (destArr.length) {
+                    if (!origArr.length) html += 'Arrivals to ';
+                    html += destArr.map(regionColorWrap).join('/');
+                }
+                html += '</div>';
             }
         }
 
         // Route table
         if (routes.length) {
+            // Select All row + route count
             html += '<div class="d-flex justify-content-between align-items-center mb-1">';
             html += '<span class="pb-select-all" id="pb_select_all">' + t('playbook.selectAll') + '</span>';
             html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
+            html += '</div>';
+
+            // Smart selection toolbar
+            var selOpts = buildSelectionOptions(routes);
+            html += '<div class="pb-select-toolbar">';
+            html += '<span class="pb-select-label">Select by:</span>';
+            html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_origin">' + buildOptgroups(selOpts.origins) + '</select>';
+            html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_dest">' + buildOptgroups(selOpts.dests) + '</select>';
+            if (selOpts.regions.size) {
+                html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_region"><option value="">Region...</option>';
+                Array.from(selOpts.regions).sort().forEach(function(r) {
+                    html += '<option value="' + escHtml(r) + '">' + escHtml(r) + '</option>';
+                });
+                html += '</select>';
+            }
+            html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="Route text...">';
+            html += '</div>';
+
+            // Route config toolbar (hidden until routes selected)
+            html += '<div class="pb-route-toolbar" id="pb_route_toolbar" style="display:none;">';
+            html += '<button class="btn btn-xs btn-outline-warning" id="pb_mandatory_toggle" title="Mark selected as mandatory"><i class="fas fa-exclamation-triangle mr-1"></i>Mandatory</button>';
+            html += '<input type="color" id="pb_color_pick" value="#C70039" title="Route color" class="pb-color-input">';
+            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_clear_config" title="Clear config">Clear</button>';
+            html += '<span class="pb-toolbar-sep">|</span>';
+            html += '<button class="btn btn-xs btn-outline-info" id="pb_open_route_page" title="Open selected in Route page"><i class="fas fa-external-link-alt mr-1"></i>Route Page</button>';
             html += '</div>';
 
             html += '<div class="pb-route-table-wrap">';
@@ -390,6 +649,7 @@
             html += '<th>Dest</th>';
             html += '<th>TRACON</th>';
             html += '<th>ARTCC</th>';
+            html += '<th>Remarks</th>';
             html += '</tr></thead><tbody>';
 
             routes.forEach(function(r) {
@@ -399,15 +659,34 @@
                 var destApt = r.dest_airports || r.dest || '-';
                 var destTracon = r.dest_tracons || '-';
                 var destArtcc = r.dest_artccs || '-';
-                html += '<tr data-route-id="' + r.route_id + '">';
-                html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"></td>';
+
+                // If origin has unclassified TRACONs, resolve on the fly
+                if (origTracon === '-' && r.origin && /^[A-Z][0-9]{2}/.test(r.origin)) {
+                    var cls = classifyOriginDest(r.origin);
+                    if (cls.tracons.length) origTracon = cls.tracons.join(',');
+                    if (cls.artccs.length && origArtcc === '-') origArtcc = cls.artccs.join(',');
+                }
+                if (destTracon === '-' && r.dest && /^[A-Z][0-9]{2}/.test(r.dest)) {
+                    var cls = classifyOriginDest(r.dest);
+                    if (cls.tracons.length) destTracon = cls.tracons.join(',');
+                    if (cls.artccs.length && destArtcc === '-') destArtcc = cls.artccs.join(',');
+                }
+
+                var cfg = routeConfig.get(r.route_id);
+                var rowStyle = '';
+                if (cfg && cfg.color) rowStyle = ' style="border-left:3px solid ' + cfg.color + ';"';
+                if (cfg && cfg.mandatory) rowStyle = ' style="border-left:3px solid #e2a300;"';
+
+                html += '<tr data-route-id="' + r.route_id + '"' + rowStyle + '>';
+                html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"' + (selectedRouteIds.has(r.route_id) ? ' checked' : '') + '></td>';
                 html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
-                html += '<td>' + escHtml(origTracon) + '</td>';
-                html += '<td>' + escHtml(origArtcc) + '</td>';
+                html += '<td>' + renderFacilityCodes(origTracon, ',') + '</td>';
+                html += '<td>' + renderFacilityCodes(origArtcc, ',') + '</td>';
                 html += '<td>' + escHtml(r.route_string) + '</td>';
                 html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
-                html += '<td>' + escHtml(destTracon) + '</td>';
-                html += '<td>' + escHtml(destArtcc) + '</td>';
+                html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
+                html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
+                html += '<td class="pb-remarks-cell">' + (r.remarks ? '<span title="' + escHtml(r.remarks) + '">' + escHtml(r.remarks.length > 30 ? r.remarks.substring(0, 30) + '...' : r.remarks) + '</span>' : '') + '</td>';
                 html += '</tr>';
             });
 
@@ -423,12 +702,23 @@
         html += '</div>';
 
         $('#pb_detail_content').html(html);
+        updateToolbarVisibility();
+    }
+
+    function updateToolbarVisibility() {
+        var count = selectedRouteIds.size;
+        if (count > 0) {
+            $('#pb_route_toolbar').css('display', 'flex');
+        } else {
+            $('#pb_route_toolbar').hide();
+        }
     }
 
     function hideDetail() {
         activePlayId = null;
         activePlayData = null;
         selectedRouteIds.clear();
+        routeConfig.clear();
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_detail_content').html(
@@ -446,6 +736,65 @@
             textarea.value = '';
             plotBtn.click();
         }
+    }
+
+    // =========================================================================
+    // SMART SELECTION — filter routes by origin/dest/region/text
+    // =========================================================================
+
+    function applySmartSelection(type, value) {
+        if (!activePlayData || !activePlayData.routes) return;
+        var routes = activePlayData.routes;
+
+        routes.forEach(function(r) {
+            var match = false;
+            if (type === 'origin') {
+                match = routeMatchesFacility(r, value, 'origin');
+            } else if (type === 'dest') {
+                match = routeMatchesFacility(r, value, 'dest');
+            } else if (type === 'region') {
+                match = routeMatchesRegion(r, value);
+            } else if (type === 'route_text') {
+                match = (r.route_string || '').toUpperCase().indexOf(value.toUpperCase()) !== -1;
+            }
+
+            if (match) {
+                selectedRouteIds.add(r.route_id);
+            }
+        });
+
+        // Update checkboxes
+        $('.pb-route-cb').each(function() {
+            var rid = parseInt($(this).val());
+            this.checked = selectedRouteIds.has(rid);
+        });
+        $('#pb_check_all').prop('checked', selectedRouteIds.size === routes.length);
+        updateToolbarVisibility();
+        plotOnMap();
+    }
+
+    function routeMatchesFacility(route, qualifiedValue, side) {
+        var parts = qualifiedValue.split(':');
+        var level = parts[0]; // artcc, tracon, airport
+        var code = parts[1];
+        if (!code) return false;
+
+        var prefix = side === 'origin' ? 'origin' : 'dest';
+        if (level === 'artcc') {
+            return csvSplit(route[prefix + '_artccs']).indexOf(code) !== -1;
+        } else if (level === 'tracon') {
+            return csvSplit(route[prefix + '_tracons']).indexOf(code) !== -1;
+        } else if (level === 'airport') {
+            return csvSplit(route[prefix + '_airports']).indexOf(code) !== -1 ||
+                   (route[prefix === 'origin' ? 'origin' : 'dest'] || '').toUpperCase().indexOf(code) !== -1;
+        }
+        return false;
+    }
+
+    function routeMatchesRegion(route, regionName) {
+        if (typeof FacilityHierarchy === 'undefined' || !FacilityHierarchy.getRegion) return false;
+        var allCodes = csvSplit(route.origin_artccs).concat(csvSplit(route.dest_artccs));
+        return allCodes.some(function(c) { return FacilityHierarchy.getRegion(c) === regionName; });
     }
 
     // =========================================================================
@@ -468,7 +817,15 @@
             if (r.origin) parts.push(r.origin);
             parts.push(r.route_string);
             if (r.dest) parts.push(r.dest);
-            return parts.join(' ');
+            var line = parts.join(' ');
+
+            // Apply route config (mandatory markers + color)
+            var cfg = routeConfig.get(r.route_id);
+            if (cfg) {
+                if (cfg.mandatory) line = '>' + line + '<';
+                if (cfg.color) line += ' ; ' + cfg.color;
+            }
+            return line;
         });
 
         var textarea = document.getElementById('routeSearch');
@@ -477,6 +834,28 @@
             textarea.value = lines.join('\n');
             plotBtn.click();
         }
+    }
+
+    function openInRoutePage() {
+        var routes = getSelectedRoutes();
+        if (!routes.length) return;
+
+        var lines = routes.map(function(r) {
+            var parts = [];
+            if (r.origin) parts.push(r.origin);
+            parts.push(r.route_string);
+            if (r.dest) parts.push(r.dest);
+            var line = parts.join(' ');
+            var cfg = routeConfig.get(r.route_id);
+            if (cfg) {
+                if (cfg.mandatory) line = '>' + line + '<';
+                if (cfg.color) line += ' ; ' + cfg.color;
+            }
+            return line;
+        });
+
+        var encoded = btoa(lines.join('\n'));
+        window.open('route?routes_b64=' + encodeURIComponent(encoded), '_blank');
     }
 
     function activateAsReroute() {
@@ -523,6 +902,7 @@
                 },
                 facilities: csvSplit(play.facilities_involved),
                 routes: routes.map(function(r) {
+                    var cfg = routeConfig.get(r.route_id) || {};
                     return {
                         origin: r.origin || '',
                         originFilter: r.origin_filter || '',
@@ -532,7 +912,10 @@
                         destFilter: r.dest_filter || '',
                         destAirports: csvSplit(r.dest_airports),
                         destArtccs: csvSplit(r.dest_artccs),
-                        route: r.route_string
+                        route: r.route_string,
+                        mandatory: cfg.mandatory || false,
+                        color: cfg.color || null,
+                        remarks: r.remarks || ''
                     };
                 }),
                 rawInput: 'PB.' + play.play_name,
@@ -595,15 +978,6 @@
             dest_tracons: unique(destTracons).join(','),
             dest_artccs: unique(destArtccs).join(',')
         };
-    }
-
-    function unique(arr) {
-        var seen = {};
-        return arr.filter(function(v) {
-            if (seen[v]) return false;
-            seen[v] = true;
-            return true;
-        });
     }
 
     async function autoComputePlayFields(routes) {
@@ -721,6 +1095,7 @@
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter pb-re-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-route" rows="1" placeholder="DCT FIX1 J123 FIX2 DCT">' + escHtml(route.route_string || '') + '</textarea></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-remarks" value="' + escHtml(route.remarks || '') + '" placeholder="Notes..."></td>';
         html += '<td class="pb-re-cell"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
         $('#pb_route_edit_body').append(html);
@@ -767,6 +1142,14 @@
                 routeData.dest_artccs = computed.dest_artccs;
             }
 
+            // Post-classify explicit origin/dest for TRACON/ARTCC codes
+            var origClass = classifyOriginDest(routeData.origin);
+            var destClass = classifyOriginDest(routeData.dest);
+            routeData.origin_tracons = unique(csvSplit(routeData.origin_tracons).concat(origClass.tracons)).join(',');
+            routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(origClass.artccs)).join(',');
+            routeData.dest_tracons = unique(csvSplit(routeData.dest_tracons).concat(destClass.tracons)).join(',');
+            routeData.dest_artccs = unique(csvSplit(routeData.dest_artccs).concat(destClass.artccs)).join(',');
+
             addEditRouteRow(routeData);
         });
 
@@ -792,10 +1175,15 @@
             var originFilter = $tr.find('.pb-re-origin-filter').val().trim();
             var dest = $tr.find('.pb-re-dest').val().trim();
             var destFilter = $tr.find('.pb-re-dest-filter').val().trim();
+            var remarks = $tr.find('.pb-re-remarks').val().trim();
 
             var computed = autoComputeRouteFields(
                 (origin ? origin + ' ' : '') + routeStr + (dest ? ' ' + dest : '')
             );
+
+            // Post-classify explicit origin/dest for TRACON/ARTCC codes
+            var origClass = classifyOriginDest(origin);
+            var destClass = classifyOriginDest(dest);
 
             routes.push({
                 route_string: routeStr,
@@ -803,12 +1191,13 @@
                 origin_filter: originFilter,
                 dest: dest || (computed ? computed.dest : ''),
                 dest_filter: destFilter,
-                origin_airports: computed ? computed.origin_airports : '',
-                origin_tracons: computed ? computed.origin_tracons : '',
-                origin_artccs: computed ? computed.origin_artccs : '',
-                dest_airports: computed ? computed.dest_airports : '',
-                dest_tracons: computed ? computed.dest_tracons : '',
-                dest_artccs: computed ? computed.dest_artccs : ''
+                origin_airports: unique(csvSplit(computed ? computed.origin_airports : '').concat(origClass.airports)).join(','),
+                origin_tracons: unique(csvSplit(computed ? computed.origin_tracons : '').concat(origClass.tracons)).join(','),
+                origin_artccs: unique(csvSplit(computed ? computed.origin_artccs : '').concat(origClass.artccs)).join(','),
+                dest_airports: unique(csvSplit(computed ? computed.dest_airports : '').concat(destClass.airports)).join(','),
+                dest_tracons: unique(csvSplit(computed ? computed.dest_tracons : '').concat(destClass.tracons)).join(','),
+                dest_artccs: unique(csvSplit(computed ? computed.dest_artccs : '').concat(destClass.artccs)).join(','),
+                remarks: remarks
             });
         });
 
@@ -954,6 +1343,7 @@
     // =========================================================================
 
     var searchTimer = null;
+    var routeTextTimer = null;
 
     $(document).ready(function() {
         loadCategories();
@@ -1002,6 +1392,7 @@
         $(document).on('change', '.pb-route-cb', function() {
             var rid = parseInt($(this).val());
             if (this.checked) { selectedRouteIds.add(rid); } else { selectedRouteIds.delete(rid); }
+            updateToolbarVisibility();
         });
         $(document).on('change', '#pb_check_all', function() {
             var checked = this.checked;
@@ -1010,10 +1401,70 @@
                 this.checked = checked;
                 if (checked) selectedRouteIds.add(parseInt($(this).val()));
             });
+            updateToolbarVisibility();
         });
         $(document).on('click', '#pb_select_all', function() {
             var allChecked = selectedRouteIds.size === $('.pb-route-cb').length;
             $('#pb_check_all').prop('checked', !allChecked).trigger('change');
+        });
+
+        // Smart selection dropdowns
+        $(document).on('change', '#pb_select_origin', function() {
+            var val = $(this).val();
+            if (val) applySmartSelection('origin', val);
+            $(this).val('');
+        });
+        $(document).on('change', '#pb_select_dest', function() {
+            var val = $(this).val();
+            if (val) applySmartSelection('dest', val);
+            $(this).val('');
+        });
+        $(document).on('change', '#pb_select_region', function() {
+            var val = $(this).val();
+            if (val) applySmartSelection('region', val);
+            $(this).val('');
+        });
+        $(document).on('input', '#pb_select_route_text', function() {
+            var val = ($(this).val() || '').trim();
+            clearTimeout(routeTextTimer);
+            if (val.length >= 2) {
+                routeTextTimer = setTimeout(function() { applySmartSelection('route_text', val); }, 300);
+            }
+        });
+
+        // Route config toolbar
+        $(document).on('click', '#pb_mandatory_toggle', function() {
+            selectedRouteIds.forEach(function(rid) {
+                var cfg = routeConfig.get(rid) || { color: null, mandatory: false };
+                cfg.mandatory = !cfg.mandatory;
+                routeConfig.set(rid, cfg);
+            });
+            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
+            plotOnMap();
+        });
+        $(document).on('change', '#pb_color_pick', function() {
+            var color = $(this).val();
+            selectedRouteIds.forEach(function(rid) {
+                var cfg = routeConfig.get(rid) || { color: null, mandatory: false };
+                cfg.color = color;
+                routeConfig.set(rid, cfg);
+            });
+            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
+            plotOnMap();
+        });
+        $(document).on('click', '#pb_clear_config', function() {
+            selectedRouteIds.forEach(function(rid) {
+                routeConfig.delete(rid);
+            });
+            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
+            plotOnMap();
+        });
+        $(document).on('click', '#pb_open_route_page', openInRoutePage);
+
+        // Region color toggle
+        $(document).on('change', '#pb_region_color_toggle', function() {
+            regionColorEnabled = this.checked;
+            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
         });
 
         // Action buttons (in detail panel)

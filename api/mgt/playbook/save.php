@@ -152,8 +152,8 @@ if (!empty($routes)) {
     $route_stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
          origin_airports, origin_tracons, origin_artccs,
-         dest_airports, dest_tracons, dest_artccs, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         dest_airports, dest_tracons, dest_artccs, remarks, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -168,12 +168,13 @@ if (!empty($routes)) {
         $da = trim($r['dest_airports'] ?? '');
         $dt = trim($r['dest_tracons'] ?? '');
         $dar = trim($r['dest_artccs'] ?? '');
+        $remarks = trim($r['remarks'] ?? '');
 
         if ($rs === '') continue;
 
-        $route_stmt->bind_param('isssssssssssi',
+        $route_stmt->bind_param('issssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
-            $oa, $ot, $oar, $da, $dt, $dar, $sort);
+            $oa, $ot, $oar, $da, $dt, $dar, $remarks, $sort);
         $route_stmt->execute();
         $sort++;
     }

@@ -89,13 +89,30 @@ $count_stmt->execute();
 $total = $count_stmt->get_result()->fetch_assoc()['total'];
 $count_stmt->close();
 
-// Fetch page
+// Ensure GROUP_CONCAT won't truncate for plays with many routes
+$conn_sqli->query("SET SESSION group_concat_max_len = 65536");
+
+// Fetch page with aggregated route-level fields for client-side search
 $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
                     p.description, p.category, p.impacted_area, p.facilities_involved,
                     p.scenario_type, p.route_format, p.source, p.status,
                     p.airac_cycle, p.route_count, p.org_code,
-                    p.created_by, p.updated_by, p.updated_at, p.created_at
+                    p.created_by, p.updated_by, p.updated_at, p.created_at,
+                    ra.agg_origin_airports, ra.agg_origin_tracons, ra.agg_origin_artccs,
+                    ra.agg_dest_airports, ra.agg_dest_tracons, ra.agg_dest_artccs,
+                    ra.agg_route_strings
              FROM playbook_plays p
+             LEFT JOIN (
+                 SELECT play_id,
+                     GROUP_CONCAT(DISTINCT NULLIF(origin_airports,'') SEPARATOR ',') AS agg_origin_airports,
+                     GROUP_CONCAT(DISTINCT NULLIF(origin_tracons,'') SEPARATOR ',') AS agg_origin_tracons,
+                     GROUP_CONCAT(DISTINCT NULLIF(origin_artccs,'') SEPARATOR ',') AS agg_origin_artccs,
+                     GROUP_CONCAT(DISTINCT NULLIF(dest_airports,'') SEPARATOR ',') AS agg_dest_airports,
+                     GROUP_CONCAT(DISTINCT NULLIF(dest_tracons,'') SEPARATOR ',') AS agg_dest_tracons,
+                     GROUP_CONCAT(DISTINCT NULLIF(dest_artccs,'') SEPARATOR ',') AS agg_dest_artccs,
+                     GROUP_CONCAT(route_string SEPARATOR ' ') AS agg_route_strings
+                 FROM playbook_routes GROUP BY play_id
+             ) ra ON ra.play_id = p.play_id
              $where_sql
              ORDER BY p.source ASC, p.play_name ASC
              LIMIT ? OFFSET ?";

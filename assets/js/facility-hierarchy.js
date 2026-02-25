@@ -96,6 +96,12 @@
         'TJZS': ['ZSU'],           // San Juan
     };
 
+    // TRACON aliases: consolidated/legacy TRACONs mapped to their current canonical code.
+    // These are NOT ARTCC/FIR aliases — they're approach control facilities that were merged.
+    const TRACON_ALIASES = {
+        'K90': 'A90',   // Cape TRACON consolidated into Boston TRACON (2018)
+    };
+
     // Build reverse alias lookup (alias -> canonical)
     const ALIAS_TO_CANONICAL = {};
     Object.entries(FACILITY_ALIASES).forEach(([canonical, aliases]) => {
@@ -1228,11 +1234,18 @@
     }
 
     function isTracon(code) {
-        return ALL_TRACONS.has(resolveAlias(code));
+        const upper = (code || '').toUpperCase();
+        // Check TRACON_ALIASES first (legacy consolidated TRACONs like K90→A90)
+        var resolved = TRACON_ALIASES[upper] || upper;
+        resolved = resolveAlias(resolved);
+        return ALL_TRACONS.has(resolved);
     }
 
     function getParentArtcc(code) {
-        const upper = resolveAlias(code);
+        var upper = (code || '').toUpperCase();
+        // Resolve TRACON aliases (K90→A90) before standard alias resolution
+        upper = TRACON_ALIASES[upper] || upper;
+        upper = resolveAlias(upper);
         if (ARTCCS.includes(upper)) {return upper;}
         if (TRACON_TO_ARTCC[upper]) {return TRACON_TO_ARTCC[upper];}
         if (AIRPORT_TO_ARTCC[upper]) {return AIRPORT_TO_ARTCC[upper];}
@@ -1328,6 +1341,7 @@
         FACILITY_GROUPS: FACILITY_GROUPS,
         NAMED_TIER_GROUPS: NAMED_TIER_GROUPS,
         FACILITY_ALIASES: FACILITY_ALIASES,
+        TRACON_ALIASES: TRACON_ALIASES,
         ARTCC_TO_REGION: ARTCC_TO_REGION,
         FACILITY_EMOJI_MAP: FACILITY_EMOJI_MAP,
         EMOJI_TO_FACILITY: EMOJI_TO_FACILITY,
