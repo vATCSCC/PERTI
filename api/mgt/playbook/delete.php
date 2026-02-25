@@ -6,10 +6,9 @@
  */
 
 include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
-include("../../../load/config.php");
-include("../../../load/input.php");
+// handler.php already includes config.php and input.php via include_once
 define('PERTI_MYSQL_ONLY', true);
-include("../../../load/connect.php");
+include_once(dirname(__DIR__, 3) . '/load/connect.php');
 
 header('Content-Type: application/json');
 
@@ -19,7 +18,9 @@ if (!defined('DEV')) {
     if (isset($_SESSION['VATSIM_CID'])) {
         $cid = session_get('VATSIM_CID', '');
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check && $p_check->num_rows > 0) $perm = true;
+        if ($p_check) {
+            $perm = true;
+        }
     }
 } else {
     $perm = true;
