@@ -464,6 +464,89 @@
 }
 .pb-select-all:hover { text-decoration: underline; }
 
+/* ── Smart Selection Toolbar ─────────────────────────────────────── */
+.pb-select-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 2px 0;
+    flex-wrap: wrap;
+}
+.pb-select-label {
+    font-size: 0.65rem;
+    color: #888;
+    white-space: nowrap;
+}
+.pb-select-toolbar .pb-select-dd,
+.pb-select-toolbar .pb-select-route-text {
+    font-size: 0.68rem;
+    max-width: 120px;
+    height: 24px;
+    padding: 0 4px;
+}
+
+/* ── Route Config Toolbar ───────────────────────────────────────── */
+.pb-route-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 4px 0;
+    font-size: 0.72rem;
+    border-bottom: 1px dashed #dee2e6;
+    margin-bottom: 4px;
+}
+.pb-route-toolbar .btn-xs {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+}
+.pb-color-input {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.pb-toolbar-sep {
+    font-size: 0.65rem;
+    color: #ccc;
+    margin: 0 2px;
+}
+
+/* ── Region Color Toggle ────────────────────────────────────────── */
+.pb-region-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.68rem;
+    color: #888;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    margin-left: 0.5rem;
+}
+.pb-region-toggle input { margin-right: 2px; }
+
+.pb-region-code {
+    padding: 0 3px;
+    border-radius: 2px;
+    font-weight: 600;
+}
+
+/* ── Remarks Column ─────────────────────────────────────────────── */
+.pb-remarks-cell {
+    font-size: 0.65rem;
+    color: #888;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── ECFMP/CANOC Badges ─────────────────────────────────────────── */
+.pb-badge-ecfmp { background: #e0f7fa; color: #00838f; }
+.pb-badge-canoc { background: #fce4ec; color: #c62828; }
+
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 991px) {
     .pb-columns {

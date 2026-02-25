@@ -82,6 +82,7 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **DP** | Departure Procedure |
 | **IAP** | Instrument Approach Procedure |
 | **CDR** | Coded Departure Route |
+| **PB** | Playbook - pre-coordinated route play catalog |
 | **OOOI** | Out-Off-On-In (flight phase tracking) |
 | **AFIX** | Arrival Fix |
 | **DFIX** | Departure Fix |
@@ -315,6 +316,7 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **ARINC** | Aeronautical Radio Inc. |
 | **CIFP** | Coded Instrument Flight Procedures (DPs/STARs) |
 | **BADA** | Base of Aircraft Data - EUROCONTROL aircraft performance model |
+| **ESE** | Enhanced Sector Extensions - VATSIM sector definition file format |
 | **NASR** | National Airspace System Resources - FAA navdata source |
 | **AIRAC** | Aeronautical Information Regulation and Control - 28-day navdata cycle |
 
@@ -328,6 +330,8 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **CID** | VATSIM Certificate ID (user identifier) |
 | **VATUSA** | VATSIM USA Division |
 | **VATCAN** | VATSIM Canada Division |
+| **CANOC** | Canadian Network Operations Centre (VATCAN traffic management) |
+| **ECFMP** | EUROCONTROL-style Flow Management Position (used by VATSIM European divisions) |
 | **vATCSCC** | Virtual Air Traffic Control System Command Center |
 | **CTP** | Cross The Pond - major transatlantic VATSIM event |
 | **FNO** | Friday Night Operations - regular VATSIM event |

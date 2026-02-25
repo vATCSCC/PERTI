@@ -33,8 +33,10 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 
 - **GDT** - Ground Delay Tool with FSM-style GDP interface
 - **Route Plotter** - TSD-style live flight map with weather radar
+- **Playbook** - Pre-coordinated route play catalog with map visualization
+- **TMI Publisher** - NTML/advisory publishing to Discord with multi-org support
 - **Reroutes** - Reroute authoring and compliance monitoring
-- **Splits** - Sector/position split configuration
+- **Splits** - Sector/position split configuration with strata filtering and scheduled splits
 - **Demand Analysis** - Airport demand/capacity visualization with rate suggestions
 
 ### Training (Authenticated)
@@ -56,7 +58,7 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 |-----------|------------|
 | Backend | PHP 8.2+ |
 | Frontend | JavaScript (ES6+), jQuery, Bootstrap 4.5 |
-| Mapping | MapLibre GL JS, Leaflet |
+| Mapping | MapLibre GL JS |
 | Charts | Chart.js |
 | Databases | MySQL, Azure SQL, PostgreSQL/PostGIS |
 | Hosting | Azure App Service |
@@ -68,12 +70,15 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 ## Current Version
 
 **v18** - Includes:
+- **vATCSCC Playbook** - Pre-coordinated route play catalog with CRUD, map visualization, and shareable links
+- **Canadian FIR Sectors** - 377 sector boundaries across 7 Canadian FIRs (CZYZ, CZWG, CZEG, CZUL, CZVR, CZQM, CZQX)
+- **Splits Enhancements** - Scheduled splits layer with low/high/superhigh strata filtering, sector map on plan pages
+- **Ops Plan** - Structured FAA-format Ops Plan with plan page sortable columns and ARTCC grouping
+- **Multi-Organization Support** - Org-scoped TMI/JATOC authorization, multi-org Discord posting, CANOC/ECFMP integration
 - **Traffic Management Review (TMR)** - Guided NTMO-style post-event review reports
 - **NOD TMI Enhancements** - Rich TMI sidebar cards, map status layer, facility flow configs, FEA integration
-- **Internationalization (i18n)** - 450+ translation keys, locale loader, dialog wrapper across 13 JS modules
+- **Internationalization (i18n)** - 450+ translation keys across 4 locales (en-US, fr-CA, en-CA, en-EU), 28 PHP pages, 13+ JS modules
 - **PERTI_MYSQL_ONLY Optimization** - ~98 endpoints skip Azure SQL connections (~500-1000ms faster)
-- **Frontend Parallelization** - Promise.all() batching on plan, sheet, and review pages
-- **Codebase Cleanup** - 13 unused files removed (4,829 lines)
 
 See [[Changelog]] for full version history.
 
@@ -87,4 +92,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-02-10*
+*Last updated: 2026-02-25*

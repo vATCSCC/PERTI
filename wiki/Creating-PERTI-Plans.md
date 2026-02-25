@@ -49,6 +49,8 @@ Use the **tabbed navigation bar** to explore different sections:
 | **Group Flights** | Coordinated formation or charter flights |
 | **Extended Outlook** | Long-term event outlook and contingencies |
 | **Advisory Builder** | Published advisories (view only) |
+| **Ops Plan** | Structured FAA-format operational plan output (v18) |
+| **Splits** | Sector split configurations with map visualization (v18) |
 
 ### Step 3: View Operational Goals
 
@@ -224,6 +226,40 @@ On **Terminal Planning** or **En-Route Planning** tabs:
    - **Facilities** - Affected facilities
 5. Preview the advisory
 6. Click **Publish** to make it live on NOD
+
+### Using the Ops Plan Tab (v18)
+
+The **Ops Plan** tab generates a structured FAA-format operational plan output:
+
+1. Go to the **Ops Plan** tab
+2. The plan auto-generates formatted sections from your plan data:
+   - Operational goals
+   - Staffing summary (with ARTCC grouping)
+   - Airport configurations
+   - Initiative timeline
+   - Weather/constraints summary
+3. Copy the formatted output for Discord or document distribution
+4. Facility entries are grouped by ARTCC for multi-facility events
+
+### Using the Splits Tab (v18)
+
+The **Splits** tab shows sector configuration and map visualization:
+
+1. Go to the **Splits** tab
+2. View active and scheduled sector splits for the event's ARTCC(s)
+3. The interactive map shows sector boundaries with strata filtering (low/high/superhigh)
+4. Personnel tables show assigned controller positions
+5. Configurations can be modified or scheduled from this tab
+
+See [[Splits]] for detailed splits documentation.
+
+### Sortable Columns (v18)
+
+Plan page tables (staffing, configs, initiatives) support column sorting:
+
+- Click a column header to sort ascending
+- Click again to sort descending
+- A sort indicator shows the active sort column and direction
 
 ### Publishing the Plan
 

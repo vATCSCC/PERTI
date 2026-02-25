@@ -22,10 +22,29 @@ Before submitting changes, verify:
 - [ ] GDT loads and displays data
 - [ ] Route Plotter renders map
 - [ ] Splits configuration works
+- [ ] Splits strata filter (low/high/superhigh) toggles map sectors
+- [ ] Splits scheduled configurations activate/deactivate correctly
 - [ ] TMI Publish page loads and Discord integration works
 - [ ] TMR (review reports) CRUD operations function
 - [ ] Plan page loads all 16 parallel API calls
 - [ ] Demand charts render with correct data
+
+### Playbook (v18)
+- [ ] Playbook page loads play catalog
+- [ ] Source filter pills (All/FAA/DCC/ECFMP/CANOC) filter correctly
+- [ ] Search box filters plays by name/description
+- [ ] Category pills render from distinct categories
+- [ ] Legacy toggle shows/hides archived plays
+- [ ] Play detail panel shows routes with origin/dest/route string
+- [ ] Map renders play routes with correct geometry
+- [ ] Create play modal opens with all fields
+- [ ] Bulk paste parses ECFMP/CANOC route format
+- [ ] Save play creates/updates play and routes
+- [ ] Delete play removes play (with confirmation)
+- [ ] Duplicate play creates copy with `_MODIFIED` suffix
+- [ ] Shareable link `?play=NAME` loads correct play
+- [ ] Playbook changelog shows audit trail
+- [ ] Route remarks display and save correctly
 
 ### NOD & Public Features
 - [ ] NOD facility flow layers render on map

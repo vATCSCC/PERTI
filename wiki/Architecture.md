@@ -53,7 +53,7 @@ PERTI is a multi-tier web application that processes real-time VATSIM flight dat
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        PRESENTATION LAYER                            │
-│  GDT │ Route Plotter │ JATOC │ NOD │ Plan │ Splits │ Demand         │
+│  GDT │ Route Plotter │ Playbook │ JATOC │ NOD │ Plan │ Splits │ Demand │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,6 +147,8 @@ Stores user-facing application data:
 | `jatoc_incidents` | JATOC incidents |
 | `dcc_advisories` | DCC advisories |
 | `splits_configs` / `splits_positions` | Sector configuration |
+| `playbook_plays` / `playbook_routes` | Playbook play and route catalog |
+| `playbook_changelog` | Playbook audit trail |
 | `users` / `admin_users` | User accounts and preferences |
 
 ### API Layer
@@ -162,6 +164,8 @@ RESTful PHP endpoints organized by function:
 | `/api/demand/` | Demand analysis |
 | `/api/routes/` | Public route sharing |
 | `/api/splits/` | Sector configuration |
+| `/api/data/playbook/` | Playbook play/route data |
+| `/api/mgt/playbook/` | Playbook CRUD management |
 | `/api/data/` | Reference data (weather, SUA, TFR) |
 
 ---
@@ -299,7 +303,13 @@ PERTIDialog.toast('common.copied', 'success');
 
 ### Coverage
 
-The i18n system is integrated across 13 JavaScript modules. Key modules with full coverage include `tmi-publish.js` (50+ keys), `dialog.js`, `phase-colors.js`, and `filter-colors.js`. Modules not yet migrated include `demand.js`, `route-maplibre.js`, `gdt.js`, `nod.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sheet.js`, `sua.js`, and `weather_impact.js`. Only `en-US` is currently supported; the infrastructure supports additional locales.
+The i18n system is integrated across 28 PHP pages and 13+ JavaScript modules:
+
+- **JS modules fully using i18n**: `demand.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`
+- **JS modules mostly using i18n** (minor gaps): `gdt.js`, `nod.js`, `route-maplibre.js`, `tmi_compliance.js`, `weather_radar.js`
+- **PHP pages**: `index.php`, `plan.php`, `sheet.php`, `route.php`, `review.php`, `schedule.php`, `demand.php`, `splits.php`, `gdt.php`, `nod.php`, `jatoc.php`, `sua.php`, `swim.php`, `tmi-publish.php`, `nav.php`, `footer.php` (28 files total)
+
+**Supported locales**: `en-US` (full), `fr-CA` (near-complete French Canadian), `en-CA` (overlay), `en-EU` (overlay)
 
 ---
 

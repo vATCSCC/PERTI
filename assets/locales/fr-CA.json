@@ -6431,7 +6431,7 @@
   },
   "playbook": {
     "title": "Carnet de jeu",
-    "searchPlaceholder": "Rechercher des jeux...",
+    "searchPlaceholder": "Rechercher... (OU: , | ET: espace NON: ^)",
     "createPlay": "Créer un jeu",
     "editPlay": "Modifier le jeu",
     "allCategories": "Toutes les catégories",

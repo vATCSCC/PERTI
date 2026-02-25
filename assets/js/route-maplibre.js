@@ -5529,10 +5529,16 @@ $(document).ready(function() {
     function advIsTracon(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isTracon) {
+        // Only trust FacilityHierarchy if CSV data has actually loaded;
+        // before load, ALL_TRACONS is empty and everything returns false.
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded) {
             return FacilityHierarchy.isTracon(t);
         }
-        return /^[A-Z][0-9]{2}$/.test(t);
+        // Fallback: letter + 2 digits (A90, K90, N90, D10, etc.)
+        // Also check TRACON_ALIASES for legacy codes
+        if (/^[A-Z][0-9]{2}$/.test(t)) {return true;}
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.TRACON_ALIASES && FacilityHierarchy.TRACON_ALIASES[t]) {return true;}
+        return false;
     }
 
     // Check if token is an airport — all 4-letter all-alpha ICAO codes

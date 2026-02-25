@@ -1070,6 +1070,133 @@ Generates a Discord-formatted TMR message following the NTMO Guide template. Ret
 
 ---
 
+## Playbook APIs (v18)
+
+Pre-coordinated route play catalog management. Playbook plays define route sets for common traffic management scenarios (weather reroutes, volume management, etc.).
+
+**Base Path:** `/api/data/playbook/` (read) and `/api/mgt/playbook/` (write)
+
+### Read Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/data/playbook/list.php` | GET | List all plays with optional filtering |
+| `/api/data/playbook/get.php` | GET | Get single play with routes |
+| `/api/data/playbook/categories.php` | GET | List distinct categories |
+| `/api/data/playbook/changelog.php` | GET | Playbook audit trail |
+
+#### GET /api/data/playbook/list.php
+
+Returns all playbook plays with filtering options.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `source` | string | Filter by source: `FAA`, `DCC`, `ECFMP`, `CANOC` |
+| `category` | string | Filter by category |
+| `status` | string | Filter by status: `active`, `draft`, `archived` |
+| `search` | string | Search play name, display name, or description |
+| `include_legacy` | bool | Include archived/legacy plays (default: false) |
+
+#### GET /api/data/playbook/get.php
+
+Returns a single play with all routes.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | int | Play ID (required, unless `name` provided) |
+| `name` | string | Play name (alternative to `id`) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "play": {
+    "play_id": 1,
+    "play_name": "ZNY_WEST_SWAP",
+    "display_name": "ZNY West Gate SWAP",
+    "description": "West gate weather avoidance routing",
+    "category": "WEATHER",
+    "source": "DCC",
+    "scenario_type": "WEATHER",
+    "route_format": "standard",
+    "status": "active",
+    "route_count": 4,
+    "routes": [
+      {
+        "route_id": 1,
+        "origin": "KATL",
+        "origin_filter": "",
+        "dest": "KJFK",
+        "dest_filter": "",
+        "route_string": "KATL HYDRR Q85 MERIT KJFK",
+        "remarks": "Primary west gate route"
+      }
+    ]
+  }
+}
+```
+
+### Write Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/mgt/playbook/save.php` | POST | Create or update a play with routes |
+| `/api/mgt/playbook/delete.php` | POST | Delete a play (cascades to routes) |
+| `/api/mgt/playbook/route.php` | POST/DELETE | Add or remove individual routes |
+
+#### POST /api/mgt/playbook/save.php
+
+Creates or updates a playbook play with its routes. Uses upsert logic keyed on `play_id` (update) or auto-increment (create).
+
+**Access:** Authenticated
+
+**Request Body:**
+
+```json
+{
+  "play_id": 0,
+  "play_name": "ZNY_WEST_SWAP",
+  "display_name": "ZNY West Gate SWAP",
+  "description": "West gate weather avoidance routing",
+  "category": "WEATHER",
+  "source": "DCC",
+  "scenario_type": "WEATHER",
+  "route_format": "standard",
+  "status": "active",
+  "routes": [
+    {
+      "origin": "KATL",
+      "origin_filter": "",
+      "dest": "KJFK",
+      "dest_filter": "",
+      "route_string": "KATL HYDRR Q85 MERIT KJFK",
+      "remarks": ""
+    }
+  ]
+}
+```
+
+### Playbook Data Model
+
+Playbook tables are in **perti_site** MySQL:
+
+| Table | Purpose |
+|-------|---------|
+| `playbook_plays` | Play definitions with category, source, status |
+| `playbook_routes` | Routes per play (origin, dest, route string, remarks) |
+| `playbook_changelog` | Audit trail of play changes |
+
+**Source values:** `FAA`, `DCC`, `ECFMP`, `CANOC`
+**Route format:** `standard` (single route per O/D) or `split` (split route with segments)
+**Status:** `active`, `draft`, `archived`
+
+---
+
 ## Public Routes APIs
 
 Shared route advisories for coordination.
@@ -1095,29 +1222,55 @@ Publishes a new public route.
 
 ## Splits APIs
 
-Sector configuration management.
+Sector configuration management for ARTCC/FIR split assignments.
 
-### GET /api/splits/areas.php
+**Base Path:** `/api/splits/`
 
-Returns area definitions.
+### Sector Data
 
-**Access:** Authenticated
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `index.php` | GET | List available sector maps from CRC index |
+| `sectors.php` | GET | Return sector GeoJSON boundaries |
+| `maps.php` | GET | List available sector-related videomaps |
+| `tracons.php` | GET | Return TRACON data for a facility |
+
+### Configuration Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `areas.php` | GET/POST/PUT/PATCH/DELETE | CRUD for sector area group definitions |
+| `configs.php` | GET/POST/PUT/DELETE | CRUD for split configurations |
+| `presets.php` | GET/POST/PUT/DELETE | CRUD for reusable configuration presets |
+| `active.php` | GET | Currently active splits for a facility |
+| `scheduled.php` | GET/PUT/DELETE | Scheduled configurations with future activation times |
+| `scheduler.php` | GET/POST | Scheduler state and manual trigger |
+
+### Key Parameters
+
+**`sectors.php`:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `artcc` | string | Filter by ARTCC |
+| `facility` | string | ARTCC/FIR code (required) |
+| `filter` | string | `all`, `high`, `low`, `ultra` (default: `all`) |
 
-### GET /api/splits/configs.php
+**`areas.php`:**
 
-Returns saved configurations.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `artcc` | string | Filter by ARTCC code |
+| `id` | int | Area ID (for PUT/PATCH/DELETE) |
 
-**Access:** Authenticated
+**`configs.php`:**
 
-### GET /api/splits/active.php
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `artcc` | string | Filter by ARTCC code |
+| `id` | int | Config ID (for GET single, PUT, DELETE) |
+| `status` | string | Filter: `draft`, `active`, `scheduled` |
 
-Returns currently active splits.
-
-**Access:** Authenticated
+See [[Splits]] for feature documentation.
 
 ---
 
