@@ -50,7 +50,7 @@ include("sessions/handler.php");
 include("load/nav.php");
 ?>
 
-<div class="container-fluid pb-page px-2 px-lg-3 pt-2 pb-2">
+<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
 
     <!-- Map (full width, top — compact by default, expands when routes plotted) -->
     <div class="pb-map-section" id="pb_map_section">
