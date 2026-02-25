@@ -21,6 +21,7 @@ import math
 import sys
 import os
 import argparse
+import io
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -73,6 +74,11 @@ AIRPORT_COORDS = {
     'CYQW': (50.2753, -107.6844), 'CYPA': (53.2142, -105.6728),
     'CYBR': (49.9108, -99.9519), 'CYBL': (51.3894, -102.7822),
     'CYDN': (51.1008, -100.0525), 'CYKJ': (50.7106, -101.7583),
+    # CZUL (Montreal FIR)
+    'CYBG': (48.3306, -70.9964), 'CYHU': (45.5175, -73.4169),
+    'CYJN': (45.2944, -73.2811), 'CYMX': (45.6795, -74.0387),
+    'CYQB': (46.7911, -71.3933), 'CYRC': (46.3528, -72.6794),
+    'CYUL': (45.4706, -73.7408),
 }
 
 
@@ -95,8 +101,11 @@ def parse_ese(filepath):
     sectorlines = {}
     sectors = []
 
-    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
-        lines = f.readlines()
+    with open(filepath, 'rb') as f:
+        raw = f.read()
+    # Detect encoding: if file uses 0xB7 (middle dot) as field separator, it's Latin-1
+    encoding = 'latin-1' if b'\xb7' in raw else 'utf-8'
+    lines = raw.decode(encoding, errors='replace').splitlines(keepends=True)
 
     in_airspace = False
     current_sectorline = None
@@ -177,10 +186,22 @@ def parse_ese(filepath):
                 sectors.append(current_sector)
             current_sectorline = None
             parts = line.split(':')
+            raw_name = parts[1].strip() if len(parts) > 1 else ''
+            floor_ft = int(parts[2]) if len(parts) > 2 and parts[2].strip().lstrip('-').isdigit() else 0
+            ceiling_ft = int(parts[3]) if len(parts) > 3 and parts[3].strip().lstrip('-').isdigit() else 0
+
+            # Handle middle-dot (·) delimited names: {ARTCC}·{name}·{floor_hundreds}·{ceiling_hundreds}
+            artcc_owner = None
+            if '\xb7' in raw_name:
+                dot_parts = raw_name.split('\xb7')
+                artcc_owner = dot_parts[0].strip()
+                raw_name = dot_parts[1].strip() if len(dot_parts) > 1 else raw_name
+
             current_sector = {
-                'name': parts[1].strip() if len(parts) > 1 else '',
-                'floor_ft': int(parts[2]) if len(parts) > 2 and parts[2].strip().lstrip('-').isdigit() else 0,
-                'ceiling_ft': int(parts[3]) if len(parts) > 3 and parts[3].strip().lstrip('-').isdigit() else 0,
+                'name': raw_name,
+                'artcc_owner': artcc_owner,
+                'floor_ft': floor_ft,
+                'ceiling_ft': ceiling_ft,
                 'owner': [],
                 'borders': [],
                 'active': [],
@@ -272,36 +293,72 @@ def classify_tier(floor_ft, ceiling_ft):
 # Runway config pattern: "05/06", "23/24", "33", "15" as prefix or embedded
 RWY_CONFIG_RE = re.compile(r'(?:^|\s)(?:05/06|23/24|33|15)(?:\s|$)')
 
-SKIP_SUFFIXES = ('_TWR', '_GND', '_RMP', '_DEL', '_APP')
+SKIP_SUFFIXES = ('_TWR', '_GND', '_RMP', '_DEL', '_APP', '_DEP', '_TML', '_MF')
 
 # Terminal keyword patterns (CZWG uses "WINNIPEG TOWER", "REGINA GROUND", etc.)
-TERMINAL_KEYWORDS = ('DELIVERY', 'GROUND', 'TOWER', 'TCA', 'ARRIVAL', 'DEPARTURE')
+TERMINAL_KEYWORDS = ('DELIVERY', 'GROUND', 'TOWER', 'TCA', 'ARRIVAL', 'DEPARTURE',
+                     'CORRIDOR', 'OCA FIR', 'CLASS_A', 'CLASS_C', 'CLASS_D', 'CLASS_E')
+
+# Patterns for terminal/approach sectors to skip (airport-specific positions)
+# Matches: CY**_GND, CY**_TWR, CY**_APP, CYVR_L_APP, etc.
+AIRPORT_TERMINAL_RE = re.compile(r'CY[A-Z]{2}_(?:GND|TWR|DEL|RMP|APP|DEP|TML|MF|CZ)', re.IGNORECASE)
+# Control zone patterns: CYBG_CZ, CYFB_CZ, etc.
+CONTROL_ZONE_RE = re.compile(r'CY[A-Z]{2}_CZ\b', re.IGNORECASE)
+# Approach box/corridor patterns: AN_BOX_06, AS_CORR1_06, etc.
+APPROACH_BOX_RE = re.compile(r'(?:AN|AS)_(?:BOX|CORR)', re.IGNORECASE)
+# Runway config specific: names containing (08), (26), etc.
+RUNWAY_CONFIG_PAREN_RE = re.compile(r'\(\d+\)')
 
 # Adjacent FIR prefixes to skip, keyed by own FIR code
 ADJACENT_FIRS = {
     'CZYZ': ['ZOB', 'ZMP', 'ZBW'],
     'CZWG': ['CZEG', 'CZUL', 'CZYZ', 'ZLC', 'ZMP', 'ZSC'],
+    'CZEG': ['CZWG', 'CZUL', 'CZVR', 'PAZA', 'ZLC', 'ZSE', 'CZQX', 'CZQXO', 'BGGL', 'BIRD'],
+    'CZUL': ['CZYZ', 'CZWG', 'CZEG', 'CZQX', 'CZQXO', 'ZBW', 'BGGL', 'BIRD', 'CZVR'],
+    'CZVR': ['CZEG', 'ZSE', 'PAZA', 'ZAK'],
 }
 
 # All known Canadian/US FIR prefixes for generic adjacency detection
-ALL_FIR_PREFIXES = ('CZEG', 'CZUL', 'CZYZ', 'CZWG', 'CZVR', 'CZQX', 'CZQM',
-                    'ZOB', 'ZMP', 'ZBW', 'ZLC', 'ZSC', 'ZAU', 'ZNY')
+ALL_FIR_PREFIXES = ('CZEG', 'CZUL', 'CZYZ', 'CZWG', 'CZVR', 'CZQX', 'CZQXO', 'CZQM',
+                    'ZOB', 'ZMP', 'ZBW', 'ZLC', 'ZSC', 'ZSE', 'ZAU', 'ZNY', 'ZAK',
+                    'PAZA', 'BGGL', 'BIRD')
 
 
-def should_include_sector(name, fir_code='CZYZ'):
+def should_include_sector(name, fir_code='CZYZ', artcc_owner=None):
     """Determine if a sector should be included in the output."""
     upper = name.upper()
 
-    # Skip terminal positions (suffix-based: _TWR, _GND, etc.)
+    # If the sector has an artcc_owner from middle-dot format, skip if it belongs to another FIR
+    if artcc_owner and artcc_owner.upper() != fir_code.upper():
+        return False
+
+    # Strip the FIR prefix if the sector name starts with it (e.g., "CZEG_BS" → "BS")
+    display_name = upper
+    if upper.startswith(fir_code + '_'):
+        display_name = upper[len(fir_code) + 1:]
+
+    # Skip terminal positions (suffix-based: _TWR, _GND, _DEP, _TML, _MF, etc.)
     if any(upper.endswith(s) or s + ':' in upper for s in SKIP_SUFFIXES):
         return False
 
-    # Skip terminal positions (keyword-based: "WINNIPEG TOWER", "REGINA GROUND")
+    # Skip terminal positions (keyword-based: "WINNIPEG TOWER", "REGINA GROUND", etc.)
     if any(kw in upper for kw in TERMINAL_KEYWORDS):
         return False
 
-    # Skip sectors prefixed with own FIR code + city name (e.g., "CZWGWINNIPEG...")
-    if upper.startswith(fir_code) and len(name) > len(fir_code) + 2:
+    # Skip airport-specific terminal sectors (CY**_GND, CY**_TWR, etc.)
+    if AIRPORT_TERMINAL_RE.search(upper):
+        return False
+
+    # Skip control zone sectors (CYBG_CZ, CYFB_CZ, etc.)
+    if CONTROL_ZONE_RE.search(upper):
+        return False
+
+    # Skip approach box/corridor sectors (AN_BOX_06, AS_CORR1_06, etc.)
+    if APPROACH_BOX_RE.search(display_name):
+        return False
+
+    # Skip runway config specific sectors with parenthesized configs: (08), (26)
+    if RUNWAY_CONFIG_PAREN_RE.search(name):
         return False
 
     # Skip adjacent FIR delegated sectors
@@ -311,10 +368,10 @@ def should_include_sector(name, fir_code='CZYZ'):
 
     # Generic: skip any sector prefixed with a known FIR code that isn't ours
     for prefix in ALL_FIR_PREFIXES:
-        if prefix != fir_code and name.startswith(prefix + '_'):
+        if prefix != fir_code and (name.startswith(prefix + '_') or upper.startswith(prefix)):
             return False
 
-    # Skip runway-config-specific approach sectors
+    # Skip runway-config-specific approach sectors (old pattern)
     if RWY_CONFIG_RE.search(name):
         return False
 
@@ -355,8 +412,9 @@ def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
 
     for sector in sectors:
         name = sector['name']
+        artcc_owner = sector.get('artcc_owner')
 
-        if not should_include_sector(name, fir_code):
+        if not should_include_sector(name, fir_code, artcc_owner):
             stats['skipped_filter'] += 1
             continue
 
@@ -365,7 +423,13 @@ def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
             continue
 
         tier = classify_tier(sector['floor_ft'], sector['ceiling_ft'])
-        code, base_name = extract_sector_code(name)
+
+        # Strip FIR prefix from sector name for code extraction (e.g., "CZEG_BS" → "BS")
+        display_name = name
+        if name.upper().startswith(fir_code + '_'):
+            display_name = name[len(fir_code) + 1:]
+
+        code, base_name = extract_sector_code(display_name)
         owner_primary = sector['owner'][0] if sector['owner'] else ''
 
         # Build polygon(s) from all BORDER lines for this sector definition
@@ -395,7 +459,7 @@ def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
             'artcc': fir_code,
             'sector': code,
             'label': f'{fir_code}{code}',
-            'name': name,
+            'name': display_name,
             'floor': sector['floor_ft'],
             'ceiling': sector['ceiling_ft'],
             'label_lat': label_lat,
@@ -484,4 +548,7 @@ def main():
 
 
 if __name__ == '__main__':
+    # Ensure UTF-8 output on Windows
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     main()
