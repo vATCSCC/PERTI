@@ -8,7 +8,11 @@ chains sectorlines into closed polygons, classifies by altitude tier
 the format used by PERTI's ARTCC sector boundary layers.
 
 Usage:
-    python3 ese_to_geojson.py C:/Temp/CZYZ.ese output_dir/
+    python3 ese_to_geojson.py <ese_file> <output_dir> [--fir CODE]
+
+Examples:
+    python3 ese_to_geojson.py C:/Temp/CZYZ.ese assets/data/sectors/CZYZ/
+    python3 ese_to_geojson.py C:/Temp/CZWG.ese assets/data/sectors/CZWG/ --fir CZWG
 """
 
 import re
@@ -16,6 +20,7 @@ import json
 import math
 import sys
 import os
+import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -50,6 +55,7 @@ def parse_coord_line(line):
 # ─── Circle generation ──────────────────────────────────────────────
 
 AIRPORT_COORDS = {
+    # CZYZ (Toronto FIR)
     'CYYZ': (43.6772, -79.6306), 'CYXU': (43.0356, -81.1539),
     'CYHM': (43.1736, -79.9350), 'CYKF': (43.4608, -80.3847),
     'CYTZ': (43.6275, -79.3962), 'CYOO': (43.9228, -78.8950),
@@ -59,6 +65,14 @@ AIRPORT_COORDS = {
     'CYSB': (46.6250, -80.7989), 'CYTS': (48.5697, -81.3767),
     'CYMO': (51.2911, -80.6078), 'CYQA': (44.9747, -79.3033),
     'CYOW': (45.3225, -75.6692),
+    # CZWG (Winnipeg FIR)
+    'CYWG': (49.9100, -97.2398), 'CYQR': (50.4319, -104.6658),
+    'CYXE': (52.1708, -106.6997), 'CYQT': (48.3719, -89.3239),
+    'CYMJ': (50.3303, -105.5592), 'CYAV': (50.0564, -97.0325),
+    'CYPG': (49.9031, -97.3472), 'CYRL': (51.0667, -93.7931),
+    'CYQW': (50.2753, -107.6844), 'CYPA': (53.2142, -105.6728),
+    'CYBR': (49.9108, -99.9519), 'CYBL': (51.3894, -102.7822),
+    'CYDN': (51.1008, -100.0525), 'CYKJ': (50.7106, -101.7583),
 }
 
 
@@ -259,20 +273,46 @@ def classify_tier(floor_ft, ceiling_ft):
 RWY_CONFIG_RE = re.compile(r'(?:^|\s)(?:05/06|23/24|33|15)(?:\s|$)')
 
 SKIP_SUFFIXES = ('_TWR', '_GND', '_RMP', '_DEL', '_APP')
-SKIP_PREFIXES = ('ZOB', 'ZMP', 'ZBW')
+
+# Terminal keyword patterns (CZWG uses "WINNIPEG TOWER", "REGINA GROUND", etc.)
+TERMINAL_KEYWORDS = ('DELIVERY', 'GROUND', 'TOWER', 'TCA', 'ARRIVAL', 'DEPARTURE')
+
+# Adjacent FIR prefixes to skip, keyed by own FIR code
+ADJACENT_FIRS = {
+    'CZYZ': ['ZOB', 'ZMP', 'ZBW'],
+    'CZWG': ['CZEG', 'CZUL', 'CZYZ', 'ZLC', 'ZMP', 'ZSC'],
+}
+
+# All known Canadian/US FIR prefixes for generic adjacency detection
+ALL_FIR_PREFIXES = ('CZEG', 'CZUL', 'CZYZ', 'CZWG', 'CZVR', 'CZQX', 'CZQM',
+                    'ZOB', 'ZMP', 'ZBW', 'ZLC', 'ZSC', 'ZAU', 'ZNY')
 
 
-def should_include_sector(name):
+def should_include_sector(name, fir_code='CZYZ'):
     """Determine if a sector should be included in the output."""
-    # Skip terminal positions
-    if any(name.endswith(s) or s + ':' in name for s in SKIP_SUFFIXES):
+    upper = name.upper()
+
+    # Skip terminal positions (suffix-based: _TWR, _GND, etc.)
+    if any(upper.endswith(s) or s + ':' in upper for s in SKIP_SUFFIXES):
         return False
-    if any(name.upper().endswith(s) for s in SKIP_SUFFIXES):
+
+    # Skip terminal positions (keyword-based: "WINNIPEG TOWER", "REGINA GROUND")
+    if any(kw in upper for kw in TERMINAL_KEYWORDS):
+        return False
+
+    # Skip sectors prefixed with own FIR code + city name (e.g., "CZWGWINNIPEG...")
+    if upper.startswith(fir_code) and len(name) > len(fir_code) + 2:
         return False
 
     # Skip adjacent FIR delegated sectors
-    if any(name.startswith(p) for p in SKIP_PREFIXES):
+    skip_prefixes = ADJACENT_FIRS.get(fir_code, [])
+    if any(name.startswith(p) for p in skip_prefixes):
         return False
+
+    # Generic: skip any sector prefixed with a known FIR code that isn't ours
+    for prefix in ALL_FIR_PREFIXES:
+        if prefix != fir_code and name.startswith(prefix + '_'):
+            return False
 
     # Skip runway-config-specific approach sectors
     if RWY_CONFIG_RE.search(name):
@@ -316,7 +356,7 @@ def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
     for sector in sectors:
         name = sector['name']
 
-        if not should_include_sector(name):
+        if not should_include_sector(name, fir_code):
             stats['skipped_filter'] += 1
             continue
 
@@ -397,17 +437,26 @@ def save_tier(features, output_path, name):
 
 
 def main():
-    ese_path = sys.argv[1] if len(sys.argv) > 1 else 'C:/Temp/CZYZ.ese'
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else 'C:/Temp'
+    parser = argparse.ArgumentParser(description='Convert EuroScope .ese files to GeoJSON sector boundaries')
+    parser.add_argument('ese_path', nargs='?', default='C:/Temp/CZYZ.ese', help='Path to .ese file')
+    parser.add_argument('output_dir', nargs='?', default=None, help='Output directory')
+    parser.add_argument('--fir', default=None, help='FIR code (auto-detected from filename if omitted)')
+    args = parser.parse_args()
+
+    ese_path = args.ese_path
+
+    # Auto-detect FIR code from filename (e.g., CZWG.ese → CZWG)
+    fir_code = args.fir or os.path.splitext(os.path.basename(ese_path))[0].upper()
+    output_dir = args.output_dir or 'C:/Temp'
 
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f'Parsing {ese_path}...')
+    print(f'Parsing {ese_path} (FIR: {fir_code})...')
     sectorlines, sectors = parse_ese(ese_path)
     print(f'  {len(sectorlines)} sectorlines, {len(sectors)} sector definitions')
 
     print(f'Building GeoJSON...')
-    tiers, stats = build_geojson(sectors, sectorlines)
+    tiers, stats = build_geojson(sectors, sectorlines, fir_code)
 
     print(f'\nStats:')
     print(f'  Included:           {stats["included"]}')
@@ -420,12 +469,12 @@ def main():
             print(f'    - {m}')
 
     print(f'\nSaving tier files to {output_dir}/')
-    save_tier(tiers['low'], os.path.join(output_dir, 'CZYZ_low.geojson'),
-              'CZYZ FIR Low Altitude Sector Boundaries')
-    save_tier(tiers['high'], os.path.join(output_dir, 'CZYZ_high.geojson'),
-              'CZYZ FIR High Altitude Sector Boundaries')
-    save_tier(tiers['superhigh'], os.path.join(output_dir, 'CZYZ_superhigh.geojson'),
-              'CZYZ FIR Superhigh Altitude Sector Boundaries')
+    save_tier(tiers['low'], os.path.join(output_dir, f'{fir_code}_low.geojson'),
+              f'{fir_code} FIR Low Altitude Sector Boundaries')
+    save_tier(tiers['high'], os.path.join(output_dir, f'{fir_code}_high.geojson'),
+              f'{fir_code} FIR High Altitude Sector Boundaries')
+    save_tier(tiers['superhigh'], os.path.join(output_dir, f'{fir_code}_superhigh.geojson'),
+              f'{fir_code} FIR Superhigh Altitude Sector Boundaries')
 
     # Summary of unique sector codes per tier
     for tier_name in ['low', 'high', 'superhigh']:
