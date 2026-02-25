@@ -229,11 +229,6 @@
 
             // Auto-plot routes on map
             plotOnMap();
-
-            // Inject DCC play for PB expansion
-            if (play.source === 'DCC') {
-                injectDccPlay(play, routes);
-            }
         });
     }
 
@@ -250,7 +245,7 @@
         html += '</div>';
         html += '<div class="pb-actions">';
         html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
-        if (hasPerm && play.source === 'DCC') {
+        if (hasPerm && play.source !== 'FAA') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
         }
         if (hasPerm) {
@@ -281,6 +276,32 @@
         // Facilities
         if (play.facilities_involved || play.impacted_area) {
             html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(play.impacted_area || play.facilities_involved) + '</div>';
+        }
+
+        // Included Traffic summary (Route Advisory format)
+        if (routes.length) {
+            var origSet = new Set(), destSet = new Set(), facSet = new Set();
+            routes.forEach(function(r) {
+                csvSplit(r.origin_airports).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
+                csvSplit(r.origin_artccs).forEach(function(a) { if (a) { origSet.add(a.toUpperCase()); facSet.add(a.toUpperCase()); } });
+                csvSplit(r.origin_tracons).forEach(function(a) { if (a) facSet.add(a.toUpperCase()); });
+                csvSplit(r.dest_airports).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
+                csvSplit(r.dest_artccs).forEach(function(a) { if (a) { destSet.add(a.toUpperCase()); facSet.add(a.toUpperCase()); } });
+                csvSplit(r.dest_tracons).forEach(function(a) { if (a) facSet.add(a.toUpperCase()); });
+            });
+            var origArr = Array.from(origSet).sort();
+            var destArr = Array.from(destSet).sort();
+            if (origArr.length || destArr.length) {
+                var trafficParts = [];
+                if (origArr.length && destArr.length) {
+                    trafficParts.push(origArr.join('/') + ' departures to ' + destArr.join('/'));
+                } else if (origArr.length) {
+                    trafficParts.push(origArr.join('/') + ' departures');
+                } else {
+                    trafficParts.push('Arrivals to ' + destArr.join('/'));
+                }
+                html += '<div class="pb-play-traffic"><i class="fas fa-plane-departure mr-1"></i>' + escHtml(trafficParts[0]) + '</div>';
+            }
         }
 
         // Route table

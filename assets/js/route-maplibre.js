@@ -5494,8 +5494,8 @@ $(document).ready(function() {
         if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
             return FacilityHierarchy.isArtcc(t);
         }
-        // Fallback: US ARTCCs only
-        return /^Z[A-Z]{2}$/.test(t);
+        // Fallback: US ARTCCs (Z**) + Canadian FIRs (CZ*)
+        return /^(Z[A-Z]{2}|CZ[A-Z])$/.test(t);
     }
 
     // Check if token is a TRACON/TCA (global)

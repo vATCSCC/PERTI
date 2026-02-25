@@ -152,20 +152,25 @@ class AirportLookup:
         return AirportInfo(icao=code if len(code) == 4 else '', faa_id=code)
 
     def _is_artcc(self, code: str) -> bool:
-        """Check if code is an ARTCC (starts with Z, 3 chars)."""
-        return (
-            len(code) == ARTCC_LENGTH and
-            code.startswith(ARTCC_PREFIX) and
-            code.isalpha()
-        )
+        """Check if code is an ARTCC/FIR (US Z-prefix or Canadian CZ-prefix)."""
+        if len(code) != ARTCC_LENGTH or not code.isalpha():
+            return False
+        # US ARTCCs: Z-prefix (ZAU, ZBW, ZDC, etc.)
+        if code.startswith(ARTCC_PREFIX):
+            return True
+        # Canadian FIRs: CZ-prefix (CZU, CZY, CZE, etc.)
+        if code.startswith('CZ'):
+            return True
+        return False
 
     def _is_tracon(self, code: str) -> bool:
         """Check if code could be a TRACON."""
-        return (
-            len(code) == 3 and
-            not code.startswith('Z') and
-            not code.startswith('K')
-        )
+        if len(code) != 3:
+            return False
+        # Exclude ARTCCs (Z-prefix), airports (K-prefix), and Canadian FIRs (CZ-prefix)
+        if code.startswith('Z') or code.startswith('K') or code.startswith('CZ'):
+            return False
+        return True
 
 
 class PlaybookParser:
