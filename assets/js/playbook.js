@@ -826,7 +826,7 @@
             play_name: playName,
             display_name: $('#pb_edit_display_name').val().trim(),
             description: $('#pb_edit_description').val().trim(),
-            category: $('#pb_edit_category').val().trim(),
+            category: ($('#pb_edit_category').val() || '').replace('__custom__', '').trim(),
             scenario_type: $('#pb_edit_scenario_type').val(),
             route_format: $('#pb_edit_route_format').val(),
             status: $('#pb_edit_status').val(),
