@@ -11,7 +11,6 @@ include("sessions/handler.php");
     include("load/config.php");
     define('PERTI_MYSQL_ONLY', true);
     include("load/connect.php");
-    include("load/i18n.php");
 
     // Check Perms
     $perm = false;
