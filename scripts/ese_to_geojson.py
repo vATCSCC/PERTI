@@ -298,6 +298,15 @@ def to_geojson_coord(lat, lon):
     return [round(lon, 6), round(lat, 6)]
 
 
+def polygon_centroid(ring):
+    """Compute the centroid of a polygon ring [(lat, lon), ...]."""
+    if not ring:
+        return None, None
+    lats = [p[0] for p in ring]
+    lons = [p[1] for p in ring]
+    return round(sum(lats) / len(lats), 6), round(sum(lons) / len(lons), 6)
+
+
 def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
     """Build three GeoJSON FeatureCollections: low, high, superhigh."""
     tiers = {'low': [], 'high': [], 'superhigh': []}
@@ -337,12 +346,20 @@ def build_geojson(sectors, sectorlines, fir_code='CZYZ'):
         if not polygons:
             continue
 
+        # Compute centroid from first polygon's raw coords for label placement
+        first_border = sector['borders'][0] if sector['borders'] else []
+        raw_coords = chain_sectorlines(first_border, sectorlines) if first_border else []
+        label_lat, label_lon = polygon_centroid(raw_coords) if raw_coords else (None, None)
+
         props = {
             'artcc': fir_code,
-            'sector_code': code,
-            'sector_name': name,
-            'floor_ft': sector['floor_ft'],
-            'ceiling_ft': sector['ceiling_ft'],
+            'sector': code,
+            'label': f'{fir_code}{code}',
+            'name': name,
+            'floor': sector['floor_ft'],
+            'ceiling': sector['ceiling_ft'],
+            'label_lat': label_lat,
+            'label_lon': label_lon,
             'owner_primary': owner_primary,
             'owner_chain': ':'.join(sector['owner']),
             'source': f'{fir_code}.ese',
@@ -412,7 +429,7 @@ def main():
 
     # Summary of unique sector codes per tier
     for tier_name in ['low', 'high', 'superhigh']:
-        codes = sorted(set(f['properties']['sector_code'] for f in tiers[tier_name]))
+        codes = sorted(set(f['properties']['sector'] for f in tiers[tier_name]))
         print(f'\n{tier_name.upper()} sectors ({len(tiers[tier_name])} features, {len(codes)} codes):')
         print(f'  {", ".join(codes)}')
 
