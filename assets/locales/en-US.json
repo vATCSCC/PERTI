@@ -7074,6 +7074,13 @@
     "playSaved": "Play saved successfully",
     "saveFailed": "Failed to save play",
     "confirmArchive": "Archive Play?",
-    "confirmArchiveText": "This play will be hidden from the active catalog."
+    "confirmArchiveText": "This play will be hidden from the active catalog.",
+    "allPlays": "All",
+    "showLegacy": "Legacy",
+    "legacyHidden": "{count} legacy hidden",
+    "selectAPlay": "Select a play to view routes",
+    "bulkPaste": "Bulk Paste",
+    "bulkPasteHint": "One route per line: ORIG ROUTE DEST",
+    "deleteRoute": "Delete Route"
   }
 }

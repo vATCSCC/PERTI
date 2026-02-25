@@ -24,16 +24,10 @@ include("load/i18n.php");
 include("load/nav.php");
 ?>
 
-<section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 120px" data-jarallax data-speed="0.3" style="pointer-events: all;">
-    <div class="container-fluid pt-2 pb-3">
-        <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
-    </div>
-</section>
+<div class="container-fluid pb-page px-2 px-lg-3 pt-2 pb-2">
 
-<div class="container-fluid mt-3 px-3 px-lg-4 pb-2">
-
-    <!-- Map (full width, top) -->
-    <div class="pb-map-section mb-3">
+    <!-- Map (full width, top — compact by default, expands when routes plotted) -->
+    <div class="pb-map-section" id="pb_map_section">
         <!-- Hidden textarea + button for route-maplibre integration -->
         <textarea id="routeSearch" style="display:none;"></textarea>
         <button id="plot_r" style="display:none;"></button>
@@ -44,52 +38,52 @@ include("load/nav.php");
         </div>
     </div>
 
-    <!-- Catalog Browser (full width, below map) -->
-    <div class="pb-catalog-panel">
-        <div class="pb-catalog-header">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0" style="font-weight: 700;">
-                    <i class="fas fa-book mr-1" style="color: #239BCD;"></i>
+    <!-- Catalog Header: title + search + category pills -->
+    <div class="pb-catalog-header" id="pb_catalog_header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+                <span class="pb-title">
+                    <i class="fas fa-book" style="color:#239BCD;"></i>
                     <?= __('playbook.title') ?>
-                </h5>
-                <div class="d-flex align-items-center" style="gap:0.5rem;">
-                    <div class="pb-catalog-stats" id="pb_stats"></div>
-                    <?php if ($perm): ?>
-                    <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
-                        <i class="fas fa-plus mr-1"></i><?= __('playbook.createPlay') ?>
-                    </button>
-                    <?php endif; ?>
-                </div>
+                </span>
+                <span class="pb-catalog-stats" id="pb_stats"></span>
             </div>
-
-            <!-- Search & Filters (single row) -->
-            <div class="pb-filter-row">
-                <input type="text" id="pb_search" class="form-control form-control-sm" style="max-width:300px;"
+            <div class="d-flex align-items-center" style="gap:0.35rem;">
+                <input type="text" id="pb_search" class="form-control form-control-sm pb-search"
                        placeholder="<?= __('playbook.searchPlaceholder') ?>">
-                <select id="pb_filter_category" class="form-control form-control-sm">
-                    <option value=""><?= __('playbook.allCategories') ?></option>
-                </select>
-                <select id="pb_filter_source" class="form-control form-control-sm">
-                    <option value=""><?= __('playbook.allSources') ?></option>
-                    <option value="FAA">FAA</option>
-                    <option value="DCC">DCC</option>
-                </select>
-                <select id="pb_filter_status" class="form-control form-control-sm">
-                    <option value="active"><?= __('playbook.statusActive') ?></option>
-                    <option value=""><?= __('common.all') ?></option>
-                    <option value="draft"><?= __('playbook.statusDraft') ?></option>
-                    <option value="archived"><?= __('playbook.statusArchived') ?></option>
-                </select>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-secondary pb-src-btn active" data-source=""><?= __('common.all') ?></button>
+                    <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA">FAA</button>
+                    <button class="btn btn-outline-secondary pb-src-btn" data-source="DCC">DCC</button>
+                </div>
+                <label class="pb-legacy-toggle mb-0" title="<?= __('playbook.showLegacy') ?>">
+                    <input type="checkbox" id="pb_legacy_toggle">
+                    <span class="small"><?= __('playbook.showLegacy') ?></span>
+                </label>
+                <?php if ($perm): ?>
+                <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <?php endif; ?>
             </div>
         </div>
 
-        <!-- Play List -->
+        <!-- Category pills -->
+        <div class="pb-pills" id="pb_category_pills"></div>
+    </div>
+
+    <!-- Play List (compact rows) -->
+    <div class="pb-play-list-wrap" id="pb_play_list_wrap">
         <div id="pb_play_list_container">
             <div class="pb-loading">
                 <div class="spinner-border text-primary" role="status"></div>
-                <div class="mt-1" style="font-size:0.8rem;"><?= __('common.loading') ?></div>
             </div>
         </div>
+    </div>
+
+    <!-- Detail Panel (shows when a play is selected) -->
+    <div class="pb-detail-panel" id="pb_detail_panel" style="display:none;">
+        <div id="pb_detail_content"></div>
     </div>
 
 </div>
@@ -169,8 +163,21 @@ include("load/nav.php");
                 <hr>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <strong style="font-size:0.9rem;"><?= __('playbook.routes') ?></strong>
-                    <button class="btn btn-sm btn-outline-success" id="pb_add_route_btn">
-                        <i class="fas fa-plus mr-1"></i><?= __('playbook.addRoute') ?>
+                    <div>
+                        <button class="btn btn-sm btn-outline-info mr-1" id="pb_bulk_paste_btn">
+                            <i class="fas fa-paste mr-1"></i><?= __('playbook.bulkPaste') ?>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" id="pb_add_route_btn">
+                            <i class="fas fa-plus mr-1"></i><?= __('playbook.addRoute') ?>
+                        </button>
+                    </div>
+                </div>
+                <!-- Bulk paste area (hidden by default) -->
+                <div id="pb_bulk_paste_area" style="display:none;" class="mb-2">
+                    <textarea id="pb_bulk_paste_text" class="form-control form-control-sm" rows="4"
+                              placeholder="<?= __('playbook.bulkPasteHint') ?>" style="font-family:'Inconsolata',monospace;"></textarea>
+                    <button class="btn btn-sm btn-info mt-1" id="pb_bulk_paste_apply">
+                        <i class="fas fa-check mr-1"></i><?= __('common.apply') ?>
                     </button>
                 </div>
                 <div class="table-responsive">

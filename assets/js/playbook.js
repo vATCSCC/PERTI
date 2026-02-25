@@ -11,14 +11,18 @@
     var API_LOG    = 'api/data/playbook/changelog.php';
     var API_SAVE   = 'api/mgt/playbook/save.php';
     var API_DELETE  = 'api/mgt/playbook/delete.php';
-    var API_ROUTE  = 'api/mgt/playbook/route.php';
 
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
 
-    var plays = [];
-    var currentPage = 1;
-    var totalPages = 1;
+    // State
+    var allPlays = [];          // Full loaded set from API
+    var filteredPlays = [];     // After client-side filters
+    var categoryData = {};      // { category_counts, categories, legacy_count }
+    var activeCategory = '';    // '' = all
+    var activeSource = '';      // '' = all
+    var showLegacy = false;
+    var searchText = '';
     var activePlayId = null;
     var activePlayData = null;
     var selectedRouteIds = new Set();
@@ -48,29 +52,52 @@
         return (name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     }
 
+    function isLegacy(playName) {
+        return (playName || '').indexOf('_old_') !== -1;
+    }
+
     // =========================================================================
-    // CATALOG LOADING
+    // CATEGORY PILLS
     // =========================================================================
 
     function loadCategories() {
         $.getJSON(API_CATS, function(data) {
             if (!data || !data.success) return;
-            var sel = $('#pb_filter_category');
-            sel.find('option:not(:first)').remove();
-            (data.categories || []).forEach(function(c) {
-                if (c) sel.append('<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>');
-            });
+            categoryData = data;
+            renderCategoryPills();
         });
     }
 
+    function renderCategoryPills() {
+        var container = $('#pb_category_pills');
+        var counts = categoryData.category_counts || {};
+        var cats = categoryData.categories || [];
+
+        // Total active plays
+        var total = 0;
+        for (var k in counts) total += counts[k];
+
+        var html = '<span class="pb-pill' + (activeCategory === '' ? ' active' : '') + '" data-cat="">' +
+                   t('playbook.allPlays') + ' <span class="pb-pill-count">' + total + '</span></span>';
+
+        cats.forEach(function(cat) {
+            var cnt = counts[cat] || 0;
+            html += '<span class="pb-pill' + (activeCategory === cat ? ' active' : '') + '" data-cat="' + escHtml(cat) + '">' +
+                    escHtml(cat) + ' <span class="pb-pill-count">' + cnt + '</span></span>';
+        });
+
+        container.html(html);
+    }
+
+    // =========================================================================
+    // PLAY LOADING & CLIENT-SIDE FILTERING
+    // =========================================================================
+
     function loadPlays() {
         var params = {
-            page: currentPage,
-            per_page: 50,
-            search: ($('#pb_search').val() || '').trim(),
-            category: $('#pb_filter_category').val() || '',
-            source: $('#pb_filter_source').val() || '',
-            status: $('#pb_filter_status').val() || ''
+            per_page: 1000,
+            status: 'active',
+            hide_legacy: showLegacy ? 0 : 1
         };
 
         var qstr = Object.keys(params).map(function(k) {
@@ -84,69 +111,70 @@
         $.getJSON(API_LIST + '?' + qstr, function(data) {
             if (!data || !data.success) {
                 $('#pb_play_list_container').html(
-                    '<div class="pb-empty-state"><i class="fas fa-exclamation-triangle"></i><div>' + t('common.error') + '</div></div>'
+                    '<div class="pb-empty-state"><i class="fas fa-exclamation-triangle"></i>' + t('common.error') + '</div>'
                 );
                 return;
             }
 
-            plays = data.data || [];
-            totalPages = data.pages || 1;
-
-            $('#pb_stats').text(
-                t('playbook.showingPlays', { count: data.total || 0 })
-            );
-
-            renderPlayList();
+            allPlays = data.data || [];
+            applyFilters();
         }).fail(function() {
             $('#pb_play_list_container').html(
-                '<div class="pb-empty-state"><i class="fas fa-exclamation-triangle"></i><div>' + t('common.error') + '</div></div>'
+                '<div class="pb-empty-state"><i class="fas fa-exclamation-triangle"></i>' + t('common.error') + '</div>'
             );
         });
     }
 
+    function applyFilters() {
+        var search = searchText.toUpperCase();
+
+        filteredPlays = allPlays.filter(function(p) {
+            // Category filter
+            if (activeCategory && p.category !== activeCategory) return false;
+            // Source filter
+            if (activeSource && p.source !== activeSource) return false;
+            // Search filter — match play name, display name, description, facilities
+            if (search) {
+                var haystack = ((p.play_name || '') + ' ' + (p.display_name || '') + ' ' +
+                    (p.description || '') + ' ' + (p.facilities_involved || '') + ' ' +
+                    (p.impacted_area || '') + ' ' + (p.category || '')).toUpperCase();
+                if (haystack.indexOf(search) === -1) return false;
+            }
+            return true;
+        });
+
+        $('#pb_stats').text(t('playbook.showingPlays', { count: filteredPlays.length }));
+        if (!showLegacy && categoryData.legacy_count) {
+            $('#pb_stats').append(' <span style="opacity:0.6;">(' + t('playbook.legacyHidden', { count: categoryData.legacy_count }) + ')</span>');
+        }
+
+        renderPlayList();
+    }
+
     function renderPlayList() {
-        if (!plays.length) {
+        if (!filteredPlays.length) {
             $('#pb_play_list_container').html(
-                '<div class="pb-empty-state"><i class="fas fa-book-open"></i><div>' + t('playbook.noPlaysFound') + '</div></div>'
+                '<div class="pb-empty-state"><i class="fas fa-book-open"></i>' + t('playbook.noPlaysFound') + '</div>'
             );
             return;
         }
 
         var html = '<ul class="pb-play-list">';
-        plays.forEach(function(p) {
+        filteredPlays.forEach(function(p) {
             var isActive = p.play_id == activePlayId;
-            html += '<li class="pb-play-card' + (isActive ? ' active' : '') + '" data-play-id="' + p.play_id + '">';
-            html += '<div class="pb-play-card-header">';
-            html += '<span class="pb-play-name">' + escHtml(p.play_name) + '</span>';
-            html += '<span class="pb-play-meta">';
-            html += '<span class="pb-badge pb-badge-' + (p.source || 'dcc').toLowerCase() + '">' + escHtml(p.source || 'DCC') + '</span>';
+            html += '<li class="pb-play-row' + (isActive ? ' active' : '') + '" data-play-id="' + p.play_id + '">';
+            html += '<span class="pb-play-row-name">' + escHtml(p.play_name) + '</span>';
+            html += '<span class="pb-play-row-meta">';
             if (p.category) html += '<span class="pb-badge pb-badge-category">' + escHtml(p.category) + '</span>';
             html += '<span class="pb-badge pb-badge-routes">' + (p.route_count || 0) + '</span>';
-            if (p.status === 'archived') html += '<span class="pb-badge pb-badge-archived">' + t('playbook.statusArchived') + '</span>';
+            html += '<span class="pb-badge pb-badge-' + (p.source || 'dcc').toLowerCase() + '">' + escHtml(p.source || 'DCC') + '</span>';
             if (p.status === 'draft') html += '<span class="pb-badge pb-badge-draft">' + t('playbook.statusDraft') + '</span>';
             html += '</span>';
-            html += '</div>';
-            html += '<div class="pb-play-detail" id="pb_detail_' + p.play_id + '"></div>';
             html += '</li>';
         });
         html += '</ul>';
 
-        // Pagination
-        if (totalPages > 1) {
-            html += '<div class="d-flex justify-content-center mt-2">';
-            html += '<button class="btn btn-sm btn-outline-secondary mr-1" id="pb_prev_page" ' + (currentPage <= 1 ? 'disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
-            html += '<span class="align-self-center" style="font-size:0.8rem;">' + currentPage + ' / ' + totalPages + '</span>';
-            html += '<button class="btn btn-sm btn-outline-secondary ml-1" id="pb_next_page" ' + (currentPage >= totalPages ? 'disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
-            html += '</div>';
-        }
-
         $('#pb_play_list_container').html(html);
-
-        // If a play was active, reload its detail
-        if (activePlayId) {
-            var card = $('[data-play-id="' + activePlayId + '"]');
-            if (card.length) loadPlayDetail(activePlayId);
-        }
     }
 
     // =========================================================================
@@ -157,16 +185,21 @@
         activePlayId = playId;
         selectedRouteIds.clear();
 
-        // Highlight active card
-        $('.pb-play-card').removeClass('active');
+        // Highlight active row
+        $('.pb-play-row').removeClass('active');
         $('[data-play-id="' + playId + '"]').addClass('active');
 
-        var detailEl = $('#pb_detail_' + playId);
-        detailEl.html('<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+        var panel = $('#pb_detail_panel');
+        var content = $('#pb_detail_content');
+        panel.show();
+        content.html('<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+
+        // Expand map
+        $('#pb_map_section').addClass('pb-map-expanded');
 
         $.getJSON(API_GET + '?id=' + playId, function(data) {
             if (!data || !data.success) {
-                detailEl.html('<div class="text-danger small">' + t('common.error') + '</div>');
+                content.html('<div class="text-danger small">' + t('common.error') + '</div>');
                 return;
             }
 
@@ -175,105 +208,131 @@
             play.routes = routes;
             activePlayData = play;
 
-            var html = '';
+            renderDetailPanel(play, routes);
 
-            // Play metadata
-            var metaParts = [];
-            if (play.category) metaParts.push('<span class="pb-badge pb-badge-category">' + escHtml(play.category) + '</span>');
-            if (play.scenario_type) metaParts.push('<span class="badge badge-secondary" style="font-size:0.7rem;">' + escHtml(play.scenario_type) + '</span>');
-            if (play.source) metaParts.push('<span class="pb-badge pb-badge-' + (play.source || 'dcc').toLowerCase() + '">' + escHtml(play.source) + '</span>');
-            if (play.airac_cycle) metaParts.push('<span style="font-size:0.7rem;color:#888;">AIRAC ' + escHtml(play.airac_cycle) + '</span>');
-            if (metaParts.length) {
-                html += '<div class="d-flex flex-wrap align-items-center mb-1" style="gap:4px;">' + metaParts.join('') + '</div>';
-            }
+            // Auto-plot routes on map
+            plotOnMap();
 
-            // Display name (if different from play_name)
-            if (play.display_name && play.display_name !== play.play_name) {
-                html += '<div style="font-size:0.85rem;font-weight:600;margin-bottom:4px;">' + escHtml(play.display_name) + '</div>';
-            }
-
-            // Description
-            if (play.description) {
-                html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
-            }
-
-            // Facilities / Impacted area
-            if (play.facilities_involved || play.impacted_area) {
-                var facDisplay = play.impacted_area || play.facilities_involved;
-                html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(facDisplay) + '</div>';
-            }
-
-            // Route table
-            if (routes.length) {
-                html += '<div class="d-flex justify-content-between align-items-center mb-1">';
-                html += '<span class="pb-select-all" id="pb_select_all">' + t('playbook.selectAll') + '</span>';
-                html += '<span style="font-size:0.7rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
-                html += '</div>';
-
-                html += '<div class="table-responsive" style="max-height:400px;overflow-y:auto;">';
-                html += '<table class="pb-route-table"><thead><tr>';
-                html += '<th class="pb-route-check"><input type="checkbox" id="pb_check_all"></th>';
-                html += '<th>Origin</th>';
-                html += '<th>TRACON</th>';
-                html += '<th>ARTCC</th>';
-                html += '<th>' + t('playbook.routeString') + '</th>';
-                html += '<th>Dest</th>';
-                html += '<th>TRACON</th>';
-                html += '<th>ARTCC</th>';
-                html += '</tr></thead><tbody>';
-
-                routes.forEach(function(r) {
-                    var origApt = r.origin_airports || r.origin || '-';
-                    var origTracon = r.origin_tracons || '-';
-                    var origArtcc = r.origin_artccs || '-';
-                    var destApt = r.dest_airports || r.dest || '-';
-                    var destTracon = r.dest_tracons || '-';
-                    var destArtcc = r.dest_artccs || '-';
-                    html += '<tr data-route-id="' + r.route_id + '">';
-                    html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"></td>';
-                    html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
-                    html += '<td>' + escHtml(origTracon) + '</td>';
-                    html += '<td>' + escHtml(origArtcc) + '</td>';
-                    html += '<td>' + escHtml(r.route_string) + '</td>';
-                    html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
-                    html += '<td>' + escHtml(destTracon) + '</td>';
-                    html += '<td>' + escHtml(destArtcc) + '</td>';
-                    html += '</tr>';
-                });
-
-                html += '</tbody></table></div>';
-            }
-
-            // Action buttons
-            html += '<div class="pb-actions">';
-            html += '<button class="btn btn-primary" id="pb_plot_btn"><i class="fas fa-pencil-alt mr-1"></i>' + t('playbook.plotOnMap') + '</button>';
-            html += '<button class="btn btn-warning" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
-
-            if (hasPerm) {
-                if (play.source === 'DCC') {
-                    html += '<button class="btn btn-outline-secondary" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
-                }
-                if (play.status === 'active' || play.status === 'draft') {
-                    html += '<button class="btn btn-outline-danger" id="pb_archive_btn"><i class="fas fa-archive mr-1"></i>' + t('playbook.archive') + '</button>';
-                } else if (play.status === 'archived') {
-                    html += '<button class="btn btn-outline-success" id="pb_restore_btn"><i class="fas fa-undo mr-1"></i>' + t('playbook.restore') + '</button>';
-                }
-            }
-            html += '</div>';
-
-            // Changelog toggle
-            html += '<div class="pb-changelog">';
-            html += '<div class="pb-changelog-header" id="pb_changelog_toggle"><i class="fas fa-chevron-right"></i> ' + t('playbook.changelog') + '</div>';
-            html += '<div id="pb_changelog_content" style="display:none;"></div>';
-            html += '</div>';
-
-            detailEl.html(html);
-
-            // Inject DCC play into window.playbookByPlayName for PB expansion
+            // Inject DCC play for PB expansion
             if (play.source === 'DCC') {
                 injectDccPlay(play, routes);
             }
         });
+    }
+
+    function renderDetailPanel(play, routes) {
+        var html = '';
+
+        // Header: play name + action buttons
+        html += '<div class="pb-detail-header">';
+        html += '<div>';
+        html += '<div class="pb-detail-play-name">' + escHtml(play.play_name) + '</div>';
+        if (play.display_name && play.display_name !== play.play_name) {
+            html += '<div style="font-size:0.82rem;color:#555;">' + escHtml(play.display_name) + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="pb-actions">';
+        html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
+        if (hasPerm && play.source === 'DCC') {
+            html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
+        }
+        if (hasPerm) {
+            if (play.status === 'active' || play.status === 'draft') {
+                html += '<button class="btn btn-outline-danger btn-sm" id="pb_archive_btn"><i class="fas fa-archive mr-1"></i>' + t('playbook.archive') + '</button>';
+            } else if (play.status === 'archived') {
+                html += '<button class="btn btn-outline-success btn-sm" id="pb_restore_btn"><i class="fas fa-undo mr-1"></i>' + t('playbook.restore') + '</button>';
+            }
+        }
+        html += '</div>';
+        html += '</div>';
+
+        // Metadata badges
+        var metaParts = [];
+        if (play.category) metaParts.push('<span class="pb-badge pb-badge-category">' + escHtml(play.category) + '</span>');
+        if (play.scenario_type) metaParts.push('<span class="badge badge-secondary" style="font-size:0.65rem;">' + escHtml(play.scenario_type) + '</span>');
+        if (play.source) metaParts.push('<span class="pb-badge pb-badge-' + (play.source || 'dcc').toLowerCase() + '">' + escHtml(play.source) + '</span>');
+        if (play.airac_cycle) metaParts.push('<span style="font-size:0.65rem;color:#888;">AIRAC ' + escHtml(play.airac_cycle) + '</span>');
+        if (metaParts.length) {
+            html += '<div class="pb-detail-meta">' + metaParts.join('') + '</div>';
+        }
+
+        // Description
+        if (play.description) {
+            html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
+        }
+
+        // Facilities
+        if (play.facilities_involved || play.impacted_area) {
+            html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(play.impacted_area || play.facilities_involved) + '</div>';
+        }
+
+        // Route table
+        if (routes.length) {
+            html += '<div class="d-flex justify-content-between align-items-center mb-1">';
+            html += '<span class="pb-select-all" id="pb_select_all">' + t('playbook.selectAll') + '</span>';
+            html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
+            html += '</div>';
+
+            html += '<div class="pb-route-table-wrap">';
+            html += '<table class="pb-route-table"><thead><tr>';
+            html += '<th class="pb-route-check"><input type="checkbox" id="pb_check_all"></th>';
+            html += '<th>Origin</th>';
+            html += '<th>TRACON</th>';
+            html += '<th>ARTCC</th>';
+            html += '<th>' + t('playbook.routeString') + '</th>';
+            html += '<th>Dest</th>';
+            html += '<th>TRACON</th>';
+            html += '<th>ARTCC</th>';
+            html += '</tr></thead><tbody>';
+
+            routes.forEach(function(r) {
+                var origApt = r.origin_airports || r.origin || '-';
+                var origTracon = r.origin_tracons || '-';
+                var origArtcc = r.origin_artccs || '-';
+                var destApt = r.dest_airports || r.dest || '-';
+                var destTracon = r.dest_tracons || '-';
+                var destArtcc = r.dest_artccs || '-';
+                html += '<tr data-route-id="' + r.route_id + '">';
+                html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"></td>';
+                html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
+                html += '<td>' + escHtml(origTracon) + '</td>';
+                html += '<td>' + escHtml(origArtcc) + '</td>';
+                html += '<td>' + escHtml(r.route_string) + '</td>';
+                html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
+                html += '<td>' + escHtml(destTracon) + '</td>';
+                html += '<td>' + escHtml(destArtcc) + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+        } else {
+            html += '<div class="pb-empty-state"><i class="fas fa-route"></i>' + t('playbook.noRoutes') + '</div>';
+        }
+
+        // Changelog toggle
+        html += '<div class="pb-changelog">';
+        html += '<div class="pb-changelog-header" id="pb_changelog_toggle"><i class="fas fa-chevron-right"></i> ' + t('playbook.changelog') + '</div>';
+        html += '<div id="pb_changelog_content" style="display:none;"></div>';
+        html += '</div>';
+
+        $('#pb_detail_content').html(html);
+    }
+
+    function hideDetail() {
+        activePlayId = null;
+        activePlayData = null;
+        selectedRouteIds.clear();
+        $('.pb-play-row').removeClass('active');
+        $('#pb_detail_panel').hide();
+        $('#pb_map_section').removeClass('pb-map-expanded');
+
+        // Clear map routes
+        var textarea = document.getElementById('routeSearch');
+        var plotBtn = document.getElementById('plot_r');
+        if (textarea && plotBtn) {
+            textarea.value = '';
+            plotBtn.click();
+        }
     }
 
     // =========================================================================
@@ -283,20 +342,14 @@
     function getSelectedRoutes() {
         if (!activePlayData) return [];
         var routes = activePlayData.routes || [];
-        if (!selectedRouteIds.size) return routes; // All if none selected
+        if (!selectedRouteIds.size) return routes;
         return routes.filter(function(r) { return selectedRouteIds.has(r.route_id); });
     }
 
     function plotOnMap() {
         var routes = getSelectedRoutes();
-        if (!routes.length) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({ icon: 'info', title: t('playbook.noRoutes'), text: t('playbook.noRoutesText'), confirmButtonText: t('common.ok') });
-            }
-            return;
-        }
+        if (!routes.length) return;
 
-        // Build route strings for the hidden textarea
         var lines = routes.map(function(r) {
             var parts = [];
             if (r.origin) parts.push(r.origin);
@@ -327,20 +380,18 @@
         // Plot first so GeoJSON is available
         plotOnMap();
 
-        // Poll for map features instead of fixed delay
         var attempts = 0;
         var pollInterval = setInterval(function() {
             var features = (typeof MapLibreRoute !== 'undefined' && MapLibreRoute.getCurrentRouteFeatures)
                 ? MapLibreRoute.getCurrentRouteFeatures() : null;
             attempts++;
-            if (!features && attempts < 30) return; // Wait up to 3 seconds
+            if (!features && attempts < 30) return;
             clearInterval(pollInterval);
 
             var rerouteData = {
                 version: '1.0',
                 timestamp: new Date().toISOString(),
                 source: 'playbook',
-
                 advisory: {
                     number: null,
                     facility: 'DCC',
@@ -357,9 +408,7 @@
                     restrictions: '',
                     modifications: ''
                 },
-
                 facilities: csvSplit(play.facilities_involved),
-
                 routes: routes.map(function(r) {
                     return {
                         origin: r.origin || '',
@@ -373,10 +422,8 @@
                         route: r.route_string
                     };
                 }),
-
                 rawInput: 'PB.' + play.play_name,
                 procedures: ['PB: ' + play.play_name],
-
                 geojson: features
             };
 
@@ -425,7 +472,6 @@
         $.getJSON(API_LIST + '?source=DCC&status=active&per_page=500', function(data) {
             if (!data || !data.success) return;
             (data.data || []).forEach(function(p) {
-                // Need full route data — queue them
                 $.getJSON(API_GET + '?id=' + p.play_id, function(d) {
                     if (d && d.success && d.routes) {
                         injectDccPlay(d.play, d.routes);
@@ -495,7 +541,6 @@
             csvSplit(r.dest_artccs).forEach(function(a) { allArtccs.add(a); });
         });
 
-        // Try GIS API for traversed facilities
         try {
             var routeStrings = routes.map(function(r) { return r.route_string; }).filter(Boolean);
             if (routeStrings.length) {
@@ -535,6 +580,7 @@
         $('#pb_edit_description').val('');
         $('#pb_edit_status').val('active');
         $('#pb_route_edit_body').empty();
+        $('#pb_bulk_paste_area').hide();
         addEditRouteRow();
         $('#pb_play_modal').modal('show');
     }
@@ -556,6 +602,7 @@
             addEditRouteRow(r);
         });
 
+        $('#pb_bulk_paste_area').hide();
         $('#pb_play_modal').modal('show');
     }
 
@@ -567,9 +614,22 @@
         html += '<td><input class="form-control form-control-sm pb-re-origin-filter" value="' + escHtml(route.origin_filter || '') + '"></td>';
         html += '<td><input class="form-control form-control-sm pb-re-dest" value="' + escHtml(route.dest || '') + '"></td>';
         html += '<td><input class="form-control form-control-sm pb-re-dest-filter" value="' + escHtml(route.dest_filter || '') + '"></td>';
-        html += '<td><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('common.remove') + '"><i class="fas fa-times"></i></button></td>';
+        html += '<td><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
         $('#pb_route_edit_body').append(html);
+    }
+
+    function applyBulkPaste() {
+        var text = $('#pb_bulk_paste_text').val().trim();
+        if (!text) return;
+
+        var lines = text.split('\n').filter(function(l) { return l.trim(); });
+        lines.forEach(function(line) {
+            addEditRouteRow({ route_string: line.trim() });
+        });
+
+        $('#pb_bulk_paste_text').val('');
+        $('#pb_bulk_paste_area').slideUp(150);
     }
 
     async function savePlay() {
@@ -580,7 +640,6 @@
             return;
         }
 
-        // Collect routes from edit table
         var routes = [];
         $('#pb_route_edit_body tr').each(function() {
             var $tr = $(this);
@@ -592,7 +651,6 @@
             var dest = $tr.find('.pb-re-dest').val().trim();
             var destFilter = $tr.find('.pb-re-dest-filter').val().trim();
 
-            // Auto-compute if origin/dest empty
             var computed = autoComputeRouteFields(
                 (origin ? origin + ' ' : '') + routeStr + (dest ? ' ' + dest : '')
             );
@@ -612,7 +670,6 @@
             });
         });
 
-        // Auto-compute play-level facilities
         var playFields = await autoComputePlayFields(routes);
 
         var body = {
@@ -646,6 +703,7 @@
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: t('common.success'), text: t('playbook.playSaved'), timer: 1500, showConfirmButton: false });
                     activePlayId = data.play_id;
                     loadPlays();
+                    loadCategories();
                 } else {
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: t('common.error'), text: data.error || t('common.unknownError') });
                 }
@@ -658,7 +716,7 @@
     }
 
     // =========================================================================
-    // CRUD — ARCHIVE / RESTORE / DELETE
+    // CRUD — ARCHIVE / RESTORE
     // =========================================================================
 
     function archivePlay(playId) {
@@ -692,7 +750,9 @@
             success: function(data) {
                 if (data && data.success) {
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: t('common.success'), timer: 1500, showConfirmButton: false });
+                    hideDetail();
                     loadPlays();
+                    loadCategories();
                 } else {
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: t('common.error'), text: data.error || t('common.unknownError') });
                 }
@@ -731,7 +791,7 @@
                     if (entry.new_value) html += '<span class="pb-changelog-new">' + escHtml(entry.new_value.substring(0, 80)) + '</span>';
                     html += '</span>';
                 }
-                html += ' <span class="text-muted" style="font-size:0.6rem;">' + escHtml(entry.changed_by || '') + ' ' + escHtml(entry.changed_at || '') + '</span>';
+                html += ' <span class="text-muted" style="font-size:0.58rem;">' + escHtml(entry.changed_by || '') + ' ' + escHtml(entry.changed_at || '') + '</span>';
                 html += '</li>';
             });
             html += '</ul>';
@@ -752,32 +812,42 @@
 
         // Search with debounce
         $('#pb_search').on('input', function() {
+            searchText = ($(this).val() || '').trim();
             clearTimeout(searchTimer);
-            searchTimer = setTimeout(function() { currentPage = 1; loadPlays(); }, 300);
+            searchTimer = setTimeout(applyFilters, 200);
         });
 
-        // Filters
-        $('#pb_filter_category, #pb_filter_source, #pb_filter_status').on('change', function() {
-            currentPage = 1;
-            loadPlays();
+        // Category pills
+        $(document).on('click', '.pb-pill', function() {
+            activeCategory = $(this).data('cat') || '';
+            $('.pb-pill').removeClass('active');
+            $(this).addClass('active');
+            applyFilters();
         });
 
-        // Play card click
-        $(document).on('click', '.pb-play-card-header', function() {
-            var playId = $(this).closest('.pb-play-card').data('play-id');
+        // Source toggle buttons
+        $(document).on('click', '.pb-src-btn', function() {
+            activeSource = $(this).data('source') || '';
+            $('.pb-src-btn').removeClass('active');
+            $(this).addClass('active');
+            applyFilters();
+        });
+
+        // Legacy toggle
+        $('#pb_legacy_toggle').on('change', function() {
+            showLegacy = this.checked;
+            loadPlays(); // Re-fetch from API since hide_legacy is server-side
+        });
+
+        // Play row click
+        $(document).on('click', '.pb-play-row', function() {
+            var playId = $(this).data('play-id');
             if (playId == activePlayId) {
-                // Toggle off
-                activePlayId = null;
-                activePlayData = null;
-                $('.pb-play-card').removeClass('active');
+                hideDetail();
             } else {
                 loadPlayDetail(playId);
             }
         });
-
-        // Pagination
-        $(document).on('click', '#pb_prev_page', function() { if (currentPage > 1) { currentPage--; loadPlays(); } });
-        $(document).on('click', '#pb_next_page', function() { if (currentPage < totalPages) { currentPage++; loadPlays(); } });
 
         // Route checkboxes
         $(document).on('change', '.pb-route-cb', function() {
@@ -797,8 +867,7 @@
             $('#pb_check_all').prop('checked', !allChecked).trigger('change');
         });
 
-        // Action buttons
-        $(document).on('click', '#pb_plot_btn', plotOnMap);
+        // Action buttons (in detail panel)
         $(document).on('click', '#pb_activate_btn', activateAsReroute);
 
         // Edit
@@ -830,6 +899,12 @@
             $(this).closest('tr').remove();
         });
 
+        // Bulk paste toggle
+        $('#pb_bulk_paste_btn').on('click', function() {
+            $('#pb_bulk_paste_area').slideToggle(150);
+        });
+        $('#pb_bulk_paste_apply').on('click', applyBulkPaste);
+
         // Changelog toggle
         $(document).on('click', '#pb_changelog_toggle', function() {
             var $this = $(this);
@@ -844,6 +919,11 @@
                     loadChangelog(activePlayId);
                 }
             }
+        });
+
+        // Re-plot when route selection changes
+        $(document).on('change', '.pb-route-cb, #pb_check_all', function() {
+            if (activePlayData) plotOnMap();
         });
     });
 

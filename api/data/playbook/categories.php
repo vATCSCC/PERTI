@@ -17,10 +17,17 @@ define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
 $categories = [];
-$result = $conn_sqli->query("SELECT DISTINCT category FROM playbook_plays WHERE category IS NOT NULL AND category != '' ORDER BY category");
+$category_counts = [];
+$result = $conn_sqli->query("SELECT IFNULL(category,'') as category, COUNT(*) as cnt FROM playbook_plays WHERE status != 'archived' GROUP BY category ORDER BY category");
 if ($result) {
     while ($row = $result->fetch_assoc()) {
-        $categories[] = $row['category'];
+        $cat = $row['category'];
+        if ($cat !== '') {
+            $categories[] = $cat;
+            $category_counts[$cat] = (int)$row['cnt'];
+        } else {
+            $category_counts['_uncategorized'] = (int)$row['cnt'];
+        }
     }
 }
 
@@ -40,9 +47,18 @@ if ($result) {
     }
 }
 
+// Count legacy plays (containing _old_)
+$legacy_count = 0;
+$result = $conn_sqli->query("SELECT COUNT(*) as cnt FROM playbook_plays WHERE play_name LIKE '%\\_old\\_%' AND status != 'archived'");
+if ($result) {
+    $legacy_count = (int)$result->fetch_assoc()['cnt'];
+}
+
 echo json_encode([
     'success' => true,
     'categories' => $categories,
+    'category_counts' => $category_counts,
     'sources' => $sources,
-    'scenario_types' => $scenario_types
+    'scenario_types' => $scenario_types,
+    'legacy_count' => $legacy_count
 ]);

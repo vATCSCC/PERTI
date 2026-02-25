@@ -51,7 +51,7 @@ while (($row = fgetcsv($handle)) !== false) {
     $rs = trim($row[1]);
     if (empty($pn) || empty($rs)) continue;
 
-    if (!isset($plays[$pn])) $plays[$pn] = ['routes' => [], 'artccs' => []];
+    if (!isset($plays[$pn])) $plays[$pn] = ['routes' => [], 'artccs' => [], 'dest_artccs' => []];
 
     $plays[$pn]['routes'][] = [
         trim($rs), trim($row[2]), trim($row[5]),
@@ -60,7 +60,7 @@ while (($row = fgetcsv($handle)) !== false) {
     ];
 
     foreach (explode(',', trim($row[4])) as $a) { $a = trim($a); if ($a) $plays[$pn]['artccs'][$a] = 1; }
-    foreach (explode(',', trim($row[7])) as $a) { $a = trim($a); if ($a) $plays[$pn]['artccs'][$a] = 1; }
+    foreach (explode(',', trim($row[7])) as $a) { $a = trim($a); if ($a) { $plays[$pn]['artccs'][$a] = 1; $plays[$pn]['dest_artccs'][$a] = 1; } }
     $total_routes++;
 }
 fclose($handle);
@@ -70,6 +70,47 @@ echo "Parsed: $total_routes routes, $play_count plays\n";
 flush();
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
+
+function deriveCategory($playName, $destArtccs) {
+    // Canadian plays
+    if (stripos($playName, 'CAN') === 0) return 'CANADIAN';
+    foreach ($destArtccs as $a) { if (strpos($a, 'CZ') === 0) return 'CANADIAN'; }
+
+    // Region mapping by destination ARTCCs
+    $regionMap = [
+        'ZBW'=>'NORTHEAST','ZNY'=>'NORTHEAST','ZDC'=>'NORTHEAST','ZOB'=>'NORTHEAST',
+        'ZYZ'=>'NORTHEAST','ZEU'=>'NORTHEAST','ZUL'=>'NORTHEAST','ZVR'=>'NORTHEAST',
+        'ZTL'=>'SOUTHEAST','ZJX'=>'SOUTHEAST','ZMA'=>'SOUTHEAST','ZHU'=>'SOUTHEAST','ZSU'=>'SOUTHEAST',
+        'ZAU'=>'CENTRAL','ZME'=>'CENTRAL','ZMP'=>'CENTRAL','ZID'=>'CENTRAL','ZKC'=>'CENTRAL',
+        'ZLA'=>'WEST','ZOA'=>'WEST','ZSE'=>'WEST','ZLC'=>'WEST',
+        'ZFW'=>'SOUTHWEST','ZAB'=>'SOUTHWEST','ZDV'=>'SOUTHWEST',
+    ];
+    $regionCounts = [];
+    foreach ($destArtccs as $artcc) {
+        if (isset($regionMap[$artcc])) {
+            $r = $regionMap[$artcc];
+            $regionCounts[$r] = ($regionCounts[$r] ?? 0) + 1;
+        }
+    }
+    if (!empty($regionCounts)) {
+        arsort($regionCounts);
+        return array_key_first($regionCounts);
+    }
+
+    // Fallback: name-based hints
+    $nameHints = [
+        'CARIBBEAN'=>'SOUTHEAST','CUBA'=>'SOUTHEAST','CAPE LAUNCH'=>'SOUTHEAST',
+        'GTK'=>'SOUTHEAST','ZMR'=>'SOUTHEAST','MIA'=>'SOUTHEAST','ATL'=>'SOUTHEAST',
+        'MAZATLAN'=>'SOUTHWEST','LIMBO SOUTHWEST'=>'SOUTHWEST','DFW'=>'SOUTHWEST','DEN'=>'SOUTHWEST',
+        'LIMBO WEST'=>'WEST','COWBOYS WEST'=>'WEST',
+        'COWBOYS EAST'=>'NORTHEAST','YANKEE'=>'NORTHEAST','UPSTATE NY'=>'NORTHEAST',
+        'BOS'=>'NORTHEAST','DC'=>'NORTHEAST',
+    ];
+    foreach ($nameHints as $prefix => $cat) {
+        if (stripos($playName, $prefix) !== false) return $cat;
+    }
+    return null;
+}
 
 // Check re-import
 $existing = (int)$pdo->query("SELECT COUNT(*) FROM playbook_plays WHERE source='FAA'")->fetchColumn();
@@ -98,7 +139,7 @@ try {
         sort($artccs);
         $fac = implode(',', $artccs);
         $imp = implode('/', $artccs);
-        $cat = (stripos($pn, 'CAN') === 0) ? 'CANADIAN' : null;
+        $cat = deriveCategory($pn, array_keys($pd['dest_artccs']));
 
         $batch[] = [$pn, normPlay($pn), $cat, $fac, $imp, count($pd['routes'])];
         $batch_names[] = $pn;

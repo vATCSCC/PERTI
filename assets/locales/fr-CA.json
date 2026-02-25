@@ -6473,6 +6473,13 @@
     "playSaved": "Jeu enregistré avec succès",
     "saveFailed": "Échec de l'enregistrement du jeu",
     "confirmArchive": "Archiver le jeu?",
-    "confirmArchiveText": "Ce jeu sera masqué du catalogue actif."
+    "confirmArchiveText": "Ce jeu sera masqué du catalogue actif.",
+    "allPlays": "Tous",
+    "showLegacy": "Anciens",
+    "legacyHidden": "{count} anciens masqués",
+    "selectAPlay": "Sélectionnez un jeu pour voir les routes",
+    "bulkPaste": "Coller en lot",
+    "bulkPasteHint": "Une route par ligne: ORIG ROUTE DEST",
+    "deleteRoute": "Supprimer la route"
   }
 }
