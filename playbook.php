@@ -124,7 +124,7 @@ include("load/nav.php");
 
 <!-- Create/Edit Play Modal -->
 <div class="modal fade pb-modal" id="pb_play_modal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="pb_modal_title"><?= __('playbook.createPlay') ?></h5>
@@ -218,12 +218,12 @@ include("load/nav.php");
                     <table class="pb-route-edit-table" id="pb_route_edit_table">
                         <thead>
                             <tr>
-                                <th style="width:25%;"><?= __('playbook.routeString') ?></th>
                                 <th><?= __('playbook.origin') ?></th>
                                 <th><?= __('playbook.originFilter') ?></th>
                                 <th><?= __('playbook.destination') ?></th>
                                 <th><?= __('playbook.destFilter') ?></th>
-                                <th style="width:40px;"></th>
+                                <th class="pb-re-th-route"><?= __('playbook.routeString') ?></th>
+                                <th style="width:32px;"></th>
                             </tr>
                         </thead>
                         <tbody id="pb_route_edit_body"></tbody>

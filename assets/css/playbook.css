@@ -362,24 +362,46 @@
 
 .pb-route-edit-table {
     width: 100%;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    table-layout: fixed;
 }
 
 .pb-route-edit-table th {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
-    padding: 4px;
+    padding: 3px 4px;
     background: #f8f9fa;
+    white-space: nowrap;
 }
 
-.pb-route-edit-table td {
-    padding: 3px;
-}
+/* Column widths: orig | origFilt | dest | destFilt | route | action */
+.pb-route-edit-table th:nth-child(1),
+.pb-route-edit-table th:nth-child(3) { width: 70px; }
+.pb-route-edit-table th:nth-child(2),
+.pb-route-edit-table th:nth-child(4) { width: 80px; }
+.pb-route-edit-table .pb-re-th-route { width: auto; }
+.pb-route-edit-table th:nth-child(6) { width: 32px; }
+
+.pb-route-edit-table td.pb-re-cell { padding: 2px; }
 
 .pb-route-edit-table input,
 .pb-route-edit-table textarea {
-    font-size: 0.8rem;
     font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem;
+    padding: 0.15rem 0.25rem;
+}
+
+/* Airport fields — compact monospace */
+.pb-re-apt { text-transform: uppercase; }
+
+/* Filter fields — slightly smaller */
+.pb-re-filter { font-size: 0.65rem !important; }
+
+/* Route string — wide, resizable vertically */
+.pb-re-route {
+    resize: vertical;
+    min-height: 26px;
+    width: 100%;
 }
 
 /* ── Changelog ───────────────────────────────────────────────────── */

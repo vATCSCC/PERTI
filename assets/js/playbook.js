@@ -628,12 +628,12 @@
     function addEditRouteRow(r) {
         var route = r || {};
         var html = '<tr>';
-        html += '<td><textarea class="form-control form-control-sm pb-re-route" rows="1">' + escHtml(route.route_string || '') + '</textarea></td>';
-        html += '<td><input class="form-control form-control-sm pb-re-origin" value="' + escHtml(route.origin || '') + '"></td>';
-        html += '<td><input class="form-control form-control-sm pb-re-origin-filter" value="' + escHtml(route.origin_filter || '') + '"></td>';
-        html += '<td><input class="form-control form-control-sm pb-re-dest" value="' + escHtml(route.dest || '') + '"></td>';
-        html += '<td><input class="form-control form-control-sm pb-re-dest-filter" value="' + escHtml(route.dest_filter || '') + '"></td>';
-        html += '<td><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin pb-re-apt" value="' + escHtml(route.origin || '') + '" placeholder="KABC"></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin-filter pb-re-filter" value="' + escHtml(route.origin_filter || '') + '" placeholder="-APT"></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter pb-re-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
+        html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-route" rows="1" placeholder="DCT FIX1 J123 FIX2 DCT">' + escHtml(route.route_string || '') + '</textarea></td>';
+        html += '<td class="pb-re-cell"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
         $('#pb_route_edit_body').append(html);
     }
