@@ -275,7 +275,7 @@
 
         // Facilities
         if (play.facilities_involved || play.impacted_area) {
-            html += '<div class="pb-play-facilities"><i class="fas fa-map-marker-alt mr-1"></i>' + escHtml(play.impacted_area || play.facilities_involved) + '</div>';
+            html += '<div class="pb-play-facilities"><strong>Facilities:</strong> ' + escHtml(play.impacted_area || play.facilities_involved) + '</div>';
         }
 
         // Included Traffic summary (Route Advisory format)
@@ -300,7 +300,7 @@
                 } else {
                     trafficParts.push('Arrivals to ' + destArr.join('/'));
                 }
-                html += '<div class="pb-play-traffic"><i class="fas fa-plane-departure mr-1"></i>' + escHtml(trafficParts[0]) + '</div>';
+                html += '<div class="pb-play-traffic"><strong>Included Traffic:</strong> ' + escHtml(trafficParts[0]) + '</div>';
             }
         }
 
