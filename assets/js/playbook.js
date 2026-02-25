@@ -606,6 +606,8 @@
         var text = $('#pb_bulk_paste_text').val().trim();
         if (!text) return;
 
+        var hasParsed = typeof MapLibreRoute !== 'undefined' && MapLibreRoute.parseRoutesEnhanced;
+
         var lines = text.split('\n').filter(function(l) { return l.trim(); });
         lines.forEach(function(line) {
             var cleaned = line.trim()
@@ -616,11 +618,23 @@
 
             var routeData = { route_string: cleaned };
 
-            // Auto-detect origin/dest using the route parser (best-effort)
+            // Parse to separate origin/route/dest and compute facility fields
+            if (hasParsed) {
+                var parsed = MapLibreRoute.parseRoutesEnhanced([cleaned]);
+                if (parsed && parsed.length) {
+                    var r = parsed[0];
+                    // Use the route body (without orig/dest) as route_string
+                    if (r.assignedRoute) routeData.route_string = r.assignedRoute;
+                    routeData.origin = r.orig || '';
+                    routeData.dest = r.dest || '';
+                }
+            }
+
+            // Compute full facility fields (tracons, artccs) from detected origin/dest
             var computed = autoComputeRouteFields(cleaned);
             if (computed) {
-                routeData.origin = computed.origin;
-                routeData.dest = computed.dest;
+                if (!routeData.origin) routeData.origin = computed.origin;
+                if (!routeData.dest) routeData.dest = computed.dest;
                 routeData.origin_airports = computed.origin_airports;
                 routeData.origin_tracons = computed.origin_tracons;
                 routeData.origin_artccs = computed.origin_artccs;
