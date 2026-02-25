@@ -770,6 +770,32 @@ $(document).ready(function() {
             }
 
             let routeText = pr.fullRoute;
+
+            // For DCC/API routes, origin/dest airports are stored separately —
+            // prepend/append them so the parser draws airport connectors
+            let origApt = null;
+            if (pr.originAirportsSet && pr.originAirportsSet.size === 1) {
+                origApt = Array.from(pr.originAirportsSet)[0];
+            } else if (pr.originField && /^[A-Z]{4}$/.test((pr.originField || '').trim())) {
+                origApt = pr.originField.trim().toUpperCase();
+            }
+            if (origApt && routeText.split(/\s+/)[0] !== origApt) {
+                routeText = origApt + ' ' + routeText;
+            }
+
+            let destApt = null;
+            if (pr.destAirportsSet && pr.destAirportsSet.size === 1) {
+                destApt = Array.from(pr.destAirportsSet)[0];
+            } else if (pr.destField && /^[A-Z]{4}$/.test((pr.destField || '').trim())) {
+                destApt = pr.destField.trim().toUpperCase();
+            }
+            if (destApt) {
+                const toks = routeText.split(/\s+/);
+                if (toks[toks.length - 1] !== destApt) {
+                    routeText = routeText + ' ' + destApt;
+                }
+            }
+
             if (isMandatory) {
                 const tokens = routeText.split(/\s+/).filter(Boolean);
                 if (tokens.length > 2) {
