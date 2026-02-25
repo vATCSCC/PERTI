@@ -23,20 +23,20 @@
 }
 
 .pb-map-section #graphic {
-    height: 30vh;
-    min-height: 220px;
+    height: 40vh;
+    min-height: 300px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     transition: height 0.3s ease;
 }
 
 .pb-map-section.pb-map-expanded #graphic {
-    height: 50vh;
-    min-height: 400px;
+    height: 55vh;
+    min-height: 450px;
 }
 
 @media (min-width: 1400px) {
-    .pb-map-section #graphic { height: 28vh; min-height: 240px; }
-    .pb-map-section.pb-map-expanded #graphic { height: 50vh; min-height: 450px; }
+    .pb-map-section #graphic { height: 38vh; min-height: 320px; }
+    .pb-map-section.pb-map-expanded #graphic { height: 55vh; min-height: 500px; }
 }
 
 /* ── Catalog Header ──────────────────────────────────────────────── */
@@ -460,12 +460,12 @@
     }
 
     .pb-map-section #graphic {
-        height: 25vh;
-        min-height: 180px;
+        height: 30vh;
+        min-height: 220px;
     }
 
     .pb-map-section.pb-map-expanded #graphic {
-        height: 40vh;
+        height: 45vh;
     }
 
     .pb-search {
