@@ -158,6 +158,10 @@
             return true;
         });
 
+        filteredPlays.sort(function(a, b) {
+            return (a.play_name || '').localeCompare(b.play_name || '');
+        });
+
         $('#pb_stats').text(t('playbook.showingPlays', { count: filteredPlays.length }));
         if (!showLegacy && categoryData.legacy_count) {
             $('#pb_stats').append(' <span style="opacity:0.6;">(' + t('playbook.legacyHidden', { count: categoryData.legacy_count }) + ')</span>');
