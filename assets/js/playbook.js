@@ -87,7 +87,31 @@
             if (!data || !data.success) return;
             categoryData = data;
             renderCategoryPills();
+            populateCategoryDropdown();
         });
+    }
+
+    function populateCategoryDropdown() {
+        var $sel = $('#pb_edit_category');
+        var current = $sel.val() || '';
+        $sel.find('option:not(:first)').remove();
+
+        var cats = (categoryData.categories || []).slice();
+        cats.sort(function(a, b) {
+            var ia = FAA_CATEGORY_ORDER.indexOf(a);
+            var ib = FAA_CATEGORY_ORDER.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
+        cats.forEach(function(c) {
+            $sel.append('<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>');
+        });
+        $sel.append('<option value="__custom__">Custom...</option>');
+
+        if (current) $sel.val(current);
     }
 
     function renderCategoryPills() {
@@ -617,12 +641,22 @@
     // CRUD — CREATE / EDIT
     // =========================================================================
 
+    function setCategoryDropdown(val) {
+        var $sel = $('#pb_edit_category');
+        if (val && !$sel.find('option[value="' + val + '"]').length) {
+            $sel.find('option[value="__custom__"]').before(
+                '<option value="' + escHtml(val) + '">' + escHtml(val) + '</option>'
+            );
+        }
+        $sel.val(val || '');
+    }
+
     function openCreateModal() {
         $('#pb_modal_title').text(t('playbook.createPlay'));
         $('#pb_edit_play_id').val(0);
         $('#pb_edit_play_name').val('');
         $('#pb_edit_display_name').val('');
-        $('#pb_edit_category').val('');
+        setCategoryDropdown('');
         $('#pb_edit_scenario_type').val('');
         $('#pb_edit_route_format').val('standard');
         $('#pb_edit_description').val('');
@@ -639,7 +673,7 @@
         $('#pb_edit_play_id').val(play.play_id);
         $('#pb_edit_play_name').val(play.play_name || '');
         $('#pb_edit_display_name').val(play.display_name || '');
-        $('#pb_edit_category').val(play.category || '');
+        setCategoryDropdown(play.category || '');
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
         $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
@@ -662,7 +696,7 @@
         $('#pb_edit_play_id').val(0); // Create new, not update
         $('#pb_edit_play_name').val(newName);
         $('#pb_edit_display_name').val(play.display_name || '');
-        $('#pb_edit_category').val(play.category || '');
+        setCategoryDropdown(play.category || '');
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
         $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
@@ -792,7 +826,7 @@
             play_name: playName,
             display_name: $('#pb_edit_display_name').val().trim(),
             description: $('#pb_edit_description').val().trim(),
-            category: $('#pb_edit_category').val().trim(),
+            category: ($('#pb_edit_category').val() || '').replace('__custom__', '').trim(),
             scenario_type: $('#pb_edit_scenario_type').val(),
             route_format: $('#pb_edit_route_format').val(),
             status: $('#pb_edit_status').val(),
@@ -1004,6 +1038,47 @@
         $(document).on('click', '#pb_duplicate_btn', function() {
             if (activePlayData) {
                 duplicatePlay(activePlayData, activePlayData.routes || []);
+            }
+        });
+
+        // Category dropdown "Custom..." option
+        $(document).on('change', '#pb_edit_category', function() {
+            if ($(this).val() === '__custom__') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Custom Category',
+                        input: 'text',
+                        inputPlaceholder: 'Enter category name',
+                        showCancelButton: true,
+                        confirmButtonText: t('common.ok'),
+                        cancelButtonText: t('common.cancel')
+                    }).then(function(result) {
+                        if (result.isConfirmed && result.value) {
+                            var custom = result.value.trim();
+                            var $sel = $('#pb_edit_category');
+                            // Add custom option if not already present
+                            if (!$sel.find('option[value="' + custom + '"]').length) {
+                                $sel.find('option[value="__custom__"]').before(
+                                    '<option value="' + escHtml(custom) + '">' + escHtml(custom) + '</option>'
+                                );
+                            }
+                            $sel.val(custom);
+                        } else {
+                            setCategoryDropdown('');
+                        }
+                    });
+                } else {
+                    var custom = prompt('Enter category name:');
+                    if (custom) {
+                        var $sel = $('#pb_edit_category');
+                        $sel.find('option[value="__custom__"]').before(
+                            '<option value="' + escHtml(custom) + '">' + escHtml(custom) + '</option>'
+                        );
+                        $sel.val(custom);
+                    } else {
+                        setCategoryDropdown('');
+                    }
+                }
             }
         });
 

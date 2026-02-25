@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "name": "Canadian FIR Superhigh Altitude Sector Boundaries",
   "metadata": {
-    "generated": "2026-02-25T22:10:38.347928Z",
+    "generated": "2026-02-25T22:53:17.793466Z",
     "generator": "ese_to_geojson.py (consolidated)",
     "source": "EuroScope .ese sector definitions",
     "firs": [
@@ -10,7 +10,9 @@
       "CZWG",
       "CZEG",
       "CZUL",
-      "CZVR"
+      "CZVR",
+      "CZQM",
+      "CZQX"
     ],
     "feature_count": 14
   },

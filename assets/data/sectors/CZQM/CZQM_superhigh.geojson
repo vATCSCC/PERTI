@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "name": "CZQM FIR Superhigh Altitude Sector Boundaries",
+  "features": [],
+  "metadata": {
+    "generated": "2026-02-25T22:52:48.662686Z",
+    "generator": "ese_to_geojson.py",
+    "source": "EuroScope .ese sector definitions",
+    "feature_count": 0
+  }
+}

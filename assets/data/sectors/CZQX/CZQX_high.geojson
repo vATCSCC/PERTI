@@ -1,0 +1,2409 @@
+{
+  "type": "FeatureCollection",
+  "name": "CZQX FIR High Altitude Sector Boundaries",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "ALLRY-AR-SECTOR",
+        "label": "CZQXALLRY-AR-SECTOR",
+        "name": "ALLRY-AR-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 49.871574,
+        "label_lon": -53.946975,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:Q2:Q1:QX:ZQX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.78,
+              48.876944
+            ],
+            [
+              -57.703611,
+              48.7225
+            ],
+            [
+              -57.624167,
+              48.530833
+            ],
+            [
+              -52.0,
+              50.25
+            ],
+            [
+              -50.0,
+              50.75
+            ],
+            [
+              -50.0,
+              51.0
+            ],
+            [
+              -50.337778,
+              51.170278
+            ],
+            [
+              -52.297222,
+              50.666667
+            ],
+            [
+              -57.78,
+              48.876944
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "AVUTI-SECTOR",
+        "label": "CZQXAVUTI-SECTOR",
+        "name": "AVUTI-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 56.668241,
+        "label_lon": -60.374259,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -63.122778,
+              55.638056
+            ],
+            [
+              -64.0,
+              55.983333
+            ],
+            [
+              -63.122778,
+              55.638056
+            ],
+            [
+              -58.0,
+              57.216667
+            ],
+            [
+              -55.0,
+              57.85
+            ],
+            [
+              -55.0,
+              58.35
+            ],
+            [
+              -58.0,
+              57.716667
+            ],
+            [
+              -64.0,
+              55.983333
+            ],
+            [
+              -63.122778,
+              55.638056
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "BOBTU-SECTOR",
+        "label": "CZQXBOBTU-SECTOR",
+        "name": "BOBTU-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 43.971354,
+        "label_lon": -55.054931,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -55.75,
+              43.583333
+            ],
+            [
+              -55.966111,
+              44.229167
+            ],
+            [
+              -55.75,
+              43.583333
+            ],
+            [
+              -54.860556,
+              43.833333
+            ],
+            [
+              -51.614444,
+              44.285556
+            ],
+            [
+              -54.782222,
+              44.443611
+            ],
+            [
+              -55.966111,
+              44.229167
+            ],
+            [
+              -55.75,
+              43.583333
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "BOKTO-SECTOR",
+        "label": "CZQXBOKTO-SECTOR",
+        "name": "BOKTO-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 56.494479,
+        "label_lon": -58.979132,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -63.122778,
+              55.638056
+            ],
+            [
+              -61.869167,
+              55.0
+            ],
+            [
+              -58.318333,
+              56.454722
+            ],
+            [
+              -57.4,
+              56.808333
+            ],
+            [
+              -55.0,
+              57.35
+            ],
+            [
+              -55.0,
+              57.85
+            ],
+            [
+              -58.0,
+              57.216667
+            ],
+            [
+              -63.122778,
+              55.638056
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "BUDAR-BD-SECTOR",
+        "label": "CZQXBUDAR-BD-SECTOR",
+        "name": "BUDAR-BD-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 49.334444,
+        "label_lon": -54.288507,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:X1:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.624167,
+              48.530833
+            ],
+            [
+              -57.581389,
+              48.429444
+            ],
+            [
+              -57.478333,
+              48.184444
+            ],
+            [
+              -52.0,
+              49.75
+            ],
+            [
+              -50.0,
+              50.25
+            ],
+            [
+              -50.0,
+              50.75
+            ],
+            [
+              -52.0,
+              50.25
+            ],
+            [
+              -57.624167,
+              48.530833
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "CUDDY-CD-SECTOR",
+        "label": "CZQXCUDDY-CD-SECTOR",
+        "name": "CUDDY-CD-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 55.769306,
+        "label_lon": -58.531979,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -61.869167,
+              55.0
+            ],
+            [
+              -61.799167,
+              53.358611
+            ],
+            [
+              -57.0,
+              55.774444
+            ],
+            [
+              -55.0,
+              56.408333
+            ],
+            [
+              -55.0,
+              57.35
+            ],
+            [
+              -57.4,
+              56.808333
+            ],
+            [
+              -58.318333,
+              56.454722
+            ],
+            [
+              -61.869167,
+              55.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "CZQX-MHLO",
+        "label": "CZQXCZQX-MHLO",
+        "name": "CZQX-MHLO",
+        "floor": 17500,
+        "ceiling": 28500,
+        "label_lat": 51.169589,
+        "label_lon": -58.631128,
+        "owner_primary": "QL",
+        "owner_chain": "QL:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.0,
+              51.283333
+            ],
+            [
+              -57.0,
+              51.735
+            ],
+            [
+              -57.0,
+              51.283333
+            ],
+            [
+              -58.0,
+              51.0
+            ],
+            [
+              -58.978547,
+              50.521597
+            ],
+            [
+              -61.0,
+              49.533333
+            ],
+            [
+              -62.083333,
+              50.833333
+            ],
+            [
+              -60.0,
+              50.833333
+            ],
+            [
+              -59.5,
+              51.333333
+            ],
+            [
+              -59.5,
+              51.633333
+            ],
+            [
+              -58.142778,
+              52.196389
+            ],
+            [
+              -57.0,
+              51.735
+            ],
+            [
+              -57.0,
+              51.283333
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "ELSIR-GN-SECTOR",
+        "label": "CZQXELSIR-GN-SECTOR",
+        "name": "ELSIR-GN-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 48.859222,
+        "label_lon": -54.084917,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:X1:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.2975,
+              47.741111
+            ],
+            [
+              -57.478333,
+              48.184444
+            ],
+            [
+              -57.2975,
+              47.741111
+            ],
+            [
+              -52.0,
+              49.25
+            ],
+            [
+              -50.0,
+              49.75
+            ],
+            [
+              -50.0,
+              50.0
+            ],
+            [
+              -50.0,
+              50.25
+            ],
+            [
+              -52.0,
+              49.75
+            ],
+            [
+              -57.478333,
+              48.184444
+            ],
+            [
+              -57.2975,
+              47.741111
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "ENNSO-EN-SECTOR",
+        "label": "CZQXENNSO-EN-SECTOR",
+        "name": "ENNSO-EN-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 55.159141,
+        "label_lon": -57.366187,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -55.0,
+              56.408333
+            ],
+            [
+              -55.0,
+              56.0
+            ],
+            [
+              -55.0,
+              55.908333
+            ],
+            [
+              -55.0,
+              56.408333
+            ],
+            [
+              -57.0,
+              55.774444
+            ],
+            [
+              -61.799167,
+              53.358611
+            ],
+            [
+              -63.315556,
+              52.489722
+            ],
+            [
+              -61.913333,
+              52.819444
+            ],
+            [
+              -57.0,
+              55.266667
+            ],
+            [
+              -55.0,
+              55.908333
+            ],
+            [
+              -55.0,
+              56.408333
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "GOTA_EMBOK",
+        "label": "CZQXGOTA_EMBOK",
+        "name": "GOTA_EMBOK",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 64.771653,
+        "label_lon": -61.07958,
+        "owner_primary": "XG",
+        "owner_chain": "XG:XO:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -62.633333,
+              65.383333
+            ],
+            [
+              -63.0,
+              65.316667
+            ],
+            [
+              -62.633333,
+              65.383333
+            ],
+            [
+              -60.0,
+              65.5
+            ],
+            [
+              -58.392047,
+              65.704844
+            ],
+            [
+              -57.75,
+              65.0
+            ],
+            [
+              -55.833333,
+              63.5
+            ],
+            [
+              -63.0,
+              62.0
+            ],
+            [
+              -63.0,
+              64.0
+            ],
+            [
+              -63.0,
+              65.316667
+            ],
+            [
+              -62.633333,
+              65.383333
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "GOTA_NE",
+        "label": "CZQXGOTA_NE",
+        "name": "GOTA_NE",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 61.036528,
+        "label_lon": -59.442118,
+        "owner_primary": "XG",
+        "owner_chain": "XG:XO:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -60.351111,
+              58.471111
+            ],
+            [
+              -63.0,
+              61.0
+            ],
+            [
+              -63.001389,
+              61.5
+            ],
+            [
+              -63.0,
+              62.0
+            ],
+            [
+              -55.833333,
+              63.5
+            ],
+            [
+              -55.0,
+              63.5
+            ],
+            [
+              -55.0,
+              59.85
+            ],
+            [
+              -60.351111,
+              58.471111
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "HOIST-HS-SECTOR",
+        "label": "CZQXHOIST-HS-SECTOR",
+        "name": "HOIST-HS-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 54.014729,
+        "label_lon": -58.848484,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -61.913333,
+              52.819444
+            ],
+            [
+              -61.536836,
+              52.598114
+            ],
+            [
+              -61.424367,
+              52.530831
+            ],
+            [
+              -57.0,
+              54.766667
+            ],
+            [
+              -55.0,
+              55.408333
+            ],
+            [
+              -55.0,
+              55.908333
+            ],
+            [
+              -57.0,
+              55.266667
+            ],
+            [
+              -61.913333,
+              52.819444
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "IBERG-IG-SECTOR",
+        "label": "CZQXIBERG-IG-SECTOR",
+        "name": "IBERG-IG-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 48.6245,
+        "label_lon": -53.403472,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:X1:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.2975,
+              47.741111
+            ],
+            [
+              -57.280556,
+              47.688889
+            ],
+            [
+              -57.163056,
+              47.405833
+            ],
+            [
+              -52.0,
+              48.75
+            ],
+            [
+              -51.0,
+              49.0
+            ],
+            [
+              -50.0,
+              49.25
+            ],
+            [
+              -49.996111,
+              49.668056
+            ],
+            [
+              -50.0,
+              49.75
+            ],
+            [
+              -52.0,
+              49.25
+            ],
+            [
+              -57.2975,
+              47.741111
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "IRLOK-IK-SECTOR",
+        "label": "CZQXIRLOK-IK-SECTOR",
+        "name": "IRLOK-IK-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 53.799878,
+        "label_lon": -58.243348,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -61.424367,
+              52.530831
+            ],
+            [
+              -60.854703,
+              52.187483
+            ],
+            [
+              -57.0,
+              54.266667
+            ],
+            [
+              -55.0,
+              54.908333
+            ],
+            [
+              -55.0,
+              55.408333
+            ],
+            [
+              -57.0,
+              54.766667
+            ],
+            [
+              -61.424367,
+              52.530831
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "JANJO-JJ-SECTOR",
+        "label": "CZQXJANJO-JJ-SECTOR",
+        "name": "JANJO-JJ-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 53.210161,
+        "label_lon": -58.341838,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -60.854703,
+              52.187483
+            ],
+            [
+              -60.607342,
+              52.0366
+            ],
+            [
+              -60.417958,
+              51.919725
+            ],
+            [
+              -57.0,
+              53.766667
+            ],
+            [
+              -55.0,
+              54.408333
+            ],
+            [
+              -55.0,
+              54.908333
+            ],
+            [
+              -57.0,
+              54.266667
+            ],
+            [
+              -60.854703,
+              52.187483
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "JOOPY-JO-SECTOR",
+        "label": "CZQXJOOPY-JO-SECTOR",
+        "name": "JOOPY-JO-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 48.121151,
+        "label_lon": -53.620595,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:X1:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.163056,
+              47.405833
+            ],
+            [
+              -57.018056,
+              47.036389
+            ],
+            [
+              -52.0,
+              48.25
+            ],
+            [
+              -50.0,
+              48.75
+            ],
+            [
+              -50.0,
+              49.25
+            ],
+            [
+              -52.0,
+              48.75
+            ],
+            [
+              -57.163056,
+              47.405833
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "KODIK-KD-SECTOR",
+        "label": "CZQXKODIK-KD-SECTOR",
+        "name": "KODIK-KD-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 52.710142,
+        "label_lon": -58.34529,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:X3:QX:Q3:Q2:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -60.101675,
+              51.720981
+            ],
+            [
+              -60.417958,
+              51.919725
+            ],
+            [
+              -60.101675,
+              51.720981
+            ],
+            [
+              -56.966667,
+              53.280556
+            ],
+            [
+              -55.0,
+              53.933333
+            ],
+            [
+              -55.0,
+              54.408333
+            ],
+            [
+              -57.0,
+              53.766667
+            ],
+            [
+              -60.417958,
+              51.919725
+            ],
+            [
+              -60.101675,
+              51.720981
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "LAKES",
+        "label": "CZQXLAKES",
+        "name": "LAKES",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 59.114683,
+        "label_lon": -62.64228,
+        "owner_primary": "XG",
+        "owner_chain": "XG:XO:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -60.351111,
+              58.471111
+            ],
+            [
+              -63.0,
+              61.0
+            ],
+            [
+              -64.0,
+              57.55
+            ],
+            [
+              -60.351111,
+              58.471111
+            ],
+            [
+              -63.469294,
+              58.248892
+            ],
+            [
+              -64.0,
+              57.55
+            ],
+            [
+              -63.469294,
+              58.248892
+            ],
+            [
+              -63.0,
+              58.844444
+            ],
+            [
+              -63.0,
+              59.083333
+            ],
+            [
+              -63.0,
+              59.666667
+            ],
+            [
+              -63.0,
+              60.25
+            ],
+            [
+              -63.0,
+              60.75
+            ],
+            [
+              -63.0,
+              61.0
+            ],
+            [
+              -60.351111,
+              58.471111
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "LOMSI-LO-SECTOR",
+        "label": "CZQXLOMSI-LO-SECTOR",
+        "name": "LOMSI-LO-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 52.62851,
+        "label_lon": -57.531106,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:X3:QX:Q3:Q2:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -59.73595,
+              51.482628
+            ],
+            [
+              -56.574722,
+              52.935556
+            ],
+            [
+              -54.602778,
+              53.563889
+            ],
+            [
+              -55.0,
+              53.933333
+            ],
+            [
+              -56.966667,
+              53.280556
+            ],
+            [
+              -60.101675,
+              51.720981
+            ],
+            [
+              -59.73595,
+              51.482628
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "MELDI-MD-SECTOR",
+        "label": "CZQXMELDI-MD-SECTOR",
+        "name": "MELDI-MD-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 52.019677,
+        "label_lon": -57.911786,
+        "owner_primary": "X1",
+        "owner_chain": "X1:X2:X3:QX:Q3:Q2:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -59.504336,
+              51.189856
+            ],
+            [
+              -59.721814,
+              51.464647
+            ],
+            [
+              -59.504336,
+              51.189856
+            ],
+            [
+              -56.089444,
+              52.566667
+            ],
+            [
+              -54.158333,
+              53.149167
+            ],
+            [
+              -54.602778,
+              53.563889
+            ],
+            [
+              -56.574722,
+              52.935556
+            ],
+            [
+              -59.73595,
+              51.482628
+            ],
+            [
+              -59.721814,
+              51.464647
+            ],
+            [
+              -59.504336,
+              51.189856
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "MUSAK-MK-SECTOR",
+        "label": "CZQXMUSAK-MK-SECTOR",
+        "name": "MUSAK-MK-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 47.581875,
+        "label_lon": -53.98434,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:X1:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.018056,
+              47.036389
+            ],
+            [
+              -56.956667,
+              46.882222
+            ],
+            [
+              -56.881944,
+              46.7
+            ],
+            [
+              -52.0,
+              47.75
+            ],
+            [
+              -50.0,
+              48.25
+            ],
+            [
+              -50.0,
+              48.75
+            ],
+            [
+              -52.0,
+              48.25
+            ],
+            [
+              -57.018056,
+              47.036389
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "NEEKO-NE-SECTOR",
+        "label": "CZQXNEEKO-NE-SECTOR",
+        "name": "NEEKO-NE-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 51.759306,
+        "label_lon": -57.196511,
+        "owner_primary": "X2",
+        "owner_chain": "X2:QX:Q3:Q2:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -59.232522,
+              50.841383
+            ],
+            [
+              -59.504336,
+              51.189856
+            ],
+            [
+              -59.232522,
+              50.841383
+            ],
+            [
+              -59.111494,
+              50.684889
+            ],
+            [
+              -55.501667,
+              52.248611
+            ],
+            [
+              -53.594444,
+              52.799167
+            ],
+            [
+              -54.0,
+              53.0
+            ],
+            [
+              -54.158333,
+              53.149167
+            ],
+            [
+              -56.089444,
+              52.566667
+            ],
+            [
+              -59.504336,
+              51.189856
+            ],
+            [
+              -59.232522,
+              50.841383
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "NICSO-TB-SECTOR",
+        "label": "CZQXNICSO-TB-SECTOR",
+        "name": "NICSO-TB-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 47.121389,
+        "label_lon": -53.799889,
+        "owner_primary": "X3",
+        "owner_chain": "X3:X2:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.745,
+              46.35
+            ],
+            [
+              -56.881944,
+              46.7
+            ],
+            [
+              -56.745,
+              46.35
+            ],
+            [
+              -52.0,
+              47.25
+            ],
+            [
+              -50.0,
+              47.75
+            ],
+            [
+              -50.0,
+              47.763889
+            ],
+            [
+              -50.0,
+              48.25
+            ],
+            [
+              -52.0,
+              47.75
+            ],
+            [
+              -56.881944,
+              46.7
+            ],
+            [
+              -56.745,
+              46.35
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "OMSAT-OT-SECTOR",
+        "label": "CZQXOMSAT-OT-SECTOR",
+        "name": "OMSAT-OT-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 46.804762,
+        "label_lon": -53.439048,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:X2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.745,
+              46.35
+            ],
+            [
+              -56.583333,
+              45.933333
+            ],
+            [
+              -52.0,
+              46.75
+            ],
+            [
+              -50.0,
+              47.25
+            ],
+            [
+              -50.0,
+              47.75
+            ],
+            [
+              -52.0,
+              47.25
+            ],
+            [
+              -56.745,
+              46.35
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "PELTU-PU-SECTOR",
+        "label": "CZQXPELTU-PU-SECTOR",
+        "name": "PELTU-PU-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 51.26579,
+        "label_lon": -57.084585,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:QX:Q3:Q2:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -58.978547,
+              50.521597
+            ],
+            [
+              -59.111494,
+              50.684889
+            ],
+            [
+              -58.978547,
+              50.521597
+            ],
+            [
+              -58.775278,
+              50.241667
+            ],
+            [
+              -54.853056,
+              51.949444
+            ],
+            [
+              -52.962778,
+              52.484444
+            ],
+            [
+              -53.594444,
+              52.799167
+            ],
+            [
+              -55.501667,
+              52.248611
+            ],
+            [
+              -59.111494,
+              50.684889
+            ],
+            [
+              -58.978547,
+              50.521597
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "PORTI-PO-SECTOR",
+        "label": "CZQXPORTI-PO-SECTOR",
+        "name": "PORTI-PO-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 46.348016,
+        "label_lon": -53.37381,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:X2:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.583333,
+              45.933333
+            ],
+            [
+              -56.45,
+              45.569444
+            ],
+            [
+              -52.0,
+              46.25
+            ],
+            [
+              -50.0,
+              46.75
+            ],
+            [
+              -50.0,
+              47.25
+            ],
+            [
+              -52.0,
+              46.75
+            ],
+            [
+              -56.583333,
+              45.933333
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "QX_GOTA_S_TRANS",
+        "label": "CZQXQX_GOTA_S_TRANS",
+        "name": "QX_GOTA_S_TRANS",
+        "floor": 5500,
+        "ceiling": 28500,
+        "label_lat": 49.337077,
+        "label_lon": -50.830776,
+        "owner_primary": "QL",
+        "owner_chain": "QL:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -50.0,
+              45.0
+            ],
+            [
+              -50.0,
+              45.5
+            ],
+            [
+              -50.0,
+              46.25
+            ],
+            [
+              -50.0,
+              46.75
+            ],
+            [
+              -50.0,
+              47.25
+            ],
+            [
+              -50.0,
+              47.75
+            ],
+            [
+              -50.0,
+              48.25
+            ],
+            [
+              -50.0,
+              48.75
+            ],
+            [
+              -50.0,
+              49.25
+            ],
+            [
+              -49.996111,
+              49.668056
+            ],
+            [
+              -50.0,
+              49.75
+            ],
+            [
+              -50.0,
+              50.0
+            ],
+            [
+              -50.0,
+              50.25
+            ],
+            [
+              -50.0,
+              50.75
+            ],
+            [
+              -50.0,
+              51.0
+            ],
+            [
+              -50.337778,
+              51.170278
+            ],
+            [
+              -50.998056,
+              51.501389
+            ],
+            [
+              -51.655556,
+              51.829167
+            ],
+            [
+              -52.317222,
+              52.160556
+            ],
+            [
+              -52.962778,
+              52.484444
+            ],
+            [
+              -53.594444,
+              52.799167
+            ],
+            [
+              -54.0,
+              53.0
+            ],
+            [
+              -53.738219,
+              52.650959
+            ],
+            [
+              -51.0,
+              49.0
+            ],
+            [
+              -51.0,
+              45.0
+            ],
+            [
+              -50.0,
+              45.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "RAFIN-RA-SECTOR",
+        "label": "CZQXRAFIN-RA-SECTOR",
+        "name": "RAFIN-RA-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 44.647894,
+        "label_lon": -53.719861,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.051667,
+              44.446667
+            ],
+            [
+              -56.113333,
+              44.645556
+            ],
+            [
+              -56.051667,
+              44.446667
+            ],
+            [
+              -55.966111,
+              44.229167
+            ],
+            [
+              -54.782222,
+              44.443611
+            ],
+            [
+              -51.614444,
+              44.285556
+            ],
+            [
+              -49.995,
+              44.497222
+            ],
+            [
+              -50.0,
+              45.0
+            ],
+            [
+              -50.0,
+              45.5
+            ],
+            [
+              -51.898889,
+              45.188056
+            ],
+            [
+              -56.113333,
+              44.645556
+            ],
+            [
+              -56.051667,
+              44.446667
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "RELIC-RC-SECTOR",
+        "label": "CZQXRELIC-RC-SECTOR",
+        "name": "RELIC-RC-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 45.89881,
+        "label_lon": -53.314286,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:X2:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.45,
+              45.569444
+            ],
+            [
+              -56.3,
+              45.152778
+            ],
+            [
+              -52.0,
+              45.75
+            ],
+            [
+              -50.0,
+              46.25
+            ],
+            [
+              -50.0,
+              46.75
+            ],
+            [
+              -52.0,
+              46.25
+            ],
+            [
+              -56.45,
+              45.569444
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "RIKAL-AY-SECTOR",
+        "label": "CZQXRIKAL-AY-SECTOR",
+        "name": "RIKAL-AY-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 50.872783,
+        "label_lon": -56.626392,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:QX:Q3:Q2:Q1:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -58.616956,
+              50.030017
+            ],
+            [
+              -58.775278,
+              50.241667
+            ],
+            [
+              -58.616956,
+              50.030017
+            ],
+            [
+              -58.536389,
+              49.916667
+            ],
+            [
+              -54.193056,
+              51.643333
+            ],
+            [
+              -52.317222,
+              52.160556
+            ],
+            [
+              -52.962778,
+              52.484444
+            ],
+            [
+              -54.853056,
+              51.949444
+            ],
+            [
+              -58.775278,
+              50.241667
+            ],
+            [
+              -58.616956,
+              50.030017
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "SAXAN-SX-SECTOR",
+        "label": "CZQXSAXAN-SX-SECTOR",
+        "name": "SAXAN-SX-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 50.91504,
+        "label_lon": -55.298611,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -58.536389,
+              49.916667
+            ],
+            [
+              -58.309444,
+              49.613611
+            ],
+            [
+              -53.542222,
+              51.325278
+            ],
+            [
+              -51.655556,
+              51.829167
+            ],
+            [
+              -52.317222,
+              52.160556
+            ],
+            [
+              -54.193056,
+              51.643333
+            ],
+            [
+              -58.536389,
+              49.916667
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "SUPRY-SU-SECTOR",
+        "label": "CZQXSUPRY-SU-SECTOR",
+        "name": "SUPRY-SU-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 45.302188,
+        "label_lon": -53.596771,
+        "owner_primary": "X4",
+        "owner_chain": "X4:X3:X2:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.3,
+              45.152778
+            ],
+            [
+              -56.161944,
+              44.778333
+            ],
+            [
+              -56.113333,
+              44.645556
+            ],
+            [
+              -51.898889,
+              45.188056
+            ],
+            [
+              -50.0,
+              45.5
+            ],
+            [
+              -50.0,
+              46.25
+            ],
+            [
+              -52.0,
+              45.75
+            ],
+            [
+              -56.3,
+              45.152778
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "TOXIT-TT-SECTOR",
+        "label": "CZQXTOXIT-TT-SECTOR",
+        "name": "TOXIT-TT-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 58.293216,
+        "label_lon": -60.177162,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64.0,
+              57.55
+            ],
+            [
+              -65.018961,
+              56.712394
+            ],
+            [
+              -60.047222,
+              58.145556
+            ],
+            [
+              -58.0,
+              58.716667
+            ],
+            [
+              -55.0,
+              59.35
+            ],
+            [
+              -55.0,
+              59.85
+            ],
+            [
+              -60.351111,
+              58.471111
+            ],
+            [
+              -64.0,
+              57.55
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "TUDEP-TP-SECTOR",
+        "label": "CZQXTUDEP-TP-SECTOR",
+        "name": "TUDEP-TP-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 50.30358,
+        "label_lon": -55.549383,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -58.069167,
+              49.281667
+            ],
+            [
+              -58.309444,
+              49.613611
+            ],
+            [
+              -58.069167,
+              49.281667
+            ],
+            [
+              -52.922222,
+              51.004167
+            ],
+            [
+              -50.998056,
+              51.501389
+            ],
+            [
+              -51.655556,
+              51.829167
+            ],
+            [
+              -53.542222,
+              51.325278
+            ],
+            [
+              -58.309444,
+              49.613611
+            ],
+            [
+              -58.069167,
+              49.281667
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "UMESI-UI-SECTOR",
+        "label": "CZQXUMESI-UI-SECTOR",
+        "name": "UMESI-UI-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 49.906528,
+        "label_lon": -55.427861,
+        "owner_primary": "X2",
+        "owner_chain": "X2:X1:X3:Q2:Q1:QX:QM:QR",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -57.935,
+              49.094167
+            ],
+            [
+              -58.069167,
+              49.281667
+            ],
+            [
+              -57.935,
+              49.094167
+            ],
+            [
+              -57.78,
+              48.876944
+            ],
+            [
+              -52.297222,
+              50.666667
+            ],
+            [
+              -50.337778,
+              51.170278
+            ],
+            [
+              -50.998056,
+              51.501389
+            ],
+            [
+              -52.922222,
+              51.004167
+            ],
+            [
+              -58.069167,
+              49.281667
+            ],
+            [
+              -57.935,
+              49.094167
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "UM_SCT",
+        "label": "CZQXUM_SCT",
+        "name": "UM_SCT",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 54.13786,
+        "label_lon": -63.825931,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64.322622,
+              52.248369
+            ],
+            [
+              -63.315556,
+              52.489722
+            ],
+            [
+              -61.799167,
+              53.358611
+            ],
+            [
+              -61.869167,
+              55.0
+            ],
+            [
+              -63.122778,
+              55.638056
+            ],
+            [
+              -64.0,
+              55.983333
+            ],
+            [
+              -64.0,
+              55.35
+            ],
+            [
+              -65.083333,
+              55.083333
+            ],
+            [
+              -65.333333,
+              54.416667
+            ],
+            [
+              -64.916667,
+              53.7
+            ],
+            [
+              -64.322622,
+              52.248369
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "URTAK-UR-SECTOR",
+        "label": "CZQXURTAK-UR-SECTOR",
+        "name": "URTAK-UR-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 58.16766,
+        "label_lon": -58.994627,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -55.0,
+              59.35
+            ],
+            [
+              -55.0,
+              58.85
+            ],
+            [
+              -58.0,
+              58.216667
+            ],
+            [
+              -65.890833,
+              56.0
+            ],
+            [
+              -65.018961,
+              56.712394
+            ],
+            [
+              -60.047222,
+              58.145556
+            ],
+            [
+              -58.0,
+              58.716667
+            ],
+            [
+              -55.0,
+              59.35
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "VESMI-SECTOR",
+        "label": "CZQXVESMI-SECTOR",
+        "name": "VESMI-SECTOR",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 57.302381,
+        "label_lon": -60.254524,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -65.890833,
+              56.0
+            ],
+            [
+              -64.0,
+              55.983333
+            ],
+            [
+              -58.0,
+              57.716667
+            ],
+            [
+              -55.0,
+              58.35
+            ],
+            [
+              -55.0,
+              58.85
+            ],
+            [
+              -58.0,
+              58.216667
+            ],
+            [
+              -65.890833,
+              56.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "artcc": "CZQX",
+        "sector": "YWK",
+        "label": "CZQXYWK",
+        "name": "YWK",
+        "floor": 28500,
+        "ceiling": 60000,
+        "label_lat": 53.273402,
+        "label_lon": -66.039266,
+        "owner_primary": "XO",
+        "owner_chain": "XO:X1:QX:QM",
+        "source": "CZQX.ese"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64.322622,
+              52.248369
+            ],
+            [
+              -64.916667,
+              53.7
+            ],
+            [
+              -65.333333,
+              54.416667
+            ],
+            [
+              -65.083333,
+              55.083333
+            ],
+            [
+              -64.0,
+              55.35
+            ],
+            [
+              -64.0,
+              55.983333
+            ],
+            [
+              -65.890833,
+              56.0
+            ],
+            [
+              -67.241667,
+              54.878056
+            ],
+            [
+              -68.666667,
+              53.533333
+            ],
+            [
+              -68.666667,
+              51.216667
+            ],
+            [
+              -68.666667,
+              51.0
+            ],
+            [
+              -68.0,
+              51.206944
+            ],
+            [
+              -67.0,
+              51.5
+            ],
+            [
+              -65.716667,
+              51.883611
+            ],
+            [
+              -64.800506,
+              52.125747
+            ],
+            [
+              -64.322622,
+              52.248369
+            ]
+          ]
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "generated": "2026-02-25T22:52:50.529398Z",
+    "generator": "ese_to_geojson.py",
+    "source": "EuroScope .ese sector definitions",
+    "feature_count": 39
+  }
+}

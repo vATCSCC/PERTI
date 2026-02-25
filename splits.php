@@ -2396,6 +2396,16 @@ input[type="datetime-local"] {
                 </div>
                 <hr class="my-2" style="border-color: #444;">
                 <div class="layer-toggle-item">
+                    <input type="checkbox" class="layer-toggle" data-layer="scheduledConfigs" id="layer-scheduled">
+                    <span class="layer-color" style="background: linear-gradient(90deg, #e63946, #2a9d8f); opacity: 0.5;"></span>
+                    <label for="layer-scheduled"><?= __('splits.page.scheduledSplits') ?></label>
+                    <div class="layer-sub-controls">
+                        <button class="btn btn-xs layer-fill-btn active" data-layer="scheduledConfigs" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
+                        <button class="btn btn-xs layer-line-btn active" data-layer="scheduledConfigs" title="<?= __('splits.page.outline') ?>"><i class="fas fa-border-style"></i></button>
+                        <input type="range" class="layer-opacity" data-layer="scheduledConfigs" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
+                    </div>
+                </div>
+                <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="activeConfigs" id="layer-active" checked>
                     <span class="layer-color" style="background: linear-gradient(90deg, #e63946, #2a9d8f);"></span>
                     <label for="layer-active"><?= __('splits.page.activeSplits') ?></label>
