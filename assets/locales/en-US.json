@@ -7081,6 +7081,7 @@
     "selectAPlay": "Select a play to view routes",
     "bulkPaste": "Bulk Paste",
     "bulkPasteHint": "One route per line: ORIG ROUTE DEST",
-    "deleteRoute": "Delete Route"
+    "deleteRoute": "Delete Route",
+    "selectPlayPrompt": "Select a play from the list to view details and routes"
   }
 }

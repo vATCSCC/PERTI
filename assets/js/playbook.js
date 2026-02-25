@@ -15,6 +15,12 @@
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
 
+    // FAA National Playbook category display order
+    var FAA_CATEGORY_ORDER = [
+        'Airports', 'East to West Transcon', 'Equipment', 'Regional Routes',
+        'Snowbird', 'Space Ops', 'Special Ops', 'SUA Activity', 'West to East Transcon'
+    ];
+
     // State
     var allPlays = [];          // Full loaded set from API
     var filteredPlays = [];     // After client-side filters
@@ -72,6 +78,16 @@
         var container = $('#pb_category_pills');
         var counts = categoryData.category_counts || {};
         var cats = categoryData.categories || [];
+
+        // Sort categories by FAA order; unknown categories go to the end alphabetically
+        cats.sort(function(a, b) {
+            var ia = FAA_CATEGORY_ORDER.indexOf(a);
+            var ib = FAA_CATEGORY_ORDER.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
 
         // Total active plays
         var total = 0;
@@ -189,9 +205,7 @@
         $('.pb-play-row').removeClass('active');
         $('[data-play-id="' + playId + '"]').addClass('active');
 
-        var panel = $('#pb_detail_panel');
         var content = $('#pb_detail_content');
-        panel.show();
         content.html('<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
 
         // Expand map
@@ -323,7 +337,12 @@
         activePlayData = null;
         selectedRouteIds.clear();
         $('.pb-play-row').removeClass('active');
-        $('#pb_detail_panel').hide();
+        $('#pb_detail_content').html(
+            '<div class="pb-detail-placeholder">' +
+            '<i class="fas fa-hand-pointer"></i>' +
+            '<div>' + t('playbook.selectPlayPrompt') + '</div>' +
+            '</div>'
+        );
         $('#pb_map_section').removeClass('pb-map-expanded');
 
         // Clear map routes

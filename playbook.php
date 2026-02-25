@@ -1,5 +1,32 @@
 <?php
-include("load/i18n.php");
+
+include("sessions/handler.php");
+    // Session Start (S)
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+        ob_start();
+    }
+    // Session Start (E)
+
+    include("load/config.php");
+    define('PERTI_MYSQL_ONLY', true);
+    include("load/connect.php");
+    include("load/i18n.php");
+
+    // Check Perms
+    $perm = false;
+    if (!defined('DEV')) {
+        if (isset($_SESSION['VATSIM_CID'])) {
+            $cid = session_get('VATSIM_CID', '');
+            $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
+            if ($p_check) {
+                $perm = true;
+            }
+        }
+    } else {
+        $perm = true;
+        $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
+    }
 ?>
 <!DOCTYPE html>
 <html>
@@ -72,18 +99,28 @@ include("load/nav.php");
         <div class="pb-pills" id="pb_category_pills"></div>
     </div>
 
-    <!-- Play List (compact rows) -->
-    <div class="pb-play-list-wrap" id="pb_play_list_wrap">
-        <div id="pb_play_list_container">
-            <div class="pb-loading">
-                <div class="spinner-border text-primary" role="status"></div>
+    <!-- Two-column master-detail layout -->
+    <div class="pb-columns">
+        <!-- Left: Play List -->
+        <div class="pb-col-left">
+            <div class="pb-play-list-wrap" id="pb_play_list_wrap">
+                <div id="pb_play_list_container">
+                    <div class="pb-loading">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Detail Panel (shows when a play is selected) -->
-    <div class="pb-detail-panel" id="pb_detail_panel" style="display:none;">
-        <div id="pb_detail_content"></div>
+        <!-- Right: Detail Panel (always visible, placeholder when empty) -->
+        <div class="pb-col-right" id="pb_detail_panel">
+            <div id="pb_detail_content">
+                <div class="pb-detail-placeholder">
+                    <i class="fas fa-hand-pointer"></i>
+                    <div><?= __('playbook.selectPlayPrompt') ?></div>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>

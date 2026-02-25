@@ -2,9 +2,10 @@
    PLAYBOOK PAGE STYLES — Compact catalog + expandable map + detail panel
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Page container — minimal padding, full utilization */
+/* Page container — clear the floating navbar */
 .pb-page {
     max-width: 100%;
+    padding-top: 60px;
 }
 
 /* ── Map Section ─────────────────────────────────────────────────── */
@@ -127,13 +128,42 @@
     opacity: 0.9;
 }
 
+/* ── Two-Column Layout ──────────────────────────────────────────── */
+.pb-columns {
+    display: flex;
+    gap: 0.75rem;
+    min-height: 0;
+    margin-top: 0.5rem;
+}
+
+.pb-col-left {
+    flex: 0 0 35%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.pb-col-right {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #fff;
+    padding: 0.75rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+}
+
 /* ── Play List (compact rows) ────────────────────────────────────── */
 .pb-play-list-wrap {
-    max-height: 38vh;
+    flex: 1;
     overflow-y: auto;
     border: 1px solid #e9ecef;
     border-radius: 4px;
     background: #fff;
+    max-height: calc(100vh - 300px);
 }
 
 .pb-play-list {
@@ -201,14 +231,6 @@
 .pb-badge-draft { background: #fff8e1; color: #f57f17; }
 
 /* ── Detail Panel ────────────────────────────────────────────────── */
-.pb-detail-panel {
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    background: #fff;
-    margin-top: 0.5rem;
-    padding: 0.75rem;
-}
-
 .pb-detail-header {
     display: flex;
     justify-content: space-between;
@@ -241,6 +263,21 @@
     color: #888;
     font-family: 'Inconsolata', monospace;
     margin-bottom: 0.5rem;
+}
+
+/* ── Detail Placeholder ─────────────────────────────────────────── */
+.pb-detail-placeholder {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #aaa;
+    font-size: 0.85rem;
+}
+
+.pb-detail-placeholder i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    opacity: 0.5;
 }
 
 /* ── Route Table ─────────────────────────────────────────────────── */
@@ -400,6 +437,24 @@
 .pb-select-all:hover { text-decoration: underline; }
 
 /* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 991px) {
+    .pb-columns {
+        flex-direction: column;
+    }
+
+    .pb-col-left {
+        flex: none;
+    }
+
+    .pb-play-list-wrap {
+        max-height: 35vh;
+    }
+
+    .pb-col-right {
+        max-height: none;
+    }
+}
+
 @media (max-width: 767px) {
     .pb-map-section #graphic {
         height: 25vh;
@@ -408,10 +463,6 @@
 
     .pb-map-section.pb-map-expanded #graphic {
         height: 40vh;
-    }
-
-    .pb-play-list-wrap {
-        max-height: 35vh;
     }
 
     .pb-search {
@@ -427,13 +478,7 @@
         overflow-x: auto;
     }
 
-    .pb-detail-panel {
+    .pb-col-right {
         padding: 0.5rem;
-    }
-}
-
-@media (min-width: 992px) {
-    .pb-play-list-wrap {
-        max-height: 40vh;
     }
 }
