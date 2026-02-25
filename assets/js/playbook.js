@@ -287,6 +287,9 @@
         html += '<div class="pb-actions">';
         html += '<button class="btn btn-outline-info btn-sm" id="pb_copy_link_btn"><i class="fas fa-link mr-1"></i>Copy Link</button>';
         html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
+        if (hasPerm) {
+            html += '<button class="btn btn-outline-primary btn-sm" id="pb_duplicate_btn"><i class="fas fa-copy mr-1"></i>Duplicate</button>';
+        }
         if (hasPerm && play.source !== 'FAA') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
         }
@@ -653,6 +656,29 @@
         $('#pb_play_modal').modal('show');
     }
 
+    function duplicatePlay(play, routes) {
+        var newName = (play.play_name || '') + '_MODIFIED';
+        $('#pb_modal_title').text('Duplicate Play');
+        $('#pb_edit_play_id').val(0); // Create new, not update
+        $('#pb_edit_play_name').val(newName);
+        $('#pb_edit_display_name').val(play.display_name || '');
+        $('#pb_edit_category').val(play.category || '');
+        $('#pb_edit_scenario_type').val(play.scenario_type || '');
+        $('#pb_edit_route_format').val(play.route_format || 'standard');
+        $('#pb_edit_description').val(play.description || '');
+        $('#pb_edit_status').val('draft');
+        $('#pb_edit_source').val('DCC').prop('disabled', false);
+
+        var tbody = $('#pb_route_edit_body');
+        tbody.empty();
+        (routes || []).forEach(function(r) {
+            addEditRouteRow(r);
+        });
+
+        $('#pb_bulk_paste_area').hide();
+        $('#pb_play_modal').modal('show');
+    }
+
     function addEditRouteRow(r) {
         var route = r || {};
         var html = '<tr>';
@@ -971,6 +997,13 @@
         $(document).on('click', '#pb_edit_btn', function() {
             if (activePlayData) {
                 openEditModal(activePlayData, activePlayData.routes || []);
+            }
+        });
+
+        // Duplicate
+        $(document).on('click', '#pb_duplicate_btn', function() {
+            if (activePlayData) {
+                duplicatePlay(activePlayData, activePlayData.routes || []);
             }
         });
 
