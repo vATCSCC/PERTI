@@ -823,7 +823,7 @@ class InitiativeTimeline {
             heights[f] = Math.max(this.rowHeight, result.laneCount * 26 + 8);
         });
 
-        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="min-height:${heights[f]}px">${f}</div>`).join('');
+        facCol.innerHTML = facilities.map(f => `<div class="dcccp-facility-label" style="min-height:${heights[f]}px">${f.replace(/\//g, '/\u200B')}</div>`).join('');
 
         rowsEl.innerHTML = facilities.map(f => {
             const items = groups[f].map(i => this.renderItem(i, startTime, totalMs, laneData[f][i.id] || 0)).join('');
@@ -990,6 +990,24 @@ class InitiativeTimeline {
         const first = new Date(startTime);
         first.setUTCMinutes(0, 0, 0);
         first.setUTCHours(first.getUTCHours() + 1);
+
+        // Count visible labels to decide if rotation is needed
+        let labelCount = 0;
+        let countCur = new Date(first);
+        while (countCur < endTime) {
+            const pct = ((countCur.getTime() - startTime.getTime()) / totalMs) * 100;
+            if (pct > 2 && pct < 98) {labelCount++;}
+            countCur = new Date(countCur.getTime() + interval);
+        }
+
+        // Calculate available width per label; rotate if tight
+        const axisEl = el.parentElement;
+        const axisWidth = axisEl ? axisEl.offsetWidth : 800;
+        const pxPerLabel = labelCount > 0 ? axisWidth / labelCount : axisWidth;
+        const needsRotation = pxPerLabel < 55;
+
+        // Toggle rotation class on the axis container
+        axisEl?.classList.toggle('dcccp-time-axis-rotated', needsRotation);
 
         let html = '';
         let cur = first;

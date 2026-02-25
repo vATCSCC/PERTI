@@ -478,6 +478,17 @@
     color: var(--gray-800);
 }
 
+/* Rotated time labels when spacing is tight */
+.dcccp-time-axis-rotated {
+    height: 44px;
+}
+
+.dcccp-time-axis-rotated .dcccp-time-label {
+    transform: translate(-50%, 0) rotate(-45deg);
+    transform-origin: top center;
+    top: 4px;
+}
+
 /* Legend */
 .dcccp-legend {
     display: flex;
