@@ -269,11 +269,10 @@ include('load/footer.php');
 <script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
 
 <!-- Playbook Module -->
-<script src="assets/js/playbook.js<?= _v('assets/js/playbook.js') ?>"></script>
-
 <script>
 window.PERTI_PLAYBOOK_PERM = <?= $perm ? 'true' : 'false' ?>;
 </script>
+<script src="assets/js/playbook.js<?= _v('assets/js/playbook.js') ?>"></script>
 
 </body>
 </html>
