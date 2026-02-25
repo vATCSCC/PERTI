@@ -60,6 +60,13 @@ const SplitsController = {
         superhigh: true,
     },
 
+    // Scheduled splits strata visibility
+    scheduledSplitsStrata: {
+        low: true,
+        high: true,
+        superhigh: true,
+    },
+
     // Datablock state - tracks visible split info datablocks on map
     // Key: positionKey (e.g., "configId-positionName"), Value: { element, leaderLine, labelCoords, position }
     activeDatablocks: new Map(),
@@ -2807,6 +2814,60 @@ const SplitsController = {
         }
 
         console.log('[SPLITS] Active splits strata filter applied:', visibleStrata);
+    },
+
+    /**
+     * Toggle scheduled splits strata visibility (low, high, superhigh)
+     */
+    toggleScheduledSplitsStrata(strata, visible) {
+        this.scheduledSplitsStrata[strata] = visible;
+        this.applyScheduledSplitsStrataFilter();
+        console.log(`[SPLITS] Scheduled splits strata ${strata}: ${visible}`);
+    },
+
+    /**
+     * Apply strata filter to scheduled splits layers
+     */
+    applyScheduledSplitsStrataFilter() {
+        if (!this.map) {return;}
+
+        const visibleStrata = Object.entries(this.scheduledSplitsStrata)
+            .filter(([_, visible]) => visible)
+            .map(([strata, _]) => strata);
+
+        let polygonFilter;
+        if (visibleStrata.length === 3) {
+            polygonFilter = null;
+        } else if (visibleStrata.length === 0) {
+            polygonFilter = ['==', ['get', 'boundary_type'], '__none__'];
+        } else {
+            polygonFilter = ['in', ['get', 'boundary_type'], ['literal', visibleStrata]];
+        }
+
+        ['scheduled-sectors-fill', 'scheduled-sectors-lines'].forEach(layerId => {
+            if (this.map.getLayer(layerId)) {
+                this.map.setFilter(layerId, polygonFilter);
+            }
+        });
+
+        let labelFilter;
+        if (visibleStrata.length === 3) {
+            labelFilter = null;
+        } else if (visibleStrata.length === 0) {
+            labelFilter = ['==', ['get', 'label'], '__never_match__'];
+        } else {
+            const conditions = [];
+            if (this.scheduledSplitsStrata.low) {conditions.push(['get', 'has_low']);}
+            if (this.scheduledSplitsStrata.high) {conditions.push(['get', 'has_high']);}
+            if (this.scheduledSplitsStrata.superhigh) {conditions.push(['get', 'has_superhigh']);}
+            labelFilter = ['any', ...conditions];
+        }
+
+        if (this.map.getLayer('scheduled-sectors-labels')) {
+            this.map.setFilter('scheduled-sectors-labels', labelFilter);
+        }
+
+        console.log('[SPLITS] Scheduled splits strata filter applied:', visibleStrata);
     },
 
     populateArtccDropdowns() {
@@ -6953,6 +7014,9 @@ const SplitsController = {
                     artcc: group.artcc,
                     positionKey: group.key,
                     is_scheduled: true,
+                    has_low: group.strata.has('low'),
+                    has_high: group.strata.has('high'),
+                    has_superhigh: group.strata.has('superhigh'),
                 },
                 geometry: { type: 'Point', coordinates: [avgLng, avgLat] },
             });
@@ -6967,6 +7031,9 @@ const SplitsController = {
         if (this.map.getSource('scheduled-sector-labels')) {
             this.map.getSource('scheduled-sector-labels').setData({ type: 'FeatureCollection', features: labelFeatures });
         }
+
+        // Apply current strata filter to the newly loaded data
+        this.applyScheduledSplitsStrataFilter();
 
         console.log(`[SPLITS] Updated map with ${features.length} scheduled sector features from ${this.scheduledConfigs.length} scheduled configs`);
     },

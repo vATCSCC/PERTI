@@ -2405,6 +2405,19 @@ input[type="datetime-local"] {
                         <input type="range" class="layer-opacity" data-layer="scheduledConfigs" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
+                <!-- Scheduled Splits Strata Filter -->
+                <div class="layer-toggle-item ml-3" id="scheduled-splits-strata-filters">
+                    <span class="text-muted small mr-2"><?= __('splits.page.strata') ?></span>
+                    <input type="checkbox" id="sched-strata-low" checked onchange="SplitsController.toggleScheduledSplitsStrata('low', this.checked)">
+                    <span class="layer-color" style="background: #228B22; width: 10px; height: 10px;"></span>
+                    <label for="sched-strata-low" class="small mr-2"><?= __('splits.page.low') ?></label>
+                    <input type="checkbox" id="sched-strata-high" checked onchange="SplitsController.toggleScheduledSplitsStrata('high', this.checked)">
+                    <span class="layer-color" style="background: #FF6347; width: 10px; height: 10px;"></span>
+                    <label for="sched-strata-high" class="small mr-2"><?= __('splits.page.high') ?></label>
+                    <input type="checkbox" id="sched-strata-superhigh" checked onchange="SplitsController.toggleScheduledSplitsStrata('superhigh', this.checked)">
+                    <span class="layer-color" style="background: #e83e8c; width: 10px; height: 10px;"></span>
+                    <label for="sched-strata-superhigh" class="small"><?= __('splits.page.super') ?></label>
+                </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="activeConfigs" id="layer-active" checked>
                     <span class="layer-color" style="background: linear-gradient(90deg, #e63946, #2a9d8f);"></span>
