@@ -60,6 +60,7 @@
   --status-danger: #f74f78;         /* Red/Pink - error, destructive */
   --status-danger-text: #F04124;    /* Red text (.text-danger) */
   --status-info: #6a9bf4;           /* Blue - informational */
+  --status-scheduled: #6a9bf4;     /* Blue - scheduled/upcoming (matches --status-info) */
   --status-info-base: #239BCD;      /* Teal-blue - links, badges, buttons, nav */
   --status-info-hover: #2f7492;     /* Teal-blue hover for btn-info */
   --status-info-link-hover: #166b8f; /* Darker teal - a:hover, nav-link:hover */

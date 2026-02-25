@@ -79,6 +79,14 @@ AIRPORT_COORDS = {
     'CYJN': (45.2944, -73.2811), 'CYMX': (45.6795, -74.0387),
     'CYQB': (46.7911, -71.3933), 'CYRC': (46.3528, -72.6794),
     'CYUL': (45.4706, -73.7408),
+    # CZQM (Moncton FIR)
+    'CYHZ': (44.8808, -63.5086), 'CYSJ': (45.3161, -65.8903),
+    'CYFC': (45.8689, -66.5372), 'CYQM': (46.1122, -64.6786),
+    'CYZX': (44.9844, -64.9169),
+    # CZQX (Gander FIR)
+    'CYQX': (48.9369, -54.5681), 'CYYT': (47.6186, -52.7519),
+    'CYYR': (53.3192, -60.4258), 'LFVP': (46.7628, -56.1731),
+    'CYDF': (49.2108, -57.3914),
 }
 
 
@@ -297,13 +305,14 @@ SKIP_SUFFIXES = ('_TWR', '_GND', '_RMP', '_DEL', '_APP', '_DEP', '_TML', '_MF')
 
 # Terminal keyword patterns (CZWG uses "WINNIPEG TOWER", "REGINA GROUND", etc.)
 TERMINAL_KEYWORDS = ('DELIVERY', 'GROUND', 'TOWER', 'TCA', 'ARRIVAL', 'DEPARTURE',
-                     'CORRIDOR', 'OCA FIR', 'CLASS_A', 'CLASS_C', 'CLASS_D', 'CLASS_E')
+                     'CORRIDOR', 'OCA FIR', 'CLASS_A', 'CLASS_C', 'CLASS_D', 'CLASS_E',
+                     'RADIO', 'UNICOM', 'NO-CONTROL', 'TRANSITION')
 
 # Patterns for terminal/approach sectors to skip (airport-specific positions)
 # Matches: CY**_GND, CY**_TWR, CY**_APP, CYVR_L_APP, etc.
-AIRPORT_TERMINAL_RE = re.compile(r'CY[A-Z]{2}_(?:GND|TWR|DEL|RMP|APP|DEP|TML|MF|CZ)', re.IGNORECASE)
+AIRPORT_TERMINAL_RE = re.compile(r'(?:CY|LF)[A-Z]{2}_(?:GND|TWR|DEL|RMP|APP|DEP|TML|MF|CZ|FI_APP)', re.IGNORECASE)
 # Control zone patterns: CYBG_CZ, CYFB_CZ, etc.
-CONTROL_ZONE_RE = re.compile(r'CY[A-Z]{2}_CZ\b', re.IGNORECASE)
+CONTROL_ZONE_RE = re.compile(r'(?:CY|LF)[A-Z]{2}_CZ\b', re.IGNORECASE)
 # Approach box/corridor patterns: AN_BOX_06, AS_CORR1_06, etc.
 APPROACH_BOX_RE = re.compile(r'(?:AN|AS)_(?:BOX|CORR)', re.IGNORECASE)
 # Runway config specific: names containing (08), (26), etc.
@@ -316,11 +325,13 @@ ADJACENT_FIRS = {
     'CZEG': ['CZWG', 'CZUL', 'CZVR', 'PAZA', 'ZLC', 'ZSE', 'CZQX', 'CZQXO', 'BGGL', 'BIRD'],
     'CZUL': ['CZYZ', 'CZWG', 'CZEG', 'CZQX', 'CZQXO', 'ZBW', 'BGGL', 'BIRD', 'CZVR'],
     'CZVR': ['CZEG', 'ZSE', 'PAZA', 'ZAK'],
+    'CZQM': ['CZUL', 'CZQX', 'CZQXO', 'ZBW', 'BGGL', 'BIRD', 'CZEG'],
+    'CZQX': ['CZQM', 'CZQXO', 'CZUL', 'ZBW', 'BGGL', 'BIRD', 'CZEG', 'ZWY'],
 }
 
 # All known Canadian/US FIR prefixes for generic adjacency detection
-ALL_FIR_PREFIXES = ('CZEG', 'CZUL', 'CZYZ', 'CZWG', 'CZVR', 'CZQX', 'CZQXO', 'CZQM',
-                    'ZOB', 'ZMP', 'ZBW', 'ZLC', 'ZSC', 'ZSE', 'ZAU', 'ZNY', 'ZAK',
+ALL_FIR_PREFIXES = ('CZEG', 'CZUL', 'CZYZ', 'CZWG', 'CZVR', 'CZQX', 'CZQXO', 'CZQM', 'CZQQ',
+                    'ZOB', 'ZMP', 'ZBW', 'ZLC', 'ZSC', 'ZSE', 'ZAU', 'ZNY', 'ZAK', 'ZWY',
                     'PAZA', 'BGGL', 'BIRD')
 
 

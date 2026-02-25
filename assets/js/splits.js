@@ -50,6 +50,7 @@ const SplitsController = {
         areas: false,
         presets: false,
         activeConfigs: true,
+        scheduledConfigs: false,
     },
 
     // Active splits strata visibility
@@ -274,6 +275,61 @@ const SplitsController = {
                 'text-font': ['Noto Sans Bold'],
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
+            },
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': ['get', 'color'],
+                'text-halo-width': 3,
+            },
+        });
+
+        // ── Scheduled sectors — lower opacity fill + dashed outline + labels ──
+        // (matches plan-splits-map.js scheduled layer styling)
+        this.map.addSource('scheduled-sectors', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        this.map.addLayer({
+            id: 'scheduled-sectors-fill',
+            type: 'fill',
+            source: 'scheduled-sectors',
+            paint: {
+                'fill-color': ['get', 'color'],
+                'fill-opacity': 0.2,
+            },
+            layout: { visibility: 'none' },
+        });
+
+        this.map.addLayer({
+            id: 'scheduled-sectors-lines',
+            type: 'line',
+            source: 'scheduled-sectors',
+            paint: {
+                'line-color': ['get', 'color'],
+                'line-width': 1.5,
+                'line-opacity': 0.7,
+                'line-dasharray': [6, 4],
+            },
+            layout: { visibility: 'none' },
+        });
+
+        this.map.addSource('scheduled-sector-labels', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+
+        this.map.addLayer({
+            id: 'scheduled-sectors-labels',
+            type: 'symbol',
+            source: 'scheduled-sector-labels',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-size': 12,
+                'text-font': ['Noto Sans Bold'],
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'visibility': 'none',
             },
             paint: {
                 'text-color': '#ffffff',
@@ -1109,6 +1165,7 @@ const SplitsController = {
             areas: ['areas-fill', 'areas-lines', 'areas-labels'],
             presets: ['presets-fill', 'presets-lines', 'presets-labels'],
             activeConfigs: ['sectors-fill', 'sectors-lines', 'sectors-labels'],
+            scheduledConfigs: ['scheduled-sectors-fill', 'scheduled-sectors-lines', 'scheduled-sectors-labels'],
         };
 
         const layers = layerGroups[layerName] || [];
@@ -1401,6 +1458,7 @@ const SplitsController = {
             areas: { layer: 'areas-fill', baseOpacity: 0.3 },
             presets: { layer: 'presets-fill', baseOpacity: 0.25 },
             activeConfigs: { layer: 'sectors-fill', baseOpacity: 0.6 },
+            scheduledConfigs: { layer: 'scheduled-sectors-fill', baseOpacity: 0.2 },
         };
         const config = layerMap[layerName];
         if (config && this.map && this.map.getLayer(config.layer)) {
@@ -1425,6 +1483,7 @@ const SplitsController = {
             areas: { layer: 'areas-lines', baseOpacity: 1 },
             presets: { layer: 'presets-lines', baseOpacity: 1 },
             activeConfigs: { layer: 'sectors-lines', baseOpacity: 1 },
+            scheduledConfigs: { layer: 'scheduled-sectors-lines', baseOpacity: 0.7 },
         };
         const config = layerMap[layerName];
         if (config && this.map && this.map.getLayer(config.layer)) {
@@ -1506,8 +1565,8 @@ const SplitsController = {
         });
 
         // Clickable layers - include both fill and line layers for better hit detection
-        const clickableFillLayers = ['sectors-fill', 'high-fill', 'low-fill', 'artcc-fill', 'tracon-fill', 'areas-fill'];
-        const clickableLineLayers = ['sectors-lines', 'high-lines', 'low-lines', 'artcc-lines', 'tracon-lines', 'areas-lines'];
+        const clickableFillLayers = ['sectors-fill', 'scheduled-sectors-fill', 'high-fill', 'low-fill', 'artcc-fill', 'tracon-fill', 'areas-fill'];
+        const clickableLineLayers = ['sectors-lines', 'scheduled-sectors-lines', 'high-lines', 'low-lines', 'artcc-lines', 'tracon-lines', 'areas-lines'];
         const allClickableLayers = [...clickableFillLayers, ...clickableLineLayers];
 
         // Single unified click handler
@@ -1599,6 +1658,7 @@ const SplitsController = {
     queryFeaturesAtPoint(point) {
         const layerConfigs = [
             { fill: 'sectors-fill', line: 'sectors-lines', type: 'active' },
+            { fill: 'scheduled-sectors-fill', line: 'scheduled-sectors-lines', type: 'scheduled' },
             { fill: 'high-fill', line: 'high-lines', type: 'high' },
             { fill: 'low-fill', line: 'low-lines', type: 'low' },
             { fill: 'superhigh-fill', line: 'superhigh-lines', type: 'superhigh' },
@@ -1664,6 +1724,8 @@ const SplitsController = {
         switch (layerType) {
             case 'active':
                 return `active-${props.sector_id || props.position}`;
+            case 'scheduled':
+                return `scheduled-${props.config_id}-${props.sector_id || props.position}`;
             case 'high':
             case 'low':
             case 'superhigh':
@@ -2198,6 +2260,9 @@ const SplitsController = {
             case 'active':
                 html = this.buildActiveSectorPopup(props);
                 break;
+            case 'scheduled':
+                html = this.buildScheduledSectorPopup(props);
+                break;
             case 'high':
             case 'low':
             case 'superhigh':
@@ -2262,6 +2327,67 @@ const SplitsController = {
             if (pos.controller_oi) {html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.controller')}:</span> ${pos.controller_oi}</div>`;}
 
             // Show other sectors in this position
+            if (sectors.length > 1) {
+                const otherSectors = sectors.filter(s => s !== props.sector_id);
+                html += `
+                    <hr style="margin: 6px 0; border-color: #444;">
+                    <div class="popup-row" style="flex-direction: column; align-items: flex-start;">
+                        <span style="margin-bottom: 2px;">${PERTII18n.t('splits.popup.alsoInPosition', { count: sectors.length })}:</span>
+                        <div style="font-family: monospace; font-size: 10px; color: var(--dark-text-muted);">${otherSectors.join(', ')}</div>
+                    </div>
+                `;
+            }
+        } else {
+            html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.position')}:</span> <strong>${props.position || PERTII18n.t('common.unknown')}</strong></div>`;
+        }
+
+        html += `</div></div>`;
+        return html;
+    },
+
+    buildScheduledSectorPopup(props) {
+        // Find which scheduled config this sector belongs to
+        let configInfo = null;
+        for (const config of this.scheduledConfigs) {
+            if (config.id !== Number(props.config_id)) {continue;}
+            for (const pos of (config.positions || [])) {
+                if ((pos.sectors || []).includes(props.sector_id)) {
+                    configInfo = { config, position: pos };
+                    break;
+                }
+            }
+            if (configInfo) {break;}
+        }
+
+        let html = `
+            <div class="sector-popup">
+                <div class="popup-header" style="background: ${props.color}; display: flex; justify-content: space-between; align-items: center; padding-right: 24px;">
+                    <strong>${props.sector_id}</strong>
+                    <span class="badge badge-info" style="font-size: 10px;">${PERTII18n.t('status.scheduled')}</span>
+                </div>
+                <div class="popup-body">
+        `;
+
+        if (configInfo) {
+            const pos = configInfo.position;
+            const config = configInfo.config;
+            const sectors = pos.sectors || [];
+
+            html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.position')}:</span> <strong style="color: ${pos.color}">${pos.position_name}</strong></div>`;
+            if (pos.frequency) {html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.frequency')}:</span> <strong>${pos.frequency}</strong></div>`;}
+            html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.config')}:</span> ${config.config_name}</div>`;
+            html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.artcc')}:</span> ${config.artcc}</div>`;
+
+            // Show scheduled timing
+            if (config.start_time_utc) {
+                const startTime = new Date(config.start_time_utc.endsWith('Z') ? config.start_time_utc : config.start_time_utc + 'Z');
+                html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.starts')}:</span> ${this.formatUTCTime(startTime)}</div>`;
+            }
+            if (config.end_time_utc) {
+                const endTime = new Date(config.end_time_utc.endsWith('Z') ? config.end_time_utc : config.end_time_utc + 'Z');
+                html += `<div class="popup-row"><span>${PERTII18n.t('splits.popup.ends')}:</span> ${this.formatUTCTime(endTime)}</div>`;
+            }
+
             if (sectors.length > 1) {
                 const otherSectors = sectors.filter(s => s !== props.sector_id);
                 html += `
@@ -2571,6 +2697,10 @@ const SplitsController = {
                 fill: { layer: 'sectors-fill', prop: 'fill-opacity', base: 0.6 },
                 line: { layer: 'sectors-lines', prop: 'line-opacity', base: 1 },
             },
+            scheduledConfigs: {
+                fill: { layer: 'scheduled-sectors-fill', prop: 'fill-opacity', base: 0.2 },
+                line: { layer: 'scheduled-sectors-lines', prop: 'line-opacity', base: 0.7 },
+            },
         };
 
         const config = layerConfigs[layerName];
@@ -2603,6 +2733,7 @@ const SplitsController = {
             areas: ['areas-fill', 'areas-lines', 'areas-labels'],
             presets: ['presets-fill', 'presets-lines', 'presets-labels'],
             activeConfigs: ['sectors-fill', 'sectors-lines', 'sectors-labels'],
+            scheduledConfigs: ['scheduled-sectors-fill', 'scheduled-sectors-lines', 'scheduled-sectors-labels'],
         };
 
         const layers = layerGroups[layerName] || [];
@@ -5731,6 +5862,7 @@ const SplitsController = {
                 this.scheduledConfigs = data.configs || [];
                 console.log('[SPLITS] Scheduled configs loaded:', this.scheduledConfigs);
                 this.renderScheduledConfigsList();
+                this.updateMapWithScheduledConfigs();
             } else {
                 console.warn('[SPLITS] Scheduled configs response not OK:', response.status);
             }
@@ -6724,6 +6856,119 @@ const SplitsController = {
         }
 
         console.log(`[SPLITS] Updated map with ${features.length} sector features from ${this.activeConfigs.length} active configs`);
+    },
+
+    /**
+     * Update map with scheduled (upcoming) split configurations.
+     * Uses dashed outlines and lower opacity to distinguish from active splits
+     * (matching plan-splits-map.js visual conventions).
+     */
+    updateMapWithScheduledConfigs() {
+        if (!this.map || !this.map.loaded()) {
+            console.log('[SPLITS] Map not ready, deferring updateMapWithScheduledConfigs');
+            setTimeout(() => this.updateMapWithScheduledConfigs(), 500);
+            return;
+        }
+
+        if (!this.geoJsonCache.high && !this.geoJsonCache.low) {
+            console.log('[SPLITS] GeoJSON not loaded, deferring updateMapWithScheduledConfigs');
+            setTimeout(() => this.updateMapWithScheduledConfigs(), 500);
+            return;
+        }
+
+        const features = [];
+        let foundCount = 0;
+        let notFoundCount = 0;
+        const positionGroups = new Map();
+
+        this.scheduledConfigs.forEach(config => {
+            const positions = config.positions || [];
+            positions.forEach(pos => {
+                const sectors = pos.sectors || [];
+                const groupKey = `sched-${config.id}-${pos.position_name}`;
+
+                if (!positionGroups.has(groupKey)) {
+                    positionGroups.set(groupKey, {
+                        centroids: [],
+                        color: pos.color,
+                        name: pos.position_name,
+                        artcc: config.artcc,
+                        config_id: config.id,
+                        config_name: config.config_name,
+                        start_time_utc: config.start_time_utc,
+                        end_time_utc: config.end_time_utc,
+                        key: groupKey,
+                        strata: new Set(),
+                    });
+                }
+
+                sectors.forEach(sectorId => {
+                    const sector = this.findSectorGeometry(sectorId);
+                    if (sector) {
+                        foundCount++;
+                        features.push({
+                            type: 'Feature',
+                            properties: {
+                                sector_id: sectorId,
+                                color: pos.color,
+                                position: pos.position_name,
+                                config_id: config.id,
+                                config_name: config.config_name,
+                                is_scheduled: true,
+                                start_time_utc: config.start_time_utc || '',
+                                end_time_utc: config.end_time_utc || '',
+                                boundary_type: sector.boundary_type,
+                            },
+                            geometry: sector.geometry,
+                        });
+
+                        if (sector.boundary_type) {
+                            positionGroups.get(groupKey).strata.add(sector.boundary_type);
+                        }
+                        if (sector.centroid) {
+                            positionGroups.get(groupKey).centroids.push(sector.centroid);
+                        }
+                    } else {
+                        notFoundCount++;
+                    }
+                });
+            });
+        });
+
+        // Create consolidated labels
+        const labelFeatures = [];
+        positionGroups.forEach((group) => {
+            if (group.centroids.length === 0) {return;}
+
+            const avgLng = group.centroids.reduce((sum, c) => sum + c[0], 0) / group.centroids.length;
+            const avgLat = group.centroids.reduce((sum, c) => sum + c[1], 0) / group.centroids.length;
+
+            labelFeatures.push({
+                type: 'Feature',
+                properties: {
+                    label: group.name,
+                    color: group.color,
+                    sectorCount: group.centroids.length,
+                    config_id: group.config_id,
+                    artcc: group.artcc,
+                    positionKey: group.key,
+                    is_scheduled: true,
+                },
+                geometry: { type: 'Point', coordinates: [avgLng, avgLat] },
+            });
+        });
+
+        console.log(`[SPLITS] Scheduled sector lookup: ${foundCount} found, ${notFoundCount} not found`);
+
+        if (this.map.getSource('scheduled-sectors')) {
+            this.map.getSource('scheduled-sectors').setData({ type: 'FeatureCollection', features });
+        }
+
+        if (this.map.getSource('scheduled-sector-labels')) {
+            this.map.getSource('scheduled-sector-labels').setData({ type: 'FeatureCollection', features: labelFeatures });
+        }
+
+        console.log(`[SPLITS] Updated map with ${features.length} scheduled sector features from ${this.scheduledConfigs.length} scheduled configs`);
     },
 
     findSectorGeometry(sectorId) {

@@ -60,7 +60,8 @@
     "coordinating": "En coordination",
     "complete": "Terminé",
     "failed": "Échoué",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "scheduled": "Planifié"
   },
   "phase": {
     "arrived": "Arrivé",
@@ -3353,6 +3354,7 @@
       "highSectorsLabel": "Secteurs hauts",
       "lowSectorsLabel": "Secteurs bas",
       "activeSplits": "Découpages actifs",
+      "scheduledSplits": "Découpages planifiés",
       "strata": "Strates :",
       "low": "Bas",
       "high": "Haut",
@@ -3566,7 +3568,9 @@
       "sectors": "Secteurs",
       "includes": "Inclut",
       "positionLabel": "Position",
-      "preset": "Préréglage"
+      "preset": "Préréglage",
+      "starts": "Début",
+      "ends": "Fin"
     },
     "areas": {
       "allArtccs": "Tous les ARTCC",

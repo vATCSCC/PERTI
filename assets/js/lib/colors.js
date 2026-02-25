@@ -229,6 +229,7 @@ const PERTIColors = (function() {
         expired: '#6b7280',    // Gray (muted)
         cancelled: '#f74f78',  // --status-danger
         draft: '#6a9bf4',      // --status-info
+        scheduled: '#6a9bf4',  // --status-scheduled (matches --status-info)
     };
 
     // ========================================

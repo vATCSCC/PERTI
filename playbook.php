@@ -156,8 +156,9 @@ include("load/nav.php");
                     <div class="col-md-4">
                         <div class="form-group">
                             <label><?= __('playbook.category') ?></label>
-                            <input type="text" id="pb_edit_category" class="form-control form-control-sm"
-                                   placeholder="<?= __('playbook.categoryPlaceholder') ?>">
+                            <select id="pb_edit_category" class="form-control form-control-sm">
+                                <option value="">-- Select --</option>
+                            </select>
                         </div>
                     </div>
                     <div class="col-md-4">
