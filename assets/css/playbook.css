@@ -1,131 +1,196 @@
 /* ═══════════════════════════════════════════════════════════════════
-   PLAYBOOK PAGE STYLES — Stacked layout: map top, catalog below
+   PLAYBOOK PAGE STYLES — Compact catalog + expandable map + detail panel
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Map Section (full width, top) */
+/* Page container — minimal padding, full utilization */
+.pb-page {
+    max-width: 100%;
+}
+
+/* ── Map Section ─────────────────────────────────────────────────── */
 .pb-map-section {
     position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
 }
 
 .pb-map-section #map_wrapper {
     position: relative;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
 .pb-map-section #graphic {
-    height: 45vh;
-    min-height: 350px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    height: 30vh;
+    min-height: 220px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    transition: height 0.3s ease;
 }
 
-@media (min-width: 992px) {
-    .pb-map-section #graphic {
-        height: 50vh;
-        min-height: 400px;
-    }
+.pb-map-section.pb-map-expanded #graphic {
+    height: 50vh;
+    min-height: 400px;
 }
 
 @media (min-width: 1400px) {
-    .pb-map-section #graphic {
-        height: 55vh;
-        min-height: 500px;
-    }
+    .pb-map-section #graphic { height: 28vh; min-height: 240px; }
+    .pb-map-section.pb-map-expanded #graphic { height: 50vh; min-height: 450px; }
 }
 
-/* Catalog Panel (full width, below map) */
-.pb-catalog-panel {
-    padding-bottom: 1rem;
-}
-
+/* ── Catalog Header ──────────────────────────────────────────────── */
 .pb-catalog-header {
     position: sticky;
     top: 0;
     z-index: 10;
     background: #fff;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #dee2e6;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e9ecef;
 }
 
-/* Search & Filters — single row */
-.pb-filter-row {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    align-items: center;
+.pb-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
 }
 
-.pb-filter-row select {
+.pb-catalog-stats {
+    font-size: 0.72rem;
+    color: #888;
+    white-space: nowrap;
+}
+
+.pb-search {
+    max-width: 220px;
     font-size: 0.8rem;
-    max-width: 140px;
 }
 
-.pb-filter-row input {
-    font-size: 0.85rem;
+.pb-legacy-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.72rem;
+    color: #888;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
 }
 
-/* Play Cards — grid layout for full width */
+.pb-legacy-toggle input { margin-right: 2px; }
+
+/* ── Category Pills ──────────────────────────────────────────────── */
+.pb-pills {
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.35rem 0 0.15rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    flex-wrap: nowrap;
+}
+
+.pb-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 12px;
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+    color: #555;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.pb-pill:hover {
+    border-color: #239BCD;
+    color: #239BCD;
+}
+
+.pb-pill.active {
+    background: #239BCD;
+    border-color: #239BCD;
+    color: #fff;
+}
+
+.pb-pill-count {
+    font-size: 0.6rem;
+    font-weight: 500;
+    opacity: 0.75;
+}
+
+.pb-pill.active .pb-pill-count {
+    opacity: 0.9;
+}
+
+/* ── Play List (compact rows) ────────────────────────────────────── */
+.pb-play-list-wrap {
+    max-height: 38vh;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    background: #fff;
+}
+
 .pb-play-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 0.5rem;
-    padding-top: 0.5rem;
 }
 
-.pb-play-card {
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    background: #fff;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    cursor: pointer;
-}
-
-.pb-play-card:hover {
-    border-color: #239BCD;
-    box-shadow: 0 2px 8px rgba(35, 155, 205, 0.15);
-}
-
-.pb-play-card.active {
-    border-color: #239BCD;
-    box-shadow: 0 2px 12px rgba(35, 155, 205, 0.25);
-    grid-column: 1 / -1;
-}
-
-.pb-play-card-header {
+.pb-play-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0.75rem;
+    padding: 4px 10px;
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+    transition: background 0.1s;
+    gap: 0.5rem;
+    font-size: 0.78rem;
 }
 
-.pb-play-name {
-    font-weight: 600;
-    font-size: 0.9rem;
+.pb-play-row:hover {
+    background: #f0f7fc;
+}
+
+.pb-play-row.active {
+    background: #e3f2fd;
+    border-left: 3px solid #239BCD;
+    padding-left: 7px;
+}
+
+.pb-play-row-name {
     font-family: 'Inconsolata', monospace;
+    font-weight: 600;
     color: #2c3e50;
-    word-break: break-all;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.pb-play-meta {
+.pb-play-row-meta {
     display: flex;
     gap: 0.25rem;
     align-items: center;
     flex-shrink: 0;
 }
 
-/* Badges */
+/* ── Badges ──────────────────────────────────────────────────────── */
 .pb-badge {
     display: inline-block;
-    padding: 2px 6px;
-    font-size: 0.65rem;
+    padding: 1px 5px;
+    font-size: 0.6rem;
     font-weight: 600;
     border-radius: 3px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
 
 .pb-badge-faa { background: #e3f2fd; color: #1565c0; }
@@ -135,52 +200,79 @@
 .pb-badge-archived { background: #eceff1; color: #546e7a; }
 .pb-badge-draft { background: #fff8e1; color: #f57f17; }
 
-/* Play Detail Panel */
-.pb-play-detail {
-    display: none;
-    padding: 0 0.75rem 0.75rem;
-    border-top: 1px solid #eee;
+/* ── Detail Panel ────────────────────────────────────────────────── */
+.pb-detail-panel {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #fff;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
 }
 
-.pb-play-card.active .pb-play-detail {
-    display: block;
-}
-
-.pb-play-description {
-    font-size: 0.8rem;
-    color: #666;
+.pb-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 0.5rem;
 }
 
+.pb-detail-play-name {
+    font-family: 'Inconsolata', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #2c3e50;
+}
+
+.pb-detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 0.35rem;
+}
+
+.pb-play-description {
+    font-size: 0.78rem;
+    color: #666;
+    margin-bottom: 0.35rem;
+}
+
 .pb-play-facilities {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: #888;
     font-family: 'Inconsolata', monospace;
     margin-bottom: 0.5rem;
 }
 
-/* Route Table (full width — plenty of room for all columns) */
+/* ── Route Table ─────────────────────────────────────────────────── */
+.pb-route-table-wrap {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+}
+
 .pb-route-table {
     width: 100%;
-    font-size: 0.8rem;
-    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
     border-collapse: collapse;
 }
 
 .pb-route-table th {
     background: #f8f9fa;
-    padding: 5px 8px;
+    padding: 4px 6px;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     letter-spacing: 0.5px;
     color: #666;
     border-bottom: 2px solid #dee2e6;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .pb-route-table td {
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-bottom: 1px solid #f0f0f0;
     font-family: 'Inconsolata', monospace;
     vertical-align: top;
@@ -191,41 +283,33 @@
 }
 
 .pb-route-table .pb-route-check {
-    width: 28px;
+    width: 24px;
     text-align: center;
 }
 
-/* Route string column gets flexible width; others are compact */
 .pb-route-table td:nth-child(5) {
     word-break: break-all;
 }
 
-/* Action Buttons */
+/* ── Action Buttons ──────────────────────────────────────────────── */
 .pb-actions {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.3rem;
     flex-wrap: wrap;
-    margin-top: 0.5rem;
 }
 
 .pb-actions .btn {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     padding: 3px 8px;
 }
 
-/* Route Textarea (hidden, for map integration) */
+/* ── Route Textarea ──────────────────────────────────────────────── */
 #routeSearch {
     font-family: 'Inconsolata', monospace;
     font-size: 0.9rem;
 }
 
-/* Catalog Stats */
-.pb-catalog-stats {
-    font-size: 0.75rem;
-    color: #888;
-}
-
-/* Create/Edit Modal */
+/* ── Create/Edit Modal ───────────────────────────────────────────── */
 .pb-modal .modal-body {
     max-height: 70vh;
     overflow-y: auto;
@@ -262,11 +346,11 @@
     font-family: 'Inconsolata', monospace;
 }
 
-/* Changelog Panel */
+/* ── Changelog ───────────────────────────────────────────────────── */
 .pb-changelog { margin-top: 0.5rem; }
 
 .pb-changelog-header {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #239BCD;
     cursor: pointer;
@@ -287,60 +371,69 @@
 }
 
 .pb-changelog-item {
-    font-size: 0.7rem;
-    padding: 3px 0;
+    font-size: 0.68rem;
+    padding: 2px 0;
     border-bottom: 1px solid #f5f5f5;
     color: #666;
 }
 
 .pb-changelog-action { font-weight: 600; color: #333; }
 .pb-changelog-field { color: #239BCD; }
-.pb-changelog-diff { font-family: 'Inconsolata', monospace; font-size: 0.65rem; }
+.pb-changelog-diff { font-family: 'Inconsolata', monospace; font-size: 0.62rem; }
 .pb-changelog-old { color: #dc3545; text-decoration: line-through; }
 .pb-changelog-new { color: #28a745; }
 
-/* Empty State */
-.pb-empty-state { text-align: center; padding: 2rem 1rem; color: #999; }
-.pb-empty-state i { font-size: 2rem; margin-bottom: 0.5rem; }
+/* ── Empty / Loading States ──────────────────────────────────────── */
+.pb-empty-state { text-align: center; padding: 1.5rem 1rem; color: #999; font-size: 0.8rem; }
+.pb-empty-state i { font-size: 1.5rem; margin-bottom: 0.4rem; display: block; }
 
-/* Loading */
-.pb-loading { text-align: center; padding: 2rem; }
-.pb-loading .spinner-border { width: 1.5rem; height: 1.5rem; }
+.pb-loading { text-align: center; padding: 1.5rem; }
+.pb-loading .spinner-border { width: 1.2rem; height: 1.2rem; }
 
-/* Select All / Deselect All */
+/* ── Select All ──────────────────────────────────────────────────── */
 .pb-select-all {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     cursor: pointer;
     color: #239BCD;
     user-select: none;
 }
 .pb-select-all:hover { text-decoration: underline; }
 
-/* Pagination */
-.pb-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 0;
-}
-
-/* Responsive */
+/* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 767px) {
     .pb-map-section #graphic {
-        height: 35vh;
-        min-height: 250px;
+        height: 25vh;
+        min-height: 180px;
     }
 
-    .pb-play-list {
-        grid-template-columns: 1fr;
+    .pb-map-section.pb-map-expanded #graphic {
+        height: 40vh;
     }
 
-    .pb-filter-row select {
-        max-width: 110px;
+    .pb-play-list-wrap {
+        max-height: 35vh;
     }
 
-    .pb-play-name {
-        font-size: 0.8rem;
+    .pb-search {
+        max-width: 150px;
+    }
+
+    .pb-play-row-name {
+        font-size: 0.72rem;
+    }
+
+    .pb-pills {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .pb-detail-panel {
+        padding: 0.5rem;
+    }
+}
+
+@media (min-width: 992px) {
+    .pb-play-list-wrap {
+        max-height: 40vh;
     }
 }

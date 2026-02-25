@@ -24,14 +24,15 @@ include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
-$category = get_input('category');
-$status   = get_input('status');
-$source   = get_input('source');
-$search   = get_input('search');
-$artcc    = get_upper('artcc');
-$page     = max(1, get_int('page', 1));
-$per_page = min(200, max(1, get_int('per_page', 50)));
-$offset   = ($page - 1) * $per_page;
+$category    = get_input('category');
+$status      = get_input('status');
+$source      = get_input('source');
+$search      = get_input('search');
+$artcc       = get_upper('artcc');
+$hide_legacy = get_int('hide_legacy', 0);
+$page        = max(1, get_int('page', 1));
+$per_page    = min(1000, max(1, get_int('per_page', 200)));
+$offset      = ($page - 1) * $per_page;
 
 $where = [];
 $params = [];
@@ -70,6 +71,10 @@ if ($artcc !== '') {
     $where[] = "FIND_IN_SET(?, p.facilities_involved) > 0";
     $params[] = $artcc;
     $types .= 's';
+}
+
+if ($hide_legacy) {
+    $where[] = "p.play_name NOT LIKE '%\\_old\\_%'";
 }
 
 $where_sql = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
