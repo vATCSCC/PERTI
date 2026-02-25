@@ -62,6 +62,22 @@
         return (playName || '').indexOf('_old_') !== -1;
     }
 
+    function updateUrl(playName) {
+        if (!window.history || !window.history.replaceState) return;
+        var url = new URL(window.location);
+        if (playName) {
+            url.searchParams.set('play', playName);
+        } else {
+            url.searchParams.delete('play');
+        }
+        window.history.replaceState(null, '', url);
+    }
+
+    function getUrlPlayName() {
+        var params = new URLSearchParams(window.location.search);
+        return params.get('play') || '';
+    }
+
     // =========================================================================
     // CATEGORY PILLS
     // =========================================================================
@@ -133,6 +149,30 @@
 
             allPlays = data.data || [];
             applyFilters();
+
+            // Auto-open play from URL ?play=NAME on initial load
+            if (!activePlayId) {
+                var urlPlay = getUrlPlayName();
+                if (urlPlay) {
+                    var norm = urlPlay.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    var match = allPlays.find(function(p) {
+                        return p.play_name_norm === norm || (p.play_name || '').toUpperCase() === urlPlay.toUpperCase();
+                    });
+                    if (match) {
+                        loadPlayDetail(match.play_id);
+                    } else {
+                        // Play might be legacy/hidden — search API for it
+                        $.getJSON(API_LIST + '?search=' + encodeURIComponent(urlPlay) + '&status=&per_page=5', function(sr) {
+                            if (sr && sr.success && sr.data && sr.data.length) {
+                                var m = sr.data.find(function(p) {
+                                    return p.play_name_norm === norm || (p.play_name || '').toUpperCase() === urlPlay.toUpperCase();
+                                });
+                                if (m) loadPlayDetail(m.play_id);
+                            }
+                        });
+                    }
+                }
+            }
         }).fail(function() {
             $('#pb_play_list_container').html(
                 '<div class="pb-empty-state"><i class="fas fa-exclamation-triangle"></i>' + t('common.error') + '</div>'
@@ -225,6 +265,7 @@
             play.routes = routes;
             activePlayData = play;
 
+            updateUrl(play.play_name);
             renderDetailPanel(play, routes);
 
             // Auto-plot routes on map
@@ -244,6 +285,7 @@
         }
         html += '</div>';
         html += '<div class="pb-actions">';
+        html += '<button class="btn btn-outline-info btn-sm" id="pb_copy_link_btn"><i class="fas fa-link mr-1"></i>Copy Link</button>';
         html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
         if (hasPerm && play.source !== 'FAA') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
@@ -360,6 +402,7 @@
         activePlayId = null;
         activePlayData = null;
         selectedRouteIds.clear();
+        updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_detail_content').html(
             '<div class="pb-detail-placeholder">' +
@@ -914,6 +957,14 @@
         });
 
         // Action buttons (in detail panel)
+        $(document).on('click', '#pb_copy_link_btn', function() {
+            if (!activePlayData) return;
+            var url = new URL(window.location);
+            url.searchParams.set('play', activePlayData.play_name);
+            navigator.clipboard.writeText(url.toString()).then(function() {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Link copied', timer: 1200, showConfirmButton: false });
+            });
+        });
         $(document).on('click', '#pb_activate_btn', activateAsReroute);
 
         // Edit
