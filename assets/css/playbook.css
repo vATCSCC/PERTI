@@ -2,30 +2,28 @@
    PLAYBOOK PAGE STYLES — Compact catalog + expandable map + detail panel
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Page container — clear the floating navbar */
+/* Page container — sits below the map hero section */
 .pb-page {
     max-width: 100%;
-    padding-top: 60px;
 }
 
-/* ── Map Section ─────────────────────────────────────────────────── */
+/* ── Map Section (hero — provides dark bg for floating navbar) ──── */
 .pb-map-section {
     position: relative;
-    border-radius: 6px;
     overflow: hidden;
-    margin-bottom: 0.5rem;
+    background: #1a1a2e;
+    padding-top: 60px;
+    margin-bottom: 0;
 }
 
 .pb-map-section #map_wrapper {
     position: relative;
-    border-radius: 6px;
     overflow: hidden;
 }
 
 .pb-map-section #graphic {
     height: 30vh;
     min-height: 220px;
-    border-radius: 6px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     transition: height 0.3s ease;
 }
@@ -456,6 +454,10 @@
 }
 
 @media (max-width: 767px) {
+    .pb-map-section {
+        padding-top: 50px;
+    }
+
     .pb-map-section #graphic {
         height: 25vh;
         min-height: 180px;

@@ -50,19 +50,17 @@ include("sessions/handler.php");
 include("load/nav.php");
 ?>
 
-<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
-
-    <!-- Map (full width, top — compact by default, expands when routes plotted) -->
-    <div class="pb-map-section" id="pb_map_section">
-        <!-- Hidden textarea + button for route-maplibre integration -->
-        <textarea id="routeSearch" style="display:none;"></textarea>
-        <button id="plot_r" style="display:none;"></button>
-
-        <div id="map_wrapper">
-            <div id="placeholder"></div>
-            <div id="graphic"></div>
-        </div>
+<!-- Map hero (full-width, dark bg provides contrast for floating navbar) -->
+<div class="pb-map-section" id="pb_map_section">
+    <textarea id="routeSearch" style="display:none;"></textarea>
+    <button id="plot_r" style="display:none;"></button>
+    <div id="map_wrapper">
+        <div id="placeholder"></div>
+        <div id="graphic"></div>
     </div>
+</div>
+
+<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
 
     <!-- Catalog Header: title + search + category pills -->
     <div class="pb-catalog-header" id="pb_catalog_header">
