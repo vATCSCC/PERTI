@@ -112,7 +112,6 @@
     function loadPlays() {
         var params = {
             per_page: 1000,
-            status: 'active',
             hide_legacy: showLegacy ? 0 : 1
         };
 
