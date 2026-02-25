@@ -463,47 +463,6 @@
     }
 
     // =========================================================================
-    // DCC PLAY INJECTION (PB expansion support)
-    // =========================================================================
-
-    function injectDccPlay(play, routes) {
-        if (!window.playbookByPlayName) window.playbookByPlayName = {};
-        if (!window.playbookRoutes) window.playbookRoutes = [];
-
-        var norm = normalizePlayName(play.play_name);
-        if (!window.playbookByPlayName[norm]) window.playbookByPlayName[norm] = [];
-
-        routes.forEach(function(r) {
-            var entry = {
-                playName: play.play_name,
-                playNameNorm: norm,
-                fullRoute: (r.route_string || '').toUpperCase(),
-                originAirportsSet: new Set(csvSplit(r.origin_airports)),
-                destAirportsSet: new Set(csvSplit(r.dest_airports)),
-                originArtccsSet: new Set(csvSplit(r.origin_artccs)),
-                destArtccsSet: new Set(csvSplit(r.dest_artccs)),
-                originField: r.origin || '',
-                destField: r.dest || ''
-            };
-            window.playbookRoutes.push(entry);
-            window.playbookByPlayName[norm].push(entry);
-        });
-    }
-
-    function injectAllDccPlays() {
-        $.getJSON(API_LIST + '?source=DCC&status=active&per_page=500', function(data) {
-            if (!data || !data.success) return;
-            (data.data || []).forEach(function(p) {
-                $.getJSON(API_GET + '?id=' + p.play_id, function(d) {
-                    if (d && d.success && d.routes) {
-                        injectDccPlay(d.play, d.routes);
-                    }
-                });
-            });
-        });
-    }
-
-    // =========================================================================
     // AUTO-COMPUTATION
     // =========================================================================
 
@@ -601,6 +560,7 @@
         $('#pb_edit_route_format').val('standard');
         $('#pb_edit_description').val('');
         $('#pb_edit_status').val('active');
+        $('#pb_edit_source').val('DCC').prop('disabled', false);
         $('#pb_route_edit_body').empty();
         $('#pb_bulk_paste_area').hide();
         addEditRouteRow();
@@ -617,6 +577,7 @@
         $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
         $('#pb_edit_status').val(play.status || 'active');
+        $('#pb_edit_source').val(play.source || 'DCC').prop('disabled', true);
 
         var tbody = $('#pb_route_edit_body');
         tbody.empty();
@@ -647,7 +608,28 @@
 
         var lines = text.split('\n').filter(function(l) { return l.trim(); });
         lines.forEach(function(line) {
-            addEditRouteRow({ route_string: line.trim() });
+            var cleaned = line.trim()
+                .replace(/[><]/g, '')   // Strip mandatory route markers
+                .replace(/\s+/g, ' ')   // Normalize whitespace
+                .trim();
+            if (!cleaned) return;
+
+            var routeData = { route_string: cleaned };
+
+            // Auto-detect origin/dest using the route parser (best-effort)
+            var computed = autoComputeRouteFields(cleaned);
+            if (computed) {
+                routeData.origin = computed.origin;
+                routeData.dest = computed.dest;
+                routeData.origin_airports = computed.origin_airports;
+                routeData.origin_tracons = computed.origin_tracons;
+                routeData.origin_artccs = computed.origin_artccs;
+                routeData.dest_airports = computed.dest_airports;
+                routeData.dest_tracons = computed.dest_tracons;
+                routeData.dest_artccs = computed.dest_artccs;
+            }
+
+            addEditRouteRow(routeData);
         });
 
         $('#pb_bulk_paste_text').val('');
@@ -694,6 +676,13 @@
 
         var playFields = await autoComputePlayFields(routes);
 
+        // Source: disabled selects don't return .val(), so re-enable briefly
+        var $srcSel = $('#pb_edit_source');
+        var srcDisabled = $srcSel.prop('disabled');
+        if (srcDisabled) $srcSel.prop('disabled', false);
+        var sourceVal = $srcSel.val() || 'DCC';
+        if (srcDisabled) $srcSel.prop('disabled', true);
+
         var body = {
             play_id: playId,
             play_name: playName,
@@ -703,6 +692,7 @@
             scenario_type: $('#pb_edit_scenario_type').val(),
             route_format: $('#pb_edit_route_format').val(),
             status: $('#pb_edit_status').val(),
+            source: sourceVal,
             airac_cycle: getAiracCycle(),
             facilities_involved: playFields.facilities_involved,
             impacted_area: playFields.impacted_area,
@@ -830,7 +820,6 @@
     $(document).ready(function() {
         loadCategories();
         loadPlays();
-        injectAllDccPlays();
 
         // Search with debounce
         $('#pb_search').on('input', function() {

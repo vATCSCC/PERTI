@@ -79,6 +79,8 @@ include("load/nav.php");
                     <button class="btn btn-outline-secondary pb-src-btn active" data-source=""><?= __('common.all') ?></button>
                     <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA">FAA</button>
                     <button class="btn btn-outline-secondary pb-src-btn" data-source="DCC">DCC</button>
+                    <button class="btn btn-outline-secondary pb-src-btn" data-source="ECFMP">ECFMP</button>
+                    <button class="btn btn-outline-secondary pb-src-btn" data-source="CANOC">CANOC</button>
                 </div>
                 <label class="pb-legacy-toggle mb-0" title="<?= __('playbook.showLegacy') ?>">
                     <input type="checkbox" id="pb_legacy_toggle">
@@ -186,12 +188,26 @@ include("load/nav.php");
                     <textarea id="pb_edit_description" class="form-control form-control-sm" rows="2"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label><?= __('playbook.status') ?></label>
-                    <select id="pb_edit_status" class="form-control form-control-sm" style="max-width:200px;">
-                        <option value="active"><?= __('playbook.statusActive') ?></option>
-                        <option value="draft"><?= __('playbook.statusDraft') ?></option>
-                    </select>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><?= __('playbook.status') ?></label>
+                            <select id="pb_edit_status" class="form-control form-control-sm">
+                                <option value="active"><?= __('playbook.statusActive') ?></option>
+                                <option value="draft"><?= __('playbook.statusDraft') ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Source</label>
+                            <select id="pb_edit_source" class="form-control form-control-sm">
+                                <option value="DCC">DCC</option>
+                                <option value="ECFMP">ECFMP</option>
+                                <option value="CANOC">CANOC</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <hr>
@@ -250,6 +266,7 @@ include('load/footer.php');
 <script src="assets/js/route-symbology.js<?= _v('assets/js/route-symbology.js') ?>"></script>
 <script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
+<script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
 
 <!-- Playbook Module -->
 <script src="assets/js/playbook.js<?= _v('assets/js/playbook.js') ?>"></script>

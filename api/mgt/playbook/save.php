@@ -51,6 +51,7 @@ $status        = in_array($body['status'] ?? '', ['active', 'draft', 'archived']
 $airac_cycle   = trim($body['airac_cycle'] ?? '');
 $facilities_involved = trim($body['facilities_involved'] ?? '');
 $impacted_area = trim($body['impacted_area'] ?? '');
+$source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC']) ? $body['source'] : 'DCC';
 $org_code      = isset($body['org_code']) && $body['org_code'] !== '' ? $body['org_code'] : null;
 $routes        = isset($body['routes']) && is_array($body['routes']) ? $body['routes'] : [];
 
@@ -129,10 +130,10 @@ if ($play_id > 0) {
          scenario_type, route_format, source, status, airac_cycle,
          facilities_involved, impacted_area, route_count,
          org_code, created_by)
-        VALUES (?,?,?,?,?,?,?,'DCC',?,?,?,?,?,?,?)");
-    $stmt->bind_param('sssssssssssiss',
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $stmt->bind_param('ssssssssssssiss',
         $play_name, $play_name_norm, $display_name, $description, $category,
-        $scenario_type, $route_format, $status, $airac_cycle,
+        $scenario_type, $route_format, $source, $status, $airac_cycle,
         $facilities_involved, $impacted_area, $route_count,
         $org_code, $changed_by);
     $stmt->execute();
