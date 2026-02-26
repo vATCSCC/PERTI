@@ -42,13 +42,13 @@ include("sessions/handler.php");
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
 
     <!-- Import CSS -->
     <?php
-        $page_title = "PERTI Plan";
+        $page_title = "Plan";
         include("load/header.php");
     ?>
     <link rel="stylesheet" href="assets/css/initiative_timeline.css<?= _v('assets/css/initiative_timeline.css') ?>">
@@ -168,11 +168,9 @@ if ($org_mismatch):
             </button>
         </div>
     </div>
-<?php include('load/footer.php'); ?>
-</body></html>
-<?php exit; endif; ?>
+<?php else: ?>
 
-    <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 250px" data-jarallax data-speed="0.3" style="pointer-events: all;">
+    <section class="perti-hero perti-hero--standard bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
         <div class="container-fluid pt-2 pb-5 py-lg-6">
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
 
@@ -641,6 +639,8 @@ if ($org_mismatch):
             </div>
         </div>
     </div>
+
+<?php endif; // org_mismatch ?>
 
 </body>
 <?php include('load/footer.php'); ?>

@@ -583,3 +583,52 @@ a[data-toggle="tab"]:hover .perti-deeplink-btn,
 .plan-group-toggle {
   font-size: 0.8rem;
 }
+
+/* Dark page background — apply via <body class="perti-dark"> */
+body.perti-dark {
+  background-color: var(--dark-bg-page, #1a1a2e);
+}
+
+/* Hero section base */
+.perti-hero {
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  pointer-events: all;
+}
+
+/* Full-height hero (pairs with theme.css .fh-section for min-height: 100vh) */
+.perti-hero--full {
+  padding-top: 5rem;
+}
+
+/* Standard hero (250px) */
+.perti-hero--standard {
+  min-height: 250px;
+  padding-top: 5rem;
+}
+
+/* Compact hero (200px) */
+.perti-hero--compact {
+  min-height: 200px;
+  padding-top: 5rem;
+}
+
+/* Mini hero (120px) */
+.perti-hero--mini {
+  min-height: 120px;
+  padding-top: 5rem;
+}
+
+/* Micro hero (80px) */
+.perti-hero--micro {
+  min-height: 80px;
+  margin-top: 60px;
+}
+
+/* Dark tool hero (no jarallax) */
+.perti-hero--dark-tool {
+  min-height: 25vh;
+  padding: 1.5rem 0;
+}

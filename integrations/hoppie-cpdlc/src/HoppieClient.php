@@ -19,7 +19,7 @@ class HoppieClient
     private const HOPPIE_URL = 'http://www.hoppie.nl/acars/system/connect.html';
 
     private string $logon;  // Hoppie logon code
-    private string $callsign;  // Station callsign (e.g., VATCSCC)
+    private string $callsign;  // Station callsign (e.g., vATCSCC)
 
     public function __construct(string $logon, string $callsign)
     {

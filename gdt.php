@@ -409,7 +409,7 @@ include("load/i18n.php");
 
 <?php include("load/nav_public.php"); ?>
 
-<section class="d-flex align-items-center position-relative min-vh-25 py-4" data-jarallax data-speed="0.3" style="pointer-events: all;">
+<section class="perti-hero perti-hero--dark-tool" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 

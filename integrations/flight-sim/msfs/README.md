@@ -71,7 +71,7 @@ VerboseLogging=0
 
 1. **Via VATSIM OAuth** (recommended): Use the `/keys/provision` endpoint with your VATSIM access token
 2. **Via vPilot**: If using the VATSWIM vPilot plugin, the API key is provisioned automatically
-3. **Manual Request**: Contact VATCSCC for a developer key
+3. **Manual Request**: Contact vATCSCC for a developer key
 
 ## Integration with vPilot
 

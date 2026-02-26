@@ -161,7 +161,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 $perm = true;
 ?>
 
-<section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-4 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
+<section class="perti-hero perti-hero--full fh-section bg-position-center pt-4 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-1 pb-2 py-lg-3">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>

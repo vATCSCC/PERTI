@@ -64,11 +64,11 @@ include("sessions/handler.php");
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <?php
-        $page_title = "PERTI TMR";
+        $page_title = "TMR";
         include("load/header.php");
     ?>
 
@@ -467,11 +467,9 @@ if ($org_mismatch):
             </button>
         </div>
     </div>
-<?php include('load/footer.php'); ?>
-</body></html>
-<?php exit; endif; ?>
+<?php else: ?>
 
-    <section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 200px" data-jarallax data-speed="0.3">
+    <section class="perti-hero perti-hero--compact bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
         <div class="container-fluid pt-2 pb-4 py-lg-5">
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
             <center>
@@ -1125,6 +1123,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
             </div>
         </div>
     </div>
+
+<?php endif; // org_mismatch ?>
 
 </body>
 <?php include('load/footer.php'); ?>

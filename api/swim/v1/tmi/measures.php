@@ -3,7 +3,7 @@
  * VATSWIM API v1 - Unified TMI Measures Endpoint
  *
  * Returns ALL traffic management measures from both:
- *   - VATCSCC (USA): tmi_programs (GS/GDP/AFP), tmi_entries (MIT/MINIT)
+ *   - vATCSCC (USA): tmi_programs (GS/GDP/AFP), tmi_entries (MIT/MINIT)
  *   - External providers: tmi_flow_measures (ECFMP, NavCanada, VATPAC, etc.)
  *
  * Unified TFMS/FIXM-aligned output format for global interoperability.
@@ -62,7 +62,7 @@ if ($source === 'usa') {
 }
 
 // ============================================================================
-// USA TMI Data (VATCSCC) - from tmi_programs
+// USA TMI Data (vATCSCC) - from tmi_programs
 // ============================================================================
 if ($include_vatcscc) {
     $usa_where = [];

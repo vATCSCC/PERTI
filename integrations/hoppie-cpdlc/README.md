@@ -20,7 +20,7 @@ Bridge service that polls [Hoppie's ACARS system](http://www.hoppie.nl/acars/) f
 
 ```bash
 export HOPPIE_LOGON="your_hoppie_logon_code"
-export HOPPIE_CALLSIGN="VATCSCC"  # Your station callsign
+export HOPPIE_CALLSIGN="vATCSCC"  # Your station callsign
 export VATSWIM_API_KEY="swim_dev_your_key_here"
 export VATSWIM_VERBOSE="false"
 ```
