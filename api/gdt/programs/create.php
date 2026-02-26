@@ -117,6 +117,27 @@ if ($end_utc === null) {
     ]);
 }
 
+// Guard: if a MODELING program already exists for the same element, return it
+// instead of creating a duplicate (prevents orphan programs on re-Preview)
+$existing_result = fetch_one($conn_tmi,
+    "SELECT program_id, program_guid FROM dbo.tmi_programs WHERE ctl_element = ? AND status = 'MODELING' AND program_type = ? ORDER BY created_at DESC",
+    [$ctl_element, $program_type]
+);
+if ($existing_result['success'] && $existing_result['data']) {
+    $existing_id = (int)$existing_result['data']['program_id'];
+    $existing_program = get_program($conn_tmi, $existing_id);
+    respond_json(200, [
+        'status' => 'ok',
+        'message' => 'Existing MODELING program reused',
+        'data' => [
+            'program_id' => $existing_id,
+            'program_guid' => $existing_result['data']['program_guid'],
+            'program' => $existing_program,
+            'reused' => true
+        ]
+    ]);
+}
+
 // Validate start < end
 $start_dt = new DateTime($start_utc);
 $end_dt = new DateTime($end_utc);

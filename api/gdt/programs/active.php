@@ -43,6 +43,57 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
 $conn_tmi = gdt_get_conn_tmi();
 $include_recent = isset($_GET['include_recent']) && $_GET['include_recent'] === '1';
 
+// ============================================================================
+// Auto-complete expired programs (ACTIVE with end_utc in the past)
+// ============================================================================
+$auto_complete_sql = "
+    UPDATE dbo.tmi_programs
+    SET status = 'COMPLETED',
+        is_active = 0,
+        completed_at = SYSUTCDATETIME(),
+        updated_at = SYSUTCDATETIME()
+    WHERE status = 'ACTIVE'
+      AND end_utc IS NOT NULL
+      AND end_utc < SYSUTCDATETIME()
+";
+$ac_stmt = sqlsrv_query($conn_tmi, $auto_complete_sql);
+$auto_completed_count = 0;
+if ($ac_stmt !== false) {
+    $auto_completed_count = sqlsrv_rows_affected($ac_stmt);
+    sqlsrv_free_stmt($ac_stmt);
+}
+
+// Log TMI events for auto-completed programs
+if ($auto_completed_count > 0) {
+    $log_sql = "
+        INSERT INTO dbo.tmi_events (entity_type, entity_id, program_id, event_type, event_detail, source_type, event_utc)
+        SELECT 'PROGRAM', p.program_id, p.program_id, 'STATUS_CHANGE', 'Auto-completed: end_utc passed', 'SYSTEM', SYSUTCDATETIME()
+        FROM dbo.tmi_programs p
+        WHERE p.status = 'COMPLETED'
+          AND p.completed_at >= DATEADD(SECOND, -5, SYSUTCDATETIME())
+          AND NOT EXISTS (
+              SELECT 1 FROM dbo.tmi_events e
+              WHERE e.program_id = p.program_id
+                AND e.event_type = 'STATUS_CHANGE'
+                AND e.event_detail = 'Auto-completed: end_utc passed'
+          )
+    ";
+    $log_stmt = sqlsrv_query($conn_tmi, $log_sql);
+    if ($log_stmt !== false) sqlsrv_free_stmt($log_stmt);
+}
+
+// Auto-purge stale MODELING programs (older than 2 hours, never activated)
+$purge_sql = "
+    UPDATE dbo.tmi_programs
+    SET status = 'PURGED',
+        updated_at = SYSUTCDATETIME(),
+        purged_at = SYSUTCDATETIME()
+    WHERE status = 'MODELING'
+      AND created_at < DATEADD(HOUR, -2, SYSUTCDATETIME())
+";
+$purge_stmt = sqlsrv_query($conn_tmi, $purge_sql);
+if ($purge_stmt !== false) sqlsrv_free_stmt($purge_stmt);
+
 // Build query: active + proposed + modeling, optionally recent completed/cancelled
 $sql = "
     SELECT

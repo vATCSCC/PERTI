@@ -85,7 +85,6 @@ $nav_config = [
         'items' => [
             ['label' => __('nav.schedule'), 'path' => './schedule'],
             ['label' => __('nav.sua'), 'path' => './sua'],
-            ['label' => __('nav.crossings'), 'path' => './airspace-elements'],
         ]
     ],
     // Dropdown: SWIM API

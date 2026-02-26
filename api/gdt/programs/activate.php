@@ -155,20 +155,22 @@ $max_delay = 0;
 $delay_count = 0;
 
 foreach ($flights as $f) {
-    if (isset($f['ctl_exempt']) && $f['ctl_exempt']) {
+    $is_exempt = isset($f['ctl_exempt']) && $f['ctl_exempt'];
+    if ($is_exempt) {
         $exempt_count++;
     } else {
         $controlled_count++;
     }
 
-    // Check for airborne flights (GS held = 0 means they weren't held because they were airborne)
+    // Check for airborne flights
     if (isset($f['flight_status_at_ctl']) &&
         in_array(strtoupper($f['flight_status_at_ctl']), ['AIRBORNE', 'DEPARTED', 'ENROUTE'])) {
         $airborne_count++;
     }
 
-    $delay = isset($f['program_delay_min']) ? (int)$f['program_delay_min'] : 0;
-    if ($delay > 0) {
+    // Only count delay for non-exempt flights (matches simulate.php SQL: WHERE ctl_exempt = 0)
+    if (!$is_exempt) {
+        $delay = isset($f['program_delay_min']) ? (int)$f['program_delay_min'] : 0;
         $total_delay += $delay;
         if ($delay > $max_delay) {
             $max_delay = $delay;
@@ -177,12 +179,38 @@ foreach ($flights as $f) {
     }
 }
 
+// Average across all controlled (non-exempt) flights, including zero-delay (matches SQL AVG behavior)
 $avg_delay = $delay_count > 0 ? round($total_delay / $delay_count, 1) : 0;
+
+// Sync computed metrics back to the program record
+$total_flights = count($flights);
+$metric_sql = "
+    UPDATE dbo.tmi_programs
+    SET total_flights = ?,
+        controlled_flights = ?,
+        exempt_flights = ?,
+        airborne_flights = ?,
+        avg_delay_min = ?,
+        max_delay_min = ?,
+        total_delay_min = ?,
+        updated_at = SYSUTCDATETIME()
+    WHERE program_id = ?
+";
+$m_stmt = sqlsrv_query($conn_tmi, $metric_sql, [
+    $total_flights, $controlled_count, $exempt_count, $airborne_count,
+    $avg_delay, $max_delay, $total_delay,
+    $program_id
+]);
+if ($m_stmt !== false) {
+    sqlsrv_free_stmt($m_stmt);
+    // Refresh program record to include updated metrics
+    $program = get_program($conn_tmi, $program_id);
+}
 
 // Build flights data response
 $flights_data = [
     'flights' => $flights,
-    'total' => count($flights),
+    'total' => $total_flights,
     'controlled' => $controlled_count,
     'exempt' => $exempt_count,
     'airborne' => $airborne_count

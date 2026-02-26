@@ -65,6 +65,14 @@ $limit = isset($_GET['limit']) ? max(1, min(200, (int)$_GET['limit'])) : 50;
 $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
 
 // ============================================================================
+// Auto-complete expired programs (ACTIVE with end_utc in the past)
+// ============================================================================
+$ac_stmt = sqlsrv_query($conn_tmi,
+    "UPDATE dbo.tmi_programs SET status = 'COMPLETED', is_active = 0, completed_at = SYSUTCDATETIME(), updated_at = SYSUTCDATETIME() WHERE status = 'ACTIVE' AND end_utc IS NOT NULL AND end_utc < SYSUTCDATETIME()"
+);
+if ($ac_stmt !== false) sqlsrv_free_stmt($ac_stmt);
+
+// ============================================================================
 // Build Query
 // ============================================================================
 

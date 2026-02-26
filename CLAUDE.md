@@ -529,7 +529,6 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 | `swim-keys.php` | SWIM API key self-service management portal |
 | `jatoc.php` | Joint Air Traffic Operations Center (incident management) |
 | `tmi-publish.php` | TMI publishing to Discord (NTML/advisories) |
-| `airspace-elements.php` | Airspace element viewer |
 | `sua.php` | Special Use Airspace display |
 | `event-aar.php` | Event-specific AAR configuration |
 | `airport_config.php` | Airport configuration editor |
@@ -587,7 +586,6 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 - `rate_history.php` - Rate change history
 - `review/data.php`, `review/scores.php`, `review/comments.php` - Review data
 - `sheet/configs.php`, `sheet/term_staffing.php`, etc. - Sheet view data
-- `airspace_elements/list.php`, `get.php`, `lookup.php` - Airspace elements
 - `crossings/forecast.php` - Boundary crossing forecasts
 
 **TMI (Traffic Management)** - `/api/tmi/`:
@@ -698,7 +696,6 @@ Map/spatial:
 - `route-symbology.js` - Route display symbols
 - `fir-scope.js` - FIR boundary scope
 - `fir-integration.js` - FIR data integration
-- `airspace_display.js` - Airspace element display
 - `sua.js` - SUA display
 
 Data/reference:

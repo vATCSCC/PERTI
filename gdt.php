@@ -646,32 +646,63 @@ include("load/i18n.php");
         <div class="col-lg-6 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="tmi-section-title">
-                        <i class="fas fa-ban mr-1 text-danger"></i> <?= __('gdt.page.gsSetup') ?>
+                    <span class="tmi-section-title" id="gs_setup_header_label">
+                        <i class="fas fa-clock mr-1 text-primary"></i> Program Setup
                     </span>
                     <span class="badge badge-secondary tmi-badge-status" id="gs_status_badge">Draft (local)</span>
                 </div>
 
                 <div class="card-body">
 
-                    <!-- Basic metadata (GS Name removed - always "CDM GROUND STOP") -->
+                    <!-- Program Type & Element -->
                     <div class="form-row">
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-3">
+                            <label class="tmi-label mb-0" for="gs_program_type">Program Type</label>
+                            <select class="form-control form-control-sm" id="gs_program_type">
+                                <option value="GS" selected>Ground Stop</option>
+                                <option value="GDP-DAS">GDP (DAS)</option>
+                                <option value="GDP-GAAP">GDP (GAAP)</option>
+                                <option value="GDP-UDP">GDP (UDP)</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-3">
                             <label class="tmi-label mb-0" for="gs_ctl_element"><?= __('gdt.page.ctlElement') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_ctl_element"
                                    placeholder="<?= __('gdt.page.placeholderAirport') ?>">
                         </div>
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-3">
                             <label class="tmi-label mb-0" for="gs_element_type"><?= __('gdt.page.elementType') ?></label>
                             <select class="form-control form-control-sm" id="gs_element_type">
                                 <option value="APT" selected>APT</option>
                                 <option value="CTR">CTR</option>
                             </select>
                         </div>
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-3">
                             <label class="tmi-label mb-0" for="gs_adv_number"><?= __('gdt.page.advNumber') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_adv_number"
-                                   placeholder="<?= __('gdt.page.placeholderAdvisoryNum') ?>">
+                                   placeholder="Auto-assigned" readonly>
+                        </div>
+                    </div>
+
+                    <!-- GDP-specific rate/delay fields (hidden for GS) -->
+                    <div class="form-row" id="gs_gdp_rate_row" style="display: none;">
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0" for="gs_program_rate">Acceptance Rate (AAR)</label>
+                            <input type="number" class="form-control form-control-sm" id="gs_program_rate"
+                                   placeholder="e.g., 30" min="1" max="120">
+                            <small class="form-text text-muted">Arrivals per hour</small>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0" for="gs_delay_limit">Max Delay (min)</label>
+                            <input type="number" class="form-control form-control-sm" id="gs_delay_limit"
+                                   placeholder="e.g., 180" min="0" max="600" value="180">
+                            <small class="form-text text-muted">Delay cap in minutes</small>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0" for="gs_reserve_rate">Reserve Rate</label>
+                            <input type="number" class="form-control form-control-sm" id="gs_reserve_rate"
+                                   placeholder="e.g., 5" min="0" max="30">
+                            <small class="form-text text-muted">Reserved slots/hour (GAAP/UDP)</small>
                         </div>
                     </div>
 

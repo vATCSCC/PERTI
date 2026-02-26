@@ -205,17 +205,7 @@ The JavaScript (`term-inits.js`) only calls:
 - **Option B**: Integrate into weather-related pages
 - **Option C**: Delete if weather visualization is out of scope
 
-### 4.2 Airspace Display Module (1 file, ~28KB)
-
-| File | Size | Lines | Purpose |
-|------|------|-------|---------|
-| `assets/js/airspace_display.js` | 28KB | ~700 | Airspace boundary rendering |
-
-**Analysis**: Developed for airspace visualization, never integrated.
-
-**Recommendation**: Archive or integrate with GIS/boundary display features.
-
-### 4.3 ADL Service Layer (2 files, ~41KB)
+### 4.2 ADL Service Layer (2 files, ~41KB)
 
 | File | Size | Lines | Purpose |
 |------|------|-------|---------|
@@ -476,7 +466,6 @@ grep "endpoint_name" api/swim/v1/openapi.yaml
 # === JAVASCRIPT FILES (Archive recommended) ===
 # mkdir -p _archive/js/weather _archive/js/adl
 # mv assets/js/weather_*.js _archive/js/weather/
-# mv assets/js/airspace_display.js _archive/js/
 # mv assets/js/adl-*.js _archive/js/adl/
 # mv assets/js/plugins/snow.js assets/js/seasonal/
 # rm advisory-templates.js
