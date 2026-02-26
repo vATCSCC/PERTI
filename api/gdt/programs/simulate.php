@@ -633,6 +633,7 @@ if (count($flights_for_sp) > 0) {
             WHERE program_id = ?
         ", [$program_id, $program_id, $program_id, $program_id, $program_id, $program_id, $program_id]);
     }
+} // end if (count($flights_for_sp) > 0)
 
 // ============================================================================
 // Step 5: Fetch Results
