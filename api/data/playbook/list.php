@@ -100,7 +100,9 @@ $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
                     p.created_by, p.updated_by, p.updated_at, p.created_at,
                     ra.agg_origin_airports, ra.agg_origin_tracons, ra.agg_origin_artccs,
                     ra.agg_dest_airports, ra.agg_dest_tracons, ra.agg_dest_artccs,
-                    ra.agg_traversed_artccs, ra.agg_route_strings
+                    ra.agg_traversed_artccs, ra.agg_traversed_tracons,
+                    ra.agg_traversed_sectors_low, ra.agg_traversed_sectors_high,
+                    ra.agg_traversed_sectors_superhigh, ra.agg_route_strings
              FROM playbook_plays p
              LEFT JOIN (
                  SELECT play_id,
@@ -111,6 +113,10 @@ $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
                      GROUP_CONCAT(DISTINCT NULLIF(dest_tracons,'') SEPARATOR ',') AS agg_dest_tracons,
                      GROUP_CONCAT(DISTINCT NULLIF(dest_artccs,'') SEPARATOR ',') AS agg_dest_artccs,
                      GROUP_CONCAT(DISTINCT NULLIF(traversed_artccs,'') SEPARATOR ',') AS agg_traversed_artccs,
+                     GROUP_CONCAT(DISTINCT NULLIF(traversed_tracons,'') SEPARATOR ',') AS agg_traversed_tracons,
+                     GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_low,'') SEPARATOR ',') AS agg_traversed_sectors_low,
+                     GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_high,'') SEPARATOR ',') AS agg_traversed_sectors_high,
+                     GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_superhigh,'') SEPARATOR ',') AS agg_traversed_sectors_superhigh,
                      GROUP_CONCAT(route_string SEPARATOR ' ') AS agg_route_strings
                  FROM playbook_routes GROUP BY play_id
              ) ra ON ra.play_id = p.play_id

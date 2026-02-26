@@ -51,39 +51,79 @@
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.pb-catalog-overlay.collapsed {
-    transform: translateX(-290px);
-    opacity: 0.7;
+/* Minimized state: collapse body, keep titlebar */
+.pb-catalog-overlay.minimized .pb-catalog-body { display: none; }
+.pb-catalog-overlay.minimized { max-height: none; overflow: visible; }
+
+/* ── Shared Overlay Titlebar (drag handle) ──────────────────────── */
+.pb-overlay-titlebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.04);
+    border-bottom: 1px solid #e9ecef;
+    cursor: move;
+    flex-shrink: 0;
+    user-select: none;
+    min-height: 28px;
 }
 
-.pb-catalog-toggle {
-    position: absolute;
-    right: -28px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 28px;
-    height: 48px;
-    background: rgba(255,255,255,0.95);
-    border: none;
-    border-radius: 0 6px 6px 0;
-    box-shadow: 2px 0 6px rgba(0,0,0,0.1);
-    cursor: pointer;
-    font-size: 0.7rem;
-    color: #666;
+.pb-overlay-title {
+    font-family: 'Inconsolata', monospace;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0;
+    gap: 0.3rem;
 }
 
-.pb-catalog-toggle:hover { color: #239BCD; }
-
-.pb-catalog-toggle i {
-    transition: transform 0.3s ease;
+.pb-overlay-controls {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
 }
 
-.pb-catalog-overlay.collapsed .pb-catalog-toggle i {
-    transform: rotate(180deg);
+.pb-overlay-controls button {
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 0.62rem;
+    padding: 2px 5px;
+    cursor: pointer;
+    border-radius: 3px;
+    line-height: 1;
+}
+.pb-overlay-controls button:hover { background: rgba(0,0,0,0.08); color: #333; }
+
+/* ── Play Info Overlay (right side) ─────────────────────────────── */
+.pb-info-overlay {
+    position: absolute;
+    top: 72px;
+    right: 12px;
+    width: 340px;
+    max-height: calc(100% - 84px);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pb-info-overlay.minimized .pb-info-content { display: none; }
+.pb-info-overlay.minimized { max-height: none; overflow: visible; }
+
+.pb-info-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.6rem;
 }
 
 /* ── Catalog Header (inside overlay) ─────────────────────────────── */
@@ -344,11 +384,72 @@
     margin-bottom: 0.3rem;
 }
 
+.pb-inline-edit-btn {
+    border: none;
+    background: transparent;
+    color: #aaa;
+    font-size: 0.55rem;
+    padding: 1px 4px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.pb-inline-edit-btn:hover { color: #239BCD; }
+.pb-fac-edit-wrap {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 3px;
+}
+.pb-fac-input {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem !important;
+    padding: 2px 6px !important;
+    flex: 1;
+}
+.pb-fac-edit-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.pb-fac-edit-actions .btn { font-size: 0.6rem; padding: 1px 6px; }
+
 .pb-play-traffic {
     font-size: 0.72rem;
     color: #6aa;
     font-family: 'Inconsolata', monospace;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+/* Traversed facilities collapsible section */
+.pb-play-traversed {
+    font-size: 0.7rem;
+    font-family: 'Inconsolata', monospace;
+    margin-bottom: 0.4rem;
+}
+.pb-traversed-header {
+    cursor: pointer;
+    color: #777;
+    padding: 2px 0;
+    user-select: none;
+}
+.pb-traversed-header:hover { color: #333; }
+.pb-traversed-header.expanded i { transform: rotate(90deg); }
+.pb-traversed-header i { transition: transform 0.15s; font-size: 0.55rem; margin-right: 2px; }
+.pb-traversed-body {
+    padding: 3px 0 3px 10px;
+    border-left: 2px solid #e0e0e0;
+    margin-left: 4px;
+}
+.pb-trav-row { margin-bottom: 2px; line-height: 1.4; }
+.pb-trav-label {
+    font-weight: 600;
+    color: #555;
+    display: inline-block;
+    min-width: 90px;
+}
+.pb-fac-code {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 0 3px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.04);
+    color: #555;
 }
 
 /* ── Detail Placeholder ─────────────────────────────────────────── */
@@ -403,6 +504,17 @@
 
 .pb-route-table tr:hover td {
     background: #f8f9fa;
+}
+
+/* Route emphasis when catalog search is active */
+.pb-route-table tr.pb-route-emphasized td {
+    background: rgba(35, 155, 205, 0.08);
+}
+.pb-route-table tr.pb-route-dimmed td {
+    opacity: 0.35;
+}
+.pb-route-table tr.pb-route-dimmed:hover td {
+    opacity: 0.6;
 }
 
 .pb-route-table .pb-route-check {
@@ -694,6 +806,10 @@
         width: 280px;
     }
 
+    .pb-info-overlay {
+        width: 280px;
+    }
+
     .pb-detail-panel {
         max-height: none;
     }
@@ -709,14 +825,18 @@
         min-height: 250px;
     }
 
-    /* Full-width overlay on mobile */
+    /* Full-width overlays on mobile */
     .pb-catalog-overlay {
         width: calc(100% - 24px);
         max-height: 50%;
     }
 
-    .pb-catalog-overlay.collapsed {
-        transform: translateX(calc(-100% + 40px));
+    .pb-info-overlay {
+        width: calc(100% - 24px);
+        right: 12px;
+        top: auto;
+        bottom: 12px;
+        max-height: 40%;
     }
 
     .pb-search {
