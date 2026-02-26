@@ -67,8 +67,8 @@ function normalizePlayName($name) {
 }
 
 /**
- * Compute traversed facilities from a route string by looking up fix locations
- * in PostGIS and finding which boundaries contain them.
+ * Compute traversed facilities by building a LINESTRING from ordered route fix
+ * coordinates and intersecting it with boundary polygons in PostGIS.
  * Returns array with: artccs, tracons, sectors_low, sectors_high, sectors_superhigh
  * Each value is a comma-separated string of boundary codes.
  */
@@ -94,96 +94,148 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs)
         }
     }
 
-    // Extract fix-like tokens: 2-5 uppercase alpha chars
+    // Extract fix-like tokens: 2-5 uppercase alpha chars (preserving route order)
     $tokens = preg_split('/\s+/', strtoupper(trim($route_string)));
-    $exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB', 'RADAR', 'DIRECT'];
-    $fixNames = [];
+    $exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB',
+                'RADAR', 'DIRECT', 'UNKN'];
+    $orderedFixNames = [];
     foreach ($tokens as $t) {
         if (preg_match('/^[A-Z]{2,5}$/', $t) && !in_array($t, $exclude)) {
-            $fixNames[] = $t;
+            $orderedFixNames[] = $t;
         }
     }
 
-    if ($gis_available && !empty($fixNames)) {
-        $params = array_values(array_unique($fixNames));
-        $placeholders = implode(',', array_fill(0, count($params), '?'));
+    $artccs = [];
+    $tracons = [];
+    $sectors_low = [];
+    $sectors_high = [];
+    $sectors_superhigh = [];
 
-        // Single combined query: ARTCC + TRACON + sector traversals
-        $sql = "SELECT 'artcc' AS btype, b.artcc_code AS code
-                FROM nav_fixes f
-                JOIN artcc_boundaries b ON ST_Contains(b.geom, f.geom)
-                WHERE f.fix_name IN ($placeholders)
-                UNION
-                SELECT 'tracon', t.tracon_code
-                FROM nav_fixes f
-                JOIN tracon_boundaries t ON ST_Contains(t.geom, f.geom)
-                WHERE f.fix_name IN ($placeholders)
-                UNION
-                SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-                FROM nav_fixes f
-                JOIN sector_boundaries s ON ST_Contains(s.geom, f.geom)
-                WHERE f.fix_name IN ($placeholders)";
-
-        // Repeat params 3x for the 3 UNION clauses
-        $allParams = array_merge($params, $params, $params);
-
+    if ($gis_available && !empty($orderedFixNames)) {
         try {
-            $stmt = $conn_gis_cached->prepare($sql);
-            $stmt->execute($allParams);
+            // Step A: Look up fix coordinates (preserving route order)
+            $uniqueFixes = array_values(array_unique($orderedFixNames));
+            $placeholders = implode(',', array_fill(0, count($uniqueFixes), '?'));
+            $coordSql = "SELECT fix_name, ST_X(geom) AS lon, ST_Y(geom) AS lat
+                         FROM nav_fixes WHERE fix_name IN ($placeholders)";
+            $coordStmt = $conn_gis_cached->prepare($coordSql);
+            $coordStmt->execute($uniqueFixes);
 
-            $artccs = [];
-            $tracons = [];
-            $sectors_low = [];
-            $sectors_high = [];
-            $sectors_superhigh = [];
+            $fixCoords = [];
+            while ($row = $coordStmt->fetch(\PDO::FETCH_ASSOC)) {
+                $fixCoords[$row['fix_name']] = [$row['lon'], $row['lat']];
+            }
 
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $code = $row['code'];
-                switch ($row['btype']) {
-                    case 'artcc':
-                        // Convert ICAO K-prefix to FAA format (KZNY→ZNY)
-                        if (strlen($code) === 4 && $code[0] === 'K') {
-                            $code = substr($code, 1);
-                        }
-                        $artccs[] = $code;
-                        break;
-                    case 'tracon':
-                        $tracons[] = $code;
-                        break;
-                    case 'sector_low':
-                        $sectors_low[] = $code;
-                        break;
-                    case 'sector_high':
-                        $sectors_high[] = $code;
-                        break;
-                    case 'sector_superhigh':
-                        $sectors_superhigh[] = $code;
-                        break;
+            // Build ordered coordinate array matching route sequence
+            $orderedCoords = [];
+            foreach ($orderedFixNames as $fn) {
+                if (isset($fixCoords[$fn])) {
+                    $orderedCoords[] = $fixCoords[$fn];
+                }
+            }
+
+            if (count($orderedCoords) >= 2) {
+                // Step B: Build LINESTRING and intersect with boundaries
+                $pointsSql = [];
+                $lineParams = [];
+                foreach ($orderedCoords as $coord) {
+                    $pointsSql[] = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
+                    $lineParams[] = $coord[0]; // lon
+                    $lineParams[] = $coord[1]; // lat
+                }
+                $lineExpr = 'ST_MakeLine(ARRAY[' . implode(',', $pointsSql) . '])';
+
+                $sql = "WITH route_line AS (SELECT $lineExpr AS geom)
+                        SELECT 'artcc' AS btype, b.artcc_code AS code
+                        FROM route_line rl JOIN artcc_boundaries b ON ST_Intersects(rl.geom, b.geom)
+                        UNION ALL
+                        SELECT 'tracon', t.tracon_code
+                        FROM route_line rl JOIN tracon_boundaries t ON ST_Intersects(rl.geom, t.geom)
+                        UNION ALL
+                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
+                        FROM route_line rl JOIN sector_boundaries s ON ST_Intersects(rl.geom, s.geom)";
+
+                $stmt = $conn_gis_cached->prepare($sql);
+                $stmt->execute($lineParams);
+
+                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                    $code = $row['code'];
+                    switch ($row['btype']) {
+                        case 'artcc':
+                            if (strlen($code) === 4 && $code[0] === 'K') {
+                                $code = substr($code, 1);
+                            }
+                            $artccs[] = $code;
+                            break;
+                        case 'tracon':
+                            $tracons[] = $code;
+                            break;
+                        case 'sector_low':
+                            $sectors_low[] = $code;
+                            break;
+                        case 'sector_high':
+                            $sectors_high[] = $code;
+                            break;
+                        case 'sector_superhigh':
+                            $sectors_superhigh[] = $code;
+                            break;
+                    }
+                }
+            } elseif (count($orderedCoords) === 1) {
+                // Fallback: single fix — use point-based ST_Contains
+                $lon = $orderedCoords[0][0];
+                $lat = $orderedCoords[0][1];
+                $ptExpr = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
+
+                $sql = "SELECT 'artcc' AS btype, b.artcc_code AS code
+                        FROM artcc_boundaries b WHERE ST_Contains(b.geom, $ptExpr)
+                        UNION ALL
+                        SELECT 'tracon', t.tracon_code
+                        FROM tracon_boundaries t WHERE ST_Contains(t.geom, $ptExpr)
+                        UNION ALL
+                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
+                        FROM sector_boundaries s WHERE ST_Contains(s.geom, $ptExpr)";
+
+                $stmt = $conn_gis_cached->prepare($sql);
+                $stmt->execute([$lon, $lat, $lon, $lat, $lon, $lat]);
+
+                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                    $code = $row['code'];
+                    switch ($row['btype']) {
+                        case 'artcc':
+                            if (strlen($code) === 4 && $code[0] === 'K') {
+                                $code = substr($code, 1);
+                            }
+                            $artccs[] = $code;
+                            break;
+                        case 'tracon':
+                            $tracons[] = $code;
+                            break;
+                        case 'sector_low':
+                            $sectors_low[] = $code;
+                            break;
+                        case 'sector_high':
+                            $sectors_high[] = $code;
+                            break;
+                        case 'sector_superhigh':
+                            $sectors_superhigh[] = $code;
+                            break;
+                    }
                 }
             }
         } catch (\Exception $e) {
-            $artccs = [];
-            $tracons = [];
-            $sectors_low = [];
-            $sectors_high = [];
-            $sectors_superhigh = [];
+            // Silently fail — traversal data will just be empty
         }
-    } else {
-        $artccs = [];
-        $tracons = [];
-        $sectors_low = [];
-        $sectors_high = [];
-        $sectors_superhigh = [];
     }
 
-    // Merge origin + dest ARTCCs (traversed by definition)
+    // Merge origin + dest ARTCCs (traversed by definition), skip UNKN
     foreach (explode(',', $origin_artccs) as $a) {
         $a = trim($a);
-        if ($a !== '') $artccs[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN') $artccs[] = $a;
     }
     foreach (explode(',', $dest_artccs) as $a) {
         $a = trim($a);
-        if ($a !== '') $artccs[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN') $artccs[] = $a;
     }
 
     $result['artccs'] = implode(',', array_unique(array_filter($artccs)));

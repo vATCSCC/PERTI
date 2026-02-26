@@ -150,7 +150,8 @@
             // Split on , or | → alternatives (OR'd)
             var alts = clause.split(/[,|]/).filter(Boolean);
             var inheritedQualifier = '';
-            return alts.map(function(alt) {
+            var inheritedNegated = false;
+            return alts.map(function(alt, idx) {
                 var negated = alt.charAt(0) === '-';
                 var term = negated ? alt.substring(1) : alt;
                 // Parse qualifier prefix (orig:, dest:, thru:, via:)
@@ -166,6 +167,9 @@
                 // Propagate qualifier from first alt: orig:ZNY,ZDC → both get orig
                 if (qualifier) { inheritedQualifier = qualifier; }
                 else if (inheritedQualifier) { qualifier = inheritedQualifier; }
+                // Propagate negation from first alt: -thru:ZFW,ZAU → both get negated
+                if (idx === 0 && negated) { inheritedNegated = true; }
+                else if (idx > 0 && !negated && inheritedNegated) { negated = true; }
                 return { term: term.toUpperCase(), negated: negated, qualifier: qualifier };
             }).filter(function(a) { return a.term; });
         }).filter(function(c) { return c.length; });
@@ -224,9 +228,21 @@
         // Every clause must pass (AND)
         for (var i = 0; i < clauses.length; i++) {
             var alts = clauses[i];
+
+            // Partition: negated thru alts vs everything else
+            var negatedThruAlts = alts.filter(function(a) { return a.negated && a.qualifier === 'thru'; });
+            var otherAlts = alts.filter(function(a) { return !(a.negated && a.qualifier === 'thru'); });
+
+            // Negated thru: exclude only if ALL are found (AND semantics)
+            if (negatedThruAlts.length > 0) {
+                var allThruFound = negatedThruAlts.every(function(a) { return p._traversedCodes.has(a.term); });
+                if (allThruFound) return false;
+            }
+
+            // Process remaining alts with existing OR logic
             var clausePassed = false;
-            for (var j = 0; j < alts.length; j++) {
-                var alt = alts[j];
+            for (var j = 0; j < otherAlts.length; j++) {
+                var alt = otherAlts[j];
                 var found = false;
                 if (alt.qualifier === 'orig') {
                     found = p._originCodes.has(alt.term);
@@ -235,17 +251,15 @@
                 } else if (alt.qualifier === 'thru') {
                     found = p._traversedCodes.has(alt.term);
                 } else {
-                    // No qualifier: search everywhere (current behavior)
                     found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
                 }
                 if (alt.negated) {
-                    if (found) return false; // Negated term found → exclude
+                    if (found) return false; // Negated orig/dest/unqualified → OR exclusion
                 } else {
-                    if (found) clausePassed = true; // At least one positive alt matches
+                    if (found) clausePassed = true;
                 }
             }
-            // If clause has only negated alts, it passes if none matched (already handled above)
-            var hasPositiveAlt = alts.some(function(a) { return !a.negated; });
+            var hasPositiveAlt = otherAlts.some(function(a) { return !a.negated; });
             if (hasPositiveAlt && !clausePassed) return false;
         }
         return true;
@@ -282,9 +296,21 @@
 
         for (var i = 0; i < clauses.length; i++) {
             var alts = clauses[i];
+
+            // Partition: negated thru alts vs everything else
+            var negatedThruAlts = alts.filter(function(a) { return a.negated && a.qualifier === 'thru'; });
+            var otherAlts = alts.filter(function(a) { return !(a.negated && a.qualifier === 'thru'); });
+
+            // Negated thru: exclude only if ALL are found (AND semantics)
+            if (negatedThruAlts.length > 0) {
+                var allThruFound = negatedThruAlts.every(function(a) { return thruCodes.has(a.term); });
+                if (allThruFound) return false;
+            }
+
+            // Process remaining alts with existing OR logic
             var clausePassed = false;
-            for (var j = 0; j < alts.length; j++) {
-                var alt = alts[j];
+            for (var j = 0; j < otherAlts.length; j++) {
+                var alt = otherAlts[j];
                 var found = false;
                 if (alt.qualifier === 'orig') found = origCodes.has(alt.term);
                 else if (alt.qualifier === 'dest') found = destCodes.has(alt.term);
@@ -293,7 +319,7 @@
                 if (alt.negated) { if (found) return false; }
                 else { if (found) clausePassed = true; }
             }
-            var hasPositiveAlt = alts.some(function(a) { return !a.negated; });
+            var hasPositiveAlt = otherAlts.some(function(a) { return !a.negated; });
             if (hasPositiveAlt && !clausePassed) return false;
         }
         return true;
@@ -340,6 +366,7 @@
     function updateMapHighlights(clauses) {
         var map = window.graphic_map;
         if (!map || !map.getLayer || !map.getLayer('artcc-search-include')) return;
+        var hasLineLayer = map.getLayer('artcc-search-include-line');
 
         var includeCodes = [];
         var excludeCodes = [];
@@ -367,15 +394,13 @@
         });
 
         // Build MapLibre filter expressions: ['in', 'ICAOCODE', 'KZNY', 'KZOB', ...]
-        if (includeCodes.length) {
-            map.setFilter('artcc-search-include', ['in', 'ICAOCODE'].concat(includeCodes));
-        } else {
-            map.setFilter('artcc-search-include', ['in', 'ICAOCODE', '']);
-        }
-        if (excludeCodes.length) {
-            map.setFilter('artcc-search-exclude', ['in', 'ICAOCODE'].concat(excludeCodes));
-        } else {
-            map.setFilter('artcc-search-exclude', ['in', 'ICAOCODE', '']);
+        var inclFilter = includeCodes.length ? ['in', 'ICAOCODE'].concat(includeCodes) : ['in', 'ICAOCODE', ''];
+        var exclFilter = excludeCodes.length ? ['in', 'ICAOCODE'].concat(excludeCodes) : ['in', 'ICAOCODE', ''];
+        map.setFilter('artcc-search-include', inclFilter);
+        map.setFilter('artcc-search-exclude', exclFilter);
+        if (hasLineLayer) {
+            map.setFilter('artcc-search-include-line', inclFilter);
+            map.setFilter('artcc-search-exclude-line', exclFilter);
         }
     }
 
@@ -1084,6 +1109,7 @@
         renderInfoOverlay(play, routes);
         renderRouteTable(play, routes);
         updatePlayHighlights(play, routes);
+        $('#pb_map_legend').css('display', '');
     }
 
     function updateToolbarVisibility() {
@@ -1103,8 +1129,9 @@
             '<div>' + t('playbook.selectPlayPrompt') + '</div>' +
             '</div>'
         );
-        // Clear map highlights and routes
+        // Clear map highlights, legend, and routes
         updatePlayHighlights(null, null);
+        $('#pb_map_legend').hide();
         var textarea = document.getElementById('routeSearch');
         var plotBtn = document.getElementById('plot_r');
         if (textarea && plotBtn) {
@@ -1214,16 +1241,21 @@
         var text;
 
         if (hasSearch) {
-            // Search active: plot all selected routes with emphasis colors
-            text = selected.map(function(r) {
+            // Search active: plot non-matching first, matching on top for visibility
+            var nonMatching = [], matching = [];
+            selected.forEach(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
                 parts.push(r.route_string);
                 if (r.dest) parts.push(r.dest);
                 var routeStr = parts.join(' ');
-                var matches = routeMatchesSearchClauses(r, currentSearchClauses);
-                return routeStr + ';' + (matches ? '#C70039' : '#555555');
-            }).join('\n');
+                if (routeMatchesSearchClauses(r, currentSearchClauses)) {
+                    matching.push(routeStr + ';#C70039');
+                } else {
+                    nonMatching.push(routeStr + ';#555555');
+                }
+            });
+            text = nonMatching.concat(matching).join('\n');
         } else {
             // No search: use PB directive or manual routes (default colors)
             var usePB = canUsePBDirective(selected, allRoutes);

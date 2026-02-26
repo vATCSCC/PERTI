@@ -82,6 +82,13 @@
     gap: 0.3rem;
 }
 
+/* Info overlay: allow play name to wrap so users see the full title */
+#pb_info_title.pb-overlay-title {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
 .pb-overlay-controls {
     display: flex;
     gap: 2px;
@@ -703,6 +710,17 @@
     overflow-y: auto;
 }
 
+.pb-modal .table-responsive {
+    max-height: 35vh;
+    overflow-y: auto;
+}
+.pb-route-edit-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8f9fa;
+}
+
 .pb-modal .form-group label {
     font-weight: 600;
     font-size: 0.85rem;
@@ -799,6 +817,50 @@
 
 .pb-loading { text-align: center; padding: 1.5rem; }
 .pb-loading .spinner-border { width: 1.2rem; height: 1.2rem; }
+
+/* ── Map Legend ──────────────────────────────────────────────────── */
+.pb-map-legend {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: rgba(20, 20, 30, 0.82);
+    backdrop-filter: blur(6px);
+    border-radius: 6px;
+    padding: 6px 10px;
+    z-index: 15;
+    font-size: 0.62rem;
+    color: #ddd;
+    display: none;
+}
+.pb-map-legend-title {
+    font-weight: 700;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #aaa;
+    margin-bottom: 3px;
+}
+.pb-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 0;
+    white-space: nowrap;
+}
+.pb-legend-swatch {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.pb-legend-swatch-border {
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 2px solid;
+}
 
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 991px) {
