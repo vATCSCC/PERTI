@@ -10015,6 +10015,7 @@
                 acid: f.callsign || f.CALLSIGN || '',
                 orig: f.orig || f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || f.dep || f.dep_airport || '',
                 dest: f.dest || f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || f.arr || f.arr_airport || '',
+                aircraft_icao: f.aircraft_icao || f.AIRCRAFT_ICAO || f.aircraft_type || '',
                 dcenter: f.dcenter || f.dep_center || f.fp_dept_artcc || f.FP_DEPT_ARTCC || '',
                 acenter: f.acenter || f.arr_center || f.fp_dest_artcc || f.FP_DEST_ARTCC || '',
                 // Original times (before GS control)

@@ -192,19 +192,19 @@
                 (data.airports || data.ctl_element);
             document.getElementById('gsgdpScope').textContent = scope;
             document.getElementById('gsgdpAffectedFlights').textContent =
-                (data.flights && data.flights.length) || (data.simulation_data && data.simulation_data.flights_affected) || '0';
+                (data.flights && data.flights.length) || (data.simulation_data && (data.simulation_data.affected || data.simulation_data.flights_affected || data.simulation_data.total)) || '0';
             document.getElementById('gsgdpDuration').textContent = calculateDuration(data.start_time, data.end_time);
         } else {
             document.getElementById('gsgdpGsFields').style.display = 'none';
             document.getElementById('gsgdpGdpFields').style.display = '';
 
-            const summary = data.summary || {};
+            const summary = data.summary || data.simulation_data || {};
             document.getElementById('gsgdpProgramRate').textContent =
                 (data.program_rate || summary.program_rate || '--') + '/hr';
             document.getElementById('gsgdpAvgDelay').textContent =
-                (summary.avg_delay_min || summary.avgDelay || '--') + ' min';
+                (summary.avg_delay_min || summary.avg_delay || summary.avgDelay || '--') + ' min';
             document.getElementById('gsgdpMaxDelay').textContent =
-                (summary.max_delay_min || summary.maxDelay || '--') + ' min';
+                (summary.max_delay_min || summary.max_delay || summary.maxDelay || '--') + ' min';
         }
 
         // Flight list
@@ -236,16 +236,16 @@
         const displayFlights = flights.slice(0, maxDisplay);
 
         displayFlights.forEach(function(f) {
-            const delay = f.delay_minutes || f.delayMin || 0;
+            const delay = f.delay_minutes || f.delayMin || f.program_delay_min || 0;
             const delayClass = delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '');
 
             html += '<tr>' +
                 '<td class="font-weight-bold">' + escapeHtml(f.callsign || f.acid || '--') + '</td>' +
-                '<td>' + escapeHtml(f.dep_airport || f.origin || f.dep || '--') + '</td>' +
-                '<td>' + escapeHtml(f.arr_airport || f.destination || f.arr || '--') + '</td>' +
-                '<td>' + escapeHtml(f.aircraft_type || f.acType || '--') + '</td>' +
-                '<td>' + formatTime(f.original_etd_utc || f.etd || f.scheduledDep) + '</td>' +
-                '<td class="font-weight-bold">' + formatTime(f.edct_utc || f.edct || f.ctd) + '</td>' +
+                '<td>' + escapeHtml(f.dep_airport || f.origin || f.orig || f.dep || '--') + '</td>' +
+                '<td>' + escapeHtml(f.arr_airport || f.destination || f.dest || f.arr || '--') + '</td>' +
+                '<td>' + escapeHtml(f.aircraft_type || f.acType || f.aircraft_icao || '--') + '</td>' +
+                '<td>' + formatTime(f.original_etd_utc || f.oetd_utc || f.etd || f.scheduledDep) + '</td>' +
+                '<td class="font-weight-bold">' + formatTime(f.edct_utc || f.edct || f.ctd_utc || f.ctd) + '</td>' +
                 '<td class="' + delayClass + '">' + delay + '</td>' +
                 '</tr>';
         });
@@ -298,11 +298,12 @@
         // Get flight inclusion criteria
         const fltIncl = data.flight_filter || 'ALL';
 
-        // Get delay summary
+        // Get delay summary — GDT handoff uses total_delay/max_delay/avg_delay,
+        // while API responses use total_delay_min/max_delay_min/avg_delay_min
         const summary = data.summary || data.simulation_data || {};
-        const totalDelay = summary.total_delay_min || 0;
-        const maxDelay = summary.max_delay_min || 0;
-        const avgDelay = summary.avg_delay_min || 0;
+        const totalDelay = summary.total_delay_min || summary.total_delay || 0;
+        const maxDelay = summary.max_delay_min || summary.max_delay || 0;
+        const avgDelay = summary.avg_delay_min || summary.avg_delay || 0;
 
         // Format dates
         const now = new Date();
@@ -376,12 +377,13 @@
         // Get flight inclusion criteria
         const fltIncl = data.flight_filter || 'ALL';
 
-        // Get delay/rate summary
+        // Get delay/rate summary — GDT handoff uses total_delay/max_delay/avg_delay,
+        // while API responses use total_delay_min/max_delay_min/avg_delay_min
         const summary = data.summary || data.simulation_data || {};
         const programRate = data.program_rate || summary.program_rate || 0;
-        const totalDelay = summary.total_delay_min || 0;
-        const maxDelay = summary.max_delay_min || data.delay_limit_min || 0;
-        const avgDelay = summary.avg_delay_min || 0;
+        const totalDelay = summary.total_delay_min || summary.total_delay || 0;
+        const maxDelay = summary.max_delay_min || summary.max_delay || data.delay_limit_min || 0;
+        const avgDelay = summary.avg_delay_min || summary.avg_delay || 0;
         const controlledFlights = summary.controlled_flights || data.flights?.length || 0;
 
         // Format dates
