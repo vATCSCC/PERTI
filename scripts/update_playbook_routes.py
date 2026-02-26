@@ -125,8 +125,8 @@ def merge_routes(
                 final_routes.extend(new_entries)
                 stats['plays_unchanged'].add(play_name)
             else:
-                # Changed - version the old routes
-                old_play_name = f"{play_name}_old_{airac_cycle}"
+                # Changed - version the old routes with reason code
+                old_play_name = f"{play_name}_old_{airac_cycle}_changed"
                 for entry in old_entries:
                     final_routes.append(entry._replace(play=old_play_name))
 
@@ -142,10 +142,10 @@ def merge_routes(
 
     # Handle deleted plays (in existing but not in new)
     for play_name in existing_routes:
-        if play_name not in new_routes and not play_name.endswith(f'_old_{airac_cycle}'):
+        if play_name not in new_routes:
             # Check if it's not already an old version
             if '_old_' not in play_name:
-                old_play_name = f"{play_name}_old_{airac_cycle}"
+                old_play_name = f"{play_name}_old_{airac_cycle}_removed"
                 for entry in existing_routes[play_name]:
                     final_routes.append(entry._replace(play=old_play_name))
                 stats['plays_deleted'].add(play_name)
