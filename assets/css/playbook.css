@@ -264,11 +264,15 @@
 /* ── Play List (scrollable, fills remaining space) ───────────────── */
 .pb-play-list-wrap {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: scroll;
     max-height: none;
     border: none;
     background: transparent;
 }
+.pb-play-list-wrap::-webkit-scrollbar { width: 6px; }
+.pb-play-list-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); border-radius: 3px; }
+.pb-play-list-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 3px; }
+.pb-play-list-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
 
 .pb-play-list {
     list-style: none;
