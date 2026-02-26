@@ -827,11 +827,16 @@ function handleSubmitForCoordination() {
         list($channelId, $messageId) = resolveProposalDiscordTarget($discordResult);
         $logMessageId = is_array($discordResult) ? ($discordResult['log_message_id'] ?? null) : null;
         $starterMessageId = is_array($discordResult) ? ($discordResult['id'] ?? null) : null;
+        $actionMessageIds = is_array($discordResult) ? ($discordResult['action_message_ids'] ?? null) : null;
         if ($channelId !== null && $messageId !== null) {
-            // Update proposal with Discord IDs (thread, actions message, log message, starter)
+            // Update proposal with Discord IDs (thread, actions message(s), log message, starter)
+            $actionIdsJson = (!empty($actionMessageIds) && count($actionMessageIds) > 1)
+                ? json_encode(array_values($actionMessageIds))
+                : null;
             $updateSql = "UPDATE dbo.tmi_proposals SET
                               discord_channel_id = :channel,
                               discord_message_id = :message_id,
+                              discord_action_message_ids = :action_ids,
                               discord_log_message_id = :log_msg_id,
                               discord_starter_message_id = :starter_msg_id,
                               discord_posted_at = SYSUTCDATETIME()
@@ -840,6 +845,7 @@ function handleSubmitForCoordination() {
             $updateStmt->execute([
                 ':channel' => $channelId,
                 ':message_id' => $messageId,
+                ':action_ids' => $actionIdsJson,
                 ':log_msg_id' => $logMessageId,
                 ':starter_msg_id' => $starterMessageId,
                 ':prop_id' => $proposalId
@@ -938,9 +944,12 @@ function handleGetProposalStatus() {
             $stmt = $conn->prepare($sql);
             $stmt->execute([':id' => $proposalId]);
         } else {
-            $sql = "SELECT * FROM dbo.tmi_proposals WHERE discord_message_id = :msg_id";
+            $sql = "SELECT * FROM dbo.tmi_proposals
+                    WHERE discord_message_id = :msg_id
+                       OR (discord_action_message_ids IS NOT NULL
+                           AND EXISTS (SELECT 1 FROM OPENJSON(discord_action_message_ids) WHERE value = :msg_id2))";
             $stmt = $conn->prepare($sql);
-            $stmt->execute([':msg_id' => $messageId]);
+            $stmt->execute([':msg_id' => $messageId, ':msg_id2' => $messageId]);
         }
 
         $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1205,9 +1214,12 @@ function handleProcessReaction() {
             $stmt = $conn->prepare($sql);
             $stmt->execute([':id' => $proposalId]);
         } else {
-            $sql = "SELECT * FROM dbo.tmi_proposals WHERE discord_message_id = :msg_id";
+            $sql = "SELECT * FROM dbo.tmi_proposals
+                    WHERE discord_message_id = :msg_id
+                       OR (discord_action_message_ids IS NOT NULL
+                           AND EXISTS (SELECT 1 FROM OPENJSON(discord_action_message_ids) WHERE value = :msg_id2))";
             $stmt = $conn->prepare($sql);
-            $stmt->execute([':msg_id' => $messageId]);
+            $stmt->execute([':msg_id' => $messageId, ':msg_id2' => $messageId]);
         }
 
         $proposal = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -2183,14 +2195,20 @@ function handleEditProposal($input) {
             );
 
             list($discordChannelId, $discordMessageId) = resolveProposalDiscordTarget($discordResult);
+            $editActionIds = is_array($discordResult) ? ($discordResult['action_message_ids'] ?? null) : null;
             if ($discordChannelId !== null && $discordMessageId !== null) {
+                $editActionIdsJson = (!empty($editActionIds) && count($editActionIds) > 1)
+                    ? json_encode(array_values($editActionIds))
+                    : null;
                 $updateDiscordSql = "UPDATE dbo.tmi_proposals SET
                                          discord_channel_id = :channel_id,
-                                         discord_message_id = :msg_id
+                                         discord_message_id = :msg_id,
+                                         discord_action_message_ids = :action_ids
                                      WHERE proposal_id = :prop_id";
                 $conn->prepare($updateDiscordSql)->execute([
                     ':channel_id' => $discordChannelId,
                     ':msg_id' => $discordMessageId,
+                    ':action_ids' => $editActionIdsJson,
                     ':prop_id' => $proposalId
                 ]);
             }
@@ -2314,13 +2332,30 @@ function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $ne
         // Prepend edit summary to message
         $message = implode("\n", $editSummary) . "\n" . $message;
 
-        // Update Discord message
+        // Update Discord message(s)
         $discord = new DiscordAPI();
         if ($discord->isConfigured()) {
             $discordChannelId = $proposal['discord_channel_id'] ?? DISCORD_COORDINATION_CHANNEL;
+            // Edit primary action message
             $discord->editMessage($discordChannelId, $proposal['discord_message_id'], [
                 'content' => $message
             ]);
+            // If there are overflow action messages, post an edit notice to the thread
+            $extraIds = !empty($proposal['discord_action_message_ids'])
+                ? json_decode($proposal['discord_action_message_ids'], true)
+                : null;
+            if (is_array($extraIds) && count($extraIds) > 1) {
+                $noticeLines = ["⚠️ **This proposal has been edited.** See the updated message above."];
+                foreach (array_slice($extraIds, 1) as $extraId) {
+                    try {
+                        $discord->editMessage($discordChannelId, $extraId, [
+                            'content' => "*(This actions message has been superseded by an edit — see above)*"
+                        ]);
+                    } catch (Throwable $e) {
+                        // Non-critical
+                    }
+                }
+            }
         }
     } catch (Exception $e) {
         error_log("Failed to update Discord message for edited proposal: " . $e->getMessage());
@@ -2789,62 +2824,99 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
             usleep(150000);
         }
 
-        // ── Step 5: Post Message 3 (Actions Required) + add reactions ──
-        $actionsContent = buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $orgCode);
-        $actionsMsg = $discord->sendMessageToThread($threadId, ['content' => $actionsContent]);
-
+        // ── Step 5: Post Action messages + add reactions ──
+        // Discord limits 20 unique reactions per message.
+        // Reserve 2 for deny emojis → max 18 facility reactions per message.
+        $maxFacilitiesPerMsg = 18;
+        $facilityChunks = array_chunk($facilities, $maxFacilitiesPerMsg);
+        $totalPages = count($facilityChunks);
+        $actionMessageIds = [];
         $actionsMessageId = null;
-        if ($actionsMsg && isset($actionsMsg['id'])) {
-            $actionsMessageId = $actionsMsg['id'];
-            $log("Actions message posted: {$actionsMessageId}");
-            $starterResult['thread_message_id'] = $actionsMessageId;
+        $reactionResults = [];
+
+        // Pre-build the usedEmojis map for the FULL facility list so emoji
+        // assignment is consistent across pages (getEmojiForFacility is stateful).
+        $usedEmojis = [];
+        foreach ($facilities as $fac) {
+            $fc = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            getEmojiForFacility(strtoupper(trim($fc)), $usedEmojis);
         }
-        usleep(500000);
 
-        // Add reactions to the Actions message
-        if ($actionsMessageId) {
-            $usedEmojis = [];
-            $reactionResults = [];
+        // Post one action message per chunk
+        foreach ($facilityChunks as $chunkIdx => $chunk) {
+            $pageNum = $chunkIdx + 1;
 
-            foreach ($facilities as $facility) {
-                $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
-                $facCode = strtoupper(trim($facCode));
-                $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
+            // Build emoji state for facilities BEFORE this chunk (so legend matches reactions)
+            $preChunkEmojis = [];
+            for ($i = 0; $i < $chunkIdx; $i++) {
+                foreach ($facilityChunks[$i] as $prevFac) {
+                    $pc = is_array($prevFac) ? ($prevFac['code'] ?? $prevFac) : $prevFac;
+                    getEmojiForFacility(strtoupper(trim($pc)), $preChunkEmojis);
+                }
+            }
 
-                // Custom emoji (server-specific)
-                if ($facEmoji) {
+            $actionsContent = buildCoordActionsMessage(
+                $proposalId, $deadline, $chunk, $entry, $orgCode,
+                $pageNum, $totalPages, $facilities, $preChunkEmojis
+            );
+            $actionsMsg = $discord->sendMessageToThread($threadId, ['content' => $actionsContent]);
+
+            $msgId = null;
+            if ($actionsMsg && isset($actionsMsg['id'])) {
+                $msgId = $actionsMsg['id'];
+                $actionMessageIds[] = $msgId;
+                $log("Actions message posted (page {$pageNum}/{$totalPages}): {$msgId}");
+                if ($chunkIdx === 0) {
+                    $actionsMessageId = $msgId;
+                    $starterResult['thread_message_id'] = $msgId;
+                }
+            }
+            usleep(500000);
+
+            // Add reactions for this chunk's facilities
+            if ($msgId) {
+                $chunkEmojis = $preChunkEmojis; // Start from pre-chunk state
+                foreach ($chunk as $facility) {
+                    $facCode = is_array($facility) ? ($facility['code'] ?? $facility) : $facility;
+                    $facCode = strtoupper(trim($facCode));
+                    $facEmoji = is_array($facility) ? ($facility['emoji'] ?? null) : null;
+
+                    // Custom emoji (server-specific)
+                    if ($facEmoji) {
+                        try {
+                            $discord->createReaction($threadId, $msgId, $facEmoji);
+                            $reactionResults["{$facCode}_custom"] = true;
+                        } catch (Throwable $e) {
+                            $reactionResults["{$facCode}_custom"] = false;
+                        }
+                        usleep(350000);
+                    }
+
+                    // Fallback Unicode emoji
+                    $emojiInfo = getEmojiForFacility($facCode, $chunkEmojis);
                     try {
-                        $discord->createReaction($threadId, $actionsMessageId, $facEmoji);
-                        $reactionResults["{$facCode}_custom"] = true;
+                        $discord->createReaction($threadId, $msgId, $emojiInfo['emoji']);
+                        $reactionResults["{$facCode}_alt"] = true;
                     } catch (Throwable $e) {
-                        $reactionResults["{$facCode}_custom"] = false;
+                        $reactionResults["{$facCode}_alt"] = false;
                     }
                     usleep(350000);
                 }
 
-                // Fallback Unicode emoji
-                $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+                // Deny reactions on every action message
                 try {
-                    $discord->createReaction($threadId, $actionsMessageId, $emojiInfo['emoji']);
-                    $reactionResults["{$facCode}_alt"] = true;
+                    $discord->createReaction($threadId, $msgId, DENY_EMOJI);
+                    usleep(350000);
+                    $discord->createReaction($threadId, $msgId, DENY_EMOJI_ALT);
                 } catch (Throwable $e) {
-                    $reactionResults["{$facCode}_alt"] = false;
+                    $log("Deny reaction error (page {$pageNum}): " . $e->getMessage());
                 }
-                usleep(350000);
             }
-
-            // Deny reactions
-            try {
-                $discord->createReaction($threadId, $actionsMessageId, DENY_EMOJI);
-                usleep(350000);
-                $discord->createReaction($threadId, $actionsMessageId, DENY_EMOJI_ALT);
-            } catch (Throwable $e) {
-                $log("Deny reaction error: " . $e->getMessage());
-            }
-
-            $starterResult['reactions_added'] = !empty(array_filter($reactionResults));
-            $starterResult['reaction_results'] = $reactionResults;
         }
+
+        $starterResult['reactions_added'] = !empty(array_filter($reactionResults));
+        $starterResult['reaction_results'] = $reactionResults;
+        $starterResult['action_message_ids'] = $actionMessageIds;
 
         // ── Step 6: Post Message 4 (Coordination Log — auto-updating) ──
         usleep(200000);
@@ -3229,7 +3301,26 @@ function getBodyOverflowChunks($entry) {
  * Build Message 3: Actions Required
  * Emoji legend, deny/override instructions, web link.
  */
-function buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $orgCode = 'VATCSCC') {
+/**
+ * Build the Actions Required message for a coordination proposal.
+ *
+ * When $pageNum/$totalPages are provided (> 1), the message is one
+ * of several "parts" — each part shows only its subset of facilities
+ * in the emoji legend.  The first part includes the full header
+ * (requestor, deadline, all required facilities); subsequent parts
+ * have an abbreviated header.
+ *
+ * @param int             $proposalId
+ * @param DateTime        $deadline
+ * @param array           $facilities      Subset of facilities for THIS message
+ * @param array           $entry           TMI entry data
+ * @param string          $orgCode
+ * @param int             $pageNum         Current page (1-based), default 1
+ * @param int             $totalPages      Total action messages, default 1
+ * @param array           $allFacilities   Full facility list (for header on page 1)
+ * @param array           $usedEmojisRef   Pre-built usedEmojis state for emoji consistency
+ */
+function buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $orgCode = 'VATCSCC', $pageNum = 1, $totalPages = 1, $allFacilities = [], $usedEmojisRef = []) {
     $data = $entry['data'] ?? [];
     $entryType = strtoupper($entry['entryType'] ?? 'TMI');
     $orgDisplay = strtoupper($orgCode ?: 'VATCSCC');
@@ -3238,22 +3329,40 @@ function buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $
     // Requestor
     $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
 
-    // Provider/facility list
+    // This message's facility codes
     $facCodes = [];
     foreach ($facilities as $fac) {
         $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
         $facCodes[] = strtoupper(trim($code));
     }
 
-    $lines = ["## ACTIONS REQUIRED"];
-    $lines[] = "**Requestor(s):** {$requestor}";
-    $lines[] = "**Due by** " . formatDdHhmmZ($deadline) . " | <t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)";
-    $lines[] = "**Responses required by:** " . implode(', ', $facCodes);
+    // All facility codes (for "Responses required by" line on page 1)
+    $allFacCodes = [];
+    foreach ((!empty($allFacilities) ? $allFacilities : $facilities) as $fac) {
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $allFacCodes[] = strtoupper(trim($code));
+    }
+
+    // Title
+    $title = ($totalPages > 1)
+        ? "## ACTIONS REQUIRED ({$pageNum}/{$totalPages})"
+        : "## ACTIONS REQUIRED";
+    $lines = [$title];
+
+    // Full header on page 1, abbreviated on subsequent pages
+    if ($pageNum === 1) {
+        $lines[] = "**Requestor(s):** {$requestor}";
+        $lines[] = "**Due by** " . formatDdHhmmZ($deadline) . " | <t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)";
+        $lines[] = "**Responses required by:** " . implode(', ', $allFacCodes);
+    } else {
+        $lines[] = "**Due by** <t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)";
+    }
     $lines[] = "";
     $lines[] = "Facilities must react with their facility's emoji:";
 
-    // Build emoji legend
-    $usedEmojis = [];
+    // Build emoji legend — only for THIS message's facilities
+    // Use pre-built usedEmojis state so emoji assignment is consistent across pages
+    $usedEmojis = $usedEmojisRef;
     foreach ($facCodes as $facCode) {
         $customEmoji = getCustomEmojiName($facCode);
         $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
