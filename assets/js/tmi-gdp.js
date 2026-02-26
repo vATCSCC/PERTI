@@ -35,9 +35,14 @@
     /**
      * Initialize module on page load
      */
-    function init() {
+    async function init() {
         // Fetch next advisory number from API
         fetchNextAdvisoryNumber();
+
+        // Ensure FacilityHierarchy is loaded (needed for ARTCC resolution)
+        if (typeof FacilityHierarchy !== 'undefined' && !FacilityHierarchy.isLoaded) {
+            await FacilityHierarchy.load();
+        }
 
         // Check URL parameters
         const params = new URLSearchParams(window.location.search);
@@ -214,7 +219,7 @@
         generateAdvisoryPreview();
 
         // Auto-select facilities based on CTL element
-        autoSelectFacilities(data.ctl_element);
+        autoSelectFacilities(data);
     }
 
     /**
@@ -283,7 +288,7 @@
     function generateGsAdvisory(data) {
         const ctlElement = data.ctl_element || 'UNKN';
         const elementType = data.element_type || 'APT';
-        const artcc = data.artcc || data.arr_center || 'ZZZ';
+        const artcc = resolveArtcc(data);
         const reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
         const remarks = document.getElementById('gsgdpRemarks')?.value || '';
         const probExtension = document.getElementById('gsgdpProbExtension')?.value || 'MODERATE';
@@ -336,7 +341,7 @@
                    'ADL TIME: ' + adlTime + '\n' +
                    'GROUND STOP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
                    'FLT INCL: ' + fltIncl + '\n' +
-                   'DEP FACILITIES INCLUDED: (Tier1) ' + facilitiesStr + '\n' +
+                   formatDepFacilitiesLine(facilitiesStr) + '\n' +
                    'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
                    'PROBABILITY OF EXTENSION: ' + probExtension + '\n' +
                    'IMPACTING CONDITION: ' + reason + '\n' +
@@ -356,12 +361,41 @@
     }
 
     /**
+     * Format DEP FACILITIES line with word wrap at ~72 chars.
+     * Continuation lines are indented with 2 spaces.
+     */
+    function formatDepFacilitiesLine(facilitiesStr) {
+        var prefix = 'DEP FACILITIES INCLUDED: ';
+        var tierTag = '(Tier1) ';
+        var firstLinePrefix = prefix + tierTag;
+        var contIndent = '  ';
+        var maxWidth = 72;
+
+        var codes = facilitiesStr.split(/\s+/);
+        var lines = [];
+        var currentLine = firstLinePrefix;
+
+        for (var i = 0; i < codes.length; i++) {
+            var code = codes[i];
+            var testLine = currentLine + (currentLine === firstLinePrefix || currentLine === contIndent ? '' : ' ') + code;
+            if (testLine.length > maxWidth && currentLine !== firstLinePrefix && currentLine !== contIndent) {
+                lines.push(currentLine);
+                currentLine = contIndent + code;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {lines.push(currentLine);}
+        return lines.join('\n');
+    }
+
+    /**
      * Generate GDP advisory text (vATCSCC format)
      */
     function generateGdpAdvisory(data) {
         const ctlElement = data.ctl_element || 'UNKN';
         const elementType = data.element_type || 'APT';
-        const artcc = data.artcc || data.arr_center || 'ZZZ';
+        const artcc = resolveArtcc(data);
         const programType = data.program_type || 'GDP-UDP';
         const reason = document.getElementById('gsgdpReason')?.value || 'VOLUME';
         const remarks = document.getElementById('gsgdpRemarks')?.value || '';
@@ -417,7 +451,7 @@
                    'ADL TIME: ' + adlTime + '\n' +
                    'GDP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
                    'FLT INCL: ' + fltIncl + '\n' +
-                   'DEP FACILITIES INCLUDED: (Tier1) ' + facilitiesStr + '\n' +
+                   formatDepFacilitiesLine(facilitiesStr) + '\n' +
                    'PROGRAM RATE: ' + programRate + '/HR\n' +
                    'DELAY ASSIGNMENT MODE: UDP\n' +
                    'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
@@ -435,47 +469,60 @@
     /**
      * Auto-select facilities based on CTL element
      */
-    function autoSelectFacilities(ctlElement) {
-        if (!ctlElement) {return;}
+    function autoSelectFacilities(data) {
+        if (!data) {return;}
 
         // Clear all first
         document.querySelectorAll('.gsgdp-facility-cb').forEach(function(cb) {
             cb.checked = false;
         });
 
-        // Map airports to their overlying ARTCCs (multi-ARTCC for border airports)
-        // Source of truth: PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP (perti.js)
-        const airportToArtcc = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP)
-            ? PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP
-            : {
-                'KJFK': ['ZNY', 'ZBW'], 'KEWR': ['ZNY'], 'KLGA': ['ZNY'],
-                'KATL': ['ZTL'], 'KORD': ['ZAU'], 'KDEN': ['ZDV'],
-                'KDFW': ['ZFW'], 'KLAX': ['ZLA'], 'KSFO': ['ZOA'],
-                'KMIA': ['ZMA'], 'KBOS': ['ZBW'], 'KPHL': ['ZNY', 'ZDC'],
-                'KIAD': ['ZDC'], 'KDCA': ['ZDC'], 'KBWI': ['ZDC'],
-                'KMSP': ['ZMP'], 'KDTW': ['ZOB'], 'KCLT': ['ZTL'],
-                'KPHX': ['ZAB'], 'KLAS': ['ZLA'], 'KIAH': ['ZHU'],
-                'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE'],
-            };
-
-        const artcc = ctlElement.substring(0, 3);
-
-        // If it's an airport, get overlying ARTCC(s)
-        // Note: PERTI.isAirportICAO matches any 4-letter code (wider than K-only);
-        // non-matching codes safely return [] from airportToArtcc lookup below
-        var isAirport = (typeof PERTI !== 'undefined' && PERTI.isAirportICAO)
-            ? PERTI.isAirportICAO(ctlElement)
-            : (ctlElement.length === 4 && ctlElement.startsWith('K'));
-        if (isAirport) {
-            const artccs = airportToArtcc[ctlElement] || [];
-            artccs.forEach(function(a) {
-                const cb = document.getElementById('gsgdp_fac_' + a);
-                if (cb) {cb.checked = true;}
+        // Priority 1: dep_facilities string from handoff (strip FIR: prefixed tokens)
+        var artccsToSelect = [];
+        var depFac = (data.dep_facilities || '').toUpperCase().trim();
+        if (depFac && depFac !== 'ALL') {
+            depFac.split(/[\s,]+/).forEach(function(tok) {
+                if (!tok || tok === 'ALL') {return;}
+                if (tok.indexOf('FIR:') === 0) {return;}
+                artccsToSelect.push(tok);
             });
         }
-        // If it's already an ARTCC
-        else if (artcc.startsWith('Z')) {
-            const cb = document.getElementById('gsgdp_fac_' + artcc);
+
+        // Priority 2: scope_select array from handoff
+        if (artccsToSelect.length === 0 && Array.isArray(data.scope_select) && data.scope_select.length > 0) {
+            data.scope_select.forEach(function(code) {
+                if (code && typeof code === 'string' && code.startsWith('Z')) {
+                    artccsToSelect.push(code.toUpperCase());
+                }
+            });
+        }
+
+        // If we have scope-derived ARTCCs, select them
+        if (artccsToSelect.length > 0) {
+            artccsToSelect.forEach(function(a) {
+                var cb = document.getElementById('gsgdp_fac_' + a);
+                if (cb) {cb.checked = true;}
+            });
+            return;
+        }
+
+        // Priority 3: resolve ctl_element to parent ARTCC via FacilityHierarchy
+        var ctlElement = data.ctl_element;
+        if (!ctlElement) {return;}
+
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded) {
+            var parentArtcc = FacilityHierarchy.getParentArtcc(ctlElement);
+            if (parentArtcc) {
+                var cb = document.getElementById('gsgdp_fac_' + parentArtcc);
+                if (cb) {cb.checked = true;}
+                return;
+            }
+        }
+
+        // Last resort: if ctl_element looks like an ARTCC code, select it directly
+        var upper = ctlElement.toUpperCase();
+        if (upper.length === 3 && upper.startsWith('Z')) {
+            var cb = document.getElementById('gsgdp_fac_' + upper);
             if (cb) {cb.checked = true;}
         }
     }
@@ -719,6 +766,12 @@
      * Handle Publish Direct (DCC override)
      */
     async function handlePublishDirect() {
+        // Privilege check (server-side also enforces this)
+        if (!window.TMI_PUBLISHER_CONFIG?.userPrivileged) {
+            showToast(PERTII18n.t('tmiPublish.privilegeRequired') || 'DCC/CANOC/ECFMP privilege required', 'error');
+            return;
+        }
+
         if (!state.handoffData || !state.programId) {
             showToast(PERTII18n.t('tmiPublish.noProgramToPublish'), 'error');
             return;
@@ -800,6 +853,30 @@
     // ============================================================================
     // Utility Functions
     // ============================================================================
+
+    /**
+     * Resolve parent ARTCC code from handoff data.
+     * Uses FacilityHierarchy reference data (apts.csv) for airport-to-ARTCC lookup.
+     */
+    function resolveArtcc(data) {
+        if (!data) {return 'ZZZ';}
+
+        // Explicit field from handoff
+        if (data.artcc) {return data.artcc;}
+        if (data.arr_center) {return data.arr_center;}
+
+        // CTL element is already an ARTCC code
+        var ctl = (data.ctl_element || '').toUpperCase();
+        if (ctl.length === 3 && ctl.startsWith('Z')) {return ctl;}
+
+        // Use FacilityHierarchy reference data (built from apts.csv at runtime)
+        if (ctl && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded) {
+            var resolved = FacilityHierarchy.getParentArtcc(ctl);
+            if (resolved) {return resolved;}
+        }
+
+        return 'ZZZ';
+    }
 
     function formatDateTime(dateStr) {
         if (!dateStr) {return '--';}
@@ -899,6 +976,7 @@
         programId: null,
         programType: null,
         ctlElement: null,
+        artcc: null,
     };
 
     /**
@@ -908,6 +986,7 @@
         cancelState.programId = programId;
         cancelState.programType = programType || 'GS';
         cancelState.ctlElement = ctlElement || 'UNKN';
+        cancelState.artcc = resolveArtcc({ ctl_element: ctlElement });
 
         // Populate modal fields
         document.getElementById('cancelProgramType').textContent = programType || '--';
