@@ -11,7 +11,7 @@ include("load/i18n.php");
 <!DOCTYPE html>
 <html>
 <head>
-<?php $page_title = "vATCSCC " . __('splits.page.title'); require_once 'load/header.php'; ?>
+<?php $page_title = __('splits.page.title'); require_once 'load/header.php'; ?>
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
 
 <style>

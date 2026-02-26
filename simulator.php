@@ -22,7 +22,7 @@ include("load/i18n.php");
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "vATCSCC ATFM Simulator"; include("load/header.php"); ?>
+    <?php $page_title = "ATFM Simulator"; include("load/header.php"); ?>
     
     <!-- MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">

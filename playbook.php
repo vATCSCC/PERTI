@@ -31,7 +31,7 @@ include("sessions/handler.php");
 <html>
 <head>
     <?php
-        $page_title = "vATCSCC Playbook";
+        $page_title = "Playbook";
         include("load/header.php");
     ?>
 

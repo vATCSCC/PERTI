@@ -476,9 +476,7 @@
     "facilityType": "ACC",
     "facilityTypePlural": "ACCs"
   },
-  "home": {
-    "welcome": "Welcome to CANOC's"
-  },
+  "home": {},
   "swim": {
     "page": {
       "flightsEndpoint": "List flights with filtering by airport, ACC, callsign, phase, and TMI status",
@@ -543,9 +541,7 @@
       "center": "Centre"
     }
   },
-  "footer": {
-    "copyright": "Copyright © {year} CANOC - All Rights Reserved."
-  },
+  "footer": {},
   "weather": {
     "colors": "Colours:"
   },

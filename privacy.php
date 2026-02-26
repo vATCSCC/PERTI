@@ -9,7 +9,7 @@ include("load/i18n.php");
 
         <!-- Import CSS -->
         <?php
-            $page_title = "vATCSCC PERTI Privacy Policy";
+            $page_title = "Privacy Policy";
             include("load/header.php");
         ?>
 
