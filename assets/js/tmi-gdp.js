@@ -213,8 +213,8 @@
         // Advisory preview
         generateAdvisoryPreview();
 
-        // Auto-select facilities based on CTL element
-        autoSelectFacilities(data.ctl_element);
+        // Auto-select facilities based on GDT scope (dep_facilities) or CTL element
+        autoSelectFacilities(data);
     }
 
     /**
@@ -433,19 +433,56 @@
     }
 
     /**
-     * Auto-select facilities based on CTL element
+     * Auto-select coordination facilities based on GDT scope.
+     *
+     * Priority:
+     * 1. dep_facilities from handoff (space-delimited ARTCC codes, may include FIR: prefixes)
+     * 2. scope_select array from handoff (ARTCC codes selected in tier/scope UI)
+     * 3. Fallback: map ctl_element airport to its overlying ARTCC(s)
      */
-    function autoSelectFacilities(ctlElement) {
-        if (!ctlElement) {return;}
+    function autoSelectFacilities(data) {
+        if (!data) {return;}
 
         // Clear all first
         document.querySelectorAll('.gsgdp-facility-cb').forEach(function(cb) {
             cb.checked = false;
         });
 
-        // Map airports to their overlying ARTCCs (multi-ARTCC for border airports)
-        // Source of truth: PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP (perti.js)
-        const airportToArtcc = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP)
+        // Extract ARTCC codes from dep_facilities string (strip FIR: prefixed tokens)
+        var artccsToSelect = [];
+        var depFac = (data.dep_facilities || '').toUpperCase().trim();
+        if (depFac && depFac !== 'ALL') {
+            depFac.split(/[\s,]+/).forEach(function(tok) {
+                if (!tok || tok === 'ALL') {return;}
+                // Skip FIR: prefixes (international, not ARTCC checkboxes)
+                if (tok.indexOf('FIR:') === 0) {return;}
+                artccsToSelect.push(tok);
+            });
+        }
+
+        // If dep_facilities didn't yield ARTCCs, try scope_select array
+        if (artccsToSelect.length === 0 && Array.isArray(data.scope_select) && data.scope_select.length > 0) {
+            data.scope_select.forEach(function(code) {
+                if (code && typeof code === 'string' && code.startsWith('Z')) {
+                    artccsToSelect.push(code.toUpperCase());
+                }
+            });
+        }
+
+        // If we have scope-derived ARTCCs, select them
+        if (artccsToSelect.length > 0) {
+            artccsToSelect.forEach(function(a) {
+                var cb = document.getElementById('gsgdp_fac_' + a);
+                if (cb) {cb.checked = true;}
+            });
+            return;
+        }
+
+        // Fallback: map destination airport to overlying ARTCC(s)
+        var ctlElement = data.ctl_element;
+        if (!ctlElement) {return;}
+
+        var airportToArtcc = (typeof PERTI !== 'undefined' && PERTI.GEOGRAPHIC && PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP)
             ? PERTI.GEOGRAPHIC.AIRPORT_ARTCC_OVERLAP
             : {
                 'KJFK': ['ZNY', 'ZBW'], 'KEWR': ['ZNY'], 'KLGA': ['ZNY'],
@@ -458,24 +495,16 @@
                 'KHOU': ['ZHU'], 'KMCO': ['ZJX'], 'KSEA': ['ZSE'],
             };
 
-        const artcc = ctlElement.substring(0, 3);
-
-        // If it's an airport, get overlying ARTCC(s)
-        // Note: PERTI.isAirportICAO matches any 4-letter code (wider than K-only);
-        // non-matching codes safely return [] from airportToArtcc lookup below
         var isAirport = (typeof PERTI !== 'undefined' && PERTI.isAirportICAO)
             ? PERTI.isAirportICAO(ctlElement)
             : (ctlElement.length === 4 && ctlElement.startsWith('K'));
         if (isAirport) {
-            const artccs = airportToArtcc[ctlElement] || [];
-            artccs.forEach(function(a) {
-                const cb = document.getElementById('gsgdp_fac_' + a);
+            (airportToArtcc[ctlElement] || []).forEach(function(a) {
+                var cb = document.getElementById('gsgdp_fac_' + a);
                 if (cb) {cb.checked = true;}
             });
-        }
-        // If it's already an ARTCC
-        else if (artcc.startsWith('Z')) {
-            const cb = document.getElementById('gsgdp_fac_' + artcc);
+        } else if (ctlElement.startsWith('Z')) {
+            var cb = document.getElementById('gsgdp_fac_' + ctlElement.substring(0, 3));
             if (cb) {cb.checked = true;}
         }
     }
