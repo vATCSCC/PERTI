@@ -22,7 +22,7 @@ include("load/i18n.php");
 <html lang="en">
 <head>
     <!-- Import CSS from shared header -->
-    <?php $page_title = "vATCSCC NOD"; include("load/header.php"); ?>
+    <?php $page_title = "NOD"; include("load/header.php"); ?>
     
     <!-- MapLibre GL CSS (additional for NOD) -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">

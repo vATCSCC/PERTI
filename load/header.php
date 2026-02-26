@@ -39,7 +39,7 @@ function _v($path) {
 <meta name="theme-color" content="#ffffff">
 
 <!-- Title -->
-<title><?= isset($page_title) ? $page_title : 'PERTI Planning - vATCSCC'; ?></title>
+<title><?= isset($page_title) ? $page_title : 'PERTI Planning'; ?></title>
 
 <!-- Page Loading Indicator (inline CSS for instant rendering) -->
 <style>

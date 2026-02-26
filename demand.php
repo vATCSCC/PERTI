@@ -10,7 +10,7 @@ include("load/i18n.php");
 <html lang="en">
 <head>
 
-    <?php $page_title = "vATCSCC " . __('demand.page.title'); include("load/header.php"); ?>
+    <?php $page_title = __('demand.page.title'); include("load/header.php"); ?>
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">

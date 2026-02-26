@@ -53,7 +53,7 @@
 <html>
 
 <head>
-    <?php $page_title = "vATCSCC SUA"; include("load/header.php"); ?>
+    <?php $page_title = "SUA"; include("load/header.php"); ?>
 
     <style>
         .sua-browser {

@@ -11,7 +11,7 @@ include("load/i18n.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "vATCSCC Route Plotter";
+        $page_title = "Route Plotter";
         include("load/header.php");
     ?>
 
