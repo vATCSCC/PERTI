@@ -65,6 +65,15 @@
     }
 
     /**
+     * Get checked values from a checkbox dropdown widget.
+     */
+    function getCheckedValues(dropdownId) {
+        var vals = [];
+        $('#' + dropdownId + ' input:checked').each(function() { vals.push($(this).val()); });
+        return vals;
+    }
+
+    /**
      * Build a PB directive string from the current play and selection state.
      * Format: PB.{PLAYNAME} or PB.{PLAYNAME}.{ORIG} or PB.{PLAYNAME}..{DEST}
      * or PB.{PLAYNAME}.{ORIG}.{DEST}
@@ -73,13 +82,12 @@
         if (!activePlayData) return '';
         var norm = activePlayData.play_name_norm || normalizePlayName(activePlayData.play_name);
 
-        // Check if smart selection dropdowns have filter values
-        var origDD = $('#pb_select_origin').val() || '';
-        var destDD = $('#pb_select_dest').val() || '';
+        // Read from checkbox dropdown multi-selects
+        var origVals = getCheckedValues('pb_select_origin');
+        var destVals = getCheckedValues('pb_select_dest');
 
-        // Extract the facility code from dropdown value (format: "artcc:ZNY")
-        var origCode = origDD ? origDD.split(':').pop() : '';
-        var destCode = destDD ? destDD.split(':').pop() : '';
+        var origCode = origVals.length ? origVals.map(function(v) { return v.split(':').pop(); }).join(' ') : '';
+        var destCode = destVals.length ? destVals.map(function(v) { return v.split(':').pop(); }).join(' ') : '';
 
         if (!origCode && !destCode) return 'PB.' + norm;
         if (origCode && !destCode) return 'PB.' + norm + '.' + origCode;
@@ -93,11 +101,8 @@
      * Returns false for manual cherry-picks (arbitrary subsets).
      */
     function canUsePBDirective(selected, allRoutes) {
-        // All routes selected → PB.{NAME} with no filters
         if (selected.length === allRoutes.length) return true;
-        // Smart selection dropdown is active → PB.{NAME}.{FILTERS}
-        if ($('#pb_select_origin').val() || $('#pb_select_dest').val() || $('#pb_select_region').val()) return true;
-        // Manual cherry-pick → can't represent in PB format
+        if (getCheckedValues('pb_select_origin').length || getCheckedValues('pb_select_dest').length || getCheckedValues('pb_select_region').length) return true;
         return false;
     }
 
@@ -298,6 +303,43 @@
         } else {
             map.setFilter('artcc-search-exclude', ['in', 'ICAOCODE', '']);
         }
+    }
+
+    // =========================================================================
+    // SEARCH FILTER BADGES — colored by DCC region
+    // =========================================================================
+
+    function renderFilterBadges(clauses) {
+        var container = $('#pb_filter_badges');
+        if (!clauses.length) { container.empty(); return; }
+        var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
+        var html = '';
+
+        clauses.forEach(function(alts) {
+            alts.forEach(function(alt) {
+                var prefix = '';
+                if (alt.qualifier === 'orig') prefix = 'ORIG: ';
+                else if (alt.qualifier === 'dest') prefix = 'DEST: ';
+                else if (alt.qualifier === 'thru') prefix = 'THRU: ';
+
+                var label = (alt.negated ? '-' : '') + prefix + alt.term;
+
+                // Badge FILL = DCC region bg color; BORDER = green (incl) or red (excl)
+                var bgStyle = '';
+                if (hasFH) {
+                    var regionBg = FacilityHierarchy.getRegionBgColor(alt.term);
+                    var regionColor = FacilityHierarchy.getRegionColor(alt.term);
+                    if (regionBg) bgStyle = 'background:' + regionBg + ';color:' + (regionColor || '#495057') + ';';
+                }
+
+                var borderColor = alt.negated ? '#dc3545' : '#28a745';
+                var style = bgStyle + 'border-color:' + borderColor + ';';
+
+                var cls = 'pb-filter-badge' + (alt.negated ? ' pb-filter-badge-negated' : '');
+                html += '<span class="' + cls + '" style="' + style + '">' + escHtml(label) + '</span>';
+            });
+        });
+        container.html(html);
     }
 
     // =========================================================================
@@ -532,6 +574,7 @@
         }
 
         updateMapHighlights(clauses);
+        renderFilterBadges(clauses);
         renderPlayList();
     }
 
@@ -575,9 +618,6 @@
 
         var content = $('#pb_detail_content');
         content.html('<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
-
-        // Expand map
-        $('#pb_map_section').addClass('pb-map-expanded');
 
         $.getJSON(API_GET + '?id=' + playId, function(data) {
             if (!data || !data.success) {
@@ -643,26 +683,46 @@
         return { origins: origins, dests: dests, regions: regions };
     }
 
-    function buildOptgroups(facilitySet) {
-        var html = '<option value="">...</option>';
+    function buildCheckboxDropdown(id, label, facilitySet) {
+        var groups = {};
         var artccs = Array.from(facilitySet.artccs).sort();
         var tracons = Array.from(facilitySet.tracons).sort();
         var airports = Array.from(facilitySet.airports).sort();
-        if (artccs.length) {
-            html += '<optgroup label="ARTCCs">';
-            artccs.forEach(function(c) { html += '<option value="artcc:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
-            html += '</optgroup>';
-        }
-        if (tracons.length) {
-            html += '<optgroup label="TRACONs">';
-            tracons.forEach(function(c) { html += '<option value="tracon:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
-            html += '</optgroup>';
-        }
-        if (airports.length) {
-            html += '<optgroup label="Airports">';
-            airports.forEach(function(c) { html += '<option value="airport:' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
-            html += '</optgroup>';
-        }
+        if (artccs.length) groups['ARTCCs'] = artccs.map(function(c) { return 'artcc:' + c; });
+        if (tracons.length) groups['TRACONs'] = tracons.map(function(c) { return 'tracon:' + c; });
+        if (airports.length) groups['Airports'] = airports.map(function(c) { return 'airport:' + c; });
+
+        var html = '<div class="pb-cb-dropdown" id="' + id + '">';
+        html += '<button type="button" class="pb-cb-trigger">';
+        html += escHtml(label) + ' <span class="pb-cb-count"></span>';
+        html += '<i class="fas fa-caret-down ml-1"></i></button>';
+        html += '<div class="pb-cb-menu">';
+        Object.keys(groups).forEach(function(groupName) {
+            var items = groups[groupName];
+            if (!items.length) return;
+            html += '<div class="pb-cb-group-label">' + escHtml(groupName) + '</div>';
+            items.forEach(function(val) {
+                var code = val.split(':').pop();
+                var displayCode = regionColorEnabled ? regionColorWrap(code) : escHtml(code);
+                html += '<label class="pb-cb-item"><input type="checkbox" value="' + escHtml(val) + '"> ' + displayCode + '</label>';
+            });
+        });
+        html += '</div></div>';
+        return html;
+    }
+
+    function buildRegionDropdown(id, label, regionsSet) {
+        var regions = Array.from(regionsSet).sort();
+        if (!regions.length) return '';
+        var html = '<div class="pb-cb-dropdown" id="' + id + '">';
+        html += '<button type="button" class="pb-cb-trigger">';
+        html += escHtml(label) + ' <span class="pb-cb-count"></span>';
+        html += '<i class="fas fa-caret-down ml-1"></i></button>';
+        html += '<div class="pb-cb-menu">';
+        regions.forEach(function(r) {
+            html += '<label class="pb-cb-item"><input type="checkbox" value="' + escHtml(r) + '"> ' + escHtml(r) + '</label>';
+        });
+        html += '</div></div>';
         return html;
     }
 
@@ -758,20 +818,17 @@
             html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
             html += '</div>';
 
-            // Smart selection toolbar
+            // Checkbox multi-select filter toolbar
             var selOpts = buildSelectionOptions(routes);
             html += '<div class="pb-select-toolbar">';
-            html += '<span class="pb-select-label">Select by:</span>';
-            html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_origin">' + buildOptgroups(selOpts.origins) + '</select>';
-            html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_dest">' + buildOptgroups(selOpts.dests) + '</select>';
+            html += '<span class="pb-select-label">' + t('playbook.selectBy') + '</span>';
+            html += buildCheckboxDropdown('pb_select_origin', t('playbook.origin'), selOpts.origins);
+            html += buildCheckboxDropdown('pb_select_dest', t('playbook.destination'), selOpts.dests);
             if (selOpts.regions.size) {
-                html += '<select class="form-control form-control-sm pb-select-dd" id="pb_select_region"><option value="">Region...</option>';
-                Array.from(selOpts.regions).sort().forEach(function(r) {
-                    html += '<option value="' + escHtml(r) + '">' + escHtml(r) + '</option>';
-                });
-                html += '</select>';
+                html += buildRegionDropdown('pb_select_region', 'Region', selOpts.regions);
             }
             html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="Route text...">';
+            html += '<button class="btn btn-xs btn-outline-danger pb-clear-filters" id="pb_clear_filters" title="' + t('playbook.clearFilters') + '"><i class="fas fa-times"></i></button>';
             html += '</div>';
 
             // Route action toolbar
@@ -857,8 +914,6 @@
             '<div>' + t('playbook.selectPlayPrompt') + '</div>' +
             '</div>'
         );
-        $('#pb_map_section').removeClass('pb-map-expanded');
-
         // Clear map routes
         var textarea = document.getElementById('routeSearch');
         var plotBtn = document.getElementById('plot_r');
@@ -872,35 +927,56 @@
     // SMART SELECTION — filter routes by origin/dest/region/text
     // =========================================================================
 
-    function applySmartSelection(type, value) {
+    /**
+     * Apply filtered selection using AND across dimensions, OR within each.
+     * Called whenever any checkbox dropdown changes.
+     */
+    function applyFilteredSelection() {
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
 
-        routes.forEach(function(r) {
-            var match = false;
-            if (type === 'origin') {
-                match = routeMatchesFacility(r, value, 'origin');
-            } else if (type === 'dest') {
-                match = routeMatchesFacility(r, value, 'dest');
-            } else if (type === 'region') {
-                match = routeMatchesRegion(r, value);
-            } else if (type === 'route_text') {
-                match = (r.route_string || '').toUpperCase().indexOf(value.toUpperCase()) !== -1;
-            }
+        var origVals = getCheckedValues('pb_select_origin');
+        var destVals = getCheckedValues('pb_select_dest');
+        var regionVals = getCheckedValues('pb_select_region');
+        var textVal = ($('#pb_select_route_text').val() || '').trim().toUpperCase();
 
-            if (match) {
-                selectedRouteIds.add(r.route_id);
-            }
+        // No filters active → clear selection (all routes visible)
+        if (!origVals.length && !destVals.length && !regionVals.length && !textVal) {
+            selectedRouteIds.clear();
+            updateCheckboxes();
+            plotOnMap();
+            return;
+        }
+
+        selectedRouteIds.clear();
+        routes.forEach(function(r) {
+            // AND across dimensions, OR within each dimension
+            if (origVals.length && !origVals.some(function(v) { return routeMatchesFacility(r, v, 'origin'); })) return;
+            if (destVals.length && !destVals.some(function(v) { return routeMatchesFacility(r, v, 'dest'); })) return;
+            if (regionVals.length && !regionVals.some(function(v) { return routeMatchesRegion(r, v); })) return;
+            if (textVal && (r.route_string || '').toUpperCase().indexOf(textVal) === -1) return;
+            selectedRouteIds.add(r.route_id);
         });
 
-        // Update checkboxes
+        updateCheckboxes();
+        plotOnMap();
+    }
+
+    function updateCheckboxes() {
+        var routes = (activePlayData && activePlayData.routes) || [];
         $('.pb-route-cb').each(function() {
             var rid = parseInt($(this).val());
             this.checked = selectedRouteIds.has(rid);
         });
-        $('#pb_check_all').prop('checked', selectedRouteIds.size === routes.length);
+        $('#pb_check_all').prop('checked', selectedRouteIds.size > 0 && selectedRouteIds.size === routes.length);
         updateToolbarVisibility();
-        plotOnMap();
+    }
+
+    function updateDropdownCounts() {
+        $('.pb-cb-dropdown').each(function() {
+            var cnt = $(this).find('input:checked').length;
+            $(this).find('.pb-cb-count').text(cnt > 0 ? cnt : '');
+        });
     }
 
     function routeMatchesFacility(route, qualifiedValue, side) {
@@ -1544,27 +1620,57 @@
             $('#pb_check_all').prop('checked', !allChecked).trigger('change');
         });
 
-        // Smart selection dropdowns
-        $(document).on('change', '#pb_select_origin', function() {
-            var val = $(this).val();
-            if (val) applySmartSelection('origin', val);
-            $(this).val('');
+        // Checkbox dropdown multi-select: toggle open/close
+        $(document).on('click', '.pb-cb-trigger', function(e) {
+            e.stopPropagation();
+            var $dd = $(this).closest('.pb-cb-dropdown');
+            var wasOpen = $dd.hasClass('open');
+            // Close all dropdowns first
+            $('.pb-cb-dropdown').removeClass('open');
+            if (!wasOpen) $dd.addClass('open');
         });
-        $(document).on('change', '#pb_select_dest', function() {
-            var val = $(this).val();
-            if (val) applySmartSelection('dest', val);
-            $(this).val('');
+        // Close dropdowns on outside click
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.pb-cb-dropdown').length) {
+                $('.pb-cb-dropdown').removeClass('open');
+            }
         });
-        $(document).on('change', '#pb_select_region', function() {
-            var val = $(this).val();
-            if (val) applySmartSelection('region', val);
-            $(this).val('');
+        // Checkbox change → re-filter
+        $(document).on('change', '.pb-cb-dropdown input[type="checkbox"]', function(e) {
+            e.stopPropagation();
+            updateDropdownCounts();
+            applyFilteredSelection();
         });
+        // Route text filter with debounce
         $(document).on('input', '#pb_select_route_text', function() {
-            var val = ($(this).val() || '').trim();
             clearTimeout(routeTextTimer);
-            if (val.length >= 2) {
-                routeTextTimer = setTimeout(function() { applySmartSelection('route_text', val); }, 300);
+            routeTextTimer = setTimeout(applyFilteredSelection, 300);
+        });
+        // Clear all filters
+        $(document).on('click', '#pb_clear_filters', function() {
+            $('.pb-cb-dropdown input').prop('checked', false);
+            $('.pb-cb-count').text('');
+            $('#pb_select_route_text').val('');
+            selectedRouteIds.clear();
+            updateCheckboxes();
+            plotOnMap();
+        });
+
+        // Catalog overlay toggle
+        $(document).on('click', '#pb_catalog_toggle', function() {
+            $('#pb_catalog_overlay').toggleClass('collapsed');
+        });
+
+        // Search help dialog
+        $(document).on('click', '#pb_search_help', function() {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: t('playbook.searchHelp.title'),
+                    html: t('playbook.searchHelp.body'),
+                    width: 520,
+                    confirmButtonText: t('common.ok'),
+                    customClass: { htmlContainer: 'text-left' }
+                });
             }
         });
 
