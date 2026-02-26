@@ -57,6 +57,14 @@ include("load/nav.php");
     <div id="map_wrapper">
         <div id="placeholder"></div>
         <div id="graphic"></div>
+        <div class="pb-map-legend" id="pb_map_legend">
+            <div class="pb-map-legend-title"><?= __('playbook.legendTitle') ?></div>
+            <div class="pb-legend-item"><span class="pb-legend-swatch" style="background:#2196F3;opacity:0.5;"></span> <?= __('playbook.legendOrigin') ?></div>
+            <div class="pb-legend-item"><span class="pb-legend-swatch" style="background:#FF9800;opacity:0.5;"></span> <?= __('playbook.legendDest') ?></div>
+            <div class="pb-legend-item"><span class="pb-legend-swatch" style="background:#9C27B0;opacity:0.4;"></span> <?= __('playbook.legendTraversed') ?></div>
+            <div class="pb-legend-item"><span class="pb-legend-swatch-border" style="border-color:#28a745;"></span> <?= __('playbook.legendIncluded') ?></div>
+            <div class="pb-legend-item"><span class="pb-legend-swatch-border" style="border-color:#dc3545;"></span> <?= __('playbook.legendExcluded') ?></div>
+        </div>
     </div>
 
     <!-- Floating catalog overlay (inside map section) -->

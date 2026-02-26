@@ -7053,6 +7053,12 @@
     "traversedSectorsSuperhigh": "Sectors (Super-High)",
     "editFacilities": "Edit facilities",
     "facilitiesUpdated": "Facilities updated",
+    "legendTitle": "Facilities",
+    "legendOrigin": "Origin ARTCC",
+    "legendDest": "Destination ARTCC",
+    "legendTraversed": "Traversed ARTCC",
+    "legendIncluded": "Included (filter)",
+    "legendExcluded": "Excluded (filter)",
     "searchHelp": {
       "title": "Search Syntax",
       "body": "<table class='table table-sm table-bordered mb-0' style='font-size:0.8rem;'><thead><tr><th>Syntax</th><th>Example</th><th>Meaning</th></tr></thead><tbody><tr><td><code>orig:</code></td><td><code>orig:ZNY</code></td><td>Origin ARTCC/airport</td></tr><tr><td><code>dest:</code></td><td><code>dest:KATL</code></td><td>Destination ARTCC/airport</td></tr><tr><td><code>thru:</code></td><td><code>thru:ZOB</code></td><td>Traverses ARTCC</td></tr><tr><td><code>-</code> (NOT)</td><td><code>-thru:ZKC</code></td><td>Excludes routes traversing ZKC</td></tr><tr><td>space (AND)</td><td><code>orig:ZNY dest:ZTL</code></td><td>Both conditions must match</td></tr><tr><td><code>,</code> (OR)</td><td><code>orig:ZNY,ZDC</code></td><td>Either origin matches</td></tr><tr><td>text</td><td><code>BUM</code></td><td>Name or route contains text</td></tr></tbody></table>"

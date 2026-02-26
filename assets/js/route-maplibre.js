@@ -25,7 +25,7 @@ $(document).ready(function() {
 
         // US ARTCCs (CONUS)
         'ZBW': { lat: 42.36, lon: -71.06 },   // Boston Center
-        'ZNY': { lat: 40.78, lon: -73.97 },   // New York Center
+        'ZNY': { lat: 41.00, lon: -74.50 },   // New York Center (domestic centroid, excl. oceanic)
         'ZDC': { lat: 38.95, lon: -77.45 },   // Washington Center
         'ZOB': { lat: 41.40, lon: -81.85 },   // Cleveland Center
         'ZID': { lat: 39.70, lon: -86.20 },   // Indianapolis Center
@@ -1277,6 +1277,17 @@ $(document).ready(function() {
         graphic_map.addLayer({
             id: 'artcc-search-exclude', type: 'fill', source: 'artcc',
             paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.18 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+        // 4a-border. ARTCC Search border lines (green=included, red=excluded)
+        graphic_map.addLayer({
+            id: 'artcc-search-include-line', type: 'line', source: 'artcc',
+            paint: { 'line-color': '#28a745', 'line-width': 2.5, 'line-opacity': 0.7 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+        graphic_map.addLayer({
+            id: 'artcc-search-exclude-line', type: 'line', source: 'artcc',
+            paint: { 'line-color': '#dc3545', 'line-width': 2.5, 'line-opacity': 0.7 },
             filter: ['in', 'ICAOCODE', ''],
         });
 
