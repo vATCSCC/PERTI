@@ -50,7 +50,7 @@ include("sessions/handler.php");
 include("load/nav.php");
 ?>
 
-<!-- Map hero (full-width, dark bg provides contrast for floating navbar) -->
+<!-- Map hero with floating catalog overlay -->
 <div class="pb-map-section" id="pb_map_section">
     <textarea id="routeSearch" style="display:none;"></textarea>
     <button id="plot_r" style="display:none;"></button>
@@ -58,23 +58,33 @@ include("load/nav.php");
         <div id="placeholder"></div>
         <div id="graphic"></div>
     </div>
-</div>
 
-<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
-
-    <!-- Catalog Header: title + search + category pills -->
-    <div class="pb-catalog-header" id="pb_catalog_header">
-        <div class="d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
-                <span class="pb-title">
-                    <i class="fas fa-book" style="color:#239BCD;"></i>
-                    <?= __('playbook.title') ?>
-                </span>
-                <span class="pb-catalog-stats" id="pb_stats"></span>
+    <!-- Floating catalog overlay (inside map section) -->
+    <div class="pb-catalog-overlay" id="pb_catalog_overlay">
+        <div class="pb-catalog-header" id="pb_catalog_header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center" style="gap:0.4rem;">
+                    <span class="pb-title">
+                        <i class="fas fa-book" style="color:#239BCD;"></i>
+                        <?= __('playbook.title') ?>
+                    </span>
+                    <span class="pb-catalog-stats" id="pb_stats"></span>
+                </div>
+                <?php if ($perm): ?>
+                <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <?php endif; ?>
             </div>
-            <div class="d-flex align-items-center" style="gap:0.35rem;">
+            <div class="d-flex align-items-center mt-1" style="gap:0.3rem;">
                 <input type="text" id="pb_search" class="form-control form-control-sm pb-search"
                        placeholder="<?= __('playbook.searchPlaceholder') ?>">
+                <button class="btn btn-sm btn-link pb-search-help-btn" id="pb_search_help" title="<?= __('playbook.searchHelp.title') ?>">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+            <div class="pb-filter-badges" id="pb_filter_badges"></div>
+            <div class="d-flex align-items-center mt-1" style="gap:0.25rem;flex-wrap:wrap;">
                 <div class="btn-group btn-group-sm" role="group">
                     <button class="btn btn-outline-secondary pb-src-btn active" data-source=""><?= __('common.all') ?></button>
                     <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA">FAA</button>
@@ -86,42 +96,32 @@ include("load/nav.php");
                     <input type="checkbox" id="pb_legacy_toggle">
                     <span class="small"><?= __('playbook.showLegacy') ?></span>
                 </label>
-                <?php if ($perm): ?>
-                <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
-                    <i class="fas fa-plus"></i>
-                </button>
-                <?php endif; ?>
             </div>
         </div>
-
-        <!-- Category pills -->
         <div class="pb-pills" id="pb_category_pills"></div>
-    </div>
-
-    <!-- Two-column master-detail layout -->
-    <div class="pb-columns">
-        <!-- Left: Play List -->
-        <div class="pb-col-left">
-            <div class="pb-play-list-wrap" id="pb_play_list_wrap">
-                <div id="pb_play_list_container">
-                    <div class="pb-loading">
-                        <div class="spinner-border text-primary" role="status"></div>
-                    </div>
+        <div class="pb-play-list-wrap" id="pb_play_list_wrap">
+            <div id="pb_play_list_container">
+                <div class="pb-loading">
+                    <div class="spinner-border text-primary" role="status"></div>
                 </div>
             </div>
         </div>
+        <button class="pb-catalog-toggle" id="pb_catalog_toggle" title="Toggle catalog">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    </div>
+</div>
 
-        <!-- Right: Detail Panel (always visible, placeholder when empty) -->
-        <div class="pb-col-right" id="pb_detail_panel">
-            <div id="pb_detail_content">
-                <div class="pb-detail-placeholder">
-                    <i class="fas fa-hand-pointer"></i>
-                    <div><?= __('playbook.selectPlayPrompt') ?></div>
-                </div>
+<!-- Detail panel (full width below map) -->
+<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
+    <div class="pb-detail-panel" id="pb_detail_panel">
+        <div id="pb_detail_content">
+            <div class="pb-detail-placeholder">
+                <i class="fas fa-hand-pointer"></i>
+                <div><?= __('playbook.selectPlayPrompt') ?></div>
             </div>
         </div>
     </div>
-
 </div>
 
 <!-- Create/Edit Play Modal -->
