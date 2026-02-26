@@ -185,11 +185,13 @@ SELECT
 FROM dbo.adl_run_log 
 WHERE started_utc > DATEADD(HOUR, -1, SYSUTCDATETIME());
 
--- History snapshots
-SELECT TOP 10 snapshot_utc, COUNT(*) AS flight_count
-FROM dbo.adl_flights_history 
-GROUP BY snapshot_utc 
-ORDER BY snapshot_utc DESC;
+-- Active flight count by phase
+SELECT
+    flight_phase,
+    COUNT(*) AS flight_count
+FROM dbo.adl_flight_core
+WHERE is_active = 1
+GROUP BY flight_phase;
 ```
 
 ---

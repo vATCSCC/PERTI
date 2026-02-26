@@ -66,6 +66,66 @@ function normalizePlayName($name) {
     return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $name));
 }
 
+/**
+ * Compute traversed ARTCCs from a route string by looking up fix names
+ * in VATSIM_REF.nav_fixes. Returns comma-separated ARTCC codes.
+ */
+function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
+    static $conn_ref_cached = null;
+    static $ref_available = null;
+
+    // Lazy-init REF connection (only once per request)
+    if ($ref_available === null) {
+        if (function_exists('get_conn_ref')) {
+            $conn_ref_cached = get_conn_ref();
+            $ref_available = ($conn_ref_cached !== null && $conn_ref_cached !== false);
+        } else {
+            $ref_available = false;
+        }
+    }
+
+    if (!$ref_available) return '';
+
+    // Extract fix-like tokens: 2-5 uppercase alpha chars
+    $tokens = preg_split('/\s+/', strtoupper(trim($route_string)));
+    $exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB', 'RADAR', 'DIRECT'];
+    $fixNames = [];
+    foreach ($tokens as $t) {
+        if (preg_match('/^[A-Z]{2,5}$/', $t) && !in_array($t, $exclude)) {
+            $fixNames[] = $t;
+        }
+    }
+    if (empty($fixNames)) return '';
+
+    // Batch lookup in nav_fixes for artcc_id
+    $placeholders = implode(',', array_fill(0, count($fixNames), '?'));
+    $sql = "SELECT DISTINCT artcc_id FROM dbo.nav_fixes WHERE fix_name IN ($placeholders) AND artcc_id IS NOT NULL AND artcc_id <> ''";
+    $params = array_values(array_unique($fixNames));
+    $placeholders = implode(',', array_fill(0, count($params), '?'));
+    $sql = "SELECT DISTINCT artcc_id FROM dbo.nav_fixes WHERE fix_name IN ($placeholders) AND artcc_id IS NOT NULL AND artcc_id <> ''";
+
+    $stmt = sqlsrv_query($conn_ref_cached, $sql, $params);
+    if (!$stmt) return '';
+
+    $artccs = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $artccs[] = $row['artcc_id'];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    // Merge with origin + dest ARTCCs (they're traversed by definition)
+    foreach (explode(',', $origin_artccs) as $a) {
+        $a = trim($a);
+        if ($a !== '') $artccs[] = $a;
+    }
+    foreach (explode(',', $dest_artccs) as $a) {
+        $a = trim($a);
+        if ($a !== '') $artccs[] = $a;
+    }
+
+    return implode(',', array_unique(array_filter($artccs)));
+}
+
 $play_name_norm = normalizePlayName($play_name);
 $route_count = count($routes);
 $changed_by = session_get('VATSIM_CID', '0');
@@ -153,8 +213,8 @@ if (!empty($routes)) {
     $route_stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
          origin_airports, origin_tracons, origin_artccs,
-         dest_airports, dest_tracons, dest_artccs, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         dest_airports, dest_tracons, dest_artccs, traversed_artccs, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -172,9 +232,12 @@ if (!empty($routes)) {
 
         if ($rs === '') continue;
 
-        $route_stmt->bind_param('isssssssssssi',
+        // Compute traversed ARTCCs from route fix names via VATSIM_REF
+        $traversed = computeTraversedArtccs($rs, $oar, $dar);
+
+        $route_stmt->bind_param('issssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
-            $oa, $ot, $oar, $da, $dt, $dar, $sort);
+            $oa, $ot, $oar, $da, $dt, $dar, $traversed, $sort);
         $route_stmt->execute();
         $sort++;
     }

@@ -1,5 +1,9 @@
 # PERTI Globalization/Internationalization Implementation Plan
 
+> **Status: Phases 1-2 COMPLETE, Phase 3 IN PROGRESS (37%)**
+> Core i18n module, locale loader, dialog wrapper, and config files are all deployed.
+> See `docs/I18N_TRACKING.md` for current migration progress.
+
 ## Overview
 
 This plan outlines the implementation of internationalization (i18n) support for the PERTI codebase. The goal is to externalize all user-facing strings, centralize date/number formatting, and enable future multi-language support.

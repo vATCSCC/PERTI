@@ -1,6 +1,6 @@
 # Data Refresh Pipeline
 
-The data refresh pipeline is the core process that ingests VATSIM flight data every ~15 seconds and orchestrates all downstream calculations. The main procedure `sp_Adl_RefreshFromVatsim_Staged` (V9.3.0) executes 13+ processing steps. When `@defer_expensive = 1`, expensive ETA/snapshot steps are deferred to the daemon's time-budget system, ensuring data ingestion and trajectory capture always complete within the 15s window. Delta detection (V9.3.0) skips redundant processing for unchanged flights, reducing SP time by ~30-40%.
+The data refresh pipeline is the core process that ingests VATSIM flight data every ~15 seconds and orchestrates all downstream calculations. The main procedure `sp_Adl_RefreshFromVatsim_Staged` (V9.4.0) executes 13+ processing steps. When `@defer_expensive = 1`, expensive ETA/snapshot steps are deferred to the daemon's time-budget system, ensuring data ingestion and trajectory capture always complete within the 15s window. Delta detection (V9.3.0) skips redundant processing for unchanged flights, reducing SP time by ~30-40%. Route Distance V2.2 uses a two-pass LINESTRING approach for ~25% total SP time reduction, and a covering index (`IX_waypoints_route_calc`) eliminates ~315K key lookups per cycle.
 
 ---
 
@@ -117,7 +117,7 @@ ORDER BY run_utc DESC;
 ```sql
 -- For testing (requires JSON payload)
 DECLARE @json NVARCHAR(MAX) = '{"pilots": [], "prefiles": []}';
-EXEC dbo.sp_Adl_RefreshFromVatsim_Normalized @Json = @json;
+EXEC dbo.sp_Adl_RefreshFromVatsim_Staged @Json = @json;
 ```
 
 ---
@@ -274,6 +274,9 @@ EXEC dbo.sp_CalculateWaypointETABatch
 | **Parallel execution** | iTVFs instead of scalar UDFs |
 | **Early termination** | Skip unchanged data |
 | **Incremental updates** | Only ETD for flights without ETD |
+| **Route Distance V2.2** | Two-pass LINESTRING approach (~25% SP reduction) |
+| **Covering index** | `IX_waypoints_route_calc` eliminates 315K key lookups (Step B 1643→381ms) |
+| **Geography pre-computation** | Eliminates ~8,500 Point() CLR calls/cycle (~12% faster) |
 
 ### Output Stats
 
@@ -310,7 +313,7 @@ The procedure uses:
 The PHP daemon calls the staged procedure with optional deferred processing:
 
 ```php
-// vatsim_adl_daemon.php (V9.3.0)
+// vatsim_adl_daemon.php (V9.4.0)
 while (true) {
     $json = fetch_vatsim_api();
     $parsedPilots = parseVatsimPilots($json);

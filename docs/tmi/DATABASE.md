@@ -1,7 +1,7 @@
 # VATSIM_TMI Database Architecture (Complete)
 
-**Version:** 2.0  
-**Date:** January 17, 2026  
+**Version:** 2.1
+**Date:** February 25, 2026
 **Database:** `VATSIM_TMI` on `vatsim.database.windows.net`
 
 ---
@@ -32,9 +32,20 @@ The VATSIM_TMI database consolidates all Traffic Management Initiative data:
 │  │              │  │   flights    │  │   routes     │  │  (Audit)     │       │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘       │
 │                                                                                 │
-│  ┌──────────────────────────────────────────────────────────────────────┐      │
-│  │                      tmi_advisory_sequences                          │      │
-│  └──────────────────────────────────────────────────────────────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │tmi_flight_   │  │tmi_flight_   │  │tmi_proposals │  │tmi_proposal_ │       │
+│  │  control     │  │    list      │  │              │  │  facilities  │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘       │
+│                                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │tmi_reroute_  │  │tmi_airport_  │  │tmi_delay_    │  │tmi_discord_  │       │
+│  │   routes     │  │   configs    │  │   entries    │  │    posts     │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘       │
+│                                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │tmi_flow_     │  │tmi_flow_     │  │tmi_popup_    │  │tmi_advisory_ │       │
+│  │  providers   │  │  measures    │  │   queue      │  │  sequences   │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘       │
 │                                                                                 │
 │                              Cross-DB Reference:                                │
 │                    VATSIM_ADL.dbo.adl_flight_tmi (flight assignments)          │

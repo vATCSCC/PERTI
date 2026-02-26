@@ -97,6 +97,7 @@
     // =========================================================================
     // SEARCH PARSER — Multi-token boolean search
     // Operators: AND (space/&), OR (,/|), NOT (- prefix)
+    // Qualifiers: orig: dest: thru: (or via:)
     // =========================================================================
 
     function parseSearch(raw) {
@@ -109,7 +110,17 @@
             return alts.map(function(alt) {
                 var negated = alt.charAt(0) === '-';
                 var term = negated ? alt.substring(1) : alt;
-                return { term: term.toUpperCase(), negated: negated };
+                // Parse qualifier prefix (orig:, dest:, thru:, via:)
+                var qualifier = '';
+                var colonIdx = term.indexOf(':');
+                if (colonIdx > 0) {
+                    var prefix = term.substring(0, colonIdx).toLowerCase();
+                    if (prefix === 'orig' || prefix === 'dest' || prefix === 'thru' || prefix === 'via') {
+                        qualifier = prefix === 'via' ? 'thru' : prefix;
+                        term = term.substring(colonIdx + 1);
+                    }
+                }
+                return { term: term.toUpperCase(), negated: negated, qualifier: qualifier };
             }).filter(function(a) { return a.term; });
         }).filter(function(c) { return c.length; });
     }
@@ -123,18 +134,36 @@
             ].filter(Boolean).join(' ').toUpperCase();
         }
         if (!p._facilityCodes) {
+            // All facility codes (unqualified search)
             var codes = new Set();
             [p.facilities_involved, p.agg_origin_airports, p.agg_origin_tracons,
              p.agg_origin_artccs, p.agg_dest_airports, p.agg_dest_tracons,
-             p.agg_dest_artccs].forEach(function(field) {
+             p.agg_dest_artccs, p.agg_traversed_artccs].forEach(function(field) {
                 csvSplit(field).forEach(function(c) { codes.add(c.toUpperCase()); });
             });
-            // Also split impacted_area by / and ,
             (p.impacted_area || '').split(/[\/,]/).forEach(function(c) {
                 var trimmed = c.trim().toUpperCase();
                 if (trimmed) codes.add(trimmed);
             });
             p._facilityCodes = codes;
+
+            // Origin-specific codes
+            p._originCodes = new Set();
+            [p.agg_origin_airports, p.agg_origin_tracons, p.agg_origin_artccs].forEach(function(field) {
+                csvSplit(field).forEach(function(c) { p._originCodes.add(c.toUpperCase()); });
+            });
+
+            // Dest-specific codes
+            p._destCodes = new Set();
+            [p.agg_dest_airports, p.agg_dest_tracons, p.agg_dest_artccs].forEach(function(field) {
+                csvSplit(field).forEach(function(c) { p._destCodes.add(c.toUpperCase()); });
+            });
+
+            // Traversed ARTCCs (includes origin + dest ARTCCs by definition)
+            p._traversedCodes = new Set();
+            [p.agg_traversed_artccs, p.agg_origin_artccs, p.agg_dest_artccs].forEach(function(field) {
+                csvSplit(field).forEach(function(c) { p._traversedCodes.add(c.toUpperCase()); });
+            });
         }
     }
 
@@ -147,7 +176,17 @@
             var clausePassed = false;
             for (var j = 0; j < alts.length; j++) {
                 var alt = alts[j];
-                var found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
+                var found = false;
+                if (alt.qualifier === 'orig') {
+                    found = p._originCodes.has(alt.term);
+                } else if (alt.qualifier === 'dest') {
+                    found = p._destCodes.has(alt.term);
+                } else if (alt.qualifier === 'thru') {
+                    found = p._traversedCodes.has(alt.term);
+                } else {
+                    // No qualifier: search everywhere (current behavior)
+                    found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
+                }
                 if (alt.negated) {
                     if (found) return false; // Negated term found → exclude
                 } else {
@@ -401,7 +440,7 @@
 
             allPlays = data.data || [];
             // Invalidate search indexes on reload
-            allPlays.forEach(function(p) { delete p._searchText; delete p._facilityCodes; });
+            allPlays.forEach(function(p) { delete p._searchText; delete p._facilityCodes; delete p._originCodes; delete p._destCodes; delete p._traversedCodes; });
             applyFilters();
 
             // Auto-open play from URL ?play=NAME on initial load

@@ -11,8 +11,8 @@ VATSIM API (every 15 seconds)
          │
          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│               sp_Adl_RefreshFromVatsim_Normalized                    │
-│  • Parse JSON → Normalize tables → Calculate ETAs → Log trajectories │
+│           sp_Adl_RefreshFromVatsim_Staged (V9.3.0)                   │
+│  • Delta detection → Normalize tables → Defer ETAs → Log trajectories│
 └──────────────────────────────────────────────────────────────────────┘
          │
          ├──────────────┬──────────────┬──────────────┬────────────────┐
@@ -41,7 +41,7 @@ VATSIM API (every 15 seconds)
 
 | Metric | Target | Description |
 |--------|--------|-------------|
-| **Refresh Cycle** | < 5 seconds | Complete data refresh including all algorithms |
+| **Refresh Cycle** | < 15 seconds | Complete data refresh within VATSIM API window (SP + deferred ETA) |
 | **ETA Accuracy** | ± 5 minutes | For flights > 100nm from destination |
 | **Zone Detection** | < 0.5 seconds | Batch processing all relevant flights |
 | **Route Parsing** | < 200ms/route | Including airway expansion and GIS resolution |
@@ -69,7 +69,7 @@ VATSIM API (every 15 seconds)
 
 | Procedure | Function |
 |-----------|----------|
-| `sp_Adl_RefreshFromVatsim_Normalized` | Main refresh orchestrator |
+| `sp_Adl_RefreshFromVatsim_Staged` | Main refresh orchestrator (V9.3.0, delta detection + deferred ETA) |
 | `sp_CalculateETABatch` | Consolidated ETA calculation |
 | `sp_ProcessTrajectoryBatch` | Trajectory logging with tier evaluation |
 | `sp_ProcessZoneDetectionBatch` | OOOI zone detection |

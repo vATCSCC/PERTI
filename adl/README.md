@@ -1,34 +1,40 @@
 # ADL Database Redesign Implementation
 
-**Version:** 2.0  
-**Status:** Data Ingestion Ready  
-**Last Updated:** January 2025
+**Version:** 3.0
+**Status:** Deployed & Live
+**Last Updated:** February 2026
 
 ## Overview
 
-This directory contains the implementation of the ADL (Aggregate Demand List) database redesign. The redesign transforms the monolithic `adl_flights` table into a normalized, GIS-enabled architecture optimized for PERTI's traffic flow management operations.
+This directory contains the ADL (Aggregate Demand List) subsystem — a normalized, GIS-enabled flight data architecture that powers PERTI's traffic flow management. The system ingests VATSIM flight data every 15 seconds through `sp_Adl_RefreshFromVatsim_Staged` (V9.4.0) and processes it through 8+ background daemons for route parsing, boundary detection, crossing prediction, and ETA calculation.
 
 ## Directory Structure
 
 ```
 adl/
 ├── README.md                    # This file
-├── migrations/                  # SQL migration scripts (run in order)
-│   ├── 001_adl_core_tables.sql      # Core normalized tables
-│   ├── 002_adl_times_trajectory.sql # Time fields & position history
-│   ├── 003_adl_waypoints_stepclimbs.sql # GIS parsing support
-│   ├── 004_adl_reference_tables.sql # Navigation data tables
-│   └── 005_adl_views_seed_data.sql  # Compatibility view & seed data
-├── procedures/                  # Stored procedures
+├── ARCHITECTURE.md              # Full architecture document
+├── migrations/                  # SQL migration scripts (organized by feature)
+│   ├── core/                        # Core 8-table flight schema
+│   ├── boundaries/                  # Boundary detection tables
+│   ├── crossings/                   # Boundary crossing predictions
+│   ├── demand/                      # Fix/segment demand functions
+│   ├── eta/                         # ETA trajectory calculation
+│   ├── navdata/                     # Waypoint/procedure imports
+│   ├── changelog/                   # Flight change tracking triggers
+│   └── cifp/                        # CIFP procedure legs
+├── procedures/                  # Stored procedures & functions
 │   ├── fn_GetParseTier.sql          # Tier assignment function
 │   ├── fn_GetTokenType.sql          # Route token classification
 │   ├── sp_ParseQueue.sql            # Queue management procedures
-│   ├── sp_ParseRoute.sql            # Full GIS route parsing
+│   ├── sp_ParseRoute.sql            # Full GIS route parsing (V4)
 │   └── sp_UpsertFlight.sql          # Data ingestion from VATSIM/SimTraffic
-├── php/                         # PHP helper classes and daemons
+├── php/                         # PHP daemons and helpers
 │   ├── AdlFlightUpsert.php          # PHP wrapper for sp_UpsertFlight
-│   ├── parse_queue_daemon.php       # Route parsing queue processor
-│   └── boundary_daemon.php          # ARTCC/TRACON boundary detection
+│   ├── parse_queue_gis_daemon.php   # Route parsing via PostGIS (10s batch)
+│   ├── boundary_gis_daemon.php      # ARTCC/TRACON boundary detection (15s)
+│   ├── crossing_gis_daemon.php      # Boundary crossing predictions (tiered)
+│   └── waypoint_eta_daemon.php      # Waypoint ETA calculation (tiered)
 └── reference_data/              # Scripts to import reference data
     ├── import_all.php               # Master script - runs all imports
     ├── import_nav_fixes.php         # Import points.csv + navaids.csv
@@ -40,16 +46,21 @@ adl/
 
 ## Database Architecture
 
-PERTI uses **two separate databases**:
+PERTI uses **7 databases across 3 engines**:
 
 | Database | Type | Connection | Purpose |
 |----------|------|------------|----------|
-| `perti_site` | Azure MySQL | `$conn_pdo` / `$conn_sqli` | Website, users, events, TMI |
-| `VATSIM_ADL` | Azure SQL Server | `$conn_adl` | Flight data, routes, positions |
+| `perti_site` | Azure MySQL | `$conn_pdo` / `$conn_sqli` | Plans, users, configs, staffing |
+| `VATSIM_ADL` | Azure SQL | `get_conn_adl()` | Flight data, routes, positions, stats |
+| `VATSIM_TMI` | Azure SQL | `get_conn_tmi()` | Traffic management initiatives |
+| `VATSIM_REF` | Azure SQL | `get_conn_ref()` | Reference data (navdata, airways) |
+| `SWIM_API` | Azure SQL | `get_conn_swim()` | Public API (FIXM-aligned schema) |
+| `VATSIM_GIS` | PostgreSQL/PostGIS | `get_conn_gis()` | Spatial queries, boundary polygons |
+| `VATSIM_STATS` | Azure SQL | — | Statistics & analytics |
 
-The ADL tables and procedures in this directory target the **VATSIM_ADL** database.
+The ADL tables and procedures in this directory target the **VATSIM_ADL** database. Route parsing, boundary detection, and crossing prediction use **VATSIM_GIS** (PostGIS) for spatial operations.
 
-Connection credentials are defined in `load/config.php` and connections are established in `load/connect.php`.
+Connection credentials are defined in `load/config.php` and connections are established in `load/connect.php` with lazy-loading getters.
 
 ## Quick Start
 
@@ -96,24 +107,20 @@ php import_procedures.php    # ~10K+ DPs/STARs from dp/star_full_routes.csv
 
 ### 4. Start Data Ingestion Daemons
 
-Three separate daemons handle data processing:
+All daemons are started automatically by `scripts/startup.sh` at App Service boot. Key ADL-related daemons:
 
-```bash
-# 1. Main VATSIM data ingestion (every 15s)
-nohup php scripts/vatsim_adl_daemon.php > scripts/vatsim_adl.log 2>&1 &
+| Daemon | Purpose | Interval |
+|--------|---------|----------|
+| `scripts/vatsim_adl_daemon.php` | VATSIM feed + ATIS + deferred ETA | 15s |
+| `adl/php/parse_queue_gis_daemon.php` | Route parsing via PostGIS | 10s batch |
+| `adl/php/boundary_gis_daemon.php` | ARTCC/TRACON boundary detection | 15s |
+| `adl/php/crossing_gis_daemon.php` | Boundary crossing ETA prediction | Tiered |
+| `adl/php/waypoint_eta_daemon.php` | Waypoint-level ETA calculation | Tiered |
+| `scripts/swim_sync_daemon.php` | Sync ADL to SWIM_API | 2min |
+| `scripts/scheduler_daemon.php` | Splits/routes auto-activation | 60s |
+| `scripts/archival_daemon.php` | Trajectory tiering, changelog purge | 1-4h |
 
-# 2. Route parsing daemon (every 5s, auto-scales to 500 batch when backlogged)
-nohup php adl/php/parse_queue_daemon.php --loop > scripts/parse_queue.log 2>&1 &
-
-# 3. Boundary detection daemon (every 30s, ARTCC/TRACON/Crossings)
-nohup php adl/php/boundary_daemon.php --loop > scripts/boundary.log 2>&1 &
-```
-
-| Daemon | Purpose | Interval | Batch Size |
-|--------|---------|----------|------------|
-| `vatsim_adl_daemon.php` | VATSIM feed + ATIS parsing | 15s | N/A |
-| `parse_queue_daemon.php` | Route expansion to waypoints | 5s | 50 (500 if backlogged) |
-| `boundary_daemon.php` | ARTCC/TRACON detection + crossings | 30s | 500 (1000 if backlogged) |
+See the full 15-daemon list in `scripts/startup.sh`.
 
 Or integrate into existing code:
 
@@ -160,7 +167,7 @@ $stats = $adl->getStats();
 | `adl_flight_plan` | Route + GIS geometry | On FP change |
 | `adl_flight_waypoints` | Parsed route waypoints | On FP change |
 | `adl_flight_stepclimbs` | Step climb records | On FP change |
-| `adl_flight_times` | 40+ TFMS time fields | Every refresh |
+| `adl_flight_times` | 50+ TFMS time fields | Every refresh |
 | `adl_flight_trajectory` | Position history | Every refresh |
 | `adl_flight_tmi` | TMI controls | Every refresh |
 | `adl_flight_aircraft` | Aircraft info | On change |
@@ -169,7 +176,7 @@ $stats = $adl->getStats();
 
 ### Route Parsing Features
 
-The `sp_ParseRoute` procedure provides full GIS route expansion:
+Route parsing uses PostGIS (`parse_queue_gis_daemon.php`) for spatial fix matching and airway expansion. The V4 algorithm provides:
 
 - **Token Classification:** Airports, fixes, airways, SIDs, STARs, radials, coordinates
 - **SID/STAR Expansion:** Automatic lookup and waypoint insertion from `nav_procedures`
@@ -194,25 +201,30 @@ Routes are parsed asynchronously based on operational relevance:
 
 The `vw_adl_flights` view presents normalized data as a single flat structure matching the original `adl_flights` table. Existing queries should work without modification.
 
-## Performance Targets
+## Performance (Current: V9.4.0 + Route Distance V2.2)
 
-| Metric | Target |
-|--------|--------|
-| Main refresh | <8 seconds |
-| Peak refresh | <12 seconds |
-| Tier 0 parse latency | <5 seconds |
-| Spatial query response | <500ms |
+| Metric | Typical | Peak |
+|--------|---------|------|
+| Main refresh | ~3.5 sec | ~5.5 sec |
+| Parse queue throughput | 50 routes/batch | 500 when backlogged |
+| Spatial query response | <500ms | — |
+
+Key optimizations in production:
+- **Delta detection bitmask** filters Steps 1b/2/3/4/6 — ~30-40% SP reduction
+- **Geography pre-computation** eliminates ~8,500 Point() CLR calls/cycle — ~12% faster
+- **Route Distance V2.2**: Two-pass LINESTRING approach — 25% total SP reduction
+- **Covering index** `IX_waypoints_route_calc` eliminates 315K key lookups
 
 ## Azure Configuration
 
-Recommended: **General Purpose Serverless, 2 vCore**
+**Current: Hyperscale Serverless (HS_S_Gen5_16)**
 
 | Resource | Specification |
 |----------|---------------|
-| Compute | Serverless GP, 2-4 vCore auto-scale |
-| Storage | 100 GB |
-| Backup | Geo-redundant, 7-day retention |
-| Estimated Cost | $250-300/month |
+| Compute | Hyperscale Serverless, 3 min / 16 max vCores |
+| Storage | Auto-scaling |
+| Backup | Geo-redundant |
+| Estimated Cost | ~$2,100/month (right-sized from $3,300) |
 
 ## Development Status
 
@@ -231,11 +243,16 @@ Recommended: **General Purpose Serverless, 2 vCore**
 - [x] VATSIM ingestion daemon
 - [x] Parse queue daemon
 - [x] Boundary detection daemon (ARTCC/TRACON/Crossings)
-- [ ] Position geo-coding trigger
-- [ ] Trajectory geo-coding trigger
-- [ ] Archive maintenance procedures
-- [x] API endpoint updates (api/adl/current.php, flight.php, stats.php, snapshot_history.php)
-- [ ] Production cutover
+- [x] Position geo-coding (PostGIS boundary detection)
+- [x] Trajectory tiered archival (live → archive → compressed)
+- [x] Archive maintenance procedures (archival_daemon.php)
+- [x] API endpoint updates (api/adl/current.php, flight.php, stats.php, snapshot_history.php, demand/*)
+- [x] Production cutover (fully live since early 2025)
+- [x] GIS-based route parsing (parse_queue_gis_daemon.php)
+- [x] Boundary crossing predictions (crossing_gis_daemon.php)
+- [x] Waypoint-level ETA calculation (waypoint_eta_daemon.php)
+- [x] SWIM sync (swim_sync_daemon.php)
+- [x] Delta detection bitmask optimization (V9.3.0+)
 
 ## Key Procedures Reference
 
@@ -278,11 +295,9 @@ EXEC sp_GetActiveFlightStats;
 
 ## Related Documentation
 
-See the project knowledge base for:
-- ADL_Database_Redesign_Complete_v2.md - Full architecture document
-- ADL_Tiered_Parsing_Strategy.md - Detailed tier logic
-- ADL_Performance_Cost_Analysis.md - Cost analysis
-
-## Contact
-
-For questions about this implementation, see the PERTI project documentation or contact the development team.
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Full architecture document
+- [[Data-Flow]] - End-to-end data pipeline
+- [[Algorithm-Data-Refresh]] - SP refresh pipeline details
+- [[Algorithm-Route-Parsing]] - V4 route parsing algorithm
+- [[Algorithm-ETA-Calculation]] - ETA calculation algorithm
+- [[Daemons-and-Scripts]] - All background daemons

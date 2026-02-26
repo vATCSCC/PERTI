@@ -1,6 +1,6 @@
 # PERTI Internationalization (i18n) Tracking
 
-> Last updated: 2026-02-10
+> Last updated: 2026-02-25
 
 ## Overview
 
@@ -12,7 +12,7 @@ This document tracks the progress of globalizing the PERTI codebase for internat
 |-------|-------------|--------|
 | 1 | Core i18n module | ✅ Complete |
 | 2 | Config file updates | ✅ Complete |
-| 3 | Dialog migration | 🔄 In Progress (25% - tmi-publish partial) |
+| 3 | Dialog migration | 🔄 In Progress (37% - splits done, tmi-publish 84%) |
 | 4 | Error message migration | ⏳ Pending |
 | 5 | Date/time localization | ⏳ Pending |
 
@@ -72,25 +72,31 @@ PERTIDialog.confirm('dialog.confirmDelete.title', 'dialog.confirmDelete.text')
 
 ### Swal.fire Occurrences by File
 
-| File | Total | Migrated | Remaining | Status |
-|------|-------|----------|-----------|--------|
-| `tmi-publish.js` | 128 | 88 | 40 | 🔄 In Progress (69%) |
-| `plan.js` | 100 | 0 | 100 | ⏳ Pending |
-| `gdt.js` | 28 | 0 | 28 | ⏳ Pending |
-| `tmi-active-display.js` | 22 | 0 | 22 | ⏳ Pending |
-| `review.js` | 18 | 0 | 18 | ⏳ Pending |
-| `sua.js` | 14 | 0 | 14 | ⏳ Pending |
-| `schedule.js` | 10 | 0 | 10 | ⏳ Pending |
-| `sheet.js` | 8 | 0 | 8 | ⏳ Pending |
-| `tmi_compliance.js` | 8 | 0 | 8 | ⏳ Pending |
-| `public-routes.js` | 7 | 0 | 7 | ⏳ Pending |
-| `demand.js` | 4 | 0 | 4 | ⏳ Pending |
-| `route-maplibre.js` | 3 | 0 | 3 | ⏳ Pending |
-| ~~`advisory-builder.js`~~ | ~~2~~ | ~~0~~ | ~~2~~ | ❌ Removed (v18 PR #16) |
-| `gdp.js` | 1 | 0 | 1 | ⏳ Pending |
-| `initiative_timeline.js` | 1 | 0 | 1 | ⏳ Pending |
-| `tmi-gdp.js` | 1 | 0 | 1 | ⏳ Pending |
-| **TOTAL** | **355** | **88** | **267** | |
+| File | Swal.fire | PERTIDialog | Status |
+|------|-----------|-------------|--------|
+| `splits.js` | 0 | 52 | ✅ Fully migrated |
+| `tmi-publish.js` | 26 | 134 | 🔄 In Progress (84%) |
+| `plan.js` | 100 | 0 | ⏳ Pending |
+| `gdt.js` | 49 | 0 | ⏳ Pending |
+| `tmi-active-display.js` | 22 | 0 | ⏳ Pending |
+| `review.js` | 18 | 0 | ⏳ Pending |
+| `tmi_compliance.js` | 15 | 0 | ⏳ Pending |
+| `sua.js` | 14 | 0 | ⏳ Pending |
+| `route-maplibre.js` | 13 | 0 | ⏳ Pending |
+| `schedule.js` | 12 | 0 | ⏳ Pending |
+| `playbook.js` | 11 | 0 | ⏳ Pending (new v18) |
+| `tmr_report.js` | 11 | 0 | ⏳ Pending (new v18) |
+| `demand.js` | 10 | 0 | ⏳ Pending |
+| `sheet.js` | 8 | 0 | ⏳ Pending |
+| `public-routes.js` | 7 | 0 | ⏳ Pending |
+| `gdp.js` | 1 | 0 | ⏳ Pending |
+| `initiative_timeline.js` | 1 | 0 | ⏳ Pending |
+| `tmi-gdp.js` | 1 | 0 | ⏳ Pending |
+| `lib/deeplink.js` | 1 | 0 | ⏳ Pending |
+| ~~`advisory-builder.js`~~ | — | — | ❌ Removed (v18 PR #16) |
+| **TOTAL** | **320** | **186** | **37% migrated** |
+
+> **Note:** `jatoc.js`, `reroute.js`, `weather_impact.js`, `weather_hazards.js` use `PERTII18n.t()` for all strings and have zero `Swal.fire` calls (built with i18n from the start). `lib/dialog.js` has 4 internal `Swal.fire` calls (the PERTIDialog wrapper implementation itself — not counted above).
 
 ### Migration Pattern
 

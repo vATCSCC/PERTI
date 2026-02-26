@@ -1,6 +1,6 @@
 # Daemons and Scripts
 
-Background processes that keep PERTI data current. All 14 daemons are started at App Service boot via `scripts/startup.sh` and run continuously.
+Background processes that keep PERTI data current. All 15 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
 
 ---
 
@@ -22,6 +22,7 @@ Background processes that keep PERTI data current. All 14 daemons are started at
 | Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
 | Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (conditional) |
 
 ---
 
@@ -199,6 +200,21 @@ Syncs events from VATUSA, VATCAN, and VATSIM APIs.
 | Location | `scripts/event_sync_daemon.php` |
 | Interval | 6 hours |
 | Language | PHP |
+
+---
+
+### adl_archive_daemon.php
+
+Archives trajectory data to Azure Blob Storage on a daily schedule.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/adl_archive_daemon.php` |
+| Schedule | Daily at 10:00Z (configurable via `ADL_ARCHIVE_HOUR_UTC`) |
+| Language | PHP |
+| Condition | Only starts if `ADL_ARCHIVE_STORAGE_CONN` environment variable is set |
+
+The archive daemon runs at the lowest-traffic time (night in the Americas, morning in Europe). It moves completed flight trajectory data from `adl_flight_trajectory` to Azure Blob Storage for long-term retention.
 
 ---
 
