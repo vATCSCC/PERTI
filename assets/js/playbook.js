@@ -554,8 +554,9 @@
         var sep = separator || /[,\/]/;
         var codes = str.split(sep).map(function(c) { return c.trim(); }).filter(Boolean);
         if (!codes.length) return '-';
-        if (!regionColorEnabled) return escHtml(codes.join(separator === '/' ? '/' : ', '));
-        return codes.map(regionColorWrap).join(separator === '/' ? '/' : ', ');
+        var joinSep = (separator === '/') ? '/<wbr>' : ', ';
+        if (!regionColorEnabled) return escHtml(codes.join(separator === '/' ? '/' : ', ')).replace(/\//g, '/<wbr>');
+        return codes.map(regionColorWrap).join(joinSep);
     }
 
     // =========================================================================
@@ -959,12 +960,12 @@
             if (origArr.length || destArr.length) {
                 html += '<div class="pb-play-traffic"><strong>Included Traffic:</strong> ';
                 if (origArr.length) {
-                    html += origArr.map(regionColorWrap).join('/') + ' departures';
+                    html += origArr.map(regionColorWrap).join('/<wbr>') + ' departures';
                 }
                 if (origArr.length && destArr.length) html += ' to ';
                 if (destArr.length) {
                     if (!origArr.length) html += 'Arrivals to ';
-                    html += destArr.map(regionColorWrap).join('/');
+                    html += destArr.map(regionColorWrap).join('/<wbr>');
                 }
                 html += '</div>';
             }

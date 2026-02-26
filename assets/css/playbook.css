@@ -389,6 +389,10 @@
     color: #888;
     font-family: 'Inconsolata', monospace;
     margin-bottom: 0.3rem;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    padding-left: 1.2em;
+    text-indent: -1.2em;
 }
 
 .pb-inline-edit-btn {
@@ -421,6 +425,10 @@
     color: #6aa;
     font-family: 'Inconsolata', monospace;
     margin-bottom: 0.3rem;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    padding-left: 1.2em;
+    text-indent: -1.2em;
 }
 
 /* Traversed facilities collapsible section */
