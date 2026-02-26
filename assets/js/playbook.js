@@ -37,7 +37,6 @@
     var activePlayId = null;
     var activePlayData = null;
     var selectedRouteIds = new Set();
-    var routeConfig = new Map(); // route_id → { color: null, mandatory: false }
     var regionColorEnabled = false;
 
     // =========================================================================
@@ -63,6 +62,43 @@
 
     function normalizePlayName(name) {
         return (name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    /**
+     * Build a PB directive string from the current play and selection state.
+     * Format: PB.{PLAYNAME} or PB.{PLAYNAME}.{ORIG} or PB.{PLAYNAME}..{DEST}
+     * or PB.{PLAYNAME}.{ORIG}.{DEST}
+     */
+    function buildCurrentPBDirective() {
+        if (!activePlayData) return '';
+        var norm = activePlayData.play_name_norm || normalizePlayName(activePlayData.play_name);
+
+        // Check if smart selection dropdowns have filter values
+        var origDD = $('#pb_select_origin').val() || '';
+        var destDD = $('#pb_select_dest').val() || '';
+
+        // Extract the facility code from dropdown value (format: "artcc:ZNY")
+        var origCode = origDD ? origDD.split(':').pop() : '';
+        var destCode = destDD ? destDD.split(':').pop() : '';
+
+        if (!origCode && !destCode) return 'PB.' + norm;
+        if (origCode && !destCode) return 'PB.' + norm + '.' + origCode;
+        if (!origCode && destCode) return 'PB.' + norm + '..' + destCode;
+        return 'PB.' + norm + '.' + origCode + '.' + destCode;
+    }
+
+    /**
+     * Determine whether the current selection can be represented as a PB directive.
+     * Returns true if all routes are selected, or a smart selection dropdown is active.
+     * Returns false for manual cherry-picks (arbitrary subsets).
+     */
+    function canUsePBDirective(selected, allRoutes) {
+        // All routes selected → PB.{NAME} with no filters
+        if (selected.length === allRoutes.length) return true;
+        // Smart selection dropdown is active → PB.{NAME}.{FILTERS}
+        if ($('#pb_select_origin').val() || $('#pb_select_dest').val() || $('#pb_select_region').val()) return true;
+        // Manual cherry-pick → can't represent in PB format
+        return false;
     }
 
     function isLegacy(playName) {
@@ -532,7 +568,6 @@
     function loadPlayDetail(playId) {
         activePlayId = playId;
         selectedRouteIds.clear();
-        routeConfig.clear();
 
         // Highlight active row
         $('.pb-play-row').removeClass('active');
@@ -739,13 +774,12 @@
             html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="Route text...">';
             html += '</div>';
 
-            // Route config toolbar (always visible)
+            // Route action toolbar
             html += '<div class="pb-route-toolbar" id="pb_route_toolbar">';
-            html += '<button class="btn btn-xs btn-outline-warning" id="pb_mandatory_toggle" title="Mark selected as mandatory"><i class="fas fa-exclamation-triangle mr-1"></i>Mandatory</button>';
-            html += '<input type="color" id="pb_color_pick" value="#C70039" title="Route color" class="pb-color-input">';
-            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_clear_config" title="Clear config">Clear</button>';
+            html += '<button class="btn btn-xs btn-outline-primary" id="pb_open_route_page" title="Open in Route Page"><i class="fas fa-route mr-1"></i>' + t('playbook.openRoutePage') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-info" id="pb_activate_reroute" title="Use in TMI Publish"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.useInTMI') + '</button>';
             html += '<span class="pb-toolbar-sep">|</span>';
-            html += '<button class="btn btn-xs btn-outline-info" id="pb_open_route_page" title="Open selected in Route page"><i class="fas fa-external-link-alt mr-1"></i>Route Page</button>';
+            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_pb_directive" title="Copy PB directive to clipboard"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copyPB') + '</button>';
             html += '</div>';
 
             html += '<div class="pb-route-table-wrap">';
@@ -780,12 +814,7 @@
                     if (cls.artccs.length && destArtcc === '-') destArtcc = cls.artccs.join(',');
                 }
 
-                var cfg = routeConfig.get(r.route_id);
-                var rowStyle = '';
-                if (cfg && cfg.color) rowStyle = ' style="border-left:3px solid ' + cfg.color + ';"';
-                if (cfg && cfg.mandatory) rowStyle = ' style="border-left:3px solid #e2a300;"';
-
-                html += '<tr data-route-id="' + r.route_id + '"' + rowStyle + '>';
+                html += '<tr data-route-id="' + r.route_id + '">';
                 html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"' + (selectedRouteIds.has(r.route_id) ? ' checked' : '') + '></td>';
                 html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
                 html += '<td>' + renderFacilityCodes(origTracon, ',') + '</td>';
@@ -820,7 +849,6 @@
         activePlayId = null;
         activePlayData = null;
         selectedRouteIds.clear();
-        routeConfig.clear();
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_detail_content').html(
@@ -911,52 +939,54 @@
     }
 
     function plotOnMap() {
-        var routes = getSelectedRoutes();
-        if (!routes.length) return;
+        if (!activePlayData) return;
+        var allRoutes = activePlayData.routes || [];
+        var selected = getSelectedRoutes();
+        if (!selected.length) { return; }
 
-        var lines = routes.map(function(r) {
-            var parts = [];
-            if (r.origin) parts.push(r.origin);
-            parts.push(r.route_string);
-            if (r.dest) parts.push(r.dest);
-            var line = parts.join(' ');
-
-            // Apply route config (mandatory markers + color)
-            var cfg = routeConfig.get(r.route_id);
-            if (cfg) {
-                if (cfg.mandatory) line = '>' + line + '<';
-                if (cfg.color) line += ' ; ' + cfg.color;
-            }
-            return line;
-        });
+        var usePB = canUsePBDirective(selected, allRoutes);
+        var text;
+        if (usePB) {
+            text = buildCurrentPBDirective();
+        } else {
+            text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                return parts.join(' ');
+            }).join('\n');
+        }
 
         var textarea = document.getElementById('routeSearch');
         var plotBtn = document.getElementById('plot_r');
         if (textarea && plotBtn) {
-            textarea.value = lines.join('\n');
+            textarea.value = text;
             plotBtn.click();
         }
     }
 
     function openInRoutePage() {
-        var routes = getSelectedRoutes();
-        if (!routes.length) return;
+        if (!activePlayData) return;
+        var allRoutes = activePlayData.routes || [];
+        var selected = getSelectedRoutes();
+        if (!selected.length) return;
 
-        var lines = routes.map(function(r) {
-            var parts = [];
-            if (r.origin) parts.push(r.origin);
-            parts.push(r.route_string);
-            if (r.dest) parts.push(r.dest);
-            var line = parts.join(' ');
-            var cfg = routeConfig.get(r.route_id);
-            if (cfg) {
-                if (cfg.mandatory) line = '>' + line + '<';
-                if (cfg.color) line += ' ; ' + cfg.color;
-            }
-            return line;
-        });
+        var usePB = canUsePBDirective(selected, allRoutes);
+        var text;
+        if (usePB) {
+            text = buildCurrentPBDirective();
+        } else {
+            text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                return parts.join(' ');
+            }).join('\n');
+        }
 
-        var encoded = btoa(lines.join('\n'));
+        var encoded = btoa(text);
         window.open('route?routes_b64=' + encodeURIComponent(encoded), '_blank');
     }
 
@@ -1004,7 +1034,6 @@
                 },
                 facilities: csvSplit(play.facilities_involved),
                 routes: routes.map(function(r) {
-                    var cfg = routeConfig.get(r.route_id) || {};
                     return {
                         origin: r.origin || '',
                         originFilter: r.origin_filter || '',
@@ -1014,13 +1043,11 @@
                         destFilter: r.dest_filter || '',
                         destAirports: csvSplit(r.dest_airports),
                         destArtccs: csvSplit(r.dest_artccs),
-                        route: r.route_string,
-                        mandatory: cfg.mandatory || false,
-                        color: cfg.color || null
+                        route: r.route_string
                     };
                 }),
-                rawInput: 'PB.' + play.play_name,
-                procedures: ['PB: ' + play.play_name],
+                rawInput: buildCurrentPBDirective(),
+                procedures: ['PB: ' + buildCurrentPBDirective()],
                 geojson: features
             };
 
@@ -1541,34 +1568,16 @@
             }
         });
 
-        // Route config toolbar
-        $(document).on('click', '#pb_mandatory_toggle', function() {
-            selectedRouteIds.forEach(function(rid) {
-                var cfg = routeConfig.get(rid) || { color: null, mandatory: false };
-                cfg.mandatory = !cfg.mandatory;
-                routeConfig.set(rid, cfg);
-            });
-            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
-            plotOnMap();
-        });
-        $(document).on('change', '#pb_color_pick', function() {
-            var color = $(this).val();
-            selectedRouteIds.forEach(function(rid) {
-                var cfg = routeConfig.get(rid) || { color: null, mandatory: false };
-                cfg.color = color;
-                routeConfig.set(rid, cfg);
-            });
-            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
-            plotOnMap();
-        });
-        $(document).on('click', '#pb_clear_config', function() {
-            selectedRouteIds.forEach(function(rid) {
-                routeConfig.delete(rid);
-            });
-            if (activePlayData) renderDetailPanel(activePlayData, activePlayData.routes);
-            plotOnMap();
-        });
+        // Route action toolbar
         $(document).on('click', '#pb_open_route_page', openInRoutePage);
+        $(document).on('click', '#pb_activate_reroute', activateAsReroute);
+        $(document).on('click', '#pb_copy_pb_directive', function() {
+            var directive = buildCurrentPBDirective();
+            if (!directive) return;
+            navigator.clipboard.writeText(directive).then(function() {
+                PERTIDialog.toast('common.copied', 'success');
+            });
+        });
 
         // Region color toggle
         $(document).on('change', '#pb_region_color_toggle', function() {
