@@ -533,6 +533,7 @@
     "noProgramToSubmit": "No program data to submit",
     "selectFacility": "Select at least one facility for coordination",
     "noProgramToPublish": "No program data to publish",
+    "privilegeRequired": "DCC/CANOC/ECFMP privilege required for direct publish",
     "publishDirectConfirm": "Publish this {type} directly to Discord?",
     "publishedSuccessfully": "{type} published successfully",
     "programCancelled": "Program cancelled",

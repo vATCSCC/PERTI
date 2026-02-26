@@ -48,7 +48,7 @@ if (isset($_SESSION['VATSIM_CID'])) {
     $userCid = session_get('VATSIM_CID', '');
     $userName = session_get('VATSIM_FIRST_NAME', '') . ' ' . session_get('VATSIM_LAST_NAME', '');
 
-    // Check for privileged role
+    // Check for privileged role (users table role OR admin_users membership)
     $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$userCid'");
     if ($p_check) {
         $row = $p_check->fetch_assoc();
@@ -58,6 +58,14 @@ if (isset($_SESSION['VATSIM_CID'])) {
             if (in_array($row['role'], $privilegedRoles)) {
                 $userPrivileged = true;
             }
+        }
+    }
+    // Also grant privilege if user is in admin_users table
+    if (!$userPrivileged) {
+        $a_check = $conn_sqli->query("SELECT 1 FROM admin_users WHERE cid='$userCid' LIMIT 1");
+        if ($a_check && $a_check->num_rows > 0) {
+            $userPrivileged = true;
+            if (!$userRole) { $userRole = 'Admin'; }
         }
     }
 } elseif (defined('DEV')) {
@@ -1049,9 +1057,11 @@ $perm = true;
                             <button class="btn btn-warning mr-2" id="gsgdpSubmitCoord">
                                 <i class="fas fa-handshake mr-1"></i> <?= __('tmiPublish.page.submitForCoordination') ?>
                             </button>
+                            <?php if ($userPrivileged): ?>
                             <button class="btn btn-success" id="gsgdpPublishDirect" title="<?= __('tmiPublish.page.dccOverrideTooltip') ?>">
                                 <i class="fas fa-broadcast-tower mr-1"></i> <?= __('tmiPublish.page.publishDirect') ?>
                             </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -1775,6 +1785,7 @@ window.TMI_PUBLISHER_CONFIG = {
 <script src="advisory-templates.js<?= _v('advisory-templates.js') ?>"></script>
 <script src="assets/js/tmi-publish.js<?= _v('assets/js/tmi-publish.js') ?>"></script>
 <script src="assets/js/tmi-active-display.js<?= _v('assets/js/tmi-active-display.js') ?>"></script>
+<script src="assets/js/facility-hierarchy.js<?= _v('assets/js/facility-hierarchy.js') ?>"></script>
 <script src="assets/js/tmi-gdp.js<?= _v('assets/js/tmi-gdp.js') ?>"></script>
 <script>
 // Clear potentially corrupted localStorage data on version upgrade
