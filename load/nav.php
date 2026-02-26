@@ -66,6 +66,7 @@ $nav_config = [
             ['label' => __('nav.gdt'), 'path' => './gdt'],
             ['label' => __('nav.demand'), 'path' => './demand'],
             ['label' => __('nav.splits'), 'path' => './splits'],
+            ['label' => __('nav.navdata'), 'path' => './navdata'],
         ]
     ],
     // Dropdown: Tools

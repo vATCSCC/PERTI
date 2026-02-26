@@ -733,102 +733,142 @@ class NavDataTransformer:
 
 
 class NavDataMerger:
-    """Merges new data with existing data, preserving old entries with _OLD suffix."""
-    
+    """Merges new data with existing data, preserving old entries with _old_{cycle}_{reason} suffix."""
+
     def __init__(self, current_airac: str = None):
         self.current_airac = current_airac or AIRACCycle.get_cycle_id(datetime.now())
         self.changes = {
-            'points': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'navaids': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'airways': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'cdrs': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'dps': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'stars': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0},
-            'playbook': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0}
+            'points': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'navaids': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'airways': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'cdrs': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'dps': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'stars': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0},
+            'playbook': {'added': 0, 'modified': 0, 'preserved': 0, 'renamed': 0, 'removed': 0}
         }
         self.detailed_changes = defaultdict(list)
-    
-    def _get_old_name(self, name: str) -> str:
+
+    def _get_old_name(self, name: str, reason: str) -> str:
         """
-        Generate the _OLD name for an element.
-        If it already has _OLD, add AIRAC cycle: _OLD[AIRAC]
+        Generate versioned _old_ name with AIRAC cycle and reason.
+
+        Format: {base_name}_old_{cycle}_{reason}
+        Reasons: moved, changed, removed, superseded
         """
-        if '_OLD' in name:
-            # Already has _OLD, check if it has a cycle number
-            match = re.match(r'^(.+)_OLD(\d*)$', name)
-            if match:
-                base_name = match.group(1)
-                # Add current AIRAC cycle
-                return f"{base_name}_OLD{self.current_airac}"
-        # No _OLD suffix, add it
-        return f"{name}_OLD"
+        # Strip any existing _old_ suffix to get base name
+        match = re.match(r'^(.+?)_old_.*$', name, re.IGNORECASE)
+        if match:
+            base_name = match.group(1)
+        elif '_OLD' in name:
+            # Legacy format: NAME_OLD or NAME_OLD2602
+            match = re.match(r'^(.+?)_OLD\d*$', name)
+            base_name = match.group(1) if match else name
+        else:
+            base_name = name
+        return f"{base_name}_old_{self.current_airac}_{reason}"
+
+    def _is_old_entry(self, name: str) -> bool:
+        """Check if a name already has an _old_ or _OLD suffix."""
+        return bool(re.search(r'_old_', name, re.IGNORECASE))
     
-    def merge_points(self, existing: List[Tuple], new: List[Tuple], 
+    def merge_points(self, existing: List[Tuple], new: List[Tuple],
                     data_type: str = 'points') -> List[Tuple]:
         """
-        Merge point lists with _OLD suffix for modified entries.
-        - Add unique new points
-        - Keep old points
-        - If a point is updated (coordinates changed), rename old to _OLD
+        Merge point lists with _old_{cycle}_{reason} suffix.
+        - New points: add directly
+        - Moved points (coords changed): rename old to _old_{cycle}_moved
+        - Removed points (not in new data): rename to _old_{cycle}_removed
+        - Already _old_ entries: preserve as-is
         """
         existing_dict = {pt[0]: (pt[1], pt[2]) for pt in existing}
         result = []
         processed_ids = set()
-        
+
         # First pass: process new points
         for pt_id, lat, lon in new:
             if pt_id in existing_dict:
                 old_lat, old_lon = existing_dict[pt_id]
-                # Check for coordinate changes (threshold: 0.0001 degrees ≈ 11m)
+                # Check for coordinate changes (threshold: 0.0001 degrees ~ 11m)
                 if abs(old_lat - lat) > 0.0001 or abs(old_lon - lon) > 0.0001:
-                    # Rename old entry to _OLD
-                    old_name = self._get_old_name(pt_id)
+                    old_name = self._get_old_name(pt_id, 'moved')
                     result.append((old_name, old_lat, old_lon))
                     result.append((pt_id, lat, lon))
                     self.changes[data_type]['modified'] += 1
                     self.changes[data_type]['renamed'] += 1
-                    self.detailed_changes[data_type].append(
-                        f"Modified {pt_id}: ({old_lat:.6f},{old_lon:.6f}) -> ({lat:.6f},{lon:.6f}), old renamed to {old_name}"
-                    )
+                    self.detailed_changes[data_type].append({
+                        'action': 'moved',
+                        'name': pt_id,
+                        'old_name': old_name,
+                        'old_value': (old_lat, old_lon),
+                        'new_value': (lat, lon),
+                        'detail': f"({old_lat:.6f},{old_lon:.6f}) -> ({lat:.6f},{lon:.6f})"
+                    })
                 else:
-                    # Keep existing (no change)
                     result.append((pt_id, old_lat, old_lon))
                     self.changes[data_type]['preserved'] += 1
                 processed_ids.add(pt_id)
             else:
-                # New point
                 result.append((pt_id, lat, lon))
                 self.changes[data_type]['added'] += 1
-                self.detailed_changes[data_type].append(f"Added {pt_id}: ({lat:.6f},{lon:.6f})")
+                self.detailed_changes[data_type].append({
+                    'action': 'added',
+                    'name': pt_id,
+                    'new_value': (lat, lon),
+                    'detail': f"({lat:.6f},{lon:.6f})"
+                })
                 processed_ids.add(pt_id)
-        
-        # Second pass: keep existing points not in new data
+
+        # Second pass: tag removed points, preserve existing _old_ entries
         for pt_id, (lat, lon) in existing_dict.items():
             if pt_id not in processed_ids:
-                result.append((pt_id, lat, lon))
-                self.changes[data_type]['preserved'] += 1
-        
+                if self._is_old_entry(pt_id):
+                    # Already an _old_ entry — preserve as-is
+                    result.append((pt_id, lat, lon))
+                    self.changes[data_type]['preserved'] += 1
+                else:
+                    # Point removed from NASR source — tag it
+                    old_name = self._get_old_name(pt_id, 'removed')
+                    result.append((old_name, lat, lon))
+                    self.changes[data_type]['removed'] += 1
+                    self.changes[data_type]['renamed'] += 1
+                    self.detailed_changes[data_type].append({
+                        'action': 'removed',
+                        'name': pt_id,
+                        'old_name': old_name,
+                        'old_value': (lat, lon),
+                        'detail': f"No longer in NASR source"
+                    })
+
         return result
     
     def merge_dict_data(self, existing: Dict[str, str], new: Dict[str, str],
                        data_type: str) -> Dict[str, str]:
         """
-        Merge dictionary data (airways, CDRs) with _OLD suffix for modified entries.
+        Merge dictionary data (airways, CDRs) with _old_{cycle}_{reason} suffix.
+        - Changed entries: rename old to _old_{cycle}_changed
+        - Removed entries: rename to _old_{cycle}_removed
+        - Already _old_ entries: preserve as-is
         """
         result = {}
         processed_keys = set()
-        
+
         # First pass: process new entries
         for key, value in new.items():
             if key in existing:
                 if existing[key] != value:
-                    # Rename old entry to _OLD
-                    old_name = self._get_old_name(key)
+                    old_name = self._get_old_name(key, 'changed')
                     result[old_name] = existing[key]
                     result[key] = value
                     self.changes[data_type]['modified'] += 1
                     self.changes[data_type]['renamed'] += 1
-                    self.detailed_changes[data_type].append(f"Modified {key}, old renamed to {old_name}")
+                    self.detailed_changes[data_type].append({
+                        'action': 'changed',
+                        'name': key,
+                        'old_name': old_name,
+                        'old_value': existing[key],
+                        'new_value': value,
+                        'detail': f"Content modified"
+                    })
                 else:
                     result[key] = existing[key]
                     self.changes[data_type]['preserved'] += 1
@@ -836,36 +876,88 @@ class NavDataMerger:
             else:
                 result[key] = value
                 self.changes[data_type]['added'] += 1
-                self.detailed_changes[data_type].append(f"Added {key}")
+                self.detailed_changes[data_type].append({
+                    'action': 'added',
+                    'name': key,
+                    'new_value': value,
+                    'detail': f"New entry"
+                })
                 processed_keys.add(key)
-        
-        # Second pass: keep existing entries not in new data
+
+        # Second pass: tag removed entries, preserve existing _old_ entries
         for key, value in existing.items():
             if key not in processed_keys:
-                result[key] = value
-                self.changes[data_type]['preserved'] += 1
-        
+                if self._is_old_entry(key):
+                    result[key] = value
+                    self.changes[data_type]['preserved'] += 1
+                else:
+                    old_name = self._get_old_name(key, 'removed')
+                    result[old_name] = value
+                    self.changes[data_type]['removed'] += 1
+                    self.changes[data_type]['renamed'] += 1
+                    self.detailed_changes[data_type].append({
+                        'action': 'removed',
+                        'name': key,
+                        'old_name': old_name,
+                        'old_value': value,
+                        'detail': f"No longer in NASR source"
+                    })
+
         return result
     
+    def _detect_procedure_reason(self, old_record: Dict, new_record: Dict,
+                                key_fields: List[str], data_type: str) -> str:
+        """Detect whether a procedure change is a supersede (amendment bump) or content change."""
+        code_field = key_fields[0]  # DP_COMPUTER_CODE or STAR_COMPUTER_CODE
+        old_code = old_record.get(code_field, '')
+        new_code = new_record.get(code_field, '')
+
+        # Check if amendment number changed (base name same, number different)
+        # e.g., TEEKY3.TEEKY -> TEEKY4.TEEKY
+        old_base = re.sub(r'\d+', '', old_code)
+        new_base = re.sub(r'\d+', '', new_code)
+        if old_base == new_base and old_code != new_code:
+            return 'superseded'
+        return 'changed'
+
     def merge_list_records(self, existing: List[Dict], new: List[Dict],
                           key_fields: List[str], data_type: str) -> List[Dict]:
-        """Merge list of records by composite key with _OLD suffix for modified."""
+        """
+        Merge list of records (DPs/STARs) by composite key with _old_{cycle}_{reason}.
+        - Modified procedures: create _old_ version of old record + keep new
+        - Removed procedures: rename to _old_{cycle}_removed
+        - Already _old_ entries: preserve as-is
+        """
+        code_field = key_fields[0]  # DP_COMPUTER_CODE or STAR_COMPUTER_CODE
+
         def make_key(record):
             return tuple(record.get(f, '') for f in key_fields)
-        
+
         existing_dict = {make_key(r): r for r in existing}
         result = []
         processed_keys = set()
-        
+
         for record in new:
             key = make_key(record)
             if key in existing_dict:
                 old = existing_dict[key]
                 if record != old:
-                    # Modified - keep old with _OLD suffix in a way that makes sense
-                    # For procedures, we'll just update to new version
+                    reason = self._detect_procedure_reason(old, record, key_fields, data_type)
+                    # Create _old_ version of old record
+                    old_record = dict(old)
+                    old_code = old_record[code_field]
+                    old_record[code_field] = self._get_old_name(old_code, reason)
+                    result.append(old_record)
                     result.append(record)
                     self.changes[data_type]['modified'] += 1
+                    self.changes[data_type]['renamed'] += 1
+                    self.detailed_changes[data_type].append({
+                        'action': reason,
+                        'name': old_code,
+                        'old_name': old_record[code_field],
+                        'new_value': record.get(code_field, ''),
+                        'detail': f"{'Amendment bump' if reason == 'superseded' else 'Content modified'}"
+                    })
                 else:
                     result.append(old)
                     self.changes[data_type]['preserved'] += 1
@@ -873,14 +965,33 @@ class NavDataMerger:
             else:
                 result.append(record)
                 self.changes[data_type]['added'] += 1
+                self.detailed_changes[data_type].append({
+                    'action': 'added',
+                    'name': record.get(code_field, ''),
+                    'detail': f"New procedure"
+                })
                 processed_keys.add(key)
-        
-        # Keep existing records not in new data
+
+        # Second pass: tag removed entries, preserve existing _old_ entries
         for key, record in existing_dict.items():
             if key not in processed_keys:
-                result.append(record)
-                self.changes[data_type]['preserved'] += 1
-        
+                code_val = record.get(code_field, '')
+                if self._is_old_entry(code_val):
+                    result.append(record)
+                    self.changes[data_type]['preserved'] += 1
+                else:
+                    old_record = dict(record)
+                    old_record[code_field] = self._get_old_name(code_val, 'removed')
+                    result.append(old_record)
+                    self.changes[data_type]['removed'] += 1
+                    self.changes[data_type]['renamed'] += 1
+                    self.detailed_changes[data_type].append({
+                        'action': 'removed',
+                        'name': code_val,
+                        'old_name': old_record[code_field],
+                        'detail': f"No longer in NASR source"
+                    })
+
         return result
     
     def remove_duplicates_points(self, points: List[Tuple]) -> List[Tuple]:
@@ -1276,10 +1387,21 @@ class ChangeLogger:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
     
+    def _format_change(self, change) -> str:
+        """Format a change record (dict or legacy string) for text output."""
+        if isinstance(change, dict):
+            action = change.get('action', '?')
+            name = change.get('name', '?')
+            detail = change.get('detail', '')
+            old_name = change.get('old_name', '')
+            suffix = f" -> {old_name}" if old_name else ''
+            return f"[{action}] {name}{suffix}: {detail}"
+        return str(change)
+
     def generate_report(self, merger: NavDataMerger, cycles: List[datetime]) -> Tuple[str, str]:
         """Generate text and JSON change reports."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
+
         # Text report
         text_path = self.log_dir / f"navdata_changes_{timestamp}.txt"
         with open(text_path, 'w') as f:
@@ -1287,33 +1409,188 @@ class ChangeLogger:
             f.write("=" * 60 + "\n\n")
             f.write(f"Generated: {datetime.now().isoformat()}\n")
             f.write(f"AIRAC Cycles: {', '.join(AIRACCycle.get_cycle_id(c) for c in cycles)}\n\n")
-            
+
             for data_type, counts in merger.changes.items():
                 f.write(f"\n{data_type.upper()}:\n")
                 f.write(f"  Added: {counts['added']}\n")
                 f.write(f"  Modified: {counts['modified']}\n")
+                f.write(f"  Removed: {counts.get('removed', 0)}\n")
                 f.write(f"  Preserved: {counts['preserved']}\n")
-                f.write(f"  Renamed to _OLD: {counts['renamed']}\n")
-                
+                f.write(f"  Renamed (_old_): {counts['renamed']}\n")
+
                 if merger.detailed_changes[data_type]:
                     f.write(f"  Details:\n")
-                    for change in merger.detailed_changes[data_type][:50]:  # Limit details
-                        f.write(f"    - {change}\n")
+                    for change in merger.detailed_changes[data_type][:50]:
+                        f.write(f"    - {self._format_change(change)}\n")
                     if len(merger.detailed_changes[data_type]) > 50:
                         f.write(f"    ... and {len(merger.detailed_changes[data_type]) - 50} more\n")
-        
+
         # JSON report
         json_path = self.log_dir / f"navdata_changes_{timestamp}.json"
         report_data = {
             'timestamp': datetime.now().isoformat(),
             'cycles': [AIRACCycle.get_cycle_id(c) for c in cycles],
             'summary': merger.changes,
-            'details': {k: v[:100] for k, v in merger.detailed_changes.items()}
+            'details': {k: v[:200] for k, v in merger.detailed_changes.items()}
         }
         with open(json_path, 'w') as f:
-            json.dump(report_data, f, indent=2)
-        
+            json.dump(report_data, f, indent=2, default=str)
+
         return str(text_path), str(json_path)
+
+    def generate_changelog(self, merger: NavDataMerger, cycles: List[datetime],
+                          final_counts: Dict[str, int]) -> Tuple[str, str]:
+        """
+        Generate structured AIRAC changelog as markdown + JSON.
+
+        Args:
+            merger: NavDataMerger with populated changes and detailed_changes
+            cycles: List of cycle datetimes processed
+            final_counts: Dict of data type -> final record count
+        Returns:
+            (markdown_path, json_path)
+        """
+        cycle_ids = [AIRACCycle.get_cycle_id(c) for c in cycles]
+        from_cycle = cycle_ids[0] if cycle_ids else '????'
+        to_cycle = cycle_ids[-1] if len(cycle_ids) > 1 else from_cycle
+
+        # Build structured changes list for JSON
+        changes_list = []
+        artcc_summary = defaultdict(lambda: defaultdict(int))
+
+        # Singular type names for change entries
+        type_map = {
+            'points': 'fix', 'navaids': 'navaid', 'airways': 'airway',
+            'cdrs': 'cdr', 'dps': 'dp', 'stars': 'star', 'playbook': 'playbook'
+        }
+        # Plural type names for summary keys
+        plural_map = {
+            'points': 'fixes', 'navaids': 'navaids', 'airways': 'airways',
+            'cdrs': 'cdrs', 'dps': 'dps', 'stars': 'stars', 'playbook': 'playbook'
+        }
+
+        for data_type, detail_list in merger.detailed_changes.items():
+            mapped_type = type_map.get(data_type, data_type)
+            for change in detail_list:
+                if not isinstance(change, dict):
+                    continue
+                entry = {
+                    'type': mapped_type,
+                    'name': change.get('name', ''),
+                    'action': change.get('action', ''),
+                    'detail': change.get('detail', ''),
+                }
+                if 'old_name' in change:
+                    entry['old_name'] = change['old_name']
+                if 'new_value' in change:
+                    val = change['new_value']
+                    if isinstance(val, tuple) and len(val) == 2:
+                        entry['lat'] = val[0]
+                        entry['lon'] = val[1]
+                    else:
+                        entry['new_value'] = str(val)[:200]
+                if 'old_value' in change:
+                    val = change['old_value']
+                    if isinstance(val, tuple) and len(val) == 2:
+                        entry['old_lat'] = val[0]
+                        entry['old_lon'] = val[1]
+                    else:
+                        entry['old_value'] = str(val)[:200]
+
+                # Calculate distance for moved fixes
+                if change.get('action') == 'moved' and 'old_value' in change and 'new_value' in change:
+                    ov = change['old_value']
+                    nv = change['new_value']
+                    if isinstance(ov, tuple) and isinstance(nv, tuple):
+                        import math
+                        dlat = math.radians(nv[0] - ov[0])
+                        dlon = math.radians(nv[1] - ov[1])
+                        a = math.sin(dlat/2)**2 + math.cos(math.radians(ov[0])) * math.cos(math.radians(nv[0])) * math.sin(dlon/2)**2
+                        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                        entry['delta_nm'] = round(c * 3440.065, 1)
+
+                changes_list.append(entry)
+
+                # ARTCC attribution (from DP/STAR records if available)
+                # For now, aggregate by action+type
+                artcc_key = f"{mapped_type}s_{change.get('action', 'other')}"
+                artcc_summary['_global'][artcc_key] += 1
+
+        # Summary counts
+        summary = {}
+        for data_type, counts in merger.changes.items():
+            plural = plural_map.get(data_type, data_type)
+            s = {}
+            if counts['added'] > 0:
+                s['added'] = counts['added']
+            if counts['modified'] > 0:
+                s['modified'] = counts['modified']
+            if counts.get('removed', 0) > 0:
+                s['removed'] = counts['removed']
+            if s:
+                summary[plural] = s
+
+        changelog_data = {
+            'meta': {
+                'from_cycle': from_cycle,
+                'to_cycle': to_cycle,
+                'generated_utc': datetime.utcnow().isoformat() + 'Z',
+                'totals': final_counts,
+            },
+            'summary': summary,
+            'changes': changes_list,
+        }
+
+        # Write JSON
+        json_filename = f"AIRAC_CHANGELOG_{from_cycle}_{to_cycle}.json"
+        json_path = self.log_dir / json_filename
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(changelog_data, f, indent=2, default=str)
+        logger.info(f"Wrote changelog JSON: {json_path}")
+
+        # Write Markdown
+        md_filename = f"AIRAC_CHANGELOG_{from_cycle}_{to_cycle}.md"
+        md_path = self.log_dir / md_filename
+        with open(md_path, 'w', encoding='utf-8') as f:
+            f.write(f"# AIRAC Cycle Update: {from_cycle} -> {to_cycle}\n\n")
+            f.write(f"**Generated**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')}\n\n")
+            f.write("## Summary\n\n")
+            f.write("| Data Type | Added | Modified | Removed | Preserved | Total |\n")
+            f.write("|-----------|-------|----------|---------|-----------|-------|\n")
+            for data_type, counts in merger.changes.items():
+                total = final_counts.get(data_type, 0)
+                f.write(f"| {data_type.capitalize()} | {counts['added']} | {counts['modified']} | "
+                       f"{counts.get('removed', 0)} | {counts['preserved']} | {total} |\n")
+
+            # Detail sections by type
+            for data_type in ['points', 'navaids', 'airways', 'cdrs', 'dps', 'stars']:
+                details = merger.detailed_changes.get(data_type, [])
+                if not details:
+                    continue
+                f.write(f"\n## {data_type.capitalize()}\n\n")
+
+                # Group by action
+                by_action = defaultdict(list)
+                for d in details:
+                    if isinstance(d, dict):
+                        by_action[d.get('action', 'other')].append(d)
+
+                for action in ['added', 'moved', 'changed', 'superseded', 'removed']:
+                    items = by_action.get(action, [])
+                    if not items:
+                        continue
+                    f.write(f"### {action.capitalize()} ({len(items)})\n\n")
+                    # Show first 50 items
+                    for item in items[:50]:
+                        name = item.get('name', '?')
+                        detail = item.get('detail', '')
+                        f.write(f"- **{name}**: {detail}\n")
+                    if len(items) > 50:
+                        f.write(f"\n... and {len(items) - 50} more\n")
+                    f.write("\n")
+
+        logger.info(f"Wrote changelog markdown: {md_path}")
+        return str(md_path), str(json_path)
 
 
 class NASRNavDataUpdater:
@@ -1501,22 +1778,33 @@ class NASRNavDataUpdater:
         
         # Generate change report
         logger.info("\nGenerating change report...")
+        parsed_cycles = [d['cycle'] for d in all_parsed_data]
         text_report, json_report = self.change_logger.generate_report(
-            self.merger, [d['cycle'] for d in all_parsed_data]
+            self.merger, parsed_cycles
         )
-        
+
+        # Generate structured AIRAC changelog (markdown + JSON for web page)
+        final_counts = {
+            'points': len(final_points),
+            'navaids': len(final_navaids),
+            'airways': len(final_airways),
+            'cdrs': len(final_cdrs),
+            'dps': len(final_dps),
+            'stars': len(final_stars),
+        }
+        md_changelog, json_changelog = self.change_logger.generate_changelog(
+            self.merger, parsed_cycles, final_counts
+        )
+
         # Summary
         logger.info("\n" + "=" * 60)
         logger.info("UPDATE COMPLETE")
         logger.info("=" * 60)
-        logger.info(f"Points: {len(final_points)}")
-        logger.info(f"Navaids: {len(final_navaids)}")
-        logger.info(f"Airways: {len(final_airways)}")
-        logger.info(f"CDRs: {len(final_cdrs)}")
-        logger.info(f"DP Routes: {len(final_dps)}")
-        logger.info(f"STAR Routes: {len(final_stars)}")
+        for dtype, count in final_counts.items():
+            logger.info(f"{dtype.capitalize()}: {count}")
         logger.info(f"\nChange report: {text_report}")
-        
+        logger.info(f"AIRAC changelog: {md_changelog}")
+
         return True
 
 

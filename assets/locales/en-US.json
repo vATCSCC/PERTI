@@ -5647,6 +5647,7 @@
     "gdt": "GDT",
     "demand": "Demand",
     "splits": "Splits",
+    "navdata": "NavData",
     "tools": "Tools",
     "jatoc": "JATOC",
     "eventAar": "Event AAR",
@@ -7056,6 +7057,50 @@
     "searchHelp": {
       "title": "Search Syntax",
       "body": "<table class='table table-sm table-bordered mb-0' style='font-size:0.8rem;'><thead><tr><th>Syntax</th><th>Example</th><th>Meaning</th></tr></thead><tbody><tr><td><code>orig:</code></td><td><code>orig:ZNY</code></td><td>Origin ARTCC/airport</td></tr><tr><td><code>dest:</code></td><td><code>dest:KATL</code></td><td>Destination ARTCC/airport</td></tr><tr><td><code>thru:</code></td><td><code>thru:ZOB</code></td><td>Traverses ARTCC</td></tr><tr><td><code>-</code> (NOT)</td><td><code>-thru:ZKC</code></td><td>Excludes routes traversing ZKC</td></tr><tr><td>space (AND)</td><td><code>orig:ZNY dest:ZTL</code></td><td>Both conditions must match</td></tr><tr><td><code>,</code> (OR)</td><td><code>orig:ZNY,ZDC</code></td><td>Either origin matches</td></tr><tr><td>text</td><td><code>BUM</code></td><td>Name or route contains text</td></tr></tbody></table>"
+    }
+  },
+  "navdata": {
+    "page": {
+      "title": "NavData AIRAC Changelog"
+    },
+    "cycle": "Cycle",
+    "search": {
+      "placeholder": "Search fixes, airways, procedures..."
+    },
+    "action": {
+      "added": "Added",
+      "moved": "Moved",
+      "changed": "Changed",
+      "superseded": "Superseded",
+      "removed": "Removed"
+    },
+    "type": {
+      "fixes": "Fixes",
+      "navaids": "Navaids",
+      "airways": "Airways",
+      "cdrs": "CDRs",
+      "dps": "DPs",
+      "stars": "STARs",
+      "playbook": "Playbook"
+    },
+    "col": {
+      "name": "Name",
+      "type": "Type",
+      "action": "Action",
+      "detail": "Detail"
+    },
+    "noChanges": "No changes",
+    "total": "total",
+    "results": "results",
+    "filtered": "filtered",
+    "remaining": "remaining",
+    "loadMore": "Load more",
+    "empty": {
+      "noCycles": "No AIRAC changelogs available.",
+      "noData": "No changelog data found.",
+      "loadFailed": "Failed to load changelog data.",
+      "noResults": "No results match your search.",
+      "noChanges": "No changes in this category."
     }
   }
 }
