@@ -40,7 +40,7 @@ REF_DATABASE = "VATSIM_REF"
 ADL_DATABASE = "VATSIM_ADL"
 
 # API user for data operations
-API_USER = "adl_api_user"
+API_USER = os.environ.get("ADL_SQL_USER", "adl_api_user")
 API_PASS = os.environ.get("ADL_SQL_PASSWORD", "")
 
 # Paths relative to script location
@@ -114,10 +114,13 @@ def import_nav_fixes(conn, dry_run: bool = False) -> Tuple[int, int]:
             if not line:
                 continue
             parts = line.split(',')
+            name = parts[0].strip()
+            if '_old_' in name.lower():
+                continue
             if len(parts) >= 3:
                 try:
                     fixes.append({
-                        'fix_name': parts[0].strip()[:16],
+                        'fix_name': name[:16],
                         'fix_type': 'WAYPOINT',
                         'lat': float(parts[1]),
                         'lon': float(parts[2]),
@@ -135,10 +138,13 @@ def import_nav_fixes(conn, dry_run: bool = False) -> Tuple[int, int]:
             if not line:
                 continue
             parts = line.split(',')
+            name = parts[0].strip()
+            if '_old_' in name.lower():
+                continue
             if len(parts) >= 3:
                 try:
                     fixes.append({
-                        'fix_name': parts[0].strip()[:16],
+                        'fix_name': name[:16],
                         'fix_type': 'NAVAID',
                         'lat': float(parts[1]),
                         'lon': float(parts[2]),
@@ -160,8 +166,7 @@ def import_nav_fixes(conn, dry_run: bool = False) -> Tuple[int, int]:
 
     # Truncate and insert
     print("  Truncating table...")
-    cursor.execute("DELETE FROM dbo.nav_fixes")
-    cursor.execute("DBCC CHECKIDENT ('dbo.nav_fixes', RESEED, 0)")
+    cursor.execute("TRUNCATE TABLE dbo.nav_fixes")
     conn.commit()
 
     # Insert in batches
@@ -232,6 +237,8 @@ def import_airways(conn, dry_run: bool = False) -> Tuple[int, int]:
             parts = line.split(',', 1)
             if len(parts) >= 2:
                 airway_name = parts[0].strip()[:8]
+                if '_old_' in airway_name.lower():
+                    continue
                 fix_sequence = parts[1].strip()
                 fixes = fix_sequence.split()
 
@@ -267,7 +274,7 @@ def import_airways(conn, dry_run: bool = False) -> Tuple[int, int]:
 
     # Must clear segments first (FK constraint)
     print("  Clearing airway_segments...")
-    cursor.execute("DELETE FROM dbo.airway_segments")
+    cursor.execute("TRUNCATE TABLE dbo.airway_segments")
 
     print("  Truncating airways...")
     cursor.execute("DELETE FROM dbo.airways")
@@ -339,6 +346,8 @@ def import_cdrs(conn, dry_run: bool = False) -> Tuple[int, int]:
             parts = line.split(',', 1)
             if len(parts) >= 2:
                 cdr_code = parts[0].strip()[:16]
+                if '_old_' in cdr_code.lower():
+                    continue
                 full_route = parts[1].strip()
 
                 # Try to extract origin/dest from route
@@ -366,8 +375,7 @@ def import_cdrs(conn, dry_run: bool = False) -> Tuple[int, int]:
 
     # Truncate and insert
     print("  Truncating table...")
-    cursor.execute("DELETE FROM dbo.coded_departure_routes")
-    cursor.execute("DBCC CHECKIDENT ('dbo.coded_departure_routes', RESEED, 0)")
+    cursor.execute("TRUNCATE TABLE dbo.coded_departure_routes")
     conn.commit()
 
     insert_sql = """
@@ -441,6 +449,8 @@ def import_procedures(conn, dry_run: bool = False) -> Tuple[int, int]:
             computer_code = row.get('DP_COMPUTER_CODE', '').strip()
             if not computer_code:
                 continue
+            if '_old_' in computer_code.lower():
+                continue
 
             # Extract airport from ORIG_GROUP (e.g., "MKE/01L|01R" -> "KMKE")
             orig_group = row.get('ORIG_GROUP', '').strip()
@@ -477,6 +487,8 @@ def import_procedures(conn, dry_run: bool = False) -> Tuple[int, int]:
         for row in reader:
             computer_code = row.get('STAR_COMPUTER_CODE', '').strip()
             if not computer_code:
+                continue
+            if '_old_' in computer_code.lower():
                 continue
 
             # Extract airport from DEST_GROUP
@@ -516,8 +528,7 @@ def import_procedures(conn, dry_run: bool = False) -> Tuple[int, int]:
 
     # Truncate and insert
     print("  Truncating table...")
-    cursor.execute("DELETE FROM dbo.nav_procedures")
-    cursor.execute("DBCC CHECKIDENT ('dbo.nav_procedures', RESEED, 0)")
+    cursor.execute("TRUNCATE TABLE dbo.nav_procedures")
     conn.commit()
 
     insert_sql = """
@@ -527,14 +538,14 @@ def import_procedures(conn, dry_run: bool = False) -> Tuple[int, int]:
         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'NASR', GETUTCDATE())
     """
 
-    batch_size = 5000
+    batch_size = 2000
     inserted = 0
     errors = 0
 
     for i in range(0, len(procedures), batch_size):
         batch = procedures[i:i+batch_size]
         batch_data = [
-            (p['procedure_type'], p['airport_icao'], p['procedure_name'],
+            (p['procedure_type'], p['airport_icao'] or 'ZZZZ', p['procedure_name'],
              p['computer_code'], p['transition_name'], p['full_route'], p['runways'])
             for p in batch
         ]
@@ -545,9 +556,18 @@ def import_procedures(conn, dry_run: bool = False) -> Tuple[int, int]:
             inserted += len(batch)
         except Exception as e:
             conn.rollback()
-            errors += len(batch)
-            if errors <= 5:
-                print(f"\n  ERROR: {e}")
+            # Retry with smaller batches
+            for row in batch_data:
+                try:
+                    cursor.execute(insert_sql, row)
+                    conn.commit()
+                    inserted += 1
+                except Exception as e2:
+                    conn.rollback()
+                    errors += 1
+                    if errors <= 10:
+                        print(f"\n  ERROR row {i}: {e2}")
+                        print(f"    Data: {row[:4]}")
 
         pct = (inserted / len(procedures)) * 100
         print(f"\r  Progress: {inserted:,}/{len(procedures):,} ({pct:.0f}%)", end="", flush=True)
@@ -622,8 +642,7 @@ def import_playbook(conn, dry_run: bool = False) -> Tuple[int, int]:
 
     # Truncate and insert
     print("  Truncating table...")
-    cursor.execute("DELETE FROM dbo.playbook_routes")
-    cursor.execute("DBCC CHECKIDENT ('dbo.playbook_routes', RESEED, 0)")
+    cursor.execute("TRUNCATE TABLE dbo.playbook_routes")
     conn.commit()
 
     insert_sql = """
@@ -749,8 +768,12 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
 
     results = {}
 
+    # Tables with FK references that prevent TRUNCATE — must use DELETE
+    fk_tables = {'airways', 'nav_procedures'}
+
     for table_name, (columns, has_identity, clear_first) in table_defs.items():
         print(f"\n  Syncing {table_name}...")
+        identity_on = False
 
         try:
             # Clear dependent table first if needed
@@ -759,13 +782,17 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
                 conn_adl.commit()
                 print(f"    Cleared {clear_first}")
 
-            # Truncate target
-            cursor_adl.execute(f"TRUNCATE TABLE dbo.{table_name}")
+            # Clear target — DELETE for FK-constrained tables, TRUNCATE otherwise
+            if table_name in fk_tables:
+                cursor_adl.execute(f"DELETE FROM dbo.{table_name}")
+            else:
+                cursor_adl.execute(f"TRUNCATE TABLE dbo.{table_name}")
             conn_adl.commit()
 
             # Enable identity insert
             if has_identity:
                 cursor_adl.execute(f"SET IDENTITY_INSERT dbo.{table_name} ON")
+                identity_on = True
 
             # Read from REF
             col_list = ', '.join(columns)
@@ -775,6 +802,9 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
             if not rows:
                 print(f"    No rows to sync")
                 results[table_name] = 0
+                if identity_on:
+                    cursor_adl.execute(f"SET IDENTITY_INSERT dbo.{table_name} OFF")
+                    identity_on = False
                 continue
 
             # Insert to ADL in batches
@@ -788,15 +818,24 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
                 conn_adl.commit()
 
             # Disable identity insert
-            if has_identity:
+            if identity_on:
                 cursor_adl.execute(f"SET IDENTITY_INSERT dbo.{table_name} OFF")
+                identity_on = False
 
             print(f"    Synced {len(rows):,} rows")
             results[table_name] = len(rows)
 
         except Exception as e:
             print(f"    ERROR: {e}")
+            conn_adl.rollback()
             results[table_name] = 0
+            # Always clean up IDENTITY_INSERT state
+            if identity_on:
+                try:
+                    cursor_adl.execute(f"SET IDENTITY_INSERT dbo.{table_name} OFF")
+                    identity_on = False
+                except:
+                    pass
 
     # Log sync
     cursor_ref.execute("""
@@ -862,8 +901,13 @@ def main():
 
         for table in tables_to_import:
             if table in import_funcs:
-                inserted, errors = import_funcs[table](conn, args.dry_run)
-                results[table] = {'inserted': inserted, 'errors': errors}
+                try:
+                    inserted, errors = import_funcs[table](conn, args.dry_run)
+                    results[table] = {'inserted': inserted, 'errors': errors}
+                except Exception as e:
+                    print(f"\n  FATAL ERROR importing {table}: {e}")
+                    results[table] = {'inserted': 0, 'errors': -1}
+                    conn.rollback()
 
         conn.close()
 
