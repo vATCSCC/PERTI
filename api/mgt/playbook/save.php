@@ -67,24 +67,25 @@ function normalizePlayName($name) {
 }
 
 /**
- * Compute traversed ARTCCs from a route string by looking up fix names
- * in VATSIM_REF.nav_fixes. Returns comma-separated ARTCC codes.
+ * Compute traversed ARTCCs from a route string by looking up fix locations
+ * in PostGIS and finding which ARTCC boundaries contain them.
+ * Returns comma-separated ARTCC codes (FAA format: ZKC, ZDV, etc.).
  */
 function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
-    static $conn_ref_cached = null;
-    static $ref_available = null;
+    static $conn_gis_cached = null;
+    static $gis_available = null;
 
-    // Lazy-init REF connection (only once per request)
-    if ($ref_available === null) {
-        if (function_exists('get_conn_ref')) {
-            $conn_ref_cached = get_conn_ref();
-            $ref_available = ($conn_ref_cached !== null && $conn_ref_cached !== false);
+    // Lazy-init GIS connection (only once per request)
+    if ($gis_available === null) {
+        if (function_exists('get_conn_gis')) {
+            $conn_gis_cached = get_conn_gis();
+            $gis_available = ($conn_gis_cached !== null && $conn_gis_cached !== false);
         } else {
-            $ref_available = false;
+            $gis_available = false;
         }
     }
 
-    if (!$ref_available) return '';
+    if (!$gis_available) return '';
 
     // Extract fix-like tokens: 2-5 uppercase alpha chars
     $tokens = preg_split('/\s+/', strtoupper(trim($route_string)));
@@ -97,21 +98,29 @@ function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
     }
     if (empty($fixNames)) return '';
 
-    // Batch lookup in nav_fixes for artcc_id
-    $placeholders = implode(',', array_fill(0, count($fixNames), '?'));
-    $sql = "SELECT DISTINCT artcc_id FROM dbo.nav_fixes WHERE fix_name IN ($placeholders) AND artcc_id IS NOT NULL AND artcc_id <> ''";
+    // Spatial lookup: find which ARTCC boundary contains each fix
     $params = array_values(array_unique($fixNames));
     $placeholders = implode(',', array_fill(0, count($params), '?'));
-    $sql = "SELECT DISTINCT artcc_id FROM dbo.nav_fixes WHERE fix_name IN ($placeholders) AND artcc_id IS NOT NULL AND artcc_id <> ''";
+    $sql = "SELECT DISTINCT b.artcc_code
+            FROM nav_fixes f
+            JOIN artcc_boundaries b ON ST_Contains(b.geom, f.geom)
+            WHERE f.fix_name IN ($placeholders)";
 
-    $stmt = sqlsrv_query($conn_ref_cached, $sql, $params);
-    if (!$stmt) return '';
-
-    $artccs = [];
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $artccs[] = $row['artcc_id'];
+    try {
+        $stmt = $conn_gis_cached->prepare($sql);
+        $stmt->execute($params);
+        $artccs = [];
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            // Convert ICAO (KZKC) to FAA (ZKC) format
+            $code = $row['artcc_code'];
+            if (strlen($code) === 4 && $code[0] === 'K') {
+                $code = substr($code, 1);
+            }
+            $artccs[] = $code;
+        }
+    } catch (\Exception $e) {
+        $artccs = [];
     }
-    sqlsrv_free_stmt($stmt);
 
     // Merge with origin + dest ARTCCs (they're traversed by definition)
     foreach (explode(',', $origin_artccs) as $a) {
