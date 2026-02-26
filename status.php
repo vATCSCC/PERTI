@@ -4,7 +4,7 @@
  *
  * Live operational status including:
  * - Database metrics (VATSIM_ADL, VATSIM_TMI, VATSIM_GIS, VATSWIM, VATSIM_REF, PERTI)
- * - External API health checks (VATSIM, Aviation Weather, NOAA)
+ * - External API health checks (VATSIM, <?= __('statusPage.aviationWeather') ?>, NOAA)
  * - Recent activity counts (parse/ETA/zone detection/boundary)
  * - Resource tree visualization with all daemons
  * - Stored procedures (Azure SQL + PostGIS functions)
@@ -1255,7 +1255,7 @@ function checkApiHealth($url, $timeout = 5) {
 // VATSIM Data API
 $apiHealth['vatsim'] = checkApiHealth('https://data.vatsim.net/v3/vatsim-data.json', 5);
 
-// Aviation Weather API
+// <?= __('statusPage.aviationWeather') ?> API
 $apiHealth['aviationweather'] = checkApiHealth('https://aviationweather.gov/api/data/airsigmet?format=json', 5);
 
 // NOAA NOMADS (check availability page)
@@ -1291,7 +1291,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "Status"; include("load/header.php"); ?>
+    <?php $page_title = __('statusPage.pageTitle'); include("load/header.php"); ?>
 
     <style>
         :root {
@@ -2336,12 +2336,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="metric-card info">
                 <div class="metric-value"><?= number_format($liveData['queue_pending']) ?></div>
                 <div class="metric-label"><?= __('statusPage.queuePending') ?></div>
-                <div class="metric-sublabel"><?= $liveData['queue_processing'] ?> processing</div>
+                <div class="metric-sublabel"><?= $liveData['queue_processing'] ?> <?= __('statusPage.processing') ?></div>
             </div>
             <div class="metric-card primary">
                 <div class="metric-value"><?= number_format($liveData['queue_complete_1h']) ?></div>
                 <div class="metric-label"><?= __('statusPage.parsed1h') ?></div>
-                <div class="metric-sublabel">Avg <?= $liveData['avg_parse_ms'] ?>ms</div>
+                <div class="metric-sublabel"><?= __('statusPage.avg') ?> <?= $liveData['avg_parse_ms'] ?>ms</div>
             </div>
             <div class="metric-card <?= $liveData['queue_failed_1h'] > 10 ? 'error' : '' ?>">
                 <div class="metric-value"><?= number_format($liveData['queue_failed_1h']) ?></div>
@@ -2395,7 +2395,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <div class="pipeline-stage-icon"><i class="fas fa-cogs"></i></div>
                     <div class="pipeline-stage-name"><?= __('statusPage.parseQueue') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['queue_pending']) ?></div>
-                    <div class="pipeline-stage-label"><?= $liveData['queue_processing'] ?> processing &bull; <?= $liveData['avg_parse_ms'] ?>ms avg</div>
+                    <div class="pipeline-stage-label"><?= $liveData['queue_processing'] ?> <?= __('statusPage.processing') ?> &bull; <?= $liveData['avg_parse_ms'] ?>ms <?= __('statusPage.avg') ?></div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage active">
@@ -2409,7 +2409,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <div class="pipeline-stage-icon"><i class="fas fa-route"></i></div>
                     <div class="pipeline-stage-name"><?= __('statusPage.trajectories') ?></div>
                     <div class="pipeline-stage-count"><?= number_format($liveData['trajectories_total']) ?></div>
-                    <div class="pipeline-stage-label"><?= number_format($liveData['trajectories_1h']) ?> this hour</div>
+                    <div class="pipeline-stage-label"><?= number_format($liveData['trajectories_1h']) ?> <?= __('statusPage.thisHour') ?></div>
                 </div>
                 <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
                 <div class="pipeline-stage <?= $liveData['zone_transitions_1h'] > 0 || $liveData['boundary_crossings_1h'] > 0 ? 'active' : '' ?>">
@@ -2427,7 +2427,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="chart-container">
                     <div class="chart-header">
                         <span class="chart-title"><i class="fas fa-plane mr-1"></i> <?= __('statusPage.flightActivity24h') ?></span>
-                        <span class="runtime-badge"><?= number_format($liveData['active_flights']) ?> active</span>
+                        <span class="runtime-badge"><?= number_format($liveData['active_flights']) ?> <?= __('statusPage.active') ?></span>
                         <label class="ml-3" style="font-size: 11px; cursor: pointer;">
                             <input type="checkbox" id="phaseChartLogScale" style="margin-right: 4px;"> <?= __('statusPage.logScale') ?>
                         </label>
@@ -2444,7 +2444,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <table class="table table-sm table-bordered mt-2" style="font-size: 10px;">
                                 <thead class="thead-light">
                                     <tr>
-                                        <th>Phase</th>
+                                        <th><?= __('statusPage.phase') ?></th>
                                         <th><?= __('statusPage.min') ?></th>
                                         <th><?= __('statusPage.max') ?></th>
                                         <th><?= __('statusPage.avg') ?></th>
@@ -2452,7 +2452,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </tr>
                                 </thead>
                                 <tbody id="phaseSummaryBody">
-                                    <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+                                    <tr><td colspan="5" class="text-center text-muted"><?= __('common.loading') ?></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2508,10 +2508,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </div>
                         <div class="d-flex justify-content-end mt-1" style="font-size: 0.55rem; color: #888;">
                             <span style="display: inline-block; width: 10px; height: 10px; background: #f0f0f0; margin-right: 2px;"></span>0
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span>Low (1-<?= $thresh50 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span>Med (<?= $thresh50+1 ?>-<?= $thresh75 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span>High (<?= $thresh75+1 ?>-<?= $thresh90 ?>)
-                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span>Peak (<?= $thresh90+1 ?>+)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #c6f6d5; margin: 0 2px 0 6px;"></span><?= __('statusPage.low') ?> (1-<?= $thresh50 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #68d391; margin: 0 2px 0 6px;"></span><?= __('statusPage.med') ?> (<?= $thresh50+1 ?>-<?= $thresh75 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #f6ad55; margin: 0 2px 0 6px;"></span><?= __('statusPage.high') ?> (<?= $thresh75+1 ?>-<?= $thresh90 ?>)
+                            <span style="display: inline-block; width: 10px; height: 10px; background: #fc8181; margin: 0 2px 0 6px;"></span><?= __('statusPage.peak') ?> (<?= $thresh90+1 ?>+)
                         </div>
                     </div>
                 </div>
@@ -2535,7 +2535,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <div class="chart-container">
                     <div class="chart-header">
                         <span class="chart-title"><i class="fas fa-clock mr-1"></i> <?= __('statusPage.apiLatency') ?></span>
-                        <span class="runtime-badge">Live</span>
+                        <span class="runtime-badge"><?= __('statusPage.live') ?></span>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="latencyChart" class="chart-canvas"></canvas>
@@ -2611,7 +2611,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <tr>
                                 <td>
                                     <div class="component-name">MySQL (PERTI)</div>
-                                    <div class="component-desc">Application database</div>
+                                    <div class="component-desc"><?= __('statusPage.applicationDatabase') ?></div>
                                 </td>
                                 <td>
                                     <?php if ($liveData['mysql_connected']): ?>
@@ -2631,10 +2631,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <?php if ($liveData['tmi_connected']): ?>
                                         <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge warning">Offline</span>
+                                        <span class="status-badge warning"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="timing-info"><?= $liveData['tmi_active_programs'] ?> programs</td>
+                                <td class="timing-info"><?= $liveData['tmi_active_programs'] ?> <?= __('statusPage.programs') ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -2645,7 +2645,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <?php if ($liveData['gis_connected']): ?>
                                         <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge warning">Offline</span>
+                                        <span class="status-badge warning"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="timing-info"><?= $liveData['gis_postgis_version'] ? 'v' . explode(' ', $liveData['gis_postgis_version'])[0] : 'N/A' ?></td>
@@ -2659,10 +2659,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <?php if ($liveData['swim_connected']): ?>
                                         <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge warning">Offline</span>
+                                        <span class="status-badge warning"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="timing-info"><?= $liveData['swim_api_keys_active'] ?> keys</td>
+                                <td class="timing-info"><?= $liveData['swim_api_keys_active'] ?> <?= __('statusPage.keys') ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -2673,10 +2673,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <?php if ($liveData['ref_connected']): ?>
                                         <span class="status-badge up"><?= __('statusPage.connected') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge warning">Offline</span>
+                                        <span class="status-badge warning"><?= __('statusPage.offline') ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="timing-info"><?= number_format($liveData['ref_nav_fixes']) ?> fixes</td>
+                                <td class="timing-info"><?= number_format($liveData['ref_nav_fixes']) ?> <?= __('statusPage.fixes') ?></td>
                             </tr>
                         </tbody>
                     </table>
@@ -2713,7 +2713,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </tr>
                             <tr>
                                 <td>
-                                    <div class="component-name">Aviation Weather</div>
+                                    <div class="component-name"><?= __('statusPage.aviationWeather') ?></div>
                                     <div class="component-desc">aviationweather.gov</div>
                                 </td>
                                 <td>
@@ -2728,7 +2728,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <tr>
                                 <td>
                                     <div class="component-name">NOAA NOMADS</div>
-                                    <div class="component-desc">Wind data source</div>
+                                    <div class="component-desc"><?= __('statusPage.windDataSource') ?></div>
                                 </td>
                                 <td>
                                     <span class="status-badge <?= $apiHealth['noaa']['status'] ?>">
@@ -2837,7 +2837,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fas fa-table"></i></span>
-                                        <span class="tree-label">adl_parse_queue (<?= number_format($liveData['queue_pending']) ?> pending)</span>
+                                        <span class="tree-label">adl_parse_queue (<?= number_format($liveData['queue_pending']) ?> <?= __('statusPage.pending') ?>)</span>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fas fa-table"></i></span>
@@ -2969,7 +2969,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div class="tree-node">
                                 <div class="tree-item">
                                     <span class="tree-icon daemon"><i class="fas fa-cogs"></i></span>
-                                    <span class="tree-label">Daemons</span>
+                                    <span class="tree-label"><?= __('statusPage.daemons') ?></span>
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
@@ -3042,7 +3042,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div class="tree-node">
                                 <div class="tree-item">
                                     <span class="tree-icon api"><i class="fas fa-plug"></i></span>
-                                    <span class="tree-label">External APIs</span>
+                                    <span class="tree-label"><?= __('statusPage.externalApis') ?></span>
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
@@ -3052,7 +3052,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fas fa-cloud"></i></span>
-                                        <span class="tree-label">Aviation Weather</span>
+                                        <span class="tree-label"><?= __('statusPage.aviationWeather') ?></span>
                                         <span class="status-badge <?= $apiHealth['aviationweather']['status'] ?> tree-status"><?= strtoupper($apiHealth['aviationweather']['status']) ?></span>
                                     </div>
                                     <div class="tree-item">
@@ -3267,15 +3267,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <div class="procedure-header-stats">
                         <div class="procedure-header-stat">
                             <span class="refresh-pulse"></span>
-                            <span class="label">Last:</span>
+                            <span class="label"><?= __('statusPage.lastLabel') ?></span>
                             <span class="value"><?= $liveData['last_refresh_utc'] ?? 'N/A' ?> UTC</span>
                         </div>
                         <div class="procedure-header-stat">
-                            <span class="label">Active:</span>
+                            <span class="label"><?= __('statusPage.activeLabel') ?></span>
                             <span class="value"><?= number_format($liveData['active_flights']) ?></span>
                         </div>
                         <div class="procedure-header-stat">
-                            <span class="label">Queue:</span>
+                            <span class="label"><?= __('statusPage.queueLabel') ?></span>
                             <span class="value"><?= number_format($liveData['queue_pending']) ?></span>
                         </div>
                     </div>
@@ -3500,7 +3500,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         }
                                         echo $tierParts ? implode(' ', $tierParts) : 'none';
                                     ?>
-                                    <?php if ($liveData['crossings_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['crossings_pending'] ?> pending</span><?php endif; ?>
+                                    <?php if ($liveData['crossings_pending'] > 0): ?><span style="color:#f59e0b;">&bull; <?= $liveData['crossings_pending'] ?> <?= __('statusPage.pending') ?></span><?php endif; ?>
                                 </div>
                             </div>
                             <div class="step-metric">
@@ -3512,8 +3512,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">12</span>
                             <div class="step-content">
-                                <div class="step-name">Log Trajectory Positions <span class="step-category archive">Archive</span></div>
-                                <div class="step-desc">Archive flight positions to trajectory history</div>
+                                <div class="step-name"><?= __('statusPage.sp.logTrajectoryPositions') ?> <span class="step-category archive"><?= __('statusPage.sp.archive') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.logTrajectoryPositionsDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value <?= $liveData['trajectories_1h'] > 0 ? 'high' : 'zero' ?>"><?= number_format($liveData['trajectories_1h']) ?></span>
@@ -3524,8 +3524,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <div class="procedure-step">
                             <span class="step-number">13</span>
                             <div class="step-content">
-                                <div class="step-name">Capture Phase Snapshot <span class="step-category archive">Archive</span></div>
-                                <div class="step-desc">Store flight phase counts for 24hr chart</div>
+                                <div class="step-name"><?= __('statusPage.sp.capturePhaseSnapshot') ?> <span class="step-category archive"><?= __('statusPage.sp.archive') ?></span></div>
+                                <div class="step-desc"><?= __('statusPage.sp.capturePhaseSnapshotDesc') ?></div>
                             </div>
                             <div class="step-metric">
                                 <span class="step-metric-value"><?= number_format($liveData['phase_snapshots_1h'] ?? 0) ?></span>
@@ -3554,9 +3554,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-12">
                 <div class="status-section">
                     <div class="status-section-header collapsible-header" onclick="toggleSection('tierTracking')">
-                        <span><i class="fas fa-layer-group mr-2"></i>Processing Tier Tracking</span>
+                        <span><i class="fas fa-layer-group mr-2"></i><?= __('statusPage.processingTierTracking') ?></span>
                         <span>
-                            <span class="cycle-badge mr-2">Real-time + Daily</span>
+                            <span class="cycle-badge mr-2"><?= __('statusPage.realtimeDaily') ?></span>
                             <i class="fas fa-chevron-down section-toggle" id="tierTracking-toggle"></i>
                         </span>
                     </div>
@@ -3564,7 +3564,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <!-- Route Parsing Section -->
                         <div class="tier-section">
                             <div class="tier-section-header" onclick="toggleTierSection('routeParsing')">
-                                <span class="section-title"><i class="fas fa-route mr-2"></i>Route Parsing</span>
+                                <span class="section-title"><i class="fas fa-route mr-2"></i><?= __('statusPage.routeParsing') ?></span>
                                 <i class="fas fa-chevron-down section-toggle" id="routeParsing-toggle"></i>
                             </div>
                             <div class="tier-section-content" id="routeParsing-content">
@@ -3572,8 +3572,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Current Flights by Parse Tier</span>
-                                            <span class="tier-group-desc">Active flights distribution</span>
+                                            <span class="tier-group-title"><?= __('statusPage.currentFlightsByParseTier') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.activeFlightsDistribution') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format(array_sum($liveData['parse_tiers'] ?? [])) ?></span>
                                     </div>
@@ -3605,8 +3605,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Routes Parsed (24h)</span>
-                                            <span class="tier-group-desc">Completed parses in last 24 hours</span>
+                                            <span class="tier-group-title"><?= __('statusPage.routesParsed24h') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.completedParses24h') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_parsed_total'] ?? 0) ?></span>
                                     </div>
@@ -3631,8 +3631,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Parse Queue (Pending)</span>
-                                            <span class="tier-group-desc">Awaiting processing</span>
+                                            <span class="tier-group-title"><?= __('statusPage.parseQueuePending') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.awaitingProcessing') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format(array_sum($liveData['queue_by_tier'] ?? [])) ?></span>
                                     </div>
@@ -3666,7 +3666,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <!-- Trajectory Logging Section (collapsed by default) -->
                         <div class="tier-section">
                             <div class="tier-section-header collapsed" onclick="toggleTierSection('trajectoryLogging')">
-                                <span class="section-title"><i class="fas fa-map-marker-alt mr-2"></i>Trajectory Logging</span>
+                                <span class="section-title"><i class="fas fa-map-marker-alt mr-2"></i><?= __('statusPage.trajectoryLogging') ?></span>
                                 <i class="fas fa-chevron-down section-toggle" id="trajectoryLogging-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
                             <div class="tier-section-content collapsed" id="trajectoryLogging-content">
@@ -3674,8 +3674,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Current Flights by Logging Tier</span>
-                                            <span class="tier-group-desc">Active flight logging frequency</span>
+                                            <span class="tier-group-title"><?= __('statusPage.currentFlightsByLoggingTier') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.activeFlightLoggingFrequency') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format(array_sum($liveData['trajectory_tiers'] ?? [])) ?></span>
                                     </div>
@@ -3710,8 +3710,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Trajectory Points (24h)</span>
-                                            <span class="tier-group-desc">Positions logged in last 24 hours</span>
+                                            <span class="tier-group-title"><?= __('statusPage.trajectoryPoints24h') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.positionsLogged24h') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['daily_trajectory_total'] ?? 0) ?></span>
                                     </div>
@@ -3738,7 +3738,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <!-- Background Processing Stats Section -->
                         <div class="tier-section">
                             <div class="tier-section-header collapsed" onclick="toggleTierSection('backgroundProcessing')">
-                                <span class="section-title"><i class="fas fa-cogs mr-2"></i>Background Processing Stats</span>
+                                <span class="section-title"><i class="fas fa-cogs mr-2"></i><?= __('statusPage.backgroundProcessingStats') ?></span>
                                 <i class="fas fa-chevron-down section-toggle" id="backgroundProcessing-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
                             <div class="tier-section-content collapsed" id="backgroundProcessing-content">
@@ -3746,27 +3746,27 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Boundary Detection</span>
-                                            <span class="tier-group-desc">ARTCC/TRACON boundary crossing detection</span>
+                                            <span class="tier-group-title"><?= __('statusPage.boundaryDetection') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.artccTraconBoundaryDetection') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['boundary_crossings_24h'] ?? 0) ?> (24h)</span>
                                     </div>
                                     <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_artcc'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">w/ ARTCC</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.withArtcc') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_tracon'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">w/ TRACON</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.withTracon') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['boundary_crossings_1h'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">crossings/hr</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.crossingsPerHr') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['boundary_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['boundary_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['boundary_pending'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.pending') ?></div>
                                         </div>
                                     </div>
                                 </div>
@@ -3774,23 +3774,23 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Planned Crossings</span>
-                                            <span class="tier-group-desc">Route-based FIR/boundary crossing predictions</span>
+                                            <span class="tier-group-title"><?= __('statusPage.plannedCrossings') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.routeBasedCrossingPredictions') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['planned_crossings_24h'] ?? 0) ?> (24h)</span>
                                     </div>
                                     <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_crossings'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">w/ crossings</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.withCrossings') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['planned_crossings_1h'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">calc/hr</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.calcPerHr') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['crossings_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['crossings_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['crossings_pending'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.pending') ?></div>
                                         </div>
                                     </div>
                                     <div class="tier-bars mt-2">
@@ -3823,27 +3823,27 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">ETA Calculation</span>
-                                            <span class="tier-group-desc">Estimated time of arrival calculations</span>
+                                            <span class="tier-group-title"><?= __('statusPage.etaCalculation') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.etaCalcDesc') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['etas_calculated_24h'] ?? 0) ?> (24h)</span>
                                     </div>
                                     <div class="d-flex flex-wrap" style="gap: 8px; padding: 8px 0;">
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['flights_with_eta'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">w/ ETA</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.withEta') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['etas_calculated_15m'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">calc/15m</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.calcPer15m') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: #333;"><?= number_format($liveData['waypoint_etas_total'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">waypoint ETAs</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.waypointEtas') ?></div>
                                         </div>
                                         <div class="stat-box" style="flex: 1; min-width: 100px; background: <?= ($liveData['etas_pending'] ?? 0) > 0 ? '#fff3cd' : '#f8f9fa' ?>; border-radius: 4px; padding: 8px; text-align: center;">
                                             <div style="font-size: 18px; font-weight: 600; color: <?= ($liveData['etas_pending'] ?? 0) > 0 ? '#856404' : '#333' ?>;"><?= number_format($liveData['etas_pending'] ?? 0) ?></div>
-                                            <div style="font-size: 10px; color: #666;">pending</div>
+                                            <div style="font-size: 10px; color: #666;"><?= __('statusPage.pending') ?></div>
                                         </div>
                                     </div>
                                 </div>
@@ -3853,7 +3853,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         <!-- ATIS Refresh Section (collapsed by default) -->
                         <div class="tier-section">
                             <div class="tier-section-header collapsed" onclick="toggleTierSection('atisRefresh')">
-                                <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i>ATIS Processing</span>
+                                <span class="section-title"><i class="fas fa-broadcast-tower mr-2"></i><?= __('statusPage.atisProcessing') ?></span>
                                 <i class="fas fa-chevron-down section-toggle" id="atisRefresh-toggle" style="transform: rotate(-90deg)"></i>
                             </div>
                             <div class="tier-section-content collapsed" id="atisRefresh-content">
@@ -3861,8 +3861,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tier-group">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">ATIS Stats (24h)</span>
-                                            <span class="tier-group-desc">Broadcast parsing status</span>
+                                            <span class="tier-group-title"><?= __('statusPage.atisStats24h') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.broadcastParsingStatus') ?></span>
                                         </div>
                                         <span class="tier-group-total"><?= number_format($liveData['atis_updates_1h']) ?>/hr</span>
                                     </div>
@@ -3872,21 +3872,21 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         $atisMax = max(1, $atisTotal);
                                         ?>
                                         <div class="tier-bar-row">
-                                            <span class="tier-label">Parsed</span>
+                                            <span class="tier-label"><?= __('statusPage.parsed') ?></span>
                                             <div class="tier-bar-container">
                                                 <div class="tier-bar tier-4" style="width: <?= round(($liveData['atis_parsed'] / $atisMax) * 100) ?>%;"></div>
                                             </div>
                                             <span class="tier-value"><?= number_format($liveData['atis_parsed']) ?></span>
                                         </div>
                                         <div class="tier-bar-row">
-                                            <span class="tier-label">Pending</span>
+                                            <span class="tier-label"><?= __('status.pending') ?></span>
                                             <div class="tier-bar-container">
                                                 <div class="tier-bar tier-2" style="width: <?= round(($liveData['atis_pending'] / $atisMax) * 100) ?>%;"></div>
                                             </div>
                                             <span class="tier-value"><?= number_format($liveData['atis_pending']) ?></span>
                                         </div>
                                         <div class="tier-bar-row">
-                                            <span class="tier-label">Failed</span>
+                                            <span class="tier-label"><?= __('statusPage.failed') ?></span>
                                             <div class="tier-bar-container">
                                                 <div class="tier-bar tier-0" style="width: <?= round(($liveData['atis_failed'] / $atisMax) * 100) ?>%;"></div>
                                             </div>
@@ -3894,16 +3894,16 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         </div>
                                     </div>
                                     <div style="font-size: 0.65rem; color: #888; margin-top: 6px; display: flex; justify-content: space-between;">
-                                        <span><i class="fas fa-calendar-day mr-1"></i>Today: <?= number_format($liveData['atis_today']) ?></span>
-                                        <span><i class="fas fa-broadcast-tower mr-1"></i>Airports: <?= $liveData['atis_airports_active'] ?></span>
+                                        <span><i class="fas fa-calendar-day mr-1"></i><?= __('statusPage.today') ?>: <?= number_format($liveData['atis_today']) ?></span>
+                                        <span><i class="fas fa-broadcast-tower mr-1"></i><?= __('statusPage.airports') ?>: <?= $liveData['atis_airports_active'] ?></span>
                                     </div>
                                 </div>
                                 <!-- ATIS Tier Info -->
                                 <div class="tier-group" style="grid-column: span 2;">
                                     <div class="tier-group-header">
                                         <div class="tier-group-header-left">
-                                            <span class="tier-group-title">Polling Tier Schedule</span>
-                                            <span class="tier-group-desc">Airport ATIS fetch frequency by priority</span>
+                                            <span class="tier-group-title"><?= __('statusPage.pollingTierSchedule') ?></span>
+                                            <span class="tier-group-desc"><?= __('statusPage.pollingTierDesc') ?></span>
                                         </div>
                                     </div>
                                     <div class="tier-info-grid" style="grid-template-columns: repeat(5, 1fr);">
@@ -3924,12 +3924,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T3</span>
-                                            <span class="tier-info-desc">Other Apt</span>
+                                            <span class="tier-info-desc"><?= __('statusPage.otherApt') ?></span>
                                             <span class="tier-info-interval">30m</span>
                                         </div>
                                         <div class="tier-info-item">
                                             <span class="tier-info-tier">T4</span>
-                                            <span class="tier-info-desc">Clear Wx</span>
+                                            <span class="tier-info-desc"><?= __('statusPage.clearWx') ?></span>
                                             <span class="tier-info-interval">60m</span>
                                         </div>
                                     </div>
@@ -3958,52 +3958,52 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Stored Procedures Summary -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-code mr-2"></i>Stored Procedures</span>
+                        <span><i class="fas fa-code mr-2"></i><?= __('statusPage.storedProcedures') ?></span>
                         <span class="cycle-badge">22 ADL + 20+ GIS</span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Category</th>
-                                <th>Count</th>
-                                <th>Status</th>
+                                <th><?= __('statusPage.category') ?></th>
+                                <th><?= __('statusPage.count') ?></th>
+                                <th><?= __('statusPage.status') ?></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="component-name">Route Parsing (ADL)</td>
+                                <td class="component-name"><?= __('statusPage.routeParsingAdl') ?></td>
                                 <td class="timing-info">5</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">ETA & Trajectory (ADL)</td>
+                                <td class="component-name"><?= __('statusPage.etaTrajectoryAdl') ?></td>
                                 <td class="timing-info">8</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Zone Detection (ADL)</td>
+                                <td class="component-name"><?= __('statusPage.zoneDetectionAdl') ?></td>
                                 <td class="timing-info">5</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Data Sync (ADL)</td>
+                                <td class="component-name"><?= __('statusPage.dataSyncAdl') ?></td>
                                 <td class="timing-info">3</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
-                                <td class="component-name" style="color: #3b82f6;">Route Expansion (GIS)</td>
+                                <td class="component-name" style="color: #3b82f6;"><?= __('statusPage.routeExpansionGis') ?></td>
                                 <td class="timing-info">8</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
-                                <td class="component-name" style="color: #3b82f6;">Boundary Detection (GIS)</td>
+                                <td class="component-name" style="color: #3b82f6;"><?= __('statusPage.boundaryDetectionGis') ?></td>
                                 <td class="timing-info">4</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
-                                <td class="component-name" style="color: #3b82f6;">Trajectory Crossings (GIS)</td>
+                                <td class="component-name" style="color: #3b82f6;"><?= __('statusPage.trajectoryCrossingsGis') ?></td>
                                 <td class="timing-info">5</td>
-                                <td><span class="status-badge complete">Deployed</span></td>
+                                <td><span class="status-badge complete"><?= __('statusPage.deployed') ?></span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -4012,15 +4012,15 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- Migrations Summary -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-layer-group mr-2"></i>Migrations</span>
+                        <span><i class="fas fa-layer-group mr-2"></i><?= __('statusPage.migrations') ?></span>
                         <span class="cycle-badge">75 ADL + 26 PERTI + 8 GIS</span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Database</th>
-                                <th>Categories</th>
-                                <th>Status</th>
+                                <th><?= __('statusPage.database') ?></th>
+                                <th><?= __('statusPage.categories') ?></th>
+                                <th><?= __('statusPage.status') ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -4051,27 +4051,27 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 <!-- CI/CD Pipeline -->
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-rocket mr-2"></i>CI/CD Pipeline</span>
+                        <span><i class="fas fa-rocket mr-2"></i><?= __('statusPage.ciCdPipeline') ?></span>
                         <span class="cycle-badge">Azure</span>
                     </div>
                     <table class="status-table">
                         <thead>
                             <tr>
-                                <th>Stage</th>
-                                <th>Target</th>
-                                <th>Status</th>
+                                <th><?= __('statusPage.stage') ?></th>
+                                <th><?= __('statusPage.target') ?></th>
+                                <th><?= __('statusPage.status') ?></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="component-name">Build</td>
+                                <td class="component-name"><?= __('statusPage.build') ?></td>
                                 <td class="timing-info">PHP 8.2</td>
-                                <td><span class="status-badge complete">Active</span></td>
+                                <td><span class="status-badge complete"><?= __('status.active') ?></span></td>
                             </tr>
                             <tr>
-                                <td class="component-name">Deploy</td>
+                                <td class="component-name"><?= __('statusPage.deploy') ?></td>
                                 <td class="timing-info">vatcscc</td>
-                                <td><span class="status-badge complete">Active</span></td>
+                                <td><span class="status-badge complete"><?= __('status.active') ?></span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -4097,11 +4097,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-3">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-check-circle mr-2"></i>Parse Health (24h)</span>
+                        <span><i class="fas fa-check-circle mr-2"></i><?= __('statusPage.parseHealth24h') ?></span>
                     </div>
                     <div style="padding: 10px;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size: 0.75rem; color: #666;">Success Rate</span>
+                            <span style="font-size: 0.75rem; color: #666;"><?= __('statusPage.successRate') ?></span>
                             <span class="step-metric-value <?= $liveData['parse_success_rate'] >= 95 ? '' : ($liveData['parse_success_rate'] >= 80 ? 'warning' : 'error') ?>" style="font-size: 1.1rem;">
                                 <?= $liveData['parse_success_rate'] ?>%
                             </span>
@@ -4110,11 +4110,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <div class="tier-bar tier-4" style="width: <?= min(100, $liveData['parse_success_rate']) ?>%;"></div>
                         </div>
                         <div class="d-flex justify-content-between" style="font-size: 0.65rem; color: #888;">
-                            <span><i class="fas fa-check text-success mr-1"></i><?= number_format($liveData['parse_success_24h']) ?> OK</span>
-                            <span><i class="fas fa-times text-danger mr-1"></i><?= number_format($liveData['parse_failed_24h']) ?> Failed</span>
+                            <span><i class="fas fa-check text-success mr-1"></i><?= number_format($liveData['parse_success_24h']) ?> <?= __('common.ok') ?></span>
+                            <span><i class="fas fa-times text-danger mr-1"></i><?= number_format($liveData['parse_failed_24h']) ?> <?= __('statusPage.failed') ?></span>
                         </div>
                         <hr style="margin: 8px 0;">
-                        <div style="font-size: 0.7rem; font-weight: 600; margin-bottom: 6px;">Queue Age</div>
+                        <div style="font-size: 0.7rem; font-weight: 600; margin-bottom: 6px;"><?= __('statusPage.queueAge') ?></div>
                         <div class="d-flex justify-content-between" style="font-size: 0.65rem;">
                             <span class="text-success">&lt;1m: <?= $liveData['queue_age']['under_1m'] ?></span>
                             <span class="text-warning">1-5m: <?= $liveData['queue_age']['1_to_5m'] ?></span>
@@ -4128,7 +4128,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-3">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-plane-departure mr-2"></i>Top Airports</span>
+                        <span><i class="fas fa-plane-departure mr-2"></i><?= __('statusPage.topAirports') ?></span>
                     </div>
                     <div style="padding: 8px;">
                         <?php if (!empty($liveData['top_airports'])): ?>
@@ -4139,7 +4139,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             </div>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;">No data</div>
+                            <div class="text-muted text-center" style="font-size: 0.75rem; padding: 10px;"><?= __('statusPage.noData') ?></div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -4149,11 +4149,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-3">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-clipboard-list mr-2"></i>SimBrief Stats</span>
+                        <span><i class="fas fa-clipboard-list mr-2"></i><?= __('statusPage.simbriefStats') ?></span>
                     </div>
                     <div style="padding: 10px;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size: 0.7rem; color: #666;">Adoption Rate</span>
+                            <span style="font-size: 0.7rem; color: #666;"><?= __('statusPage.adoptionRate') ?></span>
                             <span style="font-family: 'Inconsolata', monospace; font-size: 1rem; font-weight: 700; color: #06b6d4;">
                                 <?= $liveData['simbrief_rate'] ?>%
                             </span>
@@ -4163,7 +4163,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </div>
                         <hr style="margin: 6px 0;">
                         <div style="font-size: 0.65rem; margin-bottom: 4px;">
-                            <span style="color: #666;">Parse Success:</span>
+                            <span style="color: #666;"><?= __('statusPage.parseSuccess') ?>:</span>
                         </div>
                         <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
                             <span><i class="fas fa-clipboard-check mr-1" style="color: #06b6d4;"></i>SimBrief: <strong><?= $liveData['simbrief_parse_success'] ?>%</strong></span>
@@ -4177,11 +4177,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-md-3">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-clock mr-2"></i>Data Freshness</span>
+                        <span><i class="fas fa-clock mr-2"></i><?= __('statusPage.dataFreshness') ?></span>
                     </div>
                     <div style="padding: 8px;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size: 0.7rem;">Oldest Queue Item</span>
+                            <span style="font-size: 0.7rem;"><?= __('statusPage.oldestQueueItem') ?></span>
                             <?php
                             $queueAge = $liveData['oldest_pending_queue'];
                             $queueAgeClass = $queueAge === null ? '' : ($queueAge < 60 ? 'text-success' : ($queueAge < 300 ? 'text-warning' : 'text-danger'));
@@ -4190,7 +4190,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <span class="<?= $queueAgeClass ?>" style="font-family: 'Inconsolata', monospace; font-weight: 600;"><?= $queueAgeStr ?></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size: 0.7rem;">Last Trajectory</span>
+                            <span style="font-size: 0.7rem;"><?= __('statusPage.lastTrajectory') ?></span>
                             <?php
                             $trajAge = $liveData['last_trajectory_age'];
                             $trajAgeClass = $trajAge === null ? 'text-muted' : ($trajAge < 30 ? 'text-success' : ($trajAge < 120 ? 'text-warning' : 'text-danger'));
@@ -4200,7 +4200,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                         </div>
                         <?php if (!empty($liveData['recent_errors'])): ?>
                         <hr style="margin: 6px 0;">
-                        <div style="font-size: 0.65rem; color: #dc2626; font-weight: 600; margin-bottom: 4px;">Recent Errors</div>
+                        <div style="font-size: 0.65rem; color: #dc2626; font-weight: 600; margin-bottom: 4px;"><?= __('statusPage.recentErrors') ?></div>
                         <?php foreach (array_slice($liveData['recent_errors'], 0, 2) as $err): ?>
                         <div style="font-size: 0.6rem; color: #666; padding: 2px 0; border-bottom: 1px dotted #eee;">
                             <span style="font-weight: 600;"><?= htmlspecialchars($err['callsign']) ?></span>
@@ -4218,8 +4218,8 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             <div class="col-12">
                 <div class="status-section">
                     <div class="status-section-header">
-                        <span><i class="fas fa-border-all mr-2"></i>Top Boundaries by Type (1h)</span>
-                        <span class="cycle-badge"><?= number_format(array_sum($liveData['boundary_by_type'])) ?> crossings</span>
+                        <span><i class="fas fa-border-all mr-2"></i><?= __('statusPage.topBoundariesByType') ?></span>
+                        <span class="cycle-badge"><?= number_format(array_sum($liveData['boundary_by_type'])) ?> <?= __('statusPage.crossings') ?></span>
                     </div>
                     <div style="padding: 10px;">
                         <?php
@@ -4249,7 +4249,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <div style="font-size: 0.65rem; color: #999; text-align: center; padding: 10px 0;">No data</div>
+                                    <div style="font-size: 0.65rem; color: #999; text-align: center; padding: 10px 0;"><?= __('statusPage.noData') ?></div>
                                 <?php endif; ?>
                             </div>
                             <?php endforeach; ?>
@@ -4263,43 +4263,43 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         <!-- Legend -->
         <div class="legend-section">
-            <div class="legend-title">Status Legend</div>
+            <div class="legend-title"><?= __('statusPage.statusLegend') ?></div>
             <div class="legend-items">
                 <div class="legend-item">
                     <span class="status-badge up">UP</span>
-                    <span>Connected / Healthy</span>
+                    <span><?= __('statusPage.connectedHealthy') ?></span>
                 </div>
                 <div class="legend-item">
-                    <span class="status-badge running">Running</span>
-                    <span>Actively processing</span>
+                    <span class="status-badge running"><?= __('statusPage.running') ?></span>
+                    <span><?= __('statusPage.activelyProcessing') ?></span>
                 </div>
                 <div class="legend-item">
-                    <span class="status-badge complete">Complete</span>
-                    <span>Deployed / Finished</span>
+                    <span class="status-badge complete"><?= __('common.complete') ?></span>
+                    <span><?= __('statusPage.deployedFinished') ?></span>
                 </div>
                 <div class="legend-item">
-                    <span class="status-badge scheduled">Scheduled</span>
-                    <span>Waiting for cycle</span>
+                    <span class="status-badge scheduled"><?= __('statusPage.scheduled') ?></span>
+                    <span><?= __('statusPage.waitingForCycle') ?></span>
                 </div>
                 <div class="legend-item">
-                    <span class="status-badge warning">Warning</span>
-                    <span>Needs attention</span>
+                    <span class="status-badge warning"><?= __('common.warning') ?></span>
+                    <span><?= __('statusPage.needsAttention') ?></span>
                 </div>
                 <div class="legend-item">
-                    <span class="status-badge error">Error</span>
-                    <span>Failed / Offline</span>
+                    <span class="status-badge error"><?= __('common.error') ?></span>
+                    <span><?= __('statusPage.failedOffline') ?></span>
                 </div>
             </div>
         </div>
 
         <div class="text-center mt-4">
             <p class="refresh-note">
-                This page auto-refreshes every 60 seconds.
-                Last refresh: <?= $current_time ?> UTC
-                &mdash; <a href="javascript:location.reload()">Refresh now</a>
+                <?= __('statusPage.autoRefreshNote') ?>
+                <?= __('statusPage.lastRefreshLabel') ?> <?= $current_time ?> UTC
+                &mdash; <a href="javascript:location.reload()"><?= __('statusPage.refreshNow') ?></a>
             </p>
             <p class="refresh-note">
-                <a href="docs/STATUS.md" target="_blank"><i class="fas fa-file-alt mr-1"></i>View Full Documentation</a>
+                <a href="docs/STATUS.md" target="_blank"><i class="fas fa-file-alt mr-1"></i><?= __('statusPage.viewFullDocumentation') ?></a>
             </p>
         </div>
 

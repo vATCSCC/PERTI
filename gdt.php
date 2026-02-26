@@ -647,7 +647,7 @@ include("load/i18n.php");
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="tmi-section-title" id="gs_setup_header_label">
-                        <i class="fas fa-clock mr-1 text-primary"></i> Program Setup
+                        <i class="fas fa-clock mr-1 text-primary"></i> <?= __('gdt.page.programSetup') ?>
                     </span>
                     <span class="badge badge-secondary tmi-badge-status" id="gs_status_badge">Draft (local)</span>
                 </div>
@@ -657,7 +657,7 @@ include("load/i18n.php");
                     <!-- Program Type & Element -->
                     <div class="form-row">
                         <div class="form-group col-md-3">
-                            <label class="tmi-label mb-0" for="gs_program_type">Program Type</label>
+                            <label class="tmi-label mb-0" for="gs_program_type"><?= __('gdt.page.programType') ?></label>
                             <select class="form-control form-control-sm" id="gs_program_type">
                                 <option value="GS" selected>Ground Stop</option>
                                 <option value="GDP-DAS">GDP (DAS)</option>
@@ -687,22 +687,22 @@ include("load/i18n.php");
                     <!-- GDP-specific rate/delay fields (hidden for GS) -->
                     <div class="form-row" id="gs_gdp_rate_row" style="display: none;">
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_program_rate">Acceptance Rate (AAR)</label>
+                            <label class="tmi-label mb-0" for="gs_program_rate"><?= __('gdt.page.acceptanceRateAar') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gs_program_rate"
                                    placeholder="e.g., 30" min="1" max="120">
-                            <small class="form-text text-muted">Arrivals per hour</small>
+                            <small class="form-text text-muted"><?= __('gdt.page.arrivalsPerHour') ?></small>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_delay_limit">Max Delay (min)</label>
+                            <label class="tmi-label mb-0" for="gs_delay_limit"><?= __('gdt.page.maxDelayMin') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gs_delay_limit"
                                    placeholder="e.g., 180" min="0" max="600" value="180">
-                            <small class="form-text text-muted">Delay cap in minutes</small>
+                            <small class="form-text text-muted"><?= __('gdt.page.delayCapInMinutes') ?></small>
                         </div>
                         <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_reserve_rate">Reserve Rate</label>
+                            <label class="tmi-label mb-0" for="gs_reserve_rate"><?= __('gdt.page.reserveRate') ?></label>
                             <input type="number" class="form-control form-control-sm" id="gs_reserve_rate"
                                    placeholder="e.g., 5" min="0" max="30">
-                            <small class="form-text text-muted">Reserved slots/hour (GAAP/UDP)</small>
+                            <small class="form-text text-muted"><?= __('gdt.page.reservedSlotsPerHour') ?></small>
                         </div>
                     </div>
 
@@ -1330,7 +1330,7 @@ include("load/i18n.php");
                         <div class="col-md-8">
                             <div class="card border-secondary">
                                 <div class="card-header py-1 px-2 bg-info text-white d-flex justify-content-between align-items-center">
-                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-chart-bar mr-1"></i> <span id="gs_model_chart_title">Data Graph - Delay Statistics by Hour</span></small>
+                                    <small class="text-uppercase font-weight-bold"><i class="fas fa-chart-bar mr-1"></i> <span id="gs_model_chart_title"><?= __('gdt.page.dataGraphTitle') ?></span></small>
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-light btn-sm" id="gs_model_chart_type_bar" title="<?= __('gdt.page.barChartTooltip') ?>"><i class="fas fa-chart-bar"></i></button>
                                         <button class="btn btn-outline-light btn-sm" id="gs_model_chart_type_line" title="<?= __('gdt.page.lineChartTooltip') ?>"><i class="fas fa-chart-line"></i></button>
@@ -1407,7 +1407,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byArtcc') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>ARTCC</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.artcc') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_orig_artcc"></tbody>
                                                 </table>
                                             </div>
@@ -1416,7 +1416,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byAirport') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>Apt</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.apt') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_orig_ap"></tbody>
                                                 </table>
                                             </div>
@@ -1427,7 +1427,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTracon') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>TRACON</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.tracon') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_orig_tracon"></tbody>
                                                 </table>
                                             </div>
@@ -1436,7 +1436,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTier') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>Tier</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.tier') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_orig_tier"></tbody>
                                                 </table>
                                             </div>
@@ -1458,7 +1458,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byArtcc') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>ARTCC</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.artcc') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_dest_artcc"></tbody>
                                                 </table>
                                             </div>
@@ -1467,7 +1467,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byAirport') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>Apt</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.apt') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_dest_ap"></tbody>
                                                 </table>
                                             </div>
@@ -1478,7 +1478,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTracon') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>TRACON</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.tracon') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_dest_tracon"></tbody>
                                                 </table>
                                             </div>
@@ -1487,7 +1487,7 @@ include("load/i18n.php");
                                             <small class="text-uppercase text-muted font-weight-bold"><?= __('gdt.page.byTier') ?></small>
                                             <div style="max-height: 140px; overflow-y: auto;">
                                                 <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                                    <thead><tr><th>Tier</th><th class="text-right">Flts</th><th class="text-right">Delay</th><th class="text-right">Avg</th></tr></thead>
+                                                    <thead><tr><th><?= __('gdt.page.tier') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.delay') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                                     <tbody id="gs_model_by_dest_tier"></tbody>
                                                 </table>
                                             </div>
@@ -1505,7 +1505,7 @@ include("load/i18n.php");
                                 <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-building mr-1"></i> <?= __('gdt.page.byCarrier') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                        <thead><tr><th>Carrier</th><th class="text-right">Flts</th><th class="text-right">Total</th><th class="text-right">Avg</th></tr></thead>
+                                        <thead><tr><th><?= __('gdt.page.carrier') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.total') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                         <tbody id="gs_model_by_carrier"></tbody>
                                     </table>
                                 </div>
@@ -1516,7 +1516,7 @@ include("load/i18n.php");
                                 <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-clock mr-1"></i> <?= __('gdt.page.byDelayRange') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                        <thead><tr><th>Range</th><th class="text-right">Flts</th><th class="text-right">%</th></tr></thead>
+                                        <thead><tr><th><?= __('gdt.page.range') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.pctSymbol') ?></th></tr></thead>
                                         <tbody id="gs_model_by_delay_range"></tbody>
                                     </table>
                                 </div>
@@ -1527,7 +1527,7 @@ include("load/i18n.php");
                                 <div class="card-header py-1 px-2"><span class="tmi-label"><i class="fas fa-history mr-1"></i> <?= __('gdt.page.byHourUtc') ?></span></div>
                                 <div class="card-body p-1" style="max-height: 180px; overflow-y: auto;">
                                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                                        <thead><tr><th>Hour</th><th class="text-right">Flts</th><th class="text-right">Total</th><th class="text-right">Avg</th></tr></thead>
+                                        <thead><tr><th><?= __('gdt.page.hour') ?></th><th class="text-right"><?= __('gdt.page.flts') ?></th><th class="text-right"><?= __('gdt.page.total') ?></th><th class="text-right"><?= __('gdt.page.avg') ?></th></tr></thead>
                                         <tbody id="gs_model_by_hour"></tbody>
                                     </table>
                                 </div>
@@ -1960,7 +1960,7 @@ include("load/i18n.php");
                 <small class="text-muted mr-auto">
                     <i class="fas fa-info-circle"></i> <?= __('gdt.page.flightListHelp') ?>
                 </small>
-                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"><?= __('gdt.page.close') ?></button>
             </div>
         </div>
     </div>

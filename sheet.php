@@ -54,7 +54,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Planning Sheet";
+        $page_title = __('sheet.page.planningSheet');
         include("load/header.php");
     ?>
 
