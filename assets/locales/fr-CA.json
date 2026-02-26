@@ -6455,6 +6455,14 @@
     "copyPB": "Copier PB",
     "selectBy": "Filtrer par :",
     "clearFilters": "Effacer les filtres",
+    "traversedFacilities": "Installations traversées",
+    "traversedArtccs": "ARTCC",
+    "traversedTracons": "TRACON",
+    "traversedSectorsHigh": "Secteurs (haut)",
+    "traversedSectorsLow": "Secteurs (bas)",
+    "traversedSectorsSuperhigh": "Secteurs (super-haut)",
+    "editFacilities": "Modifier les installations",
+    "facilitiesUpdated": "Installations mises à jour",
     "searchHelp": {
       "title": "Syntaxe de recherche",
       "body": "<table class='table table-sm table-bordered mb-0' style='font-size:0.8rem;'><thead><tr><th>Syntaxe</th><th>Exemple</th><th>Signification</th></tr></thead><tbody><tr><td><code>orig:</code></td><td><code>orig:ZNY</code></td><td>ARTCC/aéroport d'origine</td></tr><tr><td><code>dest:</code></td><td><code>dest:KATL</code></td><td>ARTCC/aéroport de destination</td></tr><tr><td><code>thru:</code></td><td><code>thru:ZOB</code></td><td>Traverse l'ARTCC</td></tr><tr><td><code>-</code> (NON)</td><td><code>-thru:ZKC</code></td><td>Exclut les routes traversant ZKC</td></tr><tr><td>espace (ET)</td><td><code>orig:ZNY dest:ZTL</code></td><td>Les deux conditions requises</td></tr><tr><td><code>,</code> (OU)</td><td><code>orig:ZNY,ZDC</code></td><td>L'une ou l'autre origine</td></tr><tr><td>texte</td><td><code>BUM</code></td><td>Nom ou route contient le texte</td></tr></tbody></table>"

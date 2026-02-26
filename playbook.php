@@ -61,54 +61,72 @@ include("load/nav.php");
 
     <!-- Floating catalog overlay (inside map section) -->
     <div class="pb-catalog-overlay" id="pb_catalog_overlay">
-        <div class="pb-catalog-header" id="pb_catalog_header">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center" style="gap:0.4rem;">
-                    <span class="pb-title">
-                        <i class="fas fa-book" style="color:#239BCD;"></i>
-                        <?= __('playbook.title') ?>
-                    </span>
-                    <span class="pb-catalog-stats" id="pb_stats"></span>
-                </div>
+        <div class="pb-overlay-titlebar" id="pb_catalog_titlebar">
+            <span class="pb-overlay-title">
+                <i class="fas fa-book" style="color:#239BCD;"></i>
+                <?= __('playbook.title') ?>
+                <span class="pb-catalog-stats" id="pb_stats"></span>
+            </span>
+            <div class="pb-overlay-controls">
                 <?php if ($perm): ?>
-                <button class="btn btn-sm btn-success" id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
-                    <i class="fas fa-plus"></i>
+                <button id="pb_create_btn" title="<?= __('playbook.createPlay') ?>">
+                    <i class="fas fa-plus" style="color:#28a745;"></i>
                 </button>
                 <?php endif; ?>
-            </div>
-            <div class="d-flex align-items-center mt-1" style="gap:0.3rem;">
-                <input type="text" id="pb_search" class="form-control form-control-sm pb-search"
-                       placeholder="<?= __('playbook.searchPlaceholder') ?>">
-                <button class="btn btn-sm btn-link pb-search-help-btn" id="pb_search_help" title="<?= __('playbook.searchHelp.title') ?>">
-                    <i class="fas fa-question-circle"></i>
+                <button class="pb-overlay-minimize" id="pb_catalog_minimize" title="Minimize">
+                    <i class="fas fa-minus"></i>
                 </button>
             </div>
-            <div class="pb-filter-badges" id="pb_filter_badges"></div>
-            <div class="d-flex align-items-center mt-1" style="gap:0.25rem;flex-wrap:wrap;">
-                <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-outline-secondary pb-src-btn active" data-source=""><?= __('common.all') ?></button>
-                    <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA">FAA</button>
-                    <button class="btn btn-outline-secondary pb-src-btn" data-source="DCC">DCC</button>
-                    <button class="btn btn-outline-secondary pb-src-btn" data-source="ECFMP">ECFMP</button>
-                    <button class="btn btn-outline-secondary pb-src-btn" data-source="CANOC">CANOC</button>
+        </div>
+        <div class="pb-catalog-body" id="pb_catalog_body">
+            <div class="pb-catalog-header" id="pb_catalog_header">
+                <div class="d-flex align-items-center" style="gap:0.3rem;">
+                    <input type="text" id="pb_search" class="form-control form-control-sm pb-search"
+                           placeholder="<?= __('playbook.searchPlaceholder') ?>">
+                    <button class="btn btn-sm btn-link pb-search-help-btn" id="pb_search_help" title="<?= __('playbook.searchHelp.title') ?>">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
                 </div>
-                <label class="pb-legacy-toggle mb-0" title="<?= __('playbook.showLegacy') ?>">
-                    <input type="checkbox" id="pb_legacy_toggle">
-                    <span class="small"><?= __('playbook.showLegacy') ?></span>
-                </label>
+                <div class="pb-filter-badges" id="pb_filter_badges"></div>
+                <div class="d-flex align-items-center mt-1" style="gap:0.25rem;flex-wrap:wrap;">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary pb-src-btn active" data-source=""><?= __('common.all') ?></button>
+                        <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA">FAA</button>
+                        <button class="btn btn-outline-secondary pb-src-btn" data-source="DCC">DCC</button>
+                        <button class="btn btn-outline-secondary pb-src-btn" data-source="ECFMP">ECFMP</button>
+                        <button class="btn btn-outline-secondary pb-src-btn" data-source="CANOC">CANOC</button>
+                    </div>
+                    <label class="pb-legacy-toggle mb-0" title="<?= __('playbook.showLegacy') ?>">
+                        <input type="checkbox" id="pb_legacy_toggle">
+                        <span class="small"><?= __('playbook.showLegacy') ?></span>
+                    </label>
+                </div>
+            </div>
+            <div class="pb-pills" id="pb_category_pills"></div>
+            <div class="pb-play-list-wrap" id="pb_play_list_wrap">
+                <div id="pb_play_list_container">
+                    <div class="pb-loading">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="pb-pills" id="pb_category_pills"></div>
-        <div class="pb-play-list-wrap" id="pb_play_list_wrap">
-            <div id="pb_play_list_container">
-                <div class="pb-loading">
-                    <div class="spinner-border text-primary" role="status"></div>
-                </div>
+    </div>
+
+    <!-- Play info overlay (right side, hidden until a play is selected) -->
+    <div class="pb-info-overlay" id="pb_info_overlay" style="display:none;">
+        <div class="pb-overlay-titlebar" id="pb_info_titlebar">
+            <span class="pb-overlay-title" id="pb_info_title"></span>
+            <div class="pb-overlay-controls">
+                <button class="pb-overlay-minimize" id="pb_info_minimize" title="Minimize">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button id="pb_info_close" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
-        <button class="pb-catalog-toggle" id="pb_catalog_toggle" title="Toggle catalog">
-            <i class="fas fa-chevron-left"></i>
-        </button>
+        <div class="pb-info-content" id="pb_info_content"></div>
     </div>
 </div>
 

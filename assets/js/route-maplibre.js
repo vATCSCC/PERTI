@@ -1280,6 +1280,23 @@ $(document).ready(function() {
             filter: ['in', 'ICAOCODE', ''],
         });
 
+        // 4b. ARTCC Play Highlight fills (origin/dest/traversed when a play is selected)
+        graphic_map.addLayer({
+            id: 'artcc-play-origin', type: 'fill', source: 'artcc',
+            paint: { 'fill-color': '#2196F3', 'fill-opacity': 0.15 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+        graphic_map.addLayer({
+            id: 'artcc-play-dest', type: 'fill', source: 'artcc',
+            paint: { 'fill-color': '#FF9800', 'fill-opacity': 0.15 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+        graphic_map.addLayer({
+            id: 'artcc-play-traversed', type: 'fill', source: 'artcc',
+            paint: { 'fill-color': '#9C27B0', 'fill-opacity': 0.10 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+
         // 5. SIGMETs
         graphic_map.addSource('sigmets', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({

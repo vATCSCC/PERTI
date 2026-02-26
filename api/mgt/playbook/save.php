@@ -67,13 +67,22 @@ function normalizePlayName($name) {
 }
 
 /**
- * Compute traversed ARTCCs from a route string by looking up fix locations
- * in PostGIS and finding which ARTCC boundaries contain them.
- * Returns comma-separated ARTCC codes (FAA format: ZKC, ZDV, etc.).
+ * Compute traversed facilities from a route string by looking up fix locations
+ * in PostGIS and finding which boundaries contain them.
+ * Returns array with: artccs, tracons, sectors_low, sectors_high, sectors_superhigh
+ * Each value is a comma-separated string of boundary codes.
  */
-function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
+function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs) {
     static $conn_gis_cached = null;
     static $gis_available = null;
+
+    $result = [
+        'artccs' => '',
+        'tracons' => '',
+        'sectors_low' => '',
+        'sectors_high' => '',
+        'sectors_superhigh' => '',
+    ];
 
     // Lazy-init GIS connection (only once per request)
     if ($gis_available === null) {
@@ -85,8 +94,6 @@ function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
         }
     }
 
-    if (!$gis_available) return '';
-
     // Extract fix-like tokens: 2-5 uppercase alpha chars
     $tokens = preg_split('/\s+/', strtoupper(trim($route_string)));
     $exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB', 'RADAR', 'DIRECT'];
@@ -96,33 +103,80 @@ function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
             $fixNames[] = $t;
         }
     }
-    if (empty($fixNames)) return '';
 
-    // Spatial lookup: find which ARTCC boundary contains each fix
-    $params = array_values(array_unique($fixNames));
-    $placeholders = implode(',', array_fill(0, count($params), '?'));
-    $sql = "SELECT DISTINCT b.artcc_code
-            FROM nav_fixes f
-            JOIN artcc_boundaries b ON ST_Contains(b.geom, f.geom)
-            WHERE f.fix_name IN ($placeholders)";
+    if ($gis_available && !empty($fixNames)) {
+        $params = array_values(array_unique($fixNames));
+        $placeholders = implode(',', array_fill(0, count($params), '?'));
 
-    try {
-        $stmt = $conn_gis_cached->prepare($sql);
-        $stmt->execute($params);
-        $artccs = [];
-        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            // Convert ICAO (KZKC) to FAA (ZKC) format
-            $code = $row['artcc_code'];
-            if (strlen($code) === 4 && $code[0] === 'K') {
-                $code = substr($code, 1);
+        // Single combined query: ARTCC + TRACON + sector traversals
+        $sql = "SELECT 'artcc' AS btype, b.artcc_code AS code
+                FROM nav_fixes f
+                JOIN artcc_boundaries b ON ST_Contains(b.geom, f.geom)
+                WHERE f.fix_name IN ($placeholders)
+                UNION
+                SELECT 'tracon', t.tracon_code
+                FROM nav_fixes f
+                JOIN tracon_boundaries t ON ST_Contains(t.geom, f.geom)
+                WHERE f.fix_name IN ($placeholders)
+                UNION
+                SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
+                FROM nav_fixes f
+                JOIN sector_boundaries s ON ST_Contains(s.geom, f.geom)
+                WHERE f.fix_name IN ($placeholders)";
+
+        // Repeat params 3x for the 3 UNION clauses
+        $allParams = array_merge($params, $params, $params);
+
+        try {
+            $stmt = $conn_gis_cached->prepare($sql);
+            $stmt->execute($allParams);
+
+            $artccs = [];
+            $tracons = [];
+            $sectors_low = [];
+            $sectors_high = [];
+            $sectors_superhigh = [];
+
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $code = $row['code'];
+                switch ($row['btype']) {
+                    case 'artcc':
+                        // Convert ICAO K-prefix to FAA format (KZNY→ZNY)
+                        if (strlen($code) === 4 && $code[0] === 'K') {
+                            $code = substr($code, 1);
+                        }
+                        $artccs[] = $code;
+                        break;
+                    case 'tracon':
+                        $tracons[] = $code;
+                        break;
+                    case 'sector_low':
+                        $sectors_low[] = $code;
+                        break;
+                    case 'sector_high':
+                        $sectors_high[] = $code;
+                        break;
+                    case 'sector_superhigh':
+                        $sectors_superhigh[] = $code;
+                        break;
+                }
             }
-            $artccs[] = $code;
+        } catch (\Exception $e) {
+            $artccs = [];
+            $tracons = [];
+            $sectors_low = [];
+            $sectors_high = [];
+            $sectors_superhigh = [];
         }
-    } catch (\Exception $e) {
+    } else {
         $artccs = [];
+        $tracons = [];
+        $sectors_low = [];
+        $sectors_high = [];
+        $sectors_superhigh = [];
     }
 
-    // Merge with origin + dest ARTCCs (they're traversed by definition)
+    // Merge origin + dest ARTCCs (traversed by definition)
     foreach (explode(',', $origin_artccs) as $a) {
         $a = trim($a);
         if ($a !== '') $artccs[] = $a;
@@ -132,7 +186,13 @@ function computeTraversedArtccs($route_string, $origin_artccs, $dest_artccs) {
         if ($a !== '') $artccs[] = $a;
     }
 
-    return implode(',', array_unique(array_filter($artccs)));
+    $result['artccs'] = implode(',', array_unique(array_filter($artccs)));
+    $result['tracons'] = implode(',', array_unique(array_filter($tracons)));
+    $result['sectors_low'] = implode(',', array_unique(array_filter($sectors_low)));
+    $result['sectors_high'] = implode(',', array_unique(array_filter($sectors_high)));
+    $result['sectors_superhigh'] = implode(',', array_unique(array_filter($sectors_superhigh)));
+
+    return $result;
 }
 
 $play_name_norm = normalizePlayName($play_name);
@@ -222,8 +282,11 @@ if (!empty($routes)) {
     $route_stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
          origin_airports, origin_tracons, origin_artccs,
-         dest_airports, dest_tracons, dest_artccs, traversed_artccs, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         dest_airports, dest_tracons, dest_artccs,
+         traversed_artccs, traversed_tracons,
+         traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
+         sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -241,12 +304,20 @@ if (!empty($routes)) {
 
         if ($rs === '') continue;
 
-        // Compute traversed ARTCCs from route fix names via VATSIM_REF
-        $traversed = computeTraversedArtccs($rs, $oar, $dar);
+        // Compute traversed facilities from route fix names via PostGIS
+        $tf = computeTraversedFacilities($rs, $oar, $dar);
+        $traversed = $tf['artccs'];
+        $trav_tracons = $tf['tracons'];
+        $trav_sec_low = $tf['sectors_low'];
+        $trav_sec_high = $tf['sectors_high'];
+        $trav_sec_superhigh = $tf['sectors_superhigh'];
 
-        $route_stmt->bind_param('issssssssssssi',
+        $route_stmt->bind_param('issssssssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
-            $oa, $ot, $oar, $da, $dt, $dar, $traversed, $sort);
+            $oa, $ot, $oar, $da, $dt, $dar,
+            $traversed, $trav_tracons,
+            $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
+            $sort);
         $route_stmt->execute();
         $sort++;
     }
