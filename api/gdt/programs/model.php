@@ -68,12 +68,8 @@ if ($program_id <= 0) {
     ]);
 }
 
-if ($dep_facilities === '') {
-    respond_json(400, [
-        'status' => 'error',
-        'message' => 'dep_facilities is required (space-delimited ARTCC codes).'
-    ]);
-}
+// dep_facilities is optional — when empty or "ALL", query all flights to destination
+// (needed for non-US airports where fp_dept_artcc is 'EURO' or NULL)
 
 // Fetch program from TMI
 $program = get_program($conn_tmi, $program_id);
@@ -85,13 +81,12 @@ if ($program === null) {
     ]);
 }
 
-// Parse dep_facilities into array
-$facilities = preg_split('/[\s,]+/', strtoupper($dep_facilities), -1, PREG_SPLIT_NO_EMPTY);
-if (empty($facilities)) {
-    respond_json(400, [
-        'status' => 'error',
-        'message' => 'No valid departure facilities provided.'
-    ]);
+// Parse dep_facilities into array (may be empty for non-US airports)
+$facilities = [];
+if ($dep_facilities !== '' && strtoupper($dep_facilities) !== 'ALL') {
+    $facilities = preg_split('/[\s,]+/', strtoupper($dep_facilities), -1, PREG_SPLIT_NO_EMPTY);
+    // Remove "ALL" token if mixed in
+    $facilities = array_values(array_filter($facilities, function($f) { return $f !== 'ALL'; }));
 }
 
 // Build query for flights from ADL
@@ -101,11 +96,14 @@ $end_utc = $program['end_utc'];
 $exempt_airborne = isset($program['exempt_airborne']) ? (bool)$program['exempt_airborne'] : true;
 $exempt_within_min = isset($program['exempt_within_min']) ? (int)$program['exempt_within_min'] : 45;
 
-// Build facility placeholders
-$placeholders = implode(',', array_fill(0, count($facilities), '?'));
+// Build ARTCC filter — only applied when specific facilities are provided
+$artcc_filter_sql = '';
+if (count($facilities) > 0) {
+    $placeholders = implode(',', array_fill(0, count($facilities), '?'));
+    $artcc_filter_sql = "AND fp_dept_artcc IN ({$placeholders})";
+}
 
-// Query flights destined for this airport, departing from scope facilities
-// during the GS time window
+// Query flights destined for this airport during the GS time window
 $sql = "
     SELECT
         flight_uid,
@@ -127,7 +125,7 @@ $sql = "
         END AS is_airborne
     FROM dbo.vw_adl_flights
     WHERE fp_dest_icao = ?
-    AND fp_dept_artcc IN ({$placeholders})
+    {$artcc_filter_sql}
     AND (
         (COALESCE(etd_runway_utc, etd_utc, std_utc) >= ? AND COALESCE(etd_runway_utc, etd_utc, std_utc) <= ?)
         OR (COALESCE(eta_runway_utc, eta_utc) >= ? AND COALESCE(eta_runway_utc, eta_utc) <= ?)

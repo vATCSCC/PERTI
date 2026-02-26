@@ -5349,17 +5349,13 @@
             if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.enterStartEndTimes');}
             return Promise.resolve();
         }
-        if (!workflowPayload.gs_dep_facilities) {
-            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.scopeRequired');}
-            return Promise.resolve();
-        }
-
         // Determine program type from form selector (defaults to GS)
         var programTypeEl = document.getElementById('gs_program_type');
         var selectedProgramType = (programTypeEl && programTypeEl.value) ? programTypeEl.value : 'GS';
 
-        // Build scope_json from departure facilities so simulate.php can filter properly
-        var depFacilitiesArr = (workflowPayload.gs_dep_facilities || '').split(/\s+/).filter(function(x) { return x.length > 0; });
+        // Build scope_json from departure facilities (optional — omitted for non-US airports)
+        var depFacilitiesRaw = (workflowPayload.gs_dep_facilities || '').trim();
+        var depFacilitiesArr = depFacilitiesRaw.split(/\s+/).filter(function(x) { return x.length > 0 && x !== 'ALL'; });
         var scopeJson = depFacilitiesArr.length > 0 ? { origin_centers: depFacilitiesArr } : null;
 
         // Build create payload for GDT API
@@ -5408,14 +5404,10 @@
                 if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.programCreated', { id: programId });}
 
                 // Step 2: Model the program to get affected flights (lightweight preview)
-                var depFacilities = workflowPayload.gs_dep_facilities || '';
-                if (!depFacilities) {
-                    throw new Error(PERTII18n.t('gdt.validation.scopeRequired'));
-                }
-
+                // dep_facilities is optional — when empty/ALL, model.php returns all flights to destination
                 return apiPostJson(GS_API.model, {
                     program_id: programId,
-                    dep_facilities: depFacilities,
+                    dep_facilities: workflowPayload.gs_dep_facilities || 'ALL',
                 });
             })
             .then(function(modelResp) {
