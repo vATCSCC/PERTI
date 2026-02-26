@@ -3097,6 +3097,7 @@
         GS_CURRENT_PROGRAM_ID = null;
         GS_CURRENT_PROGRAM_STATUS = null;
         GS_SIMULATION_READY = false;
+        GS_RAW_MODEL_FLIGHTS = null;
         setGsTableMode('LIVE');
         setSendActualEnabled(false, PERTII18n.t('gdt.status.createNewProgram'));
 
@@ -5464,6 +5465,9 @@
                 let flights = (modelResp.data && modelResp.data.flights) || [];
                 flights = normalizeSqlsrvRows(flights);
 
+                // Store raw flights for demand chart (client-side TMI coloring)
+                GS_RAW_MODEL_FLIGHTS = flights;
+
                 // Store simulation data for flight list
                 storeSimulationData(modelResp.data);
 
@@ -5476,8 +5480,8 @@
                     const summary = modelResp.data.summary || {};
                     statusEl.textContent = PERTII18n.t('gdt.gs.previewStatus', {
                         flights: flights.length,
-                        controlled: summary.controlled_flights || 0,
-                        exempt: summary.exempt_flights || 0,
+                        controlled: summary.controlled_flights || summary.controlled || 0,
+                        exempt: summary.exempt_flights || summary.exempt || 0,
                         programId: GS_CURRENT_PROGRAM_ID
                     });
                 }
@@ -5501,6 +5505,7 @@
                 clearGsFlightTable(PERTII18n.t('gdt.gs.previewFailedShort'));
                 GS_CURRENT_PROGRAM_ID = null;
                 GS_CURRENT_PROGRAM_STATUS = null;
+                GS_RAW_MODEL_FLIGHTS = null;
             });
     }
 
@@ -5537,6 +5542,9 @@
 
                 let flights = (simResp.data && simResp.data.flights) || [];
                 flights = normalizeSqlsrvRows(flights);
+
+                // Store raw flights for demand chart (client-side TMI coloring)
+                GS_RAW_MODEL_FLIGHTS = flights;
 
                 // Store simulation data for flight list viewing
                 storeSimulationData(simResp.data);
@@ -5624,6 +5632,9 @@
 
                 var flights = (resp.data && resp.data.flights) || [];
                 flights = normalizeSqlsrvRows(flights);
+
+                // Store raw flights for demand chart (client-side TMI coloring)
+                GS_RAW_MODEL_FLIGHTS = flights;
 
                 storeSimulationData(resp.data);
                 var progType = resp.data.program_type || 'GS';
@@ -8167,7 +8178,54 @@
         }
         console.log('[GDT] loadGsDemandData - mapped timeBasis:', timeBasis, 'programId:', GS_CURRENT_PROGRAM_ID);
 
-        // Load demand data with time basis for TMI status coloring
+        // When in CTD mode with model/simulate data available, build demand locally.
+        // The generic demand API reads adl_flight_tmi (VATSIM_ADL) which has no data
+        // for GDT programs that store control records in tmi_flight_control (VATSIM_TMI).
+        if (timeBasis === 'ctd' && GS_RAW_MODEL_FLIGHTS && GS_RAW_MODEL_FLIGHTS.length > 0) {
+            console.log('[GDT] Building demand from', GS_RAW_MODEL_FLIGHTS.length, 'model flights (client-side)');
+            var chartState = GS_DEMAND_CHART.getState ? GS_DEMAND_CHART.getState() : {};
+            var trStart = chartState.timeRangeStart !== undefined ? chartState.timeRangeStart : -2;
+            var trEnd = chartState.timeRangeEnd !== undefined ? chartState.timeRangeEnd : 14;
+
+            var localDemand = buildDemandFromModelFlights(
+                GS_RAW_MODEL_FLIGHTS, airport, GS_DEMAND_GRANULARITY, trStart, trEnd
+            );
+
+            if (localDemand) {
+                // Load into chart via snapshot (bypasses API fetch)
+                GS_DEMAND_CHART.loadFromSnapshot({
+                    airport: airport,
+                    direction: GS_DEMAND_DIRECTION,
+                    granularity: GS_DEMAND_GRANULARITY,
+                    timeBasis: 'ctd',
+                    timeRangeStart: trStart,
+                    timeRangeEnd: trEnd,
+                    demandData: localDemand,
+                    rateData: null
+                });
+
+                // Still fetch rates separately (rates API doesn't need TMI data)
+                fetch('api/demand/rates.php?airport=' + encodeURIComponent(airport))
+                    .then(function(r) { return r.json(); })
+                    .then(function(ratesResp) {
+                        if (ratesResp && ratesResp.success) {
+                            updateGsDemandRateInfo(ratesResp);
+                        }
+                    }).catch(function() { /* rates are optional */ });
+
+                // Update last update time
+                var updateEl2 = document.getElementById('gs_demand_last_update');
+                if (updateEl2) {
+                    var now2 = new Date();
+                    updateEl2.textContent = now2.getUTCHours().toString().padStart(2, '0') + ':' +
+                                          now2.getUTCMinutes().toString().padStart(2, '0') + ':' +
+                                          now2.getUTCSeconds().toString().padStart(2, '0') + 'Z';
+                }
+                return;
+            }
+        }
+
+        // Fallback: use generic demand API (works for ETA mode and when no model data)
         GS_DEMAND_CHART.load(airport, {
             direction: GS_DEMAND_DIRECTION,
             granularity: GS_DEMAND_GRANULARITY,
@@ -8349,6 +8407,90 @@
     let GS_DEMAND_CHART = null;
     let GS_DEMAND_DIRECTION = 'both';
     let GS_DEMAND_GRANULARITY = 'hourly';
+    let GS_RAW_MODEL_FLIGHTS = null; // Raw normalized flights from model/simulate for demand chart
+
+    /**
+     * Build demand chart data from model/simulate response flights.
+     * The generic demand API (api/demand/airport.php) reads adl_flight_tmi in VATSIM_ADL,
+     * but GDT programs store control records in tmi_flight_control (VATSIM_TMI).
+     * During MODELING/SIMULATED states, those records don't exist in ADL,
+     * so we build the demand data client-side from the model response.
+     */
+    function buildDemandFromModelFlights(flights, airport, granularity, timeRangeStart, timeRangeEnd) {
+        if (!window.DemandChartCore || !flights || !flights.length) {return null;}
+
+        var timeBins = window.DemandChartCore.generateAllTimeBins(granularity, timeRangeStart, timeRangeEnd);
+        var minsPerBin = window.DemandChartCore.getGranularityMinutes(granularity);
+
+        // Initialize bins
+        var binMap = {};
+        timeBins.forEach(function(bin) {
+            var normalized = window.DemandChartCore.normalizeTimeBin(bin);
+            binMap[normalized] = {
+                total: 0,
+                proposed_gs: 0, simulated_gs: 0, actual_gs: 0,
+                proposed_gdp: 0, simulated_gdp: 0, actual_gdp: 0,
+                exempt: 0, uncontrolled: 0,
+                arrived: 0, disconnected: 0, descending: 0,
+                enroute: 0, departed: 0, taxiing: 0, prefile: 0
+            };
+        });
+
+        // Determine status key based on program type and status
+        var programTypeEl = document.getElementById('gs_program_type');
+        var isGS = !programTypeEl || !programTypeEl.value || programTypeEl.value === 'GS';
+        var statusKey;
+        if (GS_CURRENT_PROGRAM_STATUS === 'ACTIVE') {
+            statusKey = isGS ? 'actual_gs' : 'actual_gdp';
+        } else {
+            statusKey = isGS ? 'simulated_gs' : 'simulated_gdp';
+        }
+
+        // Bin each flight by ETA
+        flights.forEach(function(f) {
+            var etaStr = f.eta_runway_utc || f.eta_utc || '';
+            if (!etaStr) {return;}
+
+            var etaMs = new Date(etaStr).getTime();
+            if (isNaN(etaMs)) {return;}
+
+            // Round down to bin boundary
+            var etaDate = new Date(etaMs);
+            var roundedMin = Math.floor(etaDate.getUTCMinutes() / minsPerBin) * minsPerBin;
+            etaDate.setUTCMinutes(roundedMin, 0, 0);
+            var binKey = etaDate.toISOString().replace('.000Z', 'Z');
+
+            if (!binMap[binKey]) {return;} // Outside time range
+
+            binMap[binKey].total++;
+
+            var exempt = parseInt(f.ctl_exempt || 0, 10);
+            if (exempt === 1) {
+                binMap[binKey].exempt++;
+            } else {
+                binMap[binKey][statusKey]++;
+            }
+        });
+
+        // Build arrivals array
+        var arrivals = [];
+        timeBins.forEach(function(bin) {
+            var normalized = window.DemandChartCore.normalizeTimeBin(bin);
+            var data = binMap[normalized];
+            if (data) {
+                arrivals.push({ time_bin: normalized, total: data.total, breakdown: data });
+            }
+        });
+
+        return {
+            success: true,
+            airport: airport,
+            timestamp: new Date().toISOString(),
+            time_basis: 'ctd',
+            granularity: granularity,
+            data: { arrivals: arrivals, departures: [] }
+        };
+    }
 
     // Initialize Model GS event handlers
     function initModelGsHandlers() {
