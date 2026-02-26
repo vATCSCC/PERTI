@@ -81,12 +81,29 @@ if ($program === null) {
     ]);
 }
 
-// Parse dep_facilities into array (may be empty for non-US airports)
-$facilities = [];
+// Parse dep_facilities into ARTCC codes and FIR ICAO-prefix patterns
+// FIR: prefix tokens come from fir-integration.js for international airports
+// e.g., "FIR:ED" means departures from airports starting with "ED" (Germany)
+//       "FIR:" alone (empty prefix) means all origins (wildcard)
+$facilities = [];    // ARTCC codes (e.g., ZNY, ZDC)
+$fir_patterns = [];  // ICAO prefix patterns (e.g., ED, EG, LF)
+$fir_wildcard = false;
+
 if ($dep_facilities !== '' && strtoupper($dep_facilities) !== 'ALL') {
-    $facilities = preg_split('/[\s,]+/', strtoupper($dep_facilities), -1, PREG_SPLIT_NO_EMPTY);
-    // Remove "ALL" token if mixed in
-    $facilities = array_values(array_filter($facilities, function($f) { return $f !== 'ALL'; }));
+    $tokens = preg_split('/[\s,]+/', strtoupper($dep_facilities), -1, PREG_SPLIT_NO_EMPTY);
+    foreach ($tokens as $tok) {
+        if ($tok === 'ALL') continue;
+        if (strpos($tok, 'FIR:') === 0) {
+            $prefix = substr($tok, 4); // Strip "FIR:" prefix
+            if ($prefix === '' || $prefix === '*') {
+                $fir_wildcard = true; // FIR: alone = all origins
+            } else {
+                $fir_patterns[] = $prefix;
+            }
+        } else {
+            $facilities[] = $tok;
+        }
+    }
 }
 
 // Build query for flights from ADL
@@ -96,11 +113,30 @@ $end_utc = $program['end_utc'];
 $exempt_airborne = isset($program['exempt_airborne']) ? (bool)$program['exempt_airborne'] : true;
 $exempt_within_min = isset($program['exempt_within_min']) ? (int)$program['exempt_within_min'] : 45;
 
-// Build ARTCC filter — only applied when specific facilities are provided
-$artcc_filter_sql = '';
-if (count($facilities) > 0) {
-    $placeholders = implode(',', array_fill(0, count($facilities), '?'));
-    $artcc_filter_sql = "AND fp_dept_artcc IN ({$placeholders})";
+// Build origin filter from ARTCC codes and/or FIR ICAO-prefix patterns
+// FIR wildcard = skip filter entirely (all origins)
+$origin_filter_sql = '';
+$origin_filter_params = [];
+
+if (!$fir_wildcard) {
+    $origin_conditions = [];
+
+    // ARTCC code filter: fp_dept_artcc IN (...)
+    if (count($facilities) > 0) {
+        $placeholders = implode(',', array_fill(0, count($facilities), '?'));
+        $origin_conditions[] = "fp_dept_artcc IN ({$placeholders})";
+        $origin_filter_params = array_merge($origin_filter_params, $facilities);
+    }
+
+    // FIR ICAO-prefix filter: fp_dept_icao LIKE 'ED%' OR fp_dept_icao LIKE 'EG%'
+    foreach ($fir_patterns as $prefix) {
+        $origin_conditions[] = "fp_dept_icao LIKE ?";
+        $origin_filter_params[] = $prefix . '%';
+    }
+
+    if (count($origin_conditions) > 0) {
+        $origin_filter_sql = "AND (" . implode(' OR ', $origin_conditions) . ")";
+    }
 }
 
 // Query flights destined for this airport during the GS time window
@@ -125,7 +161,7 @@ $sql = "
         END AS is_airborne
     FROM dbo.vw_adl_flights
     WHERE fp_dest_icao = ?
-    {$artcc_filter_sql}
+    {$origin_filter_sql}
     AND (
         (COALESCE(etd_runway_utc, etd_utc, std_utc) >= ? AND COALESCE(etd_runway_utc, etd_utc, std_utc) <= ?)
         OR (COALESCE(eta_runway_utc, eta_utc) >= ? AND COALESCE(eta_runway_utc, eta_utc) <= ?)
@@ -136,7 +172,7 @@ $sql = "
 
 $params = array_merge(
     [$ctl_element],
-    $facilities,
+    $origin_filter_params,
     [$start_utc, $end_utc, $start_utc, $end_utc]
 );
 

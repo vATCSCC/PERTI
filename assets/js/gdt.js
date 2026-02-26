@@ -2350,9 +2350,19 @@
             return null;
         }
 
-        const originAirports = (cfg && Array.isArray(cfg.originAirports)) ? cfg.originAirports : [];
-        if (originAirports.length && originAirports.indexOf(dep) === -1) {
-            return null;
+        // Origin filter: check ARTCC-expanded airports AND/OR FIR ICAO-prefix patterns
+        if (!(cfg && cfg.firWildcard)) {
+            var originAirports = (cfg && Array.isArray(cfg.originAirports)) ? cfg.originAirports : [];
+            var firPatterns = (cfg && Array.isArray(cfg.firPatterns)) ? cfg.firPatterns : [];
+            if (originAirports.length || firPatterns.length) {
+                var originMatch = originAirports.length > 0 && originAirports.indexOf(dep) !== -1;
+                if (!originMatch && firPatterns.length > 0) {
+                    for (var pi = 0; pi < firPatterns.length; pi++) {
+                        if (dep.indexOf(firPatterns[pi]) === 0) { originMatch = true; break; }
+                    }
+                }
+                if (!originMatch) { return null; }
+            }
         }
 
         const fltInclCarrier = cfg ? cfg.carriers : null;
@@ -2562,9 +2572,19 @@
             return null;
         }
 
-        const originAirports = (cfg && Array.isArray(cfg.originAirports)) ? cfg.originAirports : [];
-        if (originAirports.length && originAirports.indexOf(dep) === -1) {
-            return null;
+        // Origin filter: check ARTCC-expanded airports AND/OR FIR ICAO-prefix patterns
+        if (!(cfg && cfg.firWildcard)) {
+            var originAirports = (cfg && Array.isArray(cfg.originAirports)) ? cfg.originAirports : [];
+            var firPatterns = (cfg && Array.isArray(cfg.firPatterns)) ? cfg.firPatterns : [];
+            if (originAirports.length || firPatterns.length) {
+                var originMatch = originAirports.length > 0 && originAirports.indexOf(dep) !== -1;
+                if (!originMatch && firPatterns.length > 0) {
+                    for (var pi = 0; pi < firPatterns.length; pi++) {
+                        if (dep.indexOf(firPatterns[pi]) === 0) { originMatch = true; break; }
+                    }
+                }
+                if (!originMatch) { return null; }
+            }
         }
 
         const fltInclCarrier = cfg ? cfg.carriers : null;
@@ -2993,15 +3013,39 @@
             return;
         }
 
-        const arrivalsExpanded = expandAirportTokensWithFacilities(arrivalTokens);
-        const originExpanded = expandAirportTokensWithFacilities(originAirportTokens);
-        const depFacExpanded = expandAirportTokensWithFacilities(depFacilityTokens);
-
-        depFacExpanded.forEach(function(a) {
-            if (originExpanded.indexOf(a) === -1) {
-                originExpanded.push(a);
+        // Separate FIR: ICAO-prefix patterns from ARTCC codes
+        // FIR:ED means departures from airports starting with "ED" (Germany)
+        // FIR: alone (empty prefix) means all origins (wildcard)
+        var firPatterns = [];
+        var firWildcard = false;
+        var artccTokens = [];
+        depFacilityTokens.forEach(function(tok) {
+            if (tok.indexOf('FIR:') === 0) {
+                var prefix = tok.substring(4);
+                if (prefix === '' || prefix === '*') {
+                    firWildcard = true;
+                } else {
+                    firPatterns.push(prefix);
+                }
+            } else {
+                artccTokens.push(tok);
             }
         });
+
+        const arrivalsExpanded = expandAirportTokensWithFacilities(arrivalTokens);
+        const originExpanded = expandAirportTokensWithFacilities(originAirportTokens);
+
+        // Only expand ARTCC tokens (not FIR patterns) into airport lists
+        if (!firWildcard) {
+            var depFacExpanded = expandAirportTokensWithFacilities(artccTokens);
+            depFacExpanded.forEach(function(a) {
+                if (originExpanded.indexOf(a) === -1) {
+                    originExpanded.push(a);
+                }
+            });
+        }
+        // When firWildcard is true, leave originExpanded from explicit origin_airports only
+        // (empty = no origin filter = show all departures)
 
         const airportColors = buildAirportColorMap(arrivalsExpanded);
         updateAirportsLegendAndInput(arrivalsExpanded, airportColors);
@@ -3023,6 +3067,8 @@
         const cfg = {
             arrivals: arrivalsExpanded,
             originAirports: originExpanded,
+            firPatterns: firPatterns,    // ICAO prefix patterns (e.g., ["ED", "EG"])
+            firWildcard: firWildcard,    // true = all origins (no origin filter)
             carriers: carriers,
             acType: acType,
         };

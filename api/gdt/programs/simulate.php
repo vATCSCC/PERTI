@@ -270,11 +270,37 @@ if ($program_type === 'GS') {
     }
 }
 
-// Origin center filter
-if (count($origin_centers) > 0) {
-    $placeholders = implode(',', array_fill(0, count($origin_centers), '?'));
-    $where[] = "fp_dept_artcc IN ({$placeholders})";
-    foreach ($origin_centers as $c) { $params[] = $c; }
+// Origin center filter — handle both ARTCC codes and FIR: ICAO-prefix patterns
+// FIR: prefix tokens come from fir-integration.js for international airports
+$artcc_codes = [];
+$fir_like_patterns = [];
+$fir_wildcard = false;
+foreach ($origin_centers as $c) {
+    if (strpos($c, 'FIR:') === 0) {
+        $prefix = substr($c, 4);
+        if ($prefix === '' || $prefix === '*') {
+            $fir_wildcard = true; // FIR: alone = all origins, skip filter
+        } else {
+            $fir_like_patterns[] = $prefix;
+        }
+    } else {
+        $artcc_codes[] = $c;
+    }
+}
+if (!$fir_wildcard) {
+    $origin_conditions = [];
+    if (count($artcc_codes) > 0) {
+        $placeholders = implode(',', array_fill(0, count($artcc_codes), '?'));
+        $origin_conditions[] = "fp_dept_artcc IN ({$placeholders})";
+        foreach ($artcc_codes as $c) { $params[] = $c; }
+    }
+    foreach ($fir_like_patterns as $prefix) {
+        $origin_conditions[] = "fp_dept_icao LIKE ?";
+        $params[] = $prefix . '%';
+    }
+    if (count($origin_conditions) > 0) {
+        $where[] = "(" . implode(' OR ', $origin_conditions) . ")";
+    }
 }
 
 // Origin airport filter
