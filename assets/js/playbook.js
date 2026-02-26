@@ -148,6 +148,7 @@
         return clauses.map(function(clause) {
             // Split on , or | → alternatives (OR'd)
             var alts = clause.split(/[,|]/).filter(Boolean);
+            var inheritedQualifier = '';
             return alts.map(function(alt) {
                 var negated = alt.charAt(0) === '-';
                 var term = negated ? alt.substring(1) : alt;
@@ -161,6 +162,9 @@
                         term = term.substring(colonIdx + 1);
                     }
                 }
+                // Propagate qualifier from first alt: orig:ZNY,ZDC → both get orig
+                if (qualifier) { inheritedQualifier = qualifier; }
+                else if (inheritedQualifier) { qualifier = inheritedQualifier; }
                 return { term: term.toUpperCase(), negated: negated, qualifier: qualifier };
             }).filter(function(a) { return a.term; });
         }).filter(function(c) { return c.length; });
