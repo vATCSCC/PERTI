@@ -290,6 +290,8 @@ or
 
 ## Configuration
 
+### Single-Organization (Basic)
+
 Discord integration requires these settings in `load/config.php`:
 
 ```php
@@ -297,6 +299,32 @@ define('DISCORD_BOT_TOKEN', 'your-bot-token');
 define('DISCORD_GUILD_ID', '123456789012345678');
 define('DISCORD_TMI_CHANNEL_ID', '123456789012345678');
 ```
+
+### Multi-Organization Support
+
+TMI advisories can be posted to multiple Discord servers simultaneously using `MultiDiscordAPI.php`. Enable multi-org mode and configure each organization's webhook and guild:
+
+```php
+// In load/config.php
+define('DISCORD_MULTI_ORG_ENABLED', true);
+define('DISCORD_ORGANIZATIONS', [
+    'VATUSA' => [
+        'webhook_url' => 'https://discord.com/api/webhooks/...',
+        'guild_id'    => '123456789012345678',
+    ],
+    'VATCAN' => [
+        'webhook_url' => 'https://discord.com/api/webhooks/...',
+        'guild_id'    => '987654321098765432',
+    ],
+]);
+```
+
+When multi-org is enabled, TMI publishing via `TMIDiscord.php` automatically fans out advisory messages to all configured organizations. The `tmi_discord_posts` table tracks per-org delivery status, retry counts, and approval state.
+
+**Key classes:**
+- `load/discord/DiscordAPI.php` — Single-server Discord REST client
+- `load/discord/MultiDiscordAPI.php` — Multi-organization posting orchestrator
+- `load/discord/TMIDiscord.php` — TMI-specific message formatting and dispatch
 
 ---
 

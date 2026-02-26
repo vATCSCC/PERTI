@@ -1,6 +1,6 @@
 # PERTI Codebase Dependency Map
 
-> Generated: 2026-01-31 | Verified: 2026-01-31
+> Generated: 2026-01-31 | Verified: 2026-02-25
 > Total PHP API Files: 368 | Frontend Pages: 20+ | JS Files: 43 | Scripts: 50+
 
 ---
@@ -54,10 +54,10 @@
                             ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           DATABASE LAYER                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
-│  │VATSIM_ADL│ │VATSIM_TMI│ │VATSIM_REF│ │VATSIM_GIS│ │perti_site│          │
-│  │Azure SQL │ │Azure SQL │ │Azure SQL │ │PostgreSQL│ │  MySQL   │          │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐│
+│  │VATSIM_ADL│ │VATSIM_TMI│ │VATSIM_REF│ │ SWIM_API │ │VATSIM_GIS│ │perti_sit││
+│  │Azure SQL │ │Azure SQL │ │Azure SQL │ │Azure SQL │ │PostgreSQL│ │  MySQL  ││
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └─────────┘│
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -131,16 +131,19 @@ plan.php (Plan Editor)
 │   └── api/mgt/* (CRUD for each section)
 └── Depth: 3 (Page → JS → API → Database)
 
-route.php (Route Visualization)
-├── JS: assets/js/route.js, route-maplibre.js, procs_enhanced.js, awys.js
+route.php (Route Visualization + Playbook/CDR Search)
+├── JS: assets/js/route.js, route-maplibre.js, procs_enhanced.js, awys.js,
+│       playbook-cdr-search.js, route-symbology.js, fir-scope.js
 ├── Libraries: Maplibre-GL, Leaflet, Turf.js
 ├── Data Files:
 │   ├── assets/data/points.csv (navigation fixes)
 │   ├── assets/data/cdrs.csv (CDR routes)
-│   └── assets/data/playbook_routes.csv
+│   ├── assets/data/playbook_routes.csv
+│   └── assets/data/awys.csv (airways)
 ├── APIs Called:
 │   ├── api/gis/boundaries.php (route expansion)
-│   └── api/data/fixes.php
+│   ├── api/data/fixes.php
+│   └── api/data/reroutes.php
 └── Depth: 3
 
 demand.php (Demand Analysis)
@@ -238,7 +241,7 @@ jatoc.php (JATOC Integration)
 |------|------------------|-----------|---------------------|-----------|
 | index.php | plan.js | jQuery, Bootstrap, SweetAlert2 | 4 | 2 |
 | plan.php | plan.js, initiative_timeline.js | Summernote, DatetimePicker | 25+ | 3 |
-| route.php | route.js, route-maplibre.js, procs_enhanced.js, awys.js | Maplibre-GL, Leaflet, Turf.js | 3 | 3 |
+| route.php | route.js, route-maplibre.js, procs_enhanced.js, awys.js, playbook-cdr-search.js, route-symbology.js, fir-scope.js | Maplibre-GL, Leaflet, Turf.js | 4 | 3 |
 | demand.php | demand.js | ECharts | 7 | 3 |
 | nod.php | nod.js, nod-demand-layer.js | Maplibre-GL, D3.js | 8 | 4 |
 | gdt.php | gdt.js, gdp.js, tmi-gdp.js | Chart.js, ECharts, D3.js | 12 | 4 |

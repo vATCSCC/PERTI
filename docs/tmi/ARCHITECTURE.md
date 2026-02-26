@@ -18,7 +18,7 @@ The TMI (Traffic Management Initiative) system consolidates all traffic manageme
 
 ### 1.1 Design Goals
 
-1. **Single Source of Truth** - One database for all TMI data (10 tables)
+1. **Single Source of Truth** - One database for all TMI data (20+ tables)
 2. **Multi-Source Input** - Accept entries from PERTI, Discord, TypeForm, API
 3. **Contingency Support** - Discord direct entry as fallback when systems are down
 4. **SWIM Accessible** - Public API for external consumers
@@ -219,8 +219,8 @@ Map-displayable routes with GeoJSON geometry for visualization.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     DISCORD BOT (Python)                        │
-│                     (Thin Client)                               │
+│                     DISCORD BOT (Node.js)                       │
+│                     (Thin Client - discord-bot/bot.js)          │
 │                                                                 │
 │   Responsibilities:                                             │
 │   • Listen to Discord messages in #ntml, #advisories           │
@@ -262,27 +262,30 @@ Map-displayable routes with GeoJSON geometry for visualization.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 Bot Example
+### 5.2 Bot Architecture
 
-```python
-@client.slash_command(name="gdp", description="Create or manage GDP")
-async def gdp_command(ctx, airport: str, rate: int, duration: int):
-    response = await call_perti_api('/api/gdt/programs/create', {
-        'ctl_element': airport,
-        'program_type': 'GDP-DAS',
-        'program_rate': rate,
-        'duration_minutes': duration,
-        'source_type': 'DISCORD',
-        'source_id': str(ctx.interaction.id),
-        'created_by': str(ctx.author.id),
-        'created_by_name': ctx.author.display_name
-    })
-    
-    if response['success']:
-        await ctx.respond(f"✅ GDP created for {airport}: {response['program_name']}")
-    else:
-        await ctx.respond(f"❌ Error: {response['error']}")
+The bot is a Node.js application using Discord.js that connects via the Gateway WebSocket. It listens for reaction events on coordination threads and calls the PERTI PHP API to process votes.
+
+```javascript
+// discord-bot/bot.js - Reaction handler
+client.on('messageReactionAdd', async (reaction, user) => {
+    // Check if reaction is in a coordination thread
+    if (!isCoordinationThread(reaction.message.channel)) return;
+
+    // Call PERTI API to process the vote
+    const response = await fetch(`${API_BASE_URL}/api/mgt/tmi/coordinate.php`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+        body: JSON.stringify({
+            message_id: reaction.message.id,
+            emoji: reaction.emoji.name,
+            user_id: user.id
+        })
+    });
+});
 ```
+
+Multi-organization Discord support is configured via `DISCORD_ORGANIZATIONS` for posting TMI advisories to multiple Discord servers simultaneously.
 
 ---
 
@@ -435,4 +438,4 @@ See [COST_ANALYSIS.md](COST_ANALYSIS.md) for TMI-specific breakdown.
 
 ---
 
-*Last Updated: February 10, 2026*
+*Last Updated: February 25, 2026*

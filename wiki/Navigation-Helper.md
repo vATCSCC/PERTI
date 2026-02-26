@@ -37,19 +37,37 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 |---------|-----------|---------------|---------------|
 | Current Flights | [[ADL API]] | `GET /api/adl/current.php` | `api/adl/current.php` |
 | Flight Details | [[ADL API]] | `GET /api/adl/flight.php` | `api/adl/flight.php` |
-| Route Parsing | [[Algorithm Route Parsing]] | - | `daemons/route_parser.php` |
-| Trajectory Tracking | [[Algorithm Trajectory Tiering]] | - | `daemons/trajectory_daemon.php` |
-| ETA Calculation | [[Algorithm ETA Calculation]] | - | `daemons/eta_daemon.php` |
+| Route Parsing | [[Algorithm Route Parsing]] | - | `adl/php/parse_queue_gis_daemon.php` |
+| Trajectory Tracking | [[Algorithm Trajectory Tiering]] | - | `scripts/vatsim_adl_daemon.php` (Step 8) |
+| ETA Calculation | [[Algorithm ETA Calculation]] | - | `adl/php/waypoint_eta_daemon.php` |
+| Boundary Detection | [[Algorithm Zone Detection]] | - | `adl/php/boundary_gis_daemon.php` |
 | Demand Analysis | [[Demand Analysis Walkthrough]] | `GET /api/adl/demand/*` | `api/adl/demand/` |
 
 ### Airport Operations
 
 | Feature | Wiki Page | API Reference | Code Location |
 |---------|-----------|---------------|---------------|
-| Demand Charts | [[Demand Analysis Walkthrough]] | `GET /api/demand/summary.php` | `api/demand/` |
-| Rate Management | [[Database Schema]] | `POST /api/demand/override.php` | `api/demand/override.php` |
-| ATIS Import | [[Database Schema]] | - | `daemons/atis_daemon.php` |
-| Runway Configs | [[Database Schema]] | `GET /api/demand/configs.php` | `api/demand/configs.php` |
+| Demand Charts | [[Demand Analysis Walkthrough]] | `GET /api/adl/demand/*` | `api/adl/demand/` |
+| Rate Management | [[Database Schema]] | - | `api/mgt/config_data/` |
+| ATIS Import | [[Database Schema]] | - | `scripts/vatsim_adl_daemon.php` (ATIS embedded) |
+| Runway Configs | [[Database Schema]] | `GET /api/data/configs.php` | `api/data/configs.php` |
+
+### Playbook & Route Tools (v18)
+
+| Feature | Wiki Page | API Reference | Code Location |
+|---------|-----------|---------------|---------------|
+| Playbook Catalog | [[Playbook]] | `GET /api/data/playbook/*` | `api/data/playbook/`, `api/mgt/playbook/` |
+| Route Plotter | [[Route Plotter]] | [[GIS API]] | `route.php`, `assets/js/route-maplibre.js` |
+| CDR Search | [[Route Plotter]] | - | `assets/js/playbook-cdr-search.js` |
+
+### Sector Management (v18)
+
+| Feature | Wiki Page | API Reference | Code Location |
+|---------|-----------|---------------|---------------|
+| Splits Configuration | [[Splits]] | `GET /api/splits/*` | `api/splits/`, `splits.php` |
+| Scheduled Splits | [[Splits]] | `GET /api/splits/scheduled.php` | `scripts/scheduler_daemon.php` |
+| Canadian FIR Sectors | [[Splits]] | - | `assets/data/*.geojson` |
+| Strata Filtering | [[Splits]] | `?strata=low,high,superhigh` | `api/splits/sectors.php` |
 
 ### Public Dashboards
 
@@ -57,7 +75,7 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 |---------|-----------|---------------|---------------|
 | JATOC (Incidents) | [[JATOC]] | [[JATOC API]] | `api/jatoc/` |
 | NOD Dashboard | [[NOD Dashboard]] | `GET /api/nod/*` | `api/nod/` |
-| Route Plotter | [[Route Plotter]] | - | `plotter.php` |
+| Route Plotter | [[Route Plotter]] | - | `route.php` |
 
 ### Training & Simulation
 
@@ -121,14 +139,17 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 | **Demand Monitors** | `demand_monitors` | [[ADL API]] |
 | **Simulator Reference** | `sim_ref_carrier_lookup`, `sim_ref_route_patterns`, `sim_ref_airport_demand` | [[ATFM Training Simulator]] |
 
-### VATSIM_PERTI (MySQL)
+### perti_site (MySQL)
 
 | Table Group | Tables | Documentation |
 |-------------|--------|---------------|
-| **Users** | `users`, `user_preferences` | [[Getting Started]] |
-| **Planning** | `plans`, `schedules`, `comments` | [[Creating PERTI Plans]] |
-| **Splits** | `splits_areas`, `splits_configs` | [[Splits]] |
-| **JATOC** | `incidents`, `incident_updates`, `incident_types` | [[JATOC]] |
+| **Users** | `users`, `admin_users` | [[Getting Started]] |
+| **Planning** | `p_plans`, `p_configs`, `p_op_goals`, `p_forecast` | [[Creating PERTI Plans]] |
+| **Staffing** | `p_terminal_staffing`, `p_enroute_staffing`, `p_dcc_staffing` | [[Creating PERTI Plans]] |
+| **Initiatives** | `p_terminal_init_timeline`, `p_enroute_init_timeline` | [[Creating PERTI Plans]] |
+| **Playbook** | `playbook_plays`, `playbook_routes`, `playbook_changelog` | [[Playbook]] |
+| **Review** | `r_scores`, `r_comments`, `r_data`, `r_ops_data` | [[Database Schema]] |
+| **CDR/Routes** | `route_cdr`, `route_playbook` | [[Database Schema]] |
 
 ---
 
@@ -155,17 +176,25 @@ Quick reference guide for finding documentation, code, and resources in PERTI.
 
 ## By Daemon / Background Process
 
+All 15 daemons are started via `scripts/startup.sh` at App Service boot.
+
 | Daemon | Purpose | Cycle | Code |
 |--------|---------|-------|------|
-| `adl_refresh.php` | VATSIM data sync | 15s | `daemons/adl_refresh.php` |
-| `route_parser.php` | Parse queued routes | 10s | `daemons/route_parser.php` |
-| `eta_daemon.php` | Calculate ETAs | 15s | `daemons/eta_daemon.php` |
-| `waypoint_eta_daemon.php` | Waypoint ETAs (tiered) | 15s | `daemons/waypoint_eta_daemon.php` |
-| `boundary_daemon.php` | ARTCC/TRACON detection | 15s | `daemons/boundary_daemon.php` |
-| `trajectory_daemon.php` | Position logging | 15s | `daemons/trajectory_daemon.php` |
-| `atis_daemon.php` | VATSIM ATIS import | 60s | `daemons/atis_daemon.php` |
-| `weather_daemon.php` | Weather data sync | 300s | `daemons/weather_daemon.php` |
-| `cleanup_daemon.php` | Data retention | 3600s | `daemons/cleanup_daemon.php` |
+| ADL Ingest | VATSIM data sync + ATIS | 15s | `scripts/vatsim_adl_daemon.php` |
+| Parse Queue (GIS) | Route parsing via PostGIS | 10s batch | `adl/php/parse_queue_gis_daemon.php` |
+| Boundary Detection (GIS) | ARTCC/TRACON detection | 15s | `adl/php/boundary_gis_daemon.php` |
+| Crossing Calculation | Boundary crossing ETAs | Tiered | `adl/php/crossing_gis_daemon.php` |
+| Waypoint ETA | Waypoint-level ETAs | Tiered | `adl/php/waypoint_eta_daemon.php` |
+| SWIM WebSocket | Real-time flight events | Persistent | `scripts/swim_ws_server.php` |
+| SWIM Sync | ADL → SWIM_API sync | 2min | `scripts/swim_sync_daemon.php` |
+| SimTraffic Poll | SimTraffic time data | 2min | `scripts/simtraffic_swim_poll.php` |
+| Reverse Sync | SimTraffic → ADL sync | 2min | `scripts/swim_adl_reverse_sync_daemon.php` |
+| Scheduler | Splits/routes activation | 60s | `scripts/scheduler_daemon.php` |
+| Archival | Trajectory tiering | 1-4h | `scripts/archival_daemon.php` |
+| Monitoring | System metrics | 60s | `scripts/monitoring_daemon.php` |
+| Discord Queue | TMI Discord posting | Continuous | `scripts/tmi/process_discord_queue.php` |
+| Event Sync | VATUSA/VATCAN events | 6h | `scripts/event_sync_daemon.php` |
+| ADL Archive | Trajectory blob storage | Daily 10:00Z | `scripts/adl_archive_daemon.php` (conditional) |
 
 See [[Daemons and Scripts]] for full documentation.
 
@@ -177,11 +206,10 @@ See [[Daemons and Scripts]] for full documentation.
 
 | Procedure | Purpose | Called From |
 |-----------|---------|-------------|
-| `sp_Adl_RefreshFromVatsim_Normalized` | Main 13-step VATSIM data refresh | `adl_refresh.php` |
-| `sp_ParseRouteBatch` | Route parsing with waypoint expansion | `route_parser.php` |
-| `sp_CalculateETABatch` | ETA calculation | `eta_daemon.php` |
-| `sp_WaypointETABatch` | Waypoint ETA calculation | `waypoint_eta_daemon.php` |
-| `sp_BoundaryDetectionBatch` | ARTCC/TRACON detection | `boundary_daemon.php` |
+| `sp_Adl_RefreshFromVatsim_Staged` | Main 13-step VATSIM data refresh (V9.3.0) | `vatsim_adl_daemon.php` |
+| `sp_ProcessTrajectoryBatch` | Basic ETA calculation | Deferred from ADL ingest |
+| `sp_CalculateETABatch` | Wind-adjusted ETA batch | Deferred from ADL ingest |
+| `sp_CapturePhaseSnapshot` | Flight phase count snapshot | Deferred from ADL ingest |
 | `sp_RouteDistanceBatch` | Route distance calculation | Refresh Step 5b |
 
 ### Airport Config Procedures
@@ -207,7 +235,7 @@ See [[Daemons and Scripts]] for full documentation.
 
 ## Documentation Index
 
-### Wiki Pages (39 total)
+### Wiki Pages (46 total)
 
 **Getting Started**
 - [[Home]] - Main wiki landing page
@@ -238,9 +266,10 @@ See [[Daemons and Scripts]] for full documentation.
 **Features**
 - [[GDT Ground Delay Tool]] - GDP/GS management
 - [[Route Plotter]] - TSD-style flight map
+- [[Playbook]] - Pre-coordinated route play catalog (v18)
 - [[JATOC]] - Incident monitoring
 - [[NOD Dashboard]] - NAS operations dashboard
-- [[Splits]] - Sector configuration
+- [[Splits]] - Sector configuration with strata filtering (v18)
 - [[ATFM Training Simulator]] - TMU training
 
 **Walkthroughs**
@@ -262,6 +291,9 @@ See [[Daemons and Scripts]] for full documentation.
 - [[Acronyms]] - Terminology glossary
 - [[FAQ]] - Frequently asked questions
 - [[Changelog]] - Version history
+- [[AIRAC Update]] - Navigation data update guide
+- [[FMDS Comparison]] - FMDS vs PERTI functional analysis
+- [[Navigation Helper]] - This page (quick lookup)
 
 ### Extended Documentation (docs/)
 
@@ -283,7 +315,7 @@ See [[Daemons and Scripts]] for full documentation.
 | What's the main flight table? | `adl_flight_core` (Azure SQL) |
 | Where are rates stored? | `airport_config_rate` |
 | How do I query flight ETAs? | `adl_flight_times.eta_utc` |
-| Where's the VATSIM sync code? | `daemons/adl_refresh.php` + `sp_Adl_RefreshFromVatsim_Normalized` |
+| Where's the VATSIM sync code? | `scripts/vatsim_adl_daemon.php` + `sp_Adl_RefreshFromVatsim_Staged` (V9.3.0) |
 | How do Ground Stops work? | `tmi_programs` table (VATSIM_TMI) with `program_type='GS'` |
 | Where are reroutes defined? | `tmi_reroutes` table |
 | What's the demand monitor table? | `demand_monitors` |
@@ -295,9 +327,10 @@ See [[Daemons and Scripts]] for full documentation.
 |------|---------|
 | `status.php` | System status dashboard |
 | `demand.php` | Airport demand analysis page |
-| `plotter.php` | Route plotter / TSD map |
+| `route.php` | Route plotter / TSD map |
+| `playbook.php` | Playbook route play catalog (v18) |
 | `gdt.php` | Ground Delay Tool interface |
-| `ntml.php` | National Traffic Management Log |
+| `tmi-publish.php` | TMI publishing to Discord (NTML/advisories) |
 | `simulator.php` | ATFM Training Simulator |
 | `airport_config.php` | Airport configuration management |
 | `load/config.php` | Application configuration |
@@ -305,4 +338,4 @@ See [[Daemons and Scripts]] for full documentation.
 
 ---
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-02-25*

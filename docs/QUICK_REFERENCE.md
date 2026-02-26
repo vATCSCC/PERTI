@@ -1,6 +1,6 @@
 # PERTI Quick Reference Index
 
-Quick lookup for common codebase elements. Last updated: 2026-02-10
+Quick lookup for common codebase elements. Last updated: 2026-02-25
 
 ---
 
@@ -17,7 +17,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-10
 | `/api/adl/trajectory.php` | GET | Flight trajectory points |
 | `/api/adl/crossings.php` | GET | Boundary crossing data |
 
-### Airspace Element Demand (v17)
+### Airspace Element Demand
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -79,6 +79,30 @@ Quick lookup for common codebase elements. Last updated: 2026-02-10
 | `/api/data/review/tmr_report.php` | GET/POST/PUT/DELETE | TMR report CRUD (auto-save) |
 | `/api/data/review/tmr_tmis.php` | GET | Historical TMI lookup |
 | `/api/data/review/tmr_export.php` | GET | Discord-formatted TMR export |
+
+### Playbook (v18)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/data/playbook/list.php` | GET | List plays (category/source filters) |
+| `/api/data/playbook/get.php` | GET | Get single play with routes |
+| `/api/data/playbook/categories.php` | GET | Play categories |
+| `/api/data/playbook/changelog.php` | GET | Play change history |
+| `/api/mgt/playbook/save.php` | POST | Create/update play |
+| `/api/mgt/playbook/route.php` | POST | Add/update play routes |
+| `/api/mgt/playbook/delete.php` | DELETE | Delete play |
+
+### Splits Management
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/splits/areas.php` | GET | Area definitions |
+| `/api/splits/configs.php` | GET | Configurations |
+| `/api/splits/active.php` | GET | Active splits |
+| `/api/splits/presets.php` | GET | Split presets |
+| `/api/splits/maps.php` | GET | Sector map data |
+| `/api/splits/scheduled.php` | GET | Scheduled splits |
+| `/api/splits/scheduler.php` | POST | Schedule management |
 
 ### ATFM Simulator
 
@@ -148,7 +172,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-10
 
 ## Daemons & Scripts Index
 
-### PHP Daemons (14 total, all started via startup.sh)
+### PHP Daemons (15 total, all started via startup.sh)
 
 | Daemon | File | Interval | Purpose |
 |--------|------|----------|---------|
@@ -166,6 +190,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-10
 | Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics |
 | Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | TMI Discord posting |
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | Event sync (VATUSA/VATCAN) |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival (conditional) |
 
 ### Import Scripts
 
@@ -307,6 +332,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-10
 | Airport Configs | `airport_config.php` | Runway configuration |
 | Airspace Elements | `airspace-elements.php` | Custom airspace elements |
 | TMI Publisher | `tmi-publish.php` | TMI publishing to Discord |
+| Playbook | `playbook.php` | Route play catalog (FAA/DCC/ECFMP/CANOC) |
 | System Status | `status.php` | System health dashboard |
 
 ### JavaScript Components

@@ -12,9 +12,9 @@ PERTI (Plan, Execute, Review, Train, and Improve) is a web-based traffic flow ma
 
 | Version | Supported          |
 |---------|--------------------|
-| v16.x   | :white_check_mark: |
-| v15.x   | :white_check_mark: |
-| < v15   | :x:                |
+| v18.x   | :white_check_mark: |
+| v17.x   | :white_check_mark: |
+| < v17   | :x:                |
 
 Only the current and previous major versions receive security updates.
 

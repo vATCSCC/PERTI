@@ -101,6 +101,16 @@ define('FEATURE_DEMAND_ANALYSIS', true);
 // TMI features
 define('DISCORD_MULTI_ORG_ENABLED', true);  // Multi-organization Discord posting
 define('TMI_STAGING_REQUIRED', false);       // Require staging before publishing
+
+// GIS mode switch (default: 1)
+define('USE_GIS_DAEMONS', 1);  // Set to 0 to use Azure SQL spatial instead of PostGIS
+```
+
+### Conditional Daemons
+
+```php
+// ADL Archive daemon only starts if storage connection is configured
+define('ADL_ARCHIVE_STORAGE_CONN', 'your_blob_storage_connection_string');
 ```
 
 ### Performance Optimization

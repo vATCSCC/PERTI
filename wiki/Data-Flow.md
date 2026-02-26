@@ -306,6 +306,40 @@ nginx + PHP-FPM (40 workers)
 | Discord queue | Continuous | `process_discord_queue.php` |
 | Event sync | 6 hours | `event_sync_daemon.php` |
 | Archival | 1 - 4 hours | `archival_daemon.php` |
+| Splits scheduler | 60 seconds | `scheduler_daemon.php` |
+
+---
+
+## Playbook Data Flow
+
+```
+Playbook sources (FAA/DCC/ECFMP/CANOC)
+       |
+       v
+playbook.php (management UI) / api/mgt/playbook/save.php
+       |
+       v
+MySQL perti_site: playbook_plays, playbook_routes, playbook_changelog
+       |
+       v
+Route visualization (playbook.php, route.php)
+```
+
+Playbook routes are imported from multiple sources and stored in MySQL. Route geometry is resolved at display time using the same fix/airway lookup used by the route plotter.
+
+---
+
+## Scheduled Splits Flow
+
+```
+scheduler_daemon.php (every 60s)
+       |
+       v
+Check splits_configs for start_utc/end_utc
+       |
+       v
+Auto-activate/deactivate splits_positions
+```
 
 ---
 

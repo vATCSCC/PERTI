@@ -1,8 +1,8 @@
 # ADL Database Redesign: Complete Architecture
 
-**Version:** 2.0  
-**Date:** January 2025  
-**Status:** Design Document
+**Version:** 3.0
+**Date:** February 2026
+**Status:** Deployed & Live
 
 ---
 
@@ -20,13 +20,13 @@ Transform the monolithic `adl_flights` table into a normalized, GIS-enabled arch
 
 ### 1.2 Key Metrics
 
-| Metric | Current (Jan 2026) | Notes |
+| Metric | Current (Feb 2026) | Notes |
 |--------|-------------------|-------|
-| Refresh time (typical) | **~5.6 sec** | 44% faster than legacy |
-| Refresh time (peak) | **~8.5 sec** | 53% faster than legacy |
+| Refresh time (typical) | **~3.5 sec** | V9.4.0 + Route Distance V2.2 |
+| Refresh time (peak) | **~5.5 sec** | Delta detection reduces 30-40% |
 | Spatial query capability | **Full GIS** | GEOGRAPHY-enabled |
 | SimBrief data extraction | **Runways, steps, CI** | Automatic parsing |
-| Azure ADL monthly cost | **~$2,100** | Hyperscale Serverless (3/16 vCores) |
+| Azure ADL monthly cost | **~$2,100** | Hyperscale Serverless (3/16 vCores, right-sized from 4/24) |
 
 **Infrastructure Note (Updated January 21, 2026):**
 VATSIM_ADL runs on Azure SQL Hyperscale Serverless (HS_S_Gen5_16) with 3 min/16 max vCores.
@@ -43,7 +43,7 @@ Configuration was right-sized from 4/24 vCores, saving ~$1,140/month while maint
 | 2 | `adl_flight_plan` | Route + GIS geometry | On FP change |
 | 2B | `adl_flight_waypoints` | Parsed route waypoints | On FP change |
 | 2C | `adl_flight_stepclimbs` | Step climb records | On FP change |
-| 3 | `adl_flight_times` | 40+ TFMS time fields | Every refresh |
+| 3 | `adl_flight_times` | 50+ TFMS time fields | Every refresh |
 | 4 | `adl_flight_trajectory` | Position history (15s) | Every refresh |
 | 5 | `adl_flight_tmi` | TMI controls | Every refresh |
 | 6 | `adl_flight_legs` | Multi-leg flights | On change |
@@ -120,13 +120,18 @@ WHERE on_airway = 'J60';
 ## 5. Implementation Status
 
 - [x] Core table design
-- [x] Migration scripts (5 files)
+- [x] Migration scripts (expanded to 8 feature directories)
 - [x] Tier assignment function
 - [x] Parse queue procedures
-- [ ] Full GIS route parsing
-- [ ] Reference data import
-- [ ] API endpoint updates
-- [ ] Data migration
+- [x] Full GIS route parsing (PostGIS, V4 algorithm)
+- [x] Reference data import (NASR, CIFP, airways)
+- [x] API endpoint updates (ADL, demand, crossings)
+- [x] Data migration (fully live since early 2025)
+- [x] Boundary detection (PostGIS polygon intersection)
+- [x] Crossing predictions (planned boundary ETA)
+- [x] Waypoint-level ETA calculation
+- [x] Delta detection bitmask (V9.3.0+)
+- [x] Route Distance V2.2 (two-pass LINESTRING)
 
 ---
 
@@ -134,14 +139,34 @@ WHERE on_airway = 'J60';
 
 ```
 adl/
+├── README.md
+├── ARCHITECTURE.md
 ├── migrations/
-│   ├── 001_adl_core_tables.sql
-│   ├── 002_adl_times_trajectory.sql
-│   ├── 003_adl_waypoints_stepclimbs.sql
-│   ├── 004_adl_reference_tables.sql
-│   └── 005_adl_views_seed_data.sql
+│   ├── core/               # Core 8-table flight schema
+│   ├── boundaries/          # Boundary detection tables
+│   ├── crossings/           # Boundary crossing predictions
+│   ├── demand/              # Fix/segment demand functions
+│   ├── eta/                 # ETA trajectory calculation
+│   ├── navdata/             # Waypoint/procedure imports
+│   ├── changelog/           # Flight change tracking triggers
+│   └── cifp/                # CIFP procedure legs
 ├── procedures/
 │   ├── fn_GetParseTier.sql
-│   └── sp_ParseQueue.sql
-└── README.md
+│   ├── fn_GetTokenType.sql
+│   ├── sp_ParseQueue.sql
+│   ├── sp_ParseRoute.sql
+│   └── sp_UpsertFlight.sql
+├── php/
+│   ├── AdlFlightUpsert.php
+│   ├── parse_queue_gis_daemon.php
+│   ├── boundary_gis_daemon.php
+│   ├── crossing_gis_daemon.php
+│   └── waypoint_eta_daemon.php
+└── reference_data/
+    ├── import_all.php
+    ├── import_nav_fixes.php
+    ├── import_airways.php
+    ├── import_cdrs.php
+    ├── import_playbook.php
+    └── import_procedures.php
 ```

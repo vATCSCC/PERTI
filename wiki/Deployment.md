@@ -148,39 +148,72 @@ sqlcmd -S your-server.database.windows.net \
 
 ## Daemon Deployment
 
-Background daemons run separately from the web application.
+All 15 background daemons run inside the same Azure App Service container, started at boot via `scripts/startup.sh`. There is no separate daemon host — daemons are `nohup` PHP processes launched before PHP-FPM starts in the foreground.
 
-### Option 1: Azure WebJobs
+### Startup Sequence
 
-Create WebJobs for PHP daemons:
+`scripts/startup.sh` executes the following in order:
 
-1. Navigate to App Service > WebJobs
-2. Add new WebJob (Continuous type)
-3. Upload daemon script as ZIP
-4. Configure to run continuously
+1. **Configure nginx** — copies custom `default` site config for extensionless URLs
+2. **Start daemons** — each launched via `nohup php ... >> /home/LogFiles/<name>.log 2>&1 &`
+3. **Configure OPcache** — 128MB, revalidate every 60s
+4. **Configure PHP-FPM** — 40 workers (P1v2 tier), status page at `/fpm-status`
+5. **Start PHP-FPM** — runs in foreground (`php-fpm -F`) to keep the container alive
 
-### Option 2: Azure Container Instances
+### Daemons Started
 
-For Python daemons, consider ACI:
+| Daemon | Script | Mode |
+|--------|--------|------|
+| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s loop |
+| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch (GIS mode) |
+| Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s loop (GIS mode) |
+| Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered loop (GIS mode) |
+| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered loop |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent (port 8090) |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min sync, 6h cleanup |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min loop |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min loop |
+| Scheduler | `scripts/scheduler_daemon.php` | 60s loop |
+| Archival | `scripts/archival_daemon.php` | 1-4h adaptive |
+| Monitoring | `scripts/monitoring_daemon.php` | 60s loop |
+| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous |
+| Event Sync | `scripts/event_sync_daemon.php` | 6h loop |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily at 10:00Z (conditional) |
 
-```bash
-az container create \
-  --resource-group PERTI-RG \
-  --name atis-daemon \
-  --image your-registry/atis-daemon:latest \
-  --restart-policy Always
+The ADL Archive daemon only starts if `ADL_ARCHIVE_STORAGE_CONN` is set. An indexer script also runs once at startup (30s delayed) to generate `agent_context.md`.
+
+### GIS Mode Switch
+
+The startup script has a `USE_GIS_DAEMONS` toggle (default: `1`). When enabled, PostGIS-based daemons handle spatial operations (parse queue, boundary detection, crossing calculation). When disabled, legacy ADL-only daemons are used instead. This switch is scheduled for removal after the evaluation period.
+
+### PHP-FPM Worker Sizing
+
+Memory calculation for `pm.max_children`:
+
+```
+max_children = (TOTAL_RAM - 500MB) / 50MB
 ```
 
-### Option 3: External VM
+| App Service Tier | RAM | Recommended Workers |
+|-----------------|-----|---------------------|
+| B1/S1 | 1.75GB | 25 |
+| P1v2 (current) | 3.5GB | 40-60 |
+| P2v2 | 7GB | 80-130 |
 
-Run daemons on a dedicated VM:
+### Daemon Logs
+
+All daemon logs write to `/home/LogFiles/`:
 
 ```bash
-# Setup systemd service
-sudo cp vatsim-adl.service /etc/systemd/system/
-sudo systemctl enable vatsim-adl
-sudo systemctl start vatsim-adl
+# Stream logs via Azure CLI
+az webapp log tail --resource-group PERTI-RG --name vatcscc
+
+# Or via Kudu SSH
+tail -f /home/LogFiles/vatsim_adl.log
+tail -f /home/LogFiles/parse_queue_gis.log
 ```
+
+See [[Daemons and Scripts]] for detailed daemon documentation.
 
 ---
 

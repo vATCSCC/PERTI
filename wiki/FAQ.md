@@ -194,7 +194,7 @@ TMR reports include per-airport demand charts (DemandChartCore) that visualize a
 
 ### Is PERTI available in other languages?
 
-PERTI has a full i18n infrastructure with 450+ translation keys. Currently only English (en-US) is supported, but the system is ready for additional locales.
+PERTI has a full i18n infrastructure with 450+ translation keys. Supported locales: `en-US` (full), `fr-CA` (near-complete), `en-CA` (overlay), `en-EU` (overlay). Overlay locales inherit from `en-US` and only override specific keys (e.g., terminology differences).
 
 ### How does locale detection work?
 
@@ -202,6 +202,54 @@ PERTI has a full i18n infrastructure with 450+ translation keys. Currently only 
 2. localStorage (`PERTI_LOCALE`)
 3. Browser language (`navigator.language`)
 4. Fallback: `en-US`
+
+---
+
+## Playbook - NEW v18
+
+### What is the Playbook?
+
+The Playbook is a pre-coordinated route play catalog for traffic management. It stores collections of routes organized by scenario (weather, volume, construction) that can be quickly activated during events.
+
+### Where do plays come from?
+
+Plays originate from four sources:
+- **FAA** — Imported from national playbook data
+- **DCC** — Custom plays authored by the Command Center
+- **ECFMP** — EUROCONTROL-style flow measures from European divisions
+- **CANOC** — Canadian Network Operations Centre plays
+
+### Can I share a play?
+
+Yes. Use shareable links: `https://perti.vatcscc.org/playbook.php?play=PLAY_NAME`. When loaded, the page auto-selects and displays the referenced play.
+
+### How do I add routes in bulk?
+
+Use the **Bulk Paste** feature in the edit modal. Paste ECFMP or CANOC format route text, and the parser automatically structures the routes and detects the source format.
+
+See [[Playbook]] for full documentation.
+
+---
+
+## Splits & Sectors - NEW v18
+
+### What are splits?
+
+Splits define how an ARTCC's airspace is divided into sectors. Each configuration assigns positions to sector areas and can be activated for events or scheduled to auto-activate at specific times.
+
+### What is strata filtering?
+
+Strata filtering lets you view sectors by altitude stratum: **low** (surface to FL230), **high** (FL230 to FL370), or **superhigh** (FL370+). This is controlled via checkboxes on the splits map.
+
+### Which facilities are supported?
+
+23 US ARTCCs and 7 Canadian FIRs (CZYZ, CZWG, CZEG, CZUL, CZVR, CZQM, CZQX) with 1,379 total sector boundaries. Additional international FIRs (Mexico, Caribbean) are supported but may have limited sector data.
+
+### Can splits be scheduled?
+
+Yes. Scheduled splits have start/end times (UTC) and are automatically activated/deactivated by the `scheduler_daemon.php`.
+
+See [[Splits]] for full documentation.
 
 ---
 

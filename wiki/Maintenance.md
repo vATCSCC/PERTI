@@ -49,7 +49,7 @@ Monitor and rotate daemon logs:
 
 **Azure App Service:**
 
-All 14 daemons log to `/home/LogFiles/<daemon>.log`. Stream live:
+All 15 daemons log to `/home/LogFiles/<daemon>.log`. Stream live:
 
 ```bash
 az webapp log tail --resource-group PERTI-RG --name vatcscc

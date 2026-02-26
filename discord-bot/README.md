@@ -33,67 +33,29 @@ Contact VATUSA/DCC staff to obtain:
 2. **Guild ID** - The main VATUSA Discord server ID
 3. **Coordination Channel ID** - The `#coordination` channel ID
 
-## DigitalOcean Droplet Setup
+## Deployment
 
-### 1. Create Droplet
+### Production (Azure App Service)
 
-1. Log into [DigitalOcean](https://cloud.digitalocean.com/)
-2. Create Droplet:
-   - **Image:** Ubuntu 24.04 LTS
-   - **Plan:** Basic, $5/mo (1GB RAM, 1 vCPU)
-   - **Datacenter:** Choose closest to your users
-   - **Authentication:** SSH Key (recommended) or Password
-3. Note the droplet's IP address
-
-### 2. Initial Server Setup
+The bot runs as part of the Azure App Service deployment. It is started automatically by `scripts/startup.sh` alongside all other daemons:
 
 ```bash
-# SSH into your droplet
-ssh root@YOUR_DROPLET_IP
-
-# Update packages
-apt update && apt upgrade -y
-
-# Install Node.js 20.x
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
-
-# Verify installation
-node --version  # Should show v20.x.x
-npm --version
-
-# Create a non-root user for the bot
-adduser botuser
-usermod -aG sudo botuser
-
-# Switch to bot user
-su - botuser
+# In scripts/startup.sh:
+cd /home/site/wwwroot/discord-bot && node bot.js >> /home/LogFiles/discord-bot.log 2>&1 &
 ```
 
-### 3. Deploy the Bot
+No separate server is needed.
+
+### Local Development
 
 ```bash
-# As botuser
-cd ~
-
-# Clone or copy the discord-bot folder
-# Option A: If you have git access
-git clone YOUR_REPO_URL perti
-cd perti/discord-bot
-
-# Option B: Copy files manually via SCP
-# (from your local machine)
-# scp -r discord-bot/* botuser@YOUR_DROPLET_IP:~/discord-bot/
-
-# Install dependencies
+cd discord-bot
 npm install
-
-# Create environment file
 cp .env.example .env
-nano .env
+# Edit .env with backup server credentials for testing
 ```
 
-### 4. Configure Environment
+### Configure Environment
 
 Edit `.env` with your values:
 
@@ -127,7 +89,22 @@ LOG_LEVEL=info
 
 The `.env.example` file contains backup server IDs for testing. For production deployment, you must obtain the main VATUSA Discord server credentials from DCC staff.
 
-### 5. Test the Bot
+### Multi-Organization Discord Support
+
+TMI advisories can be posted to multiple Discord servers simultaneously using `MultiDiscordAPI.php`. Each organization has its own webhook configuration:
+
+```php
+// In load/config.php
+define('DISCORD_MULTI_ORG_ENABLED', true);
+define('DISCORD_ORGANIZATIONS', [
+    'VATUSA' => ['webhook_url' => '...', 'guild_id' => '...'],
+    'VATCAN' => ['webhook_url' => '...', 'guild_id' => '...'],
+]);
+```
+
+The bot's reaction processing calls `api/mgt/tmi/coordinate.php` via REST. The `cleanup-coordination.js` utility handles stale coordination threads.
+
+### Test the Bot
 
 ```bash
 # Run in foreground to test
@@ -141,97 +118,16 @@ npm start
 
 Test by adding a reaction to a coordination thread message.
 
-### 6. Run as a Service (systemd)
-
-Create a systemd service for automatic startup and recovery:
-
-```bash
-# Create service file
-sudo nano /etc/systemd/system/perti-bot.service
-```
-
-Paste this content:
-
-```ini
-[Unit]
-Description=PERTI TMI Coordination Bot
-After=network.target
-
-[Service]
-Type=simple
-User=botuser
-WorkingDirectory=/home/botuser/discord-bot
-ExecStart=/usr/bin/node bot.js
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable on boot
-sudo systemctl enable perti-bot
-
-# Start the service
-sudo systemctl start perti-bot
-
-# Check status
-sudo systemctl status perti-bot
-
-# View logs
-sudo journalctl -u perti-bot -f
-```
-
 ## Monitoring
 
-### View Logs
+### View Logs (Azure App Service)
 
 ```bash
-# Live logs
-sudo journalctl -u perti-bot -f
+# Via Kudu SSH
+tail -f /home/LogFiles/discord-bot.log
 
-# Last 100 lines
-sudo journalctl -u perti-bot -n 100
-
-# Logs since today
-sudo journalctl -u perti-bot --since today
-```
-
-### Service Commands
-
-```bash
-sudo systemctl status perti-bot   # Check status
-sudo systemctl restart perti-bot  # Restart
-sudo systemctl stop perti-bot     # Stop
-sudo systemctl start perti-bot    # Start
-```
-
-## Updating
-
-```bash
-# Stop the service
-sudo systemctl stop perti-bot
-
-# Pull updates (if using git)
-cd ~/discord-bot
-git pull
-
-# Or replace files manually
-
-# Install any new dependencies
-npm install
-
-# Restart
-sudo systemctl start perti-bot
+# Via Azure CLI
+az webapp log tail --name vatcscc --resource-group perti-rg
 ```
 
 ## Troubleshooting

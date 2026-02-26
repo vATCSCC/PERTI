@@ -3,9 +3,9 @@
 > Centralized data exchange hub for real-time flight information sharing across the VATSIM ecosystem.
 
 [![Status](https://img.shields.io/badge/status-production-brightgreen)]()
-[![Phase](https://img.shields.io/badge/phase_3-in_progress-yellow)]()
+[![Phase](https://img.shields.io/badge/phase_3-complete-brightgreen)]()
 [![Cost](https://img.shields.io/badge/cost-$5/mo-brightgreen)]()
-[![FIXM](https://img.shields.io/badge/FIXM-migration_active-orange)]()
+[![FIXM](https://img.shields.io/badge/FIXM-complete-brightgreen)]()
 
 > **FIXM Migration (2026-01-27):** Transitioning to FIXM-aligned column names (`actual_off_block_time`
 > instead of `out_utc`, etc.). Both column sets populated during 30-day transition. Use `?format=fixm`
@@ -18,7 +18,7 @@
 | Phase 0: Infrastructure | ✅ Complete |
 | Phase 1: REST API | ✅ Complete |
 | Phase 2: WebSocket | ✅ Complete |
-| Phase 3: SDKs & Integrations | 🔨 Python + AOC Telemetry done |
+| Phase 3: SDKs & Integrations | ✅ Complete (Python, C#, Java, JS) |
 
 **Live Features:**
 - REST API with FIXM field naming
@@ -209,8 +209,8 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 |----------|--------|----------|
 | Python | ✅ Complete | `sdk/python/` |
 | JavaScript | ✅ Built-in | `api/swim/v1/ws/swim-ws-client.js` |
-| C# | ⏳ Planned | — |
-| Java | ⏳ Planned | — |
+| C# | ✅ Complete | `sdk/csharp/` |
+| Java | ✅ Complete | `sdk/java/` |
 
 ---
 

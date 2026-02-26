@@ -13,8 +13,8 @@ This guide covers setting up PERTI for local development or deployment.
 | PHP | 8.2+ | Backend runtime |
 | Composer | 2.x | PHP dependency management |
 | MySQL | 8.0+ | Application database |
-| Node.js | 18+ | Build tools (optional) |
-| Python | 3.9+ | Daemon scripts |
+| Node.js | 18+ | Discord bot only (optional) |
+| Python | 3.9+ | ATIS daemon, AIRAC updater, analysis scripts |
 | Git | 2.x | Version control |
 
 ### PHP Extensions
@@ -98,18 +98,41 @@ Point document root to the PERTI directory.
 
 Import `web.config` or configure URL rewrite rules manually.
 
-### 6. Start Daemons
+### 6. Load Initial Reference Data
+
+Before daemons can function, populate navigation data:
 
 ```bash
-# VATSIM ADL refresh daemon
+# Import FAA NASR navdata (fixes, airways, procedures)
+python scripts/nasr_navdata_updater.py
+
+# Import ARTCC/TRACON boundary polygons into PostGIS
+python scripts/build_sector_boundaries.py
+
+# Import FAA playbook routes (optional, for Playbook feature)
+python scripts/playbook/update_playbook_routes.py
+```
+
+See [[AIRAC Update]] for the full AIRAC cycle update process.
+
+### 7. Start Daemons
+
+**Production (Azure App Service):** All 15 daemons are started automatically via `scripts/startup.sh` at container boot. No manual daemon management is needed.
+
+**Local development:** Start the minimum daemons for a working environment:
+
+```bash
+# Required: VATSIM ADL refresh daemon (ingestion + ATIS)
 php scripts/vatsim_adl_daemon.php &
 
-# ATIS import daemon
-python scripts/vatsim_atis/atis_daemon.py &
+# Required: Route parsing via PostGIS
+php adl/php/parse_queue_gis_daemon.php --loop --batch=50 --interval=10 &
 
-# Parse queue daemon
-php adl/php/parse_queue_daemon.php --loop &
+# Optional: Boundary detection (for sector tracking)
+php adl/php/boundary_gis_daemon.php --loop --interval=15 &
 ```
+
+See [[Daemons and Scripts]] for the full list of 15 daemons.
 
 ---
 
@@ -136,9 +159,12 @@ Navigate to `/login/` to test VATSIM OAuth flow.
 require_once 'load/config.php';
 require_once 'load/connect.php';
 
-echo "MySQL: " . ($conn ? "Connected" : "Failed") . "\n";
-echo "ADL: " . ($adl_conn ? "Connected" : "Failed") . "\n";
+echo "MySQL: " . ($conn_pdo ? "Connected" : "Failed") . "\n";
+echo "ADL: " . (get_conn_adl() ? "Connected" : "Failed") . "\n";
+echo "GIS: " . (get_conn_gis() ? "Connected" : "Failed") . "\n";
 ```
+
+Note: Azure SQL uses lazy-loaded getter functions (`get_conn_adl()`, `get_conn_tmi()`, etc.), not global variables directly.
 
 ---
 
@@ -168,6 +194,9 @@ PERTI/
 - [[Architecture]] - Understand the system design
 - [[Deployment]] - Deploy to Azure
 - [[API Reference]] - Explore the APIs
+- [[AIRAC Update]] - Navigation data update guide
+- [[Daemons and Scripts]] - Background process documentation
+- [[Navigation Helper]] - Quick reference for finding anything in PERTI
 
 ---
 

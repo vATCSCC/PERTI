@@ -255,12 +255,7 @@ ORDER BY
 
 ### Batch Processing
 
-```sql
--- sp_ParseRouteBatch processes queued routes
-EXEC dbo.sp_ParseRouteBatch 
-    @batch_size = 50,  -- Routes per batch
-    @tier = NULL;       -- NULL = all tiers
-```
+Route parsing is handled by the **GIS daemon** (`adl/php/parse_queue_gis_daemon.php`), which picks up queued routes from `adl_parse_queue` and processes them using PostGIS for spatial operations. The daemon runs continuously with 10-second batch cycles.
 
 Processing is tiered to prioritize operationally significant routes:
 - Tier 1-2: Parse immediately (Core30 traffic)
@@ -278,20 +273,24 @@ Processing is tiered to prioritize operationally significant routes:
 ### Integration Points
 
 ```
-sp_Adl_RefreshFromVatsim_Normalized
+sp_Adl_RefreshFromVatsim_Staged (V9.4.0)
     │
-    ├─► Detect route changes (hash comparison)
+    ├─► Step 4: Detect route changes (hash comparison)
     │
-    ├─► Queue new routes (sp_ParseQueue)
+    ├─► Step 5: Queue new routes → adl_parse_queue
     │
-    └─► Process batch (sp_ParseRouteBatch)
+    └─► Step 5b: Update route distances (Route Distance V2.2)
+
+parse_queue_gis_daemon.php (GIS daemon, continuous)
+    │
+    ├─► Pick up PENDING routes from adl_parse_queue
+    │
+    └─► Process batch via PostGIS
             │
-            └─► sp_ParseRoute (per-flight)
-                    │
-                    ├─► fn_GetTokenType (tokenization)
-                    ├─► fn_ExpandAirwayNames (airway expansion)
-                    ├─► fn_ParseCoordinate (lat/lon parsing)
-                    └─► Proximity resolution + geometry building
+            ├─► Tokenization (V4 algorithm)
+            ├─► Airway expansion
+            ├─► Proximity-based coordinate resolution
+            └─► Geometry building (PostGIS LINESTRING)
 ```
 
 ### Debugging

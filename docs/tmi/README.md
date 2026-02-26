@@ -2,7 +2,7 @@
 
 **Status:** DEPLOYED & LIVE
 **Version:** 2.0.0
-**Last Updated:** January 29, 2026
+**Last Updated:** February 25, 2026
 
 This directory contains documentation for the unified Traffic Management Initiative (TMI) system, which consolidates NTML entries, Advisories, GDT Programs (GS/GDP), Reroutes, and Public Routes across multiple input sources into a single authoritative database.
 
@@ -106,7 +106,7 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries.php \
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture and design decisions |
-| [DATABASE.md](DATABASE.md) | Complete database schema (10 tables, 269 fields) |
+| [DATABASE.md](DATABASE.md) | Complete database schema (20+ tables) |
 | [STATUS_WORKFLOW.md](STATUS_WORKFLOW.md) | Entry/Advisory/Program lifecycle states |
 | [COST_ANALYSIS.md](COST_ANALYSIS.md) | Azure SQL pricing and usage projections |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Deployment guide (✅ completed) |
@@ -120,7 +120,7 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries.php \
 
 | Object Type | Count | Status |
 |-------------|-------|--------|
-| Tables | 10 | ✅ Verified |
+| Tables | 20+ | ✅ Verified |
 | Views | 6 | ✅ Verified |
 | Stored Procedures | 4 | ✅ Verified |
 | Indexes | 30+ | ✅ Verified |
@@ -139,6 +139,21 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries.php \
 | `tmi_public_routes` | 21 | Public route display on map |
 | `tmi_events` | 18 | Unified audit log |
 | `tmi_advisory_sequences` | 2 | Advisory numbering by date |
+| `tmi_flight_control` | 25+ | Per-flight TMI control records |
+| `tmi_flight_list` | 15+ | Flight lists for programs |
+| `tmi_reroute_routes` | 10+ | Reroute route strings per O/D pair |
+| `tmi_reroute_compliance_log` | 9 | Compliance history snapshots |
+| `tmi_reroute_drafts` | 15+ | User reroute drafts |
+| `tmi_proposals` | 15+ | Coordination proposals |
+| `tmi_proposal_facilities` | 5+ | Proposal approval tracking |
+| `tmi_proposal_reactions` | 5+ | Proposal reaction tracking |
+| `tmi_airport_configs` | 12+ | TMI airport config snapshots |
+| `tmi_delay_entries` | 10+ | Delay reports |
+| `tmi_discord_posts` | 10+ | Discord message posting queue |
+| `tmi_popup_queue` | 5+ | Popup flight detection |
+| `tmi_flow_providers` | 5+ | External flow providers (ECFMP) |
+| `tmi_flow_measures` | 10+ | External flow measures |
+| `tmi_flow_events` | 10+ | External flow events |
 
 ### Views
 
@@ -200,11 +215,10 @@ curl -X POST https://perti.vatcscc.org/api/tmi/entries.php \
 
 ```
 Azure SQL Server: vatsim.database.windows.net
-├── VATSIM_ADL    ($15/mo S0)   - Flight data, adl_flight_tmi
+├── VATSIM_ADL    (~$2,100/mo Hyperscale Serverless)  - Flight data, adl_flight_tmi
+├── VATSIM_TMI   ($5/mo Basic)  - TMI data ✅ DEPLOYED
 ├── SWIM_API     ($5/mo Basic)  - Public API (read-cached)
-└── VATSIM_TMI   ($5/mo Basic)  - TMI data ✅ DEPLOYED
-                 ─────────────
-                 Total: ~$25/mo
+└── VATSIM_REF   ($5/mo Basic)  - Reference data
 ```
 
 ---
@@ -251,24 +265,25 @@ define("TMI_SQL_PASSWORD", "your_password_here");
 
 ---
 
-## Remaining Work
+## Completed Features
 
-### High Priority
-1. **Update existing GDT files** - Migrate `gs/*.php` and `gdp_*.php` to use new `tmi_programs` table
-2. **Test Discord posting** - Verify NTML format output matches NTML_2020.txt
+All core TMI functionality is deployed and live:
 
-### Medium Priority  
-3. **Discord bot integration** - Update bot to call PHP API
-4. **GDT stored procedures** - `sp_TMI_GenerateSlots`, `sp_TMI_AssignFlight`, etc.
-5. **Data migration** - Move existing public routes from MySQL if any
+- [x] All NTML entry types (MIT, MINIT, DELAY, CONFIG, APREQ, etc.)
+- [x] GDT programs (GS/GDP) with RBS slot allocation
+- [x] Full Ground Stop lifecycle (create, model, activate, extend, purge)
+- [x] Reroute management with compliance tracking
+- [x] Advisory generation with automatic numbering
+- [x] Discord posting (multi-org support via `MultiDiscordAPI.php`)
+- [x] Discord Gateway bot for coordination reactions (`discord-bot/bot.js`)
+- [x] Multi-facility coordination proposals
+- [x] Pop-up flight detection
+- [x] SWIM TMI endpoints (entries, advisories, programs, reroutes, routes)
+- [x] External flow control integration (ECFMP)
 
-### Lower Priority
-6. **UI updates** - Update `gdt.js` for new API structure
-
-### Completed ✅
-- `reroutes.php` endpoint (Jan 17, 2026)
-- NTML parser & Discord format alignment (Jan 17, 2026)
-- SWIM TMI endpoints (Jan 17, 2026): index, entries, advisories, reroutes, routes
+### Remaining
+- [ ] Compression algorithm
+- [ ] Slot substitution (SCS)
 
 ---
 
@@ -281,4 +296,4 @@ curl "https://perti.vatcscc.org/scripts/tmi/verify_deployment.php?allow=1"
 
 ---
 
-*Last Updated: January 17, 2026*
+*Last Updated: February 25, 2026*
