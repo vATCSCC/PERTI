@@ -128,7 +128,7 @@ function fetchJson(string $url, int $timeout = 15): ?array
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERAGENT => 'PERTI-EventSync/2.0 (VATCSCC)'
+        CURLOPT_USERAGENT => 'PERTI-EventSync/2.0 (vATCSCC)'
     ]);
 
     $response = curl_exec($ch);

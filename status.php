@@ -1291,7 +1291,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "PERTI Status"; include("load/header.php"); ?>
+    <?php $page_title = "Status"; include("load/header.php"); ?>
 
     <style>
         :root {

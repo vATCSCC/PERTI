@@ -114,10 +114,10 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <?php
-        $page_title = "FMDS vs PERTI Comparison - PERTI";
+        $page_title = "FMDS vs PERTI Comparison";
         include("load/header.php");
     ?>
     <style>

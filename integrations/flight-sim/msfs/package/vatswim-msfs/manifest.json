@@ -1,7 +1,7 @@
 {
     "content_type": "CORE",
     "title": "VATSWIM MSFS Plugin",
-    "manufacturer": "VATCSCC",
+    "manufacturer": "vATCSCC",
     "creator": "Virtual Air Traffic Control System Command Center",
     "package_version": "1.0.0",
     "minimum_game_version": "1.18.0",

@@ -49,7 +49,7 @@ info:
 
     SWIM aggregates data from multiple authoritative sources (per FAA CDM spec):
     - **VATSIM**: Identity and flight plan data
-    - **VATCSCC/PERTI**: ADL, TMI, controlled times (EDCT, CTD, CTA, TOBT)
+    - **vATCSCC/PERTI**: ADL, TMI, controlled times (EDCT, CTD, CTA, TOBT)
     - **vNAS/CRC/EuroScope**: Track data, ATC automation
     - **SimTraffic**: TBFM-style metering (eta_runway, sta_meter_fix)
     - **ACARS/Hoppie**: OOOI actuals (T11-T14: out/off/on/in times)
@@ -63,7 +63,7 @@ info:
     1. ACARS (Hoppie, etc.) - authoritative
     2. Virtual Airlines - better detection than raw sim
     3. Simulator - raw telemetry
-    4. VATCSCC - ADL parsing fallback
+    4. vATCSCC - ADL parsing fallback
 
     ## FIXM Migration (2026-01-27)
 
@@ -2976,7 +2976,7 @@ components:
                 type: integer
                 description: Vertical rate (feet per minute, + = climb, - = descend)
               # OOOI times (CDM T11-T14 - from ACARS/VA/simulator)
-              # Priority: ACARS > Virtual Airline > simulator > VATCSCC
+              # Priority: ACARS > Virtual Airline > simulator > vATCSCC
               out_utc:
                 type: string
                 format: date-time
@@ -3037,11 +3037,11 @@ components:
                 type: string
                 format: date-time
                 description: T8 - Earliest Runway Time of Arrival (VA constraint)
-              # TMI controlled times (VATCSCC only)
+              # TMI controlled times (vATCSCC only)
               tobt_utc:
                 type: string
                 format: date-time
-                description: Target Off-Block Time (CDM pushback target - VATCSCC only)
+                description: Target Off-Block Time (CDM pushback target - vATCSCC only)
               # Metering times
               eta_runway_utc:
                 type: string

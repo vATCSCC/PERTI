@@ -160,7 +160,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <?php $page_title = "Event AAR"; include("load/header.php"); ?>
     <style>
@@ -292,7 +292,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 
 <?php include('load/nav.php'); ?>
 
-<section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 bg-dark text-light" style="min-height: 120px;">
+<section class="perti-hero perti-hero--mini bg-position-center bg-dark text-light">
     <div class="container-fluid pt-2 pb-3">
         <center>
             <h1><?= __('eventAar.page.title') ?></h1>

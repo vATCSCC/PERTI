@@ -1643,7 +1643,7 @@ define('SWIM_TIMESTAMP_TOLERANCE', 5);  // seconds
 $SWIM_DATA_SOURCES = [
     // Core sources
     'VATSIM'          => 'vatsim',
-    'VATCSCC'         => 'vatcscc',
+    'vATCSCC'         => 'vatcscc',
     
     // Track/position sources
     'VNAS'            => 'vnas',

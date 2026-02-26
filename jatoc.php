@@ -29,7 +29,6 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     body { background-color: #0f172a !important; }
     .container-fluid { background-color: transparent; }
     section { background-color: #0f172a !important; }
-    .min-vh-25 { background-color: #0f172a !important; }
 
     /* Header & OpLevel */
     .jatoc-header-bar { background: linear-gradient(135deg, #166534 0%, #22c55e 100%); padding: 10px 20px; border-bottom: 3px solid #22c55e; border-radius: 4px; margin-bottom: 15px; transition: all 0.3s ease; }
@@ -208,10 +207,10 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     .local-airport-row.show { display: block; }
     </style>
 </head>
-<body>
+<body class="perti-dark">
 <?php include("load/nav_public.php"); ?>
 
-<section class="d-flex align-items-center position-relative" style="background: #0f172a; min-height: 80px; margin-top: 60px;" data-jarallax data-speed="0.3">
+<section class="perti-hero perti-hero--micro" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-2">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 30%;">
         <center><h1 style="color: #f1f5f9; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 0;"><?= __('jatoc.page.heroTitle') ?></h1><h5 class="text-white" style="margin-bottom: 0;"><i class="fas fa-broadcast-tower text-warning"></i> <?= __('jatoc.page.heroSubtitle') ?></h5></center>

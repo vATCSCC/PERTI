@@ -12,10 +12,10 @@ include("load/i18n.php");
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <?php
-        $page_title = "Infrastructure Transparency - PERTI";
+        $page_title = "Infrastructure Transparency";
         include("load/header.php");
     ?>
     <style>
@@ -149,7 +149,7 @@ include("load/i18n.php");
 <?php include('load/nav_public.php'); ?>
 
 <!-- Hero Section -->
-<section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3">
+<section class="perti-hero perti-hero--full fh-section bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-5 py-lg-6">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
         <center>

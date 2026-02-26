@@ -245,7 +245,7 @@ POST /ingest/metering               # Metering/sequencing data
 - vNAS: Primary source for track positions
 - CRC/EuroScope: Secondary track source
 - SimTraffic: Primary source for metering data
-- VATCSCC: Authoritative for TMI data
+- vATCSCC: Authoritative for TMI data
 
 **Contact vATCSCC for System tier credentials and integration support.**
 

@@ -55,7 +55,7 @@ $SWIM_KEY_PREFIXES = [
  * Data Source Identifiers
  *
  * Per FAA CDM spec, sources are categorized by function:
- * - Core: VATSIM (identity), VATCSCC (TMI/ADL)
+ * - Core: VATSIM (identity), vATCSCC (TMI/ADL)
  * - Track: vNAS, CRC, EuroScope (ATC radar/automation)
  * - ACARS: Generic category (Hoppie, etc.) for OOOI times
  * - Metering: SimTraffic (TBFM-style), TopSky (EuroScope AMAN)
@@ -113,7 +113,7 @@ $SWIM_DATA_SOURCES = [
  * - Schedule data (STD/STA) comes from VAs (OAG analog) or SimBrief
  * - CDM T1-T4 predictions come from Virtual Airlines
  * - OOOI actuals (T11-T14) come from ACARS
- * - TMI controlled times come from VATCSCC only
+ * - TMI controlled times come from vATCSCC only
  */
 $SWIM_DATA_AUTHORITY = [
     // Core identity - VATSIM only
@@ -123,7 +123,7 @@ $SWIM_DATA_AUTHORITY = [
     // OFP data - SimBrief
     'simbrief'      => ['SIMBRIEF', false],
 
-    // TMI/ADL - VATCSCC only (immutable)
+    // TMI/ADL - vATCSCC only (immutable)
     'adl'           => ['VATCSCC', false],
     'tmi'           => ['VATCSCC', false],
 
@@ -158,8 +158,8 @@ $SWIM_DATA_AUTHORITY = [
  * - Track: ATC automation > pilot sim > ACARS
  * - OOOI: ACARS (T11-T14) > simulator > VA > ADL parsing
  * - Schedule: VA (OAG analog) > SimBrief > manual
- * - Metering: SimTraffic > VATCSCC > vNAS > TopSky
- * - Times: SimTraffic > VATCSCC > vNAS > vFDS > SimBrief > simulator
+ * - Metering: SimTraffic > vATCSCC > vNAS > TopSky
+ * - Times: SimTraffic > vATCSCC > vNAS > vFDS > SimBrief > simulator
  */
 $SWIM_SOURCE_PRIORITY = [
     // Track position data
@@ -315,10 +315,10 @@ $SWIM_FIELD_MERGE_BEHAVIOR = [
     'ertd_utc'         => 'variable',   // T7 - Earliest Runway Time of Departure
     'erta_utc'         => 'variable',   // T8 - Earliest Runway Time of Arrival
 
-    // CDM target times - immutable (VATCSCC only)
+    // CDM target times - immutable (vATCSCC only)
     'tobt_utc'         => 'immutable',  // Target Off-Block Time (CDM pushback target)
 
-    // TMI fields - immutable (only VATCSCC can set)
+    // TMI fields - immutable (only vATCSCC can set)
     'gs_held'          => 'immutable',
     'ctl_type'         => 'immutable',
     'is_exempt'        => 'immutable',
@@ -358,7 +358,7 @@ $SWIM_FIELD_MERGE_BEHAVIOR = [
  * - T1-T4 (airline predictions): schedule authority (VA primary)
  * - T7-T8 (earliest acceptable): schedule authority (VA constraint)
  * - T11-T14 (actuals/OOOI): datalink authority (ACARS primary)
- * - TMI controlled times: tmi authority (VATCSCC only)
+ * - TMI controlled times: tmi authority (vATCSCC only)
  */
 $SWIM_FIELD_AUTHORITY_MAP = [
     // Track fields (ATC automation)
@@ -391,7 +391,7 @@ $SWIM_FIELD_AUTHORITY_MAP = [
     'ertd_utc'          => 'schedule',  // T7 - Earliest Runway Time of Departure
     'erta_utc'          => 'schedule',  // T8 - Earliest Runway Time of Arrival
 
-    // TMI fields - tmi authority (VATCSCC only)
+    // TMI fields - tmi authority (vATCSCC only)
     'gs_held'           => 'tmi',
     'ctl_type'          => 'tmi',
     'is_exempt'         => 'tmi',

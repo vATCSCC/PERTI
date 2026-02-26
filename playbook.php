@@ -28,7 +28,7 @@ include("sessions/handler.php");
     }
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <?php
         $page_title = "Playbook";

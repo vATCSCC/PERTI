@@ -42,7 +42,7 @@ include("sessions/handler.php");
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
 
@@ -60,7 +60,7 @@ include("sessions/handler.php");
 include('load/nav.php');
 ?>
 
-    <section class="d-flex align-items-center position-relative bg-position-center fh-section overflow-hidden pt-6 jarallax bg-dark text-light" data-jarallax data-speed="0.3" style="pointer-events: all;">
+    <section class="perti-hero perti-hero--full fh-section bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
         <div class="container-fluid pt-2 pb-5 py-lg-6">
             <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%;">
 

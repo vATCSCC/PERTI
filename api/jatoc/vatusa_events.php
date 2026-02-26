@@ -15,7 +15,7 @@ try {
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_TIMEOUT => 10,
         CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_USERAGENT => 'PERTI-JATOC/1.0 (VATCSCC)'
+        CURLOPT_USERAGENT => 'PERTI-JATOC/1.0 (vATCSCC)'
     ]);
     
     $response = curl_exec($ch);

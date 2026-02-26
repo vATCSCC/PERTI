@@ -297,8 +297,8 @@ Example: `VAT-20260115-UAL123-KJFK-KLAX`
 | `identity.*` | VATSIM | No |
 | `flight_plan.*` | VATSIM | No |
 | `simbrief.*` | SIMBRIEF | No |
-| `adl.*` | VATCSCC | No |
-| `tmi.*` | VATCSCC | No |
+| `adl.*` | vATCSCC | No |
+| `tmi.*` | vATCSCC | No |
 | `track.*` | VNAS/CRC | Yes |
 | `metering.*` | SIMTRAFFIC | Yes |
 | `telemetry.*` | SIMULATOR | Yes |

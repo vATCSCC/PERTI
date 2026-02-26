@@ -50,7 +50,7 @@
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <?php $page_title = "SUA"; include("load/header.php"); ?>
@@ -118,7 +118,7 @@
 <?php include('load/nav.php'); ?>
 
 <!-- Hero Section -->
-<section class="d-flex align-items-center position-relative bg-position-center overflow-hidden pt-6 jarallax bg-dark text-light" style="min-height: 200px" data-jarallax data-speed="0.3">
+<section class="perti-hero perti-hero--compact bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
     <div class="container-fluid pt-2 pb-4 py-lg-5">
         <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
         <center>

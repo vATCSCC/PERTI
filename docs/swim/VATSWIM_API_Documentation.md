@@ -701,16 +701,16 @@ Returns reroute definitions for Traffic Management Initiatives.
 
 **Endpoint:** `GET /api/swim/v1/tmi/measures`
 
-Returns ALL traffic management measures from both USA (VATCSCC) and external providers (ECFMP, NavCanada, VATPAC) in a unified TFMS/FIXM-aligned format.
+Returns ALL traffic management measures from both USA (vATCSCC) and external providers (ECFMP, NavCanada, VATPAC) in a unified TFMS/FIXM-aligned format.
 
 **Query Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `provider` | string | Filter by provider: `VATCSCC`, `ECFMP`, etc. (comma-separated) |
+| `provider` | string | Filter by provider: `vATCSCC`, `ECFMP`, etc. (comma-separated) |
 | `type` | string | Measure type: `GS`, `GDP`, `AFP`, `MIT`, `MINIT`, `MDI`, `RATE`, `REROUTE` |
 | `airport` | string | Control element filter (comma-separated ICAO codes) |
-| `source` | string | `usa` (VATCSCC only), `external` (non-USA), or `all` (default) |
+| `source` | string | `usa` (vATCSCC only), `external` (non-USA), or `all` (default) |
 | `active_only` | boolean | Filter to active measures only (default: `true`) |
 | `page` | int | Page number (default: 1) |
 | `per_page` | int | Results per page (default: 100, max: 1000) |
@@ -731,7 +731,7 @@ curl -H "Authorization: Bearer swim_dev_test" \
         "id": "USA-45",
         "guid": "a1b2c3d4-...",
         "provider": {
-          "code": "VATCSCC",
+          "code": "vATCSCC",
           "name": "VATSIM Command Center (USA)"
         },
         "ident": "GS_KJFK_45",
@@ -784,7 +784,7 @@ curl -H "Authorization: Bearer swim_dev_test" \
       }
     ],
     "statistics": {
-      "by_provider": { "VATCSCC": 5, "ECFMP": 3 },
+      "by_provider": { "vATCSCC": 5, "ECFMP": 3 },
       "by_type": { "GS": 2, "MIT": 3, "MDI": 2, "GDP": 1 },
       "by_source": { "usa": 5, "external": 3 }
     },
@@ -1496,7 +1496,7 @@ $SWIM_KEY_PREFIXES = [
 $SWIM_DATA_SOURCES = [
     // Core sources
     'VATSIM'          => 'vatsim',           // Identity and flight plans
-    'VATCSCC'         => 'vatcscc',          // ADL, TMI, demand
+    'vATCSCC'         => 'vatcscc',          // ADL, TMI, demand
 
     // Track/position sources
     'VNAS'            => 'vnas',             // Track data, ATC automation
@@ -1526,10 +1526,10 @@ $SWIM_DATA_SOURCES = [
 | Data Type | Priority Order (highest first) |
 |-----------|-------------------------------|
 | Track Position | vNAS → CRC → EuroScope → simulator → ACARS |
-| OOOI Times | ACARS → Virtual Airline → simulator → VATCSCC |
-| Schedule (STD/STA) | Virtual Airline → SimBrief → VATCSCC |
-| Metering | SimTraffic → VATCSCC → vNAS → TopSky |
-| General Times | SimTraffic → VATCSCC → vNAS → vFDS → SimBrief → simulator |
+| OOOI Times | ACARS → Virtual Airline → simulator → vATCSCC |
+| Schedule (STD/STA) | Virtual Airline → SimBrief → vATCSCC |
+| Metering | SimTraffic → vATCSCC → vNAS → TopSky |
+| General Times | SimTraffic → vATCSCC → vNAS → vFDS → SimBrief → simulator |
 
 **CDM Time Fields (FAA ADL T-Field Reference):**
 
@@ -1547,10 +1547,10 @@ $SWIM_DATA_SOURCES = [
 | `off_utc` | T11 | Actual Takeoff (ATOT) | ACARS/VA/sim |
 | `on_utc` | T12 | Actual Landing (ALDT) | ACARS/VA/sim |
 | `in_utc` | T14 | Actual In-Block (AIBT) | ACARS/VA/sim |
-| `edct_utc` | - | Expected Departure Clearance Time | VATCSCC only |
-| `ctd_utc` | - | Controlled Time of Departure | VATCSCC only |
-| `cta_utc` | - | Controlled Time of Arrival | VATCSCC only |
-| `tobt_utc` | - | Target Off-Block Time | VATCSCC only |
+| `edct_utc` | - | Expected Departure Clearance Time | vATCSCC only |
+| `ctd_utc` | - | Controlled Time of Departure | vATCSCC only |
+| `cta_utc` | - | Controlled Time of Arrival | vATCSCC only |
+| `tobt_utc` | - | Target Off-Block Time | vATCSCC only |
 
 **Merge Behaviors:**
 

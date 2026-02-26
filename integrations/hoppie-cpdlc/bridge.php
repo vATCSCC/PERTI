@@ -13,7 +13,7 @@
 // Configuration
 $config = [
     'hoppie_logon' => getenv('HOPPIE_LOGON') ?: 'your_hoppie_logon',
-    'hoppie_callsign' => getenv('HOPPIE_CALLSIGN') ?: 'VATCSCC',
+    'hoppie_callsign' => getenv('HOPPIE_CALLSIGN') ?: 'vATCSCC',
     'vatswim_api_key' => getenv('VATSWIM_API_KEY') ?: 'your_vatswim_api_key',
     'vatswim_base_url' => getenv('VATSWIM_BASE_URL') ?: 'https://perti.vatcscc.org/api/swim/v1',
     'verbose' => getenv('VATSWIM_VERBOSE') === 'true'
