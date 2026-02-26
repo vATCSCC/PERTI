@@ -635,8 +635,8 @@
             html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="Route text...">';
             html += '</div>';
 
-            // Route config toolbar (hidden until routes selected)
-            html += '<div class="pb-route-toolbar" id="pb_route_toolbar" style="display:none;">';
+            // Route config toolbar (always visible)
+            html += '<div class="pb-route-toolbar" id="pb_route_toolbar">';
             html += '<button class="btn btn-xs btn-outline-warning" id="pb_mandatory_toggle" title="Mark selected as mandatory"><i class="fas fa-exclamation-triangle mr-1"></i>Mandatory</button>';
             html += '<input type="color" id="pb_color_pick" value="#C70039" title="Route color" class="pb-color-input">';
             html += '<button class="btn btn-xs btn-outline-secondary" id="pb_clear_config" title="Clear config">Clear</button>';
@@ -709,12 +709,7 @@
     }
 
     function updateToolbarVisibility() {
-        var count = selectedRouteIds.size;
-        if (count > 0) {
-            $('#pb_route_toolbar').css('display', 'flex');
-        } else {
-            $('#pb_route_toolbar').hide();
-        }
+        // Toolbar always visible; no-op kept for call sites
     }
 
     function hideDetail() {
