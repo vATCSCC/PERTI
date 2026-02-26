@@ -31,7 +31,7 @@ import logging
 import argparse
 import tempfile
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Set, Any
@@ -772,17 +772,22 @@ class NavDataMerger:
         return bool(re.search(r'_old_', name, re.IGNORECASE))
     
     def merge_points(self, existing: List[Tuple], new: List[Tuple],
-                    data_type: str = 'points') -> List[Tuple]:
+                    data_type: str = 'points',
+                    source_removed: set = None) -> List[Tuple]:
         """
         Merge point lists with _old_{cycle}_{reason} suffix.
         - New points: add directly
         - Moved points (coords changed): rename old to _old_{cycle}_moved
         - Removed points (not in new data): rename to _old_{cycle}_removed
         - Already _old_ entries: preserve as-is
+        - source_removed: set of IDs genuinely removed from NASR source;
+          entries NOT in this set and not in new data are preserved unchanged
+          (they may come from non-NASR sources like XP12, oceanic, Canadian).
         """
         existing_dict = {pt[0]: (pt[1], pt[2]) for pt in existing}
         result = []
         processed_ids = set()
+        source_removed = source_removed or set()
 
         # First pass: process new points
         for pt_id, lat, lon in new:
@@ -825,8 +830,8 @@ class NavDataMerger:
                     # Already an _old_ entry — preserve as-is
                     result.append((pt_id, lat, lon))
                     self.changes[data_type]['preserved'] += 1
-                else:
-                    # Point removed from NASR source — tag it
+                elif pt_id in source_removed:
+                    # Genuinely removed from NASR source — tag it
                     old_name = self._get_old_name(pt_id, 'removed')
                     result.append((old_name, lat, lon))
                     self.changes[data_type]['removed'] += 1
@@ -838,19 +843,27 @@ class NavDataMerger:
                         'old_value': (lat, lon),
                         'detail': f"No longer in NASR source"
                     })
+                else:
+                    # Non-NASR entry (XP12, oceanic, Canadian) — preserve unchanged
+                    result.append((pt_id, lat, lon))
+                    self.changes[data_type]['preserved'] += 1
 
         return result
     
     def merge_dict_data(self, existing: Dict[str, str], new: Dict[str, str],
-                       data_type: str) -> Dict[str, str]:
+                       data_type: str,
+                       source_removed: set = None) -> Dict[str, str]:
         """
         Merge dictionary data (airways, CDRs) with _old_{cycle}_{reason} suffix.
         - Changed entries: rename old to _old_{cycle}_changed
         - Removed entries: rename to _old_{cycle}_removed
         - Already _old_ entries: preserve as-is
+        - source_removed: set of keys genuinely removed from NASR source;
+          entries NOT in this set and not in new data are preserved unchanged.
         """
         result = {}
         processed_keys = set()
+        source_removed = source_removed or set()
 
         # First pass: process new entries
         for key, value in new.items():
@@ -890,7 +903,8 @@ class NavDataMerger:
                 if self._is_old_entry(key):
                     result[key] = value
                     self.changes[data_type]['preserved'] += 1
-                else:
+                elif key in source_removed:
+                    # Genuinely removed from NASR source — tag it
                     old_name = self._get_old_name(key, 'removed')
                     result[old_name] = value
                     self.changes[data_type]['removed'] += 1
@@ -902,6 +916,10 @@ class NavDataMerger:
                         'old_value': value,
                         'detail': f"No longer in NASR source"
                     })
+                else:
+                    # Non-NASR entry — preserve unchanged
+                    result[key] = value
+                    self.changes[data_type]['preserved'] += 1
 
         return result
     
@@ -921,12 +939,15 @@ class NavDataMerger:
         return 'changed'
 
     def merge_list_records(self, existing: List[Dict], new: List[Dict],
-                          key_fields: List[str], data_type: str) -> List[Dict]:
+                          key_fields: List[str], data_type: str,
+                          source_removed: set = None) -> List[Dict]:
         """
         Merge list of records (DPs/STARs) by composite key with _old_{cycle}_{reason}.
         - Modified procedures: create _old_ version of old record + keep new
         - Removed procedures: rename to _old_{cycle}_removed
         - Already _old_ entries: preserve as-is
+        - source_removed: set of keys genuinely removed from NASR source;
+          entries NOT in this set and not in new data are preserved unchanged.
         """
         code_field = key_fields[0]  # DP_COMPUTER_CODE or STAR_COMPUTER_CODE
 
@@ -936,6 +957,7 @@ class NavDataMerger:
         existing_dict = {make_key(r): r for r in existing}
         result = []
         processed_keys = set()
+        source_removed = source_removed or set()
 
         for record in new:
             key = make_key(record)
@@ -979,7 +1001,8 @@ class NavDataMerger:
                 if self._is_old_entry(code_val):
                     result.append(record)
                     self.changes[data_type]['preserved'] += 1
-                else:
+                elif code_val in source_removed:
+                    # Genuinely removed from NASR source — tag it
                     old_record = dict(record)
                     old_record[code_field] = self._get_old_name(code_val, 'removed')
                     result.append(old_record)
@@ -991,6 +1014,10 @@ class NavDataMerger:
                         'old_name': old_record[code_field],
                         'detail': f"No longer in NASR source"
                     })
+                else:
+                    # Non-NASR entry — preserve unchanged
+                    result.append(record)
+                    self.changes[data_type]['preserved'] += 1
 
         return result
     
@@ -1534,7 +1561,7 @@ class ChangeLogger:
             'meta': {
                 'from_cycle': from_cycle,
                 'to_cycle': to_cycle,
-                'generated_utc': datetime.utcnow().isoformat() + 'Z',
+                'generated_utc': datetime.now(timezone.utc).isoformat() + 'Z',
                 'totals': final_counts,
             },
             'summary': summary,
@@ -1553,7 +1580,7 @@ class ChangeLogger:
         md_path = self.log_dir / md_filename
         with open(md_path, 'w', encoding='utf-8') as f:
             f.write(f"# AIRAC Cycle Update: {from_cycle} -> {to_cycle}\n\n")
-            f.write(f"**Generated**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%SZ')}\n\n")
+            f.write(f"**Generated**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')}\n\n")
             f.write("## Summary\n\n")
             f.write("| Data Type | Added | Modified | Removed | Preserved | Total |\n")
             f.write("|-----------|-------|----------|---------|-----------|-------|\n")
@@ -1670,7 +1697,32 @@ class NASRNavDataUpdater:
         if not all_parsed_data:
             logger.error("No cycles successfully processed")
             return False
-        
+
+        # Compute source_removed sets BEFORE merging cycles
+        nasr_removed_fixes = set()
+        nasr_removed_navaids = set()
+        nasr_removed_airways = set()
+        nasr_removed_cdrs = set()
+        nasr_removed_dps = set()
+        nasr_removed_stars = set()
+
+        if len(all_parsed_data) >= 2:
+            prev = all_parsed_data[0]
+            curr = all_parsed_data[-1]
+            nasr_removed_fixes = set(prev['fixes'].keys()) - set(curr['fixes'].keys())
+            nasr_removed_navaids = set(prev['navaids'].keys()) - set(curr['navaids'].keys())
+            nasr_removed_airways = set(prev['airways'].keys()) - set(curr['airways'].keys())
+            nasr_removed_cdrs = set(prev['cdrs'].keys()) - set(curr['cdrs'].keys())
+            nasr_removed_dps = set(prev['dp_routes'].keys()) - set(curr['dp_routes'].keys())
+            nasr_removed_stars = set(prev['star_routes'].keys()) - set(curr['star_routes'].keys())
+            logger.info(f"\nNASR removals detected: "
+                       f"{len(nasr_removed_fixes)} fixes, "
+                       f"{len(nasr_removed_navaids)} navaids, "
+                       f"{len(nasr_removed_airways)} airways, "
+                       f"{len(nasr_removed_cdrs)} CDRs, "
+                       f"{len(nasr_removed_dps)} DPs, "
+                       f"{len(nasr_removed_stars)} STARs")
+
         # Merge cycle data
         logger.info("\nMerging cycle data...")
         merged = all_parsed_data[0]
@@ -1685,7 +1737,24 @@ class NASRNavDataUpdater:
             merged['star_base'].update(data['star_base'])
             merged['star_routes'].update(data['star_routes'])
             merged['pfr'].extend(data['pfr'])
-        
+
+        # Pop genuinely-removed entries from merged data so they reach the
+        # second pass of merge functions (where removal tagging happens)
+        for fix_id in nasr_removed_fixes:
+            merged['fixes'].pop(fix_id, None)
+        for nav_id in nasr_removed_navaids:
+            merged['navaids'].pop(nav_id, None)
+        for awy_id in nasr_removed_airways:
+            merged['airways'].pop(awy_id, None)
+        for cdr_id in nasr_removed_cdrs:
+            merged['cdrs'].pop(cdr_id, None)
+        for dp_key in nasr_removed_dps:
+            merged['dp_routes'].pop(dp_key, None)
+            merged['dp_base'].pop(dp_key, None)
+        for star_key in nasr_removed_stars:
+            merged['star_routes'].pop(star_key, None)
+            merged['star_base'].pop(star_key, None)
+
         # Transform to route.js formats
         logger.info("\nTransforming data to route.js formats...")
         transformer = NavDataTransformer(merged['airports'])
@@ -1731,18 +1800,26 @@ class NASRNavDataUpdater:
         
         # Merge with existing
         logger.info("\nMerging with existing data...")
-        final_points = self.merger.merge_points(existing_points, new_points, 'points')
-        final_navaids = self.merger.merge_points(existing_navaids, new_navaids, 'navaids')
-        final_airways = self.merger.merge_dict_data(existing_airways, new_airways, 'airways')
-        final_cdrs = self.merger.merge_dict_data(existing_cdrs, new_cdrs, 'cdrs')
+        final_points = self.merger.merge_points(
+            existing_points, new_points, 'points',
+            source_removed=nasr_removed_fixes)
+        final_navaids = self.merger.merge_points(
+            existing_navaids, new_navaids, 'navaids',
+            source_removed=nasr_removed_navaids)
+        final_airways = self.merger.merge_dict_data(
+            existing_airways, new_airways, 'airways',
+            source_removed=nasr_removed_airways)
+        final_cdrs = self.merger.merge_dict_data(
+            existing_cdrs, new_cdrs, 'cdrs',
+            source_removed=nasr_removed_cdrs)
         final_dps = self.merger.merge_list_records(
-            existing_dps, new_dps, 
-            ['DP_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'dps'
-        )
+            existing_dps, new_dps,
+            ['DP_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'dps',
+            source_removed=nasr_removed_dps)
         final_stars = self.merger.merge_list_records(
             existing_stars, new_stars,
-            ['STAR_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'stars'
-        )
+            ['STAR_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'stars',
+            source_removed=nasr_removed_stars)
         
         # Remove duplicates
         logger.info("\nRemoving duplicates...")
