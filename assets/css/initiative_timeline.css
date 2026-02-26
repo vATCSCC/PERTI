@@ -478,15 +478,11 @@
     color: var(--gray-800);
 }
 
-/* Rotated time labels when spacing is tight */
-.dcccp-time-axis-rotated {
-    height: 44px;
-}
-
+/* Rotated time labels when spacing is tight (height set dynamically by JS) */
 .dcccp-time-axis-rotated .dcccp-time-label {
     transform: translate(-50%, 0) rotate(-45deg);
     transform-origin: top center;
-    top: 4px;
+    top: 6px;
 }
 
 /* Legend */

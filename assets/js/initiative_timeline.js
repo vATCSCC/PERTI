@@ -1022,6 +1022,30 @@ class InitiativeTimeline {
             cur = new Date(cur.getTime() + interval);
         }
         el.innerHTML = html;
+
+        // Dynamically size the axis container to fit rendered labels
+        if (axisEl) {
+            this._fitAxisHeight(axisEl);
+        }
+    }
+
+    /**
+     * Measure actual rendered label extents and set axis container height
+     * to fit both horizontal and rotated labels without overflow or excess.
+     */
+    _fitAxisHeight(axisEl) {
+        const labels = axisEl.querySelectorAll('.dcccp-time-label');
+        if (!labels.length) {
+            axisEl.style.height = '';
+            return;
+        }
+        const axisTop = axisEl.getBoundingClientRect().top;
+        let maxBottom = 0;
+        labels.forEach(label => {
+            const bottom = label.getBoundingClientRect().bottom - axisTop;
+            if (bottom > maxBottom) {maxBottom = bottom;}
+        });
+        axisEl.style.height = Math.ceil(maxBottom + 4) + 'px';
     }
 
     updateNowLine(startTime, totalMs) {
