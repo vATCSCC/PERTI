@@ -6446,6 +6446,9 @@
     "selectAPlay": "Sélectionnez un jeu pour voir les routes",
     "bulkPaste": "Coller en lot",
     "bulkPasteHint": "Une route par ligne: ORIG ROUTE DEST",
-    "deleteRoute": "Supprimer la route"
+    "deleteRoute": "Supprimer la route",
+    "openRoutePage": "Page de route",
+    "useInTMI": "Utiliser dans TMI",
+    "copyPB": "Copier PB"
   }
 }
