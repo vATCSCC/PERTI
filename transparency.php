@@ -15,7 +15,7 @@ include("load/i18n.php");
 <html lang="en">
 <head>
     <?php
-        $page_title = "Infrastructure Transparency";
+        $page_title = __('transparency.title');
         include("load/header.php");
     ?>
     <style>
@@ -204,10 +204,10 @@ include("load/i18n.php");
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Database</th>
-                        <th>Tier/SKU</th>
-                        <th>Purpose</th>
-                        <th>Cost/Month</th>
+                        <th><?= __('transparency.databases') ?></th>
+                        <th><?= __('transparency.tierSku') ?></th>
+                        <th><?= __('transparency.purpose') ?></th>
+                        <th><?= __('transparency.costPerMonth') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -251,10 +251,10 @@ include("load/i18n.php");
             <table class="cost-table">
                 <thead>
                     <tr>
-                        <th>Database</th>
-                        <th>Tier/SKU</th>
-                        <th>Purpose</th>
-                        <th>Cost/Month</th>
+                        <th><?= __('transparency.databases') ?></th>
+                        <th><?= __('transparency.tierSku') ?></th>
+                        <th><?= __('transparency.purpose') ?></th>
+                        <th><?= __('transparency.costPerMonth') ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -377,7 +377,7 @@ include("load/i18n.php");
                         <th><?= __('transparency.sqlDatabase') ?></th>
                         <th><?= __('transparency.appService') ?></th>
                         <th><?= __('transparency.mysql') ?></th>
-                        <th>Other</th>
+                        <th><?= __('common.other') ?></th>
                         <th><?= __('transparency.total') ?></th>
                     </tr>
                 </thead>

@@ -154,7 +154,7 @@ $defaultEndDatetime = gmdate('Y-m-d\TH:i', $defaultEndTime);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "TMI Publisher"; include("load/header.php"); ?>
+    <?php $page_title = __('tmiPublish.pageTitle'); include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
 <link rel="stylesheet" href="assets/css/tmi-publish.css<?= _v('assets/css/tmi-publish.css') ?>">
 </head>
@@ -366,7 +366,7 @@ $perm = true;
                     <div id="ntmlFormContainer">
                         <!-- JS will populate this -->
                         <div class="text-center text-muted py-4">
-                            <i class="fas fa-spinner fa-spin"></i> Loading form...
+                            <i class="fas fa-spinner fa-spin"></i> <?= __('tmiPublish.page.loadingForm') ?>
                         </div>
                     </div>
                 </div>
@@ -376,7 +376,7 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header">
                             <span class="tmi-section-title">
-                                <i class="fas fa-eye mr-1"></i> NTML Preview
+                                <i class="fas fa-eye mr-1"></i> <?= __('tmiPublish.page.ntmlPreview') ?>
                             </span>
                         </div>
                         <div class="card-body">
@@ -418,7 +418,7 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header bg-info text-white">
                             <span class="tmi-section-title">
-                                <i class="fas fa-bullhorn mr-1"></i> Advisory Type
+                                <i class="fas fa-bullhorn mr-1"></i> <?= __('tmiPublish.page.advisoryType') ?>
                             </span>
                         </div>
                         <div class="card-body">
@@ -434,7 +434,7 @@ $perm = true;
                         <div class="card shadow-sm mb-3" id="adv_form_ops_plan">
                             <div class="card-header">
                                 <span class="tmi-section-title">
-                                    <i class="fas fa-calendar-alt mr-1"></i> Operations Plan Details
+                                    <i class="fas fa-calendar-alt mr-1"></i> <?= __('tmiPublish.page.opsPlanDetails') ?>
                                 </span>
                             </div>
                             <div class="card-body">
@@ -448,7 +448,7 @@ $perm = true;
                                         <input type="text" class="form-control" id="adv_facility" value="DCC">
                                     </div>
                                     <div class="form-group col-md-4">
-                                        <label class="tmi-label mb-0">CTL Element</label>
+                                        <label class="tmi-label mb-0"><?= __('tmiPublish.page.ctlElement') ?></label>
                                         <input type="text" class="form-control" id="adv_ctl_element" placeholder="KATL">
                                     </div>
                                 </div>
@@ -472,10 +472,10 @@ $perm = true;
 
                     <div class="d-flex justify-content-between">
                         <button class="btn btn-outline-secondary" id="adv_reset" type="button">
-                            <i class="fas fa-undo mr-1"></i> Reset
+                            <i class="fas fa-undo mr-1"></i> <?= __('common.reset') ?>
                         </button>
                         <button class="btn btn-primary" id="adv_add_to_queue" type="button">
-                            <i class="fas fa-plus mr-1"></i> Add to Queue
+                            <i class="fas fa-plus mr-1"></i> <?= __('tmiPublish.form.addToQueue') ?>
                         </button>
                     </div>
                 </div>
@@ -494,7 +494,7 @@ $perm = true;
                         </div>
                         <div class="card-footer">
                             <button class="btn btn-sm btn-outline-secondary" id="adv_copy" type="button">
-                                <i class="fas fa-copy mr-1"></i> Copy
+                                <i class="fas fa-copy mr-1"></i> <?= __('common.copy') ?>
                             </button>
                         </div>
                     </div>
@@ -538,7 +538,7 @@ $perm = true;
                     <div class="card shadow-sm mb-3">
                         <div class="card-header bg-warning text-dark">
                             <span class="tmi-section-title">
-                                <i class="fas fa-route mr-1"></i> Reroute Advisory Details
+                                <i class="fas fa-route mr-1"></i> <?= __('tmiPublish.page.rerouteDetails') ?>
                             </span>
                         </div>
                         <div class="card-body">
