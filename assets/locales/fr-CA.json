@@ -2977,6 +2977,8 @@
       "opsLevel1": "Niveau op. 1 - État stable",
       "opsLevel2": "Niveau op. 2 — En escalade",
       "opsLevel3": "Niveau op. 3 - Événement majeur",
+      "vncrccLabel": "vNCRCC / Moniteur P-56",
+      "vncrccTooltip": "Ouvrir vNCRCC — Moniteur de l'espace aérien de la RCN",
       "potus": "POTUS",
       "space": "ESPACE",
       "vatusaEvents": "Événements VATUSA",
@@ -5320,6 +5322,7 @@
     "technicalDocs": "Docs techniques",
     "about": "À propos",
     "infrastructure": "Infrastructure",
+    "fmdsComparison": "Comparaison FMDS",
     "privacyPolicy": "Politique de confidentialité",
     "login": "Connexion",
     "logout": "Déconnexion",
@@ -5327,8 +5330,8 @@
   },
   "home": {
     "pageTitle": "Planification PERTI",
-    "welcome": "Bienvenue sur le syst\u00e8me PERTI de CANOC",
-    "pertiPlanSite": "de planification PERTI de CANOC",
+    "welcome": "Bienvenue sur le site de {commandCenter},",
+    "pertiPlanSite": "de planification",
     "searchPlans": "Rechercher des plans",
     "pertiProcess": "Le processus PERTI",
     "plan": "Planifier",
@@ -6342,7 +6345,7 @@
     "noApiKey": "Aucune clé API"
   },
   "footer": {
-    "copyright": "Copyright (c) {year} CANOC. Tous droits réservés.",
+    "copyright": "Copyright (c) {year} {commandCenter}. Tous droits r\u00e9serv\u00e9s.",
     "disclaimer": "Pour usage en simulation de vol uniquement. Ce site n'est pas destiné à la navigation réelle et n'est affilié à aucun organisme de réglementation aéronautique. Tout le contenu est approuvé uniquement pour utilisation sur le réseau VATSIM.",
     "privacyPolicy": "Politique de confidentialité"
   },

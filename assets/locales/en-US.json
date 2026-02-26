@@ -3502,6 +3502,8 @@
       "opsLevel1": "Ops Level 1 - Steady State",
       "opsLevel2": "Ops Level 2 - Escalated",
       "opsLevel3": "Ops Level 3 - Major Event",
+      "vncrccLabel": "vNCRCC / P-56 Monitor",
+      "vncrccTooltip": "Open vNCRCC - DC NCR Airspace Monitor",
       "potus": "POTUS",
       "space": "SPACE",
       "vatusaEvents": "VATUSA Events",
@@ -5660,6 +5662,7 @@
     "technicalDocs": "Technical Docs",
     "about": "About",
     "infrastructure": "Infrastructure",
+    "fmdsComparison": "FMDS Comparison",
     "privacyPolicy": "Privacy Policy",
     "login": "Login",
     "logout": "Logout",
@@ -5667,7 +5670,7 @@
   },
   "home": {
     "pageTitle": "PERTI Planning",
-    "welcome": "Welcome to vATCSCC's",
+    "welcome": "Welcome to {commandCenter}'s",
     "pertiPlanSite": "Planning Site",
     "searchPlans": "Search for Plans",
     "pertiProcess": "The PERTI Process",
@@ -6808,7 +6811,7 @@
     "zoomToRoute": "Zoom to route"
   },
   "footer": {
-    "copyright": "Copyright © {year} vATCSCC - All Rights Reserved.",
+    "copyright": "Copyright \u00a9 {year} {commandCenter} - All Rights Reserved.",
     "disclaimer": "For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network.",
     "privacyPolicy": "Privacy Policy"
   },
