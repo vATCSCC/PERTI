@@ -36,10 +36,10 @@
 /* ── Floating Catalog Overlay ────────────────────────────────────── */
 .pb-catalog-overlay {
     position: absolute;
-    top: 12px;
+    top: 72px;
     left: 12px;
     width: 320px;
-    max-height: calc(100% - 24px);
+    max-height: calc(100% - 84px);
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);
     border-radius: 8px;
