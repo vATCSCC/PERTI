@@ -1268,6 +1268,18 @@ $(document).ready(function() {
             paint: { 'line-color': artccLine, 'line-width': 1.5 },
         });
 
+        // 4a. ARTCC Search Highlight fills (playbook search integration)
+        graphic_map.addLayer({
+            id: 'artcc-search-include', type: 'fill', source: 'artcc',
+            paint: { 'fill-color': '#28a745', 'fill-opacity': 0.18 },
+            filter: ['in', 'ICAOCODE', ''],  // empty — nothing highlighted initially
+        });
+        graphic_map.addLayer({
+            id: 'artcc-search-exclude', type: 'fill', source: 'artcc',
+            paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.18 },
+            filter: ['in', 'ICAOCODE', ''],
+        });
+
         // 5. SIGMETs
         graphic_map.addSource('sigmets', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({

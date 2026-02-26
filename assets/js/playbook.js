@@ -96,7 +96,7 @@
 
     // =========================================================================
     // SEARCH PARSER — Multi-token boolean search
-    // Operators: AND (space/&), OR (,/|), NOT (^ prefix)
+    // Operators: AND (space/&), OR (,/|), NOT (- prefix)
     // =========================================================================
 
     function parseSearch(raw) {
@@ -107,7 +107,7 @@
             // Split on , or | → alternatives (OR'd)
             var alts = clause.split(/[,|]/).filter(Boolean);
             return alts.map(function(alt) {
-                var negated = alt.charAt(0) === '^';
+                var negated = alt.charAt(0) === '-';
                 var term = negated ? alt.substring(1) : alt;
                 return { term: term.toUpperCase(), negated: negated };
             }).filter(function(a) { return a.term; });
@@ -159,6 +159,70 @@
             if (hasPositiveAlt && !clausePassed) return false;
         }
         return true;
+    }
+
+    // =========================================================================
+    // MAP FACILITY HIGHLIGHTING — color ARTCC boundaries based on search
+    // =========================================================================
+
+    /**
+     * Convert a facility code to ICAOCODE format used in artcc.json.
+     * US ARTCCs: ZNY → KZNY, Canadian: CZEG stays CZEG
+     */
+    function toIcaoCode(code) {
+        if (!code) return '';
+        code = code.toUpperCase();
+        // Already has K-prefix or C-prefix (4+ chars) → return as-is
+        if (/^[KC]Z[A-Z]{1,2}$/.test(code) && code.length === 4) return code;
+        // 3-char US ARTCC (ZNY, ZOB, ZAU etc.) → prepend K
+        if (/^Z[A-Z]{2}$/.test(code)) return 'K' + code;
+        return code;
+    }
+
+    /**
+     * Extract facility codes from parsed search clauses and update map layers.
+     * Included (positive) terms → green fill, excluded (negated) → red fill.
+     */
+    function updateMapHighlights(clauses) {
+        var map = window.graphic_map;
+        if (!map || !map.getLayer || !map.getLayer('artcc-search-include')) return;
+
+        var includeCodes = [];
+        var excludeCodes = [];
+        var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
+
+        clauses.forEach(function(alts) {
+            alts.forEach(function(alt) {
+                var term = alt.term;
+                // Only highlight recognized ARTCC codes on the map
+                var isArtcc = false;
+                if (hasFH) {
+                    isArtcc = FacilityHierarchy.isArtcc(term);
+                } else {
+                    isArtcc = /^Z[A-Z]{2}$/.test(term) || /^[KC]Z[A-Z]{1,2}$/.test(term);
+                }
+                if (isArtcc) {
+                    var icao = toIcaoCode(term);
+                    if (alt.negated) {
+                        excludeCodes.push(icao);
+                    } else {
+                        includeCodes.push(icao);
+                    }
+                }
+            });
+        });
+
+        // Build MapLibre filter expressions: ['in', 'ICAOCODE', 'KZNY', 'KZOB', ...]
+        if (includeCodes.length) {
+            map.setFilter('artcc-search-include', ['in', 'ICAOCODE'].concat(includeCodes));
+        } else {
+            map.setFilter('artcc-search-include', ['in', 'ICAOCODE', '']);
+        }
+        if (excludeCodes.length) {
+            map.setFilter('artcc-search-exclude', ['in', 'ICAOCODE'].concat(excludeCodes));
+        } else {
+            map.setFilter('artcc-search-exclude', ['in', 'ICAOCODE', '']);
+        }
     }
 
     // =========================================================================
@@ -392,6 +456,7 @@
             $('#pb_stats').append(' <span style="opacity:0.6;">(' + t('playbook.legacyHidden', { count: categoryData.legacy_count }) + ')</span>');
         }
 
+        updateMapHighlights(clauses);
         renderPlayList();
     }
 
