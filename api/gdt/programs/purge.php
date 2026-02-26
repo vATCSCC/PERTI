@@ -92,7 +92,7 @@ $count_result = fetch_one($conn_tmi,
     "SELECT COUNT(*) AS cnt FROM dbo.tmi_flight_list WHERE program_id = ?",
     [$program_id]
 );
-$flights_removed = $count_result['data']['cnt'] ?? 0;
+$flights_removed = (int)($count_result['data']['cnt'] ?? 0);
 
 if ($flights_removed > 0) {
     $del = execute_query($conn_tmi,
@@ -107,6 +107,28 @@ if ($flights_removed > 0) {
             'errors' => $del['error']
         ]);
     }
+}
+
+// Also clean tmi_flight_control (GS programs use this table instead of tmi_flight_list)
+$fc_count_result = fetch_one($conn_tmi,
+    "SELECT COUNT(*) AS cnt FROM dbo.tmi_flight_control WHERE program_id = ?",
+    [$program_id]
+);
+$fc_removed = (int)($fc_count_result['data']['cnt'] ?? 0);
+if ($fc_removed > 0) {
+    $fc_del = execute_query($conn_tmi,
+        "DELETE FROM dbo.tmi_flight_control WHERE program_id = ?",
+        [$program_id]
+    );
+    if (!$fc_del['success']) {
+        sqlsrv_rollback($conn_tmi);
+        respond_json(500, [
+            'status' => 'error',
+            'message' => 'Failed to remove flight control records',
+            'errors' => $fc_del['error']
+        ]);
+    }
+    $flights_removed += $fc_removed;
 }
 
 // Release any held slots

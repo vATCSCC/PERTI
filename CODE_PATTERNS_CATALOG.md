@@ -624,7 +624,6 @@ define('NAV_PHP_LOADED', true);
 
 | File | Line | Vulnerable Code |
 |------|------|-----------------|
-| `airspace-elements.php` | 22 | `WHERE cid='$cid'` |
 | `airport_config.php` | 22 | `WHERE cid='$cid'` |
 | `tmi-publish.php` | 50 | `WHERE cid='$userCid'` |
 | `swim-keys.php` | 33 | `WHERE cid='$cid'` |

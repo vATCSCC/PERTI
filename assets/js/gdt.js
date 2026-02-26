@@ -232,9 +232,39 @@
         else if (elapsed > 60) progressColor = '#e67e22';
 
         // Metrics
+        var totalFlights = p.total_flights || 0;
         var controlled = p.controlled_flights || 0;
         var exempt = p.exempt_flights || 0;
         var avgDelay = p.avg_delay_min ? parseFloat(p.avg_delay_min).toFixed(0) : '-';
+        var maxDelay = p.max_delay_min ? parseInt(p.max_delay_min) : 0;
+
+        // Delay color coding
+        var avgDelayClass = '';
+        if (avgDelay !== '-') {
+            var ad = parseInt(avgDelay);
+            if (ad > 60) avgDelayClass = ' text-danger';
+            else if (ad > 30) avgDelayClass = ' text-warning';
+        }
+        var maxDelayClass = '';
+        if (maxDelay > 60) maxDelayClass = ' text-danger';
+        else if (maxDelay > 30) maxDelayClass = ' text-warning';
+
+        // Program duration
+        var durationStr = '';
+        if (p.start_utc && p.end_utc) {
+            try {
+                var durMin = Math.round((new Date(p.end_utc) - new Date(p.start_utc)) / 60000);
+                if (durMin >= 60) durationStr = Math.floor(durMin / 60) + 'h' + (durMin % 60 > 0 ? String(durMin % 60).padStart(2, '0') + 'm' : '');
+                else durationStr = durMin + 'm';
+            } catch(e) {}
+        }
+
+        // Rate info for GDP programs
+        var rateStr = '';
+        if (typeLabel.indexOf('GDP') !== -1 && p.program_rate) {
+            rateStr = p.program_rate + '/hr';
+            if (p.delay_limit_min) rateStr += ', cap ' + p.delay_limit_min + 'm';
+        }
 
         // Scope info (extract ARTCC from scope_json if available)
         var artcc = '';
@@ -279,15 +309,20 @@
                 (artcc ? ' <span class="gdt-card-artcc">/ ' + escapeHtml(artcc) + '</span>' : '') +
             '</div>' +
             '<div class="gdt-card-time">' + startStr + ' - ' + endStr +
+                (durationStr ? ' <span class="text-muted" style="font-size:0.6rem;">(' + durationStr + ')</span>' : '') +
                 (minsLeft > 0 ? ' <span class="text-muted">(' + minsLeft + 'm left)</span>' : '') +
+                (p.status === 'ACTIVE' && minsLeft <= 0 ? ' <span class="badge badge-danger" style="font-size:0.5rem;">EXPIRED</span>' : '') +
             '</div>' +
+            (rateStr ? '<div class="text-muted" style="font-size:0.65rem;margin-top:1px;"><i class="fas fa-tachometer-alt mr-1"></i>' + rateStr + '</div>' : '') +
             '<div class="gdt-card-progress">' +
                 '<div class="gdt-card-progress-bar" style="width: ' + Math.min(100, elapsed) + '%; background: ' + progressColor + ';"></div>' +
             '</div>' +
             '<div class="gdt-card-metrics">' +
+                '<div><span class="gdt-card-metric-value">' + totalFlights + '</span> ' + PERTII18n.t('gdt.dashboard.metric.total', {fallback: 'total'}) + '</div>' +
                 '<div><span class="gdt-card-metric-value">' + controlled + '</span> ' + PERTII18n.t('gdt.dashboard.metric.controlled') + '</div>' +
                 '<div><span class="gdt-card-metric-value">' + exempt + '</span> ' + PERTII18n.t('gdt.dashboard.metric.exempt') + '</div>' +
-                '<div><span class="gdt-card-metric-value">' + avgDelay + '</span> ' + PERTII18n.t('gdt.dashboard.metric.avgDelay') + '</div>' +
+                '<div><span class="gdt-card-metric-value' + avgDelayClass + '">' + avgDelay + '</span> ' + PERTII18n.t('gdt.dashboard.metric.avgDelay') + '</div>' +
+                (maxDelay > 0 ? '<div><span class="gdt-card-metric-value' + maxDelayClass + '">' + maxDelay + '</span> max</div>' : '') +
             '</div>' +
             (actions ? '<div class="gdt-card-actions">' + actions + '</div>' : '') +
         '</div>';
@@ -329,14 +364,8 @@
         // Load program into the form
         GS_CURRENT_PROGRAM_ID = programId;
 
-        // Find program in cached data
-        var program = null;
-        for (var i = 0; i < GDT_DASHBOARD_PROGRAMS.length; i++) {
-            if (GDT_DASHBOARD_PROGRAMS[i].program_id === programId) {
-                program = GDT_DASHBOARD_PROGRAMS[i];
-                break;
-            }
-        }
+        // Find program in cached data (handles string/number type coercion)
+        var program = findDashboardProgram(programId);
 
         if (program) {
             populateFormFromProgram(program);
@@ -348,6 +377,9 @@
                 setWorkflowState('model');
             } else if (program.status === 'PROPOSED' || program.status === 'PENDING_COORD') {
                 setWorkflowState('preview');
+            } else if (program.status === 'COMPLETED' || program.status === 'CANCELLED') {
+                // Completed/cancelled: show active state (read-only view)
+                setWorkflowState('active');
             } else {
                 setWorkflowState('configure');
             }
@@ -371,13 +403,32 @@
         el = document.getElementById('gs_adv_number');
         if (el) el.value = p.adv_number || '';
 
+        // Populate program type selector and show/hide GDP fields
+        var pType = p.program_type || 'GS';
+        el = document.getElementById('gs_program_type');
+        if (el) {
+            el.value = pType;
+            // Trigger the change handler to update header and field visibility
+            $(el).trigger('change');
+        }
+
+        // GDP-specific fields
+        if (pType.indexOf('GDP') !== -1) {
+            el = document.getElementById('gs_program_rate');
+            if (el) el.value = p.program_rate || '';
+            el = document.getElementById('gs_delay_limit');
+            if (el) el.value = p.delay_limit_min || '';
+            el = document.getElementById('gs_reserve_rate');
+            if (el) el.value = p.reserve_rate || '';
+        }
+
         // Populate time fields (convert ISO to datetime-local format)
         if (p.start_utc) {
-            el = document.getElementById('gs_start_utc');
+            el = document.getElementById('gs_start');
             if (el) el.value = isoToDatetimeLocal(p.start_utc);
         }
         if (p.end_utc) {
-            el = document.getElementById('gs_end_utc');
+            el = document.getElementById('gs_end');
             if (el) el.value = isoToDatetimeLocal(p.end_utc);
         }
 
@@ -4612,8 +4663,10 @@
     }
 
     function collectGsWorkflowPayload() {
-        // Collect the shared GS payload for preview/simulate/apply/purge flows.
-        const payload = {
+        // Collect the shared payload for preview/simulate/apply/purge flows (GS and GDP).
+        var programTypeEl = document.getElementById('gs_program_type');
+        var payload = {
+            gs_program_type: (programTypeEl && programTypeEl.value) ? programTypeEl.value : 'GS',
             gs_name: getValue('gs_name'),
             gs_ctl_element: getValue('gs_ctl_element'),
             gs_element_type: getValue('gs_element_type'),
@@ -4621,6 +4674,11 @@
 
             gs_start: utcIsoFromDatetimeLocal(getValue('gs_start')),
             gs_end: utcIsoFromDatetimeLocal(getValue('gs_end')),
+
+            // GDP-specific fields (included in payload even if empty)
+            gs_program_rate: getValue('gs_program_rate'),
+            gs_delay_limit: getValue('gs_delay_limit'),
+            gs_reserve_rate: getValue('gs_reserve_rate'),
 
             // Airport tokens (expand centers/TRACONs into airport lists for server-side filters)
             gs_airports: (function() {
@@ -5296,36 +5354,61 @@
             return Promise.resolve();
         }
 
-        // Build create payload for new GDT API
-        const createPayload = {
+        // Determine program type from form selector (defaults to GS)
+        var programTypeEl = document.getElementById('gs_program_type');
+        var selectedProgramType = (programTypeEl && programTypeEl.value) ? programTypeEl.value : 'GS';
+
+        // Build scope_json from departure facilities so simulate.php can filter properly
+        var depFacilitiesArr = (workflowPayload.gs_dep_facilities || '').split(/\s+/).filter(function(x) { return x.length > 0; });
+        var scopeJson = depFacilitiesArr.length > 0 ? { origin_centers: depFacilitiesArr } : null;
+
+        // Build create payload for GDT API
+        var createPayload = {
             ctl_element: workflowPayload.gs_ctl_element || workflowPayload.gs_airports.split(' ')[0],
-            program_type: 'GS',  // Ground Stop
+            program_type: selectedProgramType,
             start_utc: workflowPayload.gs_start,
             end_utc: workflowPayload.gs_end,
             scope_type: 'TIER',
-            scope_tier: 2, // Default to Tier 2, can be enhanced later from gs_scope_select
+            scope_tier: 2,
+            scope_json: scopeJson,
             exempt_airborne: true,
             impacting_condition: workflowPayload.gs_impacting_condition || 'WEATHER',
-            cause_text: workflowPayload.gs_comments || 'Ground Stop',
+            cause_text: workflowPayload.gs_comments || (selectedProgramType === 'GS' ? 'Ground Stop' : 'Ground Delay Program'),
             created_by: 'TMU',
         };
 
-        // Step 1: Create MODELING program (advisory assigned on activation)
-        return apiPostJson(GS_API.create, createPayload)
+        // Add GDP-specific fields if applicable
+        if (selectedProgramType !== 'GS') {
+            var rateEl = document.getElementById('gs_program_rate');
+            var delayCapEl = document.getElementById('gs_delay_limit');
+            if (rateEl && rateEl.value) createPayload.program_rate = parseInt(rateEl.value, 10);
+            if (delayCapEl && delayCapEl.value) createPayload.delay_limit_min = parseInt(delayCapEl.value, 10);
+        }
+
+        // Orphan prevention: reuse existing MODELING program instead of creating a new one
+        var createStep;
+        if (GS_CURRENT_PROGRAM_ID && GS_CURRENT_PROGRAM_STATUS === 'MODELING') {
+            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.reusingProgram', { id: GS_CURRENT_PROGRAM_ID });}
+            createStep = Promise.resolve({ status: 'ok', data: { program_id: GS_CURRENT_PROGRAM_ID } });
+        } else {
+            createStep = apiPostJson(GS_API.create, createPayload);
+        }
+
+        // Step 1: Create or reuse MODELING program (advisory assigned on activation)
+        return createStep
             .then(function(createResp) {
                 if (createResp.status !== 'ok' || !createResp.data || !createResp.data.program_id) {
-                    throw new Error(createResp.message || 'Failed to create GS program');
+                    throw new Error(createResp.message || 'Failed to create program');
                 }
 
-                const programId = createResp.data.program_id;
+                var programId = createResp.data.program_id;
                 GS_CURRENT_PROGRAM_ID = programId;
                 GS_CURRENT_PROGRAM_STATUS = 'MODELING';
 
                 if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.programCreated', { id: programId });}
 
-                // Step 2: Model the program to get affected flights
-                // model.php requires dep_facilities in addition to program_id
-                const depFacilities = workflowPayload.gs_dep_facilities || '';
+                // Step 2: Model the program to get affected flights (lightweight preview)
+                var depFacilities = workflowPayload.gs_dep_facilities || '';
                 if (!depFacilities) {
                     throw new Error(PERTII18n.t('gdt.validation.scopeRequired'));
                 }
@@ -5404,38 +5487,31 @@
 
         if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.modelingProgram', { id: GS_CURRENT_PROGRAM_ID });}
 
-        // Get dep_facilities from workflow payload
-        const workflowPayload = collectGsWorkflowPayload();
-        const depFacilities = workflowPayload.gs_dep_facilities || '';
-        if (!depFacilities) {
-            if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.validation.scopeRequired');}
-            return Promise.reject(new Error(PERTII18n.t('gdt.validation.scopeRequired')));
-        }
-
-        // Model the existing program (simulation = re-running model)
-        return apiPostJson(GS_API.model, {
+        // Run simulate.php which creates tmi_flight_control records (required before activation).
+        // simulate.php reads scope from the program's scope_json stored at creation time.
+        return apiPostJson(GS_API.simulate, {
             program_id: GS_CURRENT_PROGRAM_ID,
-            dep_facilities: depFacilities,
         })
-            .then(function(modelResp) {
-                if (modelResp.status !== 'ok') {
-                    throw new Error(modelResp.message || 'Failed to model GS program');
+            .then(function(simResp) {
+                if (simResp.status !== 'ok') {
+                    throw new Error(simResp.message || 'Failed to simulate program');
                 }
 
-                let flights = (modelResp.data && modelResp.data.flights) || [];
+                let flights = (simResp.data && simResp.data.flights) || [];
                 flights = normalizeSqlsrvRows(flights);
 
                 // Store simulation data for flight list viewing
-                storeSimulationData(modelResp.data);
+                storeSimulationData(simResp.data);
 
-                setGsTableMode('GS');
-                renderFlightsFromAdlRowsForWorkflow(flights, 'GS-SIM');
+                var progType = simResp.data.program_type || 'GS';
+                setGsTableMode(progType);
+                renderFlightsFromAdlRowsForWorkflow(flights, progType + '-SIM');
 
                 // Apply GS EDCT to table rows so delay stats are computed
-                applyGroundStopEdctToTable();
+                if (progType === 'GS') applyGroundStopEdctToTable();
 
                 if (statusEl) {
-                    const summary = modelResp.data.summary || {};
+                    const summary = simResp.data.summary || {};
                     statusEl.textContent = PERTII18n.t('gdt.gs.simulatedStatus', {
                         flights: flights.length,
                         maxDelay: summary.max_delay_min || 0,
@@ -6986,8 +7062,33 @@
             });
         }
 
+        // Program type selector: show/hide GDP rate fields and update labels
+        var programTypeSelect = document.getElementById('gs_program_type');
+        if (programTypeSelect) {
+            programTypeSelect.addEventListener('change', function() {
+                var isGDP = this.value !== 'GS';
+                var rateRow = document.getElementById('gs_gdp_rate_row');
+                if (rateRow) rateRow.style.display = isGDP ? '' : 'none';
+
+                // Update the setup card header label and icon
+                var headerEl = document.getElementById('gs_setup_header_label');
+                if (headerEl) {
+                    var typeLabel = this.options[this.selectedIndex].text;
+                    var icon = isGDP ? '<i class="fas fa-clock mr-1 text-warning"></i>' : '<i class="fas fa-ban mr-1 text-danger"></i>';
+                    headerEl.innerHTML = icon + ' ' + typeLabel + ' Setup';
+                }
+
+                // Reset program state when type changes (new type = new program)
+                if (GS_CURRENT_PROGRAM_ID && GS_CURRENT_PROGRAM_STATUS === 'MODELING') {
+                    GS_CURRENT_PROGRAM_ID = null;
+                    GS_CURRENT_PROGRAM_STATUS = null;
+                    setWorkflowState('configure');
+                }
+            });
+        }
+
         // Workflow toolbar buttons (ADL/GS sandbox)
-        const previewBtn2 = document.getElementById('gs_preview_btn');
+        var previewBtn2 = document.getElementById('gs_preview_btn');
         if (previewBtn2) {
             previewBtn2.addEventListener('click', function(ev) {
                 ev.preventDefault();

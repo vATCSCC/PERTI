@@ -585,41 +585,54 @@ if (count($flights_for_sp) > 0) {
         if ($drop_stmt !== false) sqlsrv_free_stmt($drop_stmt);
 
     } else {
+        // GDP/AFP path: use stored procedure for RBS slot assignment
         $exec_sql = "
             DECLARE @assigned_count INT, @exempt_count INT;
-            
+
             DECLARE @flights dbo.FlightListType;
             INSERT INTO @flights SELECT * FROM #FlightList;
-            
-            EXEC dbo.sp_TMI_AssignFlightsRBS 
-                @program_id = ?, 
+
+            EXEC dbo.sp_TMI_AssignFlightsRBS
+                @program_id = ?,
                 @flights = @flights,
                 @assigned_count = @assigned_count OUTPUT,
                 @exempt_count = @exempt_count OUTPUT;
-            
+
             SELECT @assigned_count AS assigned_count, @exempt_count AS exempt_count;
-            
+
             DROP TABLE #FlightList;
         ";
+
+        $exec_stmt = sqlsrv_query($conn_tmi, $exec_sql, [$program_id]);
+
+        if ($exec_stmt === false) {
+            respond_json(500, [
+                'status' => 'error',
+                'message' => 'Failed to execute assignment procedure',
+                'errors' => sqlsrv_errors()
+            ]);
+        }
+
+        $result_row = sqlsrv_fetch_array($exec_stmt, SQLSRV_FETCH_ASSOC);
+        if ($result_row) {
+            $assigned_count = (int)($result_row['assigned_count'] ?? 0);
+            $exempt_count = (int)($result_row['exempt_count'] ?? 0);
+        }
+        sqlsrv_free_stmt($exec_stmt);
+
+        // Update program metrics for GDP path (same as GS path does)
+        execute_query($conn_tmi, "
+            UPDATE dbo.tmi_programs
+            SET total_flights = (SELECT COUNT(*) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                controlled_flights = (SELECT ISNULL(SUM(CASE WHEN ctl_exempt = 0 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                exempt_flights = (SELECT ISNULL(SUM(CASE WHEN ctl_exempt = 1 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
+                avg_delay_min = (SELECT ISNULL(AVG(CAST(program_delay_min AS DECIMAL(8,2))), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                max_delay_min = (SELECT ISNULL(MAX(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                total_delay_min = (SELECT ISNULL(SUM(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
+                updated_at = SYSUTCDATETIME()
+            WHERE program_id = ?
+        ", [$program_id, $program_id, $program_id, $program_id, $program_id, $program_id, $program_id]);
     }
-    
-    $exec_stmt = sqlsrv_query($conn_tmi, $exec_sql, [$program_id]);
-    
-    if ($exec_stmt === false) {
-        respond_json(500, [
-            'status' => 'error',
-            'message' => 'Failed to execute assignment procedure',
-            'errors' => sqlsrv_errors()
-        ]);
-    }
-    
-    $result_row = sqlsrv_fetch_array($exec_stmt, SQLSRV_FETCH_ASSOC);
-    if ($result_row) {
-        $assigned_count = (int)($result_row['assigned_count'] ?? 0);
-        $exempt_count = (int)($result_row['exempt_count'] ?? 0);
-    }
-    sqlsrv_free_stmt($exec_stmt);
-}
 
 // ============================================================================
 // Step 5: Fetch Results
