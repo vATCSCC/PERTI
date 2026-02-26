@@ -296,7 +296,11 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                     <option value="3"><?= __('jatoc.page.opsLevel3') ?></option>
                 </select>
             </div>
-            <div class="col-md-4"></div>
+            <div class="col-md-4 text-right">
+                <a href="https://vncrcc.org" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info" title="Open vNCRCC - DC NCR Airspace Monitor" style="font-size:0.75rem; border-color:#475569; color:#94a3b8;">
+                    <i class="fas fa-shield-alt"></i> vNCRCC / P-56 Monitor <i class="fas fa-external-link-alt" style="font-size:0.6rem; margin-left:2px;"></i>
+                </a>
+            </div>
         </div>
     </div>
     

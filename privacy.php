@@ -1,4 +1,5 @@
 <?php
+include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
 ?>

@@ -41,6 +41,10 @@ if ($cid) {
     }
 
     load_org_context((int)$cid, $conn_sqli, $target_org);
+
+    // Sync PHP session locale to new org's default
+    $org_info_loc = get_org_info($conn_sqli);
+    $_SESSION['PERTI_LOCALE'] = $org_info_loc['default_locale'] ?? 'en-US';
 } else {
     // Anonymous user: validate org exists and is active (never allow global)
     if ($target_org === 'global') {
@@ -64,6 +68,7 @@ if ($cid) {
     $_SESSION['ORG_PRIVILEGED'] = false;
     $_SESSION['ORG_GLOBAL'] = false;
     $_SESSION['ORG_ALL'] = [$target_org];
+    $_SESSION['PERTI_LOCALE'] = $org_row['default_locale'] ?? 'en-US';
 
     // Clear cached org info
     unset($_SESSION['ORG_INFO_' . $target_org]);

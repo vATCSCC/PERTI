@@ -11,9 +11,9 @@
  */
 
 /**
- * OPTIMIZED: Public page - no session handler or DB needed
- * Login state is handled by nav_public.php (cheap session read)
+ * OPTIMIZED: Public page - no DB needed
  */
+include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
 ?>

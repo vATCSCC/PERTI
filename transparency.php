@@ -6,9 +6,9 @@
  * OPTIMIZED: This is a public static page - no session handler or DB needed
  */
 
+include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
-// No session handler or database connections needed - public static content
 ?>
 
 <!DOCTYPE html>
