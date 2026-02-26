@@ -572,6 +572,11 @@
             html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
         }
 
+        // Play-level remarks
+        if (play.remarks) {
+            html += '<div class="pb-play-remarks"><strong>Remarks:</strong> ' + escHtml(play.remarks) + '</div>';
+        }
+
         // Facilities (with optional region coloring)
         if (play.facilities_involved || play.impacted_area) {
             var facStr = play.impacted_area || play.facilities_involved;
@@ -649,7 +654,6 @@
             html += '<th>Dest</th>';
             html += '<th>TRACON</th>';
             html += '<th>ARTCC</th>';
-            html += '<th>Remarks</th>';
             html += '</tr></thead><tbody>';
 
             routes.forEach(function(r) {
@@ -686,7 +690,6 @@
                 html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
                 html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
                 html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
-                html += '<td class="pb-remarks-cell">' + (r.remarks ? '<span title="' + escHtml(r.remarks) + '">' + escHtml(r.remarks.length > 30 ? r.remarks.substring(0, 30) + '...' : r.remarks) + '</span>' : '') + '</td>';
                 html += '</tr>';
             });
 
@@ -896,7 +899,7 @@
                     validEnd: '',
                     timeBasis: 'ETD',
                     probExtension: 'MEDIUM',
-                    remarks: '',
+                    remarks: play.remarks || '',
                     restrictions: '',
                     modifications: ''
                 },
@@ -914,8 +917,7 @@
                         destArtccs: csvSplit(r.dest_artccs),
                         route: r.route_string,
                         mandatory: cfg.mandatory || false,
-                        color: cfg.color || null,
-                        remarks: r.remarks || ''
+                        color: cfg.color || null
                     };
                 }),
                 rawInput: 'PB.' + play.play_name,
@@ -1034,6 +1036,7 @@
         $('#pb_edit_scenario_type').val('');
         $('#pb_edit_route_format').val('standard');
         $('#pb_edit_description').val('');
+        $('#pb_edit_remarks').val('');
         $('#pb_edit_status').val('active');
         $('#pb_edit_source').val('DCC').prop('disabled', false);
         $('#pb_route_edit_body').empty();
@@ -1051,6 +1054,7 @@
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
         $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
+        $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val(play.status || 'active');
         $('#pb_edit_source').val(play.source || 'DCC').prop('disabled', true);
 
@@ -1074,6 +1078,7 @@
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
         $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
+        $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val('draft');
         $('#pb_edit_source').val('DCC').prop('disabled', false);
 
@@ -1095,7 +1100,6 @@
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter pb-re-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-route" rows="1" placeholder="DCT FIX1 J123 FIX2 DCT">' + escHtml(route.route_string || '') + '</textarea></td>';
-        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-remarks" value="' + escHtml(route.remarks || '') + '" placeholder="Notes..."></td>';
         html += '<td class="pb-re-cell"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
         $('#pb_route_edit_body').append(html);
@@ -1175,7 +1179,6 @@
             var originFilter = $tr.find('.pb-re-origin-filter').val().trim();
             var dest = $tr.find('.pb-re-dest').val().trim();
             var destFilter = $tr.find('.pb-re-dest-filter').val().trim();
-            var remarks = $tr.find('.pb-re-remarks').val().trim();
 
             var computed = autoComputeRouteFields(
                 (origin ? origin + ' ' : '') + routeStr + (dest ? ' ' + dest : '')
@@ -1196,8 +1199,7 @@
                 origin_artccs: unique(csvSplit(computed ? computed.origin_artccs : '').concat(origClass.artccs)).join(','),
                 dest_airports: unique(csvSplit(computed ? computed.dest_airports : '').concat(destClass.airports)).join(','),
                 dest_tracons: unique(csvSplit(computed ? computed.dest_tracons : '').concat(destClass.tracons)).join(','),
-                dest_artccs: unique(csvSplit(computed ? computed.dest_artccs : '').concat(destClass.artccs)).join(','),
-                remarks: remarks
+                dest_artccs: unique(csvSplit(computed ? computed.dest_artccs : '').concat(destClass.artccs)).join(',')
             });
         });
 
@@ -1223,6 +1225,7 @@
             airac_cycle: getAiracCycle(),
             facilities_involved: playFields.facilities_involved,
             impacted_area: playFields.impacted_area,
+            remarks: $('#pb_edit_remarks').val().trim(),
             routes: routes
         };
 
@@ -1243,6 +1246,8 @@
                     activePlayId = data.play_id;
                     loadPlays();
                     loadCategories();
+                    // Auto-refresh the detail panel with updated data
+                    loadPlayDetail(data.play_id);
                 } else {
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: t('common.error'), text: data.error || t('common.unknownError') });
                 }
@@ -1346,6 +1351,11 @@
     var routeTextTimer = null;
 
     $(document).ready(function() {
+        // Load facility hierarchy for region coloring, TRACON resolution, etc.
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.load) {
+            FacilityHierarchy.load();
+        }
+
         loadCategories();
         loadPlays();
 

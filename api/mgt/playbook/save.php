@@ -52,6 +52,7 @@ $airac_cycle   = trim($body['airac_cycle'] ?? '');
 $facilities_involved = trim($body['facilities_involved'] ?? '');
 $impacted_area = trim($body['impacted_area'] ?? '');
 $source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC']) ? $body['source'] : 'DCC';
+$remarks       = trim($body['remarks'] ?? '');
 $org_code      = isset($body['org_code']) && $body['org_code'] !== '' ? $body['org_code'] : null;
 $routes        = isset($body['routes']) && is_array($body['routes']) ? $body['routes'] : [];
 
@@ -88,13 +89,13 @@ if ($play_id > 0) {
     $stmt = $conn_sqli->prepare("UPDATE playbook_plays SET
         play_name=?, play_name_norm=?, display_name=?, description=?, category=?,
         scenario_type=?, route_format=?, status=?, airac_cycle=?,
-        facilities_involved=?, impacted_area=?, route_count=?,
+        facilities_involved=?, impacted_area=?, remarks=?, route_count=?,
         org_code=?, updated_by=?
         WHERE play_id=?");
-    $stmt->bind_param('sssssssssssissi',
+    $stmt->bind_param('ssssssssssssissi',
         $play_name, $play_name_norm, $display_name, $description, $category,
         $scenario_type, $route_format, $status, $airac_cycle,
-        $facilities_involved, $impacted_area, $route_count,
+        $facilities_involved, $impacted_area, $remarks, $route_count,
         $org_code, $changed_by, $play_id);
     $stmt->execute();
     $stmt->close();
@@ -105,7 +106,7 @@ if ($play_id > 0) {
         'description' => $description, 'category' => $category,
         'scenario_type' => $scenario_type, 'route_format' => $route_format,
         'status' => $status, 'facilities_involved' => $facilities_involved,
-        'impacted_area' => $impacted_area,
+        'impacted_area' => $impacted_area, 'remarks' => $remarks,
     ];
     $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, old_value, new_value, airac_cycle, changed_by) VALUES (?, 'play_updated', ?, ?, ?, ?, ?)");
     foreach ($fields as $fname => $new_val) {
@@ -128,13 +129,13 @@ if ($play_id > 0) {
     $stmt = $conn_sqli->prepare("INSERT INTO playbook_plays
         (play_name, play_name_norm, display_name, description, category,
          scenario_type, route_format, source, status, airac_cycle,
-         facilities_involved, impacted_area, route_count,
+         facilities_involved, impacted_area, remarks, route_count,
          org_code, created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->bind_param('ssssssssssssiss',
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $stmt->bind_param('sssssssssssssiss',
         $play_name, $play_name_norm, $display_name, $description, $category,
         $scenario_type, $route_format, $source, $status, $airac_cycle,
-        $facilities_involved, $impacted_area, $route_count,
+        $facilities_involved, $impacted_area, $remarks, $route_count,
         $org_code, $changed_by);
     $stmt->execute();
     $play_id = (int)$conn_sqli->insert_id;
@@ -152,8 +153,8 @@ if (!empty($routes)) {
     $route_stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
          origin_airports, origin_tracons, origin_artccs,
-         dest_airports, dest_tracons, dest_artccs, remarks, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         dest_airports, dest_tracons, dest_artccs, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -168,13 +169,12 @@ if (!empty($routes)) {
         $da = trim($r['dest_airports'] ?? '');
         $dt = trim($r['dest_tracons'] ?? '');
         $dar = trim($r['dest_artccs'] ?? '');
-        $remarks = trim($r['remarks'] ?? '');
 
         if ($rs === '') continue;
 
-        $route_stmt->bind_param('issssssssssssi',
+        $route_stmt->bind_param('isssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
-            $oa, $ot, $oar, $da, $dt, $dar, $remarks, $sort);
+            $oa, $ot, $oar, $da, $dt, $dar, $sort);
         $route_stmt->execute();
         $sort++;
     }

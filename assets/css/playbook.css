@@ -62,7 +62,8 @@
 }
 
 .pb-search {
-    max-width: 220px;
+    max-width: 360px;
+    min-width: 240px;
     font-size: 0.8rem;
 }
 
@@ -255,6 +256,16 @@
     font-size: 0.78rem;
     color: #666;
     margin-bottom: 0.35rem;
+}
+
+.pb-play-remarks {
+    font-size: 0.75rem;
+    color: #7a6b2a;
+    background: #fef9e7;
+    border-left: 3px solid #e2a300;
+    padding: 4px 8px;
+    margin-bottom: 0.35rem;
+    border-radius: 2px;
 }
 
 .pb-play-facilities {
