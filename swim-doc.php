@@ -11,8 +11,9 @@
  */
 
 /**
- * OPTIMIZED: Public page - no session handler or DB needed
+ * OPTIMIZED: Public page - no DB needed
  */
+include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
 

@@ -1,4 +1,5 @@
 <?php /* route.php - merged groups_v4 + updated_v3 (header comment added) */
+include("sessions/handler.php");
 include("load/i18n.php");
 ?>
 

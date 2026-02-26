@@ -12,9 +12,9 @@
  */
 
 /**
- * OPTIMIZED: Public page - no session handler or DB needed
- * Session state is read by nav_public.php for login display
+ * OPTIMIZED: Public page - no DB needed
  */
+include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
 ?>

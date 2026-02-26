@@ -5,6 +5,7 @@
  * Allows users to create, manage, and publish sector split configurations.
  * Configurations define how sectors are grouped into positions for a given time window.
  */
+include("sessions/handler.php");
 include("load/i18n.php");
 ?>
 <!DOCTYPE html>
