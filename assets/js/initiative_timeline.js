@@ -1022,6 +1022,43 @@ class InitiativeTimeline {
             cur = new Date(cur.getTime() + interval);
         }
         el.innerHTML = html;
+
+        // Dynamically size the axis container to fit rendered labels
+        if (axisEl) {
+            this._fitAxisHeight(axisEl);
+        }
+    }
+
+    /**
+     * Dynamically size the axis container so rotated labels fit fully
+     * within the gray bar (no overflow above or below).
+     * For non-rotated labels, resets to CSS defaults.
+     */
+    _fitAxisHeight(axisEl) {
+        const labels = axisEl.querySelectorAll('.dcccp-time-label');
+        if (!labels.length) {
+            axisEl.style.height = '';
+            axisEl.style.removeProperty('--label-top');
+            return;
+        }
+        const isRotated = axisEl.classList.contains('dcccp-time-axis-rotated');
+        if (!isRotated) {
+            axisEl.style.height = '';
+            axisEl.style.removeProperty('--label-top');
+            return;
+        }
+        // Use pre-transform dimensions (offsetWidth/Height ignore CSS transforms)
+        const W = labels[0].offsetWidth;
+        const H = labels[0].offsetHeight;
+        const sin45 = Math.SQRT1_2; // ≈ 0.7071
+
+        // Top offset: must be ≥ upward extent (W/2 * sin45) to keep labels inside
+        const labelTop = Math.ceil(W * sin45 / 2) + 2;
+        axisEl.style.setProperty('--label-top', labelTop + 'px');
+
+        // Total height: top offset + downward extent of rotated box + padding
+        const downExtent = Math.ceil((W / 2 + H) * sin45);
+        axisEl.style.height = (labelTop + downExtent + 4) + 'px';
     }
 
     updateNowLine(startTime, totalMs) {
