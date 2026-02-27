@@ -114,10 +114,15 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs)
     if ($gis_available && !empty($orderedFixNames)) {
         try {
             // Step A: Look up fix coordinates (preserving route order)
+            // DISTINCT ON prevents duplicate fix names (same name in US + Europe)
+            // from producing multiple rows — prefers Western hemisphere fixes.
             $uniqueFixes = array_values(array_unique($orderedFixNames));
             $placeholders = implode(',', array_fill(0, count($uniqueFixes), '?'));
-            $coordSql = "SELECT fix_name, ST_X(geom) AS lon, ST_Y(geom) AS lat
-                         FROM nav_fixes WHERE fix_name IN ($placeholders)";
+            $coordSql = "SELECT DISTINCT ON (fix_name)
+                            fix_name, ST_X(geom) AS lon, ST_Y(geom) AS lat
+                         FROM nav_fixes WHERE fix_name IN ($placeholders)
+                         ORDER BY fix_name,
+                            CASE WHEN ST_X(geom) BETWEEN -170 AND -30 THEN 0 ELSE 1 END";
             $coordStmt = $conn_gis_cached->prepare($coordSql);
             $coordStmt->execute($uniqueFixes);
 
