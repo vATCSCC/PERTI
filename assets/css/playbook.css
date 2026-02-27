@@ -51,6 +51,15 @@
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
+/* Catalog body: flex child that fills remaining height and enables list scrolling */
+.pb-catalog-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;       /* allows shrinking below content size */
+    overflow: hidden;
+}
+
 /* Minimized state: collapse body, keep titlebar */
 .pb-catalog-overlay.minimized .pb-catalog-body { display: none; }
 .pb-catalog-overlay.minimized { max-height: none; overflow: visible; }
@@ -264,6 +273,7 @@
 /* ── Play List (scrollable, fills remaining space) ───────────────── */
 .pb-play-list-wrap {
     flex: 1;
+    min-height: 0;       /* allows shrinking below content size for scrolling */
     overflow-y: scroll;
     max-height: none;
     border: none;
