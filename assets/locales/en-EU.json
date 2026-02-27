@@ -1,287 +1,401 @@
 {
-  "status": {
-    "coordinating": "Co-ordinating"
+  "adl": {
+    "includedCenters": "Included Centres:"
   },
-  "tmi": {
-    "gdp": "Ground Delay Programme",
-    "afp": "Airspace Flow Programme"
+  "advisoryConfig": {
+    "canadianNoc": "Canadian NOC",
+    "usDcc": "US DCC"
   },
   "dccRegion": {
-    "west": "FABEC",
-    "southCentral": "BLUE MED",
-    "midwest": "FAB CE",
-    "southeast": "DANUBE",
-    "northeast": "NEFAB",
+    "canada": "Canada",
     "canadaEast": "UK-Ireland",
     "canadaWest": "SW FAB",
-    "mexico": "Mexico",
     "caribbean": "Caribbean",
     "ecfmp": "ECFMP",
-    "canada": "Canada"
-  },
-  "sua": {
-    "popupArtcc": "ACC/FIR",
-    "page": {
-      "colArtcc": "ACC/FIR",
-      "allArtccs": "All ACCs/FIRs",
-      "selectArtcc": "Select ACC/FIR",
-      "centerPoint": "Centre Point (for circular TFR)"
-    }
-  },
-  "tmiPublish": {
-    "hotline": {
-      "selectToAction": "Select Landline to {action}",
-      "selectHint": "Select the active landline you want to {action}:",
-      "selectPlaceholder": "-- Select a landline --",
-      "pleaseSelect": "Please select a landline",
-      "noActiveText": "There are no active landline entries to {action}.",
-      "autoFilledText": "Form populated from the selected landline. Adjust as needed and {instruction}."
-    },
-    "form": {
-      "ntmlPreview": "Flow Measures Preview",
-      "ntmlTextHint": "This is the flow measure text that facilities will see",
-      "ntmlEntryType": "Flow Measure Entry Type",
-      "freeFormDesc": "ECFMP Advisory",
-      "hotline": "Landline",
-      "hotlineDesc": "Activation/Term"
-    },
-    "page": {
-      "coordinationDiscord": "Facilities approve via Discord emoji reactions or web buttons below. ECFMP can override any proposal."
-    },
-    "coordination": {
-      "allApproved": "All Approved",
-      "approvedBy": "{facility} approved by {oi} / {name} (CID {cid})",
-      "deniedBy": "{facility} denied by {oi} / {name} (CID {cid})",
-      "approveFor": "Approve for {facility}?",
-      "denyFor": "Deny for {facility}?",
-      "approveConfirm": "Approve Proposal #{id} on behalf of {facility}?",
-      "denyConfirm": "Deny Proposal #{id} on behalf of {facility}?",
-      "webNote": "This will be recorded with your VATSIM identity and posted to the Discord coordination thread.",
-      "facilityApproved": "{facility} approved",
-      "facilityDenied": "{facility} denied",
-      "facilityAlreadyResponded": "{facility} already responded: {status}",
-      "profileRequired": "Profile Required",
-      "profileRequiredText": "Please set up your profile (CID, name, OI, facility) to participate in coordination.",
-      "loginRequired": "Login to participate in coordination",
-      "dccOverrideApprove": "ECFMP Override: Approve",
-      "dccOverrideDeny": "ECFMP Override: Deny",
-      "overrideApprove": "{org} Override: Approve",
-      "overrideDeny": "{org} Override: Deny",
-      "overrideNote": "This is a {org} override action.",
-      "extendDeadline": "Extend Deadline",
-      "changeToApprove": "Change {facility} to Approved",
-      "changeToDeny": "Change {facility} to Denied",
-      "changeConfirm": "Change {facility} response from {from} to {to}?",
-      "changeNote": "This privileged action will override the current facility response and be logged.",
-      "facilityChanged": "{facility} changed to {status}",
-      "statusApproved": "Approved",
-      "statusDenied": "Denied",
-      "editRestartsCoordination": "Edit proposal (restarts coordination)",
-      "publishToDiscord": "Publish to Discord",
-      "cancelProposal": "Cancel proposal",
-      "loginRequiredShort": "Login required",
-      "loginRequiredToPublish": "Login required to publish"
-    }
-  },
-  "tmiActive": {
-    "entryType": {
-      "gdp": "Ground Delay Programme"
-    },
-    "edit": {
-      "hotline": "Edit Landline"
-    },
-    "batchCancel": {
-      "postCancelDesc": "Auto-generates GS CNX, GDP CNX, Reroute Cancellation, or Landline Termination advisories"
-    },
-    "advisoryBatchCancel": {
-      "postCancelDesc": "Auto-generates cancellation advisories for reroutes and landlines"
-    }
-  },
-  "gdt": {
-    "page": {
-      "dccRegion": "FAB",
-      "activePrograms": "Active Programmes",
-      "newProgram": "New Programme",
-      "noActivePrograms": "No active programmes",
-      "controlledAcrossAll": "controlled across all programmes",
-      "originCentersScope": "Origin Centres (Scope)",
-      "originCentersHelp": "Use Tier presets, named groups, and individual ACCs. Hold Ctrl/Cmd to select multiple.",
-      "exemptTracons": "Exempt TCAs",
-      "exemptArtccs": "Exempt ACCs",
-      "originCentersArtcc": "Origin Centres (ACC)",
-      "destCentersArtcc": "Destination Centres (ACC)",
-      "delayByOriginArtcc": "Delay by Origin ACC",
-      "center": "Centre",
-      "byOriginArtcc": "By Origin ACC",
-      "byDestArtcc": "By Dest ACC",
-      "byTier": "By ACC Tier",
-      "filterByOriginArtcc": "Filter by Origin ACC",
-      "byArtcc": "By ACC",
-      "byTracon": "By TCA",
-      "origCenter": "Origin Centre",
-      "destCenter": "Dest Centre",
-      "byOriginCenter": "By Origin Centre",
-      "advisoryOrg": "Advisory Organisation",
-      "extendProgram": "Extend Programme",
-      "program": "Programme",
-      "reviseProgram": "Revise Programme",
-      "gsProgram": "GS Programme:",
-      "noFiltersText": "No overlapping ACC/airport routes detected.",
-      "originCentersHelp2": "Use Tier presets, named groups (e.g. 12West), and individual ACCs. Hold Ctrl/Cmd to select multiple.",
-      "advisoryPreviewTitle": "Advisory Preview",
-      "includedCenters": "Included Centres:"
-    },
-    "exemption": {
-      "origArtccs": "Origin ACCs",
-      "destArtccs": "Destination ACCs"
-    },
-    "flight": {
-      "center": "Centre"
-    },
-    "chart": {
-      "titleDestArtcc": "Data Graph - Dest ACC",
-      "titleOrigArtcc": "Data Graph - Origin ACC"
-    },
-    "dashboard": {
-      "cancelProgramTitle": "Cancel Programme #{id}?",
-      "programCancelled": "Programme has been cancelled.",
-      "programExtended": "Programme Extended",
-      "programExtendedText": "Programme #{id} has been extended.",
-      "programNotFound": "Programme not found",
-      "programRevised": "Programme Revised",
-      "rateRequired": "Programme rate is required"
-    },
-    "exemptReason": {
-      "departingCenter": "Departing from exempt ACC/FIR",
-      "departingTracon": "Departing from exempt TCA",
-      "destCenter": "Destination exempt ACC/FIR",
-      "destTracon": "Destination exempt TCA"
-    }
+    "mexico": "Mexico",
+    "midwest": "FAB CE",
+    "northeast": "NEFAB",
+    "southCentral": "BLUE MED",
+    "southeast": "DANUBE",
+    "west": "FABEC"
   },
   "demand": {
-    "page": {
-      "artcc": "ACC",
-      "allArtccs": "All ACCs",
-      "topOriginArtccs": "Top Origin ACCs",
-      "dccRegion": "FAB",
-      "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
-      "showDeparturesByDestArtcc": "Show departures by destination ACC"
-    },
-    "filter": {
-      "allArtccs": "All ACCs"
-    },
     "breakdown": {
       "byDestArtcc": "{direction} by Dest ACC",
       "byOriginArtcc": "{direction} by Origin ACC",
-      "originArtcc": "Origin ACC",
-      "destNotApplicableArr": "Destination ACC breakdown is not applicable for arrivals-only view"
+      "destNotApplicableArr": "Destination ACC breakdown is not applicable for arrivals-only view",
+      "originArtcc": "Origin ACC"
+    },
+    "filter": {
+      "allArtccs": "All ACCs"
     },
     "flightDetail": {
       "col": {
         "destArtcc": "Dest ACC",
         "originArtcc": "Origin ACC"
       }
+    },
+    "page": {
+      "allArtccs": "All ACCs",
+      "artcc": "ACC",
+      "dccRegion": "FAB",
+      "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
+      "showDeparturesByDestArtcc": "Show departures by destination ACC",
+      "topOriginArtccs": "Top Origin ACCs"
     }
   },
-  "review": {
-    "ntmlAdvisoryUsage": "Flow Measures Usage",
-    "ntmlAdvisoryInput": "Flow Measures Input",
-    "ntmlEntries": "Flow Measures (paste from Discord)"
+  "eventAar": {
+    "page": {
+      "quickApplyDesc": "Click a config to apply its rates to all hourly slots. Colours indicate weather:"
+    }
   },
-  "tmr": {
-    "trigger": {
-      "gdp": "Ground Delay Programme"
+  "footer": {
+    "disclaimer": "For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network."
+  },
+  "gdp": {
+    "confirm": {
+      "purgeActive": "Purge all active GDP programmes?"
     },
-    "tmiList": {
-      "category": {
-        "ntml": "Flow Measure",
-        "program": "Programme"
-      }
+    "error": {
+      "noProgramToActivate": "No programme to activate",
+      "noProgramToPurge": "No programme to purge"
+    }
+  },
+  "gdt": {
+    "chart": {
+      "titleDestArtcc": "Data Graph - Dest ACC",
+      "titleOrigArtcc": "Data Graph - Origin ACC"
     },
-    "tmi": {
-      "category": {
-        "ntml": "Flow Measure",
-        "program": "Programme"
+    "dashboard": {
+      "cancelProgramText": "This will cancel the programme and release all controlled flights.",
+      "cancelProgramTitle": "Cancel Programme #{id}?",
+      "deleteText": "This will permanently delete this draft/proposed programme.",
+      "onlyActiveCanRemodel": "Only active programmes can be remodeled",
+      "onlyGsCanTransition": "Only Ground Stop programmes can transition to GDP",
+      "programCancelled": "Programme has been cancelled.",
+      "programExtended": "Programme Extended",
+      "programExtendedText": "Programme #{id} has been extended.",
+      "programLabel": "Programme {id}",
+      "programNotFound": "Programme not found",
+      "programRevised": "Programme Revised",
+      "programRevisionHtml": "Programme {programId} revision {revision}",
+      "rateRequired": "Programme rate is required",
+      "returnedToActive": "Returned to active programme parameters.",
+      "whatIfModeText": "Enter what-if mode to test parameter changes without affecting the active programme."
+    },
+    "dataSource": {
+      "gsProgramMode": "GS Programme Mode"
+    },
+    "edit": {
+      "editingProgram": "Editing {type} programme {id} ({status})",
+      "loadFailed": "Failed to load programme",
+      "loadingProgram": "Loading programme {id} for editing...",
+      "programNotFound": "Programme not found"
+    },
+    "exemptReason": {
+      "departingCenter": "Departing from exempt ACC/FIR",
+      "departingTracon": "Departing from exempt TCA",
+      "destCenter": "Destination exempt ACC/FIR",
+      "destTracon": "Destination exempt TCA"
+    },
+    "exemption": {
+      "destArtccs": "Destination ACCs",
+      "origArtccs": "Origin ACCs"
+    },
+    "flight": {
+      "center": "Centre",
+      "ctlProgram": "CTL Programme",
+      "programDelay": "Programme Delay"
+    },
+    "gs": {
+      "activateConfirmText": "This will activate the GS programme and apply EDCTs to affected flights.",
+      "activateConfirmTitle": "Activate GS Programme {id}?",
+      "activatingProgram": "Activating programme {id}...",
+      "activeStatus": "ACTIVE: Programme {programId} | {controlled} controlled flights",
+      "causeGdp": "Ground Delay Programme",
+      "creatingProgram": "Creating GS programme...",
+      "error": {
+        "failedToActivate": "Failed to activate GS programme",
+        "failedToCreateProgram": "Failed to create programme",
+        "failedToModel": "Failed to model GS programme",
+        "failedToSimulate": "Failed to simulate programme"
       },
-      "nothingToParseText": "Paste Flow Measure entries first."
+      "modelingProgram": "Modeling programme {id}...",
+      "noProgramCreatingPreview": "No programme - creating preview...",
+      "noProgramToActivate": "No programme to activate. Create a programme first.",
+      "noProgramToSubmit": "No programme to submit. Create a programme first.",
+      "program": "Programme",
+      "programCreated": "Programme created: {id}",
+      "reusingProgram": "Reusing existing programme: {id}",
+      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Programme {programId}"
+    },
+    "page": {
+      "activateGsTooltip": "Activate GS programme immediately",
+      "activePrograms": "Active Programmes",
+      "advisoryOrg": "Advisory Organisation",
+      "advisoryPreviewTitle": "Advisory Preview",
+      "byArtcc": "By ACC",
+      "byDestArtcc": "By Dest ACC",
+      "byOriginArtcc": "By Origin ACC",
+      "byOriginCenter": "By Origin Centre",
+      "byTier": "By ACC Tier",
+      "byTracon": "By TCA",
+      "center": "Centre",
+      "controlledAcrossAll": "controlled across all programmes",
+      "createProgramTooltip": "Create a new programme",
+      "cumulativeProgramPeriod": "Cumulative Programme Period",
+      "dccRegion": "FAB",
+      "delayByOriginArtcc": "Delay by Origin ACC",
+      "destCenter": "Dest Centre",
+      "destCentersArtcc": "Destination Centres (ACC)",
+      "exemptArtccs": "Exempt ACCs",
+      "exemptTracons": "Exempt TCAs",
+      "extendProgram": "Extend Programme",
+      "filterByOriginArtcc": "Filter by Origin ACC",
+      "gsProgram": "GS Programme:",
+      "gsProgramInfo": "GS Programme Information",
+      "includedCenters": "Included Centres:",
+      "newProgram": "New Programme",
+      "noActivePrograms": "No active programmes",
+      "noFiltersText": "No overlapping ACC/airport routes detected.",
+      "origCenter": "Origin Centre",
+      "originCentersArtcc": "Origin Centres (ACC)",
+      "originCentersHelp": "Use Tier presets, named groups, and individual ACCs. Hold Ctrl/Cmd to select multiple.",
+      "originCentersHelp2": "Use Tier presets, named groups (e.g. 12West), and individual ACCs. Hold Ctrl/Cmd to select multiple.",
+      "originCentersScope": "Origin Centres (Scope)",
+      "program": "Programme",
+      "programLabel": "Programme:",
+      "programRateArrHr": "Programme Rate (arrivals/hr)",
+      "programSetup": "Programme Setup",
+      "programType": "Programme Type",
+      "reviseProgram": "Revise Programme",
+      "sendActualTooltip": "Activate GS programme immediately"
+    },
+    "purge": {
+      "allPurged": "All GS programmes have been purged.",
+      "allPurgedCreateNew": "All GS programmes purged. Create a new programme to begin.",
+      "fetchProgramListFailed": "Failed to fetch programme list",
+      "fetchingPrograms": "Fetching active GS programmes...",
+      "noCurrentProgram": "No current GS programme to purge.",
+      "noProgramsToPurge": "No active GS programmes to purge.",
+      "programPurged": "GS programme has been purged.",
+      "programPurgedCreateNew": "Programme purged. Create a new programme to begin.",
+      "programPurgedStatus": "Programme {id} purged.",
+      "purgeAllText": "This will purge ALL active and proposed GS programmes. This cannot be undone.",
+      "purgeAllTitle": "Purge All GS Programmes?",
+      "purgeGsProgramFailed": "Failed to purge GS programme",
+      "purgeLocalBtn": "Purge Programme",
+      "purgeLocalText": "This will purge this GS programme. This cannot be undone.",
+      "purgeLocalTitle": "Purge Programme {id}?",
+      "purgedCount": "{count} programme(s) purged",
+      "purgingProgram": "Purging GS programme {id}...",
+      "purgingPrograms": "Purging {count} GS programmes..."
+    },
+    "status": {
+      "createNewProgram": "Create a new programme to begin."
     }
   },
-  "tmiCompliance": {
-    "noNtmlData": "No flow measure data to copy",
-    "noNtmlConfigInstruction": "Please enter flow measure entries in the configuration section above and click <strong>Save Config</strong> before running analysis.",
-    "measuredAtBoundaryTitle": "Measured at ACC handoff point",
-    "multiFacilityTitle": "Measured across {count} ACC boundaries",
-    "ntmlEntriesLabel": "Flow Measures",
-    "copyNtmlForDiscord": "Copy Flow Measures for Discord",
-    "map": {
-      "artcc": "ACC/FIR",
-      "tracon": "TCA"
-    },
-    "programHistoryLabel": "Programme History",
-    "reroute": {
-      "programHistory": "Programme History"
-    }
+  "home": {
+    "hotline": "Landline"
   },
   "jatoc": {
+    "colorMode": {
+      "arrCenter": "Arr Centre",
+      "arrTracon": "Arr TCA",
+      "dccRegion": "FAB",
+      "depCenter": "Dep Centre",
+      "depTracon": "Dep TCA"
+    },
     "layers": {
       "artccBoundaries": "ACC/FIR Boundaries",
       "traconBoundaries": "TCA Boundaries"
     },
-    "colorMode": {
-      "dccRegion": "FAB",
-      "depCenter": "Dep Centre",
-      "arrCenter": "Arr Centre",
-      "depTracon": "Dep TCA",
-      "arrTracon": "Arr TCA"
+    "page": {
+      "dccCommandCenter": "DCC (Command Centre)"
     },
     "popup": {
+      "arrArtcc": "Arr ACC",
       "artcc": "ACC/FIR",
-      "positionAirspace": "Position & Airspace",
       "currentArtcc": "Current ACC",
       "depArtcc": "Dep ACC",
-      "arrArtcc": "Arr ACC"
+      "positionAirspace": "Position & Airspace"
     },
     "schedule": {
       "hostArtcc": "Host ACC/FIR"
     }
   },
-  "splits": {
-    "page": {
-      "allArtccs": "All ACCs",
-      "artccRequired": "ACC *",
-      "selectArtcc": "Select ACC...",
-      "sectorInputHint": "Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ACC.",
-      "originHint": "Airports, TCAs, or ACCs",
-      "destinationHint": "Airports, TCAs, or ACCs",
-      "loadArtccSectors": "Load ACC Sectors"
+  "nav": {
+    "configs": "Configurations"
+  },
+  "nod": {
+    "colorMode": {
+      "arrCenter": "Arr Centre",
+      "arrTracon": "Arr TCA",
+      "dccRegion": "FAB",
+      "depCenter": "Dep Centre",
+      "depTracon": "Dep TCA"
     },
-    "sectors": {
-      "noSectorsFound": "No sectors found for this ACC."
+    "flows": {
+      "colorTitle": "Colour",
+      "gateColorTitle": "Gate colour"
+    },
+    "page": {
+      "groundDelayPrograms": "Ground Delay Programmes",
+      "showLegendTooltip": "Show colour legend"
+    },
+    "popup": {
+      "artcc": "ACC/FIR"
+    },
+    "quickSelect": {
+      "artccsOther": "ACCs - Other",
+      "artccsRegion": "ACCs - {region}",
+      "dccRegions": "FABs"
+    },
+    "tmi": {
+      "gdpInEffect": "Ground Delay Programme",
+      "linkedProgram": "Programme: {name}"
+    },
+    "tooltip": {
+      "siteArtcc": "Site/ACC"
+    }
+  },
+  "org": {
+    "airspace": "ACC/FIR",
+    "commandCenter": "ECFMP",
+    "displayName": "ECFMP",
+    "facilityType": "ACC & FIR",
+    "facilityTypePlural": "ACCs & FIRs",
+    "name": "European Collaboration and Flow Management Project"
+  },
+  "plan": {
+    "advisory": {
+      "cardTitle": "ECFMP Advisory Builder (Discord)"
+    },
+    "dcc": {
+      "commandCenter": "Command Centre"
+    },
+    "overview": {
+      "resourceGdtDesc": "for ground delay programme/ground stop management."
+    },
+    "tabs": {
+      "configs": "Field Configurations"
+    }
+  },
+  "playbook": {
+    "regionColors": "Region colours",
+    "regionColorsTooltip": "Colour by DCC region"
+  },
+  "publicRoutes": {
+    "changeColor": "Change colour",
+    "color": "Colour",
+    "routeColor": "Route Colour"
+  },
+  "review": {
+    "ntmlAdvisoryInput": "Flow Measures Input",
+    "ntmlAdvisoryUsage": "Flow Measures Usage",
+    "ntmlEntries": "Flow Measures (paste from Discord)"
+  },
+  "route": {
+    "color": "Colour",
+    "colorRule": {
+      "addTitle": "Add Colour Rule",
+      "arrCenter": "Arrival Centre",
+      "color": "Colour",
+      "deleteConfirm": "Delete this colour rule?",
+      "depCenter": "Departure Centre",
+      "editTitle": "Edit Colour Rule",
+      "enterValuesAndColor": "Enter values and select a colour",
+      "namedColors": "Named Colours",
+      "quickColors": "Quick Colours"
+    },
+    "confirmClearOverrides": "Clear all colour/style overrides?",
+    "layer": {
+      "traconBoundaries": "TCA Boundaries"
+    },
+    "page": {
+      "advisoryExpandDesc": "Expand panel below map to generate ECFMP reroute advisories",
+      "arrCenter": "Arrival ACC",
+      "arrTracon": "Arrival TCA",
+      "color": "Colour",
+      "colorBy": "Colour By",
+      "colors": "Colours:",
+      "colorsDesc": "Prefix with colour name (e.g. red:KJFK..KLAX)",
+      "dccRegion": "FAB",
+      "depCenter": "Departure ACC",
+      "depTracon": "Departure TCA",
+      "destArtcc": "Dest ACC",
+      "destTracon": "Dest TCA",
+      "filtersDesc": "Colour flights by weight class, carrier, ACC, altitude, etc. Filter by aircraft type",
+      "originArtcc": "Origin ACC",
+      "originTracon": "Origin TCA",
+      "symbologyDesc": "Customize route line colours, widths, styles, and fix display"
+    },
+    "sua": {
+      "artcc": "ACC/FIR"
+    }
+  },
+  "scopeSelector": {
+    "domestic": "Intra-European",
+    "domesticTitle": "Intra-European (ACC tiers)",
+    "international": "International",
+    "internationalTitle": "International (FIR-based scope)"
+  },
+  "simulator": {
+    "page": {
+      "includedCenters": "Included Centres:"
+    }
+  },
+  "splits": {
+    "areas": {
+      "allArtccs": "All ACCs",
+      "noAreasForArtcc": "No areas defined for this ACC",
+      "noSectorsFound": "No sectors found for this ACC.",
+      "selectArtccFirst": "Select an ACC first",
+      "selectArtccToLoad": "Select an ACC to load sectors",
+      "validation": {
+        "fillArtccAndName": "Please fill in ACC and Area Name.",
+        "selectArtccFirst": "Please select an ACC first."
+      }
+    },
+    "buttons": {
+      "changeColor": "Change colour"
+    },
+    "colorMode": {
+      "arrivalArtcc": "Arrival ACC",
+      "arrivalTracon": "Arrival TCA",
+      "dccRegion": "FAB",
+      "departureArtcc": "Departure ACC",
+      "departureTracon": "Departure TCA"
+    },
+    "facilityScope": {
+      "individualFacilities": "Individual ACCs / FIRs"
     },
     "feature": {
       "artcc": "ACC",
       "tracon": "TCA"
     },
+    "flight": {
+      "center": "Centre"
+    },
     "layerType": {
       "artcc": "ACC",
       "tracon": "TCA"
+    },
+    "page": {
+      "allArtccs": "All ACCs",
+      "artccRequired": "ACC *",
+      "color": "Colour",
+      "destinationHint": "Airports, TCAs, or ACCs",
+      "loadArtccSectors": "Load ACC Sectors",
+      "originHint": "Airports, TCAs, or ACCs",
+      "sectorInputHint": "Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ACC.",
+      "selectArtcc": "Select ACC..."
     },
     "popup": {
       "artcc": "ACC",
       "artccBoundary": "ACC Boundary",
       "dccRegion": "FAB",
       "traconBoundary": "TCA Boundary"
-    },
-    "areas": {
-      "allArtccs": "All ACCs",
-      "selectArtccToLoad": "Select an ACC to load sectors",
-      "selectArtccFirst": "Select an ACC first",
-      "noSectorsFound": "No sectors found for this ACC.",
-      "noAreasForArtcc": "No areas defined for this ACC",
-      "validation": {
-        "fillArtccAndName": "Please fill in ACC and Area Name.",
-        "selectArtccFirst": "Please select an ACC first."
-      }
     },
     "presets": {
       "validation": {
@@ -293,119 +407,214 @@
         "selectArtcc": "Please select an ACC first."
       }
     },
-    "facilityScope": {
-      "individualFacilities": "Individual ACCs / FIRs"
-    },
-    "flight": {
-      "center": "Centre"
-    },
-    "colorMode": {
-      "dccRegion": "FAB",
-      "departureArtcc": "Departure ACC",
-      "arrivalArtcc": "Arrival ACC",
-      "departureTracon": "Departure TCA",
-      "arrivalTracon": "Arrival TCA"
+    "sectors": {
+      "noSectorsFound": "No sectors found for this ACC."
     }
   },
-  "route": {
+  "status": {
+    "coordinating": "Co-ordinating"
+  },
+  "statusPage": {
+    "programs": "programmes"
+  },
+  "sua": {
     "page": {
-      "dccRegion": "FAB",
-      "filtersDesc": "Colour flights by weight class, carrier, ACC, altitude, etc. Filter by aircraft type",
-      "advisoryExpandDesc": "Expand panel below map to generate ECFMP reroute advisories",
-      "depCenter": "Departure ACC",
-      "arrCenter": "Arrival ACC",
-      "depTracon": "Departure TCA",
-      "arrTracon": "Arrival TCA",
-      "originTracon": "Origin TCA",
-      "originArtcc": "Origin ACC",
-      "destTracon": "Dest TCA",
-      "destArtcc": "Dest ACC"
+      "allArtccs": "All ACCs/FIRs",
+      "centerPoint": "Centre Point (for circular TFR)",
+      "circularTfrHint": "Enter centre coordinates and radius to generate circular TFR geometry",
+      "colArtcc": "ACC/FIR",
+      "selectArtcc": "Select ACC/FIR"
     },
-    "color": "Colour",
-    "colorRule": {
-      "addTitle": "Add Colour Rule",
-      "arrCenter": "Arrival Centre",
-      "color": "Colour",
-      "depCenter": "Departure Centre",
-      "editTitle": "Edit Colour Rule",
-      "enterValuesAndColor": "Enter values and select a colour",
-      "namedColors": "Named Colours",
-      "quickColors": "Quick Colours"
-    },
-    "confirmClearOverrides": "Clear all colour/style overrides?",
-    "layer": {
-      "traconBoundaries": "TCA Boundaries"
-    },
-    "sua": {
-      "artcc": "ACC/FIR"
+    "popupArtcc": "ACC/FIR",
+    "typeNames": {
+      "ADIZ": "Air Defence Identification Zone",
+      "WSRP": "Weather Surveillance Radar Programme"
     }
-  },
-  "nod": {
-    "colorMode": {
-      "dccRegion": "FAB",
-      "depCenter": "Dep Centre",
-      "arrCenter": "Arr Centre",
-      "depTracon": "Dep TCA",
-      "arrTracon": "Arr TCA"
-    },
-    "popup": {
-      "artcc": "ACC/FIR"
-    },
-    "tooltip": {
-      "siteArtcc": "Site/ACC"
-    },
-    "quickSelect": {
-      "dccRegions": "FABs",
-      "artccsRegion": "ACCs - {region}",
-      "artccsOther": "ACCs - Other"
-    }
-  },
-  "plan": {
-    "advisory": {
-      "cardTitle": "ECFMP Advisory Builder (Discord)"
-    },
-    "tabs": {
-      "configs": "Field Configurations"
-    }
-  },
-  "home": {
-    "hotline": "Landline"
-  },
-  "nav": {
-    "configs": "Configurations"
   },
   "swim": {
     "page": {
-      "license": "Licence"
+      "license": "Licence",
+      "tmiProgramsEndpoint": "Active TMI programmes (Ground Stops, GDPs)"
     }
   },
-  "org": {
-    "name": "European Collaboration and Flow Management Project",
-    "displayName": "ECFMP",
-    "airspace": "ACC/FIR",
-    "commandCenter": "ECFMP",
-    "facilityType": "ACC & FIR",
-    "facilityTypePlural": "ACCs & FIRs"
+  "tmi": {
+    "afp": "Airspace Flow Programme",
+    "gdp": "Ground Delay Programme"
   },
-  "scopeSelector": {
-    "domestic": "Intra-European",
-    "domesticTitle": "Intra-European (ACC tiers)",
-    "international": "International",
-    "internationalTitle": "International (FIR-based scope)"
+  "tmiActive": {
+    "advisoryBatchCancel": {
+      "postCancelDesc": "Auto-generates cancellation advisories for reroutes and landlines"
+    },
+    "batchCancel": {
+      "postCancelDesc": "Auto-generates GS CNX, GDP CNX, Reroute Cancellation, or Landline Termination advisories"
+    },
+    "detail": {
+      "program": "Programme:"
+    },
+    "detailTable": {
+      "destCenters": "Dest Centres:",
+      "originCenters": "Origin Centres:",
+      "programRate": "Programme Rate:",
+      "programType": "Programme Type:",
+      "scopeCenters": "Scope Centres:"
+    },
+    "edit": {
+      "hotline": "Edit Landline",
+      "programNotFound": "Could not find programme data"
+    },
+    "editLabel": {
+      "destCenters": "Dest Centres",
+      "originCenters": "Origin Centres",
+      "programRate": "Programme Rate",
+      "programRateHr": "Programme Rate (/hr)"
+    },
+    "entryType": {
+      "gdp": "Ground Delay Programme"
+    },
+    "fallback": {
+      "program": "Programme"
+    },
+    "scopeOption": {
+      "center": "Centre"
+    }
   },
-  "advisoryConfig": {
-    "usDcc": "US DCC",
-    "canadianNoc": "Canadian NOC"
+  "tmiCompliance": {
+    "copyNtmlForDiscord": "Copy Flow Measures for Discord",
+    "eventStats": {
+      "pairsAnalyzed": "Pairs Analysed"
+    },
+    "gsProgramSummary": "{count} programme",
+    "gsProgramSummaryPlural": "{count} programmes",
+    "map": {
+      "artcc": "ACC/FIR",
+      "tracon": "TCA"
+    },
+    "measuredAtBoundaryTitle": "Measured at ACC handoff point",
+    "multiFacilityTitle": "Measured across {count} ACC boundaries",
+    "noNtmlConfigInstruction": "Please enter flow measure entries in the configuration section above and click <strong>Save Config</strong> before running analysis.",
+    "noNtmlData": "No flow measure data to copy",
+    "ntmlEntriesLabel": "Flow Measures",
+    "pairsAnalyzed": "Pairs Analysed",
+    "pairsAnalyzedSummary": "{pairs} pairs analysed, {nonCompliant} non-compliant",
+    "programHistoryLabel": "Programme History",
+    "reroute": {
+      "programHistory": "Programme History"
+    },
+    "rerouteSummary": "{count} programme ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
+    "rerouteSummaryPlural": "{count} programmes ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
+    "runAnalysisDesc": "This will analyse flight data against the configured TMIs for Plan {planId}."
   },
-  "adl": {
-    "includedCenters": "Included Centres:"
+  "tmiPublish": {
+    "advisoryTypes": {
+      "gdp": "Ground Delay Programme",
+      "gdpCancelDesc": "Cancel an active Ground Delay Programme",
+      "gdpDesc": "CDM Ground Delay Programme advisory"
+    },
+    "cancel": {
+      "cancelProgram": "Cancel Programme",
+      "programIdLabel": "Programme ID",
+      "programLabel": "Programme"
+    },
+    "coordination": {
+      "allApproved": "All Approved",
+      "approveConfirm": "Approve Proposal #{id} on behalf of {facility}?",
+      "approveFor": "Approve for {facility}?",
+      "approvedBy": "{facility} approved by {oi} / {name} (CID {cid})",
+      "cancelProposal": "Cancel proposal",
+      "changeConfirm": "Change {facility} response from {from} to {to}?",
+      "changeNote": "This privileged action will override the current facility response and be logged.",
+      "changeToApprove": "Change {facility} to Approved",
+      "changeToDeny": "Change {facility} to Denied",
+      "dccOverrideApprove": "ECFMP Override: Approve",
+      "dccOverrideDeny": "ECFMP Override: Deny",
+      "deniedBy": "{facility} denied by {oi} / {name} (CID {cid})",
+      "denyConfirm": "Deny Proposal #{id} on behalf of {facility}?",
+      "denyFor": "Deny for {facility}?",
+      "editRestartsCoordination": "Edit proposal (restarts coordination)",
+      "extendDeadline": "Extend Deadline",
+      "facilityAlreadyResponded": "{facility} already responded: {status}",
+      "facilityApproved": "{facility} approved",
+      "facilityChanged": "{facility} changed to {status}",
+      "facilityDenied": "{facility} denied",
+      "loginRequired": "Login to participate in coordination",
+      "loginRequiredShort": "Login required",
+      "loginRequiredToPublish": "Login required to publish",
+      "overrideApprove": "{org} Override: Approve",
+      "overrideDeny": "{org} Override: Deny",
+      "overrideNote": "This is a {org} override action.",
+      "profileRequired": "Profile Required",
+      "profileRequiredText": "Please set up your profile (CID, name, OI, facility) to participate in coordination.",
+      "publishToDiscord": "Publish to Discord",
+      "statusApproved": "Approved",
+      "statusDenied": "Denied",
+      "webNote": "This will be recorded with your VATSIM identity and posted to the Discord coordination thread."
+    },
+    "form": {
+      "freeFormDesc": "ECFMP Advisory",
+      "hotline": "Landline",
+      "hotlineDesc": "Activation/Term",
+      "ntmlEntryType": "Flow Measure Entry Type",
+      "ntmlPreview": "Flow Measures Preview",
+      "ntmlTextHint": "This is the flow measure text that facilities will see"
+    },
+    "gdpDetails": "Ground Delay Programme Details",
+    "gdpForm": {
+      "programEnd": "Programme End",
+      "programRate": "Programme Rate",
+      "programStart": "Programme Start",
+      "title": "Ground Delay Programme"
+    },
+    "hotline": {
+      "autoFilledText": "Form populated from the selected landline. Adjust as needed and {instruction}.",
+      "noActiveText": "There are no active landline entries to {action}.",
+      "pleaseSelect": "Please select a landline",
+      "selectHint": "Select the active landline you want to {action}:",
+      "selectPlaceholder": "-- Select a landline --",
+      "selectToAction": "Select Landline to {action}"
+    },
+    "noProgramLoaded": "No programme loaded",
+    "noProgramToPublish": "No programme data to publish",
+    "noProgramToSubmit": "No programme data to submit",
+    "page": {
+      "cancelProgram": "Cancel Programme",
+      "coordinationDiscord": "Facilities approve via Discord emoji reactions or web buttons below. ECFMP can override any proposal.",
+      "disregardEdctsText": "All EDCTs for this programme should be disregarded",
+      "noProgramData": "No Programme Data",
+      "noProgramDataLoaded": "No programme data loaded...",
+      "program": "Programme:",
+      "programDataFromGdt": "Programme data received from GDT",
+      "programDetails": "Programme Details",
+      "programId": "Programme ID:",
+      "programRate": "Programme Rate",
+      "routeColor": "Route Colour"
+    },
+    "programCancelled": "Programme cancelled"
   },
-  "footer": {
-    "disclaimer": "For Flight Simulation Use Only. This site is not intended for real world navigation, and not affiliated with any governing aviation body. All content contained is approved only for use on the VATSIM network."
+  "tmr": {
+    "tmi": {
+      "category": {
+        "ntml": "Flow Measure",
+        "program": "Programme"
+      },
+      "nothingToParseText": "Paste Flow Measure entries first."
+    },
+    "tmiList": {
+      "category": {
+        "ntml": "Flow Measure",
+        "program": "Programme"
+      }
+    },
+    "trigger": {
+      "dccInitiatedDesc": "TMR initiated by the Command Centre",
+      "gdp": "Ground Delay Programme",
+      "gdpDesc": "Ground Delay Programme issuing EDCTs"
+    }
   },
-  "publicRoutes": {
-    "changeColor": "Change colour",
-    "color": "Colour",
-    "routeColor": "Route Colour"
+  "weather": {
+    "colorFaaAtcDesc": "FAA ATC colour scheme",
+    "colorHighContrastDesc": "High contrast colour scheme",
+    "colorNwsDesc": "National Weather Service colour scheme",
+    "colorScopeDesc": "Radar scope colour scheme",
+    "colors": "Colours:"
   }
 }
