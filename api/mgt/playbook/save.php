@@ -67,12 +67,52 @@ function normalizePlayName($name) {
 }
 
 /**
- * Compute traversed facilities by building a LINESTRING from ordered route fix
- * coordinates and intersecting it with boundary polygons in PostGIS.
+ * Extract a route endpoint identifier for LINESTRING bookending.
+ * PostGIS resolve_waypoint() handles airports (KJFK), TRACONs (A90, PCT),
+ * ARTCCs (ZNY, ZBW), and FAA codes (JFK) via nav_fixes + airports + area_centers.
+ *
+ * Priority: origin_airports (most specific) → origin label → origin_artccs (fallback)
+ */
+function _extractRouteEndpoint($label, $airportsCsv = '', $artccsCsv = '') {
+    // 1. Try airports CSV first — most specific endpoint
+    if ($airportsCsv !== '') {
+        $first = strtoupper(trim(explode(',', $airportsCsv)[0]));
+        if ($first !== '' && preg_match('/^[A-Z]{3,4}$/', $first)) {
+            return $first;
+        }
+    }
+
+    // 2. Try the label field (airport ICAO, TRACON code, ARTCC code, etc.)
+    $label = strtoupper(trim($label));
+    if ($label !== '' && preg_match('/^[A-Z][A-Z0-9]{1,4}$/', $label)) {
+        return $label;
+    }
+
+    // 3. Fall back to first ARTCC in artccs CSV
+    if ($artccsCsv !== '') {
+        $first = strtoupper(trim(explode(',', $artccsCsv)[0]));
+        if ($first !== '' && $first !== 'UNKN' && preg_match('/^[A-Z]{2,4}$/', $first)) {
+            return $first;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Compute traversed facilities using the PostGIS expand_route_with_artccs() function.
+ * This reuses the same route parsing/expansion pipeline as route.php and the ADL
+ * parse queue — properly resolving airways, DPs/STARs, airports, and FBD tokens.
+ *
+ * The origin/dest airports are prepended/appended to the route_string so the
+ * resulting LINESTRING spans the full origin-to-destination path.
+ *
  * Returns array with: artccs, tracons, sectors_low, sectors_high, sectors_superhigh
  * Each value is a comma-separated string of boundary codes.
  */
-function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs) {
+function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
+                                    $origin = '', $dest = '',
+                                    $origin_airports = '', $dest_airports = '') {
     static $conn_gis_cached = null;
     static $gis_available = null;
 
@@ -94,15 +134,8 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs)
         }
     }
 
-    // Extract fix-like tokens: 2-5 uppercase alpha chars (preserving route order)
-    $tokens = preg_split('/\s+/', strtoupper(trim($route_string)));
-    $exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB',
-                'RADAR', 'DIRECT', 'UNKN'];
-    $orderedFixNames = [];
-    foreach ($tokens as $t) {
-        if (preg_match('/^[A-Z]{2,5}$/', $t) && !in_array($t, $exclude)) {
-            $orderedFixNames[] = $t;
-        }
+    if (!$gis_available || trim($route_string) === '') {
+        return $result;
     }
 
     $artccs = [];
@@ -111,126 +144,69 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs)
     $sectors_high = [];
     $sectors_superhigh = [];
 
-    if ($gis_available && !empty($orderedFixNames)) {
-        try {
-            // Step A: Look up fix coordinates (preserving route order)
-            // DISTINCT ON prevents duplicate fix names (same name in US + Europe)
-            // from producing multiple rows — prefers Western hemisphere fixes.
-            $uniqueFixes = array_values(array_unique($orderedFixNames));
-            $placeholders = implode(',', array_fill(0, count($uniqueFixes), '?'));
-            $coordSql = "SELECT DISTINCT ON (fix_name)
-                            fix_name, ST_X(geom) AS lon, ST_Y(geom) AS lat
-                         FROM nav_fixes WHERE fix_name IN ($placeholders)
-                         ORDER BY fix_name,
-                            CASE WHEN ST_X(geom) BETWEEN -170 AND -30 THEN 0 ELSE 1 END";
-            $coordStmt = $conn_gis_cached->prepare($coordSql);
-            $coordStmt->execute($uniqueFixes);
+    try {
+        // Build full route string: prepend origin airport, append dest airport
+        // so the LINESTRING spans the complete origin→destination path.
+        $fullRoute = strtoupper(trim($route_string));
 
-            $fixCoords = [];
-            while ($row = $coordStmt->fetch(\PDO::FETCH_ASSOC)) {
-                $fixCoords[$row['fix_name']] = [$row['lon'], $row['lat']];
-            }
+        // Resolve origin/dest endpoints: airports → label → ARTCCs
+        // PostGIS resolve_waypoint() handles all types (airports, TRACONs, ARTCCs)
+        $origEndpoint = _extractRouteEndpoint($origin, $origin_airports, $origin_artccs);
+        $destEndpoint = _extractRouteEndpoint($dest, $dest_airports, $dest_artccs);
 
-            // Build ordered coordinate array matching route sequence
-            $orderedCoords = [];
-            foreach ($orderedFixNames as $fn) {
-                if (isset($fixCoords[$fn])) {
-                    $orderedCoords[] = $fixCoords[$fn];
-                }
-            }
-
-            if (count($orderedCoords) >= 2) {
-                // Step B: Build LINESTRING and intersect with boundaries
-                $pointsSql = [];
-                $lineParams = [];
-                foreach ($orderedCoords as $coord) {
-                    $pointsSql[] = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
-                    $lineParams[] = $coord[0]; // lon
-                    $lineParams[] = $coord[1]; // lat
-                }
-                $lineExpr = 'ST_MakeLine(ARRAY[' . implode(',', $pointsSql) . '])';
-
-                $sql = "WITH route_line AS (SELECT $lineExpr AS geom)
-                        SELECT 'artcc' AS btype, b.artcc_code AS code
-                        FROM route_line rl JOIN artcc_boundaries b ON ST_Intersects(rl.geom, b.geom)
-                        UNION ALL
-                        SELECT 'tracon', t.tracon_code
-                        FROM route_line rl JOIN tracon_boundaries t ON ST_Intersects(rl.geom, t.geom)
-                        UNION ALL
-                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-                        FROM route_line rl JOIN sector_boundaries s ON ST_Intersects(rl.geom, s.geom)";
-
-                $stmt = $conn_gis_cached->prepare($sql);
-                $stmt->execute($lineParams);
-
-                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                    $code = $row['code'];
-                    switch ($row['btype']) {
-                        case 'artcc':
-                            if (strlen($code) === 4 && $code[0] === 'K') {
-                                $code = substr($code, 1);
-                            }
-                            $artccs[] = $code;
-                            break;
-                        case 'tracon':
-                            $tracons[] = $code;
-                            break;
-                        case 'sector_low':
-                            $sectors_low[] = $code;
-                            break;
-                        case 'sector_high':
-                            $sectors_high[] = $code;
-                            break;
-                        case 'sector_superhigh':
-                            $sectors_superhigh[] = $code;
-                            break;
-                    }
-                }
-            } elseif (count($orderedCoords) === 1) {
-                // Fallback: single fix — use point-based ST_Contains
-                $lon = $orderedCoords[0][0];
-                $lat = $orderedCoords[0][1];
-                $ptExpr = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
-
-                $sql = "SELECT 'artcc' AS btype, b.artcc_code AS code
-                        FROM artcc_boundaries b WHERE ST_Contains(b.geom, $ptExpr)
-                        UNION ALL
-                        SELECT 'tracon', t.tracon_code
-                        FROM tracon_boundaries t WHERE ST_Contains(t.geom, $ptExpr)
-                        UNION ALL
-                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-                        FROM sector_boundaries s WHERE ST_Contains(s.geom, $ptExpr)";
-
-                $stmt = $conn_gis_cached->prepare($sql);
-                $stmt->execute([$lon, $lat, $lon, $lat, $lon, $lat]);
-
-                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                    $code = $row['code'];
-                    switch ($row['btype']) {
-                        case 'artcc':
-                            if (strlen($code) === 4 && $code[0] === 'K') {
-                                $code = substr($code, 1);
-                            }
-                            $artccs[] = $code;
-                            break;
-                        case 'tracon':
-                            $tracons[] = $code;
-                            break;
-                        case 'sector_low':
-                            $sectors_low[] = $code;
-                            break;
-                        case 'sector_high':
-                            $sectors_high[] = $code;
-                            break;
-                        case 'sector_superhigh':
-                            $sectors_superhigh[] = $code;
-                            break;
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            // Silently fail — traversal data will just be empty
+        if ($origEndpoint) {
+            $fullRoute = $origEndpoint . ' ' . $fullRoute;
         }
+        if ($destEndpoint) {
+            $fullRoute = $fullRoute . ' ' . $destEndpoint;
+        }
+
+        // Use expand_route_with_artccs() for proper route expansion (handles
+        // airways, DPs/STARs, airports, FBD tokens — same as route.php).
+        // Then intersect the resulting geometry with TRACON + sector boundaries.
+        $sql = "WITH route AS (
+                    SELECT artccs_traversed, route_geometry AS geom
+                    FROM expand_route_with_artccs(?)
+                )
+                SELECT 'artcc' AS btype, unnest(route.artccs_traversed) AS code
+                FROM route WHERE route.geom IS NOT NULL
+                UNION ALL
+                SELECT 'tracon', t.tracon_code
+                FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
+                WHERE route.geom IS NOT NULL
+                UNION ALL
+                SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
+                FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
+                WHERE route.geom IS NOT NULL";
+
+        $stmt = $conn_gis_cached->prepare($sql);
+        $stmt->execute([$fullRoute]);
+
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $code = $row['code'];
+            switch ($row['btype']) {
+                case 'artcc':
+                    if (strlen($code) === 4 && $code[0] === 'K') {
+                        $code = substr($code, 1);
+                    }
+                    $artccs[] = $code;
+                    break;
+                case 'tracon':
+                    $tracons[] = $code;
+                    break;
+                case 'sector_low':
+                    $sectors_low[] = $code;
+                    break;
+                case 'sector_high':
+                    $sectors_high[] = $code;
+                    break;
+                case 'sector_superhigh':
+                    $sectors_superhigh[] = $code;
+                    break;
+            }
+        }
+    } catch (\Exception $e) {
+        // Silently fail — traversal data will just be empty
     }
 
     // Merge origin + dest ARTCCs (traversed by definition), skip UNKN
@@ -361,8 +337,8 @@ if (!empty($routes)) {
 
         if ($rs === '') continue;
 
-        // Compute traversed facilities from route fix names via PostGIS
-        $tf = computeTraversedFacilities($rs, $oar, $dar);
+        // Compute traversed facilities using PostGIS route expansion
+        $tf = computeTraversedFacilities($rs, $oar, $dar, $orig, $dst, $oa, $da);
         $traversed = $tf['artccs'];
         $trav_tracons = $tf['tracons'];
         $trav_sec_low = $tf['sectors_low'];
