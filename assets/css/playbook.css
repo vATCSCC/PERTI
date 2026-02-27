@@ -697,6 +697,7 @@
     white-space: nowrap;
     user-select: none;
     margin-left: 0.5rem;
+    text-indent: 0;
 }
 .pb-region-toggle input { margin-right: 2px; }
 
