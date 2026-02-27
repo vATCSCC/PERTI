@@ -382,9 +382,9 @@
         if (perm) {
             html += '<td style="width: 15%;"><center>';
             if (d.has_autofill) {
-                html += `<a href="javascript:void(0)" onclick="autoConfig(\`${d.id}\`, \`${esc(d.autofill_aar)}\`, \`${esc(d.autofill_adr)}\`)"><span class="badge badge-info"><i class="fas fa-robot"></i> Autofill</span></a> `;
+                html += `<a href="javascript:void(0)" onclick="autoConfig(\`${d.id}\`, \`${esc(d.autofill_aar)}\`, \`${esc(d.autofill_adr)}\`)"><span class="badge badge-info"><i class="fas fa-robot"></i> ${t('plan.tables.autofill')}</span></a> `;
             } else {
-                html += '<a href="javascript:void(0)"><span class="badge badge-secondary"><i class="fas fa-robot"></i> <s>Autofill</s></span></a> ';
+                html += `<a href="javascript:void(0)"><span class="badge badge-secondary"><i class="fas fa-robot"></i> <s>${t('plan.tables.autofill')}</s></span></a> `;
             }
             html += `<a href="javascript:void(0)" data-toggle="tooltip" title="${t('plan.tables.editConfig')}"><span class="badge badge-warning" data-toggle="modal" data-target="#editconfigModal" data-id="${d.id}" data-airport="${esc(d.airport)}" data-weather="${d.weather}" data-depart="${esc(d.depart)}" data-arrive="${esc(d.arrive)}" data-aar="${esc(d.aar)}" data-adr="${esc(d.adr)}" data-comments="${esc(d.comments)}"><i class="fas fa-pencil-alt"></i> ${t('common.edit')}</span></a> `;
             html += `<a href="javascript:void(0)" onclick="deleteConfig(${d.id})" data-toggle="tooltip" title="${t('plan.tables.deleteConfig')}"><span class="badge badge-danger"><i class="fas fa-times"></i> ${t('common.delete')}</span></a>`;

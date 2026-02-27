@@ -919,16 +919,16 @@
 
         // Play-level remarks
         if (play.remarks) {
-            html += '<div class="pb-play-remarks"><strong>Remarks:</strong> ' + escHtml(play.remarks) + '</div>';
+            html += '<div class="pb-play-remarks"><strong>' + t('playbook.remarks') + ':</strong> ' + escHtml(play.remarks) + '</div>';
         }
 
         // Facilities (inline-editable with optional region coloring)
         var facStr = play.impacted_area || play.facilities_involved || '';
         html += '<div class="pb-play-facilities">';
-        html += '<strong>Facilities:</strong> ';
-        html += '<span class="pb-fac-display" id="pb_fac_display">' + (facStr ? renderFacilityCodes(facStr, '/') : '<span class="text-muted">none</span>') + '</span>';
+        html += '<strong>' + t('playbook.legendTitle') + ':</strong> ';
+        html += '<span class="pb-fac-display" id="pb_fac_display">' + (facStr ? renderFacilityCodes(facStr, '/') : '<span class="text-muted">' + t('common.none') + '</span>') + '</span>';
         if (hasPerm && play.source !== 'FAA') {
-            html += ' <button class="btn btn-xs pb-inline-edit-btn" id="pb_fac_edit_btn" title="Edit facilities"><i class="fas fa-pencil-alt"></i></button>';
+            html += ' <button class="btn btn-xs pb-inline-edit-btn" id="pb_fac_edit_btn" title="' + t('playbook.editFacilities') + '"><i class="fas fa-pencil-alt"></i></button>';
             html += '<div class="pb-fac-edit-wrap" id="pb_fac_edit_wrap" style="display:none;">';
             html += '<input type="text" class="form-control form-control-sm pb-fac-input" id="pb_fac_input" value="' + escHtml(facStr) + '" placeholder="ZNY/ZOB/ZAU...">';
             html += '<div class="pb-fac-edit-actions">';
@@ -936,7 +936,7 @@
             html += '<button class="btn btn-xs btn-secondary" id="pb_fac_cancel"><i class="fas fa-times"></i></button>';
             html += '</div></div>';
         }
-        html += ' <label class="pb-region-toggle mb-0" title="Color by DCC region"><input type="checkbox" id="pb_region_color_toggle"' + (regionColorEnabled ? ' checked' : '') + '><span class="small">Region colors</span></label>';
+        html += ' <label class="pb-region-toggle mb-0" title="' + t('playbook.regionColorsTooltip') + '"><input type="checkbox" id="pb_region_color_toggle"' + (regionColorEnabled ? ' checked' : '') + '><span class="small">' + t('playbook.regionColors') + '</span></label>';
         html += '</div>';
 
         // Included Traffic summary (with optional region coloring)
@@ -958,13 +958,13 @@
             var origArr = Array.from(origSet).sort();
             var destArr = Array.from(destSet).sort();
             if (origArr.length || destArr.length) {
-                html += '<div class="pb-play-traffic"><strong>Included Traffic:</strong> ';
+                html += '<div class="pb-play-traffic"><strong>' + t('playbook.includedTraffic') + ':</strong> ';
                 if (origArr.length) {
-                    html += origArr.map(regionColorWrap).join('/<wbr>') + ' departures';
+                    html += origArr.map(regionColorWrap).join('/<wbr>') + ' ' + t('playbook.departures');
                 }
-                if (origArr.length && destArr.length) html += ' to ';
+                if (origArr.length && destArr.length) html += ' ' + t('playbook.to') + ' ';
                 if (destArr.length) {
-                    if (!origArr.length) html += 'Arrivals to ';
+                    if (!origArr.length) html += t('playbook.arrivalsTo') + ' ';
                     html += destArr.map(regionColorWrap).join('/<wbr>');
                 }
                 html += '</div>';
@@ -1011,18 +1011,18 @@
             html += buildCheckboxDropdown('pb_select_origin', t('playbook.origin'), selOpts.origins);
             html += buildCheckboxDropdown('pb_select_dest', t('playbook.destination'), selOpts.dests);
             if (selOpts.regions.size) {
-                html += buildRegionDropdown('pb_select_region', 'Region', selOpts.regions);
+                html += buildRegionDropdown('pb_select_region', t('playbook.region'), selOpts.regions);
             }
-            html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="Route text...">';
+            html += '<input type="text" class="form-control form-control-sm pb-select-route-text" id="pb_select_route_text" placeholder="' + t('playbook.routeTextPlaceholder') + '">';
             html += '<button class="btn btn-xs btn-outline-danger pb-clear-filters" id="pb_clear_filters" title="' + t('playbook.clearFilters') + '"><i class="fas fa-times"></i></button>';
             html += '</div>';
 
             // Route action toolbar
             html += '<div class="pb-route-toolbar" id="pb_route_toolbar">';
-            html += '<button class="btn btn-xs btn-outline-primary" id="pb_open_route_page" title="Open in Route Page"><i class="fas fa-route mr-1"></i>' + t('playbook.openRoutePage') + '</button>';
-            html += '<button class="btn btn-xs btn-outline-info" id="pb_activate_reroute" title="Use in TMI Publish"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.useInTMI') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-primary" id="pb_open_route_page" title="' + t('playbook.openRoutePage') + '"><i class="fas fa-route mr-1"></i>' + t('playbook.openRoutePage') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-info" id="pb_activate_reroute" title="' + t('playbook.useInTMI') + '"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.useInTMI') + '</button>';
             html += '<span class="pb-toolbar-sep">|</span>';
-            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_pb_directive" title="Copy PB directive to clipboard"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copyPB') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_pb_directive" title="' + t('playbook.copyPB') + '"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copyPB') + '</button>';
             html += '</div>';
         }
 
@@ -1511,7 +1511,7 @@
 
     function duplicatePlay(play, routes) {
         var newName = (play.play_name || '') + '_MODIFIED';
-        $('#pb_modal_title').text('Duplicate Play');
+        $('#pb_modal_title').text(t('playbook.duplicatePlay'));
         $('#pb_edit_play_id').val(0); // Create new, not update
         $('#pb_edit_play_name').val(newName);
         $('#pb_edit_display_name').val(play.display_name || '');
@@ -1956,7 +1956,7 @@
             var url = new URL(window.location);
             url.searchParams.set('play', activePlayData.play_name);
             navigator.clipboard.writeText(url.toString()).then(function() {
-                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Link copied', timer: 1200, showConfirmButton: false });
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: t('playbook.linkCopied'), timer: 1200, showConfirmButton: false });
             });
         });
         $(document).on('click', '#pb_activate_btn', activateAsReroute);
@@ -2052,9 +2052,9 @@
             if ($(this).val() === '__custom__') {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
-                        title: 'Custom Category',
+                        title: t('playbook.customCategory'),
                         input: 'text',
-                        inputPlaceholder: 'Enter category name',
+                        inputPlaceholder: t('playbook.customCategoryPlaceholder'),
                         showCancelButton: true,
                         confirmButtonText: t('common.ok'),
                         cancelButtonText: t('common.cancel')

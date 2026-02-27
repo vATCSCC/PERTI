@@ -7718,10 +7718,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Timeline events as a vertical list with connecting line
                     const events = [];
-                    if (f.first_seen_time) events.push({ time: f.first_seen_time, label: 'First Seen (connected)', icon: 'fa-wifi', color: '#6f42c1' });
-                    if (f.out_time) events.push({ time: f.out_time, label: 'Gate Push (OUT)', icon: 'fa-door-open', color: '#6c757d' });
-                    if (f.off_time) events.push({ time: f.off_time, label: 'Wheels-Off (OFF)', icon: 'fa-plane-departure', color: '#17a2b8' });
-                    if (f.dept_time) events.push({ time: f.dept_time, label: 'Departure Time (' + (f.time_source || '') + ')', icon: 'fa-clock', color: f.status === 'NON-COMPLIANT' ? '#dc3545' : '#28a745' });
+                    if (f.first_seen_time) events.push({ time: f.first_seen_time, label: PERTII18n.t('tmiCompliance.timeSource.firstSeen'), icon: 'fa-wifi', color: '#6f42c1' });
+                    if (f.out_time) events.push({ time: f.out_time, label: PERTII18n.t('tmiCompliance.timeSource.gatePush'), icon: 'fa-door-open', color: '#6c757d' });
+                    if (f.off_time) events.push({ time: f.off_time, label: PERTII18n.t('tmiCompliance.timeSource.wheelsOff'), icon: 'fa-plane-departure', color: '#17a2b8' });
+                    if (f.dept_time) events.push({ time: f.dept_time, label: PERTII18n.t('tmiCompliance.timeSource.departureTime') + ' (' + (f.time_source || '') + ')', icon: 'fa-clock', color: f.status === 'NON-COMPLIANT' ? '#dc3545' : '#28a745' });
 
                     if (events.length > 0) {
                         tbl += `<div style="display:flex; gap:24px; align-items:flex-start;">`;
@@ -8077,10 +8077,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Build flight trajectory features grouped by compliance status
         const allFlights = data.flights || [];
         const statusGroups = {
-            compliant:     { color: '#4caf50', label: 'Compliant',     features: [], count: 0 },
-            partial:       { color: '#ff9800', label: 'Partial',       features: [], count: 0 },
-            non_compliant: { color: '#f44336', label: 'Non-Compliant', features: [], count: 0 },
-            other:         { color: '#888888', label: 'Other',         features: [], count: 0 }
+            compliant:     { color: '#4caf50', label: PERTII18n.t('tmiCompliance.status.compliant'),    features: [], count: 0 },
+            partial:       { color: '#ff9800', label: PERTII18n.t('tmiCompliance.status.partial'),      features: [], count: 0 },
+            non_compliant: { color: '#f44336', label: PERTII18n.t('tmiCompliance.status.nonCompliant'), features: [], count: 0 },
+            other:         { color: '#888888', label: PERTII18n.t('common.other'),                      features: [], count: 0 }
         };
         allFlights.forEach(f => {
             if (!f.trajectory_coords || f.trajectory_coords.length < 2) return;

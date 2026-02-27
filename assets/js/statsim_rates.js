@@ -247,7 +247,7 @@
                         <div class="total-value departures">${data.totals?.departures || 0}</div>
                     </div>
                 </div>
-                <p class="small text-muted mb-0"><i class="fas fa-link"></i> Source: <a href="${data.statsim_url}" target="_blank">${data.statsim_url}</a></p>
+                <p class="small text-muted mb-0"><i class="fas fa-link"></i> ${PERTII18n.t('statsim.source')}: <a href="${data.statsim_url}" target="_blank">${data.statsim_url}</a></p>
             `;
 
             if (data.airports && data.airports.length > 0) {
@@ -410,8 +410,8 @@
                         <div class="airport-rates-header">
                             <strong>${icao}</strong> - ${displayName}
                             <span class="float-right">
-                                <span class="badge badge-arr">ARR: ${airport.totalArr}</span>
-                                <span class="badge badge-dep">DEP: ${airport.totalDep}</span>
+                                <span class="badge badge-arr">${PERTII18n.t('statsim.col.arr')}: ${airport.totalArr}</span>
+                                <span class="badge badge-dep">${PERTII18n.t('statsim.col.dep')}: ${airport.totalDep}</span>
                             </span>
                         </div>
                         
@@ -431,22 +431,22 @@
                         <!-- Quick Fill Controls -->
                         <div class="quick-fill-row">
                             <div class="quick-fill-group">
-                                <label>VATSIM AAR:</label>
+                                <label>${PERTII18n.t('statsim.vatsimAar')}:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_vatsim_aar" min="0">
                                 <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_aar')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
-                                <label>VATSIM ADR:</label>
+                                <label>${PERTII18n.t('statsim.vatsimAdr')}:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_vatsim_adr" min="0">
                                 <button class="btn btn-sm btn-light" onclick="HourlyRates.quickFill('${icao}', 'vatsim_adr')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
-                                <label>RW AAR:</label>
+                                <label>${PERTII18n.t('statsim.rwAar')}:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_rw_aar" min="0">
                                 <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_aar')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
                             <div class="quick-fill-group">
-                                <label>RW ADR:</label>
+                                <label>${PERTII18n.t('statsim.rwAdr')}:</label>
                                 <input type="number" class="form-control form-control-sm" id="qf_${icao}_rw_adr" min="0">
                                 <button class="btn btn-sm btn-cyan" onclick="HourlyRates.quickFill('${icao}', 'rw_adr')" title="${PERTII18n.t('statsim.export.fillAll')}"><i class="fas fa-fill"></i></button>
                             </div>
@@ -457,19 +457,19 @@
                             <table class="table table-sm table-bordered hourly-rates-table" id="table_${icao}">
                                 <thead>
                                     <tr>
-                                        <th rowspan="2" class="align-middle time-header">REL</th>
-                                        <th rowspan="2" class="align-middle time-header">DD/HHMM</th>
-                                        <th colspan="2" class="statsim-header">STATSIM</th>
-                                        <th colspan="2" class="vatsim-header">VATSIM</th>
-                                        <th colspan="2" class="rw-header">RW</th>
+                                        <th rowspan="2" class="align-middle time-header">${PERTII18n.t('statsim.col.rel')}</th>
+                                        <th rowspan="2" class="align-middle time-header">${PERTII18n.t('statsim.col.ddHhmm')}</th>
+                                        <th colspan="2" class="statsim-header">${PERTII18n.t('statsim.col.statsim')}</th>
+                                        <th colspan="2" class="vatsim-header">${PERTII18n.t('statsim.col.vatsim')}</th>
+                                        <th colspan="2" class="rw-header">${PERTII18n.t('statsim.col.rw')}</th>
                                     </tr>
                                     <tr>
-                                        <th class="statsim-col col-arr">ARR</th>
-                                        <th class="statsim-col col-dep">DEP</th>
-                                        <th class="vatsim-col">AAR</th>
-                                        <th class="vatsim-col">ADR</th>
-                                        <th class="rw-col">AAR</th>
-                                        <th class="rw-col">ADR</th>
+                                        <th class="statsim-col col-arr">${PERTII18n.t('statsim.col.arr')}</th>
+                                        <th class="statsim-col col-dep">${PERTII18n.t('statsim.col.dep')}</th>
+                                        <th class="vatsim-col">${PERTII18n.t('statsim.col.aar')}</th>
+                                        <th class="vatsim-col">${PERTII18n.t('statsim.col.adr')}</th>
+                                        <th class="rw-col">${PERTII18n.t('statsim.col.aar')}</th>
+                                        <th class="rw-col">${PERTII18n.t('statsim.col.adr')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -604,7 +604,7 @@
                         },
                         {
                             // VATSIM AAR = White STEPPED line (THICK)
-                            label: 'VATSIM AAR',
+                            label: PERTII18n.t('statsim.vatsimAar'),
                             data: vatsimAarData,
                             type: 'line',
                             borderColor: '#ffffff',
@@ -621,7 +621,7 @@
                         },
                         {
                             // VATSIM ADR = White STEPPED dashed line (THICK)
-                            label: 'VATSIM ADR',
+                            label: PERTII18n.t('statsim.vatsimAdr'),
                             data: vatsimAdrData,
                             type: 'line',
                             borderColor: '#ffffff',
@@ -639,7 +639,7 @@
                         },
                         {
                             // RW AAR = Cyan STEPPED line (THICK)
-                            label: 'RW AAR',
+                            label: PERTII18n.t('statsim.rwAar'),
                             data: rwAarData,
                             type: 'line',
                             borderColor: '#00ffff',
@@ -656,7 +656,7 @@
                         },
                         {
                             // RW ADR = Cyan STEPPED dashed line (THICK)
-                            label: 'RW ADR',
+                            label: PERTII18n.t('statsim.rwAdr'),
                             data: rwAdrData,
                             type: 'line',
                             borderColor: '#00ffff',
@@ -954,8 +954,8 @@
             }
 
             // Axis labels
-            svg += `    <text x="${chartWidth/2}" y="${chartHeight + 55}" text-anchor="middle" class="axis-label">Time in 60-Minute Increments</text>
-    <text x="-30" y="${chartHeight/2}" text-anchor="middle" transform="rotate(-90, -30, ${chartHeight/2})" class="axis-label">Demand</text>
+            svg += `    <text x="${chartWidth/2}" y="${chartHeight + 55}" text-anchor="middle" class="axis-label">${PERTII18n.t('statsim.svg.axisTime')}</text>
+    <text x="-30" y="${chartHeight/2}" text-anchor="middle" transform="rotate(-90, -30, ${chartHeight/2})" class="axis-label">${PERTII18n.t('statsim.svg.axisDemand')}</text>
 `;
 
             svg += `  </g>
@@ -963,17 +963,17 @@
   <!-- Legend -->
   <rect x="${margin.left}" y="${height - 20}" width="${chartWidth}" height="18" fill="#d0d0d0" stroke="#808080"/>
   <rect x="${margin.left + 5}" y="${height - 16}" width="10" height="10" fill="#ff0000" stroke="#000"/>
-  <text x="${margin.left + 18}" y="${height - 8}" class="legend-text">Arrivals</text>
+  <text x="${margin.left + 18}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.arrivals')}</text>
   <rect x="${margin.left + 65}" y="${height - 16}" width="10" height="10" fill="#00ff00" stroke="#000"/>
-  <text x="${margin.left + 78}" y="${height - 8}" class="legend-text">Departures</text>
+  <text x="${margin.left + 78}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.departures')}</text>
   <line x1="${margin.left + 145}" y1="${height - 11}" x2="${margin.left + 160}" y2="${height - 11}" stroke="#fff" stroke-width="3"/>
-  <text x="${margin.left + 163}" y="${height - 8}" class="legend-text">VATSIM AAR</text>
+  <text x="${margin.left + 163}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.vatsimAar')}</text>
   <line x1="${margin.left + 230}" y1="${height - 11}" x2="${margin.left + 245}" y2="${height - 11}" stroke="#fff" stroke-width="3" stroke-dasharray="4,2"/>
-  <text x="${margin.left + 248}" y="${height - 8}" class="legend-text">VATSIM ADR</text>
+  <text x="${margin.left + 248}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.vatsimAdr')}</text>
   <line x1="${margin.left + 315}" y1="${height - 11}" x2="${margin.left + 330}" y2="${height - 11}" stroke="#0ff" stroke-width="3"/>
-  <text x="${margin.left + 333}" y="${height - 8}" class="legend-text">RW AAR</text>
+  <text x="${margin.left + 333}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.rwAar')}</text>
   <line x1="${margin.left + 380}" y1="${height - 11}" x2="${margin.left + 395}" y2="${height - 11}" stroke="#0ff" stroke-width="3" stroke-dasharray="4,2"/>
-  <text x="${margin.left + 398}" y="${height - 8}" class="legend-text">RW ADR</text>
+  <text x="${margin.left + 398}" y="${height - 8}" class="legend-text">${PERTII18n.t('statsim.rwAdr')}</text>
 </svg>`;
 
             return svg;
@@ -996,7 +996,7 @@
             const airport = this.airports[icao];
             if (!airport) {return '';}
 
-            let csv = `Relative,DD/HHMM,Statsim Arrivals,Statsim Departures,VATSIM AAR,VATSIM ADR,RW AAR,RW ADR\n`;
+            let csv = `${PERTII18n.t('statsim.csv.relative')},${PERTII18n.t('statsim.csv.ddHhmm')},${PERTII18n.t('statsim.csv.statsimArr')},${PERTII18n.t('statsim.csv.statsimDep')},${PERTII18n.t('statsim.vatsimAar')},${PERTII18n.t('statsim.vatsimAdr')},${PERTII18n.t('statsim.rwAar')},${PERTII18n.t('statsim.rwAdr')}\n`;
 
             airport.hours.forEach(h => {
                 csv += `${h.relativeHour},${h.tableTime},${h.statsim_arr},${h.statsim_dep},${h.vatsim_aar || ''},${h.vatsim_adr || ''},${h.rw_aar || ''},${h.rw_adr || ''}\n`;
@@ -1161,7 +1161,7 @@
                 return;
             }
 
-            let csv = 'Airport,Relative,DD/HHMM,Date,Time,Statsim Arr,Statsim Dep,VATSIM AAR,VATSIM ADR,RW AAR,RW ADR\n';
+            let csv = `${PERTII18n.t('statsim.csv.airport')},${PERTII18n.t('statsim.csv.relative')},${PERTII18n.t('statsim.csv.ddHhmm')},${PERTII18n.t('statsim.csv.date')},${PERTII18n.t('statsim.csv.time')},${PERTII18n.t('statsim.csv.statsimArr')},${PERTII18n.t('statsim.csv.statsimDep')},${PERTII18n.t('statsim.vatsimAar')},${PERTII18n.t('statsim.vatsimAdr')},${PERTII18n.t('statsim.rwAar')},${PERTII18n.t('statsim.rwAdr')}\n`;
 
             Object.keys(this.airports).forEach(icao => {
                 const airport = this.airports[icao];

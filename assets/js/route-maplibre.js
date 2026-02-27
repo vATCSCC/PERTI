@@ -4018,7 +4018,7 @@ $(document).ready(function() {
         }
 
         function deleteColorRule(idx) {
-            if (confirm('Delete this color rule?')) {
+            if (confirm(PERTII18n.t('route.colorRule.deleteConfirm'))) {
                 state.colorRules.splice(idx, 1);
                 saveColorRules();
                 renderColorRulesUI();
@@ -7192,7 +7192,7 @@ $(document).ready(function() {
             .then(function(resp) { return resp.json(); })
             .then(function(data) {
                 if (!data.success) {
-                    Swal.fire({ icon: 'error', title: data.error || 'Error' });
+                    Swal.fire({ icon: 'error', title: data.error || PERTII18n.t('common.error') });
                     return;
                 }
                 var shares = data.shares || [];
@@ -7282,7 +7282,7 @@ $(document).ready(function() {
         const body = $('#adv_panel_body');
         const isVisible = body.is(':visible');
         body.slideToggle(150);
-        $(this).text(isVisible ? 'Show' : 'Hide');
+        $(this).text(isVisible ? PERTII18n.t('route.showBtn') : PERTII18n.t('route.hideBtn'));
     });
 
     // Auto-update effective time when valid start/end change

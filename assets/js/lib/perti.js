@@ -26,6 +26,15 @@
 (function(global) {
     'use strict';
 
+    // Safe i18n helper: returns translated string when PERTII18n is available, fallback otherwise
+    function _t(key, fallback) {
+        if (typeof PERTII18n !== 'undefined') {
+            var result = PERTII18n.t(key);
+            if (result !== key) return result;
+        }
+        return fallback;
+    }
+
     // ===========================================
     // 1. ATFM - Air Traffic Flow Management
     // ===========================================
@@ -158,56 +167,56 @@
             { code: 'REGIONAL', label: 'REGIONAL', desc: 'Regional carrier operations' },
         ]),
         altitude: Object.freeze([
-            { code: 'AOB', label: 'At or Below', desc: 'At or below specified altitude (e.g., AOB240)' },
-            { code: 'AOA', label: 'At or Above', desc: 'At or above specified altitude (e.g., AOA330)' },
-            { code: 'BETWEEN', label: 'Between', desc: 'Between two altitudes (e.g., 170B190)' },
+            { code: 'AOB', label: _t('tmiPublish.qualifiers.altitudeLabel.aob', 'At or Below'), desc: 'At or below specified altitude (e.g., AOB240)' },
+            { code: 'AOA', label: _t('tmiPublish.qualifiers.altitudeLabel.aoa', 'At or Above'), desc: 'At or above specified altitude (e.g., AOA330)' },
+            { code: 'BETWEEN', label: _t('tmiPublish.qualifiers.altitudeLabel.between', 'Between'), desc: 'Between two altitudes (e.g., 170B190)' },
         ]),
     });
 
     // Reason categories (broad) per OPSNET
     const REASON_CATEGORIES = Object.freeze([
-        { code: 'VOLUME', label: 'Volume' },
-        { code: 'WEATHER', label: 'Weather' },
-        { code: 'RUNWAY', label: 'Runway' },
-        { code: 'EQUIPMENT', label: 'Equipment' },
-        { code: 'OTHER', label: 'Other' },
+        { code: 'VOLUME', label: _t('tmiPublish.reasons.volume', 'Volume') },
+        { code: 'WEATHER', label: _t('tmiPublish.reasons.weather', 'Weather') },
+        { code: 'RUNWAY', label: _t('tmiPublish.reasons.runway', 'Runway') },
+        { code: 'EQUIPMENT', label: _t('tmiPublish.reasons.equipment', 'Equipment') },
+        { code: 'OTHER', label: _t('tmiPublish.reasons.other', 'Other') },
     ]);
 
     // Cause codes (specific) per OPSNET/ASPM, grouped by category
     const REASON_CAUSES = Object.freeze({
         VOLUME: Object.freeze([
-            { code: 'VOLUME', label: 'Volume' },
-            { code: 'COMPACTED DEMAND', label: 'Compacted Demand' },
-            { code: 'MULTI-TAXI', label: 'Multi-Taxi' },
-            { code: 'AIRSPACE', label: 'Airspace' },
+            { code: 'VOLUME', label: _t('tmiPublish.causes.volume', 'Volume') },
+            { code: 'COMPACTED DEMAND', label: _t('tmiPublish.causes.compactedDemand', 'Compacted Demand') },
+            { code: 'MULTI-TAXI', label: _t('tmiPublish.causes.multiTaxi', 'Multi-Taxi') },
+            { code: 'AIRSPACE', label: _t('tmiPublish.causes.airspace', 'Airspace') },
         ]),
         WEATHER: Object.freeze([
-            { code: 'WEATHER', label: 'Weather' },
-            { code: 'THUNDERSTORMS', label: 'Thunderstorms' },
-            { code: 'LOW CEILINGS', label: 'Low Ceilings' },
-            { code: 'LOW VISIBILITY', label: 'Low Visibility' },
-            { code: 'FOG', label: 'Fog' },
-            { code: 'WIND', label: 'Wind' },
-            { code: 'SNOW/ICE', label: 'Snow/Ice' },
+            { code: 'WEATHER', label: _t('tmiPublish.causes.weather', 'Weather') },
+            { code: 'THUNDERSTORMS', label: _t('tmiPublish.causes.thunderstorms', 'Thunderstorms') },
+            { code: 'LOW CEILINGS', label: _t('tmiPublish.causes.lowCeilings', 'Low Ceilings') },
+            { code: 'LOW VISIBILITY', label: _t('tmiPublish.causes.lowVisibility', 'Low Visibility') },
+            { code: 'FOG', label: _t('tmiPublish.causes.fog', 'Fog') },
+            { code: 'WIND', label: _t('tmiPublish.causes.wind', 'Wind') },
+            { code: 'SNOW/ICE', label: _t('tmiPublish.causes.snowIce', 'Snow/Ice') },
         ]),
         RUNWAY: Object.freeze([
-            { code: 'RUNWAY', label: 'Runway' },
-            { code: 'RUNWAY CONFIGURATION', label: 'Runway Configuration' },
-            { code: 'RUNWAY CONSTRUCTION', label: 'Runway Construction' },
-            { code: 'RUNWAY CLOSURE', label: 'Runway Closure' },
+            { code: 'RUNWAY', label: _t('tmiPublish.causes.runway', 'Runway') },
+            { code: 'RUNWAY CONFIGURATION', label: _t('tmiPublish.causes.runwayConfig', 'Runway Configuration') },
+            { code: 'RUNWAY CONSTRUCTION', label: _t('tmiPublish.causes.runwayConstruction', 'Runway Construction') },
+            { code: 'RUNWAY CLOSURE', label: _t('tmiPublish.causes.runwayClosure', 'Runway Closure') },
         ]),
         EQUIPMENT: Object.freeze([
-            { code: 'EQUIPMENT', label: 'Equipment' },
-            { code: 'VATSIM EQUIPMENT', label: 'VATSIM Equipment' },
-            { code: 'NON-VATSIM EQUIPMENT', label: 'Non-VATSIM Equipment' },
+            { code: 'EQUIPMENT', label: _t('tmiPublish.causes.equipment', 'Equipment') },
+            { code: 'VATSIM EQUIPMENT', label: _t('tmiPublish.causes.vatsimEquipment', 'VATSIM Equipment') },
+            { code: 'NON-VATSIM EQUIPMENT', label: _t('tmiPublish.causes.nonVatsimEquipment', 'Non-VATSIM Equipment') },
         ]),
         OTHER: Object.freeze([
-            { code: 'OTHER', label: 'Other' },
-            { code: 'STAFFING', label: 'Staffing' },
-            { code: 'AIR SHOW', label: 'Air Show' },
-            { code: 'VIP MOVEMENT', label: 'VIP Movement' },
-            { code: 'SPECIAL EVENT', label: 'Special Event' },
-            { code: 'SECURITY', label: 'Security' },
+            { code: 'OTHER', label: _t('tmiPublish.causes.other', 'Other') },
+            { code: 'STAFFING', label: _t('tmiPublish.causes.staffing', 'Staffing') },
+            { code: 'AIR SHOW', label: _t('tmiPublish.causes.airShow', 'Air Show') },
+            { code: 'VIP MOVEMENT', label: _t('tmiPublish.causes.vipMovement', 'VIP Movement') },
+            { code: 'SPECIAL EVENT', label: _t('tmiPublish.causes.specialEvent', 'Special Event') },
+            { code: 'SECURITY', label: _t('tmiPublish.causes.security', 'Security') },
         ]),
     });
 

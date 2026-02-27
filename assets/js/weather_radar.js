@@ -148,11 +148,11 @@ const WeatherRadar = (function() {
             // CSS filter to approximate FAA colors (darker, less saturated)
             filter: 'saturate(0.6) brightness(0.7) contrast(1.2)',
             legendColors: [
-                { dbz: 20, color: '#173928', label: 'Light (<30 dBZ)' },
-                { dbz: 30, color: '#173928', label: 'Wx-Green' },
-                { dbz: 40, color: '#5A4A14', label: 'Moderate (30-40 dBZ)' },
-                { dbz: 50, color: '#5D2E59', label: 'Heavy (>40 dBZ)' },
-                { dbz: 60, color: '#5D2E59', label: 'Extreme (>50 dBZ)' },
+                { dbz: 20, color: '#173928', label: PERTII18n.t('weatherRadar.intensity.light') },
+                { dbz: 30, color: '#173928', label: PERTII18n.t('weatherRadar.intensity.green') },
+                { dbz: 40, color: '#5A4A14', label: PERTII18n.t('weatherRadar.intensity.moderate') },
+                { dbz: 50, color: '#5D2E59', label: PERTII18n.t('weatherRadar.intensity.heavy') },
+                { dbz: 60, color: '#5D2E59', label: PERTII18n.t('weatherRadar.intensity.extreme') },
             ],
             // Severity mapping per FAA standards
             severityLevels: {
