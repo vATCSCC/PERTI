@@ -4,7 +4,7 @@
  *
  * Live operational status including:
  * - Database metrics (VATSIM_ADL, VATSIM_TMI, VATSIM_GIS, VATSWIM, VATSIM_REF, PERTI)
- * - External API health checks (VATSIM, <?= __('statusPage.aviationWeather') ?>, NOAA)
+ * - External API health checks (VATSIM, Aviation Weather, NOAA)
  * - Recent activity counts (parse/ETA/zone detection/boundary)
  * - Resource tree visualization with all daemons
  * - Stored procedures (Azure SQL + PostGIS functions)
@@ -1255,7 +1255,7 @@ function checkApiHealth($url, $timeout = 5) {
 // VATSIM Data API
 $apiHealth['vatsim'] = checkApiHealth('https://data.vatsim.net/v3/vatsim-data.json', 5);
 
-// <?= __('statusPage.aviationWeather') ?> API
+// Aviation Weather API
 $apiHealth['aviationweather'] = checkApiHealth('https://aviationweather.gov/api/data/airsigmet?format=json', 5);
 
 // NOAA NOMADS (check availability page)
