@@ -216,7 +216,8 @@
             [p.agg_traversed_artccs, p.agg_traversed_tracons,
              p.agg_traversed_sectors_low, p.agg_traversed_sectors_high,
              p.agg_traversed_sectors_superhigh,
-             p.agg_origin_artccs, p.agg_dest_artccs].forEach(function(field) {
+             p.agg_origin_artccs, p.agg_dest_artccs,
+             p.agg_origin_tracons, p.agg_dest_tracons].forEach(function(field) {
                 csvSplit(field).forEach(function(c) { p._traversedCodes.add(c.toUpperCase()); });
             });
         }
@@ -285,9 +286,11 @@
         csvSplit(route.traversed_sectors_low).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
         csvSplit(route.traversed_sectors_high).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
         csvSplit(route.traversed_sectors_superhigh).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        // Origin+dest ARTCCs are traversed by definition
+        // Origin+dest ARTCCs and TRACONs are traversed by definition
         csvSplit(route.origin_artccs).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
         csvSplit(route.dest_artccs).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
+        csvSplit(route.origin_tracons).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
+        csvSplit(route.dest_tracons).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
         var allCodes = new Set();
         origCodes.forEach(function(c) { allCodes.add(c); });
         destCodes.forEach(function(c) { allCodes.add(c); });
@@ -375,15 +378,39 @@
         clauses.forEach(function(alts) {
             alts.forEach(function(alt) {
                 var term = alt.term;
-                // Only highlight recognized ARTCC codes on the map
-                var isArtcc = false;
+                // Resolve to ARTCC code: direct ARTCC, or parent ARTCC of TRACON/sector
+                var artccCode = null;
                 if (hasFH) {
-                    isArtcc = FacilityHierarchy.isArtcc(term);
+                    if (FacilityHierarchy.isArtcc(term)) {
+                        artccCode = term;
+                    } else {
+                        // TRACON → parent ARTCC (e.g., A90 → ZNY)
+                        artccCode = FacilityHierarchy.getParentArtcc(term);
+                    }
                 } else {
-                    isArtcc = /^Z[A-Z]{2}$/.test(term) || /^[KC]Z[A-Z]{1,2}$/.test(term);
+                    if (/^Z[A-Z]{2}$/.test(term) || /^[KC]Z[A-Z]{1,2}$/.test(term)) {
+                        artccCode = term;
+                    }
                 }
-                if (isArtcc) {
-                    var icao = toIcaoCode(term);
+                // Sector codes: {parent ARTCC/FIR}{sector name}
+                // US: ZNY56, ZDC19 (3-char + digits)
+                // International: CZEGBA, CZQMCHARLO, CZEGFR_210 (4-char FIR + name)
+                if (!artccCode && term.length > 3) {
+                    if (hasFH) {
+                        // Try 4-char prefix first (CZEG, CZQM, EGTT), then 3-char (ZNY, ZDC)
+                        if (term.length > 4 && FacilityHierarchy.isArtcc(term.substring(0, 4))) {
+                            artccCode = term.substring(0, 4);
+                        } else if (FacilityHierarchy.isArtcc(term.substring(0, 3))) {
+                            artccCode = term.substring(0, 3);
+                        }
+                    } else {
+                        // Fallback regex: US sectors (Z-prefix + digits)
+                        var sectorMatch = term.match(/^(Z[A-Z]{2})\d/);
+                        if (sectorMatch) artccCode = sectorMatch[1];
+                    }
+                }
+                if (artccCode) {
+                    var icao = toIcaoCode(artccCode);
                     if (alt.negated) {
                         excludeCodes.push(icao);
                     } else {
@@ -464,6 +491,19 @@
                 if (hasFH) {
                     var regionBg = FacilityHierarchy.getRegionBgColor(alt.term);
                     var regionColor = FacilityHierarchy.getRegionColor(alt.term);
+                    // Sector codes (ZNY56, CZEGBA, CZQMCHARLO) → try parent ARTCC/FIR prefix
+                    if (!regionBg && alt.term.length > 3) {
+                        var prefix4 = alt.term.substring(0, 4);
+                        var prefix3 = alt.term.substring(0, 3);
+                        if (alt.term.length > 4) {
+                            regionBg = FacilityHierarchy.getRegionBgColor(prefix4);
+                            regionColor = FacilityHierarchy.getRegionColor(prefix4);
+                        }
+                        if (!regionBg) {
+                            regionBg = FacilityHierarchy.getRegionBgColor(prefix3);
+                            regionColor = FacilityHierarchy.getRegionColor(prefix3);
+                        }
+                    }
                     if (regionBg) bgStyle = 'background:' + regionBg + ';color:' + (regionColor || '#495057') + ';';
                 }
 
@@ -1110,7 +1150,7 @@
         renderInfoOverlay(play, routes);
         renderRouteTable(play, routes);
         updatePlayHighlights(play, routes);
-        $('#pb_map_legend').css('display', '');
+        $('#pb_map_legend').show();
     }
 
     function updateToolbarVisibility() {

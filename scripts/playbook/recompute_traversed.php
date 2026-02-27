@@ -1,7 +1,9 @@
 <?php
 /**
  * Recompute traversed facilities (ARTCCs, TRACONs, sectors) for all playbook routes.
- * Uses PostGIS LINESTRING + ST_Intersects to determine which boundaries each route crosses.
+ * Uses PostGIS expand_route_with_artccs() — the same route expansion pipeline as
+ * route.php and the ADL parse queue — to properly resolve airways, DPs/STARs,
+ * airports, and FBD tokens into a LINESTRING, then intersects with boundaries.
  *
  * Usage: php scripts/playbook/recompute_traversed.php [--dry-run] [--play-id=123]
  */
@@ -28,9 +30,12 @@ if (!$conn_gis) {
 
 echo "PostGIS connection OK.\n";
 
-// Fetch routes
+// Fetch routes with origin/dest fields for LINESTRING bookending
 $where = $playFilter ? "WHERE play_id = $playFilter" : "";
-$result = $conn_sqli->query("SELECT route_id, play_id, route_string, origin_artccs, dest_artccs FROM playbook_routes $where ORDER BY play_id, sort_order");
+$result = $conn_sqli->query("SELECT route_id, play_id, route_string,
+    origin, dest, origin_airports, dest_airports,
+    origin_artccs, dest_artccs
+    FROM playbook_routes $where ORDER BY play_id, sort_order");
 
 $total = $result->num_rows;
 echo "Processing $total routes" . ($dryRun ? " (DRY RUN)" : "") . "...\n";
@@ -40,10 +45,44 @@ $update_stmt = $conn_sqli->prepare("UPDATE playbook_routes SET
     traversed_sectors_low = ?, traversed_sectors_high = ?, traversed_sectors_superhigh = ?
     WHERE route_id = ?");
 
-$exclude = ['DCT', 'STAR', 'SID', 'RNAV', 'GPS', 'ILS', 'VOR', 'DME', 'NDB', 'RADAR', 'DIRECT', 'UNKN'];
+// Prepare the PostGIS query once — reuse for every route
+$gis_sql = "WITH route AS (
+                SELECT artccs_traversed, route_geometry AS geom
+                FROM expand_route_with_artccs(?)
+            )
+            SELECT 'artcc' AS btype, unnest(route.artccs_traversed) AS code
+            FROM route WHERE route.geom IS NOT NULL
+            UNION ALL
+            SELECT 'tracon', t.tracon_code
+            FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
+            WHERE route.geom IS NOT NULL
+            UNION ALL
+            SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
+            FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
+            WHERE route.geom IS NOT NULL";
+$gis_stmt = $conn_gis->prepare($gis_sql);
+
 $processed = 0;
 $updated = 0;
 $errors = 0;
+
+/**
+ * Extract a route endpoint from origin/dest fields.
+ * Airports > label > ARTCCs. PostGIS resolve_waypoint() handles all types.
+ */
+function extractEndpoint($label, $airportsCsv, $artccsCsv) {
+    if ($airportsCsv !== '') {
+        $first = strtoupper(trim(explode(',', $airportsCsv)[0]));
+        if ($first !== '' && preg_match('/^[A-Z]{3,4}$/', $first)) return $first;
+    }
+    $label = strtoupper(trim($label));
+    if ($label !== '' && preg_match('/^[A-Z][A-Z0-9]{1,4}$/', $label)) return $label;
+    if ($artccsCsv !== '') {
+        $first = strtoupper(trim(explode(',', $artccsCsv)[0]));
+        if ($first !== '' && $first !== 'UNKN' && preg_match('/^[A-Z]{2,4}$/', $first)) return $first;
+    }
+    return '';
+}
 
 while ($row = $result->fetch_assoc()) {
     $processed++;
@@ -52,14 +91,12 @@ while ($row = $result->fetch_assoc()) {
     $oar = $row['origin_artccs'] ?? '';
     $dar = $row['dest_artccs'] ?? '';
 
-    // Extract fix tokens (preserving route order)
-    $tokens = preg_split('/\s+/', $rs);
-    $orderedFixNames = [];
-    foreach ($tokens as $t) {
-        if (preg_match('/^[A-Z]{2,5}$/', $t) && !in_array($t, $exclude)) {
-            $orderedFixNames[] = $t;
-        }
-    }
+    // Build full route string with origin/dest endpoints
+    $fullRoute = $rs;
+    $origEndpoint = extractEndpoint($row['origin'] ?? '', $row['origin_airports'] ?? '', $oar);
+    $destEndpoint = extractEndpoint($row['dest'] ?? '', $row['dest_airports'] ?? '', $dar);
+    if ($origEndpoint) $fullRoute = $origEndpoint . ' ' . $fullRoute;
+    if ($destEndpoint) $fullRoute = $fullRoute . ' ' . $destEndpoint;
 
     $artccs = [];
     $tracons = [];
@@ -67,108 +104,26 @@ while ($row = $result->fetch_assoc()) {
     $sectors_high = [];
     $sectors_superhigh = [];
 
-    if (!empty($orderedFixNames)) {
-        try {
-            // Step A: Look up fix coordinates
-            // DISTINCT ON prevents duplicate fix names (same name in US + Europe)
-            // from producing multiple rows — prefers Western hemisphere fixes.
-            $uniqueFixes = array_values(array_unique($orderedFixNames));
-            $placeholders = implode(',', array_fill(0, count($uniqueFixes), '?'));
-            $coordSql = "SELECT DISTINCT ON (fix_name)
-                            fix_name, ST_X(geom) AS lon, ST_Y(geom) AS lat
-                         FROM nav_fixes WHERE fix_name IN ($placeholders)
-                         ORDER BY fix_name,
-                            CASE WHEN ST_X(geom) BETWEEN -170 AND -30 THEN 0 ELSE 1 END";
-            $coordStmt = $conn_gis->prepare($coordSql);
-            $coordStmt->execute($uniqueFixes);
+    try {
+        $gis_stmt->execute([$fullRoute]);
 
-            $fixCoords = [];
-            while ($r = $coordStmt->fetch(PDO::FETCH_ASSOC)) {
-                $fixCoords[$r['fix_name']] = [$r['lon'], $r['lat']];
+        while ($r = $gis_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $code = $r['code'];
+            switch ($r['btype']) {
+                case 'artcc':
+                    if (strlen($code) === 4 && $code[0] === 'K') $code = substr($code, 1);
+                    $artccs[] = $code;
+                    break;
+                case 'tracon': $tracons[] = $code; break;
+                case 'sector_low': $sectors_low[] = $code; break;
+                case 'sector_high': $sectors_high[] = $code; break;
+                case 'sector_superhigh': $sectors_superhigh[] = $code; break;
             }
-
-            // Build ordered coordinate array
-            $orderedCoords = [];
-            foreach ($orderedFixNames as $fn) {
-                if (isset($fixCoords[$fn])) {
-                    $orderedCoords[] = $fixCoords[$fn];
-                }
-            }
-
-            if (count($orderedCoords) >= 2) {
-                // Step B: Build LINESTRING and intersect with boundaries
-                $pointsSql = [];
-                $lineParams = [];
-                foreach ($orderedCoords as $coord) {
-                    $pointsSql[] = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
-                    $lineParams[] = $coord[0]; // lon
-                    $lineParams[] = $coord[1]; // lat
-                }
-                $lineExpr = 'ST_MakeLine(ARRAY[' . implode(',', $pointsSql) . '])';
-
-                $sql = "WITH route_line AS (SELECT $lineExpr AS geom)
-                        SELECT 'artcc' AS btype, b.artcc_code AS code
-                        FROM route_line rl JOIN artcc_boundaries b ON ST_Intersects(rl.geom, b.geom)
-                        UNION ALL
-                        SELECT 'tracon', t.tracon_code
-                        FROM route_line rl JOIN tracon_boundaries t ON ST_Intersects(rl.geom, t.geom)
-                        UNION ALL
-                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-                        FROM route_line rl JOIN sector_boundaries s ON ST_Intersects(rl.geom, s.geom)";
-
-                $stmt = $conn_gis->prepare($sql);
-                $stmt->execute($lineParams);
-
-                while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $code = $r['code'];
-                    switch ($r['btype']) {
-                        case 'artcc':
-                            if (strlen($code) === 4 && $code[0] === 'K') $code = substr($code, 1);
-                            $artccs[] = $code;
-                            break;
-                        case 'tracon': $tracons[] = $code; break;
-                        case 'sector_low': $sectors_low[] = $code; break;
-                        case 'sector_high': $sectors_high[] = $code; break;
-                        case 'sector_superhigh': $sectors_superhigh[] = $code; break;
-                    }
-                }
-            } elseif (count($orderedCoords) === 1) {
-                // Fallback: single fix — point-based ST_Contains
-                $lon = $orderedCoords[0][0];
-                $lat = $orderedCoords[0][1];
-                $ptExpr = 'ST_SetSRID(ST_MakePoint(?,?),4326)';
-
-                $sql = "SELECT 'artcc' AS btype, b.artcc_code AS code
-                        FROM artcc_boundaries b WHERE ST_Contains(b.geom, $ptExpr)
-                        UNION ALL
-                        SELECT 'tracon', t.tracon_code
-                        FROM tracon_boundaries t WHERE ST_Contains(t.geom, $ptExpr)
-                        UNION ALL
-                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-                        FROM sector_boundaries s WHERE ST_Contains(s.geom, $ptExpr)";
-
-                $stmt = $conn_gis->prepare($sql);
-                $stmt->execute([$lon, $lat, $lon, $lat, $lon, $lat]);
-
-                while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $code = $r['code'];
-                    switch ($r['btype']) {
-                        case 'artcc':
-                            if (strlen($code) === 4 && $code[0] === 'K') $code = substr($code, 1);
-                            $artccs[] = $code;
-                            break;
-                        case 'tracon': $tracons[] = $code; break;
-                        case 'sector_low': $sectors_low[] = $code; break;
-                        case 'sector_high': $sectors_high[] = $code; break;
-                        case 'sector_superhigh': $sectors_superhigh[] = $code; break;
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            $errors++;
-            if ($processed <= 5 || $errors <= 3) {
-                echo "  ERROR route $route_id: " . $e->getMessage() . "\n";
-            }
+        }
+    } catch (Exception $e) {
+        $errors++;
+        if ($processed <= 5 || $errors <= 3) {
+            echo "  ERROR route $route_id: " . $e->getMessage() . "\n";
         }
     }
 
