@@ -1,25 +1,101 @@
 {
-  "status": {
-    "coordinating": "Co-ordinating"
+  "advisoryConfig": {
+    "usDcc": "US NOC"
   },
   "dccRegion": {
-    "west": "Western Canada",
-    "southCentral": "Central Canada",
-    "midwest": "Ontario",
-    "southeast": "Quebec",
-    "northeast": "Atlantic Canada",
     "canadaEast": "Eastern Canada",
-    "canadaWest": "Western Canada"
+    "canadaWest": "Western Canada",
+    "midwest": "Ontario",
+    "northeast": "Atlantic Canada",
+    "southCentral": "Central Canada",
+    "southeast": "Quebec",
+    "west": "Western Canada"
   },
-  "tmi": {
-    "gdp": "Ground Delay Programme",
-    "afp": "Airspace Flow Programme"
+  "demand": {
+    "breakdown": {
+      "byDestArtcc": "{direction} by Dest FIR",
+      "byOriginArtcc": "{direction} by Origin FIR",
+      "destNotApplicableArr": "Destination ACC breakdown is not applicable for arrivals-only view",
+      "originArtcc": "Origin FIR"
+    },
+    "filter": {
+      "allArtccs": "All FIRs"
+    },
+    "flightDetail": {
+      "col": {
+        "destArtcc": "Dest FIR",
+        "originArtcc": "Origin FIR"
+      }
+    },
+    "page": {
+      "allArtccs": "All FIRs",
+      "artcc": "FIR",
+      "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
+      "showDeparturesByDestArtcc": "Show departures by destination ACC",
+      "topOriginArtccs": "Top Origin FIRs"
+    }
+  },
+  "eventAar": {
+    "page": {
+      "quickApplyDesc": "Click a config to apply its rates to all hourly slots. Colours indicate weather:"
+    }
+  },
+  "fir": {
+    "domesticTitle": "Domestic (US/Canada ACC tiers)"
+  },
+  "footer": {},
+  "gdp": {
+    "confirm": {
+      "purgeActive": "Purge all active GDP programmes?"
+    },
+    "error": {
+      "noProgramToActivate": "No programme to activate",
+      "noProgramToPurge": "No programme to purge"
+    }
   },
   "gdt": {
+    "chart": {
+      "titleDestArtcc": "Data Graph - Dest FIR",
+      "titleDestTracon": "Data Graph - Dest Terminal",
+      "titleOrigArtcc": "Data Graph - Origin FIR",
+      "titleOrigTracon": "Data Graph - Origin Terminal"
+    },
+    "dashboard": {
+      "cancelProgramText": "This will cancel the programme and release all controlled flights.",
+      "cancelProgramTitle": "Cancel Programme #{id}?",
+      "deleteText": "This will permanently delete this draft/proposed programme.",
+      "onlyActiveCanRemodel": "Only active programmes can be remodeled",
+      "onlyGsCanTransition": "Only Ground Stop programmes can transition to GDP",
+      "programCancelled": "Programme has been cancelled.",
+      "programExtended": "Programme Extended",
+      "programExtendedText": "Programme #{id} has been extended.",
+      "programLabel": "Programme {id}",
+      "programNotFound": "Programme not found",
+      "programRevised": "Programme Revised",
+      "programRevisionHtml": "Programme {programId} revision {revision}",
+      "rateRequired": "Programme rate is required",
+      "returnedToActive": "Returned to active programme parameters.",
+      "whatIfModeText": "Enter what-if mode to test parameter changes without affecting the active programme."
+    },
+    "dataSource": {
+      "gsProgramMode": "GS Programme Mode"
+    },
+    "edit": {
+      "editingProgram": "Editing {type} programme {id} ({status})",
+      "loadFailed": "Failed to load programme",
+      "loadingProgram": "Loading programme {id} for editing...",
+      "programNotFound": "Programme not found"
+    },
+    "exemptReason": {
+      "departingCenter": "Departing from exempt ACC",
+      "departingTracon": "Departing from exempt Terminal",
+      "destCenter": "Destination exempt ACC",
+      "destTracon": "Destination exempt Terminal"
+    },
     "exemption": {
-      "origArtccs": "Origin FIRs",
       "destArtccs": "Destination FIRs",
       "destTracons": "Dest Terminals",
+      "origArtccs": "Origin FIRs",
       "origTracons": "Orig Terminals"
     },
     "flight": {
@@ -27,307 +103,224 @@
       "ctlProgram": "CTL Programme",
       "programDelay": "Programme Delay"
     },
-    "chart": {
-      "titleDestArtcc": "Data Graph - Dest FIR",
-      "titleOrigArtcc": "Data Graph - Origin FIR",
-      "titleOrigTracon": "Data Graph - Origin Terminal",
-      "titleDestTracon": "Data Graph - Dest Terminal"
+    "gs": {
+      "activateConfirmText": "This will activate the GS programme and apply EDCTs to affected flights.",
+      "activateConfirmTitle": "Activate GS Programme {id}?",
+      "activatingProgram": "Activating programme {id}...",
+      "activeStatus": "ACTIVE: Programme {programId} | {controlled} controlled flights",
+      "causeGdp": "Ground Delay Programme",
+      "creatingProgram": "Creating GS programme...",
+      "error": {
+        "failedToActivate": "Failed to activate GS programme",
+        "failedToCreateProgram": "Failed to create programme",
+        "failedToModel": "Failed to model GS programme",
+        "failedToSimulate": "Failed to simulate programme"
+      },
+      "modelingProgram": "Modeling programme {id}...",
+      "noProgramCreatingPreview": "No programme - creating preview...",
+      "noProgramToActivate": "No programme to activate. Create a programme first.",
+      "noProgramToSubmit": "No programme to submit. Create a programme first.",
+      "program": "Programme",
+      "programCreated": "Programme created: {id}",
+      "reusingProgram": "Reusing existing programme: {id}",
+      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Programme {programId}"
     },
     "page": {
-      "dccRegion": "NOC Region",
-      "newProgram": "New Programme",
-      "originCentersScope": "Origin Centres (Scope)",
-      "originCentersHelp": "Use Tier presets, named groups (e.g. 12West), and individual ACCs. Hold Ctrl/Cmd to select multiple.",
-      "exemptTracons": "Exempt Terminals",
-      "exemptArtccs": "Exempt ACCs",
-      "delayByOriginArtcc": "Delay by Origin ACC",
-      "center": "Centre",
-      "originCentersArtcc": "Origin Centres (ACC)",
-      "destCentersArtcc": "Destination Centres (ACC)",
-      "byOriginArtcc": "By Origin ACC",
+      "activateGsTooltip": "Activate GS programme immediately",
+      "activePrograms": "Active Programmes",
+      "byArtcc": "By ACC",
       "byDestArtcc": "By Dest ACC",
-      "byOriginTracon": "By Origin Terminal",
       "byDestTracon": "By Dest Terminal",
+      "byOriginArtcc": "By Origin ACC",
+      "byOriginCenter": "By Origin Centre",
+      "byOriginTracon": "By Origin Terminal",
       "byTier": "By ACC Tier",
+      "byTracon": "By Terminal",
+      "center": "Centre",
+      "controlledAcrossAll": "controlled across all programmes",
+      "createProgramTooltip": "Create a new programme",
+      "cumulativeProgramPeriod": "Cumulative Programme Period",
+      "dccRegion": "NOC Region",
+      "delayByOriginArtcc": "Delay by Origin ACC",
+      "destCenter": "Dest Centre",
+      "destCentersArtcc": "Destination Centres (ACC)",
+      "exemptArtccs": "Exempt ACCs",
+      "exemptTracons": "Exempt Terminals",
+      "extendProgram": "Extend Programme",
       "filterByOriginArtcc": "Filter by Origin ACC",
       "gsProgram": "GS Programme:",
-      "byArtcc": "By ACC",
-      "byTracon": "By Terminal",
       "gsProgramInfo": "GS Programme Information",
-      "programLabel": "Programme:",
-      "origCenter": "Origin Centre",
-      "destCenter": "Dest Centre",
-      "byOriginCenter": "By Origin Centre",
-      "usDcc": "US DCC",
-      "usDccHint": "vATCSCC ADVZY ... DCC",
-      "extendProgram": "Extend Programme",
-      "program": "Programme",
-      "reviseProgram": "Revise Programme",
-      "programRateArrHr": "Programme Rate (arrivals/hr)",
-      "cumulativeProgramPeriod": "Cumulative Programme Period",
-      "activePrograms": "Active Programmes",
+      "newProgram": "New Programme",
       "noActivePrograms": "No active programmes",
-      "controlledAcrossAll": "controlled across all programmes",
-      "activateGsTooltip": "Activate GS programme immediately"
+      "origCenter": "Origin Centre",
+      "originCentersArtcc": "Origin Centres (ACC)",
+      "originCentersHelp": "Use Tier presets, named groups (e.g. 12West), and individual ACCs. Hold Ctrl/Cmd to select multiple.",
+      "originCentersScope": "Origin Centres (Scope)",
+      "program": "Programme",
+      "programLabel": "Programme:",
+      "programRateArrHr": "Programme Rate (arrivals/hr)",
+      "programSetup": "Programme Setup",
+      "programType": "Programme Type",
+      "reviseProgram": "Revise Programme",
+      "sendActualTooltip": "Activate GS programme immediately",
+      "usDcc": "US DCC",
+      "usDccHint": "vATCSCC ADVZY ... DCC"
+    },
+    "purge": {
+      "allPurged": "All GS programmes have been purged.",
+      "allPurgedCreateNew": "All GS programmes purged. Create a new programme to begin.",
+      "fetchProgramListFailed": "Failed to fetch programme list",
+      "fetchingPrograms": "Fetching active GS programmes...",
+      "noCurrentProgram": "No current GS programme to purge.",
+      "noProgramsToPurge": "No active GS programmes to purge.",
+      "programPurged": "GS programme has been purged.",
+      "programPurgedCreateNew": "Programme purged. Create a new program to begin.",
+      "programPurgedStatus": "Programme {id} purged.",
+      "purgeAllText": "This will purge ALL active and proposed GS programmes. This cannot be undone.",
+      "purgeAllTitle": "Purge All GS Programmes?",
+      "purgeGsProgramFailed": "Failed to purge GS programme",
+      "purgeLocalBtn": "Purge Programme",
+      "purgeLocalText": "This will purge this GS programme. This cannot be undone.",
+      "purgeLocalTitle": "Purge Programme {id}?",
+      "purgedCount": "{count} programme(s) purged",
+      "purgingProgram": "Purging GS programme {id}...",
+      "purgingPrograms": "Purging {count} GS programmes..."
     },
     "scope": {
       "individualFacilities": "Individual ACCs / FIRs"
     },
-    "gs": {
-      "activeStatus": "ACTIVE: Programme {programId} | {controlled} controlled flights",
-      "program": "Programme",
-      "programCreated": "Programme created: {id}",
-      "simulatedStatus": "Simulated: {flights} flights | Max delay: {maxDelay} min | Programme {programId}",
-      "activatingProgram": "Activating programme {id}...",
-      "creatingProgram": "Creating GS programme...",
-      "modelingProgram": "Modeling programme {id}...",
-      "noProgramCreatingPreview": "No programme - creating preview...",
-      "noProgramToActivate": "No programme to activate. Create a programme first.",
-      "noProgramToSubmit": "No programme to submit. Create a programme first."
-    },
-    "purge": {
-      "purgeLocalTitle": "Purge Programme {id}?",
-      "purgeLocalBtn": "Purge Programme",
-      "programPurgedStatus": "Programme {id} purged.",
-      "programPurgedCreateNew": "Programme purged. Create a new program to begin.",
-      "purgeAllTitle": "Purge All GS Programmes?",
-      "purgeAllText": "This will purge ALL active and proposed GS programmes. This cannot be undone.",
-      "fetchingPrograms": "Fetching active GS programmes...",
-      "purgingPrograms": "Purging {count} GS programmes...",
-      "fetchProgramListFailed": "Failed to fetch programme list",
-      "noProgramsToPurge": "No active GS programmes to purge.",
-      "allPurgedCreateNew": "All GS programmes purged. Create a new programme to begin.",
-      "allPurged": "All GS programmes have been purged.",
-      "purgeLocalText": "This will purge this GS programme. This cannot be undone.",
-      "noCurrentProgram": "No current GS programme to purge.",
-      "purgingProgram": "Purging GS programme {id}...",
-      "purgeGsProgramFailed": "Failed to purge GS programme",
-      "programPurged": "GS programme has been purged.",
-      "purgedCount": "{count} programme(s) purged"
-    },
-    "dataSource": {
-      "gsProgramMode": "GS Programme Mode"
-    },
-    "edit": {
-      "programNotFound": "Programme not found",
-      "editingProgram": "Editing {type} programme {id} ({status})",
-      "loadFailed": "Failed to load programme",
-      "loadingProgram": "Loading programme {id} for editing..."
-    },
     "status": {
       "createNewProgram": "Create a new programme to begin."
+    }
+  },
+  "home": {},
+  "initiative": {
+    "tooltip": {
+      "siteArtcc": "Site/ACC"
+    }
+  },
+  "jatoc": {
+    "auth": {
+      "dccOnly": "Only NOC users may {action}."
     },
-    "dashboard": {
-      "cancelProgramTitle": "Cancel Programme #{id}?",
-      "programCancelled": "Programme has been cancelled.",
-      "programExtended": "Programme Extended",
-      "programExtendedText": "Programme #{id} has been extended.",
-      "programNotFound": "Programme not found",
-      "programRevised": "Programme Revised",
-      "rateRequired": "Programme rate is required"
+    "facilityPatch": {
+      "selectDccService": "Select NOC Service...",
+      "selectDccServiceFirst": "Select NOC Service first...",
+      "validation": {
+        "selectDccService": "Please select a NOC Service."
+      }
     },
-    "exemptReason": {
-      "departingCenter": "Departing from exempt ACC",
-      "departingTracon": "Departing from exempt Terminal",
-      "destCenter": "Destination exempt ACC",
-      "destTracon": "Destination exempt Terminal"
+    "layers": {
+      "artccBoundaries": "FIR Boundaries",
+      "traconBoundaries": "Terminal Boundaries"
+    },
+    "page": {
+      "dccCommandCenter": "NOC (Operations Centre)"
     }
   },
   "nav": {
     "configs": "Configurations"
   },
-  "demand": {
+  "nod": {
+    "colorMode": {
+      "arrCenter": "Arr Centre",
+      "arrTracon": "Arr TCA",
+      "dccRegion": "NOC Region",
+      "depCenter": "Dep Centre",
+      "depTracon": "Dep TCA"
+    },
+    "flows": {
+      "artccsGroup": "ACCs",
+      "colorTitle": "Colour",
+      "gateColorTitle": "Gate colour",
+      "traconsGroup": "TCAs"
+    },
     "page": {
-      "artcc": "FIR",
-      "allArtccs": "All FIRs",
-      "topOriginArtccs": "Top Origin FIRs",
-      "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
-      "showDeparturesByDestArtcc": "Show departures by destination ACC"
+      "arrivalArtcc": "Arrival ACC",
+      "arrivalTracon": "Arrival TCA",
+      "dccRegion": "NOC Region",
+      "departureArtcc": "Departure ACC",
+      "departureTracon": "Departure TCA",
+      "groundDelayPrograms": "Ground Delay Programmes",
+      "showLegendTooltip": "Show colour legend"
     },
-    "filter": {
-      "allArtccs": "All FIRs"
+    "popup": {
+      "arrArtcc": "Arr ACC",
+      "artcc": "ACC",
+      "currentArtcc": "Current ACC",
+      "depArtcc": "Dep ACC"
     },
-    "breakdown": {
-      "byDestArtcc": "{direction} by Dest FIR",
-      "byOriginArtcc": "{direction} by Origin FIR",
-      "originArtcc": "Origin FIR",
-      "destNotApplicableArr": "Destination ACC breakdown is not applicable for arrivals-only view"
-    },
-    "flightDetail": {
-      "col": {
-        "destArtcc": "Dest FIR",
-        "originArtcc": "Origin FIR"
-      }
+    "tmi": {
+      "gdpInEffect": "Ground Delay Programme",
+      "linkedProgram": "Programme: {name}"
     }
   },
-  "sua": {
-    "popupArtcc": "ACC",
-    "page": {
-      "colArtcc": "ACC",
-      "allArtccs": "All FIRs",
-      "selectArtcc": "Select ACC",
-      "centerPoint": "Centre Point (for circular TFR)",
-      "usnNavy": "Navy",
-      "usArmy": "Army",
-      "airNationalGuard": "Air Reserve",
-      "circularTfrHint": "Enter centre coordinates and radius to generate circular TFR geometry"
+  "org": {
+    "airspace": "Canadian Domestic Airspace",
+    "commandCenter": "National Operations Centre",
+    "displayName": "CANOC",
+    "facilityType": "ACC",
+    "facilityTypePlural": "ACCs",
+    "name": "CANOC"
+  },
+  "plan": {
+    "advisory": {
+      "cardTitle": "CANOC Advisory Builder (Discord)"
     },
-    "typeNames": {
-      "WSRP": "Weather Surveillance Radar Programme"
+    "advisoryOrg": {
+      "switchTooltip": "Switch between US DCC and Canadian NOC advisory formats",
+      "usDcc": "US DCC",
+      "usDccHint": "vATCSCC ADVZY ... DCC"
+    },
+    "dcc": {
+      "commandCenter": "Operations Centre",
+      "dccPersonnel": "NOC Personnel"
+    },
+    "overview": {
+      "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the CANOC Discord.",
+      "resourceGdtDesc": "for ground delay programme/ground stop management.",
+      "resourceTransgression": "CANOC Transgression Reporting Form"
+    },
+    "pertiModal": {
+      "usArtccs": "US ACCs"
+    },
+    "tabs": {
+      "dccStaffing": "NOC Staffing"
     }
   },
-  "tmiPublish": {
-    "advisoryTypes": {
-      "gdp": "Ground Delay Programme",
-      "gdpDesc": "CDM Ground Delay Programme advisory",
-      "gs": "Ground Stop",
-      "gsDesc": "CDM Ground Stop advisory",
-      "gdpCancel": "GDP Cancellation",
-      "gdpCancelDesc": "Cancel an active Ground Delay Programme",
-      "gsCancel": "GS Cancellation",
-      "gsCancelDesc": "Cancel an active Ground Stop"
-    },
-    "gdpForm": {
-      "title": "Ground Delay Programme",
-      "airport": "Airport",
-      "airportPlaceholder": "e.g. CYYZ",
-      "fir": "FIR",
-      "adlTime": "ADL Time",
-      "delayMode": "Delay Assignment Mode",
-      "arrivalsStart": "Arrivals Estimated Start",
-      "arrivalsEnd": "Arrivals Estimated End",
-      "programStart": "Programme Start",
-      "programEnd": "Programme End",
-      "programRate": "Programme Rate",
-      "programRatePlaceholder": "e.g. 16/16/16/8",
-      "flightInclusion": "Flight Inclusion",
-      "flightInclusionDefault": "ALL CNDN AND CONTIGUOUS US DEP",
-      "depScope": "DEP Scope",
-      "depScopePlaceholder": "e.g. 2NDTIER",
-      "additionalDepFacilities": "Additional DEP Facilities",
-      "exemptDepFacilities": "Exempt DEP Facilities",
-      "maxDelay": "Maximum Delay (min)",
-      "avgDelay": "Average Delay (min)",
-      "impactingCondition": "Impacting Condition",
-      "specificImpact": "Specific Impact",
-      "comments": "Comments"
-    },
-    "gsForm": {
-      "title": "Ground Stop",
-      "airport": "Airport",
-      "airportPlaceholder": "e.g. CYYZ",
-      "fir": "FIR",
-      "adlTime": "ADL Time",
-      "gsStart": "Ground Stop Start",
-      "gsEnd": "Ground Stop End",
-      "depFacilitiesKeyword": "DEP Facilities Keyword",
-      "depFacilitiesKeywordPlaceholder": "e.g. 2ndTier",
-      "depFacilities": "DEP Facilities Included",
-      "depFacilitiesPlaceholder": "Space-separated, e.g. CZYZ CZUL CZEG",
-      "previousDelays": "Previous Delays",
-      "newDelays": "New Delays",
-      "totalDelays": "Total",
-      "maxDelays": "Maximum",
-      "avgDelays": "Average",
-      "probExtension": "Probability of Extension",
-      "impactingCondition": "Impacting Condition",
-      "specificImpact": "Specific Impact",
-      "comments": "Comments"
-    },
-    "cancelForm": {
-      "title": "Cancellation",
-      "cnxStart": "CNX Period Start",
-      "cnxEnd": "CNX Period End",
-      "hasActiveAfp": "Active AFP exists (flights may receive new EDCTs)",
-      "comments": "Comments"
-    },
-    "gdpDetails": "Ground Delay Programme Details",
-    "programCancelled": "Programme cancelled",
-    "proposal": {
-      "dccOverride": "This is a NOC override action."
-    },
+  "playbook": {
+    "regionColors": "Region colours",
+    "regionColorsTooltip": "Colour by DCC region"
+  },
+  "privacy": {
+    "changesText": "CANOC must ensure to notify all members affected of any changes to this policy. All information collected prior to the date of a new policy are subject to the old policy's material, and can not be changed in any way of share without proper consent.",
+    "collectionIntro": "Information collected by CANOC, and responsible to the facility through the <a class=\"text-info\" href=\"https://www.vatsim.net/documents/data-protection-handling-policy\" target=\"_blank\">VATSIM Data Protection & Handling Policy</a>, and are displayed through this site in any matter, includes the following:",
+    "collectionItem2": "Details in regards to your VATSIM-specific \"controller\" identifier (CID) which is automatically generated through the vatsim.net services, and obtained by CANOC through the VATSIM Connect system.",
+    "collectionRemoval": "You, as a user of this website, under authority of CANOC, and a member under the VATSIM Network (vatsim.net); through the services of VATSIM, have the ability to request the removal of your data. To request your data be removed upon approval from VATSIM; through this website, you must contact vatusa9@vatusa.net (CC: vatusa14@vatusa.net).",
+    "cookiesText": "CANOC utilizes \"cookies\" that are stored through the user's hard drives, and are related to the client to store data relevant to each session that is created through the website. These cookies will allow you to view certain pages and functions not accessible to the general user.",
+    "registrationText": "In order to use our services, you must be a registered and active VATSIM member. By logging into our services via the VATSIM Connent oAuth system, VATSIM provides information to CANOC for use on our website. When logging in via Connect, the information which is provided to our services is explicitly detailed and you must consent to this information being shared with us prior to logging in. Some parts of our systems are accessible without registration or authentication. Despite not being required to log in to these services with personal credentials, data will be logged. Data includes cookies, IP addresses, and other data which may result in you being identifiable. If you wish to utilize our services while retaining anonymity, this is possible by taking appropriate anonymisation measures within your browser's settings.",
+    "securityText": "CANOC does not store passwords, and will not ask for passwords pertaining directly to our party. Our party will ensure that all data is properly secured, and these systems are protected and only granted authorization through explicitly granted access from permissions through the website, and the database.",
+    "sharingIntro": "The information collected by CANOC may be shared with the following parties:",
+    "thirdPartyText": "CANOC does, and will display links that may or not be affiliated with our party, and as such are not responsible for the privacy policies and policies of each 3rd-party website. Our party encourages members to read these policies before proceeding to utilize the sites."
+  },
+  "publicRoutes": {
+    "changeColor": "Change colour",
+    "color": "Colour",
+    "routeColor": "Route Colour"
+  },
+  "review": {
     "page": {
-      "routeColor": "Route Colour",
-      "noProgramData": "No Programme Data",
-      "programDetails": "Programme Details",
-      "programRate": "Programme Rate",
-      "coordinationDiscord": "Facilities approve via Discord emoji reactions or web buttons below. NOC can override any proposal.",
-      "cancelProgram": "Cancel Programme",
-      "program": "Programme:",
-      "programId": "Programme ID:",
-      "programDataFromGdt": "Programme data received from GDT",
-      "disregardEdctsText": "All EDCTs for this programme should be disregarded",
-      "noProgramDataLoaded": "No programme data loaded..."
-    },
-    "noProgramLoaded": "No programme loaded",
-    "noProgramToSubmit": "No programme data to submit",
-    "noProgramToPublish": "No programme data to publish",
-    "statusBadge": {
-      "dccApproved": "NOC Approved",
-      "dccDenied": "NOC Denied"
-    },
-    "proposalAction": {
-      "dccOverride": "This is a NOC override action."
-    },
-    "coordination": {
-      "allApproved": "All Approved",
-      "approvedBy": "{facility} approved by {oi} / {name} (CID {cid})",
-      "deniedBy": "{facility} denied by {oi} / {name} (CID {cid})",
-      "approveFor": "Approve for {facility}?",
-      "denyFor": "Deny for {facility}?",
-      "approveConfirm": "Approve Proposal #{id} on behalf of {facility}?",
-      "denyConfirm": "Deny Proposal #{id} on behalf of {facility}?",
-      "webNote": "This will be recorded with your VATSIM identity and posted to the Discord coordination thread.",
-      "facilityApproved": "{facility} approved",
-      "facilityDenied": "{facility} denied",
-      "facilityAlreadyResponded": "{facility} already responded: {status}",
-      "profileRequired": "Profile Required",
-      "profileRequiredText": "Please set up your profile (CID, name, OI, facility) to participate in coordination.",
-      "loginRequired": "Login to participate in coordination",
-      "dccOverrideApprove": "NOC Override: Approve",
-      "dccOverrideDeny": "NOC Override: Deny",
-      "overrideApprove": "{org} Override: Approve",
-      "overrideDeny": "{org} Override: Deny",
-      "overrideNote": "This is a {org} override action.",
-      "extendDeadline": "Extend Deadline",
-      "changeToApprove": "Change {facility} to Approved",
-      "changeToDeny": "Change {facility} to Denied",
-      "changeConfirm": "Change {facility} response from {from} to {to}?",
-      "changeNote": "This privileged action will override the current facility response and be logged.",
-      "facilityChanged": "{facility} changed to {status}",
-      "statusApproved": "Approved",
-      "statusDenied": "Denied",
-      "editRestartsCoordination": "Edit proposal (restarts coordination)",
-      "publishToDiscord": "Publish to Discord",
-      "cancelProposal": "Cancel proposal",
-      "loginRequiredShort": "Login required",
-      "loginRequiredToPublish": "Login required to publish"
+      "hostArtcc": "Host ACC",
+      "linkToAdvzy": "Link to CANOC ADVZY / Operational Plan"
     }
   },
   "route": {
-    "page": {
-      "dccRegion": "NOC Region",
-      "colorsDesc": "Add <code>;colour</code> or <code>;#hex</code> at end (e.g., <code>FIX1 J60 FIX2;red</code>)",
-      "filtersDesc": "Colour flights by weight class, carrier, ACC, altitude, etc. Filter by aircraft type",
-      "advisoryExpandDesc": "Expand panel below map to generate CANOC reroute advisories",
-      "colorBy": "Colour By",
-      "depCenter": "Departure ACC",
-      "arrCenter": "Arrival ACC",
-      "depTracon": "Departure Terminal",
-      "arrTracon": "Arrival Terminal",
-      "originTracon": "Origin Terminal",
-      "originArtcc": "Origin ACC",
-      "destTracon": "Dest Terminal",
-      "destArtcc": "Dest ACC",
-      "color": "Colour",
-      "colors": "Colours:",
-      "symbologyDesc": "Configure line styles, colours, opacity, dash patterns, and fix/waypoint display"
-    },
     "color": "Colour",
     "colorRule": {
       "addTitle": "Add Colour Rule",
       "arrCenter": "Arrival Centre",
       "color": "Colour",
+      "deleteConfirm": "Delete this colour rule?",
       "depCenter": "Departure Centre",
       "editTitle": "Edit Colour Rule",
       "enterValuesAndColor": "Enter values and select a colour",
@@ -338,14 +331,26 @@
     "layer": {
       "traconBoundaries": "Terminal Boundaries"
     },
+    "page": {
+      "advisoryExpandDesc": "Expand panel below map to generate CANOC reroute advisories",
+      "arrCenter": "Arrival ACC",
+      "arrTracon": "Arrival Terminal",
+      "color": "Colour",
+      "colorBy": "Colour By",
+      "colors": "Colours:",
+      "colorsDesc": "Add <code>;colour</code> or <code>;#hex</code> at end (e.g., <code>FIX1 J60 FIX2;red</code>)",
+      "dccRegion": "NOC Region",
+      "depCenter": "Departure ACC",
+      "depTracon": "Departure Terminal",
+      "destArtcc": "Dest ACC",
+      "destTracon": "Dest Terminal",
+      "filtersDesc": "Colour flights by weight class, carrier, ACC, altitude, etc. Filter by aircraft type",
+      "originArtcc": "Origin ACC",
+      "originTracon": "Origin Terminal",
+      "symbologyDesc": "Configure line styles, colours, opacity, dash patterns, and fix/waypoint display"
+    },
     "sua": {
       "artcc": "ACC"
-    }
-  },
-  "review": {
-    "page": {
-      "hostArtcc": "Host ACC",
-      "linkToAdvzy": "Link to CANOC ADVZY / Operational Plan"
     }
   },
   "schedule": {
@@ -353,62 +358,39 @@
       "title": "CANOC Admin"
     }
   },
-  "plan": {
-    "tabs": {
-      "dccStaffing": "NOC Staffing"
-    },
-    "overview": {
-      "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the CANOC Discord.",
-      "resourceTransgression": "CANOC Transgression Reporting Form",
-      "resourceGdtDesc": "for ground delay programme/ground stop management."
-    },
-    "dcc": {
-      "dccPersonnel": "NOC Personnel"
-    },
-    "advisory": {
-      "cardTitle": "CANOC Advisory Builder (Discord)"
-    },
-    "pertiModal": {
-      "usArtccs": "US ACCs"
-    },
-    "advisoryOrg": {
-      "usDcc": "US DCC",
-      "usDccHint": "vATCSCC ADVZY ... DCC",
-      "switchTooltip": "Switch between US DCC and Canadian NOC advisory formats"
-    }
-  },
-  "jatoc": {
-    "layers": {
-      "artccBoundaries": "FIR Boundaries",
-      "traconBoundaries": "Terminal Boundaries"
-    },
-    "auth": {
-      "dccOnly": "Only NOC users may {action}."
+  "sheet": {
+    "dccStaffing": {
+      "editFailedText": "There was an error in editing this NOC staffing entry.",
+      "editSuccessText": "You have successfully edited this NOC staffing entry."
     },
     "page": {
-      "dccCommandCenter": "NOC (Operations Centre)"
-    },
-    "facilityPatch": {
-      "selectDccService": "Select NOC Service...",
-      "selectDccServiceFirst": "Select NOC Service first...",
-      "validation": {
-        "selectDccService": "Please select a NOC Service."
-      }
+      "dccStaffing": "NOC Staffing"
+    }
+  },
+  "simulator": {
+    "page": {
+      "includedCenters": "Included Centres:"
     }
   },
   "splits": {
-    "page": {
-      "allArtccs": "All FIRs",
-      "artccRequired": "ACC *",
-      "selectArtcc": "Select ACC...",
-      "sectorInputHint": "Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ACC.",
-      "color": "Colour",
-      "originHint": "Airports, Terminals, or ACCs",
-      "destinationHint": "Airports, Terminals, or ACCs",
-      "loadArtccSectors": "Load ACC Sectors"
+    "areas": {
+      "allArtccs": "All ACCs",
+      "noAreasForArtcc": "No areas defined for this ACC",
+      "noSectorsFound": "No sectors found for this ACC.",
+      "selectArtccFirst": "Select an ACC first",
+      "selectArtccToLoad": "Select an ACC to load sectors",
+      "validation": {
+        "fillArtccAndName": "Please fill in ACC and Area Name.",
+        "selectArtccFirst": "Please select an ACC first."
+      }
     },
-    "sectors": {
-      "noSectorsFound": "No sectors found for this ACC."
+    "buttons": {
+      "changeColor": "Change colour"
+    },
+    "config": {
+      "validation": {
+        "selectArtcc": "Please select an ACC first."
+      }
     },
     "feature": {
       "artcc": "ACC",
@@ -418,44 +400,254 @@
       "artcc": "FIR",
       "tracon": "Terminal"
     },
+    "page": {
+      "allArtccs": "All FIRs",
+      "artccRequired": "ACC *",
+      "color": "Colour",
+      "destinationHint": "Airports, Terminals, or ACCs",
+      "loadArtccSectors": "Load ACC Sectors",
+      "originHint": "Airports, Terminals, or ACCs",
+      "sectorInputHint": "Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ACC.",
+      "selectArtcc": "Select ACC..."
+    },
     "popup": {
       "artcc": "ACC",
       "artccBoundary": "FIR Boundary",
       "dccRegion": "NOC Region",
       "traconBoundary": "Terminal Boundary"
     },
-    "areas": {
-      "allArtccs": "All ACCs",
-      "selectArtccToLoad": "Select an ACC to load sectors",
-      "selectArtccFirst": "Select an ACC first",
-      "noSectorsFound": "No sectors found for this ACC.",
-      "noAreasForArtcc": "No areas defined for this ACC",
-      "validation": {
-        "fillArtccAndName": "Please fill in ACC and Area Name.",
-        "selectArtccFirst": "Please select an ACC first."
-      }
-    },
     "presets": {
       "validation": {
         "fillNameAndArtcc": "Please fill in preset name and ACC."
       }
     },
-    "config": {
-      "validation": {
-        "selectArtcc": "Please select an ACC first."
-      }
-    },
-    "buttons": {
-      "changeColor": "Change colour"
+    "sectors": {
+      "noSectorsFound": "No sectors found for this ACC."
     }
   },
-  "sheet": {
-    "dccStaffing": {
-      "editSuccessText": "You have successfully edited this NOC staffing entry.",
-      "editFailedText": "There was an error in editing this NOC staffing entry."
-    },
+  "status": {
+    "coordinating": "Co-ordinating"
+  },
+  "statusPage": {
+    "programs": "programmes"
+  },
+  "sua": {
     "page": {
-      "dccStaffing": "NOC Staffing"
+      "airNationalGuard": "Air Reserve",
+      "allArtccs": "All FIRs",
+      "centerPoint": "Centre Point (for circular TFR)",
+      "circularTfrHint": "Enter centre coordinates and radius to generate circular TFR geometry",
+      "colArtcc": "ACC",
+      "selectArtcc": "Select ACC",
+      "usArmy": "Army",
+      "usnNavy": "Navy"
+    },
+    "popupArtcc": "ACC",
+    "typeNames": {
+      "ADIZ": "Air Defence Identification Zone",
+      "WSRP": "Weather Surveillance Radar Programme"
+    }
+  },
+  "swim": {
+    "page": {
+      "flightsEndpoint": "List flights with filtering by airport, ACC, callsign, phase, and TMI status",
+      "licence": "Licence",
+      "tmiProgramsEndpoint": "Active TMI programmes (Ground Stops, GDPs)"
+    }
+  },
+  "tmi": {
+    "afp": "Airspace Flow Programme",
+    "gdp": "Ground Delay Programme"
+  },
+  "tmiActive": {
+    "detail": {
+      "program": "Programme:"
+    },
+    "detailTable": {
+      "destCenters": "Dest Centres:",
+      "originCenters": "Origin Centres:",
+      "programRate": "Programme Rate:",
+      "programType": "Programme Type:",
+      "scopeCenters": "Scope Centres:"
+    },
+    "edit": {
+      "programNotFound": "Could not find programme data"
+    },
+    "editLabel": {
+      "destCenters": "Dest Centres",
+      "originCenters": "Origin Centres",
+      "programRate": "Programme Rate",
+      "programRateHr": "Programme Rate (/hr)"
+    },
+    "entryType": {
+      "gdp": "Ground Delay Programme"
+    },
+    "fallback": {
+      "program": "Programme"
+    },
+    "optgroup": {
+      "artccsOther": "FIRs - Other",
+      "artccsRegion": "FIRs - {region}",
+      "dccRegions": "NOC Regions",
+      "majorTracons": "Major Terminals"
+    },
+    "scopeOption": {
+      "center": "Centre"
+    }
+  },
+  "tmiCompliance": {
+    "eventStats": {
+      "pairsAnalyzed": "Pairs Analysed"
+    },
+    "gsProgramSummary": "{count} programme",
+    "gsProgramSummaryPlural": "{count} programmes",
+    "map": {
+      "artcc": "ACC",
+      "tracon": "TCA"
+    },
+    "measuredAtBoundaryTitle": "Measured at ACC handoff point",
+    "multiFacilityTitle": "Multi-facility TMI analysed at {count} boundaries",
+    "pairsAnalyzed": "Pairs Analysed",
+    "pairsAnalyzedSummary": "{pairs} pairs analysed, {nonCompliant} non-compliant",
+    "programHistoryLabel": "Programme History",
+    "reroute": {
+      "programHistory": "Programme History"
+    },
+    "rerouteSummary": "{count} programme ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
+    "rerouteSummaryPlural": "{count} programmes ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
+    "runAnalysisDesc": "This will analyse flight data against the configured TMIs for Plan {planId}."
+  },
+  "tmiPublish": {
+    "advisoryTypes": {
+      "gdp": "Ground Delay Programme",
+      "gdpCancel": "GDP Cancellation",
+      "gdpCancelDesc": "Cancel an active Ground Delay Programme",
+      "gdpDesc": "CDM Ground Delay Programme advisory",
+      "gs": "Ground Stop",
+      "gsCancel": "GS Cancellation",
+      "gsCancelDesc": "Cancel an active Ground Stop",
+      "gsDesc": "CDM Ground Stop advisory"
+    },
+    "cancel": {
+      "cancelProgram": "Cancel Programme",
+      "programIdLabel": "Programme ID",
+      "programLabel": "Programme"
+    },
+    "cancelForm": {
+      "cnxEnd": "CNX Period End",
+      "cnxStart": "CNX Period Start",
+      "comments": "Comments",
+      "hasActiveAfp": "Active AFP exists (flights may receive new EDCTs)",
+      "title": "Cancellation"
+    },
+    "coordination": {
+      "allApproved": "All Approved",
+      "approveConfirm": "Approve Proposal #{id} on behalf of {facility}?",
+      "approveFor": "Approve for {facility}?",
+      "approvedBy": "{facility} approved by {oi} / {name} (CID {cid})",
+      "cancelProposal": "Cancel proposal",
+      "changeConfirm": "Change {facility} response from {from} to {to}?",
+      "changeNote": "This privileged action will override the current facility response and be logged.",
+      "changeToApprove": "Change {facility} to Approved",
+      "changeToDeny": "Change {facility} to Denied",
+      "dccOverrideApprove": "NOC Override: Approve",
+      "dccOverrideDeny": "NOC Override: Deny",
+      "deniedBy": "{facility} denied by {oi} / {name} (CID {cid})",
+      "denyConfirm": "Deny Proposal #{id} on behalf of {facility}?",
+      "denyFor": "Deny for {facility}?",
+      "editRestartsCoordination": "Edit proposal (restarts coordination)",
+      "extendDeadline": "Extend Deadline",
+      "facilityAlreadyResponded": "{facility} already responded: {status}",
+      "facilityApproved": "{facility} approved",
+      "facilityChanged": "{facility} changed to {status}",
+      "facilityDenied": "{facility} denied",
+      "loginRequired": "Login to participate in coordination",
+      "loginRequiredShort": "Login required",
+      "loginRequiredToPublish": "Login required to publish",
+      "overrideApprove": "{org} Override: Approve",
+      "overrideDeny": "{org} Override: Deny",
+      "overrideNote": "This is a {org} override action.",
+      "profileRequired": "Profile Required",
+      "profileRequiredText": "Please set up your profile (CID, name, OI, facility) to participate in coordination.",
+      "publishToDiscord": "Publish to Discord",
+      "statusApproved": "Approved",
+      "statusDenied": "Denied",
+      "webNote": "This will be recorded with your VATSIM identity and posted to the Discord coordination thread."
+    },
+    "gdpDetails": "Ground Delay Programme Details",
+    "gdpForm": {
+      "additionalDepFacilities": "Additional DEP Facilities",
+      "adlTime": "ADL Time",
+      "airport": "Airport",
+      "airportPlaceholder": "e.g. CYYZ",
+      "arrivalsEnd": "Arrivals Estimated End",
+      "arrivalsStart": "Arrivals Estimated Start",
+      "avgDelay": "Average Delay (min)",
+      "comments": "Comments",
+      "delayMode": "Delay Assignment Mode",
+      "depScope": "DEP Scope",
+      "depScopePlaceholder": "e.g. 2NDTIER",
+      "exemptDepFacilities": "Exempt DEP Facilities",
+      "fir": "FIR",
+      "flightInclusion": "Flight Inclusion",
+      "flightInclusionDefault": "ALL CNDN AND CONTIGUOUS US DEP",
+      "impactingCondition": "Impacting Condition",
+      "maxDelay": "Maximum Delay (min)",
+      "programEnd": "Programme End",
+      "programRate": "Programme Rate",
+      "programRatePlaceholder": "e.g. 16/16/16/8",
+      "programStart": "Programme Start",
+      "specificImpact": "Specific Impact",
+      "title": "Ground Delay Programme"
+    },
+    "gsForm": {
+      "adlTime": "ADL Time",
+      "airport": "Airport",
+      "airportPlaceholder": "e.g. CYYZ",
+      "avgDelays": "Average",
+      "comments": "Comments",
+      "depFacilities": "DEP Facilities Included",
+      "depFacilitiesKeyword": "DEP Facilities Keyword",
+      "depFacilitiesKeywordPlaceholder": "e.g. 2ndTier",
+      "depFacilitiesPlaceholder": "Space-separated, e.g. CZYZ CZUL CZEG",
+      "fir": "FIR",
+      "gsEnd": "Ground Stop End",
+      "gsStart": "Ground Stop Start",
+      "impactingCondition": "Impacting Condition",
+      "maxDelays": "Maximum",
+      "newDelays": "New Delays",
+      "previousDelays": "Previous Delays",
+      "probExtension": "Probability of Extension",
+      "specificImpact": "Specific Impact",
+      "title": "Ground Stop",
+      "totalDelays": "Total"
+    },
+    "noProgramLoaded": "No programme loaded",
+    "noProgramToPublish": "No programme data to publish",
+    "noProgramToSubmit": "No programme data to submit",
+    "page": {
+      "cancelProgram": "Cancel Programme",
+      "coordinationDiscord": "Facilities approve via Discord emoji reactions or web buttons below. NOC can override any proposal.",
+      "disregardEdctsText": "All EDCTs for this programme should be disregarded",
+      "noProgramData": "No Programme Data",
+      "noProgramDataLoaded": "No programme data loaded...",
+      "program": "Programme:",
+      "programDataFromGdt": "Programme data received from GDT",
+      "programDetails": "Programme Details",
+      "programId": "Programme ID:",
+      "programRate": "Programme Rate",
+      "routeColor": "Route Colour"
+    },
+    "programCancelled": "Programme cancelled",
+    "proposal": {
+      "dccOverride": "This is a NOC override action."
+    },
+    "proposalAction": {
+      "dccOverride": "This is a NOC override action."
+    },
+    "statusBadge": {
+      "dccApproved": "NOC Approved",
+      "dccDenied": "NOC Denied"
     }
   },
   "tmr": {
@@ -465,148 +657,16 @@
       }
     },
     "trigger": {
-      "gdp": "Ground Delay Programme"
+      "dccInitiatedDesc": "TMR initiated by the Operations Centre",
+      "gdp": "Ground Delay Programme",
+      "gdpDesc": "Ground Delay Programme issuing EDCTs"
     }
   },
-  "org": {
-    "name": "CANOC",
-    "displayName": "CANOC",
-    "airspace": "Canadian Domestic Airspace",
-    "commandCenter": "National Operations Centre",
-    "facilityType": "ACC",
-    "facilityTypePlural": "ACCs"
-  },
-  "home": {},
-  "swim": {
-    "page": {
-      "flightsEndpoint": "List flights with filtering by airport, ACC, callsign, phase, and TMI status",
-      "licence": "Licence",
-      "tmiProgramsEndpoint": "Active TMI programmes (Ground Stops, GDPs)"
-    }
-  },
-  "privacy": {
-    "registrationText": "In order to use our services, you must be a registered and active VATSIM member. By logging into our services via the VATSIM Connent oAuth system, VATSIM provides information to CANOC for use on our website. When logging in via Connect, the information which is provided to our services is explicitly detailed and you must consent to this information being shared with us prior to logging in. Some parts of our systems are accessible without registration or authentication. Despite not being required to log in to these services with personal credentials, data will be logged. Data includes cookies, IP addresses, and other data which may result in you being identifiable. If you wish to utilize our services while retaining anonymity, this is possible by taking appropriate anonymisation measures within your browser's settings.",
-    "collectionIntro": "Information collected by CANOC, and responsible to the facility through the <a class=\"text-info\" href=\"https://www.vatsim.net/documents/data-protection-handling-policy\" target=\"_blank\">VATSIM Data Protection & Handling Policy</a>, and are displayed through this site in any matter, includes the following:",
-    "collectionItem2": "Details in regards to your VATSIM-specific \"controller\" identifier (CID) which is automatically generated through the vatsim.net services, and obtained by CANOC through the VATSIM Connect system.",
-    "collectionRemoval": "You, as a user of this website, under authority of CANOC, and a member under the VATSIM Network (vatsim.net); through the services of VATSIM, have the ability to request the removal of your data. To request your data be removed upon approval from VATSIM; through this website, you must contact vatusa9@vatusa.net (CC: vatusa14@vatusa.net).",
-    "sharingIntro": "The information collected by CANOC may be shared with the following parties:",
-    "cookiesText": "CANOC utilizes \"cookies\" that are stored through the user's hard drives, and are related to the client to store data relevant to each session that is created through the website. These cookies will allow you to view certain pages and functions not accessible to the general user.",
-    "thirdPartyText": "CANOC does, and will display links that may or not be affiliated with our party, and as such are not responsible for the privacy policies and policies of each 3rd-party website. Our party encourages members to read these policies before proceeding to utilize the sites.",
-    "securityText": "CANOC does not store passwords, and will not ask for passwords pertaining directly to our party. Our party will ensure that all data is properly secured, and these systems are protected and only granted authorization through explicitly granted access from permissions through the website, and the database.",
-    "changesText": "CANOC must ensure to notify all members affected of any changes to this policy. All information collected prior to the date of a new policy are subject to the old policy's material, and can not be changed in any way of share without proper consent."
-  },
-  "simulator": {
-    "page": {
-      "includedCenters": "Included Centres:"
-    }
-  },
-  "initiative": {
-    "tooltip": {
-      "siteArtcc": "Site/ACC"
-    }
-  },
-  "tmiActive": {
-    "entryType": {
-      "gdp": "Ground Delay Programme"
-    },
-    "optgroup": {
-      "dccRegions": "NOC Regions",
-      "artccsRegion": "FIRs - {region}",
-      "artccsOther": "FIRs - Other",
-      "majorTracons": "Major Terminals"
-    },
-    "detail": {
-      "program": "Programme:"
-    },
-    "edit": {
-      "programNotFound": "Could not find programme data"
-    },
-    "fallback": {
-      "program": "Programme"
-    },
-    "detailTable": {
-      "programType": "Programme Type:",
-      "programRate": "Programme Rate:",
-      "scopeCenters": "Scope Centres:",
-      "originCenters": "Origin Centres:",
-      "destCenters": "Dest Centres:"
-    },
-    "editLabel": {
-      "programRate": "Programme Rate",
-      "programRateHr": "Programme Rate (/hr)",
-      "originCenters": "Origin Centres",
-      "destCenters": "Dest Centres"
-    },
-    "scopeOption": {
-      "center": "Centre"
-    }
-  },
-  "footer": {},
   "weather": {
+    "colorFaaAtcDesc": "FAA ATC colour scheme",
+    "colorHighContrastDesc": "High contrast colour scheme",
+    "colorNwsDesc": "National Weather Service colour scheme",
+    "colorScopeDesc": "Radar scope colour scheme",
     "colors": "Colours:"
-  },
-  "nod": {
-    "page": {
-      "dccRegion": "NOC Region",
-      "departureArtcc": "Departure ACC",
-      "arrivalArtcc": "Arrival ACC",
-      "departureTracon": "Departure TCA",
-      "arrivalTracon": "Arrival TCA",
-      "groundDelayPrograms": "Ground Delay Programmes"
-    },
-    "tmi": {
-      "gdpInEffect": "Ground Delay Programme",
-      "linkedProgram": "Programme: {name}"
-    },
-    "colorMode": {
-      "dccRegion": "NOC Region",
-      "depCenter": "Dep Centre",
-      "arrCenter": "Arr Centre",
-      "depTracon": "Dep TCA",
-      "arrTracon": "Arr TCA"
-    },
-    "popup": {
-      "artcc": "ACC",
-      "currentArtcc": "Current ACC",
-      "depArtcc": "Dep ACC",
-      "arrArtcc": "Arr ACC"
-    },
-    "flows": {
-      "artccsGroup": "ACCs",
-      "traconsGroup": "TCAs",
-      "gateColorTitle": "Gate colour",
-      "colorTitle": "Colour"
-    }
-  },
-  "tmiCompliance": {
-    "reroute": {
-      "programHistory": "Programme History"
-    },
-    "map": {
-      "artcc": "ACC",
-      "tracon": "TCA"
-    },
-    "measuredAtBoundaryTitle": "Measured at ACC handoff point",
-    "programHistoryLabel": "Programme History",
-    "gsProgramSummary": "{count} programme",
-    "gsProgramSummaryPlural": "{count} programmes",
-    "rerouteSummary": "{count} programme ({mandatory} mandatory), {flights} flights, filed {pct}% compliant",
-    "rerouteSummaryPlural": "{count} programmes ({mandatory} mandatory), {flights} flights, filed {pct}% compliant"
-  },
-  "eventAar": {
-    "page": {
-      "quickApplyDesc": "Click a config to apply its rates to all hourly slots. Colours indicate weather:"
-    }
-  },
-  "fir": {
-    "domesticTitle": "Domestic (US/Canada ACC tiers)"
-  },
-  "advisoryConfig": {
-    "usDcc": "US NOC"
-  },
-  "publicRoutes": {
-    "changeColor": "Change colour",
-    "color": "Colour",
-    "routeColor": "Route Colour"
   }
 }
