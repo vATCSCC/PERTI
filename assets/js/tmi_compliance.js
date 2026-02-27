@@ -279,10 +279,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             title: PERTII18n.t('tmiCompliance.runAnalysisTitle'),
             html: `
                 <div class="text-left small">
-                    <p>This will analyze flight data against the configured TMIs for Plan ${this.planId}.</p>
-                    <p><strong>Note:</strong> Analysis typically takes 1-5 minutes depending on the number of TMIs and traffic volume. Large events may take longer.</p>
+                    <p>${PERTII18n.t('tmiCompliance.runAnalysisDesc', { planId: this.planId })}</p>
+                    <p><strong>${PERTII18n.t('common.note')}:</strong> ${PERTII18n.t('tmiCompliance.runAnalysisNote')}</p>
                     <p class="text-warning"><i class="fas fa-exclamation-triangle"></i>
-                       Make sure your TMI configuration is saved before running.</p>
+                       ${PERTII18n.t('tmiCompliance.runAnalysisSaveWarning')}</p>
                 </div>
             `,
             icon: 'question',
@@ -2824,7 +2824,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Required fix hit rate (expandable section)
         const reqFixesAll = data.required_fixes || [];
         if (reqFixesAll.length > 0 && allFlights.length > 0) {
-            html += this.renderExpandableSectionV2('reroute-fix-hits', 'Fix Hit Rate', `(${reqFixesAll.length} fixes)`, () => {
+            html += this.renderExpandableSectionV2('reroute-fix-hits', PERTII18n.t('tmiCompliance.fixHitRate'), `(${reqFixesAll.length} ${PERTII18n.t('tmiCompliance.fixes')})`, () => {
                 let fhtml = '<div class="fix-hit-rate-grid">';
                 reqFixesAll.forEach(fix => {
                     const filedHits = allFlights.filter(f => (f.filed_matched_fixes || []).includes(fix)).length;
@@ -2850,7 +2850,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         if (allFlights.length > 0) {
             const originGroups = {};
             allFlights.forEach(f => {
-                const key = f.dept || 'Unknown';
+                const key = f.dept || PERTII18n.t('common.unknown');
                 if (!originGroups[key]) originGroups[key] = { compliant: 0, nonCompliant: 0, total: 0 };
                 originGroups[key].total++;
                 const status = (f.final_status || '').toUpperCase();
@@ -2859,8 +2859,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             });
             const origEntries = Object.entries(originGroups).sort((a, b) => b[1].total - a[1].total);
             if (origEntries.length > 1) {
-                html += this.renderExpandableSectionV2('reroute-per-origin', 'Per-Origin Breakdown', `(${origEntries.length})`, () => {
-                    let ohtml = '<table class="tmi-pairs-table"><thead><tr><th>Origin</th><th>Flights</th><th>Compliant</th><th>Rate</th></tr></thead><tbody>';
+                html += this.renderExpandableSectionV2('reroute-per-origin', PERTII18n.t('tmiCompliance.perOriginBreakdown'), `(${origEntries.length})`, () => {
+                    let ohtml = `<table class="tmi-pairs-table"><thead><tr><th>${PERTII18n.t('tmiCompliance.origin')}</th><th>${PERTII18n.t('tmiCompliance.flights')}</th><th>${PERTII18n.t('tmiCompliance.compliant')}</th><th>${PERTII18n.t('tmiCompliance.rate')}</th></tr></thead><tbody>`;
                     origEntries.forEach(([orig, g]) => {
                         const rate = g.total > 0 ? Math.round(g.compliant / g.total * 100) : 0;
                         const cls = rate >= 80 ? 'text-success' : rate >= 50 ? 'text-warning' : 'text-danger';
@@ -2876,16 +2876,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const fixCoords = data.fix_coordinates || {};
         if (Object.keys(fixCoords).length > 0) {
             const rerouteMapId = 'reroute-map-' + (++this.detailIdCounter);
-            html += this.renderExpandableSectionV2('reroute-map', 'Route Map', '', () => {
+            html += this.renderExpandableSectionV2('reroute-map', PERTII18n.t('tmiCompliance.routeMap'), '', () => {
                 return `<div class="tmi-map-layer-controls" id="${rerouteMapId}_controls" style="background:rgba(30,30,30,0.9);border-bottom:1px solid #444;">
-                    <span class="layer-label" style="color:#aaa;">Layers:</span>
-                    <button class="layer-btn active" data-layer="rr-compliant" data-map="${rerouteMapId}" style="border-color:#4caf50;background:#4caf50;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Compliant</button>
-                    <button class="layer-btn active" data-layer="rr-partial" data-map="${rerouteMapId}" style="border-color:#ff9800;background:#ff9800;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Partial</button>
-                    <button class="layer-btn active" data-layer="rr-non_compliant" data-map="${rerouteMapId}" style="border-color:#f44336;background:#f44336;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Non-Compliant</button>
-                    <button class="layer-btn active" data-layer="rr-other" data-map="${rerouteMapId}" style="border-color:#888;background:#888;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Other</button>
+                    <span class="layer-label" style="color:#aaa;">${PERTII18n.t('tmiCompliance.map.layers')}:</span>
+                    <button class="layer-btn active" data-layer="rr-compliant" data-map="${rerouteMapId}" style="border-color:#4caf50;background:#4caf50;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('tmiCompliance.compliant')}</button>
+                    <button class="layer-btn active" data-layer="rr-partial" data-map="${rerouteMapId}" style="border-color:#ff9800;background:#ff9800;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('tmiCompliance.partial')}</button>
+                    <button class="layer-btn active" data-layer="rr-non_compliant" data-map="${rerouteMapId}" style="border-color:#f44336;background:#f44336;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('tmiCompliance.nonCompliant')}</button>
+                    <button class="layer-btn active" data-layer="rr-other" data-map="${rerouteMapId}" style="border-color:#888;background:#888;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('common.other')}</button>
                     <span class="layer-divider" style="color:#555;">|</span>
-                    <button class="layer-btn active" data-layer="rr-routes" data-map="${rerouteMapId}" style="border-color:#00bcd4;background:#00bcd4;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">Routes</button>
-                    <button class="layer-btn active" data-layer="rr-fixes" data-map="${rerouteMapId}" style="border-color:#ffc107;background:#ffc107;color:#000;" onclick="TMICompliance.toggleRerouteLayer(this)">Fixes</button>
+                    <button class="layer-btn active" data-layer="rr-routes" data-map="${rerouteMapId}" style="border-color:#00bcd4;background:#00bcd4;color:#fff;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('tmiCompliance.routes')}</button>
+                    <button class="layer-btn active" data-layer="rr-fixes" data-map="${rerouteMapId}" style="border-color:#ffc107;background:#ffc107;color:#000;" onclick="TMICompliance.toggleRerouteLayer(this)">${PERTII18n.t('tmiCompliance.mapFixes')}</button>
                 </div>
                 <div id="${rerouteMapId}" class="reroute-map-container" style="height:350px;border-radius:0 0 6px 6px;"></div>`;
             });
@@ -3136,14 +3136,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="tmi-card delay-card mb-3">
                 <div class="tmi-header">
                     <div>
-                        <span class="tmi-fix-name">Delay Overview</span>
-                        <span class="text-muted ml-2">| ${delays.length} entries across ${airports.length} airport(s)</span>
+                        <span class="tmi-fix-name">${PERTII18n.t('tmiCompliance.delay.overview')}</span>
+                        <span class="text-muted ml-2">| ${PERTII18n.t('tmiCompliance.delayEntriesAcrossAirports', { entries: delays.length, airports: airports.length })}</span>
                     </div>
                 </div>
                 <div class="tmi-stats">
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${delays.length}</div>
-                        <div class="tmi-stat-label">Total Updates</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.delay.totalUpdates')}</div>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value text-warning">${holdingEntries.length}</div>
@@ -3151,7 +3151,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     </div>
                     <div class="tmi-stat">
                         <div class="tmi-stat-value">${airports.length}</div>
-                        <div class="tmi-stat-label">Airports</div>
+                        <div class="tmi-stat-label">${PERTII18n.t('tmiCompliance.delay.airports')}</div>
                     </div>
                 </div>
             </div>
@@ -4026,19 +4026,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
                 <div class="tmi-map-collapse" id="${mapId}" style="display: none;">
                     <div class="tmi-map-layer-controls" id="${mapId}_controls" style="display: none;">
-                        <span class="layer-label">Layers:</span>
-                        <button class="layer-btn active" data-layer="artcc" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">ARTCC</button>
-                        <button class="layer-btn active" data-layer="tracon" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">TRACON</button>
-                        <button class="layer-btn" data-layer="sectors-low" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Low</button>
-                        <button class="layer-btn active" data-layer="sectors-high" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">High</button>
-                        <button class="layer-btn" data-layer="sectors-superhigh" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Super High</button>
+                        <span class="layer-label">${PERTII18n.t('tmiCompliance.map.layers')}:</span>
+                        <button class="layer-btn active" data-layer="artcc" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.artcc')}</button>
+                        <button class="layer-btn active" data-layer="tracon" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.tracon')}</button>
+                        <button class="layer-btn" data-layer="sectors-low" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.low')}</button>
+                        <button class="layer-btn active" data-layer="sectors-high" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.high')}</button>
+                        <button class="layer-btn" data-layer="sectors-superhigh" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.superHigh')}</button>
                         <span class="layer-divider">|</span>
-                        <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Tracks</button>
-                        <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Streams</button>
-                        <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Flow Cone</button>
-                        <button class="layer-btn branch-toggle-btn" data-map="${mapId}" onclick="TMICompliance.toggleBranches(this)" style="display:none"><i class="fas fa-code-branch"></i> Branches</button>
-                        <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Pairs</button>
-                        <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">Violations</button>
+                        <button class="layer-btn active" data-layer="tracks" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.tracks')}</button>
+                        <button class="layer-btn active" data-layer="flow-streams" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.streams')}</button>
+                        <button class="layer-btn active" data-layer="traffic-sectors" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.flowCone')}</button>
+                        <button class="layer-btn branch-toggle-btn" data-map="${mapId}" onclick="TMICompliance.toggleBranches(this)" style="display:none"><i class="fas fa-code-branch"></i> ${PERTII18n.t('tmiCompliance.map.branches')}</button>
+                        <button class="layer-btn" data-layer="pairs" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.pairs')}</button>
+                        <button class="layer-btn" data-layer="violations" data-map="${mapId}" onclick="TMICompliance.toggleLayer(this)">${PERTII18n.t('tmiCompliance.map.violationsLayer')}</button>
                         <span class="layer-divider">|</span>
                         <span class="cone-legend">
                             <span class="legend-item"><span class="legend-swatch cone-75"></span>75%</span>
@@ -4214,7 +4214,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 console.error('Map data fetch error:', err);
                 const is503 = err.message && err.message.includes('503');
                 if (is503) {
-                    this.showMapError(mapId, 'Map service temporarily unavailable (503). Close the map and reopen it to retry.');
+                    this.showMapError(mapId, PERTII18n.t('tmiCompliance.map.serviceUnavailable503'));
                 } else {
                     this.showMapError(mapId, PERTII18n.t('tmiCompliance.errorLoadingMapMsg', { error: err.message }));
                 }
@@ -4235,7 +4235,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const hasData = mapData.facilities?.length || mapData.fixes?.length ||
                         mapData.airports?.length || this.trajectoryCache[mapId];
         if (!hasData) {
-            container.innerHTML = '<div class="text-center text-muted py-4">No boundary data available</div>';
+            container.innerHTML = `<div class="text-center text-muted py-4">${PERTII18n.t('tmiCompliance.map.noBoundaryData')}</div>`;
             return;
         }
 
@@ -4289,7 +4289,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         map.on('error', (e) => {
             console.warn('Map error:', e.error?.message || e);
             if (e.error?.message?.includes('503') || e.error?.status === 503) {
-                this.showMapError(mapId, 'Map tiles unavailable (503). Close the map and reopen it to retry.');
+                this.showMapError(mapId, PERTII18n.t('tmiCompliance.map.tilesUnavailable503'));
             }
         });
 
@@ -6587,20 +6587,19 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 <div class="d-flex align-items-start">
                     <i class="fas fa-exclamation-triangle fa-lg mr-3 mt-1" style="color: #f0ad4e;"></i>
                     <div class="flex-grow-1">
-                        <strong>Trajectory Data Gaps Detected</strong>
+                        <strong>${PERTII18n.t('tmiCompliance.trajectoryGapsDetected')}</strong>
                         <p class="mb-2 mt-1" style="font-size: 0.9em;">
-                            Flight position data is missing for <strong>${totalHours} hour${totalHours !== 1 ? 's' : ''}</strong>
-                            during the analysis window. This may result in:
+                            ${PERTII18n.t('tmiCompliance.trajectoryGapsDesc', { hours: totalHours })}
                         </p>
                         <ul class="mb-2" style="font-size: 0.85em;">
-                            <li>Missing flights in TMI crossing analysis</li>
-                            <li>Underreported traffic counts</li>
-                            <li>Incomplete compliance calculations</li>
+                            <li>${PERTII18n.t('tmiCompliance.gapImpactMissing')}</li>
+                            <li>${PERTII18n.t('tmiCompliance.gapImpactUnderreported')}</li>
+                            <li>${PERTII18n.t('tmiCompliance.gapImpactIncomplete')}</li>
                         </ul>
                         <div class="small">
                             <button class="btn btn-sm btn-outline-warning" type="button"
                                     data-toggle="collapse" data-target="#dataGapDetails" aria-expanded="false">
-                                <i class="fas fa-list"></i> View Gap Details
+                                <i class="fas fa-list"></i> ${PERTII18n.t('tmiCompliance.viewGapDetails')}
                             </button>
                         </div>
                         <div class="collapse mt-2" id="dataGapDetails">

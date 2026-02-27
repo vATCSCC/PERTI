@@ -375,7 +375,15 @@
       "gdpCancel": "GDP Cancellation",
       "gdpCancelDesc": "Cancel an active Ground Delay Program",
       "gsCancel": "GS Cancellation",
-      "gsCancelDesc": "Cancel an active Ground Stop"
+      "gsCancelDesc": "Cancel an active Ground Stop",
+      "opsPlan": "Ops Plan",
+      "opsPlanDesc": "Operations Plan",
+      "freeForm": "Free-Form",
+      "freeFormDesc": "ATCSCC Advisory",
+      "hotline": "Hotline",
+      "hotlineDesc": "Activation/Term",
+      "swap": "SWAP",
+      "swapDesc": "Implementation Plan"
     },
     "gdpForm": {
       "title": "Ground Delay Program",
@@ -841,7 +849,10 @@
       "viaRouteFix": "Via Route/Fix",
       "weatherCategory": "Weather Category",
       "whenConfigActive": "When config becomes active",
-      "whenConfigExpires": "When config expires"
+      "whenConfigExpires": "When config expires",
+      "advisorySubjectPlaceholder": "Advisory Subject",
+      "advisoryTextPlaceholder": "Enter advisory text...",
+      "additionalCommentsPlaceholder": "Additional comments..."
     },
     "delay": {
       "enRouteDelay": "E/D (En Route Delay)",
@@ -880,7 +891,11 @@
       "terminatesRef": "This advisory terminates the referenced hotline activation.",
       "updatesRef": "This advisory updates the referenced hotline activation.",
       "confirmTerminationTime": "confirm the termination time",
-      "makeYourUpdates": "make your updates"
+      "makeYourUpdates": "make your updates",
+      "addressVatusa": "VATUSA TeamSpeak (ts.vatusa.net)",
+      "addressVatcan": "VATCAN TeamSpeak (ts.vatcan.ca)",
+      "addressDiscord": "vATCSCC Discord, Hotline Backup voice channel",
+      "notesPlaceholder": "Additional coordination notes..."
     },
     "swap": {
       "title": "SWAP (Severe Weather Avoidance Plan) Advisory",
@@ -906,7 +921,10 @@
       "weatherSynopsis": "Weather Synopsis",
       "activePlaybookRoutes": "Active Playbook Routes",
       "associatedRestrictions": "Associated Restrictions",
-      "additionalRemarks": "Additional Remarks"
+      "additionalRemarks": "Additional Remarks",
+      "weatherPlaceholder": "Describe weather conditions, movement, and forecast...",
+      "routesPlaceholder": "List active playbook routes (one per line)...\ne.g., ZNY-WEST GATE: J584 HARWL J60\nZBW-SOUTH: Q436 MERIT J174",
+      "notesPlaceholder": "Additional coordination information..."
     },
     "importBtn": "<i class=\"fas fa-download\"></i> Import",
     "selectBtn": "<i class=\"fas fa-check\"></i> Select",
@@ -920,7 +938,58 @@
       "preview": "Preview",
       "remove": "Remove",
       "clearAll": "Clear All",
-      "noPreview": "No preview available"
+      "noPreview": "No preview available",
+      "requiresCoord": "Requires coordination"
+    },
+    "generic": {
+      "entry": "Entry",
+      "tmi": "TMI"
+    },
+    "preview": {
+      "selectType": "Select an advisory type to begin..."
+    },
+    "progress": {
+      "processing": "Processing",
+      "postingProposals": "Posting <strong>{current} / {total}</strong> proposals to #coordination"
+    },
+    "error": {
+      "discordPostingFailed": "Discord posting failed",
+      "connectionError": "Connection error",
+      "failedToConnect": "Failed to connect to server.",
+      "failedToSubmit": "Failed to submit"
+    },
+    "results": {
+      "summary": "Summary",
+      "succeeded": "succeeded",
+      "proposalsPosted": "<strong>{count}</strong> proposal(s) posted to #coordination.",
+      "proposalIds": "Proposal IDs",
+      "awaitingApproval": "Awaiting facility approval.",
+      "entriesPublishedDirectly": "<strong>{count}</strong> entry(ies) published directly.",
+      "failedToSubmit": "Failed to submit <strong>{count}</strong> proposal(s).",
+      "submittedForCoord": "<strong>{count}</strong> submitted for coordination ({ids})",
+      "publishedDirectly": "<strong>{count}</strong> published directly",
+      "savedDiscordFailed": "<strong>{count}</strong> saved but Discord failed ({ids})",
+      "failedToSubmitCount": "<strong>{count}</strong> failed to submit"
+    },
+    "activeTmi": {
+      "loading": "Loading active TMIs...",
+      "loadFailed": "Failed to load TMIs",
+      "noActiveTmisDbError": "No active TMIs (database may not be configured)",
+      "noActiveTmis": "No active TMIs found",
+      "viewDetails": "View Details",
+      "detailsComingSoon": "{type} #{id} - Details view coming soon"
+    },
+    "cancelTmi": {
+      "text": "This will cancel {type} #{id}",
+      "confirmBtn": "Cancel TMI"
+    },
+    "modeIndicator": {
+      "production": "PRODUCTION",
+      "staging": "STAGING",
+      "submitToProduction": "Submit to Production",
+      "submitToStaging": "Submit to Staging",
+      "postsToStaging": "Entries will post to staging channels for review",
+      "postsToProduction": "Entries will post directly to LIVE Discord channels"
     },
     "coordination": {
       "submitted": "Submitted!",
@@ -994,12 +1063,6 @@
       "valid": "Valid:",
       "reqProv": "Req:Prov:"
     },
-    "modeIndicator": {
-      "submitToProduction": "Submit to Production",
-      "submitToStaging": "Submit to Staging",
-      "postsToStaging": "Entries will post to staging channels for review",
-      "postsToProduction": "Entries will post directly to LIVE Discord channels"
-    },
     "noneSelected": "None selected",
     "userProfile": "User Profile",
     "reopenProposal": {
@@ -1065,7 +1128,9 @@
       "publishAllApproved": "Publish All Approved ({count})",
       "publishNow": "Publish Now",
       "loadFailed": "Failed to load proposals",
-      "connectionFailed": "Failed to connect to server"
+      "connectionFailed": "Failed to connect to server",
+      "publishToDiscordNow": "Publish to Discord Now",
+      "reopenForCoord": "Reopen for coordination"
     },
     "statusBadge": {
       "dccApproved": "DCC Approved",
@@ -1095,7 +1160,12 @@
       "dccOverride": "This is a DCC override action.",
       "approving": "Approving...",
       "denying": "Denying...",
-      "failedToProcess": "Failed to process action"
+      "failedToProcess": "Failed to process action",
+      "approve": "approve",
+      "deny": "deny"
+    },
+    "deadline": {
+      "newDeadline": "New deadline: {time}"
     },
     "drafts": {
       "signInToSave": "Sign in to save drafts",
@@ -1261,7 +1331,10 @@
       "resetForm": "Reset Form?",
       "resetFormText": "This will clear all fields.",
       "cancelComingSoon": "Cancel functionality will be implemented shortly",
-      "publishedToProduction": "Entry published to production channels."
+      "publishedToProduction": "Entry published to production channels.",
+      "noRoutesLoaded": "No routes loaded. Use Route Plotter to create routes, or add manually.",
+      "generatePreviewHint": "Generate preview to see advisory text...",
+      "untitled": "Untitled"
     }
   },
   "reroute": {
@@ -2127,7 +2200,9 @@
       "proposalRemoved": "Proposal has been removed.",
       "deleteFailed": "Delete failed",
       "delayMinutes": "{delay} min",
-      "flightsCount": "{count} flights"
+      "flightsCount": "{count} flights",
+      "programRevisionHtml": "Program {programId} revision {revision}",
+      "programLabel": "Program {id}"
     },
     "advisoryPreview": {
       "notFound": "Advisory preview not found.",
@@ -2328,7 +2403,18 @@
       "simulationRequiredTmiText": "Please run 'Simulate' before submitting to TMI to verify impacts.",
       "handoffFailed": "TMI handoff failed",
       "totalDelay": "Total Delay",
-      "viewFlightList": "View Flight List"
+      "viewFlightList": "View Flight List",
+      "activateConfirmTitle": "Activate GS Program {id}?",
+      "activateConfirmText": "This will activate the GS program and apply EDCTs to affected flights.",
+      "causeGroundStop": "Ground Stop",
+      "causeGdp": "Ground Delay Program",
+      "error": {
+        "failedToCreateProgram": "Failed to create program",
+        "failedToModel": "Failed to model GS program",
+        "failedToSimulate": "Failed to simulate program",
+        "whatIfFailed": "What-if simulation failed",
+        "failedToActivate": "Failed to activate GS program"
+      }
     },
     "purge": {
       "purgeAllTitle": "Purge All GS Programs?",
@@ -3279,7 +3365,11 @@
   },
   "aircraft": {
     "one": "{count} aircraft",
-    "other": "{count} aircraft"
+    "other": "{count} aircraft",
+    "legendWeightJ": "J (Super)",
+    "legendWeightH": "H (Heavy)",
+    "legendWeightL": "L (Large)",
+    "legendWeightS": "S (Small)"
   },
   "jatoc": {
     "layers": {
@@ -4457,7 +4547,10 @@
       "hideRoute": "✓ Hide Route",
       "loadingRoute": "⏳ Loading...",
       "featuresAtLocation": "{count} features at this location",
-      "restriction": "Restriction"
+      "restriction": "Restriction",
+      "unassigned": "Unassigned",
+      "unknownRoute": "Unknown Route",
+      "incident": "Incident"
     },
     "time": {
       "ufn": "UFN"
@@ -5505,7 +5598,9 @@
       "loadingMap": "Loading map...",
       "failedToLoadMapData": "Failed to load map data",
       "errorLoadingMap": "Error loading map: {error}",
-      "noBoundaryData": "No boundary data available"
+      "noBoundaryData": "No boundary data available",
+      "serviceUnavailable503": "Map service temporarily unavailable (503). Close the map and reopen it to retry.",
+      "tilesUnavailable503": "Map tiles unavailable (503). Close the map and reopen it to retry."
     },
     "noData": "No TMI compliance data available for this event.",
     "noDataHint": "Run the analysis script to generate results.",
@@ -6621,7 +6716,8 @@
       "cancelled": "Cancelled {count} TMI(s).",
       "postedAdvisories": "Posted {count} advisory(ies).",
       "partial": "Batch Cancel Partial",
-      "failedToCancel": "Failed to cancel {count}:"
+      "failedToCancel": "Failed to cancel {count}:",
+      "reason": "Batch cancellation"
     },
     "advisoryBatchCancel": {
       "title": "Cancel {count} Advisory(ies)?",
@@ -6846,7 +6942,10 @@
       "center": "Center",
       "all": "All"
     },
-    "saveChangesBtn": "<i class=\"fas fa-save\"></i> Save Changes"
+    "saveChangesBtn": "<i class=\"fas fa-save\"></i> Save Changes",
+    "error": {
+      "requestFailed": "Request failed"
+    }
   },
   "publicRoutes": {
     "noApiKey": "No API key",

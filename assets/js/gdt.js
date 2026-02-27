@@ -787,8 +787,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: PERTII18n.t('gdt.dashboard.programRevised'),
-                        html: 'Program #' + programId + ' revision #' +
-                            (resp.data ? resp.data.revision_number : '?') +
+                        html: PERTII18n.t('gdt.dashboard.programRevisionHtml', { programId: programId, revision: (resp.data ? resp.data.revision_number : '?') }) +
                             '<br><small class="text-muted">' + escapeHtml(changesText) + '</small>',
                         timer: 4000,
                         showConfirmButton: false
@@ -1215,7 +1214,7 @@
 
     function dashboardDelete(programId) {
         var prog = findDashboardProgram(programId);
-        var label = prog ? escapeHtml(prog.program_type + ' ' + (prog.ctl_element || '')) : 'Program #' + programId;
+        var label = prog ? escapeHtml(prog.program_type + ' ' + (prog.ctl_element || '')) : PERTII18n.t('gdt.dashboard.programLabel', { id: programId });
 
         Swal.fire({
             title: PERTII18n.t('gdt.dashboard.deleteTitle', { label: label }),
@@ -5265,9 +5264,9 @@
     function showGsActivationConfirmation(workflowPayload) {
         if (!window.Swal) {
             return showConfirmDialog(
-                'Activate GS Program ' + GS_CURRENT_PROGRAM_ID + '?',
-                'This will activate the GS program and apply EDCTs to affected flights.',
-                'Activate & Publish',
+                PERTII18n.t('gdt.gs.activateConfirmTitle', { id: GS_CURRENT_PROGRAM_ID }),
+                PERTII18n.t('gdt.gs.activateConfirmText'),
+                PERTII18n.t('gdt.gs.activateAndPublish'),
                 'warning',
             );
         }
@@ -5416,7 +5415,7 @@
             scope_json: scopeJson,
             exempt_airborne: true,
             impacting_condition: workflowPayload.gs_impacting_condition || 'WEATHER',
-            cause_text: workflowPayload.gs_comments || (selectedProgramType === 'GS' ? 'Ground Stop' : 'Ground Delay Program'),
+            cause_text: workflowPayload.gs_comments || (selectedProgramType === 'GS' ? PERTII18n.t('gdt.gs.causeGroundStop') : PERTII18n.t('gdt.gs.causeGdp')),
             created_by: 'TMU',
         };
 
@@ -5441,7 +5440,7 @@
         return createStep
             .then(function(createResp) {
                 if (createResp.status !== 'ok' || !createResp.data || !createResp.data.program_id) {
-                    throw new Error(createResp.message || 'Failed to create program');
+                    throw new Error(createResp.message || PERTII18n.t('gdt.gs.error.failedToCreateProgram'));
                 }
 
                 var programId = createResp.data.program_id;
@@ -5459,7 +5458,7 @@
             })
             .then(function(modelResp) {
                 if (modelResp.status !== 'ok') {
-                    throw new Error(modelResp.message || 'Failed to model GS program');
+                    throw new Error(modelResp.message || PERTII18n.t('gdt.gs.error.failedToModel'));
                 }
 
                 let flights = (modelResp.data && modelResp.data.flights) || [];
@@ -5537,7 +5536,7 @@
         })
             .then(function(simResp) {
                 if (simResp.status !== 'ok') {
-                    throw new Error(simResp.message || 'Failed to simulate program');
+                    throw new Error(simResp.message || PERTII18n.t('gdt.gs.error.failedToSimulate'));
                 }
 
                 let flights = (simResp.data && simResp.data.flights) || [];
@@ -5627,7 +5626,7 @@
         return apiPostJson(GS_API.simulate, body)
             .then(function(resp) {
                 if (resp.status !== 'ok') {
-                    throw new Error(resp.message || 'What-if simulation failed');
+                    throw new Error(resp.message || PERTII18n.t('gdt.gs.error.whatIfFailed'));
                 }
 
                 var flights = (resp.data && resp.data.flights) || [];
@@ -5698,7 +5697,7 @@
             })
                 .then(function(activateResp) {
                     if (activateResp.status !== 'ok') {
-                        throw new Error(activateResp.message || 'Failed to activate GS program');
+                        throw new Error(activateResp.message || PERTII18n.t('gdt.gs.error.failedToActivate'));
                     }
 
                     GS_CURRENT_PROGRAM_STATUS = 'ACTIVE';

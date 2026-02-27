@@ -268,11 +268,13 @@
     max-height: none;
     border: none;
     background: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.25) rgba(0,0,0,0.05);
 }
-.pb-play-list-wrap::-webkit-scrollbar { width: 6px; }
-.pb-play-list-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); border-radius: 3px; }
-.pb-play-list-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 3px; }
-.pb-play-list-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+.pb-play-list-wrap::-webkit-scrollbar { width: 8px; }
+.pb-play-list-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 4px; }
+.pb-play-list-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 4px; min-height: 40px; }
+.pb-play-list-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.4); }
 
 .pb-play-list {
     list-style: none;
@@ -697,6 +699,7 @@
     white-space: nowrap;
     user-select: none;
     margin-left: 0.5rem;
+    text-indent: 0;
 }
 .pb-region-toggle input { margin-right: 2px; }
 

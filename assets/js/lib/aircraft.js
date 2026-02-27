@@ -205,11 +205,19 @@
         '': '#6c757d',
     };
 
+    // Weight class labels resolved via i18n (existing keys: weightClass.J/H/L/S)
+    function _wcLabel(code) {
+        if (typeof PERTII18n !== 'undefined') {
+            return PERTII18n.t('weightClass.' + code);
+        }
+        var fallback = { J: 'Super', H: 'Heavy', L: 'Large', S: 'Small' };
+        return fallback[code] || code;
+    }
     const WEIGHT_CLASS_LABELS = {
-        'SUPER': 'Super', 'J': 'Super',
-        'HEAVY': 'Heavy', 'H': 'Heavy',
-        'LARGE': 'Large', 'L': 'Large',
-        'SMALL': 'Small', 'S': 'Small',
+        get SUPER() { return _wcLabel('J'); }, get J() { return _wcLabel('J'); },
+        get HEAVY() { return _wcLabel('H'); }, get H() { return _wcLabel('H'); },
+        get LARGE() { return _wcLabel('L'); }, get L() { return _wcLabel('L'); },
+        get SMALL() { return _wcLabel('S'); }, get S() { return _wcLabel('S'); },
     };
 
     // ===========================================
@@ -418,7 +426,7 @@
      */
     function getManufacturerName(acType) {
         const mfr = getManufacturer(acType);
-        return AIRCRAFT_MANUFACTURERS[mfr]?.name || 'Other';
+        return AIRCRAFT_MANUFACTURERS[mfr]?.name || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.other') : 'Other');
     }
 
     /**
@@ -447,7 +455,7 @@
      */
     function getConfigName(acType) {
         const cfg = getConfig(acType);
-        return AIRCRAFT_CONFIG[cfg]?.name || 'Other';
+        return AIRCRAFT_CONFIG[cfg]?.name || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.other') : 'Other');
     }
 
     /**
@@ -499,7 +507,7 @@
      * @returns {string} - Display name (e.g., 'Super', 'Upper Heavy')
      */
     function getRecatName(category) {
-        return RECAT_CATEGORIES[category]?.name || 'Unknown';
+        return RECAT_CATEGORIES[category]?.name || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.unknown') : 'Unknown');
     }
 
     /**
@@ -546,7 +554,7 @@
      * @returns {string} - Display label
      */
     function getWeightClassLabel(wc) {
-        return WEIGHT_CLASS_LABELS[normalizeWeightClass(wc)] || 'Unknown';
+        return WEIGHT_CLASS_LABELS[normalizeWeightClass(wc)] || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.unknown') : 'Unknown');
     }
 
     /**
@@ -590,7 +598,7 @@
             .concat([{
                 key: 'OTHER',
                 color: AIRCRAFT_MANUFACTURERS.OTHER.color,
-                label: 'Other',
+                label: (typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.other') : 'Other',
             }]);
     }
 
@@ -632,11 +640,12 @@
      * @returns {Array} - Array of { key, color, label } objects
      */
     function getWeightClassLegend() {
+        var t = (typeof PERTII18n !== 'undefined') ? PERTII18n.t.bind(PERTII18n) : null;
         return [
-            { key: 'J', color: WEIGHT_CLASS_COLORS['J'], label: 'J (Super)' },
-            { key: 'H', color: WEIGHT_CLASS_COLORS['H'], label: 'H (Heavy)' },
-            { key: 'L', color: WEIGHT_CLASS_COLORS['L'], label: 'L (Large)' },
-            { key: 'S', color: WEIGHT_CLASS_COLORS['S'], label: 'S (Small)' },
+            { key: 'J', color: WEIGHT_CLASS_COLORS['J'], label: t ? t('aircraft.legendWeightJ') : 'J (Super)' },
+            { key: 'H', color: WEIGHT_CLASS_COLORS['H'], label: t ? t('aircraft.legendWeightH') : 'H (Heavy)' },
+            { key: 'L', color: WEIGHT_CLASS_COLORS['L'], label: t ? t('aircraft.legendWeightL') : 'L (Large)' },
+            { key: 'S', color: WEIGHT_CLASS_COLORS['S'], label: t ? t('aircraft.legendWeightS') : 'S (Small)' },
         ];
     }
 
