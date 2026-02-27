@@ -2393,8 +2393,17 @@
      * @returns {string} Display name
      */
     function getSUATypeName(suaType) {
-        if (!suaType) return 'Other';
-        return SUA_TYPE_NAMES[suaType.toUpperCase()] || SUA_TYPE_NAMES[suaType] || 'Other';
+        if (!suaType) {
+            return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.other') : 'Other';
+        }
+        var key = suaType.toUpperCase();
+        // Try i18n lookup first
+        if (typeof PERTII18n !== 'undefined') {
+            var i18nKey = 'sua.typeNames.' + (SUA_TYPE_NAMES[key] !== undefined ? key : suaType);
+            var translated = PERTII18n.t(i18nKey);
+            if (translated !== i18nKey) return translated;
+        }
+        return SUA_TYPE_NAMES[key] || SUA_TYPE_NAMES[suaType] || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('common.other') : 'Other');
     }
 
     /**

@@ -6011,7 +6011,7 @@
 
         // Try to find frequency from various possible property names
         const frequency = props.frequency || props.freq || props.radio_freq || '';
-        const positionName = props.position_name || 'Unassigned';
+        const positionName = props.position_name || PERTII18n.t('nod.popup.unassigned');
         const posColor = props.color || '#6c757d';
 
         const html = `
@@ -6047,10 +6047,10 @@
      * Show popup for a public route
      */
     function showRoutePopup(props, lngLat) {
-        const routeName = props.name || props.route_name || 'Unknown Route';
+        const routeName = props.name || props.route_name || PERTII18n.t('nod.popup.unknownRoute');
         const origin = props.origin || props.dep || '???';
         const dest = props.destination || props.dest || props.arr || '???';
-        const status = props.status || 'Active';
+        const status = props.status || PERTII18n.t('status.active');
 
         const html = `
             <div style="font-family: 'Consolas', monospace; font-size: 12px; min-width: 160px;">
@@ -6181,19 +6181,19 @@
                 case 'route':
                     icon = '↗';
                     iconClass = 'route';
-                    label = props.name || props.route_name || 'Route';
+                    label = props.name || props.route_name || PERTII18n.t('nod.popup.route');
                     sublabel = `${props.origin || props.dep || '???'} → ${props.destination || props.dest || '???'}`;
                     break;
                 case 'incident':
                     icon = '⚠';
                     iconClass = 'incident';
-                    label = props.facility || 'Incident';
+                    label = props.facility || PERTII18n.t('nod.popup.incident');
                     sublabel = props.incident_type || props.type || props.status || '';
                     break;
                 case 'split': {
                     icon = '▣';
                     iconClass = 'split';
-                    label = props.position_name || props.id || 'Sector';
+                    label = props.position_name || props.id || PERTII18n.t('nod.popup.sector');
                     const sectorId = props.sector || props.id || props.label || '';
                     const sectorArtcc = props.artcc || '';
                     sublabel = sectorArtcc && sectorId ? `${sectorArtcc}${sectorId}` : (sectorArtcc || sectorId);

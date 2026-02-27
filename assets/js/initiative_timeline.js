@@ -762,7 +762,7 @@ class InitiativeTimeline {
             const dt = this.parseUTC(d);
             return `${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}-${dt.getUTCFullYear()} ${String(dt.getUTCHours()).padStart(2,'0')}${String(dt.getUTCMinutes()).padStart(2,'0')}Z`;
         };
-        return `${fmt(s)} to ${fmt(e)}`;
+        return `${fmt(s)} ${PERTII18n.t('initiative.timeTo')} ${fmt(e)}`;
     }
 
     renderTimeline() {
@@ -1365,7 +1365,21 @@ class InitiativeTimeline {
     handleDelete() {
         const id = document.getElementById(`${this.modalId}-id`).value;
         if (!id) {return;}
-        if (confirm(PERTII18n.t('initiative.confirmDelete'))) {this.deleteItem(id);}
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: PERTII18n.t('common.confirm'),
+                text: PERTII18n.t('initiative.confirmDelete'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: PERTII18n.t('common.yesDelete'),
+                cancelButtonText: PERTII18n.t('common.cancel'),
+            }).then(result => {
+                if (result.isConfirmed) {this.deleteItem(id);}
+            });
+        } else if (confirm(PERTII18n.t('initiative.confirmDelete'))) {
+            this.deleteItem(id);
+        }
     }
 
     async deleteItem(id) {

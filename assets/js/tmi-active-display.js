@@ -630,7 +630,7 @@
                 data: JSON.stringify({
                     entityType: item.entityType,
                     entityId: item.entityId,
-                    reason: 'Batch cancellation',
+                    reason: PERTII18n.t('tmiActive.batchCancel.reason'),
                     userCid: userCid,
                     userName: userName,
                     postAdvisory: canPostAdvisory,
@@ -648,7 +648,7 @@
                     }
                 },
                 error: function(xhr) {
-                    failures.push({ id: item.entityId, error: xhr.responseJSON?.error || 'Request failed' });
+                    failures.push({ id: item.entityId, error: xhr.responseJSON?.error || PERTII18n.t('tmiActive.error.requestFailed') });
                 },
                 complete: function() {
                     processNext(index + 1);
@@ -979,10 +979,10 @@
                 <td class="text-center">
                     ${canSelect ? `
                     <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="Edit">
+                        <button class="btn btn-xs btn-outline-primary btn-edit-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="${PERTII18n.t('common.edit')}">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="Cancel">
+                        <button class="btn btn-xs btn-outline-danger btn-cancel-tmi" data-id="${item.entityId}" data-type="${item.entityType}" data-subtype="${item.type || ''}" title="${PERTII18n.t('common.cancel')}">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>

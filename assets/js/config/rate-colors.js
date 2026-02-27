@@ -29,11 +29,11 @@ const RATE_LINE_CONFIG = {
     active: {
         vatsim: {
             color: '#000000',      // Black
-            label: 'VATSIM',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.vatsim') : 'VATSIM'; },
         },
         rw: {
             color: '#00FFFF',      // Cyan
-            label: 'Real World',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.realWorld') : 'Real World'; },
         },
     },
 
@@ -41,11 +41,11 @@ const RATE_LINE_CONFIG = {
     suggested: {
         vatsim: {
             color: '#6b7280',      // Gray
-            label: 'VATSIM (Suggested)',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.vatsimSuggested') : 'VATSIM (Suggested)'; },
         },
         rw: {
             color: '#0d9488',      // Teal
-            label: 'Real World (Suggested)',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.realWorldSuggested') : 'Real World (Suggested)'; },
         },
     },
 
@@ -53,11 +53,11 @@ const RATE_LINE_CONFIG = {
     custom: {
         vatsim: {
             color: '#000000',      // Black (dotted line style applied separately)
-            label: 'VATSIM (Dynamic)',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.vatsimDynamic') : 'VATSIM (Dynamic)'; },
         },
         rw: {
             color: '#00FFFF',      // Cyan (dotted line style applied separately)
-            label: 'Real World (Dynamic)',
+            get label() { return (typeof PERTII18n !== 'undefined') ? PERTII18n.t('rateColors.realWorldDynamic') : 'Real World (Dynamic)'; },
         },
     },
 
@@ -108,13 +108,16 @@ const RATE_LINE_CONFIG = {
         'VLIMC': '#dc2626',        // Dark red - Very low IMC
     },
 
-    // Weather category labels
-    weatherLabels: {
-        'VMC': 'VMC',
-        'LVMC': 'Low VMC',
-        'IMC': 'IMC',
-        'LIMC': 'Low IMC',
-        'VLIMC': 'Very Low IMC',
+    // Weather category labels (resolved via i18n when available)
+    get weatherLabels() {
+        var t = (typeof PERTII18n !== 'undefined') ? PERTII18n.t.bind(PERTII18n) : null;
+        return {
+            'VMC': t ? t('rateColors.weatherVmc') : 'VMC',
+            'LVMC': t ? t('rateColors.weatherLvmc') : 'Low VMC',
+            'IMC': t ? t('rateColors.weatherImc') : 'IMC',
+            'LIMC': t ? t('rateColors.weatherLimc') : 'Low IMC',
+            'VLIMC': t ? t('rateColors.weatherVlimc') : 'Very Low IMC',
+        };
     },
 };
 
