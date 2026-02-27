@@ -261,6 +261,10 @@
         const locale = detectLocale();
         const strings = loadLocaleSync(locale);
 
+        // Cache-busting suffix from PHP filemtime (injected by header.php)
+        var cacheBust = (typeof window !== 'undefined' && window.PERTI_LOCALE_V)
+            ? '?v=' + window.PERTI_LOCALE_V : '';
+
         PERTII18n.setLocale(locale);
         PERTII18n.loadStrings(strings, true); // Load as fallback
 
@@ -271,7 +275,7 @@
         if (locale !== 'en-US') {
             try {
                 var xhrFallback = new XMLHttpRequest();
-                xhrFallback.open('GET', 'assets/locales/en-US.json', false);
+                xhrFallback.open('GET', 'assets/locales/en-US.json' + cacheBust, false);
                 xhrFallback.send();
                 if (xhrFallback.status === 200) {
                     var fallbackData = JSON.parse(xhrFallback.responseText);
@@ -286,7 +290,7 @@
         // Load full locale JSON synchronously for page-specific keys (nod.*, demand.*, etc.)
         try {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'assets/locales/' + locale + '.json', false);
+            xhr.open('GET', 'assets/locales/' + locale + '.json' + cacheBust, false);
             xhr.send();
             if (xhr.status === 200) {
                 var fullData = JSON.parse(xhr.responseText);

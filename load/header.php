@@ -119,6 +119,7 @@ window.PERTI_ORG = {
 </script>
 
 <!-- Internationalization (i18n) -->
+<script>window.PERTI_LOCALE_V = '<?= @filemtime($_rootDir . "/assets/locales/en-US.json") ?: time() ?>';</script>
 <script src="<?= $filepath; ?>assets/js/lib/i18n.js<?= _v('assets/js/lib/i18n.js') ?>"></script>
 <script src="<?= $filepath; ?>assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
 
