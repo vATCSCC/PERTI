@@ -166,9 +166,9 @@
                 { code: 'REGIONAL', label: 'REGIONAL', desc: PERTII18n.t('tmiPublish.qualifiers.operatorDesc.regional') },
             ],
             altitude: [
-                { code: 'AOB', label: 'At or Below', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aob') },
-                { code: 'AOA', label: 'At or Above', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aoa') },
-                { code: 'BETWEEN', label: 'Between', desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.between') },
+                { code: 'AOB', label: PERTII18n.t('tmiPublish.qualifiers.altitudeLabel.aob'), desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aob') },
+                { code: 'AOA', label: PERTII18n.t('tmiPublish.qualifiers.altitudeLabel.aoa'), desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.aoa') },
+                { code: 'BETWEEN', label: PERTII18n.t('tmiPublish.qualifiers.altitudeLabel.between'), desc: PERTII18n.t('tmiPublish.qualifiers.altitudeDesc.between') },
             ],
         };
 
