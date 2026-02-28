@@ -885,6 +885,25 @@
     background: transparent;
     border: 2px solid;
 }
+.pb-legend-divider {
+    border-top: 1px solid rgba(255,255,255,0.2);
+    margin: 3px 0;
+}
+.pb-legend-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.55rem;
+    cursor: pointer;
+    margin: 0;
+    line-height: 1.4;
+}
+.pb-legend-toggle input[type="checkbox"] {
+    margin: 0;
+    width: 10px;
+    height: 10px;
+    accent-color: #28a745;
+}
 
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 991px) {
