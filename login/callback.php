@@ -147,8 +147,59 @@ if (isset($_GET['code'])) {
                 exit;
 
             } else {
-                // Error: Not on Rosters
-                echo 'You do not appear on the list of priveleged users for this system.';
+                // User not in PERTI staff table — check if this is a SWIM login
+                $return_url = $_SESSION['LOGIN_RETURN_URL'] ?? '';
+                $is_swim_login = (stripos($return_url, 'swim') !== false);
+
+                if ($is_swim_login) {
+                    // SWIM-only login: create limited session for API key self-service
+                    $personal = $obj_at['data']['personal'] ?? [];
+                    $vatsim_data = $obj_at['data']['vatsim'] ?? [];
+                    $first_name = $personal['name_first'] ?? '';
+                    $last_name = $personal['name_last'] ?? '';
+                    $email = $personal['email'] ?? '';
+                    $rating = $vatsim_data['rating']['short'] ?? '';
+                    $division = $vatsim_data['division']['id'] ?? '';
+
+                    // Upsert into swim_users table
+                    $swim_stmt = mysqli_prepare($conn_sqli,
+                        "INSERT INTO swim_users (cid, first_name, last_name, email, vatsim_rating, vatsim_division)
+                         VALUES (?, ?, ?, ?, ?, ?)
+                         ON DUPLICATE KEY UPDATE
+                             first_name = VALUES(first_name),
+                             last_name = VALUES(last_name),
+                             email = VALUES(email),
+                             vatsim_rating = VALUES(vatsim_rating),
+                             vatsim_division = VALUES(vatsim_division),
+                             last_login_at = CURRENT_TIMESTAMP");
+                    mysqli_stmt_bind_param($swim_stmt, "isssss", $cid, $first_name, $last_name, $email, $rating, $division);
+                    mysqli_stmt_execute($swim_stmt);
+                    mysqli_stmt_close($swim_stmt);
+
+                    // Create limited session
+                    unset($_SESSION['LOGIN_RETURN_URL']);
+                    session_regenerate_id();
+                    $_SESSION['VATSIM_CID'] = strip_tags($cid ?? '');
+                    $_SESSION['VATSIM_FIRST_NAME'] = strip_tags($first_name ?? '');
+                    $_SESSION['VATSIM_LAST_NAME'] = strip_tags($last_name ?? '');
+                    $_SESSION['VATSIM_EMAIL'] = strip_tags($email ?? '');
+                    $_SESSION['SWIM_ONLY'] = true;
+
+                    // Redirect back to SWIM page
+                    $redirect_to = '../swim-keys';
+                    if ($return_url) {
+                        $parsed = parse_url($return_url);
+                        $current_host = $_SERVER['HTTP_HOST'] ?? '';
+                        if (!isset($parsed['host']) || $parsed['host'] === $current_host) {
+                            $redirect_to = $return_url;
+                        }
+                    }
+                    header('Location: ' . $redirect_to);
+                    exit;
+                } else {
+                    // Not a SWIM login and not in users table — show error
+                    echo 'You do not appear on the list of priveleged users for this system.';
+                }
             }
 
         } else {

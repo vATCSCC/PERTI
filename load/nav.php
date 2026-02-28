@@ -24,7 +24,7 @@ if (!defined('DEV')) {
         // Getting CID Value
         $cid = session_get('VATSIM_CID', '');
         $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check) {
+        if ($p_check && $p_check->num_rows > 0) {
             $perm = true;
         }
     }
@@ -33,6 +33,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
+$swim_only = !empty($_SESSION['SWIM_ONLY']);
 $filepath = "";
 
 // ============================================================================
@@ -251,6 +252,15 @@ if (!function_exists('render_dropdown')) {
                     </a>
                 </li>
             </ul>
+        <?php elseif ($swim_only): ?>
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= $filepath; ?>logout" id="profile">
+                        <i class="fas fa-user-circle"></i> <?= $_SESSION['VATSIM_FIRST_NAME'] . " " . $_SESSION['VATSIM_LAST_NAME']; ?>
+                        <span class="badge badge-info ml-1" style="font-size:0.65rem;">SWIM</span>
+                    </a>
+                </li>
+            </ul>
         <?php else: ?>
             <a class="btn btn-sm btn-danger" href="<?= $filepath; ?>login" rel="noopener">
                 <i class="fas fa-user font-size-lg mr-2"></i><?= __('nav.login') ?>
@@ -309,6 +319,12 @@ if (!function_exists('render_dropdown')) {
                 <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
                     <a class="mobile-nav-link" href="<?= $filepath ?>logout">
                         <i class="fas fa-sign-out-alt mr-2"></i><?= __('nav.logout') ?> (<?= $_SESSION['VATSIM_FIRST_NAME'] ?>)
+                    </a>
+                </li>
+            <?php elseif ($swim_only): ?>
+                <li class="mobile-nav-standalone" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a class="mobile-nav-link" href="<?= $filepath ?>logout">
+                        <i class="fas fa-sign-out-alt mr-2"></i><?= __('nav.logout') ?> (<?= $_SESSION['VATSIM_FIRST_NAME'] ?> - SWIM)
                     </a>
                 </li>
             <?php else: ?>
