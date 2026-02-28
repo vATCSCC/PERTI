@@ -1261,6 +1261,54 @@ $(document).ready(function() {
             layout: { 'visibility': 'none' },
         });
 
+        // 2a. TRACON Search Highlight fills (playbook search integration)
+        graphic_map.addLayer({
+            id: 'tracon-search-include', type: 'fill', source: 'tracon',
+            paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+            filter: ['in', 'sector', ''],
+        });
+        graphic_map.addLayer({
+            id: 'tracon-search-exclude', type: 'fill', source: 'tracon',
+            paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.25 },
+            filter: ['in', 'sector', ''],
+        });
+
+        // 3a. Sector Search Highlight fills — high sectors (filter on `label`, e.g. "ZAB15")
+        graphic_map.addLayer({
+            id: 'high-sector-search-include', type: 'fill', source: 'high-splits',
+            paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+        graphic_map.addLayer({
+            id: 'high-sector-search-exclude', type: 'fill', source: 'high-splits',
+            paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+
+        // 3b. Sector Search Highlight fills — low sectors
+        graphic_map.addLayer({
+            id: 'low-sector-search-include', type: 'fill', source: 'low-splits',
+            paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+        graphic_map.addLayer({
+            id: 'low-sector-search-exclude', type: 'fill', source: 'low-splits',
+            paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+
+        // 3c. Sector Search Highlight fills — superhigh sectors
+        graphic_map.addLayer({
+            id: 'superhigh-sector-search-include', type: 'fill', source: 'superhigh-splits',
+            paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+        graphic_map.addLayer({
+            id: 'superhigh-sector-search-exclude', type: 'fill', source: 'superhigh-splits',
+            paint: { 'fill-color': '#dc3545', 'fill-opacity': 0.25 },
+            filter: ['in', 'label', ''],
+        });
+
         // 4. ARTCC Boundaries
         graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({

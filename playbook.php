@@ -64,6 +64,13 @@ include("load/nav.php");
             <div class="pb-legend-item"><span class="pb-legend-swatch" style="background:#9C27B0;opacity:0.4;"></span> <?= __('playbook.legendTraversed') ?></div>
             <div class="pb-legend-item"><span class="pb-legend-swatch-border" style="border-color:#28a745;"></span> <?= __('playbook.legendIncluded') ?></div>
             <div class="pb-legend-item"><span class="pb-legend-swatch-border" style="border-color:#dc3545;"></span> <?= __('playbook.legendExcluded') ?></div>
+            <div class="pb-legend-divider"></div>
+            <div class="pb-map-legend-title"><?= __('playbook.legendHighlightLayers') ?></div>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="artcc" checked> <?= __('playbook.legendArtcc') ?></label>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="tracon" checked> <?= __('playbook.legendTracon') ?></label>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorHigh" checked> <?= __('playbook.legendSectorHigh') ?></label>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorLow" checked> <?= __('playbook.legendSectorLow') ?></label>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorSuperhigh" checked> <?= __('playbook.legendSectorSuperhigh') ?></label>
         </div>
     </div>
 

@@ -345,8 +345,19 @@
     }
 
     // =========================================================================
-    // MAP FACILITY HIGHLIGHTING — color ARTCC boundaries based on search
+    // MAP FACILITY HIGHLIGHTING — color ARTCC/sector/TRACON boundaries on search
     // =========================================================================
+
+    // Toggle state for highlight tiers (persisted via legend checkboxes)
+    var highlightToggles = {
+        artcc: true,
+        tracon: true,
+        sectorLow: true,
+        sectorHigh: true,
+        sectorSuperhigh: true,
+    };
+    // Cache last clauses so toggles can reapply without re-parsing
+    var lastHighlightClauses = [];
 
     /**
      * Convert a facility code to ICAOCODE format used in artcc.json.
@@ -363,72 +374,124 @@
     }
 
     /**
+     * Classify a search term into its facility type.
+     * Returns: { artccCode, traconCode, sectorLabel, isSector, isTracon }
+     */
+    function classifySearchTerm(term, hasFH) {
+        var result = { artccCode: null, traconCode: null, sectorLabel: null };
+
+        if (hasFH) {
+            if (FacilityHierarchy.isArtcc(term)) {
+                result.artccCode = term;
+                return result;
+            }
+            if (FacilityHierarchy.isTracon(term)) {
+                result.traconCode = term;
+                result.artccCode = FacilityHierarchy.getParentArtcc(term);
+                return result;
+            }
+        } else {
+            if (/^Z[A-Z]{2}$/.test(term) || /^[KC]Z[A-Z]{1,2}$/.test(term)) {
+                result.artccCode = term;
+                return result;
+            }
+        }
+
+        // Sector codes: {parent ARTCC/FIR}{sector name}
+        if (term.length > 3) {
+            result.sectorLabel = term;  // e.g., "ZNY56", "CZEGBA"
+            if (hasFH) {
+                if (term.length > 4 && FacilityHierarchy.isArtcc(term.substring(0, 4))) {
+                    result.artccCode = term.substring(0, 4);
+                } else if (FacilityHierarchy.isArtcc(term.substring(0, 3))) {
+                    result.artccCode = term.substring(0, 3);
+                }
+            } else {
+                var sectorMatch = term.match(/^(Z[A-Z]{2})\d/);
+                if (sectorMatch) result.artccCode = sectorMatch[1];
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Extract facility codes from parsed search clauses and update map layers.
      * Included (positive) terms → green fill, excluded (negated) → red fill.
+     * Respects highlightToggles for ARTCC, TRACON, and sector tiers.
      */
     function updateMapHighlights(clauses) {
+        lastHighlightClauses = clauses;
         var map = window.graphic_map;
         if (!map || !map.getLayer || !map.getLayer('artcc-search-include')) return;
         var hasLineLayer = map.getLayer('artcc-search-include-line');
 
-        var includeCodes = [];
-        var excludeCodes = [];
+        var includeCodes = [], excludeCodes = [];       // ARTCC ICAO codes
+        var includeTracons = [], excludeTracons = [];   // TRACON codes (e.g., "A80")
+        var includeSectors = [], excludeSectors = [];   // Sector labels (e.g., "ZNY56")
         var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
 
         clauses.forEach(function(alts) {
             alts.forEach(function(alt) {
-                var term = alt.term;
-                // Resolve to ARTCC code: direct ARTCC, or parent ARTCC of TRACON/sector
-                var artccCode = null;
-                if (hasFH) {
-                    if (FacilityHierarchy.isArtcc(term)) {
-                        artccCode = term;
-                    } else {
-                        // TRACON → parent ARTCC (e.g., A90 → ZNY)
-                        artccCode = FacilityHierarchy.getParentArtcc(term);
-                    }
-                } else {
-                    if (/^Z[A-Z]{2}$/.test(term) || /^[KC]Z[A-Z]{1,2}$/.test(term)) {
-                        artccCode = term;
-                    }
+                var info = classifySearchTerm(alt.term, hasFH);
+                var list;
+
+                // ARTCC (parent or direct)
+                if (info.artccCode) {
+                    list = alt.negated ? excludeCodes : includeCodes;
+                    list.push(toIcaoCode(info.artccCode));
                 }
-                // Sector codes: {parent ARTCC/FIR}{sector name}
-                // US: ZNY56, ZDC19 (3-char + digits)
-                // International: CZEGBA, CZQMCHARLO, CZEGFR_210 (4-char FIR + name)
-                if (!artccCode && term.length > 3) {
-                    if (hasFH) {
-                        // Try 4-char prefix first (CZEG, CZQM, EGTT), then 3-char (ZNY, ZDC)
-                        if (term.length > 4 && FacilityHierarchy.isArtcc(term.substring(0, 4))) {
-                            artccCode = term.substring(0, 4);
-                        } else if (FacilityHierarchy.isArtcc(term.substring(0, 3))) {
-                            artccCode = term.substring(0, 3);
-                        }
-                    } else {
-                        // Fallback regex: US sectors (Z-prefix + digits)
-                        var sectorMatch = term.match(/^(Z[A-Z]{2})\d/);
-                        if (sectorMatch) artccCode = sectorMatch[1];
-                    }
+                // TRACON
+                if (info.traconCode) {
+                    list = alt.negated ? excludeTracons : includeTracons;
+                    list.push(info.traconCode);
                 }
-                if (artccCode) {
-                    var icao = toIcaoCode(artccCode);
-                    if (alt.negated) {
-                        excludeCodes.push(icao);
-                    } else {
-                        includeCodes.push(icao);
-                    }
+                // Sector
+                if (info.sectorLabel) {
+                    list = alt.negated ? excludeSectors : includeSectors;
+                    list.push(info.sectorLabel);
                 }
             });
         });
 
-        // Build MapLibre filter expressions: ['in', 'ICAOCODE', 'KZNY', 'KZOB', ...]
-        var inclFilter = includeCodes.length ? ['in', 'ICAOCODE'].concat(includeCodes) : ['in', 'ICAOCODE', ''];
-        var exclFilter = excludeCodes.length ? ['in', 'ICAOCODE'].concat(excludeCodes) : ['in', 'ICAOCODE', ''];
+        // ARTCC filters
+        var emptyArtcc = ['in', 'ICAOCODE', ''];
+        var inclFilter = (highlightToggles.artcc && includeCodes.length) ? ['in', 'ICAOCODE'].concat(includeCodes) : emptyArtcc;
+        var exclFilter = (highlightToggles.artcc && excludeCodes.length) ? ['in', 'ICAOCODE'].concat(excludeCodes) : emptyArtcc;
         map.setFilter('artcc-search-include', inclFilter);
         map.setFilter('artcc-search-exclude', exclFilter);
         if (hasLineLayer) {
             map.setFilter('artcc-search-include-line', inclFilter);
             map.setFilter('artcc-search-exclude-line', exclFilter);
         }
+
+        // TRACON filters
+        var emptyTracon = ['in', 'sector', ''];
+        var tInclFilter = (highlightToggles.tracon && includeTracons.length) ? ['in', 'sector'].concat(includeTracons) : emptyTracon;
+        var tExclFilter = (highlightToggles.tracon && excludeTracons.length) ? ['in', 'sector'].concat(excludeTracons) : emptyTracon;
+        if (map.getLayer('tracon-search-include')) {
+            map.setFilter('tracon-search-include', tInclFilter);
+            map.setFilter('tracon-search-exclude', tExclFilter);
+        }
+
+        // Sector filters (applied to all 3 tiers, each gated by its own toggle)
+        var emptySector = ['in', 'label', ''];
+        var sInclFilter = includeSectors.length ? ['in', 'label'].concat(includeSectors) : emptySector;
+        var sExclFilter = excludeSectors.length ? ['in', 'label'].concat(excludeSectors) : emptySector;
+
+        var sectorTiers = [
+            { prefix: 'low', toggle: 'sectorLow' },
+            { prefix: 'high', toggle: 'sectorHigh' },
+            { prefix: 'superhigh', toggle: 'sectorSuperhigh' },
+        ];
+        sectorTiers.forEach(function(tier) {
+            var inclId = tier.prefix + '-sector-search-include';
+            var exclId = tier.prefix + '-sector-search-exclude';
+            if (map.getLayer(inclId)) {
+                map.setFilter(inclId, highlightToggles[tier.toggle] ? sInclFilter : emptySector);
+                map.setFilter(exclId, highlightToggles[tier.toggle] ? sExclFilter : emptySector);
+            }
+        });
     }
 
     /**
@@ -1982,6 +2045,15 @@
             navigator.clipboard.writeText(directive).then(function() {
                 PERTIDialog.toast('common.copied', 'success');
             });
+        });
+
+        // Highlight layer toggles (legend checkboxes)
+        $(document).on('change', '[data-hl-toggle]', function() {
+            var key = $(this).data('hl-toggle');
+            if (highlightToggles.hasOwnProperty(key)) {
+                highlightToggles[key] = this.checked;
+                updateMapHighlights(lastHighlightClauses);
+            }
         });
 
         // Region color toggle
