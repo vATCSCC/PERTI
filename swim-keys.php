@@ -371,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 <div class="card-body text-center py-5">
                     <i class="fas fa-user-lock fa-4x mb-4" style="color: #5dade2;"></i>
                     <p class="lead mb-4"><?= __('swim.keys.loginMessage') ?></p>
-                    <a href="login" class="btn btn-primary btn-lg"><i class="fas fa-user mr-2"></i><?= __('swim.keys.loginWithVatsim') ?></a>
+                    <a href="login?return=swim-keys" class="btn btn-primary btn-lg"><i class="fas fa-user mr-2"></i><?= __('swim.keys.loginWithVatsim') ?></a>
                 </div>
             </div>
         </div>
