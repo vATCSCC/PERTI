@@ -26,16 +26,12 @@
     });
 
     function discoverCycles() {
-        // Fetch the list of available changelog files via a directory listing approach.
-        // Since we can't list directories client-side, we use a known pattern:
-        // Try loading an index file, or fall back to a hardcoded recent cycle.
         $.getJSON('assets/data/logs/changelog_index.json')
             .done(function (index) {
                 state.availableCycles = index.cycles || [];
                 populateCycleSelector();
             })
             .fail(function () {
-                // No index file — try the most likely current cycle pair
                 tryLoadChangelog('2602', '2603');
             });
     }
@@ -53,7 +49,6 @@
                 $('<option>').val(c.from + '_' + c.to).text(c.from + ' \u2192 ' + c.to)
             );
         });
-        // Load first (most recent)
         var first = state.availableCycles[0];
         loadChangelog(first.from, first.to);
     }
@@ -141,6 +136,27 @@
         $('#load-more-btn').on('click', function () {
             renderMore();
         });
+
+        // Expandable detail rows
+        $('#changes-body').on('click', 'tr.change-row', function () {
+            var $row = $(this);
+            var $detail = $row.next('tr.detail-row');
+            if ($row.hasClass('expanded')) {
+                $row.removeClass('expanded');
+                $detail.remove();
+            } else {
+                // Collapse any other expanded row
+                $('#changes-body tr.change-row.expanded').removeClass('expanded');
+                $('#changes-body tr.detail-row').remove();
+                $row.addClass('expanded');
+                var idx = parseInt($row.data('idx'), 10);
+                var change = state.filtered[idx];
+                if (change) {
+                    var detailHtml = buildDetailPanel(change);
+                    $row.after('<tr class="detail-row"><td colspan="4">' + detailHtml + '</td></tr>');
+                }
+            }
+        });
     }
 
     // ─── Filtering ────────────────────────────────────────────────
@@ -148,24 +164,20 @@
     function applyFilters() {
         var result = state.allChanges;
 
-        // Type filter
         if (state.activeType !== 'all') {
             result = result.filter(function (c) { return c.type === state.activeType; });
         }
-
-        // Action filter
         if (state.activeAction !== 'all') {
             result = result.filter(function (c) { return c.action === state.activeAction; });
         }
-
-        // Search
         if (state.searchTerm) {
             var term = state.searchTerm;
             result = result.filter(function (c) {
                 return (c.name && c.name.toUpperCase().indexOf(term) !== -1) ||
                        (c.old_name && c.old_name.toUpperCase().indexOf(term) !== -1) ||
                        (c.detail && c.detail.toUpperCase().indexOf(term) !== -1) ||
-                       (c.new_value && String(c.new_value).toUpperCase().indexOf(term) !== -1);
+                       (c.new_value && String(c.new_value).toUpperCase().indexOf(term) !== -1) ||
+                       (c.old_value && String(c.old_value).toUpperCase().indexOf(term) !== -1);
             });
         }
 
@@ -190,8 +202,9 @@
 
         $('#empty-state').hide();
         var $body = $('#changes-body');
-        batch.forEach(function (c) {
-            $body.append(renderChangeRow(c));
+        var startIdx = state.displayed;
+        batch.forEach(function (c, i) {
+            $body.append(renderChangeRow(c, startIdx + i));
         });
         state.displayed += batch.length;
 
@@ -206,14 +219,14 @@
         }
     }
 
-    function renderChangeRow(c) {
+    function renderChangeRow(c, idx) {
         var name = escapeHtml(c.name || '');
         if (state.searchTerm) name = highlightMatch(name, state.searchTerm);
 
         var detail = buildDetailText(c);
         if (state.searchTerm) detail = highlightMatch(detail, state.searchTerm);
 
-        return '<tr>' +
+        return '<tr class="change-row" data-idx="' + idx + '">' +
             '<td class="change-name">' + name + '</td>' +
             '<td><span class="badge badge-type">' + escapeHtml(c.type || '') + '</span></td>' +
             '<td><span class="badge badge-action badge-' + (c.action || '') + '">' + escapeHtml(c.action || '') + '</span></td>' +
@@ -234,6 +247,191 @@
         }
         return parts.join(' ');
     }
+
+    // ─── Detail Panel ─────────────────────────────────────────────
+
+    function buildDetailPanel(c) {
+        var type = c.type || '';
+        var action = c.action || '';
+
+        if (type === 'fix' || type === 'navaid') {
+            return buildFixDetail(c);
+        } else if (type === 'airway' || type === 'cdr') {
+            return buildRouteDetail(c);
+        } else if (type === 'dp' || type === 'star') {
+            return buildProcedureDetail(c);
+        }
+        return buildGenericDetail(c);
+    }
+
+    function buildFixDetail(c) {
+        var html = '<div class="navdata-detail">';
+
+        if (c.action === 'moved') {
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.previousPosition') + '</div>' +
+                '<div class="navdata-detail-value coord-old">' + formatCoord(c.old_lat, c.old_lon) + '</div>' +
+                '</div>';
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.newPosition') + '</div>' +
+                '<div class="navdata-detail-value coord-new">' + formatCoord(c.lat, c.lon) + '</div>' +
+                '</div>';
+            if (c.delta_nm) {
+                html += '<div class="navdata-detail-section">' +
+                    '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.displacement') + '</div>' +
+                    '<div class="navdata-detail-value"><span class="delta-nm">' + c.delta_nm + ' nm</span></div>' +
+                    '</div>';
+            }
+        } else if (c.action === 'added') {
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.position') + '</div>' +
+                '<div class="navdata-detail-value coord-new">' + formatCoord(c.lat, c.lon) + '</div>' +
+                '</div>';
+        } else if (c.action === 'removed') {
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.formerPosition') + '</div>' +
+                '<div class="navdata-detail-value coord-old">' + formatCoord(c.old_lat, c.old_lon) + '</div>' +
+                '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildRouteDetail(c) {
+        var html = '<div class="navdata-detail" style="flex-direction:column;gap:0.5rem;">';
+
+        if (c.action === 'changed' && c.old_value && c.new_value) {
+            html += '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.routeChanges') + '</div>';
+            html += '<div class="route-diff">' + diffRouteStrings(String(c.old_value), String(c.new_value)) + '</div>';
+        } else if (c.action === 'added' && c.new_value) {
+            html += '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.newRoute') + '</div>';
+            html += '<div class="navdata-detail-value">' + escapeHtml(String(c.new_value)) + '</div>';
+        } else if (c.action === 'removed' && c.old_value) {
+            html += '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.removedRoute') + '</div>';
+            html += '<div class="navdata-detail-value" style="text-decoration:line-through;color:#a00;">' +
+                escapeHtml(String(c.old_value)) + '</div>';
+        } else {
+            html += buildGenericDetail(c);
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildProcedureDetail(c) {
+        var html = '<div class="navdata-detail">';
+        var typeLabel = c.type === 'dp'
+            ? PERTII18n.t('navdata.detail.departureProc')
+            : PERTII18n.t('navdata.detail.arrivalProc');
+
+        html += '<div class="navdata-detail-section">' +
+            '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.type') + '</div>' +
+            '<div class="navdata-detail-value">' + typeLabel + '</div>' +
+            '</div>';
+
+        if (c.action === 'changed' && c.old_name) {
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
+                '<div class="navdata-detail-value">' + PERTII18n.t('navdata.detail.contentModified') + '</div>' +
+                '</div>';
+        } else if (c.action === 'added') {
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
+                '<div class="navdata-detail-value" style="color:#28a745;">' + PERTII18n.t('navdata.detail.newProcedure') + '</div>' +
+                '</div>';
+        } else if (c.action === 'removed') {
+            var superseded = c.name.replace(/\d+\./, function(m) {
+                var num = parseInt(m) + 1;
+                return num + '.';
+            });
+            html += '<div class="navdata-detail-section">' +
+                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
+                '<div class="navdata-detail-value" style="color:#dc3545;">' +
+                    PERTII18n.t('navdata.detail.removedFromSource') + '</div>' +
+                '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildGenericDetail(c) {
+        var html = '';
+        if (c.detail) {
+            html += '<span class="text-muted">' + escapeHtml(c.detail) + '</span>';
+        }
+        return html || '<span class="text-muted">' + PERTII18n.t('navdata.detail.noAdditional') + '</span>';
+    }
+
+    // ─── Route Diff ───────────────────────────────────────────────
+
+    function diffRouteStrings(oldStr, newStr) {
+        var oldParts = oldStr.split(/\s+/);
+        var newParts = newStr.split(/\s+/);
+
+        // Build LCS for word-level diff
+        var lcs = computeLCS(oldParts, newParts);
+        var result = [];
+        var oi = 0, ni = 0, li = 0;
+
+        while (oi < oldParts.length || ni < newParts.length) {
+            if (li < lcs.length && oi < oldParts.length && oldParts[oi] === lcs[li] &&
+                ni < newParts.length && newParts[ni] === lcs[li]) {
+                result.push('<span class="diff-unchanged">' + escapeHtml(lcs[li]) + '</span>');
+                oi++; ni++; li++;
+            } else if (li < lcs.length && ni < newParts.length && newParts[ni] === lcs[li]) {
+                // Old part removed
+                result.push('<span class="diff-removed">' + escapeHtml(oldParts[oi]) + '</span>');
+                oi++;
+            } else if (li < lcs.length && oi < oldParts.length && oldParts[oi] === lcs[li]) {
+                // New part added
+                result.push('<span class="diff-added">' + escapeHtml(newParts[ni]) + '</span>');
+                ni++;
+            } else {
+                // Neither matches LCS
+                if (oi < oldParts.length && (li >= lcs.length || oldParts[oi] !== lcs[li])) {
+                    result.push('<span class="diff-removed">' + escapeHtml(oldParts[oi]) + '</span>');
+                    oi++;
+                }
+                if (ni < newParts.length && (li >= lcs.length || newParts[ni] !== lcs[li])) {
+                    result.push('<span class="diff-added">' + escapeHtml(newParts[ni]) + '</span>');
+                    ni++;
+                }
+            }
+        }
+
+        return result.join(' ');
+    }
+
+    function computeLCS(a, b) {
+        var m = a.length, n = b.length;
+        var dp = [];
+        for (var i = 0; i <= m; i++) {
+            dp[i] = [];
+            for (var j = 0; j <= n; j++) {
+                if (i === 0 || j === 0) dp[i][j] = 0;
+                else if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+                else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+            }
+        }
+        // Backtrack
+        var result = [];
+        var i = m, j = n;
+        while (i > 0 && j > 0) {
+            if (a[i-1] === b[j-1]) {
+                result.unshift(a[i-1]);
+                i--; j--;
+            } else if (dp[i-1][j] > dp[i][j-1]) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+        return result;
+    }
+
+    // ─── Summary / Stats ──────────────────────────────────────────
 
     function renderSummaryCards(data) {
         var $row = $('#summary-cards').empty();
@@ -356,9 +554,16 @@
 
     function highlightMatch(html, term) {
         if (!term) return html;
-        // Simple case-insensitive highlight (works on already-escaped HTML text)
         var regex = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
         return html.replace(regex, '<span class="search-match">$1</span>');
+    }
+
+    function formatCoord(lat, lon) {
+        if (lat == null || lon == null) return 'N/A';
+        var ns = lat >= 0 ? 'N' : 'S';
+        var ew = lon >= 0 ? 'E' : 'W';
+        return Math.abs(lat).toFixed(6) + '\u00B0' + ns + ' ' +
+               Math.abs(lon).toFixed(6) + '\u00B0' + ew;
     }
 
 })();

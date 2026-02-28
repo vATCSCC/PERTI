@@ -55,11 +55,35 @@
 #changes-table {
     font-size: 0.82rem;
 }
-#changes-table tbody tr {
-    cursor: default;
+#changes-table tbody tr.change-row {
+    cursor: pointer;
 }
-#changes-table tbody tr:hover {
+#changes-table tbody tr.change-row:hover {
     background-color: #f8f9fa;
+}
+#changes-table tbody tr.change-row.expanded {
+    background-color: #eef6ff;
+    border-bottom: none;
+}
+#changes-table tbody tr.change-row td:first-child {
+    position: relative;
+    padding-left: 1.3rem;
+}
+#changes-table tbody tr.change-row td:first-child::before {
+    content: '\f054';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 0.55rem;
+    position: absolute;
+    left: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    transition: transform 0.15s;
+}
+#changes-table tbody tr.change-row.expanded td:first-child::before {
+    transform: translateY(-50%) rotate(90deg);
+    color: #007bff;
 }
 #changes-table td {
     vertical-align: middle;
@@ -80,6 +104,75 @@
 .change-detail .delta-nm {
     color: #fd7e14;
     font-weight: 600;
+}
+
+/* Detail Panel (expanded row) */
+tr.detail-row {
+    background-color: #f8fbff;
+}
+tr.detail-row > td {
+    padding: 0.75rem 1rem 0.75rem 1.5rem;
+    border-top: none;
+}
+.navdata-detail {
+    font-size: 0.8rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.navdata-detail-section {
+    flex: 1;
+    min-width: 200px;
+}
+.navdata-detail-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin-bottom: 0.2rem;
+    font-weight: 600;
+}
+.navdata-detail-value {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+/* Route diff */
+.route-diff {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    line-height: 1.8;
+    word-break: break-word;
+}
+.route-diff .diff-removed {
+    background-color: #fdd;
+    color: #a00;
+    padding: 1px 3px;
+    border-radius: 2px;
+    text-decoration: line-through;
+}
+.route-diff .diff-added {
+    background-color: #dfd;
+    color: #080;
+    padding: 1px 3px;
+    border-radius: 2px;
+}
+.route-diff .diff-unchanged {
+    color: #555;
+}
+
+/* Coordinate detail */
+.coord-old {
+    color: #dc3545;
+}
+.coord-new {
+    color: #28a745;
+}
+.coord-arrow {
+    color: #6c757d;
+    margin: 0 0.3rem;
 }
 
 /* Search Highlight */

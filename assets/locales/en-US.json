@@ -2238,6 +2238,24 @@
       "placeholder": "Search fixes, airways, procedures..."
     },
     "total": "total",
+    "detail": {
+      "arrivalProc": "Standard Terminal Arrival Route (STAR)",
+      "contentModified": "Procedure content modified between cycles",
+      "departureProc": "Departure Procedure (DP)",
+      "displacement": "Displacement",
+      "formerPosition": "Former Position",
+      "newPosition": "New Position",
+      "newProcedure": "New procedure added this cycle",
+      "newRoute": "New Route",
+      "noAdditional": "No additional detail available",
+      "position": "Position",
+      "previousPosition": "Previous Position",
+      "removedFromSource": "Removed from NASR source",
+      "removedRoute": "Removed Route",
+      "routeChanges": "Route Changes",
+      "status": "Status",
+      "type": "Type"
+    },
     "type": {
       "airways": "Airways",
       "cdrs": "CDRs",

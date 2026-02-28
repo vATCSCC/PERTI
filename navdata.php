@@ -17,17 +17,21 @@ include("load/i18n.php");
 <body>
     <?php include("load/nav.php"); ?>
 
-    <div class="container-fluid mt-3 px-4">
-        <!-- Page Header -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">
-                <i class="fas fa-database mr-2"></i><?= __('navdata.page.title') ?>
-            </h4>
-            <div class="d-flex align-items-center">
-                <label class="mb-0 mr-2 small text-muted"><?= __('navdata.cycle') ?>:</label>
-                <select id="cycle-selector" class="form-control form-control-sm" style="width:200px"></select>
-            </div>
+    <!-- Hero Section -->
+    <section class="perti-hero perti-hero--compact bg-position-center jarallax bg-dark text-light" data-jarallax data-speed="0.3">
+        <div class="container-fluid pt-2 pb-4 py-lg-5">
+            <img class="jarallax-img" src="assets/img/jumbotron/main.png" alt="" style="opacity: 50%; height: 100vh;">
+            <center>
+                <h2><?= __('navdata.page.title') ?></h2>
+                <div class="d-flex align-items-center justify-content-center">
+                    <label class="mb-0 mr-2 small text-white-50"><?= __('navdata.cycle') ?>:</label>
+                    <select id="cycle-selector" class="form-control form-control-sm" style="width:200px"></select>
+                </div>
+            </center>
         </div>
+    </section>
+
+    <div class="container-fluid mt-3 px-4">
 
         <!-- Summary Cards -->
         <div id="summary-cards" class="row mb-3"></div>
