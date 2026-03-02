@@ -60,9 +60,10 @@ try {
             $params[] = $typeVal;
         }
 
-        // Single facility filter (partial match)
+        // Single facility filter (partial match — also checks affected_facilities)
         if (!empty($_GET['facility'])) {
-            $where[] = 'facility LIKE ?';
+            $where[] = '(facility LIKE ? OR affected_facilities LIKE ?)';
+            $params[] = '%' . $_GET['facility'] . '%';
             $params[] = '%' . $_GET['facility'] . '%';
         }
 
@@ -209,11 +210,18 @@ try {
         $incidentType = $input['incident_type'] ?? $input['status'] ?? null;
         $lifecycleStatus = $input['lifecycle_status'] ?? $input['incident_status'] ?? 'ACTIVE';
 
+        // Sanitize affected_facilities (comma-separated uppercase codes)
+        $affectedFacilities = null;
+        if (!empty($input['affected_facilities'])) {
+            $codes = array_filter(array_map(function($c) { return strtoupper(trim($c)); }, explode(',', $input['affected_facilities'])));
+            if ($codes) $affectedFacilities = implode(',', $codes);
+        }
+
         // Insert with both old and new column names for transition
         $sql = "INSERT INTO jatoc_incidents
                 (incident_number, facility, facility_type, status, incident_type, trigger_code, trigger_desc,
-                 paged, start_utc, remarks, created_by, incident_status, lifecycle_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                 paged, start_utc, remarks, created_by, incident_status, lifecycle_status, affected_facilities)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $params = [
             $incidentNumber,
@@ -228,7 +236,8 @@ try {
             $input['remarks'] ?? null,
             $input['created_by'] ?? JatocAuth::getLogIdentifier(),
             $lifecycleStatus,        // Old column
-            $lifecycleStatus         // New column
+            $lifecycleStatus,        // New column
+            $affectedFacilities
         ];
 
         $stmt = sqlsrv_query($conn_adl, $sql, $params);

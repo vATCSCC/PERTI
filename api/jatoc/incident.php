@@ -93,7 +93,8 @@ try {
             'trigger_desc' => 'Trigger Desc',
             'remarks' => 'Remarks',
             'incident_status' => 'Lifecycle',
-            'lifecycle_status' => 'Lifecycle'
+            'lifecycle_status' => 'Lifecycle',
+            'affected_facilities' => 'Affected Facilities'
         ];
 
         foreach ($trackFields as $dbField => $label) {

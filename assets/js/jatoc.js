@@ -171,10 +171,127 @@
         3: { bg: 'linear-gradient(135deg, #991b1b 0%, #dc2626 100%)', border: '#dc2626' },
     };
 
+    // ========== PSEUDO-FACILITY REGIONS (for quick multi-facility selection) ==========
+    const PSEUDO_FACILITIES = {
+        USA:  { label: 'United States', facilities: ['ZAB','ZAK','ZAN','ZAP','ZAU','ZBW','ZDC','ZDV','ZFW','ZHN','ZHO','ZHU','ZID','ZJX','ZKC','ZLA','ZLC','ZMA','ZME','ZMO','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL','ZUA','ZWY'] },
+        CAN:  { label: 'Canada', facilities: ['CZEG','CZVR','CZWG','CZYZ','CZQM','CZQX','CZQO','CZUL'] },
+        MEX:  { label: 'Mexico', facilities: ['MMMX','MMTY','MMZT','MMMD','MMUN','MMFR','MMFO'] },
+        CAR:  { label: 'Caribbean', facilities: ['TJZS','MKJK','MUFH','MDCS','TNCF','TTZP','MHCC','MPZL','MYNA'] },
+        CA:   { label: 'Central America', facilities: ['MHTG','MROC','MGGT','MSLP','MNMG','MPZL'] },
+        SA:   { label: 'South America', facilities: ['SACF','SBCW','SCFZ','SEGU','SKED','SLVR','SMPM','SPIM','SVZM','SYGC','SUEO'] },
+        EU:   { label: 'Europe', facilities: ['EGPX','EGTT','EISN','LFFF','LFBB','LFEE','LFMM','LFRR','EDGG','EDMM','EDUU','EDWW','EHAA','EBBU','ELLX','LSAS','EFIN','ENOR','ESAA','EKDK','BIRD','BICC','EETT','EVRR','EYVL','EPWW','LOVV','LKAA','LZBB','LHCC','LDZO','LJLA','LQSB','LECM','LECB','LECS','LPPC','LIBB','LIMM','LIPP','LIRR','LGGG','LCCC','LMMM','LRBB','LBSR','LTAA','LYBA','LAAA','LWSK','LUUU'] },
+        NA:   { label: 'North Africa', facilities: ['HECC','HLLL','DTTC','DAAA','GMMM','GCCC'] },
+        ME:   { label: 'Middle East', facilities: ['OEJD','OOMM','OMAE','OBBB','OKAC','OTBD','OIIX','OJAC','OSTT','OLBB','ORBB','LLLL','OYSC'] },
+        ASIA: { label: 'Asia', facilities: ['VABF','VECF','VIDF','VOMF','VCCF','VTBB','VLVT','VVHN','WMFC','WSJC','WIIF','RPHI','VHHK','ZBPE','ZSHA','ZGZU','RJJJ','RKRR','RCAA'] },
+        OCE:  { label: 'Oceania', facilities: ['YMMM','YBBB','NZZO','NFFF','AGGG','PGUM','NTTT'] },
+    };
+
+    // Affected facilities tag state
+    const affectedFacilitiesSet = new Set();
+
+    function addFacilityTag(code) {
+        code = code.toUpperCase().trim();
+        if (!code || affectedFacilitiesSet.has(code)) return;
+        affectedFacilitiesSet.add(code);
+        renderFacilityTags();
+    }
+
+    function removeFacilityTag(code) {
+        affectedFacilitiesSet.delete(code);
+        renderFacilityTags();
+    }
+
+    function clearFacilityTags() {
+        affectedFacilitiesSet.clear();
+        renderFacilityTags();
+    }
+
+    function setFacilityTags(codes) {
+        affectedFacilitiesSet.clear();
+        if (codes) {
+            codes.split(',').forEach(c => {
+                c = c.trim().toUpperCase();
+                if (c) affectedFacilitiesSet.add(c);
+            });
+        }
+        renderFacilityTags();
+    }
+
+    function getAffectedFacilities() {
+        return affectedFacilitiesSet.size > 0 ? [...affectedFacilitiesSet].sort().join(',') : null;
+    }
+
+    function togglePseudoFacility(region) {
+        const def = PSEUDO_FACILITIES[region];
+        if (!def) return;
+        // If all facilities in this region are already selected, remove them (toggle off)
+        const allPresent = def.facilities.every(f => affectedFacilitiesSet.has(f));
+        if (allPresent) {
+            def.facilities.forEach(f => affectedFacilitiesSet.delete(f));
+        } else {
+            def.facilities.forEach(f => affectedFacilitiesSet.add(f));
+        }
+        renderFacilityTags();
+    }
+
+    function renderFacilityTags() {
+        const container = document.getElementById('affectedFacilitiesTags');
+        const countEl = document.getElementById('affectedFacilityCount');
+        if (!container) return;
+
+        container.innerHTML = [...affectedFacilitiesSet].sort().map(code =>
+            `<span class="facility-tag">${esc(code)}<span class="remove-tag" onclick="JATOC.removeFacilityTag('${esc(code)}')">&times;</span></span>`
+        ).join('');
+
+        if (countEl) {
+            countEl.textContent = affectedFacilitiesSet.size > 0 ? `${affectedFacilitiesSet.size} facilities` : '';
+        }
+
+        // Update pseudo-facility button active states
+        document.querySelectorAll('.pseudo-fac-btn').forEach(btn => {
+            const region = btn.dataset.region;
+            const def = PSEUDO_FACILITIES[region];
+            if (def) {
+                const allPresent = def.facilities.every(f => affectedFacilitiesSet.has(f));
+                btn.classList.toggle('active', allPresent);
+            }
+        });
+    }
+
+    function initAffectedFacilitiesUI() {
+        // Pseudo-facility button clicks
+        document.querySelectorAll('.pseudo-fac-btn').forEach(btn => {
+            btn.addEventListener('click', () => togglePseudoFacility(btn.dataset.region));
+        });
+
+        // Manual facility add input
+        const addInput = document.getElementById('addFacilityInput');
+        if (addInput) {
+            addInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = addInput.value.trim().toUpperCase();
+                    if (val) {
+                        // Support comma-separated entry
+                        val.split(',').forEach(c => { c = c.trim(); if (c) addFacilityTag(c); });
+                        addInput.value = '';
+                    }
+                }
+            });
+        }
+
+        // Clear all link
+        const clearLink = document.getElementById('clearAllFacilities');
+        if (clearLink) {
+            clearLink.addEventListener('click', (e) => { e.preventDefault(); clearFacilityTags(); });
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         console.log('[JATOC] Init v7...');
         loadUserProfile();
         initClocks();
+        initAffectedFacilitiesUI();
         loadBoundaries().then(() => initMap());
         loadOpsLevel();
         loadPotusCalendar();
@@ -910,7 +1027,7 @@
             const isHidden = state.hiddenIncidents.has(i.id);
             return `<tr>
                 <td class="incident-number">${i.incident_number || '-'}</td>
-                <td><strong>${i.facility}</strong>${i.facility_type ? `<br><small class="text-muted">${i.facility_type}</small>` : ''}</td>
+                <td><strong>${i.facility}</strong>${i.affected_facilities ? ` <span class="badge badge-info" style="font-size:0.6rem;vertical-align:middle" title="${esc(i.affected_facilities)}">(+${i.affected_facilities.split(',').length})</span>` : ''}${i.facility_type ? `<br><small class="text-muted">${i.facility_type}</small>` : ''}</td>
                 <td><span class="status-badge ${sc}">${formatStatus(incidentType)}</span></td>
                 <td class="trigger-col">${esc(triggerText)}</td>
                 <td class="${i.paged ? 'paged-yes' : 'paged-no'}">${i.paged ? PERTII18n.t('jatoc.incidents.pagedYes') : PERTII18n.t('jatoc.incidents.pagedNo')}</td>
@@ -960,6 +1077,7 @@
         document.getElementById('incidentForm').reset();
         document.getElementById('incidentId').value = '';
         document.getElementById('incidentStartUtc').value = new Date().toISOString().slice(0, 16);
+        clearFacilityTags();
         $('#incidentModal').modal('show');
     }
 
@@ -980,13 +1098,14 @@
             document.getElementById('incidentIncidentStatus').value = lifecycleStatus || 'ACTIVE';
             document.getElementById('incidentStartUtc').value = i.start_utc ? i.start_utc.replace(' ', 'T').slice(0, 16) : '';
             document.getElementById('incidentRemarks').value = i.remarks || '';
+            setFacilityTags(i.affected_facilities || '');
             $('#incidentModal').modal('show');
         } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
 
     async function saveIncident() {
         const id = document.getElementById('incidentId').value;
-        const data = { facility: document.getElementById('incidentFacility').value, facility_type: document.getElementById('incidentFacilityType').value || null, status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, created_by: getUserAuthorString() };
+        const data = { facility: document.getElementById('incidentFacility').value, facility_type: document.getElementById('incidentFacilityType').value || null, status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, affected_facilities: getAffectedFacilities(), created_by: getUserAuthorString() };
         if (!data.facility || !data.status || !data.start_utc) { alert(PERTII18n.t('jatoc.incidents.fillRequired')); return; }
         try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
@@ -1000,6 +1119,16 @@
             state.currentIncident = i;
             document.getElementById('detailsIncNum').textContent = i.incident_number || '-';
             document.getElementById('detailsFacility').textContent = `${i.facility} (${i.facility_type || '?'})`;
+            const affFacEl = document.getElementById('detailsAffectedFacilities');
+            if (affFacEl) {
+                if (i.affected_facilities) {
+                    affFacEl.innerHTML = i.affected_facilities.split(',').map(f => `<span class="facility-tag">${esc(f.trim())}</span>`).join('');
+                    affFacEl.style.display = '';
+                } else {
+                    affFacEl.innerHTML = '';
+                    affFacEl.style.display = 'none';
+                }
+            }
             document.getElementById('detailsStatus').innerHTML = `<span class="status-badge status-${incidentType.toLowerCase().replace('_','-')}">${formatStatus(incidentType)}</span>`;
             document.getElementById('detailsTrigger').textContent = i.trigger_code ? `${i.trigger_code} - ${getTriggerLabel(i.trigger_code)}` : '-';
             document.getElementById('detailsPaged').innerHTML = i.paged ? `<span class="text-success">${PERTII18n.t('common.yes')}</span>` : `<span class="text-muted">${PERTII18n.t('common.no')}</span>`;
@@ -1228,5 +1357,5 @@
         showIncidentDetails(id);
     }
 
-    window.JATOC = { showCreateModal, editIncident, saveIncident, showDetails: showIncidentDetails, editDailyOps, saveDailyOps, editPersonnel, savePersonnel, clearPersonnel, applyFilters, addUpdate, markPaged, editFromDetails, generateReport, closeoutIncident, deleteIncident, toggle, changeOpsLevel, quickPage, quickClose, toggleMapVisibility, showUserProfile, onFacilityTypeChange, saveProfile, clearProfile, viewReport, viewReportById, reopenIncident, showRetrieveModal, clearRetrieveForm, searchIncidents, openRetrievedIncident };
+    window.JATOC = { showCreateModal, editIncident, saveIncident, showDetails: showIncidentDetails, editDailyOps, saveDailyOps, editPersonnel, savePersonnel, clearPersonnel, applyFilters, addUpdate, markPaged, editFromDetails, generateReport, closeoutIncident, deleteIncident, toggle, changeOpsLevel, quickPage, quickClose, toggleMapVisibility, showUserProfile, onFacilityTypeChange, saveProfile, clearProfile, viewReport, viewReportById, reopenIncident, showRetrieveModal, clearRetrieveForm, searchIncidents, openRetrievedIncident, removeFacilityTag, togglePseudoFacility };
 })();

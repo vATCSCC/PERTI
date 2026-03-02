@@ -138,6 +138,14 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     .form-control-dark::placeholder { color: #64748b; }
     .form-control-dark option { background-color: #1e293b; color: #f1f5f9; }
 
+    /* Pseudo-facility buttons & tags */
+    .pseudo-fac-btn { background-color: #334155; border: 1px solid #475569; color: #94a3b8; font-size: 0.65rem; padding: 1px 6px; border-radius: 10px; line-height: 1.4; }
+    .pseudo-fac-btn:hover { background-color: #475569; color: #e2e8f0; }
+    .pseudo-fac-btn.active { background-color: #1e40af; border-color: #3b82f6; color: white; }
+    .facility-tag { display: inline-flex; align-items: center; gap: 3px; background-color: #1e293b; border: 1px solid #475569; color: #e2e8f0; font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; font-family: 'Courier New', monospace; }
+    .facility-tag .remove-tag { cursor: pointer; color: #64748b; font-size: 0.6rem; }
+    .facility-tag .remove-tag:hover { color: #f87171; }
+
     /* Update history - FIXED ALIGNMENT */
     .update-entry { background-color: #1e293b; border-left: 3px solid #3b82f6; padding: 6px 10px; margin-bottom: 6px; border-radius: 0 4px 4px 0; }
     .update-entry.ops-level { border-left-color: #f59e0b; background-color: #1c1917; }
@@ -522,6 +530,28 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.paged') ?></label><select id="incidentPaged" class="form-control form-control-dark"><option value="0"><?= __('common.no') ?></option><option value="1"><?= __('common.yes') ?></option></select></div>
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.lifecycleLabel') ?></label><select id="incidentIncidentStatus" class="form-control form-control-dark"><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="ACTIVE"><?= __('jatoc.page.active') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
                     </div>
+                    <div class="mt-2">
+                        <label class="small text-muted">Affected Facilities</label>
+                        <div class="mb-1" id="pseudoFacilityButtons" style="display:flex; flex-wrap:wrap; gap:4px;">
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="USA">USA</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="CAN">CAN</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="MEX">MEX</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="CAR">CAR</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="CA">CA</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="SA">SA</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="EU">EU</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="NA">NA</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="ME">ME</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="ASIA">ASIA</button>
+                            <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="OCE">OCE</button>
+                        </div>
+                        <div id="affectedFacilitiesTags" style="display:flex; flex-wrap:wrap; gap:3px; max-height:80px; overflow-y:auto; padding:4px 0; min-height:24px;"></div>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <input type="text" id="addFacilityInput" class="form-control form-control-dark form-control-sm" placeholder="Add facility code..." style="max-width:160px; font-size:0.75rem;">
+                            <a href="#" id="clearAllFacilities" class="small text-muted" style="white-space:nowrap; font-size:0.7rem;">Clear All</a>
+                            <span id="affectedFacilityCount" class="small text-muted ml-auto" style="font-size:0.7rem;"></span>
+                        </div>
+                    </div>
                     <div class="row mt-2">
                         <div class="col-md-6"><label class="small text-muted"><?= __('jatoc.page.startUtc') ?></label><input type="datetime-local" id="incidentStartUtc" class="form-control form-control-dark" required></div>
                     </div>
@@ -543,6 +573,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                     <div class="col-lg-8">
                         <div class="details-grid mb-2">
                             <div class="label"><?= __('jatoc.page.detailsFacility') ?></div><div class="value" id="detailsFacility">-</div>
+                            <div class="label">Affected</div><div class="value" id="detailsAffectedFacilities" style="display:none;max-height:60px;overflow-y:auto;gap:2px;flex-wrap:wrap"></div>
                             <div class="label"><?= __('jatoc.page.detailsIncType') ?></div><div class="value" id="detailsStatus">-</div>
                             <div class="label"><?= __('jatoc.page.detailsTrigger') ?></div><div class="value" id="detailsTrigger">-</div>
                             <div class="label"><?= __('jatoc.page.detailsPaged') ?></div><div class="value" id="detailsPaged">-</div>
