@@ -1,14 +1,16 @@
 /**
  * Advisory Organization Configuration
- * Allows users to switch between US DCC (vATCSCC) and Canadian NOC (CANOC) advisory formats.
+ * Allows users to switch between US DCC (vATCSCC), Canadian NOC (CANOC),
+ * and European ECFMP advisory formats.
  */
 window.AdvisoryConfig = (function() {
     'use strict';
 
     const STORAGE_KEY = 'perti_advisory_org';
     const ORG_TYPES = {
-        DCC: { prefix: 'vATCSCC', facility: 'DCC', name: 'US DCC' },
-        NOC: { prefix: 'CANOC', facility: 'NOC', name: 'Canadian NOC' },
+        DCC:   { prefix: 'vATCSCC', facility: 'DCC',   name: 'US DCC' },
+        NOC:   { prefix: 'CANOC',   facility: 'NOC',   name: 'Canadian NOC' },
+        ECFMP: { prefix: 'ECFMP',   facility: 'ECFMP', name: 'ECFMP' },
     };
     const DEFAULT_ORG = 'DCC';
 
@@ -16,6 +18,9 @@ window.AdvisoryConfig = (function() {
         // Auto-detect from session org context if available
         if (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') {
             return 'NOC';
+        }
+        if (window.PERTI_ORG && window.PERTI_ORG.code === 'ecfmp') {
+            return 'ECFMP';
         }
         return localStorage.getItem(STORAGE_KEY) || DEFAULT_ORG;
     }

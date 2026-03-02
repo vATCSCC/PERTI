@@ -46,10 +46,17 @@ class TMIDiscord {
     
     /** @var int Maximum line length per IATA Type B message format */
     private const MAX_LINE_LENGTH = 68;
-    
+
+    /** @var array Organization code to advisory prefix mapping */
+    private const ORG_PREFIXES = [
+        'vatcscc' => 'vATCSCC',
+        'vatcan'  => 'CANOC',
+        'ecfmp'   => 'ECFMP',
+    ];
+
     /**
      * Constructor
-     * 
+     *
      * @param DiscordAPI|null $discord Discord API instance (creates new if null)
      * @param MultiDiscordAPI|null $multiDiscord Multi-org Discord API (creates new if null)
      */
@@ -461,7 +468,7 @@ class TMIDiscord {
         $gsEnd = $this->formatProgramTime($data['end_utc'] ?? $data['gs_end'] ?? null);
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND STOP",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND STOP",
             "CTL ELEMENT: {$airport}",
             "ELEMENT TYPE: APT",
             "ADL TIME: {$adlTime}",
@@ -521,7 +528,7 @@ class TMIDiscord {
         $cnxEnd = $this->formatProgramTime($data['end_utc'] ?? null);
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GS CNX",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GS CNX",
             "CTL ELEMENT: {$airport}",
             "ELEMENT TYPE: APT",
             "ADL TIME: {$adlTime}",
@@ -560,7 +567,7 @@ class TMIDiscord {
         $rate = is_array($data['program_rate'] ?? '') ? implode('/', $data['program_rate']) : ($data['program_rate'] ?? '30');
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM",
             "CTL ELEMENT: {$airport}",
             "ELEMENT TYPE: APT",
             "ADL TIME: {$adlTime}",
@@ -608,7 +615,7 @@ class TMIDiscord {
         $cnxEnd = $this->formatProgramTime($data['end_utc'] ?? null);
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM CNX",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$airport}/{$artcc} {$headerDate} CDM GROUND DELAY PROGRAM CNX",
             "CTL ELEMENT: {$airport}",
             "ELEMENT TYPE: APT",
             "ADL TIME: {$adlTime}",
@@ -682,7 +689,7 @@ class TMIDiscord {
         $probExt = strtoupper($data['prob_extension'] ?? 'NONE');
         $tmiId = 'RR' . $facility . $advNum;
         
-        $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$routeType} {$action}{$flIndicator}"];
+        $lines = ["{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} {$routeType} {$action}{$flIndicator}"];
         
         if ($routeName) $lines[] = "NAME: {$routeName}";
         if ($constrainedArea) {
@@ -736,7 +743,7 @@ class TMIDiscord {
         // REASON TEXT HERE IF ANY.
 
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} REROUTE CANCELLATION",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} REROUTE CANCELLATION",
             strtoupper($cancelText) . $reason,
         ];
 
@@ -787,7 +794,7 @@ class TMIDiscord {
         $probExt = strtoupper($data['prob_extension'] ?? 'NONE');
         $tmiId = 'RR' . $facility . $advNum;
         
-        $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} FCA {$action}{$flIndicator}"];
+        $lines = ["{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} FCA {$action}{$flIndicator}"];
         if ($fcaName) $lines[] = "NAME: {$fcaName}";
         if ($constrainedArea) {
             $areaLine = "CONSTRAINED AREA: {$constrainedArea}";
@@ -843,7 +850,7 @@ class TMIDiscord {
         $summary = $data['summary'] ?? '';
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} OPERATIONS PLAN",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} OPERATIONS PLAN",
             "EVENT TIME: {$eventTime}",
             str_repeat('_', 68),
         ];
@@ -935,7 +942,7 @@ class TMIDiscord {
 
         if ($isTerminated) {
             // HOTLINE TERMINATION format
-            $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} HOTLINE TERMINATION"];
+            $lines = ["{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} HOTLINE TERMINATION"];
             $lines[] = "EVENT TIME: {$eventTimeStr}";
             if ($constrainedFacilities) $lines[] = "CONSTRAINED FACILITIES: {$constrainedFacilities}";
             $lines[] = "THE {$hotlineName} IS BEING TERMINATED EFFECTIVE {$endTimeFormatted}.";
@@ -946,7 +953,7 @@ class TMIDiscord {
             $lines[] = $this->formatSignature();
         } else {
             // HOTLINE ACTIVATION format
-            $lines = ["vATCSCC ADVZY {$advNum} {$facility} {$headerDate} HOTLINE ACTIVATION"];
+            $lines = ["{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} HOTLINE ACTIVATION"];
             $lines[] = "EVENT TIME: {$eventTimeStr}";
             if ($constrainedFacilities) $lines[] = "CONSTRAINED FACILITIES: {$constrainedFacilities}";
 
@@ -988,7 +995,7 @@ class TMIDiscord {
         $text = $data['text'] ?? $data['message'] ?? '';
         
         $lines = [
-            "vATCSCC ADVZY {$advNum} {$facility} {$headerDate} {$advType}",
+            "{$this->getOrgPrefix($data)} ADVZY {$advNum} {$facility} {$headerDate} {$advType}",
             "VALID FOR {$startTime} THROUGH {$endTime}",
             "",
         ];
@@ -1200,6 +1207,7 @@ class TMIDiscord {
     private function formatValidTimeRange(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . '-' . $this->formatTimeDDHHMM($end); }
     private function formatValidTimeRangeWithSpaces(?string $start, ?string $end): string { return $this->formatTimeDDHHMM($start) . ' - ' . $this->formatTimeDDHHMM($end); }
     private function formatSignature(): string { return gmdate('y/m/d H:i'); }
+    private function getOrgPrefix(array $data): string { return self::ORG_PREFIXES[$data['org_code'] ?? ''] ?? 'vATCSCC'; }
     // Format: MM/DD/YYYY HHMM (e.g., 12/06/2025 2359)
     private function formatDateTimeMMDDYYYYHHMM(?string $datetime): string { return ($ts = $this->parseAsUtc($datetime)) ? gmdate('m/d/Y Hi', $ts) : gmdate('m/d/Y Hi'); }
     // Format: MM/DD/YYYY HHMM - MM/DD/YYYY HHMM
