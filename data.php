@@ -486,24 +486,16 @@ include("load/footer.php");
 
                     <input type="hidden" name="id" id="sheet_editconfig_id">
 
-                    <!-- Config Picker Section -->
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox mb-2">
-                            <input type="checkbox" class="custom-control-input" id="sheet_editconfig_use_adl">
-                            <label class="custom-control-label" for="sheet_editconfig_use_adl">Load from ADL Config</label>
-                        </div>
-                        <div id="sheet_editconfig_picker" style="display: none;">
-                            <select class="form-control mb-2" id="sheet_editconfig_select" disabled>
-                                <option value="">-- Select configuration --</option>
-                            </select>
-                            <small class="text-muted">Select a configuration to load runway info</small>
-                        </div>
-                    </div>
-
-                    <hr class="my-2">
-
                     Field:
                     <input type="text" class="form-control" name="airport" id="sheet_editconfig_airport" placeholder="BWI" maxlength="4" readonly required>
+
+                    <!-- ADL Config Picker (auto-populates when airport entered) -->
+                    <div class="form-group mt-2">
+                        <small class="text-muted">ADL Configuration</small>
+                        <select class="form-control form-control-sm" id="sheet_editconfig_select" disabled>
+                            <option value="">-- Select configuration --</option>
+                        </select>
+                    </div>
 
                     Meteorological Condition:
                     <select class="form-control" name="weather" id="sheet_editconfig_weather">
@@ -519,6 +511,12 @@ include("load/footer.php");
 
                     Departure Runways:
                     <input type="text" class="form-control" name="depart" id="sheet_editconfig_depart" placeholder="33R/28">
+
+                    AAR:
+                    <input type="text" class="form-control" name="aar" id="sheet_editconfig_aar" placeholder="60">
+
+                    ADR:
+                    <input type="text" class="form-control" name="adr" id="sheet_editconfig_adr" placeholder="60">
 
                     Comments:
                     <input type="text" class="form-control" name="comments" id="sheet_editconfig_comments">

@@ -1209,24 +1209,16 @@ if ($org_mismatch):
 
                     <input type="hidden" name="p_id" value="<?= $id; ?>">
 
-                    <!-- Config Picker Section -->
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox mb-2">
-                            <input type="checkbox" class="custom-control-input" id="addconfig_use_adl">
-                            <label class="custom-control-label" for="addconfig_use_adl"><?= __('plan.configTab.loadFromAdl') ?></label>
-                        </div>
-                        <div id="addconfig_picker" style="display: none;">
-                            <select class="form-control mb-2" id="addconfig_select" disabled>
-                                <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
-                            </select>
-                            <small class="text-muted"><?= __('plan.configTab.selectConfigHintAdd') ?></small>
-                        </div>
-                    </div>
-
-                    <hr class="my-2">
-
                     <?= __('plan.configTab.field') ?>:
                     <input type="text" class="form-control" name="airport" id="addconfig_airport" placeholder="BWI" maxlength="4" required>
+
+                    <!-- ADL Config Picker (auto-populates when airport entered) -->
+                    <div class="form-group mt-2">
+                        <small class="text-muted"><?= __('plan.configTab.adlConfigLabel') ?></small>
+                        <select class="form-control form-control-sm" id="addconfig_select" disabled>
+                            <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
+                        </select>
+                    </div>
 
                     <?= __('plan.configTab.meteorologicalCondition') ?>:
                     <select class="form-control" name="weather" id="addconfig_weather">
@@ -1281,24 +1273,16 @@ if ($org_mismatch):
 
                     <input type="hidden" name="id" id="editconfig_id">
 
-                    <!-- Config Picker Section -->
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox mb-2">
-                            <input type="checkbox" class="custom-control-input" id="editconfig_use_adl">
-                            <label class="custom-control-label" for="editconfig_use_adl"><?= __('plan.configTab.loadFromAdl') ?></label>
-                        </div>
-                        <div id="editconfig_picker" style="display: none;">
-                            <select class="form-control mb-2" id="editconfig_select" disabled>
-                                <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
-                            </select>
-                            <small class="text-muted"><?= __('plan.configTab.selectConfigHintEdit') ?></small>
-                        </div>
-                    </div>
-
-                    <hr class="my-2">
-
                     <?= __('plan.configTab.field') ?>:
                     <input type="text" class="form-control" name="airport" id="editconfig_airport" placeholder="BWI" maxlength="4" required>
+
+                    <!-- ADL Config Picker (auto-populates when airport entered) -->
+                    <div class="form-group mt-2">
+                        <small class="text-muted"><?= __('plan.configTab.adlConfigLabel') ?></small>
+                        <select class="form-control form-control-sm" id="editconfig_select" disabled>
+                            <option value=""><?= __('plan.configTab.selectConfiguration') ?></option>
+                        </select>
+                    </div>
 
                     <?= __('plan.configTab.meteorologicalCondition') ?>:
                     <select class="form-control" name="weather" id="editconfig_weather">

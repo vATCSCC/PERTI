@@ -5,7 +5,7 @@ const p_id = uri[1] ? uri[1].split('#')[0] : '';
 
 function loadGoals() {
     $('[data-toggle="tooltip"]').tooltip('dispose');
-    $.get(`api/data/plans/goals?p_id=${p_id}`).done(function(data) {
+    $.get(`api/data/plans/goals?p_id=${p_id}&readonly=1`).done(function(data) {
         $('#goals_table').html(data);
         tooltips();
     });
@@ -43,7 +43,7 @@ function loadEnrouteStaffing() {
     });
 
     // Goals still uses server-rendered HTML
-    const goalsReady = $.get(`api/data/plans/goals?p_id=${p_id}`).then(function(data) {
+    const goalsReady = $.get(`api/data/plans/goals?p_id=${p_id}&readonly=1`).then(function(data) {
         $('#goals_table').html(data);
     });
 
@@ -156,8 +156,6 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     const modal = $(this);
 
     // Reset config picker state
-    $('#sheet_editconfig_use_adl').prop('checked', false);
-    $('#sheet_editconfig_picker').hide();
     $('#sheet_editconfig_select').empty().append('<option value="">' + PERTII18n.t('sheet.config.selectConfiguration') + '</option>').prop('disabled', true);
     sheetEditconfigSelectedConfig = null;
 
@@ -166,6 +164,8 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     modal.find('.modal-body #sheet_editconfig_weather').val(button.data('weather')).trigger('change');
     modal.find('.modal-body #sheet_editconfig_arrive').val(button.data('arrive'));
     modal.find('.modal-body #sheet_editconfig_depart').val(button.data('depart'));
+    modal.find('.modal-body #sheet_editconfig_aar').val(button.data('aar'));
+    modal.find('.modal-body #sheet_editconfig_adr').val(button.data('adr'));
     modal.find('.modal-body #sheet_editconfig_comments').val(button.data('comments'));
 
     // Pre-fetch configs for the airport
@@ -316,30 +316,25 @@ function populateConfigDropdown(configs, selectElement) {
     }
 }
 
-// Apply config to form fields (runways only for sheet)
+// Weather code to rate key mapping
+const sheetWeatherMap = { '0': 'vmc', '1': 'vmc', '2': 'lvmc', '3': 'imc', '4': 'limc' };
+
+// Apply config to form fields (runways + rates)
 function applySheetConfigToForm(config) {
     if (!config) {return;}
 
     $('#sheet_editconfig_arrive').val(config.arr_runways || '');
     $('#sheet_editconfig_depart').val(config.dep_runways || '');
-}
 
-// Toggle config picker visibility
-$('#sheet_editconfig_use_adl').on('change', function() {
-    if ($(this).is(':checked')) {
-        $('#sheet_editconfig_picker').slideDown(200);
-        // Trigger config fetch
-        const airport = $('#sheet_editconfig_airport').val();
-        if (airport && airport.length >= 3) {
-            fetchAirportConfigs(airport, function(configs) {
-                populateConfigDropdown(configs, '#sheet_editconfig_select');
-            });
-        }
-    } else {
-        $('#sheet_editconfig_picker').slideUp(200);
-        sheetEditconfigSelectedConfig = null;
+    // Apply rates based on current weather selection
+    const weather = $('#sheet_editconfig_weather').val();
+    const key = sheetWeatherMap[weather] || 'vmc';
+    if (config.rates && config.rates[key]) {
+        const r = config.rates[key];
+        if (r.aar !== null) { $('#sheet_editconfig_aar').val(r.aar); }
+        if (r.adr !== null) { $('#sheet_editconfig_adr').val(r.adr); }
     }
-});
+}
 
 // Apply selected config
 $('#sheet_editconfig_select').on('change', function() {
@@ -352,5 +347,15 @@ $('#sheet_editconfig_select').on('change', function() {
         applySheetConfigToForm(sheetEditconfigSelectedConfig);
     } else {
         sheetEditconfigSelectedConfig = null;
+    }
+});
+
+// Update rates when weather changes (sheet Edit Config)
+$('#sheet_editconfig_weather').on('change', function() {
+    if (sheetEditconfigSelectedConfig && sheetEditconfigSelectedConfig.rates) {
+        const key = sheetWeatherMap[$(this).val()] || 'vmc';
+        const r = sheetEditconfigSelectedConfig.rates[key] || {};
+        if (r.aar !== null) { $('#sheet_editconfig_aar').val(r.aar); }
+        if (r.adr !== null) { $('#sheet_editconfig_adr').val(r.adr); }
     }
 });

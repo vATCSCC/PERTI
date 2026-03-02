@@ -8,24 +8,29 @@ if (session_status() == PHP_SESSION_NONE) {
 // Session Start (E)
 
 include("../../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
 $domain = strip_tags(SITE_DOMAIN);
-
 
 $id = post_input('id');
 $weather = post_input('weather');
 $arrive = post_input('arrive');
 $depart = post_input('depart');
+$aar = post_input('aar');
+$adr = post_input('adr');
 $comments = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['comments'] ?? '')));
 
-// Insert Data into Database
-$query = $conn_sqli->query("UPDATE p_configs SET weather='$weather', arrive='$arrive', depart='$depart', aar='', adr='', comments='$comments' WHERE id=$id");
+// Update Data in Database (prepared statement)
+$stmt = $conn_sqli->prepare("UPDATE p_configs SET weather=?, arrive=?, depart=?, aar=?, adr=?, comments=? WHERE id=?");
+$stmt->bind_param("ssssssi", $weather, $arrive, $depart, $aar, $adr, $comments, $id);
 
-if ($query) {
-    http_response_code('200');
+if ($stmt->execute()) {
+    http_response_code(200);
 } else {
-    http_response_code('500');
+    error_log("user/configs/update error: " . $stmt->error);
+    http_response_code(500);
 }
+$stmt->close();
 
 ?>

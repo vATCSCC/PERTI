@@ -3106,9 +3106,10 @@
       "departureRunways": "Pistes de départ",
       "editTitle": "Modifier l’entrée de configuration",
       "field": "Terrain",
+      "adlConfigLabel": "Configuration ADL",
       "loadFromAdl": "Charger depuis la config. ADL",
       "meteorologicalCondition": "Condition météorologique",
-      "selectConfigHintAdd": "Entrez le code de l’aéroport ci-dessus, puis sélectionnez une configuration",
+      "selectConfigHintAdd": "Entrez le code de l'aéroport ci-dessus, puis sélectionnez une configuration",
       "selectConfigHintEdit": "Sélectionnez une configuration pour charger les pistes et les taux",
       "selectConfiguration": "-- Sélectionner une configuration --"
     },

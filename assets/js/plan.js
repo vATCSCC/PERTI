@@ -1304,8 +1304,6 @@ $('#editconfigModal').on('show.bs.modal', function(event) {
     const modal = $(this);
 
     // Reset config picker state
-    $('#editconfig_use_adl').prop('checked', false);
-    $('#editconfig_picker').hide();
     $('#editconfig_select').empty().append('<option value="">' + PERTII18n.t('plan.config.selectConfig') + '</option>').prop('disabled', true);
     editconfigSelectedConfig = null;
 
@@ -1391,34 +1389,6 @@ function deleteConfig(id) {
     });
 }
 
-// FUNC: autoConfig [id:]
-function autoConfig(id, aar, adr) {
-    $.ajax({
-        type:   'POST',
-        url:    'api/mgt/configs/fill',
-        data:   {id: id, aar: aar, adr: adr},
-        success:function(data) {
-            Swal.fire({
-                toast:      true,
-                position:   'bottom-right',
-                icon:       'success',
-                title:      PERTII18n.t('plan.config.successAutofilled'),
-                text:       PERTII18n.t('plan.config.autofilled'),
-                timer:      3000,
-                showConfirmButton: false,
-            });
-
-            loadConfigs();
-        },
-        error:function(data) {
-            Swal.fire({
-                icon:   'error',
-                title:  PERTII18n.t('plan.notDeleted'),
-                text:   PERTII18n.t('plan.config.autofillError'),
-            });
-        },
-    });
-}
 
 // =====================================================
 // ADL Config Picker Functions
@@ -1515,27 +1485,10 @@ function applyConfigToForm(config, prefix, weatherValue) {
 // Add Config Modal - Config Picker Events
 // =====================================================
 
-// Toggle config picker visibility
-$('#addconfig_use_adl').on('change', function() {
-    if ($(this).is(':checked')) {
-        $('#addconfig_picker').slideDown(200);
-        // Trigger config fetch if airport already entered
-        const airport = $('#addconfig_airport').val();
-        if (airport && airport.length >= 3) {
-            fetchAirportConfigs(airport, function(configs) {
-                populateConfigDropdown(configs, '#addconfig_select');
-            });
-        }
-    } else {
-        $('#addconfig_picker').slideUp(200);
-        addconfigSelectedConfig = null;
-    }
-});
-
 // Fetch configs when airport field changes (Add Config modal)
 $('#addconfig_airport').on('blur change', function() {
     const airport = $(this).val();
-    if ($('#addconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
+    if (airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#addconfig_select');
         });
@@ -1568,8 +1521,6 @@ $('#addconfig_weather').on('change', function() {
 
 // Reset Add Config modal on open
 $('#addconfigModal').on('show.bs.modal', function() {
-    $('#addconfig_use_adl').prop('checked', false);
-    $('#addconfig_picker').hide();
     $('#addconfig_select').empty().append('<option value="">' + PERTII18n.t('plan.config.selectConfig') + '</option>').prop('disabled', true);
     addconfigSelectedConfig = null;
 });
@@ -1578,27 +1529,10 @@ $('#addconfigModal').on('show.bs.modal', function() {
 // Edit Config Modal - Config Picker Events
 // =====================================================
 
-// Toggle config picker visibility (Edit modal)
-$('#editconfig_use_adl').on('change', function() {
-    if ($(this).is(':checked')) {
-        $('#editconfig_picker').slideDown(200);
-        // Trigger config fetch
-        const airport = $('#editconfig_airport').val();
-        if (airport && airport.length >= 3) {
-            fetchAirportConfigs(airport, function(configs) {
-                populateConfigDropdown(configs, '#editconfig_select');
-            });
-        }
-    } else {
-        $('#editconfig_picker').slideUp(200);
-        editconfigSelectedConfig = null;
-    }
-});
-
 // Fetch configs when airport field changes (Edit Config modal)
 $('#editconfig_airport').on('blur change', function() {
     const airport = $(this).val();
-    if ($('#editconfig_use_adl').is(':checked') && airport && airport.length >= 3) {
+    if (airport && airport.length >= 3) {
         fetchAirportConfigs(airport, function(configs) {
             populateConfigDropdown(configs, '#editconfig_select');
         });
@@ -3269,7 +3203,13 @@ function opsPlanUpdateMessage() {
         return (a.start_datetime || '').localeCompare(b.start_datetime || '');
     });
 
-    termConstraints.forEach(function(item) {
+    // Consolidate constraints with same time, type, impact — merge facilities
+    const termConstraintsConsolidated = opsPlanConsolidate(termConstraints, function(item) {
+        const cause = (item.tmi_type === 'Other' && item.tmi_type_other) ? item.tmi_type_other : (item.tmi_type || '');
+        return [item.start_datetime, item.end_datetime, cause, item.cause || ''].join('|');
+    });
+
+    termConstraintsConsolidated.forEach(function(item) {
         const startTime = opsPlanFormatTmiTime(item.start_datetime);
         const endTime = opsPlanFormatTmiTime(item.end_datetime);
         const loc = opsPlanUpper(item.facility || '');
@@ -3303,7 +3243,13 @@ function opsPlanUpdateMessage() {
         return (a.start_datetime || '').localeCompare(b.start_datetime || '');
     });
 
-    enrouteConstraints.forEach(function(item) {
+    // Consolidate constraints with same time, type, impact — merge facilities
+    const enrouteConstraintsConsolidated = opsPlanConsolidate(enrouteConstraints, function(item) {
+        const cause = (item.tmi_type === 'Other' && item.tmi_type_other) ? item.tmi_type_other : (item.tmi_type || '');
+        return [item.start_datetime, item.end_datetime, cause, item.cause || ''].join('|');
+    });
+
+    enrouteConstraintsConsolidated.forEach(function(item) {
         const startTime = opsPlanFormatTmiTime(item.start_datetime);
         const endTime = opsPlanFormatTmiTime(item.end_datetime);
         const loc = opsPlanUpper(item.facility || '');
@@ -3374,6 +3320,33 @@ function opsPlanUpdateMessage() {
         return (a.end_datetime || '').localeCompare(b.end_datetime || '');
     }
 
+    // Helper: Consolidate items by grouping key, merging facilities with /
+    function opsPlanConsolidate(items, keyFn) {
+        const groups = [];
+        const groupMap = {};
+        items.forEach(function(item) {
+            const key = keyFn(item);
+            if (groupMap[key]) {
+                const facs = (item.facility || '').split('/').map(function(f) { return f.trim(); }).filter(Boolean);
+                facs.forEach(function(f) {
+                    if (groupMap[key]._facilities.indexOf(f) === -1) {
+                        groupMap[key]._facilities.push(f);
+                    }
+                });
+            } else {
+                const g = Object.assign({}, item);
+                g._facilities = (item.facility || '').split('/').map(function(f) { return f.trim(); }).filter(Boolean);
+                groupMap[key] = g;
+                groups.push(g);
+            }
+        });
+        groups.forEach(function(g) {
+            g._facilities.sort();
+            g.facility = g._facilities.join('/');
+        });
+        return groups;
+    }
+
     // Helper: Build TMI lines from timeline data (filtered to event period)
     function buildTmiLinesFromTimeline(timelineData, levelFilter) {
         const result = [];
@@ -3386,7 +3359,13 @@ function opsPlanUpdateMessage() {
         // Sort by: start time, probability (Active>Expected>Probable>Possible>CDW), cause, facility, end time
         filtered.sort(opsPlanCompareTimeline);
 
-        filtered.forEach(function(item) {
+        // Consolidate items with same time, type, level, cause — merge facilities
+        const consolidated = opsPlanConsolidate(filtered, function(item) {
+            const tmiType = (item.tmi_type === 'Other' && item.tmi_type_other) ? item.tmi_type_other : (item.tmi_type || '');
+            return [item.start_datetime, item.end_datetime, item.level, tmiType, item.area || '', item.cause || ''].join('|');
+        });
+
+        consolidated.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
             const endTime = opsPlanFormatTmiTime(item.end_datetime);
             const desc = opsPlanBuildTmiDesc(item);
@@ -3417,7 +3396,13 @@ function opsPlanUpdateMessage() {
 
         filtered.sort(opsPlanCompareTimeline);
 
-        filtered.forEach(function(item) {
+        // Consolidate items with same time, type, level, advzy, cause — merge facilities
+        const consolidated = opsPlanConsolidate(filtered, function(item) {
+            const tmiType = (item.tmi_type === 'Other' && item.tmi_type_other) ? item.tmi_type_other : (item.tmi_type || '');
+            return [item.start_datetime, item.end_datetime, item.level, tmiType, item.advzy_number || '', item.cause || ''].join('|');
+        });
+
+        consolidated.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
             const endTime = opsPlanFormatTmiTime(item.end_datetime);
             const facility = opsPlanUpper(item.facility || '');
@@ -3453,7 +3438,13 @@ function opsPlanUpdateMessage() {
 
         filtered.sort(opsPlanCompareTimeline);
 
-        filtered.forEach(function(item) {
+        // Consolidate items with same time, type, area, notes/cause — merge facilities
+        const consolidated = opsPlanConsolidate(filtered, function(item) {
+            const tmiType = (item.tmi_type === 'Other' && item.tmi_type_other) ? item.tmi_type_other : (item.tmi_type || '');
+            return [item.start_datetime, item.end_datetime, item.level, tmiType, item.area || '', item.notes || '', item.cause || ''].join('|');
+        });
+
+        consolidated.forEach(function(item) {
             const startTime = opsPlanFormatTmiTime(item.start_datetime);
             const endTime = opsPlanFormatTmiTime(item.end_datetime);
             const facility = opsPlanUpper(item.facility || '');

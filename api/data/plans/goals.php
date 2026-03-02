@@ -39,6 +39,11 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
+// Allow callers (e.g. sheet view) to request read-only mode
+if (get_input('readonly') === '1') {
+    $perm = false;
+}
+
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_op_goals WHERE p_id='$p_id'")->fetch_assoc();
 
 if ($c_q['total'] > 0) {
