@@ -1784,17 +1784,569 @@ INSERT INTO swim_api_keys (api_key, tier, owner_name, owner_email, is_active)
 VALUES ('your-generated-key', 'standard', 'Admin', 'admin@example.com', 1);
 ```
 
-### 13.4 Multi-Language Support (i18n)
+### 13.4 Internationalization (i18n)
 
-PERTI supports internationalization. Translations are in `assets/locales/`:
-- `en-US.json` — English (complete, 450+ keys)
-- `fr-CA.json` — French Canadian (near-complete)
-- `en-CA.json` — Canadian English overlay
-- `en-EU.json` — European English overlay
+PERTI implements a dual-layer i18n system with shared JSON locale files:
 
-Users can switch locale via URL parameter `?locale=fr-CA` or browser settings.
+- **JavaScript frontend**: `PERTII18n` module (`assets/js/lib/i18n.js`)
+- **PHP backend**: `PERTII18nPHP` class (`load/i18n.php`)
+- **Locale files**: `assets/locales/*.json` (shared by both layers)
 
-### 13.5 Flight Simulator Integrations
+#### Supported Locales
+
+| Locale | File | Lines | Coverage |
+|--------|------|-------|----------|
+| `en-US` | `en-US.json` | 7,500+ | **Complete** — all domains |
+| `fr-CA` | `fr-CA.json` | 7,900+ | **Near-complete** — French translations |
+| `en-CA` | `en-CA.json` | 670+ | **Overlay** — Canadian English overrides |
+| `en-EU` | `en-EU.json` | 620+ | **Overlay** — European English overrides |
+
+Supported locale list is defined in `assets/locales/index.js`. Add new locale codes there.
+
+#### JavaScript API
+
+```javascript
+// Translation with parameter interpolation
+PERTII18n.t('error.loadFailed', { resource: 'flights' })  // "Failed to load flights"
+
+// Pluralization (uses .one / .other subkeys)
+PERTII18n.tp('flight', 5)  // "5 flights"
+
+// Formatting (locale-aware via Intl)
+PERTII18n.formatNumber(1234.5)                        // "1,234.5"
+PERTII18n.formatDate(date, { month: 'long' })         // "March 1, 2026"
+
+// Check key existence
+PERTII18n.has('common.save')  // true/false
+
+// Register page-specific strings at runtime
+PERTII18n.register({ myFeature: { title: "My Title" } })
+```
+
+All user-facing strings in JavaScript **must** use `PERTII18n.t()` — never hardcode English.
+
+#### PHP API
+
+```php
+// Translation (auto-initializes from session locale on first call)
+<?= __('airportConfig.page.title') ?>                           // "Field Configuration Data"
+<?= __('error.loadFailed', ['resource' => 'flights']) ?>        // "Failed to load flights"
+
+// Pluralization
+<?= __p('flight', $count) ?>  // "1 flight" or "5 flights"
+
+// Check existence
+__has('common.save')  // true/false
+
+// Get/set locale
+PERTII18nPHP::getLocale()     // 'en-US'
+PERTII18nPHP::init('fr-CA')   // Force specific locale
+```
+
+PHP locale detection priority: explicit `init()` parameter → `$_SESSION['PERTI_LOCALE']` → `'en-US'` fallback.
+
+#### Dialog Integration
+
+`PERTIDialog` (`assets/js/lib/dialog.js`) wraps SweetAlert2 with automatic i18n key resolution:
+
+```javascript
+PERTIDialog.success('dialog.saved.title', 'dialog.saved.text');
+PERTIDialog.error('common.error', 'error.loadFailed', { resource: 'flights' });
+PERTIDialog.confirm('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
+PERTIDialog.confirmDanger('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
+PERTIDialog.loading('common.loading');
+PERTIDialog.toast('common.copied', 'success');
+```
+
+Properties ending in `Key` (e.g., `titleKey`, `textKey`, `confirmKey`) are auto-translated.
+
+#### Locale Detection Priority (JavaScript)
+
+The locale loader (`assets/locales/index.js`) checks in order:
+
+1. **URL parameter**: `?locale=en-US` (highest priority)
+2. **localStorage + org match**: `PERTI_LOCALE` (only if `PERTI_LOCALE_ORG` matches current org)
+3. **Organization default**: `window.PERTI_ORG.defaultLocale` (from `organizations.default_locale`)
+4. **Browser language**: `navigator.language` (e.g., `en-GB` matches `en-*`)
+5. **Fallback**: `en-US`
+
+When a user switches organizations, the cached locale is invalidated and the new org's default is used.
+
+#### Page Load Sequence (Critical Order)
+
+In `load/header.php`, i18n scripts must load in this exact order:
+
+```
+1. perti.js         — PERTI namespace
+2. <script> block   — Sets window.PERTI_ORG (code, defaultLocale, orgInfo) + PERTI_LOCALE_V
+3. i18n.js          — PERTII18n module (translation engine)
+4. locales/index.js — Locale loader (detects locale, loads JSON, resolves {commandCenter})
+5. dialog.js        — PERTIDialog (depends on PERTII18n)
+6. Feature JS       — Can now use PERTII18n.t() and PERTIDialog
+```
+
+Cache-busting: `header.php` appends `?v={filemtime}` to all script URLs via `_v()` helper.
+
+#### The `{commandCenter}` Placeholder
+
+Locale files use `{commandCenter}` as a placeholder for the org's display name. During initialization:
+
+- **JavaScript**: Resolved by `locales/index.js` from `window.PERTI_ORG.orgInfo.display_name`
+- **PHP**: Resolved by `load/i18n.php` from `get_org_info()` via `org_context.php`
+
+Example: `"Briefing for {commandCenter}"` → `"Briefing for DCC"` (vatcscc) or `"Briefing for CANOC"` (canoc).
+
+#### Adding Translation Keys
+
+Add keys to `assets/locales/en-US.json` in nested JSON structure:
+
+```json
+{
+  "myFeature": {
+    "title": "Feature Title",
+    "error": { "loadFailed": "Failed to load {resource}" },
+    "item": { "one": "{count} item", "other": "{count} items" }
+  }
+}
+```
+
+Keys auto-flatten to dot notation: `myFeature.title`, `myFeature.error.loadFailed`. Pluralization uses `.one`/`.other` subkeys.
+
+For other locales, only include keys that differ from en-US — missing keys fall back automatically.
+
+#### Adding a New Locale
+
+1. Create `assets/locales/{locale}.json` (copy en-US.json, translate values)
+2. Add locale code to supported list in `assets/locales/index.js`
+3. Set as org default if desired: `UPDATE organizations SET default_locale = '{locale}' WHERE org_code = '...'`
+4. Test: visit `?locale={locale}` to verify
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `assets/js/lib/i18n.js` | JS translation engine (`PERTII18n`) |
+| `assets/locales/index.js` | Locale detection, loading, {commandCenter} resolution |
+| `assets/js/lib/dialog.js` | SweetAlert2 wrapper with i18n key resolution |
+| `load/i18n.php` | PHP translation class (`PERTII18nPHP`, `__()`, `__p()`) |
+| `load/header.php` | Script load order, `window.PERTI_ORG` context injection |
+| `api/data/locale.php` | POST/GET endpoint for session locale switching |
+| `assets/locales/en-US.json` | Primary English translation dictionary |
+
+### 13.5 Multi-Organization Support
+
+PERTI implements a **single-deployment, multi-organization** architecture. One instance serves multiple independent traffic management organizations (e.g., vATCSCC for US, CANOC for Canada, ECFMP for Europe) with data isolation via session-based org scoping. Organizations are defined in the database, not in code.
+
+#### Database Tables
+
+Three MySQL tables in `perti_site` control the org system:
+
+**`organizations`** — Master registry:
+```
+org_code (PK)    — Unique ID: 'vatcscc', 'canoc', 'ecfmp', 'global'
+org_name         — Short name: 'vATCSCC'
+display_name     — UI label: 'DCC', 'CANOC'
+region           — Geographic: 'US', 'CA', 'EU', 'WW'
+vatsim_division  — VATSIM division: 'VATUSA', 'VATCAN', 'VATEMEA'
+default_locale   — Org default language: 'en-US', 'en-CA', 'fr-CA'
+is_active        — Toggle: 1 = active
+```
+
+**`user_orgs`** — User-org memberships:
+```
+cid              — VATSIM Certificate ID
+org_code (FK)    — Organization
+is_privileged    — Can edit/create plans in this org
+is_primary       — Default org on login (one per user)
+is_global        — Cross-org access (see all plans)
+```
+
+**`org_facilities`** — Facility jurisdiction:
+```
+org_code (FK)    — Organization
+facility_code    — ARTCC/FIR code: 'ZBW', 'CZYZ'
+facility_type    — 'ARTCC', 'FIR', 'TRACON'
+```
+
+Migrations: `database/migrations/org/001_create_organizations.sql` (schema + seed data).
+
+#### Session Variables
+
+After login, `load_org_context()` populates these session variables:
+
+| Variable | Type | Purpose |
+|----------|------|---------|
+| `$_SESSION['ORG_CODE']` | string | Active org code (default: `'vatcscc'`) |
+| `$_SESSION['ORG_PRIVILEGED']` | bool | Can edit/create in active org |
+| `$_SESSION['ORG_GLOBAL']` | bool | Global admin (cross-org access) |
+| `$_SESSION['ORG_ALL']` | array | All orgs user belongs to: `['vatcscc', 'canoc']` |
+| `$_SESSION['ORG_INFO_{code}']` | array | Cached display info per org |
+| `$_SESSION['ORG_FACILITIES_{code}']` | array | Cached facility list per org |
+
+#### Core Functions (`load/org_context.php`)
+
+```php
+get_org_code()                    // Active org code, default 'vatcscc'
+is_org_privileged()               // Privileged in active org (or global)
+is_org_global()                   // Global admin
+get_user_orgs()                   // Array of user's org codes
+get_org_info($conn)               // Org display info (cached in session)
+load_org_facilities($conn)        // Facility codes for active org
+
+// Authorization gates
+require_org_privileged()          // Exit 403 if not privileged
+require_facility_scope($code, $conn_sqli, $conn_adl)  // Exit 403 if facility out of scope
+validate_plan_org($p_id, $conn)   // Check plan belongs to user's org
+```
+
+**Facility scope validation** resolves in order: direct `org_facilities` match → airport-to-ARTCC lookup via `dbo.apts.RESP_ARTCC_ID` → error. Global users bypass all checks.
+
+#### Plan Scoping
+
+All plan tables have an `org_code` column (added by `database/migrations/org/002_add_org_code_to_plans.sql`):
+
+- `org_code = 'vatcscc'` → visible only to vatcscc users
+- `org_code IS NULL` → global plan, visible to all orgs
+- Global users can see and edit all plans regardless of org_code
+
+API endpoints enforce scoping automatically:
+
+```php
+// Typical pattern in api/mgt/perti/*.php
+if (!is_org_privileged()) { http_response_code(403); exit(); }
+if (!validate_plan_org((int)$id, $conn_sqli)) { http_response_code(403); exit(); }
+```
+
+#### Org Switching
+
+Users in multiple orgs see a dropdown in the nav bar. Switching calls:
+
+```
+POST /api/session/switch_org.php
+Body: { "org_code": "canoc" }
+Response: { "success": true, "org_code": "canoc", "display_name": "CANOC", "default_locale": "en-CA" }
+```
+
+The frontend (`switchOrg()` in nav.php) syncs the locale to the new org's default and reloads the page.
+
+Anonymous users can also switch org scope (validated against active orgs, never `global`).
+
+#### Discord Multi-Org Integration
+
+`load/discord/MultiDiscordAPI.php` manages posting to multiple Discord servers using a single bot token. Configuration is in `load/config.php`:
+
+```php
+define('DISCORD_ORGANIZATIONS', json_encode([
+    'vatcscc' => [
+        'name' => 'vATCSCC', 'region' => 'US',
+        'guild_id' => '...', 'enabled' => true,
+        'channels' => [ 'ntml' => '...', 'advisories' => '...' ]
+    ],
+    'canoc' => [
+        'name' => 'CANOC', 'region' => 'CA',
+        'guild_id' => '...', 'enabled' => false,
+        'channels' => [ 'ntml' => '...', 'advisories' => '...' ]
+    ]
+]));
+```
+
+Cross-border TMIs are auto-detected by mapping requesting/providing facilities to their org, then posting to all affected org channels.
+
+#### The `global` Pseudo-Organization
+
+`org_code = 'global'` is a special pseudo-org for system administrators:
+
+- Bypasses all facility scope checks
+- Can see/edit all plans regardless of org_code
+- Can post to all enabled Discord channels
+- Assigned via `user_orgs.is_global = 1`
+- `PROTECTED_CID` (config.php constant) auto-grants global access to all active orgs
+
+#### Adding a New Organization
+
+1. **Database**: Insert into `organizations` table:
+   ```sql
+   INSERT INTO organizations (org_code, org_name, display_name, region, vatsim_division, default_locale, is_active)
+   VALUES ('mynoc', 'MyNOC', 'NOC', 'EU', 'VATEMEA', 'en-EU', 1);
+   ```
+
+2. **Facilities**: Assign ARTCC/FIR jurisdictions:
+   ```sql
+   INSERT INTO org_facilities (org_code, facility_code, facility_type)
+   VALUES ('mynoc', 'EGTT', 'FIR'), ('mynoc', 'EGPX', 'FIR');
+   ```
+
+3. **Nav bar color**: Add to `$org_colors` in `load/nav.php` and `load/nav_public.php`:
+   ```php
+   $org_colors = [ ..., 'mynoc' => '#2e7d32' ];
+   ```
+
+4. **Discord** (optional): Add org config to `DISCORD_ORGANIZATIONS` in `config.php`. Invite the PERTI bot to the new Discord server with Send Messages, Embed Links, Add Reactions permissions.
+
+5. **Users**: Add privileged users:
+   ```sql
+   INSERT INTO user_orgs (cid, org_code, is_privileged, is_primary)
+   VALUES (1234567, 'mynoc', 1, 1);
+   ```
+
+6. **Locale** (optional): Create a new locale file if needed (see Section 13.4).
+
+7. **Verify**: Log in as an assigned user, confirm org badge shows, plans are scoped, facility validation works.
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `load/org_context.php` | Core org functions (7 key functions) |
+| `api/session/switch_org.php` | Org switcher endpoint |
+| `login/callback.php` | OAuth login, auto-assigns org from VATSIM division |
+| `load/nav.php` / `load/nav_public.php` | Nav bar org badge + switcher |
+| `load/discord/MultiDiscordAPI.php` | Multi-org Discord posting |
+| `database/migrations/org/` | Org schema migrations (001-009) |
+
+### 13.6 Code Standards & Conventions
+
+This section documents the coding patterns used throughout PERTI. New code should follow these conventions for consistency.
+
+#### PHP Include Order
+
+API endpoints must include files in this order:
+
+```php
+// 1. Session (MUST be before connect.php — connect.php outputs a trailing newline)
+include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
+
+// 2. Config (defines database constants, feature flags)
+include("../../../load/config.php");
+
+// 3. PERTI_MYSQL_ONLY optimization (optional — skip Azure SQL lazy-loading)
+define('PERTI_MYSQL_ONLY', true);  // Only if endpoint uses MySQL exclusively
+
+// 4. Database connections
+include("../../../load/connect.php");
+
+// 5. Org context (requires active DB connection)
+// (Loaded automatically by nav.php for page requests)
+```
+
+**PERTI_MYSQL_ONLY rule**: Always `grep` for `$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, `$conn_gis` in the file before applying this flag. If any Azure SQL connection is used, do NOT define it.
+
+#### Database Query Patterns
+
+Use `PERTI\Lib\Database` (`lib/Database.php`) for all new queries:
+
+```php
+use PERTI\Lib\Database;
+
+// MySQL (MySQLi) — auto-infers parameter types
+$rows  = Database::select($conn_sqli, "SELECT * FROM users WHERE cid = ?", [$cid]);
+$user  = Database::selectOne($conn_sqli, "SELECT * FROM users WHERE cid = ?", [$cid]);
+$count = Database::execute($conn_sqli, "UPDATE p_plans SET name = ? WHERE id = ?", [$name, $id]);
+$id    = Database::insert($conn_sqli, "INSERT INTO p_plans (name) VALUES (?)", [$name]);
+
+// Azure SQL (sqlsrv)
+$rows  = Database::selectSqlsrv($conn_adl, "SELECT * FROM adl_flight_core WHERE flight_uid = ?", [$uid]);
+$count = Database::executeSqlsrv($conn_adl, "UPDATE adl_flight_core SET phase = ? WHERE flight_uid = ?", [$phase, $uid]);
+
+// LIKE clause (escape wildcards)
+$search = Database::escapeLike($userInput);
+Database::select($conn, "SELECT * FROM t WHERE col LIKE ?", ["%{$search}%"]);
+
+// IN clause
+[$placeholders, $types] = Database::buildInClause([1, 2, 3], 'i');
+Database::select($conn, "SELECT * FROM t WHERE id IN ($placeholders)", [1, 2, 3], $types);
+```
+
+**Never** use raw string interpolation in SQL. Never use `$conn->query()` with unescaped values.
+
+#### Input Handling
+
+Use `load/input.php` safe functions (PHP 8.2+ compatible, prevent "Undefined array key" warnings):
+
+```php
+// GET parameters
+get_input('key')         // string, strip_tags + trim
+get_int('key')           // int
+get_float('key')         // float
+get_upper('key')         // uppercase string
+has_get('key')           // bool, exists and not empty
+
+// POST parameters
+post_input('key')        // string, strip_tags + trim
+post_int('key')          // int
+has_post('key')          // bool
+
+// Session / Cookie / Server
+session_get('key')       // any type
+cookie_get('key')        // string
+server_get('key')        // string
+```
+
+All functions accept a second parameter for default values.
+
+#### API Response Format
+
+Use `PERTI\Lib\Response` (`lib/Response.php`) for JSON API responses:
+
+```php
+use PERTI\Lib\Response;
+
+// Success (200)
+Response::success($data);
+// → { "success": true, "data": {...}, "timestamp": "2026-03-01T..." }
+
+// Errors (with HTTP status codes)
+Response::error("Message", 400, "ERROR_CODE");        // 400 Bad Request
+Response::validationError(['field' => 'required']);    // 400 with field details
+Response::unauthorized("Not authenticated");           // 401
+Response::forbidden("Insufficient privileges");        // 403
+Response::notFound("Resource not found");              // 404
+Response::serverError("Internal error");               // 500
+
+// Special formats
+Response::geoJson($features);                          // GeoJSON FeatureCollection
+Response::cached($data, $etag, $maxAge);               // With ETag + Cache-Control
+Response::handlePreflight();                           // CORS preflight response
+```
+
+CORS whitelist: `perti.vatcscc.org`, `vatcscc.org`, `swim.vatcscc.org`, `localhost`, `localhost:3000`, `localhost:8080`. No wildcard fallback.
+
+#### API Endpoint Patterns
+
+**Pattern 1 — Data endpoint** (read-only, no auth):
+```php
+header('Content-Type: application/json');
+header('Cache-Control: public, max-age=3600');
+try {
+    $name = get_upper('name');
+    $rows = Database::select($conn, "SELECT * FROM nav_fixes WHERE fix_name = ?", [$name]);
+    echo json_encode(['status' => 'ok', 'data' => $rows]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+}
+```
+
+**Pattern 2 — Management endpoint** (auth + privilege + org scope):
+```php
+include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
+include("../../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
+include("../../../load/connect.php");
+
+if (!isset($_SESSION['VATSIM_CID'])) { http_response_code(401); exit(); }
+if (!is_org_privileged()) { http_response_code(403); exit(); }
+if (!validate_plan_org(post_int('id'), $conn_sqli)) { http_response_code(403); exit(); }
+
+try {
+    $conn_pdo->beginTransaction();
+    // ... parameterized queries ...
+    $conn_pdo->commit();
+    http_response_code(200);
+} catch (PDOException $e) {
+    $conn_pdo->rollback();
+    error_log("[PERTI] " . $e->getMessage());
+    http_response_code(500);
+}
+```
+
+**Pattern 3 — SWIM API endpoint** (API key auth, multi-format, pagination):
+```php
+require_once __DIR__ . '/auth.php';  // Validates X-API-Key header
+$format = swim_validate_format(swim_get_param('format', 'fixm'), 'flights');
+$page = swim_get_int_param('page', 1, 1, 1000);
+$per_page = swim_get_int_param('per_page', 100, 1, 500);
+// ... build parameterized query, paginate, format response ...
+SwimResponse::paginatedFormatted($data, $total, $page, $per_page, $format);
+```
+
+#### Date/Time Conventions
+
+**All times are UTC.** Use `PERTI\Lib\DateTime` (`lib/DateTime.php`):
+
+```php
+use PERTI\Lib\DateTime;
+
+DateTime::nowUtc()                    // '2026-03-01 12:30:45'
+DateTime::todayUtc()                  // '2026-03-01'
+DateTime::formatUtc($ts, 'Y-m-d')    // Format existing timestamp
+DateTime::parseToTimestamp('2026-03-01 12:30:45')  // Parse to Unix timestamp
+```
+
+Never use `date()` (uses server timezone) — use `gmdate()` or `DateTime::nowUtc()`.
+
+#### JavaScript Conventions
+
+**Module pattern**: IIFE or window-namespaced object:
+
+```javascript
+window.ModuleName = (function() {
+    'use strict';
+    var CONST = 'value';
+    function _private() { /* ... */ }
+    return {
+        init: function() { /* ... */ },
+        update: function(data) { /* ... */ }
+    };
+})();
+```
+
+**AJAX**: jQuery `$.ajax()` with `dataType: 'json'`, error handling via `PERTIDialog.error()`.
+
+**Notifications**: Always use `PERTIDialog` (not raw `Swal` or `alert()`).
+
+**Strings**: Always use `PERTII18n.t()` for user-facing text (see Section 13.4).
+
+#### Naming Conventions
+
+| Context | Convention | Example |
+|---------|-----------|---------|
+| PHP functions | snake_case | `get_org_code()`, `validate_plan_org()` |
+| PHP constants | UPPER_SNAKE | `PERTI_MYSQL_ONLY`, `HIBERNATION_MODE` |
+| PHP classes | PascalCase (PSR-4) | `PERTI\Lib\Database` |
+| JavaScript functions | camelCase | `switchOrg()`, `formatNumber()` |
+| JavaScript modules | PascalCase | `PERTII18n`, `PERTIDialog` |
+| JavaScript constants | UPPER_SNAKE | `SWIM_DEFAULT_PAGE_SIZE` |
+| CSS classes | kebab-case | `.nav-hibernated`, `.mobile-nav-link` |
+| CSS variables | --kebab-case | `--body-text`, `--gradient-dark-start` |
+| Database tables | snake_case | `adl_flight_core`, `tmi_programs` |
+| Database columns | snake_case | `flight_uid`, `org_code` |
+| API endpoints | kebab-case paths | `/api/swim/v1/flights`, `/api/event-aar/list` |
+
+#### Error Handling
+
+**PHP**: Wrap database operations in try-catch. Log with prefix for filtering:
+
+```php
+try {
+    // ... database operation ...
+} catch (Exception $e) {
+    error_log("[PERTI ComponentName] Error: " . $e->getMessage());
+    http_response_code(500);
+    // For JSON APIs: Response::serverError("...");
+    // For pages: show user-friendly error
+}
+```
+
+**JavaScript**: Use `PERTIDialog.error()` for user-visible errors, `console.error()` for debugging.
+
+#### Known Gotchas
+
+1. **`?>` in PHP comments terminates PHP mode**: `// some text ?> rest` causes `rest` to be emitted as raw HTML. Never use `?>` inside `//` or `/* */` comments. (See incident: status.php source code leak.)
+
+2. **`connect.php` trailing newline**: The closing `?>` tag outputs a newline, which sends HTTP headers. Sessions MUST start BEFORE including `connect.php`.
+
+3. **Azure SQL uses `sqlsrv`**, not PDO: Don't mix `sqlsrv_query()` with `$conn->query()`. Use `Database::selectSqlsrv()` / `Database::executeSqlsrv()` for Azure SQL.
+
+4. **jQuery 2.2.4 `.toggle()` on `<tr>`**: Sets `display:block` instead of `display:table-row`, breaking `table-layout:fixed`. Use `.css('display','table-row')` / `.css('display','')` instead.
+
+5. **`PERTI_MYSQL_ONLY`**: Always grep for Azure SQL connection usage (`$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, `$conn_gis`) before applying this flag to an endpoint.
+
+6. **SQL Server DEFAULTs**: Only apply when a column is OMITTED from INSERT, not when NULL is passed explicitly.
+
+7. **No automated test suite**: Testing is manual. Use `DEV` mode config for session injection during development.
+
+### 13.7 Flight Simulator Integrations
 
 PERTI includes plugins for:
 - **MSFS** (C++, SimConnect): `integrations/flight-sim/msfs/`
@@ -1807,7 +2359,7 @@ And pilot client plugins:
 
 These send OOOI (Out-Off-On-In) events and position data to the SWIM API.
 
-### 13.6 Client SDKs
+### 13.8 Client SDKs
 
 Pre-built client libraries for consuming the SWIM API in `sdk/`:
 - C++ (`sdk/cpp/`)
