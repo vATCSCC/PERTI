@@ -982,7 +982,7 @@ PERTI requires navigation data (fixes, airways, procedures, airports) to functio
 The navdata importer downloads and processes FAA data:
 
 ```bash
-cd scripts/
+# Scripts are in the repository root (not scripts/)
 pip install -r requirements.txt  # If requirements.txt exists
 
 # Full AIRAC cycle update (all navdata)
@@ -1035,8 +1035,12 @@ Airport reference data is seeded from FAA NASR data. The `apts` table in VATSIM_
 
 ```bash
 cd scripts/playbook/
-python import_cdrs.py
-python import_playbook.py
+
+# Parse CDR/playbook HTML source files into structured data
+python parser.py
+
+# Import parsed data into database
+php import_faa_to_db.php
 ```
 
 ### 5.6 Default Airport Rates
@@ -1067,6 +1071,14 @@ Edit `load/config.php` with your database credentials and settings:
 
 ```php
 <?php
+// Helper: read from $_ENV, $_SERVER, or Azure APPSETTING_ prefix
+function env($key, $default = null) {
+    return $_ENV[$key]
+        ?? $_SERVER[$key]
+        ?? $_SERVER['APPSETTING_' . $key]
+        ?? $default;
+}
+
 if (!defined("SQL_USERNAME")) {
 
     // PRIMARY MYSQL DATABASE (perti_site)
@@ -1128,7 +1140,7 @@ if (!defined("SQL_USERNAME")) {
     define("DISCORD_APPLICATION_ID", '');
     define("DISCORD_PUBLIC_KEY", '');
     define('DISCORD_API_VERSION', '10');
-    define('DISCORD_API_BASE', 'https://discord.com/api/v10');
+    define('DISCORD_API_BASE', 'https://discord.com/api/v' . DISCORD_API_VERSION);
 
     // Multi-org Discord config (customize for your organization)
     define('DISCORD_ORGANIZATIONS', json_encode([
@@ -1172,9 +1184,15 @@ if (!defined("SQL_USERNAME")) {
     // Feature Flags
     define("PERTI_LOADED", true);
     define("DISCORD_MULTI_ORG_ENABLED", true);
-    define("TMI_STAGING_REQUIRED", true);
-    define("TMI_APPROVAL_REACTIONS", true);
-    define("TMI_CROSS_BORDER_AUTO_DETECT", true);
+    define("TMI_STAGING_REQUIRED", true);       // Require staging before production posting
+    define("TMI_APPROVAL_REACTIONS", true);     // Enable reaction-based approvals in Discord
+    define("TMI_CROSS_BORDER_AUTO_DETECT", true); // Auto-detect TMIs crossing US/CA/EU regions
+
+    // Hibernation Mode — pauses all downstream processing while keeping ADL ingest alive
+    // Set to true during extended operational pauses (off-season, maintenance windows)
+    // When true: ATIS parsing disabled, TMI processing paused, stats collection paused
+    // Also set as Azure App Setting HIBERNATION_MODE=true for consistency
+    define("HIBERNATION_MODE", false);
 }
 ?>
 ```
@@ -1437,7 +1455,7 @@ env:
 1. Checks out the repository
 2. Sets up PHP 8.2 with Composer
 3. Runs `composer install --no-dev`
-4. Creates a deployment package via `rsync` (excludes `sdk/`, `.git/`, `.github/`, `docs/` except `docs/swim/` and `docs/stats/`)
+4. Creates a deployment package via `rsync` (excludes `sdk/`, `.git/`, `.github/`, `docs/`, `DCC/`, `scripts/tmi/import_historical*`) then copies `docs/swim/` and `docs/stats/` back in
 5. Deploys to Azure App Service via publish profile
 
 ### 10.3 Post-Deployment
@@ -1655,7 +1673,7 @@ php -r "new PDO('pgsql:host=your-gis.postgres.database.azure.com;dbname=VATSIM_G
 
 ### 14.3 PHP Extensions on Azure
 
-Azure's PHP 8.2 container includes most extensions, but `sqlsrv` requires ODBC Driver 18. The startup script should handle this, but if not:
+Azure's PHP 8.2 container includes most extensions, but `sqlsrv` requires ODBC Driver 18. The Azure PHP container typically includes it pre-installed. If `sqlsrv` is missing, install manually via Kudu SSH:
 
 ```bash
 # In Kudu SSH (as root during startup)
@@ -1669,7 +1687,7 @@ pecl install sqlsrv pdo_sqlsrv
 ### 14.4 Session Issues
 
 If sessions are not working:
-- `sessions/handler.php` must be included BEFORE `connect.php` (because `connect.php` has a closing `?>` tag that outputs a newline, which sends headers and prevents `session_start()`)
+- `sessions/handler.php` must be included BEFORE `connect.php` (because `config.php`, which is included by `connect.php`, has a closing `?>` tag that outputs a trailing newline — this sends headers and prevents `session_start()`)
 - Check that `session_start()` runs before any output
 
 ---
@@ -1691,8 +1709,8 @@ Azure App Service (nginx on port 8080)
     │   ├─ load/config.php (credentials)
     │   ├─ load/connect.php (database connections)
     │   │   ├─ MySQL (perti_site) — always connected
-    │   │   ├─ Azure SQL (ADL/TMI/SWIM/REF) — lazy loaded
-    │   │   └─ PostgreSQL (GIS) — lazy loaded on demand
+    │   │   ├─ Azure SQL (ADL/TMI/SWIM/REF) — eager by default, skipped with PERTI_MYSQL_ONLY
+    │   │   └─ PostgreSQL (GIS) — lazy loaded on demand via get_conn_gis()
     │   └─ Page logic + API calls
     │
     └─ API endpoints → PHP-FPM
@@ -1783,7 +1801,7 @@ These environment variables can be set in Azure App Service configuration:
 | VATSIM_TMI | Basic (5 DTU) | Basic (5 DTU) | Event-driven TMI operations; spikes only during active GDP/GS |
 | VATSIM_REF | Basic (5 DTU) | Basic (5 DTU) | Low traffic, mostly reads |
 | SWIM_API | Basic (5 DTU) | Basic (5 DTU) | Sufficient for <100 API consumers; upgrade to S0 if needed |
-| VATSIM_STATS | Free | Basic (5 DTU) | Free tier auto-pauses after 60min; Basic stays on for dashboards |
+| VATSIM_STATS | GP Serverless Gen5 (0.5 vCore) | GP Serverless Gen5 (0.5-1 vCore) | Auto-pauses after 60min idle; resumes automatically on query. Stats primarily stored in ADL (`flight_stats_*` tables), so this DB has low sustained load |
 
 > **Why not DTU for VATSIM_ADL?** DTU tiers (S0=10, S1=20, S2=50, S3=100) impose hard compute caps. PERTI's 15-second ingest cycle with 8-table MERGEs, plus concurrent parse queue, boundary detection, crossing prediction, and SWIM sync daemons, creates sustained compute demand that exceeds DTU caps unpredictably. vATCSCC experienced missed VATSIM feeds and cascading daemon delays on S2 (50 DTU) at ~3,000 concurrent flights. vCore-based serverless billing is more expensive but eliminates throttling. See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance.
 
