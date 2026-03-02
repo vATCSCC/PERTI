@@ -1200,7 +1200,7 @@ Queried directly from the live Azure subscription (`59acfcdf-fb3d-4e2b-a058-b189
 | **VATSIM_STATS** | GP Serverless Gen5 | Min 0.5 / Max 1 vCore, auto-pauses after 60min | ~$5-150 (usage-based) |
 | **MySQL perti_site** | Standard_D2ds_v4 (GP) | 2 vCores, 20GB storage, 360 IOPS | ~$122 |
 | **PostgreSQL VATSIM_GIS** | Standard_B2s (Burstable) | 2 vCores, 32GB storage | ~$25 |
-| **Storage accounts** | LRS (various) | vatsimadlarchive, vatsimdatastorage, pertiadlarchive | ~$5-15 |
+| **Storage accounts** | LRS/RAGRS/ZRS (6 accounts) | pertiadlarchive, pertisyndatalake, vatcsccadlraw, vatsimadlarchive, vatsimdatastorage, vatsimswimdata | ~$5-15 |
 | **Data Factory** | VATSIM-ADL-HISTORY | For historical data pipelines | ~$0-10 |
 | **Logic App** | STATS-LOADER-SCHEDULER | Scheduler (consumption plan) | ~$0-1 |
 | **Synapse Analytics** | perti-synapse (serverless SQL) | On-demand querying of archived data | ~$0-5 (per-query) |

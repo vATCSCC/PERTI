@@ -50,20 +50,23 @@ Complete step-by-step guide for deploying your own PERTI (Plan, Execute, Review,
 
 ### Estimated Azure Costs (Monthly)
 
-These reflect the actual vATCSCC production tiers operating at 3,000-6,000 concurrent flights:
+Queried directly from the live vATCSCC Azure subscription (Resource Group `VATSIM_RG`, March 2026). These are the actual production tiers operating at 3,000-6,000 concurrent flights:
 
-| Resource | SKU (vATCSCC Production) | Approximate Cost |
-|----------|--------------------------|-----------------|
-| App Service (Linux) | P1v2 (1 vCPU, 3.5GB RAM) | ~$80/mo |
-| Azure SQL — VATSIM_ADL | Hyperscale Serverless Gen5 (min 3, max 16 vCores) | ~$1,000-2,500/mo |
-| Azure SQL — VATSIM_TMI | Basic (5 DTU) | ~$5/mo |
-| Azure SQL — VATSIM_REF | Basic (5 DTU) | ~$5/mo |
-| Azure SQL — SWIM_API | Basic (5 DTU) | ~$5/mo |
-| Azure SQL — VATSIM_STATS | GP Serverless Gen5 (0.5-1 vCore, auto-pause 60min) | ~$5-150/mo |
-| Azure Database for MySQL | Standard_D2ds_v4 (GP, 2 vCores) | ~$122/mo |
-| Azure Database for PostgreSQL | Standard_B2s (Burstable, 2 vCores, 32GB) | ~$25/mo |
-| Storage accounts (3) | LRS | ~$5-15/mo |
-| **Total** | | **~$1,250-2,900/mo** |
+| Resource | Actual SKU | Configuration | Est. Monthly Cost |
+|----------|-----------|---------------|-------------------|
+| **App Service** | P1v2 (PremiumV2) | 1 vCPU, 3.5GB RAM, 1 worker | ~$80 |
+| **VATSIM_ADL** | Hyperscale Serverless Gen5 | Min 3 / Max 16 vCores, auto-pause disabled | ~$1,000-2,500 |
+| **SWIM_API** | Basic (5 DTU) | 2GB max size | ~$4.90 |
+| **VATSIM_TMI** | Basic (5 DTU) | 2GB max size | ~$4.90 |
+| **VATSIM_REF** | Basic (5 DTU) | 2GB max size | ~$4.90 |
+| **VATSIM_STATS** | GP Serverless Gen5 | Min 0.5 / Max 1 vCore, auto-pauses after 60min | ~$5-150 |
+| **MySQL perti_site** | Standard_D2ds_v4 (GP) | 2 vCores, 20GB storage, 360 IOPS | ~$122 |
+| **PostgreSQL VATSIM_GIS** | Standard_B2s (Burstable) | 2 vCores, 32GB storage, PostgreSQL 16 | ~$25 |
+| **Storage accounts** | LRS/RAGRS/ZRS (6 accounts) | pertiadlarchive, pertisyndatalake, vatcsccadlraw, vatsimadlarchive, vatsimdatastorage, vatsimswimdata | ~$5-15 |
+| **Data Factory** | vatsim-adl-history | Historical data pipelines | ~$0-10 |
+| **Logic App** | stats-loader-scheduler | Scheduler (consumption plan) | ~$0-1 |
+| **Synapse Analytics** | perti-synapse (serverless SQL) | On-demand querying of archived data | ~$0-5 |
+| **Total (production)** | | | **~$1,250-2,900/mo** |
 
 > **VATSIM_ADL dominates cost** (~75-85% at scale). The 15-second ingest cycle with 8-table MERGEs and concurrent daemon queries creates sustained compute demand that requires vCore-based serverless — DTU tiers (S0-S3) throttle and cause missed VATSIM feeds. Organizations with lower traffic or event-only operations can use significantly cheaper tiers (GP Serverless with auto-pause, ~$150-400/mo). See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance by flight volume.
 
