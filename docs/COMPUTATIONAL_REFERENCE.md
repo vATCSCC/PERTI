@@ -40,7 +40,7 @@ Detailed technical reference for every computational system, algorithm, formula,
 │ 1. Fetch VATSIM JSON (~2-4MB, gzipped)          │
 │ 2. PHP-side JSON parsing (V9.0 staged)          │
 │ 3. Insert to staging tables (bulk literal)      │
-│ 4. Call SP: sp_Adl_RefreshFromVatsim_Normalized │
+│ 4. Call SP: sp_Adl_RefreshFromVatsim_Staged     │
 │ 5. Process deferred work (time-budgeted)        │
 │ 6. ATIS processing (tiered)                     │
 │ 7. Sleep remaining time to hit 15s interval     │
@@ -96,8 +96,8 @@ Inserts use bulk literal VALUES (no parameterized queries) to reduce round-trips
 TRUNCATE adl_staging_pilots
 TRUNCATE adl_staging_prefiles
 
-// Batch size: 500-1000 rows per INSERT statement
-FOR each batch of 500 pilots:
+// Batch size: 1000 rows per INSERT statement (bulk literal mode)
+FOR each batch of 1000 pilots:
     INSERT INTO adl_staging_pilots (cid, callsign, lat, lon, ...)
     VALUES (1482851, 'UAL2175', 39.3048, -74.1346, 34173, 372, ...),
            (1471199, 'DAL2187', 28.4303, -82.3868, 36176, 419, ...),
@@ -108,7 +108,7 @@ FOR each batch of 500 pilots:
 
 **Performance**: ~300-500ms for 3000 pilots (down from ~2000ms with parameterized batches).
 
-### 1.5 Step 4: Stored Procedure — `sp_Adl_RefreshFromVatsim_Normalized`
+### 1.5 Step 4: Stored Procedure — `sp_Adl_RefreshFromVatsim_Staged`
 
 The main SP processes staged data through 13 steps. Each step returns timing data for performance monitoring.
 
@@ -190,15 +190,19 @@ After the SP returns, the daemon checks the remaining time budget:
 ```pseudo
 cycle_budget_ms = 15000  // 15-second cycle
 sp_elapsed_ms = result.elapsed_ms
-remaining_ms = cycle_budget_ms - sp_elapsed_ms - 500  // 500ms safety margin
+remaining_ms = cycle_budget_ms - sp_elapsed_ms - 2000  // 2s safety margin
 
-IF remaining_ms > 2000:
-    Run deferred ETA batch (wind-adjusted ETAs)
-IF remaining_ms > 1000:
-    Run ATIS processing for current tier
-IF remaining_ms > 500:
-    Run event position logging (if active event)
-ELSE:
+IF remaining_ms > 300:
+    Run basic ETA (sp_ProcessTrajectoryBatch @process_eta=1)
+IF remaining_ms > 500 AND (cycle % deferred_eta_interval == 0):
+    Run batch ETA with wind integration (sp_CalculateETABatch)
+IF remaining_ms > 100:
+    Run legacy trajectory log (sp_Log_Trajectory)
+IF remaining_ms > 100 AND (5 min since last snapshot):
+    Run phase snapshot (sp_CapturePhaseSnapshot)
+IF remaining_ms > 2000 AND (50 cycles since last gap check):
+    Run gap detection & OOOI backfill
+ELSE IF remaining_ms <= 0:
     Skip all deferred work, log warning
 ```
 
@@ -208,15 +212,15 @@ ATIS data is fetched from the same VATSIM JSON and processed at tiered intervals
 
 | Tier | Airports | Interval | Criteria |
 |------|----------|----------|----------|
-| 0 | METAR window | 15s | Within 5 min of hour (METAR update time) |
-| 1 | ASPM82 | 1 min | 71 FAA performance airports (JFK, LAX, ATL...) |
-| 2 | Regional | 5 min | Canada (C*), Mexico/Central America (M*), South America (S*), Caribbean (T*) |
+| 0 | METAR window + ASPM82 | 15s | ASPM82 airports within 5 min of hour (METAR update), OR ASPM82 with bad weather |
+| 1 | ASPM82 normal | 1 min | 71 FAA performance airports in normal weather |
+| 2 | Regional | 5 min | Non-ASPM82 US (K*/P*), Canada (C*), Mexico/Central America (M*), South America (S*), Caribbean (T*) |
 | 3 | Other staffed | 30 min | All other airports with active ATIS |
-| 4 | Clear weather | 60 min | Non-priority airports in clear weather |
+| 4 | Clear weather | 60 min | Non-priority airports (tier 3+) in clear weather |
 
 **ATIS parsing** extracts:
 - Active runways (arrival/departure/both)
-- Weather conditions (VMC/LVMC/IMC/LIMC/VLIMC)
+- Weather conditions (VMC/LVMC/IMC/LIMC — mapped from FAA VFR/MVFR/IFR/LIFR)
 - Airport configuration (runway combination)
 - Wind information
 
@@ -350,18 +354,27 @@ VALUES (@flight_uid, 1, 'KJFK', 40.6413, -73.7781, 'APT', ...),
 
 **Script**: `adl/php/boundary_gis_daemon.php`
 **Interval**: Every 15 seconds
-**Processing**: All active flights per cycle
+**Processing**: Tiered, max 100 flights per cycle (`DEFAULT_MAX_FLIGHTS=100`)
 
 ### 3.1 Algorithm
 
-For each active flight, determines which ARTCC, TRACON, and sectors the flight is currently inside.
+For each active flight needing boundary detection, determines which ARTCC, TRACON, and sectors the flight is currently inside. Uses tiered processing (not all flights every cycle):
+
+**Boundary Detection Tiers** (matches `sp_ProcessBoundaryAndCrossings_Background`):
+| Tier | Criteria | Frequency |
+|------|----------|-----------|
+| 1 | New flights (no `current_artcc_id`) | Every cycle |
+| 2 | Grid cell changed (moved >0.5° lat or lon) | Every cycle |
+| 3 | Below FL180 (terminal airspace) | Every 2 cycles |
+| 4 | Enroute (FL180-FL450) | Every 5 cycles |
+| 5 | High altitude (FL450+) | Every 10 cycles |
 
 ```pseudo
 LOOP every 15 seconds:
-    1. Get all active flights with valid positions from adl_flight_position
+    1. Select flights needing boundary check (tiered, max 100 per cycle)
     2. FOR each batch of flights:
        a. Send positions to PostGIS as JSON array
-       b. PostGIS function: point_in_boundary(lat, lon)
+       b. PostGIS function: get_boundaries_at_point(lat, lon, altitude)
           - ST_Contains(artcc_boundaries.geom, ST_SetSRID(ST_MakePoint(lon, lat), 4326))
           - Returns: artcc_code, tracon_code, sector_low, sector_high, sector_superhigh
        c. Compare results with current values in adl_flight_core
@@ -392,14 +405,15 @@ LIMIT 1
 
 ### 3.3 Grid Optimization
 
-To avoid checking all ~1000 boundary polygons for each flight, a pre-computed grid lookup table (`adl_boundary_grid`) maps 1-degree lat/lon cells to candidate boundaries:
+To avoid checking all ~1000 boundary polygons for each flight, a pre-computed grid lookup table (`adl_boundary_grid`) maps 0.5-degree lat/lon cells to candidate boundaries:
 
 ```sql
 -- Pre-computed: which boundaries intersect each grid cell
--- Grid cells are 1° x 1° (3600 cells cover CONUS)
+-- Grid cells are 0.5° x 0.5° (~30nm at mid-latitude, defined as GRID_SIZE constant)
 SELECT boundary_id, boundary_code, boundary_type
 FROM adl_boundary_grid
-WHERE grid_lat = FLOOR(flight_lat) AND grid_lon = FLOOR(flight_lon)
+WHERE grid_lat = CAST(FLOOR(flight_lat / 0.5) AS SMALLINT)
+  AND grid_lon = CAST(FLOOR(flight_lon / 0.5) AS SMALLINT)
 ```
 
 This eliminates ~95% of polygon checks per flight.
@@ -408,9 +422,9 @@ This eliminates ~95% of polygon checks per flight.
 
 | Metric | Value | Cost Impact |
 |--------|-------|-------------|
-| Flights processed per cycle | 3,000-6,000 | PostGIS point-in-polygon: ~1ms each |
-| PostGIS CPU per cycle | ~3-6 seconds | B1ms (2 vCores) handles comfortably |
-| Boundary changes per cycle | ~50-200 (flights crossing boundaries) | Minimal write cost |
+| Flights processed per cycle | Up to 100 (tiered, prioritized by staleness) | PostGIS point-in-polygon: ~1ms each |
+| PostGIS CPU per cycle | ~0.1-0.5 seconds | B1ms (2 vCores) handles easily |
+| Boundary changes per cycle | ~10-50 (flights crossing boundaries) | Minimal write cost |
 
 ---
 
@@ -454,13 +468,15 @@ ORDER BY distance_nm
 
 ### 4.3 Tiered Processing
 
+Base interval: 30 seconds. Tiers are cycle multipliers.
+
 | Tier | Interval | Criteria |
 |------|----------|----------|
-| 0 | 15s | Within 60nm of destination (final approach) |
-| 1 | 30s | Active flights en route |
-| 2 | 60s | Prefiled, departing within 2h |
-| 3 | 2min | Prefiled, departing within 6h |
-| 4 | 5min | All other flights |
+| 0 | 30s (every cycle) | Flights within 30nm of next waypoint (imminent) |
+| 1 | 60s (every 2 cycles) | Enroute flights 30-100nm from next waypoint |
+| 2 | 2min (every 4 cycles) | All other enroute flights |
+| 3 | 4min (every 8 cycles) | Climbing/descending flights |
+| 4 | 8min (every 16 cycles) | Prefiles and taxiing |
 
 ### 4.4 Compute Cost
 
@@ -474,7 +490,8 @@ ORDER BY distance_nm
 ## 5. Waypoint ETA Calculation
 
 **Script**: `adl/php/waypoint_eta_daemon.php`
-**Interval**: Tiered (same tiers as crossing daemon)
+**Interval**: Tiered (same tier definitions as crossing daemon, but base interval 15s instead of 30s)
+**SP**: `dbo.sp_CalculateWaypointETABatch_Tiered`
 
 ### 5.1 Algorithm
 
@@ -573,6 +590,7 @@ WHILE current_time < end_utc:
         slot_type = "REGULAR"
 
     // Bin assignment (for GDT display grouping)
+    bin_date = DATE(current_time)          // DATE portion for multi-day GDPs
     bin_hour = HOUR(current_time)
     bin_quarter = (MINUTE(current_time) / 15) * 15  // 0, 15, 30, 45
 
@@ -744,10 +762,11 @@ CREATE Ground Stop:
     3. No slots generated (GS has no arrival slots)
 
 ACTIVATE Ground Stop:
-    1. Find all flights destined for ctl_element with ETD in [start_utc, end_utc]
-    2. Set gs_held = 1 on their tmi_flight_control record
-    3. Clear any existing EDCTs (ground stop overrides GDP)
-    4. Post advisory to Discord
+    1. Call sp_GS_IssueEDCTs(@program_id, @activated_by)
+    2. SP finds all flights destined for ctl_element with ETD in [start_utc, end_utc]
+    3. Issues EDCTs (gs_held = 1) on tmi_flight_control records
+    4. Clear any conflicting GDP EDCTs (ground stop overrides GDP)
+    5. Post advisory to Discord
 
 EXTEND Ground Stop:
     1. Update end_utc to new end time
@@ -785,20 +804,30 @@ gs_delay = MAX(0, (OFF_utc - OUT_utc) - unimpeded_taxi_time(airport))
 
 ### 8.1 Advisory Number Generation
 
+Uses `sp_GetNextAdvisoryNumber` with atomic MERGE on `tmi_advisory_sequences` table (not the advisories table itself). The sequence table tracks a per-day counter.
+
 ```sql
--- Atomic advisory number generation (prevents race conditions)
--- Uses sp_TMI_GetNextAdvisoryNumber with table-level lock
+-- sp_GetNextAdvisoryNumber: Atomic advisory number via MERGE + OUTPUT
+-- Table: tmi_advisory_sequences (seq_date DATE PK, seq_number INT)
 
-BEGIN TRANSACTION
-    SELECT @next_num = ISNULL(MAX(CAST(adv_number AS INT)), 0) + 1
-    FROM tmi_advisories WITH (TABLOCKX)
-    WHERE ctl_element = @ctl_element
-      AND CAST(created_utc AS DATE) = CAST(SYSUTCDATETIME() AS DATE)
+CREATE PROCEDURE dbo.sp_GetNextAdvisoryNumber
+    @next_number NVARCHAR(16) OUTPUT
+AS
+    DECLARE @today DATE = CAST(SYSUTCDATETIME() AS DATE);
+    DECLARE @current_seq INT;
 
-    -- Format: 3-digit zero-padded (001, 002, ...)
-    SET @adv_number = RIGHT('000' + CAST(@next_num AS VARCHAR), 3)
-COMMIT
+    MERGE dbo.tmi_advisory_sequences WITH (HOLDLOCK) AS target
+    USING (SELECT @today AS seq_date) AS source
+    ON target.seq_date = source.seq_date
+    WHEN MATCHED THEN UPDATE SET seq_number = seq_number + 1
+    WHEN NOT MATCHED THEN INSERT (seq_date, seq_number) VALUES (@today, 1);
+
+    SELECT @current_seq = seq_number FROM dbo.tmi_advisory_sequences WHERE seq_date = @today;
+    SET @next_number = 'ADVZY ' + RIGHT('000' + CAST(@current_seq AS VARCHAR), 3);
+    -- Output: "ADVZY 001", "ADVZY 002", etc.
 ```
+
+The `AdvisoryNumber` PHP class (`api/tmi/AdvisoryNumber.php`) provides `peek()` (read without incrementing) and `reserve()` (read and increment) methods.
 
 ### 8.2 Discord Queue Processing
 
@@ -812,7 +841,7 @@ LOOP continuously:
        a. Determine target channel(s) based on entity_type and org_code
        b. Format message using Discord embed format
        c. POST to Discord API (https://discord.com/api/v10/channels/{id}/messages)
-       d. Rate limit: 10 posts/sec max (Discord limit: 50/sec per channel)
+       d. Rate limit: 10 posts/sec (100ms delay between posts; Discord API limit: 50/sec per channel)
        e. On success: UPDATE status = 'SENT', message_id = response.id
        f. On failure: UPDATE status = 'FAILED', retry_count++
        g. On rate limit: Sleep for retry_after seconds
@@ -982,7 +1011,7 @@ IF valid:
 
 ## 11. Statistics & Analytics Pipeline
 
-**Stored procedures**: `adl/migrations/stats/002_flight_stats_procedures.sql`
+**Stored procedures**: `adl/migrations/stats/002_flight_stats_procedures.sql` (base), `003_flight_stats_agent_jobs.sql` (scheduled jobs)
 **Tables**: `flight_stats_hourly`, `flight_stats_daily`, `flight_stats_weekly`, etc.
 
 ### 11.1 Aggregation Schedule
@@ -1047,11 +1076,12 @@ Step 2: Parse runway information using regex patterns:
     - "RWY(S)? (\d+[LRC]?)(,\s*(\d+[LRC]?))*"
     - Classify as arrival, departure, or both
 Step 3: Determine weather category (FAA flight rule mapping):
-    - VMC (VFR): visibility > 5SM, ceiling > 3000ft
-    - LVMC (MVFR): visibility 3-5SM or ceiling 1000-3000ft
-    - IMC (IFR): visibility 1-3SM or ceiling 500-1000ft
-    - LIMC (LIFR): visibility < 1SM or ceiling < 500ft
-    - VLIMC (VLIFR): visibility < 1/4SM or ceiling < 200ft
+    - VMC  ← VFR:  visibility > 5SM, ceiling > 3000ft
+    - LVMC ← MVFR: visibility 3-5SM or ceiling 1000-3000ft
+    - IMC  ← IFR:  visibility 1-3SM or ceiling 500-1000ft
+    - LIMC ← LIFR: visibility < 1SM or ceiling < 500ft
+    Note: VLIMC exists in rate-colors.js for manual rate configs but is NOT
+    produced by the ATIS parser. The parser maps only VFR/MVFR/IFR/LIFR.
 Step 4: Match against airport_config presets:
     - Compare active runways to known configurations
     - Auto-detect configuration name (e.g., "West Plan", "South Flow")
@@ -1094,44 +1124,35 @@ HAVING COUNT(*) >= 10  -- Minimum sample size
 
 ### 13.1 Fix Demand Calculation
 
+Demand is calculated using table-valued functions (TVFs), not inline SQL. The PHP endpoint calls the TVF:
+
+```php
+// api/adl/demand/fix.php
+$sql = "SELECT * FROM dbo.fn_FixDemand(?, ?, NULL, ?, ?) ORDER BY eta_at_fix";
+```
+
+The TVF `dbo.fn_FixDemand` counts flights passing through a fix in time buckets:
+
 ```sql
--- fn_FixDemand: Count flights passing through a fix in time buckets
-SELECT
-    bucket_start,
-    COUNT(*) AS demand_count,
-    SUM(CASE WHEN altitude_ft >= 18000 THEN 1 ELSE 0 END) AS high_altitude,
-    SUM(CASE WHEN altitude_ft < 18000 THEN 1 ELSE 0 END) AS low_altitude
-FROM (
-    SELECT
-        w.flight_uid,
-        w.eta_utc,
-        DATEADD(MINUTE, (DATEDIFF(MINUTE, '2000-01-01', w.eta_utc) / 15) * 15, '2000-01-01') AS bucket_start,
-        COALESCE(w.planned_alt_ft, pos.altitude_ft) AS altitude_ft
-    FROM adl_flight_waypoints w
-    JOIN adl_flight_core c ON c.flight_uid = w.flight_uid
-    LEFT JOIN adl_flight_position pos ON pos.flight_uid = w.flight_uid
-    WHERE w.fix_name = @fix_name
-      AND c.is_active = 1
-      AND w.eta_utc BETWEEN @start_utc AND @end_utc
-) bucketed
-GROUP BY bucket_start
-ORDER BY bucket_start
+-- TVF returns: fix_name, flight_uid, callsign, eta_at_fix, altitude, carrier, etc.
+-- PHP-side aggregation groups into 15-minute buckets for Chart.js display
+
+-- Related TVFs:
+--   dbo.fn_RouteSegmentDemand(@fix1, @fix2, @start, @end) — segment demand
+--   dbo.fn_BatchDemandBucketed(@monitors_json, @start, @end, @bucket) — multi-monitor
+--   dbo.fn_AirwayDemandBucketed(@airway, @start, @end, @bucket) — airway demand
+--   dbo.fn_AirwaySegmentDemandBucketed(@airway, @from, @to, @start, @end, @bucket)
+--   dbo.fn_ViaDemandBucketed(@origin, @dest, @via_fix, ...) — via-fix demand
 ```
 
 ### 13.2 Client-Side Chart Rendering
 
 ```javascript
-// demand.js builds Chart.js bar charts
+// demand.js builds Chart.js stacked bar charts using DemandChartCore
 // X-axis: 15-minute time buckets
-// Y-axis: flight count
-// Colors: green (0-10), yellow (11-20), orange (21-30), red (31+)
-
-const DEMAND_COLORS = {
-    low:      '#28a745',  // 0-10 flights
-    moderate: '#ffc107',  // 11-20 flights
-    high:     '#fd7e14',  // 21-30 flights
-    critical: '#dc3545',  // 31+ flights
-};
+// Y-axis: flight count (stacked by flight phase)
+// Phase colors defined in DemandChartCore.PHASE_COLORS (shared with other charts)
+// Charts are created per-monitor with batch loading from fn_BatchDemandBucketed
 ```
 
 ---
@@ -1145,27 +1166,30 @@ const DEMAND_COLORS = {
 
 ```pseudo
 // Three-tier trajectory storage:
-// 1. adl_flight_trajectory — Live (full resolution, < 24h)
-// 2. adl_trajectory_archive — Downsampled (every 60s, 24h-30d)
+// 1. adl_flight_trajectory — Live (full resolution, < 1h)
+// 2. adl_trajectory_archive — Downsampled (every 60s, 1h-30d)
 // 3. Azure Blob Storage — Cold archive (> 30d, daily dump)
 
-ARCHIVAL CYCLE:
-    1. Move trajectories > 24h old to archive table (downsample to 60s intervals)
-       INSERT INTO adl_trajectory_archive
-       SELECT * FROM adl_flight_trajectory
-       WHERE recorded_utc < DATEADD(HOUR, -24, SYSUTCDATETIME())
-       -- Keep only 1 record per 60-second interval per flight
-       AND ROW_NUMBER() OVER (PARTITION BY flight_uid,
-           DATEPART(HOUR, recorded_utc), DATEPART(MINUTE, recorded_utc)
-           ORDER BY recorded_utc) = 1
+ARCHIVAL CYCLE (5 steps):
+    Step 1/5: sp_Archive_CompletedFlights
+       Archive completed flight records to adl_flight_archive
 
-    2. Delete archived records from live table
+    Step 2/5: sp_ArchiveTrajectory_TmiAware (@archive_threshold_hours = 1)
+       Move trajectories > 1 hour old to archive table
+       Extracts high-resolution TMI data to adl_tmi_trajectory BEFORE downsampling
+       Downsamples remaining data to 60s intervals in adl_trajectory_archive
 
-    3. Purge changelog entries > 7 days old
-       DELETE FROM adl_flight_changelog
-       WHERE changed_utc < DATEADD(DAY, -7, SYSUTCDATETIME())
+    Step 3/5: sp_Downsample_Trajectory_ToCold
+       Compress warm-tier data (>7d) to cold tier with further downsampling
 
-    4. Purge completed parse queue entries > 1 day old
+    Step 4/5: sp_Purge_OldData
+       Purge changelog entries > 7 days
+       Purge completed parse queue entries > 1 day
+       General data retention cleanup
+
+    Step 5/5: sp_PurgeTmiTrajectory (03:00-06:00 UTC only)
+       90-day retention purge for TMI trajectory data
+       Skipped outside off-peak window
 ```
 
 ### 14.2 Blob Archive (Daily)
