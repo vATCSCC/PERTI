@@ -1,6 +1,8 @@
 # Deployment
 
-This guide covers deploying PERTI to Azure App Service and managing the production environment.
+> **Looking for the full deployment guide?** See [docs/DEPLOYMENT_GUIDE.md](../blob/main/docs/DEPLOYMENT_GUIDE.md) for comprehensive end-to-end deployment instructions including Azure provisioning, all 7 databases, stored procedures, reference data import, i18n, multi-org setup, code standards, and operational procedures.
+
+This page covers the operational basics of deploying PERTI to Azure App Service.
 
 ---
 

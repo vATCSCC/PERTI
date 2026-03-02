@@ -5,6 +5,12 @@
 
 ---
 
+**Comprehensive Guides**
+- [Deployment Guide](../blob/main/docs/DEPLOYMENT_GUIDE.md)
+- [Computational Reference](../blob/main/docs/COMPUTATIONAL_REFERENCE.md)
+
+---
+
 **Getting Started**
 - [[Getting Started]]
 - [[Configuration]]

@@ -1,5 +1,7 @@
 # Algorithms & Processing Overview
 
+> **Looking for the full computational reference?** See [docs/COMPUTATIONAL_REFERENCE.md](../blob/main/docs/COMPUTATIONAL_REFERENCE.md) for comprehensive algorithm documentation including the ADL ingest cycle, ETA engine, route parsing, boundary detection, GDP/GS slot assignment, TMI compliance, trajectory tiering, weather integration, and performance tuning.
+
 This documentation describes the core algorithms and data processing systems that power PERTI. The system processes VATSIM flight data every 15 seconds through a sophisticated pipeline that calculates ETAs, tracks flight phases, parses routes, and logs trajectory history.
 
 ---

@@ -6,11 +6,22 @@ Welcome to the **PERTI** (Plan, Execute, Review, Train, and Improve) wiki - a co
 
 ---
 
+## Comprehensive Guides
+
+These in-depth documents cover everything needed to deploy and understand PERTI:
+
+| Guide | Description |
+|-------|-------------|
+| [Deployment Guide](../blob/main/docs/DEPLOYMENT_GUIDE.md) | Full deployment walkthrough: Azure provisioning, 7-database schema deployment, stored procedures, reference data import, daemon setup, i18n, multi-org configuration, code standards, and operational procedures |
+| [Computational Reference](../blob/main/docs/COMPUTATIONAL_REFERENCE.md) | Complete algorithm documentation: ADL ingest cycle, ETA calculation, route parsing, boundary detection, GDP/GS slot assignment, TMI compliance, trajectory tiering, and performance tuning |
+
+---
+
 ## Quick Links
 
 | Section | Description |
 |---------|-------------|
-| [[Navigation Helper]] | **NEW** - Find the right documentation quickly |
+| [[Navigation Helper]] | Find the right documentation quickly |
 | [[Getting Started]] | Installation, prerequisites, and first steps |
 | [[Architecture]] | System design, data flow, and components |
 | [[Configuration]] | Environment setup and configuration options |
