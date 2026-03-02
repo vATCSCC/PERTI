@@ -251,7 +251,7 @@
         // Load default forms
         state.selectedNtmlType = 'MIT';
         loadNtmlForm('MIT');
-        const defaultAdvType = (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') ? 'GDP' : 'OPS_PLAN';
+        const defaultAdvType = 'OPS_PLAN';
         state.selectedAdvisoryType = defaultAdvType;
         loadAdvisoryForm(defaultAdvType);
 
@@ -333,20 +333,17 @@
     }
 
     function getAdvisoryTypesForOrg() {
-        if (window.PERTI_ORG && window.PERTI_ORG.code === 'canoc') {
-            return [
-                { type: 'GDP', icon: 'fa-clock', colorClass: 'text-primary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdp'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpDesc') },
-                { type: 'GS', icon: 'fa-hand-paper', colorClass: 'text-danger', label: PERTII18n.t('tmiPublish.advisoryTypes.gs'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsDesc') },
-                { type: 'GDP_CANCEL', icon: 'fa-times-circle', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancelDesc') },
-                { type: 'GS_CANCEL', icon: 'fa-ban', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gsCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsCancelDesc') },
-            ];
-        }
-        return [
+        const types = [
             { type: 'OPS_PLAN', icon: 'fa-calendar-alt', colorClass: 'text-primary', label: PERTII18n.t('tmiPublish.advisoryTypes.opsPlan'), desc: PERTII18n.t('tmiPublish.advisoryTypes.opsPlanDesc') },
+            { type: 'GDP', icon: 'fa-clock', colorClass: 'text-primary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdp'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpDesc') },
+            { type: 'GS', icon: 'fa-hand-paper', colorClass: 'text-danger', label: PERTII18n.t('tmiPublish.advisoryTypes.gs'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsDesc') },
+            { type: 'GDP_CANCEL', icon: 'fa-times-circle', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gdpCancelDesc') },
+            { type: 'GS_CANCEL', icon: 'fa-ban', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.gsCancel'), desc: PERTII18n.t('tmiPublish.advisoryTypes.gsCancelDesc') },
             { type: 'FREE_FORM', icon: 'fa-file-alt', colorClass: 'text-secondary', label: PERTII18n.t('tmiPublish.advisoryTypes.freeForm'), desc: PERTII18n.t('tmiPublish.advisoryTypes.freeFormDesc') },
             { type: 'HOTLINE', icon: 'fa-phone-volume', colorClass: 'text-danger', label: PERTII18n.t('tmiPublish.advisoryTypes.hotline'), desc: PERTII18n.t('tmiPublish.advisoryTypes.hotlineDesc') },
             { type: 'SWAP', icon: 'fa-cloud-sun-rain', colorClass: 'text-warning', label: PERTII18n.t('tmiPublish.advisoryTypes.swap'), desc: PERTII18n.t('tmiPublish.advisoryTypes.swapDesc') },
         ];
+        return types;
     }
 
     function initAdvisoryTypeSelector() {
