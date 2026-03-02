@@ -969,3 +969,34 @@ Several utilities use Python 3.x:
 - `scripts/vatsim_atis/` - VATSIM ATIS fetcher daemon
 - `scripts/bada/` - BADA aircraft performance data parsers
 - `scripts/openap/` - OpenAP performance data import
+
+## Hibernation Mode
+
+**Status**: Active (since March 2026) — open-ended, until further notice.
+
+When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting):
+
+- **Core ADL ingest continues**: VATSIM Data API fetched every 15s, flights upserted, trajectories captured, deferred ETAs processed
+- **ATIS parsing disabled**: Controlled by `atis_enabled` config in ADL daemon, auto-disabled when `HIBERNATION_MODE=true`
+- **Archival & monitoring continue**: Trajectory tiering, blob archival, system metrics
+- **Downstream daemons paused**: GIS processors (parse/boundary/crossing/waypoint ETA), SWIM sync/WebSocket, SimTraffic, scheduler, Discord queue, event sync
+- **Hibernated pages redirect to `/hibernation`**: demand, nod, jatoc, review, swim, swim-doc, swim-docs, swim-keys, simulator, gdt, sua, event-aar
+- **SWIM API returns HTTP 503** JSON for all `/api/swim/` endpoints
+- **Nav items** for paused pages show muted styling (`.nav-hibernated` class — italic, reduced opacity, snowflake icon)
+- **Azure resources downscaled**: App Service B1, MySQL B1ms, PostGIS B1ms, SWIM_API database paused
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `load/config.php` | Defines `HIBERNATION_MODE` constant |
+| `load/hibernation.php` | Centralized page redirect + SWIM API 503 |
+| `hibernation.php` | Public info page |
+| `load/nav.php` / `load/nav_public.php` | Nav items with `hibernated` flag |
+| `assets/css/perti_theme.css` | `.nav-hibernated` CSS class |
+| `scripts/startup.sh` | Conditional daemon startup + FPM tuning |
+| `scripts/vatsim_adl_daemon.php` | ATIS disabled via `HIBERNATION_MODE` |
+
+### To Exit Hibernation
+
+See `docs/HIBERNATION_RUNBOOK.md` for full step-by-step procedure (upscale resources, flip config, restart).
