@@ -3256,6 +3256,7 @@
       "configs": "Field Configurations",
       "dccStaffing": "DCC Staffing",
       "enrouteInitiatives": "En-Route Initiatives",
+      "enrouteTimelines": "En-Route Timelines",
       "enroutePlanning": "En-Route Planning",
       "enrouteSplits": "En-Route Splits",
       "enrouteStaffing": "En-Route Staffing",
@@ -3265,6 +3266,7 @@
       "outlook": "Extended Outlook",
       "overview": "Overview",
       "termInitiatives": "Terminal Initiatives",
+      "termTimelines": "Terminal Timelines",
       "termPlanning": "Terminal Planning",
       "termStaffing": "Terminal Staffing"
     },

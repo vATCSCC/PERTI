@@ -198,12 +198,12 @@ if ($org_mismatch):
                     <li><a class="nav-link rounded" data-toggle="tab" href="#historical"><?= __('plan.tabs.historical') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#forecast"><?= __('plan.tabs.forecast') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_initiatives"><?= __('plan.tabs.termInitiatives') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#t_timelines"><?= __('plan.tabs.termTimelines') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing"><?= __('plan.tabs.termStaffing') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#configs"><?= __('plan.tabs.configs') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_planning"><?= __('plan.tabs.termPlanning') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_initiatives"><?= __('plan.tabs.enrouteInitiatives') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#e_timelines"><?= __('plan.tabs.enrouteTimelines') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing"><?= __('plan.tabs.enrouteStaffing') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_planning"><?= __('plan.tabs.enroutePlanning') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_splits"><?= __('plan.tabs.enrouteSplits') ?></a></li>
@@ -409,8 +409,8 @@ if ($org_mismatch):
                         <div class="row gutters-tiny py-20" id="forecastdata"></div>
                     </div>
 
-                    <!-- Tab: Terminal Initiatives -->
-                    <div class="tab-pane fade" id="t_initiatives">
+                    <!-- Tab: Terminal Timelines -->
+                    <div class="tab-pane fade" id="t_timelines">
                         <?php if ($perm == true) { ?>
                             <button class="btn btn-sm btn-success mb-3" onclick="window.termInitTimeline && window.termInitTimeline.showAddModal()"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiative') ?></button>
                         <?php } ?>
@@ -493,8 +493,8 @@ if ($org_mismatch):
                         <div class="row gutters-tiny py-20" id="termplanningdata"></div>
                     </div>
 
-                    <!-- Tab: Enroute Initiatives -->
-                    <div class="tab-pane fade" id="e_initiatives">
+                    <!-- Tab: Enroute Timelines -->
+                    <div class="tab-pane fade" id="e_timelines">
                         <?php if ($perm == true) { ?>
                             <button class="btn btn-sm btn-success mb-3" onclick="window.enrouteInitTimeline && window.enrouteInitTimeline.showAddModal()"><i class="fas fa-plus"></i> <?= __('plan.initiatives.addInitiative') ?></button>
                         <?php } ?>

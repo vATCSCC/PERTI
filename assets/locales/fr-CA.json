@@ -3486,6 +3486,7 @@
       "configs": "Configurations de terrain",
       "dccStaffing": "Effectifs NOC",
       "enrouteInitiatives": "Initiatives en route",
+      "enrouteTimelines": "Chronologies en route",
       "enroutePlanning": "Planification en route",
       "enrouteSplits": "Découpage en route",
       "enrouteStaffing": "Dotation en route",
@@ -3495,6 +3496,7 @@
       "outlook": "Perspectives prolongées",
       "overview": "Vue d’ensemble",
       "termInitiatives": "Initiatives terminales",
+      "termTimelines": "Chronologies terminales",
       "termPlanning": "Planification terminale",
       "termStaffing": "Dotation terminale"
     },
