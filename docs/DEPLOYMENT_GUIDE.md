@@ -1,15 +1,18 @@
 # PERTI Deployment Guide
 
-Complete step-by-step guide for deploying your own PERTI (Plan, Execute, Review, Train, Improve) instance — a web-based air traffic flow management platform for the VATSIM virtual ATC network.
+Complete guide for deploying and operating your own PERTI (Plan, Execute, Review, Train, Improve) instance — a web-based air traffic flow management platform for the VATSIM virtual ATC network.
 
-**Target audience**: Technical administrators setting up a new PERTI instance from the GitHub repository.
+This guide covers everything a TMU organization needs to go from zero to a fully operational PERTI system: Azure infrastructure provisioning, database schema deployment (7 databases across 3 engines), stored procedure installation, reference data import, application configuration, background daemon setup, and day-to-day operational procedures including GDP/GS lifecycle, TMI publishing, demand monitoring, and AIRAC cycle maintenance.
 
-**Estimated time**: 4-8 hours for a complete deployment (longer for first-time Azure users).
+**Target audience**: Technical administrators at a virtual ATC traffic management organization setting up a new PERTI instance from the GitHub repository.
+
+**Estimated time**: 4-8 hours for infrastructure + schema deployment, additional 2-4 hours for reference data import and verification (longer for first-time Azure users).
 
 ---
 
 ## Table of Contents
 
+**Deployment (Sections 1-13)**
 1. [Prerequisites](#1-prerequisites)
 2. [Azure Resource Provisioning](#2-azure-resource-provisioning)
 3. [Database Creation](#3-database-creation)
@@ -23,8 +26,15 @@ Complete step-by-step guide for deploying your own PERTI (Plan, Execute, Review,
 11. [Background Daemons](#11-background-daemons)
 12. [Post-Deployment Verification](#12-post-deployment-verification)
 13. [Optional Components](#13-optional-components)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Architecture Reference](#15-architecture-reference)
+
+**Operations (Sections 14-16)**
+14. [Data Formats & External Dependencies](#14-data-formats--external-dependencies)
+15. [Operational Procedures](#15-operational-procedures)
+16. [Day-2 Operations](#16-day-2-operations)
+
+**Reference (Sections 17-18)**
+17. [Troubleshooting](#17-troubleshooting)
+18. [Architecture Reference](#18-architecture-reference)
 
 ---
 
@@ -812,19 +822,56 @@ adl/migrations/changelog/004_trigger_flight_times.sql
 adl/migrations/changelog/005_trigger_aircraft_tmi.sql
 adl/migrations/changelog/006_utility_procedures.sql
 
--- OOOI flight phase detection
+-- OOOI flight phase detection (Out-Off-On-In gate events)
 adl/migrations/oooi/001_oooi_schema.sql
 adl/migrations/oooi/002_oooi_deploy.sql
+adl/migrations/oooi/003_seed_airport_zones.sql
+adl/migrations/oooi/010_airport_taxi_reference.sql
+adl/migrations/oooi/011_airport_connect_reference.sql
 
 -- Flight statistics
 adl/migrations/stats/001_flight_stats_schema.sql
 adl/migrations/stats/002_flight_stats_procedures.sql
+adl/migrations/stats/012_flight_phase_snapshot.sql
 
 -- Aircraft performance data
 adl/migrations/performance/001_aircraft_performance_seed.sql
+adl/migrations/performance/005_delta_sync_indexes.sql
+adl/migrations/performance/007_apts_position_geo.sql
+adl/migrations/performance/008_waypoints_covering_index.sql
 
--- CIFP procedure legs
+-- CIFP procedure legs (Coded Instrument Flight Procedures)
 adl/migrations/cifp/001_cifp_procedure_legs.sql
+adl/migrations/cifp/002_cifp_import_procedure.sql
+
+-- Airport configuration (runway configs, rate history, ATIS parsing)
+adl/migrations/080_airport_config_schema.sql
+adl/migrations/082_rate_history_schema.sql
+adl/migrations/085_atis_runway_schema.sql
+adl/migrations/088_airport_groupings_aspm82_opsnet45.sql
+adl/migrations/090_detected_runway_config.sql
+adl/migrations/091_manual_rate_overrides.sql
+adl/migrations/092_config_modifiers_schema.sql
+
+-- Weather impact detection
+adl/migrations/weather/001_weather_alerts_schema.sql
+adl/migrations/weather/002_weather_impact_detection.sql
+adl/migrations/weather/003_weather_refresh_integration.sql
+
+-- Wind data infrastructure (for wind-adjusted ETAs)
+adl/migrations/wind/001_wind_grid_schema.sql
+adl/migrations/wind/002_eta_wind_integration.sql
+
+-- ARTCC topology and tier system
+adl/migrations/topology/001_artcc_topology_schema.sql
+adl/migrations/topology/002_artcc_topology_seed.sql
+
+-- TMI tables in ADL (ground stops, reroutes)
+adl/migrations/tmi/001_ntml_schema.sql
+adl/migrations/tmi/002_gs_procedures.sql
+adl/migrations/tmi/005_gdt_sandbox_tables.sql
+adl/migrations/tmi/010_reroute_tables.sql
+adl/migrations/tmi/011_reroute_routes_table.sql
 
 -- Additional ADL feature migrations (numbered, run sequentially)
 database/migrations/schema/004_adl_normalized_schema.sql
@@ -834,7 +881,40 @@ database/migrations/adl/001_create_division_events.sql
 database/migrations/adl/002_create_perti_events.sql
 database/migrations/adl/004_create_event_position_log.sql
 database/migrations/adl/010_create_tmi_trajectory.sql
+database/migrations/adl/011_artcc_tier_lookup.sql
 ```
+
+### 4.1.1 ADL Stored Procedures
+
+After running all migrations, deploy the stored procedures that power the ADL ingest cycle. These are in `adl/procedures/` and must be run with **admin privileges** (the app user `adl_api_user` lacks `CREATE PROCEDURE`):
+
+```
+-- Main ingest cycle stored procedure (THE critical SP — called every 15 seconds)
+adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql
+
+-- Route parsing
+adl/procedures/sp_ParseRoute.sql
+adl/procedures/sp_ParseQueue.sql
+
+-- ETA calculation
+adl/procedures/sp_CalculateETA.sql
+adl/procedures/sp_CalculateETABatch.sql
+adl/procedures/sp_CalculateWaypointETABatch_Tiered.sql
+
+-- Trajectory and position history
+adl/procedures/sp_ProcessTrajectoryBatch.sql
+
+-- Boundary crossing predictions
+adl/procedures/sp_CalculatePlannedCrossingsBatch.sql
+
+-- Zone detection (OOOI gate events)
+adl/procedures/sp_ProcessZoneDetectionBatch_Tiered.sql
+
+-- SimBrief flight plan parsing
+adl/procedures/sp_ParseSimBriefData.sql
+```
+
+> **Critical**: `sp_Adl_RefreshFromVatsim_Staged` is the heart of PERTI. It executes ~13 processing steps every 15 seconds: staging ingest → flight core MERGE → position update → route change detection → parse queue → aircraft enrichment → trajectory logging → ETA calculation → zone detection. If this SP fails, no flight data flows. Deploy it with the admin user, then grant `EXECUTE` to the app user.
 
 ### 4.2 VATSIM_TMI (Azure SQL)
 
@@ -910,7 +990,14 @@ database/migrations/swim/021_vnas_integration_schema.sql
 
 ### 4.4 VATSIM_REF (Azure SQL)
 
-The VATSIM_REF tables are created by the reference data import scripts (Section 5). The core tables (`nav_fixes`, `nav_procedures`, `airways`, `airway_segments`, `area_centers`, `coded_departure_routes`, `playbook_routes`) are created as part of the navdata import process.
+Run the base schema migration, then populate via the navdata import scripts (Section 5):
+
+```
+adl/migrations/ref/001_vatsim_ref_schema.sql
+adl/migrations/ref/002_initial_data_load.sql
+```
+
+This creates the core reference tables: `nav_fixes`, `nav_procedures`, `airways`, `airway_segments`, `area_centers`, `coded_departure_routes`, `playbook_routes`, and `oceanic_fir_bounds`. The actual data is loaded by the AIRAC import scripts in Section 5.
 
 ### 4.5 VATSIM_GIS (PostgreSQL/PostGIS)
 
@@ -920,7 +1007,10 @@ The VATSIM_REF tables are created by the reference data import scripts (Section 
 
 database/migrations/postgis/001_boundaries_schema.sql
 database/migrations/postgis/002_extended_functions.sql
+database/migrations/postgis/003_airports_table.sql
 ```
+
+The `airports` table in GIS has an auto-update trigger that resolves `parent_artcc` and `parent_tracon` via spatial containment against `artcc_boundaries` and `tracon_boundaries`. Import boundaries before airports.
 
 ### 4.6 VATSIM_STATS (Azure SQL)
 
@@ -1018,14 +1108,29 @@ These files are included in the repository and deployed automatically. No manual
 
 ### 5.3 Boundary Data (PostGIS)
 
-ARTCC, TRACON, and sector boundaries must be imported into the PostGIS database:
+ARTCC, TRACON, and sector boundaries must be imported into the PostGIS database. These define the airspace polygons used for flight tracking (which ARTCC is a flight in?), demand forecasting (when will flights enter my airspace?), and sector split management.
+
+**Data Source**: CRC (Community Resource Controller) VideoMaps, available from the VATSIM community. These contain GeoJSON polygon definitions for every ARTCC, TRACON, and sector in the NAS.
 
 ```bash
-cd scripts/
-python build_sector_boundaries.py
+# Build sector boundary GeoJSON from CRC VideoMap data
+python scripts/build_sector_boundaries.py --crc-path /path/to/CRC_extracted --output-dir ./output
 ```
 
-This reads boundary definition files and imports them as PostGIS geometry objects into `artcc_boundaries`, `tracon_boundaries`, and `sector_boundaries` tables in VATSIM_GIS.
+The script processes CRC ARTCC metadata files and VideoMap GeoJSON to produce:
+- `high.json` — High altitude sector boundaries
+- `low.json` — Low altitude sector boundaries
+- `superhigh.json` — Ultra-high/super-high altitude boundaries
+
+**Manual import** into PostGIS tables (`artcc_boundaries`, `tracon_boundaries`, `sector_boundaries`) can be done via:
+
+```sql
+-- Example: Insert an ARTCC boundary from GeoJSON
+INSERT INTO artcc_boundaries (artcc_code, fir_name, geom)
+VALUES ('ZNY', 'New York Center', ST_GeomFromGeoJSON('{"type":"Polygon","coordinates":[[...]]}'));
+```
+
+> **Important**: The `airports` table in VATSIM_GIS has a trigger that auto-resolves `parent_artcc` from boundary containment. Import ALL boundary data BEFORE importing airports.
 
 ### 5.4 Airport Data
 
@@ -1622,9 +1727,423 @@ Pre-built client libraries for consuming the SWIM API in `sdk/`:
 
 ---
 
-## 14. Troubleshooting
+## 14. Data Formats & External Dependencies
 
-### 14.1 Kudu SSH Access
+PERTI consumes data from several external sources. Understanding these formats is essential for debugging and for organizations that may need to adapt the system to non-US airspace.
+
+### 14.1 VATSIM Data Feed
+
+**Source**: `https://data.vatsim.net/v3/vatsim-data.json`
+**Format**: JSON, updated every ~15 seconds by VATSIM
+**Size**: ~2-5MB (depends on network activity)
+
+The ADL daemon fetches this JSON every 15 seconds. Key fields consumed:
+
+```json
+{
+  "general": { "version": 3, "connected_clients": 1847, "unique_users": 1623 },
+  "pilots": [{
+    "cid": 1653788,
+    "name": "Pilot Name",
+    "callsign": "JAL65",
+    "server": "USA-WEST",
+    "pilot_rating": 0,
+    "military_rating": 0,
+    "latitude": 32.73259,
+    "longitude": -117.20712,
+    "altitude": 28,
+    "groundspeed": 0,
+    "transponder": "6312",
+    "heading": 179,
+    "qnh_i_hg": 29.94,
+    "qnh_mb": 1014,
+    "flight_plan": {
+      "flight_rules": "I",
+      "aircraft": "B77W/H-SDE1E2E3FGHIJ2J3J4J5M1RWXY/LB1D1",
+      "aircraft_faa": "H/B77W/L",
+      "aircraft_short": "B77W",
+      "departure": "RJAA",
+      "arrival": "KSAN",
+      "alternate": "KLAX",
+      "cruise_tas": "488",
+      "altitude": "33000",
+      "deptime": "0945",
+      "enroute_time": "1024",
+      "fuel_time": "1052",
+      "remarks": "PBN/A1B1C1D1L1O1S2 DOF/260301 ...",
+      "route": "PYE356022 BURGL LAX COMIX2 KSAN",
+      "revision_id": 4,
+      "assigned_transponder": "6312"
+    },
+    "logon_time": "2026-03-01T09:57:14.7933282Z",
+    "last_updated": "2026-03-02T00:50:11.9241535Z"
+  }],
+  "prefiles": [{"cid": 1234568, "callsign": "UAL456", "flight_plan": {"..."}}],
+  "atis": [{
+    "cid": 7654321,
+    "callsign": "KJFK_D_ATIS",
+    "frequency": "135.050",
+    "atis_code": "A",
+    "text_atis": ["KJFK DEP ATIS INFO ALPHA", "DEPS RWYS 31L 22R", "NOTICE TO AIRMEN..."],
+    "logon_time": "2026-03-01T12:00:00Z"
+  }],
+  "controllers": [{"cid": 9876543, "callsign": "NY_CTR", "frequency": "132.225"}]
+}
+```
+
+> **Note**: All field names shown are from the real VATSIM v3 API (fetched March 2026). The daemon consumes `pilots`, `prefiles`, and `atis` arrays. ATIS callsign patterns: `KJFK_ATIS` (combined), `KJFK_D_ATIS` (departure), `KJFK_A_ATIS` (arrival). The `controllers` array is not consumed by the ADL daemon.
+
+**ATIS parsing**: The daemon extracts runway-in-use, weather conditions, and ATIS type (combined/departure/arrival) from the freetext `text_atis` lines. This drives automatic runway configuration detection and AAR/ADR rate adjustments. Tiered ATIS processing (every 15s for ASPM82 airports, every 5min for non-priority) reduces database writes.
+
+### 14.2 FAA NASR Data (Navigation)
+
+**Source**: FAA NASR subscription (28-day AIRAC cycles)
+**Format**: Fixed-width text files and CSV in ZIP archives
+**Updated**: Every 28 days (see `cycle.js` for cycle calculation)
+
+Key data files produced by the NASR importer and stored in `assets/data/`:
+
+| File | Format | Records (AIRAC 2603) | Content |
+|------|--------|---------------------|---------|
+| `points.csv` | CSV | 269,779 | Navigation fixes (name, lat, lon, type, ARTCC) |
+| `navaids.csv` | CSV | 1,874 | VOR/DME/TACAN navaids |
+| `awys.csv` | CSV | 1,547 | Airway definitions with fix sequences |
+| `cdrs.csv` | CSV | 47,141 | Coded Departure Routes (origin, dest, route string) |
+| `playbook_routes.csv` | CSV | 55,683 | FAA playbook reroute routes |
+| `dp_full_routes.csv` | CSV | 6,507 | Departure procedure full route strings |
+| `star_full_routes.csv` | CSV | 8,224 | STAR full route strings |
+| `artcc_tiers.json` | JSON | 4 tiers (~22 ARTCCs) | ARTCC tier hierarchy (Tier 1/2/3/4) |
+| `fir_tiers.json` | JSON | varies | FIR tier hierarchy for oceanic filtering |
+
+**AIRAC cycle calculation**: Epoch is January 25, 2024 (AIRAC 2401). Cycles are 28 days, 13 per year. Format: `YYNN` (e.g., 2601 = first cycle of 2026).
+
+### 14.3 Boundary Data (GeoJSON)
+
+ARTCC, TRACON, and sector boundaries are stored as PostGIS geometry objects. The expected import format is GeoJSON:
+
+```json
+{
+  "type": "Feature",
+  "properties": {
+    "id": "ZNY",
+    "name": "New York Center",
+    "type": "ARTCC",
+    "floor": 0,
+    "ceiling": 60000
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[[-74.5, 41.2], [-73.0, 41.8], ...]]
+  }
+}
+```
+
+**Source options**:
+- **CRC VideoMaps** (VATSIM community): Contains full NAS sector boundaries from real-world FAA data
+- **VATSIM API boundary data**: Provides FIR-level boundaries for international airspace
+- **Manual GeoJSON**: For custom airspace definitions
+
+The three PostGIS boundary tables expect:
+
+| Table | Key Columns | Geometry Type |
+|-------|-------------|---------------|
+| `artcc_boundaries` | `artcc_code`, `fir_name`, `icao_code` | Polygon/MultiPolygon (SRID 4326) |
+| `tracon_boundaries` | `tracon_code`, `tracon_name`, `parent_artcc` | Polygon/MultiPolygon (SRID 4326) |
+| `sector_boundaries` | `sector_code`, `sector_name`, `parent_artcc`, `sector_type` | Polygon/MultiPolygon (SRID 4326) |
+
+### 14.4 Airport Data
+
+Airport reference data comes from two sources:
+
+1. **FAA NASR** (primary for US): ~19,000 US airports with full FAA metadata (ARTCC, TRACON, tower type, DCC region, ASPM82/OPSNET45 classification)
+2. **OurAirports** (global supplement): ~9,300 international airports. Imported via `adl/migrations/navdata/011_ourairports_global_import.sql`
+
+The `apts` table in VATSIM_ADL contains the authoritative airport reference. Key fields:
+
+| Column | Example | Description |
+|--------|---------|-------------|
+| `ARPT_ID` | `JFK` | FAA identifier (3-letter) |
+| `ICAO_ID` | `KJFK` | ICAO identifier (4-letter) |
+| `ARPT_NAME` | `JOHN F KENNEDY INTL` | Airport name |
+| `LAT_DECIMAL` | `40.6413` | Latitude |
+| `LONG_DECIMAL` | `-73.7781` | Longitude |
+| `RESP_ARTCC_ID` | `ZNY` | Responsible ARTCC |
+| `Approach ID` | `N90` | Parent TRACON facility ID |
+| `TWR_TYPE_CODE` | `A` | Tower type (A=24hr, B=part-time) |
+| `ASPM82` | `1` | FAA ASPM 82-airport set membership |
+| `OPSNET45` | `1` | FAA OPSNET 45-airport set membership |
+
+### 14.5 Aircraft Performance Data
+
+Aircraft performance profiles come from three sources:
+
+1. **BADA (Base of Aircraft Data)**: Eurocontrol performance database with climb/descent profiles, cruise speeds, and fuel consumption. Imported via `adl/migrations/performance/` scripts.
+2. **OpenAP**: Open-source aircraft performance database. Imported via `adl/migrations/performance/003_openap_aircraft_import.sql`.
+3. **FAA ACD (Aircraft Characteristics Database)**: 40+ columns of aircraft data (wingspan, weight class, engine type). Imported via `database/migrations/schema/005_acd_data_full_schema.sql`.
+
+These power the ETA calculation system (`sp_CalculateETA`) which uses performance profiles to estimate time-to-destination based on aircraft type, altitude, and wind conditions.
+
+### 14.6 Weather Data
+
+**ATIS-derived weather** (primary): Parsed from VATSIM ATIS text to determine VMC/IMC conditions and active runways. Categories: VMC, LVMC, IMC, LIMC, VLIMC.
+
+**NOAA GFS winds** (optional): Global Forecast System wind grids for wind-adjusted ETAs. Fetched by `services/wind/fetch_noaa_gfs.py` and stored in `wind_grid` tables.
+
+**NWS SIGMET/AIRMET/TFR** (optional): Fetched from FAA and NWS APIs by `api/data/sigmets.php` and `api/data/tfr.php`. Used for weather hazard overlay on the route map.
+
+---
+
+## 15. Operational Procedures
+
+This section describes how a TMU organization actually uses PERTI day-to-day. All features assume deployment is complete and data is flowing.
+
+### 15.1 PERTI Plan Lifecycle
+
+A PERTI plan is the core planning document for a traffic management event. The workflow is:
+
+**Create** → **Staff** → **Plan** → **Execute** → **Review** → **Archive**
+
+1. **Create a plan** (`/index.php` → New Plan):
+   - Set event name, date, start/end times, operational level (1-4)
+   - Set a hotline number and optional event banner image
+   - Plans appear on the home page sorted by date
+
+2. **Configure airports** (`/plan.php` → Airport Configs):
+   - Add airports to the plan with expected AAR/ADR rates
+   - Set weather conditions (VMC/IMC) and runway configurations
+   - Rates come from `config_data` defaults but can be overridden per-plan
+
+3. **Staff the plan** (`/plan.php` → Staffing tabs):
+   - **Terminal staffing**: Assign TRACONs with staffing status and quantity
+   - **Enroute staffing**: Assign ARTCCs with staffing status and quantity
+   - **DCC staffing**: Assign command center positions (TMU, STMC, ATCSCC)
+
+4. **Add constraints and initiatives** (`/plan.php`):
+   - Terminal/enroute constraints: Known factors affecting operations
+   - Terminal/enroute initiatives: Planned TMI actions with timelines
+   - Initiative timelines include facility, TMI type, cause, start/end times, probability
+
+5. **Execute the plan**: During the event, the plan serves as the reference document while TMIs are managed via the GDT, TMI publisher, and demand tools
+
+6. **Post-event review** (`/review.php`):
+   - Score the event (1-5) across categories
+   - Add comments and lessons learned
+   - Review ops data (actual rates, delays, traffic counts)
+
+### 15.2 Ground Delay Program (GDP) Lifecycle
+
+GDPs are the primary demand management tool. They assign EDCTs (departure clearance times) to slow arrivals at a congested airport.
+
+1. **Preview** (`/gdt.php` → GDP Preview):
+   - Select airport, program rate (AAR), start/end times
+   - Preview shows estimated slot assignments and delay distribution
+   - API: `POST /api/tmi/gdp_preview.php`
+
+2. **Simulate** (optional):
+   - Run a simulation to see flight-by-flight impact
+   - API: `POST /api/tmi/gdp_simulate.php`
+
+3. **Apply**:
+   - Creates the GDP program in VATSIM_TMI
+   - Runs RBS (Ration By Schedule) algorithm to assign flights to slots
+   - Each flight gets a CTA (controlled time of arrival) and EDCT (CTD)
+   - API: `POST /api/tmi/gdp_apply.php`
+   - Automatically creates `tmi_programs`, `tmi_slots`, and `tmi_flight_control` records
+
+4. **Monitor** (`/gdt.php`):
+   - Ground Delay Table shows all slots with assigned flights
+   - Color-coded by delay severity
+   - Real-time updates as flights depart and new flights appear (popups)
+
+5. **Compress** (automatic):
+   - As flights cancel or depart early, gaps appear in the slot sequence
+   - Compression algorithm moves later flights forward to fill gaps
+   - Reduces average delay while maintaining program rate
+
+6. **Purge**:
+   - When conditions improve, purge cancels remaining EDCTs
+   - Flights revert to uncontrolled status
+   - API: `POST /api/tmi/gdp_purge.php`
+
+### 15.3 Ground Stop (GS) Lifecycle
+
+Ground Stops halt all departures to a specific airport.
+
+1. **Create** (`/gdt.php` → Ground Stop section):
+   - Select airport, reason, scope (origin centers, carrier filters)
+   - API: `POST /api/tmi/gs/create.php`
+
+2. **Activate**:
+   - Sets `gs_held = 1` on all affected flights in `adl_flight_tmi`
+   - API: `POST /api/tmi/gs/activate.php`
+
+3. **Monitor**:
+   - GDT page shows held flights with GS indicator
+   - Demand view shows suppressed departure demand
+
+4. **Extend** (if needed):
+   - Extend the end time if conditions persist
+   - API: `POST /api/tmi/gs/extend.php`
+
+5. **Purge**:
+   - Releases all held flights
+   - Can transition to GDP (GS → GDP transition procedure)
+   - API: `POST /api/tmi/gs/purge.php`
+
+### 15.4 TMI Publishing (NTML/Advisories)
+
+All TMIs can be published to Discord channels for network-wide visibility.
+
+1. **Navigate** to `/tmi-publish.php`
+2. **Select TMI type**: NTML entry, advisory, ground stop notice, reroute
+3. **Compose message** using the advisory builder (pre-formatted templates)
+4. **Select target org(s)**: Choose which Discord server(s) to publish to
+5. **Stage** (if `TMI_STAGING_REQUIRED` is enabled): Posts to staging channel first
+6. **Promote to production**: After review, promote staging post to production NTML channel
+7. **Coordination** (for multi-facility TMIs): Discord reaction-based approval workflow
+
+The Discord posting queue (`tmi_discord_posts`) handles async delivery and retries.
+
+### 15.5 Reroute Management
+
+1. **Create a reroute draft** (`/tmi-publish.php` → Reroutes or API)
+2. **Define the reroute**: Protected segment, avoid fixes, origin/destination filters, route strings per O/D pair
+3. **Publish**: Posts reroute advisory to Discord with route visualization
+4. **Monitor compliance**: System tracks which flights are on the reroute vs original route
+5. **Public routes** are visualized on the route map (`/route.php`) for all users
+
+### 15.6 Demand Monitoring
+
+The demand page (`/demand.php`) provides:
+
+- **Fix demand**: Flights planned through a specific fix, bucketed by 15-minute intervals
+- **Airway demand**: Traffic on a specific airway
+- **Segment demand**: Traffic on a route segment (fix-to-fix)
+- **Airport demand**: Arrival/departure demand at an airport with AAR/ADR overlay
+
+Demand monitors can be saved and auto-refreshed. The underlying functions are SQL table-valued functions in VATSIM_ADL (`fn_FixDemand`, `fn_AirwaySegmentDemand`, etc.).
+
+### 15.7 Sector Split Management
+
+The splits tool (`/splits.php`) manages sector configurations:
+
+1. **Create split configs**: Define which sectors are split/combined
+2. **Map sectors**: Visual sector map with boundary overlays
+3. **Schedule activation**: Auto-activate splits at specific times via the scheduler daemon
+4. **Presets**: Save common configurations for quick activation
+
+---
+
+## 16. Day-2 Operations
+
+### 16.1 AIRAC Cycle Updates (Every 28 Days)
+
+Navigation data must be updated every AIRAC cycle (28 days) to keep fixes, airways, procedures, and routes current.
+
+```bash
+# Full AIRAC update (all three steps)
+python airac_full_update.py
+
+# Or run individual steps:
+python airac_full_update.py --step 1   # Step 1: Download FAA NASR data
+python airac_full_update.py --step 2   # Step 2: Scrape FAA Playbook routes
+python airac_full_update.py --step 3   # Step 3: Import to VATSIM_REF + sync to ADL
+
+# Preview without making changes
+python airac_full_update.py --dry-run
+```
+
+**Step 1** (`nasr_navdata_updater.py`): Downloads FAA NASR ZIP archives, parses fixed-width text files, and produces CSV files in `assets/data/`.
+
+**Step 2** (`scripts/update_playbook_routes.py`): Scrapes the FAA Playbook website for current reroute routes and updates `assets/data/playbook_routes.csv`.
+
+**Step 3** (`adl/scripts/airac_update.py`): Imports CSV files into VATSIM_REF tables, then syncs the updated data to VATSIM_ADL cached copies. Uses bulk INSERT with MERGE for idempotent updates.
+
+> **Schedule**: Run within 1-2 days of each AIRAC effective date. The cycle calculator in `assets/js/cycle.js` shows current and upcoming cycle dates on the navdata page.
+
+### 16.2 Monitoring & Health Checks
+
+**Health check endpoint**: `GET /healthcheck.php` — returns `{"status":"healthy"}` if MySQL is reachable.
+
+**Daemon monitoring** (via Kudu SSH):
+
+```bash
+# Check all running PHP daemons
+ps aux | grep php
+
+# Expected daemons (core):
+#   vatsim_adl_daemon.php        — ADL ingest (15s cycle)
+#   parse_queue_gis_daemon.php   — Route parsing (10s batch)
+#   boundary_gis_daemon.php      — Boundary detection (15s)
+#   swim_sync_daemon.php         — SWIM sync (2min)
+
+# View logs
+tail -100 /home/LogFiles/vatsim_adl.log
+tail -100 /home/LogFiles/parse_queue_gis.log
+tail -100 /home/LogFiles/boundary_gis.log
+
+# Check PHP-FPM status
+curl http://127.0.0.1:9000/fpm-status
+```
+
+**Key metrics to watch**:
+- ADL cycle time: Should be <15s (warning >5s, critical >10s)
+- Parse queue backlog: Should be <100 (grows if PostGIS is slow)
+- Flight count: Typically 1,000-6,000 depending on time of day
+- Memory: PHP-FPM workers at ~50MB each; total should be <80% of available RAM
+
+**System status page**: `/status.php` shows daemon health, database connectivity, and recent ingest performance.
+
+### 16.3 Database Maintenance
+
+**Archival** (handled by `scripts/archival_daemon.php`):
+- Trajectory data is tiered: live (7 days) → archive (30 days) → compressed (180 days) → purged
+- Changelog data is purged after 48 hours (high-frequency updates)
+- Flight data is archived from `adl_flight_core` to `adl_flight_archive` after completion
+
+**Statistics** (handled by stored procedures):
+- Daily aggregation runs at 02:00Z (SP `sp_AggregateFlightStatsDaily`)
+- Airport taxi and connect-to-push reference tables update daily at 02:15Z
+- Flight phase snapshots taken every 15 minutes
+
+**Index maintenance**: Azure SQL handles index rebuilds automatically for serverless tiers. For Basic tiers, schedule monthly `ALTER INDEX ALL ... REBUILD` on high-write tables (`adl_flight_position`, `adl_flight_trajectory`).
+
+### 16.4 Hibernation Mode
+
+PERTI supports an operational pause mode for off-season or extended maintenance:
+
+```php
+// In config.php:
+define("HIBERNATION_MODE", true);
+// Also set as Azure App Setting: HIBERNATION_MODE=true
+```
+
+When enabled:
+- ATIS parsing disabled in ADL daemon (ingest continues)
+- 12 feature pages redirect to `/hibernation` info page
+- SWIM API returns HTTP 503 for all endpoints
+- Non-essential daemons are not started
+- PHP-FPM workers reduced (40 → 20)
+- Nav items show muted styling with snowflake icon
+
+**Exit procedure**: See `docs/HIBERNATION_RUNBOOK.md` for step-by-step reactivation.
+
+### 16.5 Scaling Up
+
+When traffic increases or you need more capacity:
+
+1. **App Service**: Scale from B1 → P1v2 → P2v2. Adjust PHP-FPM `max_children` (see Appendix C).
+2. **VATSIM_ADL**: Increase `--max-capacity` for Hyperscale Serverless, or raise `--min-capacity` to reduce cold-start latency.
+3. **PostGIS**: Scale from B2s → B4s if parse queue or boundary detection becomes slow.
+4. **MySQL**: Scale from D2ds_v4 → D4ds_v4 if plan page loads are slow (unlikely bottleneck).
+
+See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance by flight volume.
+
+---
+
+## 17. Troubleshooting
+
+### 17.1 Kudu SSH Access
 
 Access the container's shell via:
 
@@ -1656,7 +2175,7 @@ cat /etc/nginx/sites-enabled/default
 curl http://127.0.0.1:9000/fpm-status
 ```
 
-### 14.2 Database Connectivity
+### 17.2 Database Connectivity
 
 Test connections from the container:
 
@@ -1671,7 +2190,7 @@ php -r "sqlsrv_connect('your-sql.database.windows.net', ['Database'=>'VATSIM_ADL
 php -r "new PDO('pgsql:host=your-gis.postgres.database.azure.com;dbname=VATSIM_GIS', 'user', 'pass'); echo 'OK';"
 ```
 
-### 14.3 PHP Extensions on Azure
+### 17.3 PHP Extensions on Azure
 
 Azure's PHP 8.2 container includes most extensions, but `sqlsrv` requires ODBC Driver 18. The Azure PHP container typically includes it pre-installed. If `sqlsrv` is missing, install manually via Kudu SSH:
 
@@ -1684,7 +2203,7 @@ ACCEPT_EULA=Y apt-get install -y msodbcsql18
 pecl install sqlsrv pdo_sqlsrv
 ```
 
-### 14.4 Session Issues
+### 17.4 Session Issues
 
 If sessions are not working:
 - `sessions/handler.php` must be included BEFORE `connect.php` (because `config.php`, which is included by `connect.php`, has a closing `?>` tag that outputs a trailing newline — this sends headers and prevents `session_start()`)
@@ -1692,9 +2211,9 @@ If sessions are not working:
 
 ---
 
-## 15. Architecture Reference
+## 18. Architecture Reference
 
-### 15.1 Request Flow
+### 18.1 Request Flow
 
 ```
 Client Browser
@@ -1720,7 +2239,7 @@ Azure App Service (nginx on port 8080)
         └─ /api/data/* → Reference data
 ```
 
-### 15.2 Data Flow
+### 18.2 Data Flow
 
 ```
 VATSIM Data API (https://data.vatsim.net/v3/vatsim-data.json)
@@ -1748,7 +2267,7 @@ vatsim_adl_daemon.php
         └─ swim_ws_server → WebSocket clients (port 8090)
 ```
 
-### 15.3 External Dependencies
+### 18.3 External Dependencies
 
 | Service | URL | Used For |
 |---------|-----|----------|
@@ -1764,7 +2283,7 @@ vatsim_adl_daemon.php
 | Chart.js | CDN | Data visualization |
 | SweetAlert2 | CDN | UI notifications |
 
-### 15.4 File Reference: Key Files to Customize
+### 18.4 File Reference: Key Files to Customize
 
 | File | What to Change |
 |------|---------------|
