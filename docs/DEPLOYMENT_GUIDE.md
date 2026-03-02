@@ -53,12 +53,14 @@ Complete step-by-step guide for deploying your own PERTI (Plan, Execute, Review,
 | Resource | SKU | Approximate Cost |
 |----------|-----|-----------------|
 | App Service (Linux) | P1v2 (3.5GB RAM) | ~$80/mo |
-| Azure SQL Server | Basic/S0 (per database) | ~$5-15/mo each |
+| Azure SQL — VATSIM_ADL | GP Serverless Gen5 (0.5-4 vCores) | ~$150-400/mo |
+| Azure SQL — TMI, REF, SWIM_API | Basic (5 DTU) each | ~$5/mo each |
+| Azure SQL — VATSIM_STATS | Free or Basic | ~$0-5/mo |
 | Azure Database for MySQL | Flexible Server B1ms | ~$13/mo |
 | Azure Database for PostgreSQL | Flexible Server B1ms | ~$13/mo |
-| **Total** | | **~$140-200/mo** |
+| **Total** | | **~$270-530/mo** |
 
-> **Cost reduction tips**: Use Azure Free Tier for VATSIM_STATS database. Use Basic tier for less-accessed databases (VATSIM_REF, SWIM_API). The App Service is the largest cost — B1 ($13/mo) works for low-traffic setups but limits concurrent users.
+> **Cost notes**: VATSIM_ADL dominates cost because the 15-second ingest cycle with 8-table MERGEs and concurrent daemon queries creates sustained compute demand. DTU-based tiers (S0-S3) impose hard caps that cause throttling and missed feeds at production flight volumes — use vCore-based serverless instead. Serverless auto-pause during idle periods helps organizations that don't run 24/7. Use Free tier for VATSIM_STATS. The App Service is the second largest cost — B1 ($13/mo) works for low-traffic setups but limits concurrent users. See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance.
 
 ---
 
@@ -112,9 +114,12 @@ az sql server firewall-rule create \
 Create each of the 5 Azure SQL databases. Choose SKU based on expected load:
 
 ```bash
-# VATSIM_ADL - Flight data (highest load — use S0 or higher)
+# VATSIM_ADL - Flight data (highest load — use GP Serverless vCore, NOT DTU tiers)
+# DTU tiers (S0-S3) cause throttling during the 15-second ingest cycle.
+# Min/max vCores control cost: lower min = cheaper idle, higher max = handles peaks.
 az sql db create --server your-perti-sql --resource-group perti-rg \
-  --name VATSIM_ADL --service-objective S0
+  --name VATSIM_ADL --edition GeneralPurpose --compute-model Serverless \
+  --family Gen5 --capacity 4 --min-capacity 0.5 --auto-pause-delay 60
 
 # VATSIM_TMI - Traffic management
 az sql db create --server your-perti-sql --resource-group perti-rg \
@@ -1766,11 +1771,13 @@ These environment variables can be set in Azure App Service configuration:
 
 | Database | Minimum SKU | Recommended SKU | Notes |
 |----------|-------------|-----------------|-------|
-| VATSIM_ADL | S0 (10 DTU) | S1 (20 DTU) | Highest load — flight data, stored procedures |
-| VATSIM_TMI | Basic (5 DTU) | S0 (10 DTU) | Moderate during active TMIs |
+| VATSIM_ADL | GP Serverless Gen5 (0.5-2 vCore) | GP Serverless Gen5 (0.5-4 vCore) | Highest load — 15s ingest cycle, 8-table MERGEs, concurrent daemons. **Do not use DTU tiers** — they throttle under sustained load and cause missed VATSIM feeds. For 3,000+ concurrent flights or 24/7 ops, use Hyperscale Serverless (min 2-3, max 8-16 vCores). |
+| VATSIM_TMI | Basic (5 DTU) | Basic (5 DTU) | Event-driven TMI operations; spikes only during active GDP/GS |
 | VATSIM_REF | Basic (5 DTU) | Basic (5 DTU) | Low traffic, mostly reads |
-| SWIM_API | Basic (5 DTU) | S0 (10 DTU) | Depends on external API consumer count |
-| VATSIM_STATS | Free | Basic (5 DTU) | Free tier auto-pauses; Basic stays on |
+| SWIM_API | Basic (5 DTU) | Basic (5 DTU) | Sufficient for <100 API consumers; upgrade to S0 if needed |
+| VATSIM_STATS | Free | Basic (5 DTU) | Free tier auto-pauses after 60min; Basic stays on for dashboards |
+
+> **Why not DTU for VATSIM_ADL?** DTU tiers (S0=10, S1=20, S2=50, S3=100) impose hard compute caps. PERTI's 15-second ingest cycle with 8-table MERGEs, plus concurrent parse queue, boundary detection, crossing prediction, and SWIM sync daemons, creates sustained compute demand that exceeds DTU caps unpredictably. vATCSCC experienced missed VATSIM feeds and cascading daemon delays on S2 (50 DTU) at ~3,000 concurrent flights. vCore-based serverless billing is more expensive but eliminates throttling. See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance.
 
 ## Appendix C: PHP-FPM Worker Tuning
 
