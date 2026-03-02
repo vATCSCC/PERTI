@@ -110,8 +110,24 @@ class InitiativeTimeline {
     init() {
         this.render();
         this.createModal();
-        this.loadData();
+        // Load facility hierarchy (for airport→ARTCC resolution), then data
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.load) {
+            FacilityHierarchy.load().then(() => this.loadData());
+        } else {
+            this.loadData();
+        }
         this.startNowLineUpdater();
+    }
+
+    /**
+     * Resolve a facility code to its parent ARTCC/FIR.
+     * e.g. KATL → ZTL, CYYZ → ZYZ, A80 → ZTL
+     * Returns the original code if no resolution is found.
+     */
+    resolveArtcc(facility) {
+        if (!facility) return facility;
+        if (typeof FacilityHierarchy === 'undefined' || !FacilityHierarchy.getParentArtcc) return facility;
+        return FacilityHierarchy.getParentArtcc(facility) || facility;
     }
 
     render() {
@@ -813,7 +829,7 @@ class InitiativeTimeline {
         displayData.forEach(i => {
             const key = this.groupBy === 'initiative'
                 ? this.getInitiativeGroupKey(i)
-                : (i.facility || PERTII18n.t('common.unknown'));
+                : (this.resolveArtcc(i.facility) || PERTII18n.t('common.unknown'));
             if (!groups[key]) {groups[key] = [];}
             groups[key].push(i);
         });
@@ -1136,12 +1152,13 @@ class InitiativeTimeline {
      */
     consolidateItems(data) {
         const groups = {};
+        const norm = v => (v == null ? '' : String(v).trim());
         for (const item of data) {
             const key = [
-                item.level, item.tmi_type || '', item.tmi_type_other || '',
-                item.cause || '', item.start_datetime, item.end_datetime,
-                item.notes || '', item.area || '', item.is_global,
-                item.advzy_number || '',
+                norm(item.level), norm(item.tmi_type), norm(item.tmi_type_other),
+                norm(item.cause), norm(item.start_datetime), norm(item.end_datetime),
+                norm(item.notes), norm(item.area), item.is_global ? '1' : '0',
+                norm(item.advzy_number),
             ].join('|');
             if (!groups[key]) {
                 groups[key] = { ...item, _facilities: [item.facility], _ids: [item.id] };
