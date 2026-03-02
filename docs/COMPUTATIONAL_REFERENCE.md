@@ -224,11 +224,14 @@ ATIS data is fetched from the same VATSIM JSON and processed at tiered intervals
 
 | Metric | Value | Cost Impact |
 |--------|-------|-------------|
-| SP executions per day | 5,760 (every 15s) | ~$0.50/day on S0 tier |
-| Average DTU usage | 15-25 DTU | S0 (10 DTU) can spike; S1 (20 DTU) recommended |
+| SP executions per day | 5,760 (every 15s) | Continuous vCore usage; dominates ADL compute |
+| Average vCore usage | 3-6 vCores sustained | Hyperscale Serverless Gen5 min 3 vCores in production |
+| Peak vCore usage | 8-16 vCores (during events) | Auto-scales; DTU-based tiers throttle at peaks |
 | Staging table inserts | ~3000 rows x 5760/day = 17.3M rows/day | I/O cost is primary driver |
 | Trajectory inserts | ~3000 x 5760/day = 17.3M rows/day | Largest table growth |
 | Network transfer | ~2-4MB x 5760 = 11-23GB/day from VATSIM API | Free (outbound) |
+
+> **Important**: DTU-based tiers (S0-S3) impose hard compute caps. The SP's 8-table MERGE pattern with concurrent daemon queries (parse queue, boundary detection, crossing prediction, SWIM sync) creates sustained compute load that frequently exceeds DTU limits on S2 (50 DTU) at 3,000+ concurrent flights. vATCSCC moved to Hyperscale Serverless because DTU throttling caused missed 15-second VATSIM feeds and cascading delays in dependent daemons. See Section 15.3 for scaling guidance.
 
 ---
 
@@ -1228,7 +1231,7 @@ Queried directly from the live Azure subscription (`59acfcdf-fb3d-4e2b-a058-b189
 | **ATIS (tiered)** | Parse ATIS broadcasts | 0.1-0.5 vCore-sec | ~3,000 | ~0.3 vCore-hr | ~$0.21 |
 | **ADL subtotal** | | | | **~13 vCore-hrs** | **~$10/mo** |
 
-> The **per-operation** Azure SQL compute cost is tiny. The real cost is the **base compute reservation**: a serverless Hyperscale DB with min 3 vCores running 24/7 costs ~$1,000/mo regardless of actual query load. On an S0 (10 DTU) tier, the same operations would cost ~$15/mo total, but with higher latency during peaks.
+> The **per-operation** Azure SQL compute cost is tiny. The real cost is the **base compute reservation**: a serverless Hyperscale DB with min 3 vCores running 24/7 costs ~$1,000/mo regardless of actual query load. DTU-based tiers (S0-S3) cost less per month but impose hard compute caps that cause throttling during the sustained 15-second ingest cycle with concurrent daemon queries. vATCSCC found that DTU throttling caused missed VATSIM feeds and cascading delays — the serverless premium buys reliability.
 
 #### 15.2.2 Route Parsing (PostGIS)
 
@@ -1306,28 +1309,30 @@ Target: 0-1,000 concurrent flights, single developer.
 
 #### Standard (Production / Moderate Traffic)
 
-Target: 1,000-6,000 concurrent flights, event operations.
+Target: 1,000-3,000 concurrent flights, weekly event operations.
 
 | Resource | Recommended Tier | Monthly Cost | Headroom |
 |----------|-----------------|-------------|----------|
 | App Service | P1v2 (1 vCPU, 3.5GB) | ~$80 | 40 PHP-FPM workers, comfortable for 15 daemons |
-| VATSIM_ADL | S2 (50 DTU) | ~$75 | Handles 15s ingest cycle with peaks. Upgrade to S3 if DTU consistently >80% |
+| VATSIM_ADL | GP Serverless Gen5 (min 0.5, max 4 vCores) | ~$150-400 | Auto-scales with event traffic; auto-pauses during quiet periods to reduce cost |
 | VATSIM_TMI | Basic (5 DTU) | ~$5 | More than enough for event-driven TMI operations |
 | VATSIM_REF | Basic (5 DTU) | ~$5 | Mostly read-only reference data |
 | SWIM_API | Basic (5 DTU) | ~$5 | Sufficient for <100 API consumers |
 | VATSIM_STATS | Free or Basic | ~$0-5 | Free auto-pauses; Basic for always-on dashboard |
 | MySQL perti_site | B1ms (1 vCore) | ~$12 | Website traffic is low |
 | PostgreSQL VATSIM_GIS | B2s (2 vCores) | ~$25 | Route parsing + boundary detection headroom |
-| **Total** | | **~$207-212/mo** | Comfortable for weekly events with 3,000-6,000 flights |
+| **Total** | | **~$282-537/mo** | Reliable for weekly events up to 3,000 flights |
+
+> **Why not DTU tiers for ADL?** The 15-second ingest cycle with 8-table MERGEs, concurrent parse/boundary/crossing daemons, and trajectory writes creates sustained compute demand that regularly exceeds DTU caps. vATCSCC experienced missed VATSIM feeds and cascading daemon delays on S2 (50 DTU) at ~3,000 concurrent flights. Serverless vCore billing is more expensive per-hour but avoids throttling entirely — and auto-pause during quiet periods can offset costs for organizations that don't run 24/7.
 
 #### High Scale (High-Traffic Production)
 
-Target: 6,000-15,000 concurrent flights, continuous monitoring.
+Target: 3,000-15,000 concurrent flights, continuous 24/7 monitoring.
 
 | Resource | Recommended Tier | Monthly Cost | Headroom |
 |----------|-----------------|-------------|----------|
 | App Service | P2v2 (2 vCPU, 7GB) | ~$160 | More CPU for concurrent daemons + web traffic |
-| VATSIM_ADL | Hyperscale Serverless Gen5 (min 3, max 16) | ~$1,000-2,500 | Auto-scales with load; handles extreme spikes |
+| VATSIM_ADL | Hyperscale Serverless Gen5 (min 3, max 16) | ~$1,000-2,500 | Auto-scales with load; handles extreme spikes without throttling |
 | VATSIM_TMI | S0 (10 DTU) | ~$15 | Faster GDP/GS during high-traffic events |
 | VATSIM_REF | Basic (5 DTU) | ~$5 | Still mostly read-only |
 | SWIM_API | S0 (10 DTU) | ~$15 | Handles 100+ concurrent API consumers |
@@ -1335,7 +1340,9 @@ Target: 6,000-15,000 concurrent flights, continuous monitoring.
 | MySQL perti_site | D2ds_v4 (2 vCores) | ~$122 | Overkill for website; could use B2s (~$25) |
 | PostgreSQL VATSIM_GIS | B2s (2 vCores, 32GB) | ~$25 | Adequate for spatial queries |
 | Storage (3 accounts) | LRS | ~$10-15 | Trajectory archive, data lake, blob storage |
-| **Total** | | **~$1,360-3,010/mo** | This is approximately what vATCSCC runs |
+| **Total** | | **~$1,360-3,010/mo** | This is what vATCSCC runs for 3,000-6,000 daily flights |
+
+> **Why Hyperscale Serverless?** At 3,000+ concurrent flights with 24/7 operations, the compute demand is continuous — there are no idle periods for auto-pause savings. Hyperscale Serverless with min 3 vCores guarantees baseline capacity while allowing burst to 16 vCores during events. The min-vCore floor costs ~$1,000/mo but eliminates the throttling and missed feeds that plagued DTU-based tiers.
 
 ### 15.4 Data Volume Projections (Real Observations)
 
@@ -1365,24 +1372,26 @@ Based on actual VATSIM network traffic patterns:
 | Concurrent Flights | ADL Tier | App Service | PostGIS | Total Monthly | Notes |
 |-------------------|----------|------------|---------|---------------|-------|
 | **< 500** | Free (auto-pause) | B1 ($13) | B1ms ($12) | **~$37** | Auto-pause delays; fine for dev |
-| **500-2,000** | S0 (10 DTU, $15) | B1 ($13) | B1ms ($12) | **~$57** | DTU may spike at 100% during peaks |
-| **2,000-4,000** | S1 (20 DTU, $30) | P1v2 ($80) | B1ms ($12) | **~$142** | Comfortable standard operations |
-| **4,000-6,000** | S2 (50 DTU, $75) | P1v2 ($80) | B2s ($25) | **~$207** | Recommended production tier |
-| **6,000-10,000** | S3 (100 DTU, $150) | P2v2 ($160) | B2s ($25) | **~$370** | Large event capacity |
-| **10,000-15,000** | HS Serverless (3-16 vCore) | P2v2 ($160) | B4ms ($50) | **~$1,300+** | Extreme scale, auto-scales with load |
-| **15,000+** | HS Serverless + read replica | P3v2 ($320) | GP ($200) | **~$2,500+** | Would require architecture changes |
+| **500-1,500** | GP Serverless (0.5-2 vCore, $50-200) | B1 ($13) | B1ms ($12) | **~$90-240** | Auto-pauses when idle; scales for events |
+| **1,500-3,000** | GP Serverless (0.5-4 vCore, $150-400) | P1v2 ($80) | B1ms ($12) | **~$260-510** | Reliable for weekly events |
+| **3,000-6,000** | HS Serverless (min 2, max 8 vCore, $600-1,200) | P1v2 ($80) | B2s ($25) | **~$730-1,330** | Comfortable production tier |
+| **6,000-10,000** | HS Serverless (min 3, max 16 vCore, $1,000-2,500) | P2v2 ($160) | B2s ($25) | **~$1,210-2,710** | Large event capacity (vATCSCC tier) |
+| **10,000-15,000** | HS Serverless (min 4, max 24 vCore) | P2v2 ($160) | B4ms ($50) | **~$1,800-3,500+** | Sustained high load |
+| **15,000+** | HS Serverless + read replica | P3v2 ($320) | GP ($200) | **~$3,000+** | Would require architecture changes |
 
 > All rows include Basic (5 DTU, ~$5 each) for TMI, REF, SWIM_API, and B1ms ($12) for MySQL. Storage accounts add ~$5-15/mo.
+>
+> **Why no DTU tiers (S0-S3)?** DTU tiers impose hard compute caps. PERTI's 15-second ingest cycle with 8-table MERGEs, plus concurrent daemon queries, creates sustained compute demand that exceeds DTU limits unpredictably. On S2 (50 DTU), vATCSCC experienced missed VATSIM feeds at ~3,000 flights and cascading delays in boundary detection and crossing prediction daemons. vCore-based serverless billing costs more per compute-hour but eliminates throttling — the most critical requirement for a real-time flight tracking system. For organizations operating only during scheduled events (not 24/7), serverless auto-pause recovers significant cost during idle periods.
 
 ### 15.6 Cost Optimization Techniques Already Implemented
 
 1. **V9.0 Staged Refresh**: PHP-side JSON parsing shifted ~50% of SP compute to fixed-cost App Service PHP, reducing DTU pressure on Azure SQL. Saved ~5 DTU continuous load on ADL.
 
-2. **Delta Detection Bitmask**: Skips unchanged data in SP steps 1b/2/3/4/6, reducing compute by ~30-40%. On S0 tier, this is the difference between 100% DTU (throttled) and 60-80% DTU (comfortable).
+2. **Delta Detection Bitmask**: Skips unchanged data in SP steps 1b/2/3/4/6, reducing compute by ~30-40%. This translates to ~1-2 fewer vCores of sustained demand, saving ~$100-200/mo on serverless billing.
 
 3. **Geography Pre-computation**: Eliminated ~8,500 `Point()` CLR calls per cycle (~12% faster). CLR geography functions are the most expensive SQL Server operations per call.
 
-4. **Covering Index** (`IX_waypoints_route_calc`): Eliminated 315K key lookups per cycle, Step B from 1643ms to 381ms. On S0, this saved ~5-8% of DTU budget.
+4. **Covering Index** (`IX_waypoints_route_calc`): Eliminated 315K key lookups per cycle, Step B from 1643ms to 381ms. Reduces per-cycle vCore-seconds by ~15%, compounding across 5,760 daily cycles.
 
 5. **PostGIS Offload**: Route parsing and boundary detection moved from Azure SQL to cheaper PostgreSQL B2s ($25/mo vs $75+/mo for equivalent SQL capacity). Saves ~25% of ADL DTU usage.
 
@@ -1390,7 +1399,7 @@ Based on actual VATSIM network traffic patterns:
 
 7. **ATIS Tiering**: Instead of processing all airports every 15s, uses 5-tier system (15s for ASPM82 airports, 60min for inactive) reducing ATIS processing by ~90%.
 
-8. **Deferred Processing**: ETA and snapshot steps are deferred when cycle time budget is exceeded, preventing missed VATSIM feeds. Allows S0 tier to handle peak loads without upgrade.
+8. **Deferred Processing**: ETA and snapshot steps are deferred when cycle time budget is exceeded, preventing missed VATSIM feeds. Essential on any tier — keeps the 15-second cycle tight even during peak events.
 
 9. **Trajectory Archival**: Three-tier storage (live → 60s downsampled → blob cold) keeps ADL table size manageable. Without archival, trajectory table would grow ~120GB/month.
 
@@ -1402,9 +1411,9 @@ For organizations considering PERTI for networks of different sizes:
 
 | Scenario | Flight Volume | Recommended Infra | Monthly Cost | Annual Cost |
 |----------|-------------|-------------------|-------------|-------------|
-| **Small vACC** (1 country, low traffic) | 100-500 flights/day | Free + B1 App + B1ms DBs | $37-57 | $444-684 |
-| **Medium vACC** (regional, weekly events) | 500-3,000 flights/day | S0/S1 ADL + P1v2 App | $142-207 | $1,704-2,484 |
-| **Large vACC** (continental, daily ops) | 3,000-8,000 flights/day | S2 ADL + P1v2 App + B2s GIS | $207-370 | $2,484-4,440 |
-| **Network-wide** (global, like vATCSCC) | 8,000-15,000 flights/day | HS Serverless ADL + P2v2 | $1,300-3,000 | $15,600-36,000 |
+| **Small vACC** (1 country, low traffic) | 100-500 flights/day | Free ADL + B1 App + B1ms DBs | $37-90 | $444-1,080 |
+| **Medium vACC** (regional, weekly events) | 500-3,000 flights/day | GP Serverless ADL (0.5-4 vCore) + P1v2 App | $260-510 | $3,120-6,120 |
+| **Large vACC** (continental, daily ops) | 3,000-8,000 flights/day | HS Serverless ADL (min 2-3) + P1v2/P2v2 App + B2s GIS | $730-2,710 | $8,760-32,520 |
+| **Network-wide** (global, like vATCSCC) | 8,000-15,000 flights/day | HS Serverless ADL (min 3, max 16+) + P2v2 | $1,210-3,500 | $14,520-42,000 |
 
 > **Cost sensitivity**: ~75-85% of the total cost at scale is Azure SQL compute for VATSIM_ADL. Optimizing the stored procedure (Sections 1.5-1.8) has the highest ROI.
