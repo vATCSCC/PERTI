@@ -50,17 +50,22 @@ Complete step-by-step guide for deploying your own PERTI (Plan, Execute, Review,
 
 ### Estimated Azure Costs (Monthly)
 
-| Resource | SKU | Approximate Cost |
-|----------|-----|-----------------|
-| App Service (Linux) | P1v2 (3.5GB RAM) | ~$80/mo |
-| Azure SQL — VATSIM_ADL | GP Serverless Gen5 (0.5-4 vCores) | ~$150-400/mo |
-| Azure SQL — TMI, REF, SWIM_API | Basic (5 DTU) each | ~$5/mo each |
-| Azure SQL — VATSIM_STATS | Free or Basic | ~$0-5/mo |
-| Azure Database for MySQL | Flexible Server B1ms | ~$13/mo |
-| Azure Database for PostgreSQL | Flexible Server B1ms | ~$13/mo |
-| **Total** | | **~$270-530/mo** |
+These reflect the actual vATCSCC production tiers operating at 3,000-6,000 concurrent flights:
 
-> **Cost notes**: VATSIM_ADL dominates cost because the 15-second ingest cycle with 8-table MERGEs and concurrent daemon queries creates sustained compute demand. DTU-based tiers (S0-S3) impose hard caps that cause throttling and missed feeds at production flight volumes — use vCore-based serverless instead. Serverless auto-pause during idle periods helps organizations that don't run 24/7. Use Free tier for VATSIM_STATS. The App Service is the second largest cost — B1 ($13/mo) works for low-traffic setups but limits concurrent users. See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance.
+| Resource | SKU (vATCSCC Production) | Approximate Cost |
+|----------|--------------------------|-----------------|
+| App Service (Linux) | P1v2 (1 vCPU, 3.5GB RAM) | ~$80/mo |
+| Azure SQL — VATSIM_ADL | Hyperscale Serverless Gen5 (min 3, max 16 vCores) | ~$1,000-2,500/mo |
+| Azure SQL — VATSIM_TMI | Basic (5 DTU) | ~$5/mo |
+| Azure SQL — VATSIM_REF | Basic (5 DTU) | ~$5/mo |
+| Azure SQL — SWIM_API | Basic (5 DTU) | ~$5/mo |
+| Azure SQL — VATSIM_STATS | GP Serverless Gen5 (0.5-1 vCore, auto-pause 60min) | ~$5-150/mo |
+| Azure Database for MySQL | Standard_D2ds_v4 (GP, 2 vCores) | ~$122/mo |
+| Azure Database for PostgreSQL | Standard_B2s (Burstable, 2 vCores, 32GB) | ~$25/mo |
+| Storage accounts (3) | LRS | ~$5-15/mo |
+| **Total** | | **~$1,250-2,900/mo** |
+
+> **VATSIM_ADL dominates cost** (~75-85% at scale). The 15-second ingest cycle with 8-table MERGEs and concurrent daemon queries creates sustained compute demand that requires vCore-based serverless — DTU tiers (S0-S3) throttle and cause missed VATSIM feeds. Organizations with lower traffic or event-only operations can use significantly cheaper tiers (GP Serverless with auto-pause, ~$150-400/mo). See `COMPUTATIONAL_REFERENCE.md` Section 15 for detailed scaling guidance by flight volume.
 
 ---
 
