@@ -313,6 +313,41 @@ include("load/i18n.php");
     color: #ccc;
 }
 
+/* Side Panel Mode - converts modal to left-anchored panel during Step 2 */
+#config-modal.side-panel-mode {
+    pointer-events: none;
+}
+
+#config-modal.side-panel-mode .modal-dialog {
+    pointer-events: auto;
+    max-width: 420px;
+    width: 420px;
+    margin: 0 !important;
+    height: 100vh;
+    max-height: 100vh;
+    transform: none !important;
+    transition: max-width 0.25s ease, width 0.25s ease;
+}
+
+#config-modal.side-panel-mode .modal-content {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border-right: 2px solid #4dabf7;
+}
+
+body.side-panel-active .modal-backdrop {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+@media (max-width: 768px) {
+    #config-modal.side-panel-mode .modal-dialog {
+        max-width: 100vw;
+        width: 100vw;
+    }
+}
+
 .form-row {
     display: flex;
     gap: 10px;
