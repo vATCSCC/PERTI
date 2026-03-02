@@ -1073,9 +1073,10 @@
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.weatherCategory')}</label>
                             <select class="form-control" id="ntml_weather">
                                 <option value="VMC">VMC</option>
-                                <option value="MVFR">MVFR</option>
+                                <option value="LVMC">LVMC</option>
                                 <option value="IMC">IMC</option>
                                 <option value="LIMC">LIMC</option>
+                                <option value="VLIMC">VLIMC</option>
                             </select>
                         </div>
                     </div>
@@ -1442,8 +1443,17 @@
         let aar = config.rates.vmcAar;
         let adr = config.rates.vmcAdr;
 
-        if (weather === 'IMC' || weather === 'LIMC') {
+        if (weather === 'LVMC') {
+            aar = config.rates.lvmcAar || config.rates.vmcAar;
+            adr = config.rates.vmcAdr;
+        } else if (weather === 'IMC') {
             aar = config.rates.imcAar || config.rates.vmcAar;
+            adr = config.rates.imcAdr || config.rates.vmcAdr;
+        } else if (weather === 'LIMC') {
+            aar = config.rates.limcAar || config.rates.imcAar || config.rates.vmcAar;
+            adr = config.rates.imcAdr || config.rates.vmcAdr;
+        } else if (weather === 'VLIMC') {
+            aar = config.rates.vlimcAar || config.rates.limcAar || config.rates.imcAar || config.rates.vmcAar;
             adr = config.rates.imcAdr || config.rates.vmcAdr;
         }
 

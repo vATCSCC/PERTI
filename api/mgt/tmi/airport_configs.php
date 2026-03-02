@@ -77,7 +77,10 @@ if (isset($conn_adl) && $conn_adl) {
             s.arr_runways,
             s.dep_runways,
             r.vatsim_vmc_aar,
+            r.vatsim_lvmc_aar,
             r.vatsim_imc_aar,
+            r.vatsim_limc_aar,
+            r.vatsim_vlimc_aar,
             r.vatsim_vmc_adr,
             r.vatsim_imc_adr
         FROM dbo.vw_airport_config_summary s
@@ -109,7 +112,10 @@ if (isset($conn_adl) && $conn_adl) {
                 'depRunways' => $row['dep_runways'] ?? '',
                 'rates' => [
                     'vmcAar' => $row['vatsim_vmc_aar'] ?? null,
+                    'lvmcAar' => $row['vatsim_lvmc_aar'] ?? null,
                     'imcAar' => $row['vatsim_imc_aar'] ?? null,
+                    'limcAar' => $row['vatsim_limc_aar'] ?? null,
+                    'vlimcAar' => $row['vatsim_vlimc_aar'] ?? null,
                     'vmcAdr' => $row['vatsim_vmc_adr'] ?? null,
                     'imcAdr' => $row['vatsim_imc_adr'] ?? null
                 ]
@@ -143,7 +149,10 @@ if (empty($configs) && isset($conn_sqli) && $conn_sqli) {
                 'depRunways' => $row['dep'] ?? '',
                 'rates' => [
                     'vmcAar' => $row['vmc_aar'] ?? null,
+                    'lvmcAar' => $row['lvmc_aar'] ?? null,
                     'imcAar' => $row['imc_aar'] ?? null,
+                    'limcAar' => $row['limc_aar'] ?? null,
+                    'vlimcAar' => $row['vlimc_aar'] ?? null,
                     'vmcAdr' => $row['vmc_adr'] ?? null,
                     'imcAdr' => $row['imc_adr'] ?? null
                 ]
