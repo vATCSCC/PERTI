@@ -122,36 +122,35 @@ Every access attempt to a hibernated page or SWIM API endpoint is recorded in th
 
 ## Azure Resource Changes
 
-### Current (Hibernation) vs. Normal Operation
+### Current (Hibernation) vs. Operational Tiers
 
-| Resource | Normal | Hibernation | Monthly Savings |
-|----------|--------|-------------|-----------------|
-| **App Service** | P1v2 (3.5GB) | B1 (1.75GB) | ~$67 |
-| **MySQL** (perti_site) | Standard_D2ds_v4 | Burstable B1ms | ~$185 |
-| **PostGIS** (VATSIM_GIS) | B2s | B1ms (Burstable) | ~$15 |
-| **Azure SQL** (SWIM_API) | Active | Paused | Full DB cost |
-| **Azure SQL** (VATSIM_ADL) | No change | No change | $0 |
-| **Azure SQL** (VATSIM_TMI/REF) | No change | No change | $0 |
-| **Synapse** | Serverless | Serverless | $0 (pay-per-query) |
-| **Blob Storage** | Active | Active | $0 (minimal) |
+| Resource | Operational Tier | Hibernation Tier | Monthly Savings |
+|----------|-----------------|------------------|-----------------|
+| **App Service** (ASP-VATSIMRG-9bb6) | P1v2 (3.5GB) | P1v2 (unchanged — has 4 deployment slots, B1 doesn't support slots) | $0 |
+| **VATSIM_ADL** (Hyperscale Serverless) | HS_S_Gen5 min 3 / max 16 vCores | HS_S_Gen5 min 1 / max 4 vCores | ~$800-950 |
+| **MySQL** (perti_site) | Standard_D2ds_v4 (GP, 2 vCore, 8GB) | Standard_B1ms (Burstable, 1 vCore, 2GB) | ~$185 |
+| **PostGIS** (VATSIM_GIS) | Standard_B2s (Burstable, 2 vCore) | Standard_B1ms (Burstable, 1 vCore, 2GB) | ~$15 |
+| **SWIM_API** (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged — already ~$5/mo) | $0 |
+| **VATSIM_TMI/REF** (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged) | $0 |
+| **VATSIM_STATS** (Azure SQL) | GP_S_Gen5 1 vCore | GP_S_Gen5 (unchanged) | $0 |
+| **Synapse** | Serverless | Serverless (pay-per-query) | $0 |
+| **Blob Storage** | Active | Active (minimal cost) | $0 |
+| **Total estimated savings** | | | **~$1,000-1,150/mo** |
 
-### CLI Commands for Downscaling
+### CLI Commands for Downscaling (Entering Hibernation)
 
 ```bash
-# App Service: P1v2 → B1
-az appservice plan update --name vatcscc-plan --resource-group VATSIM_RG --sku B1
+# VATSIM_ADL: Reduce Hyperscale Serverless vCore range
+az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
+    --min-capacity 1 --capacity 4 --edition Hyperscale --family Gen5 --compute-model Serverless
 
 # MySQL: GeneralPurpose → Burstable
 az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG \
     --sku-name Standard_B1ms --tier Burstable
 
-# PostGIS: B2s → B1ms
+# PostGIS: B2s → B1ms (requires server restart)
 az postgres flexible-server update --name vatcscc-gis --resource-group VATSIM_RG \
-    --sku-name Standard_B1ms --tier Burstable
-
-# Azure SQL: Pause SWIM_API
-az sql db update --name SWIM_API --server vatsim --resource-group VATSIM_RG \
-    --auto-pause-delay 60
+    --sku-name Standard_B1ms --tier Burstable --yes
 ```
 
 ---
@@ -163,8 +162,9 @@ Follow these steps in order:
 ### 1. Upscale Azure Resources
 
 ```bash
-# App Service: B1 → P1v2
-az appservice plan update --name vatcscc-plan --resource-group VATSIM_RG --sku P1v2
+# VATSIM_ADL: Restore Hyperscale Serverless vCore range (min 3, max 16)
+az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
+    --min-capacity 3 --capacity 16 --edition Hyperscale --family Gen5 --compute-model Serverless
 
 # MySQL: Burstable → GeneralPurpose
 az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG \
@@ -172,12 +172,10 @@ az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG 
 
 # PostGIS: B1ms → B2s
 az postgres flexible-server update --name vatcscc-gis --resource-group VATSIM_RG \
-    --sku-name Standard_B2s --tier Burstable
-
-# Azure SQL: Resume SWIM_API
-az sql db update --name SWIM_API --server vatsim --resource-group VATSIM_RG \
-    --auto-pause-delay -1
+    --sku-name Standard_B2s --tier Burstable --yes
 ```
+
+**Note**: App Service stays at P1v2 (has 4 deployment slots; B1 doesn't support slots). SWIM_API stays at Basic 5 DTU (already minimal cost).
 
 ### 2. Update PHP Config
 
@@ -198,7 +196,7 @@ Remove or set `HIBERNATION_MODE` to `false`.
 ### 4. Restart App Service
 
 ```bash
-az webapp restart --name vatcscc-perti --resource-group VATSIM_RG
+az webapp restart --name vatcscc --resource-group VATSIM_RG
 ```
 
 This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE` is now off.

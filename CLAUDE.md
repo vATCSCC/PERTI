@@ -985,7 +985,7 @@ When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting):
 - **Active pages during hibernation**: plans, airport config, route, playbook, splits, navdata, schedule, tmi-publish, jatoc, status
 - **SWIM API returns HTTP 503** JSON for all `/api/swim/` endpoints
 - **Nav items** for paused pages show muted styling (`.nav-hibernated` class — italic, reduced opacity, snowflake icon)
-- **Azure resources downscaled**: App Service B1, MySQL B1ms, PostGIS B1ms, SWIM_API database paused
+- **Azure resources downscaled**: VATSIM_ADL min 1/max 4 vCores (from min 3/max 16), MySQL B1ms (from D2ds_v4), PostGIS B1ms (from B2s). App Service P1v2 unchanged (has 4 deployment slots). SWIM_API Basic 5 DTU unchanged.
 
 ### Key Files
 
