@@ -96,14 +96,16 @@ def run_step(name: str, script: Path, args: list = None, dry_run: bool = False) 
         return False
 
 
-def step1_nasr_update(dry_run: bool = False, force: bool = False) -> bool:
+def step1_nasr_update(dry_run: bool = False, force: bool = False,
+                      skip_xp12: bool = False) -> bool:
     """
     Step 1: Download FAA NASR data and update local CSV/JS files.
+    Also merges international airways from XP12/Navigraph if available.
 
     Updates:
       - assets/data/points.csv
       - assets/data/navaids.csv
-      - assets/data/awys.csv
+      - assets/data/awys.csv (NASR + XP12/Navigraph international)
       - assets/data/cdrs.csv
       - assets/data/dp_full_routes.csv
       - assets/data/star_full_routes.csv
@@ -114,6 +116,7 @@ def step1_nasr_update(dry_run: bool = False, force: bool = False) -> bool:
     print("  STEP 1: FAA NASR NavData Update")
     print("=" * 70)
     print("  Downloads current + next AIRAC cycle data from FAA NASR")
+    print("  Merges XP12/Navigraph international airways (auto-detected)")
     print("  Updates: points.csv, navaids.csv, awys.csv, cdrs.csv,")
     print("           dp_full_routes.csv, star_full_routes.csv, awys.js, procs.js")
     print()
@@ -121,6 +124,8 @@ def step1_nasr_update(dry_run: bool = False, force: bool = False) -> bool:
     args = []
     if force:
         args.append("--force")
+    if skip_xp12:
+        args.append("--skip-xp12")
 
     return run_step("NASR Update", SCRIPTS['nasr'], args, dry_run)
 
@@ -220,6 +225,8 @@ After running, don't forget to:
                         help='Skip database import (Step 3)')
     parser.add_argument('--force', action='store_true',
                         help='Force re-download of NASR data even if cached')
+    parser.add_argument('--skip-xp12', action='store_true',
+                        help='Skip merging XP12/Navigraph international airways (Step 1)')
     parser.add_argument('--table',
                         choices=['nav_fixes', 'airways', 'cdrs', 'procedures', 'playbook'],
                         help='Only import specific table (Step 3 only)')
@@ -241,9 +248,9 @@ After running, don't forget to:
     run_step2 = (args.step is None or args.step == 2) and not args.skip_playbook
     run_step3 = (args.step is None or args.step == 3) and not args.skip_database
 
-    # Step 1: NASR Update
+    # Step 1: NASR Update + XP12 merge
     if run_step1:
-        success = step1_nasr_update(args.dry_run, args.force)
+        success = step1_nasr_update(args.dry_run, args.force, args.skip_xp12)
         results['NASR Update'] = 'SUCCESS' if success else 'FAILED'
         if not success and args.step is None:
             print("\n  WARNING: NASR update failed, continuing with remaining steps...")

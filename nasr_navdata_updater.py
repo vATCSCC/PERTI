@@ -6,6 +6,10 @@ Downloads FAA NASR subscription data and updates navigation data files
 for route.js compatibility. Supports current + next AIRAC cycles with
 backwards compatibility (preserves old data with _OLD suffixes).
 
+Also merges international airways from X-Plane 12 / Navigraph data
+(earth_awy.dat) when available. XP12 Custom Data path is auto-detected
+or can be specified with --xp12-path.
+
 Usage:
     python3 nasr_navdata_updater.py [options]
 
@@ -16,6 +20,8 @@ Options:
     --force           Force re-download even if cached
     --no-backup       Skip creating backups
     --current-only    Only process current cycle (skip next)
+    --xp12-path DIR   Path to XP12 Custom Data (auto-detected if omitted)
+    --skip-xp12       Skip merging XP12/Navigraph international airways
     --verbose         Enable debug output
     --dry-run         Parse only, don't write files
 """
@@ -451,6 +457,134 @@ class NASRParser:
         
         logger.info(f"Parsed {len(routes)} preferred routes")
         return routes
+
+
+class XP12Parser:
+    """
+    Parses X-Plane 12 earth_awy.dat (Navigraph/Jeppesen) into airway fix sequences.
+
+    XP12 earth_awy.dat format (per line):
+        FIX1 REGION1 TYPE1 FIX2 REGION2 TYPE2 DIR LEVEL FLOOR CEIL AIRWAY(s)
+
+    Each line is one segment (edge) between two fixes. The AIRWAY field can
+    contain multiple airways separated by '-'. LEVEL: 1=low, 2=high.
+    We collect all segments regardless of level to build complete fix chains.
+    """
+
+    # Common XP12 Custom Data paths by platform
+    DEFAULT_PATHS = [
+        Path('C:/X-Plane 12/Custom Data'),
+        Path('D:/X-Plane 12/Custom Data'),
+        Path(os.path.expanduser('~/X-Plane 12/Custom Data')),
+        Path('/opt/X-Plane 12/Custom Data'),
+    ]
+
+    @classmethod
+    def find_xp12_path(cls) -> Optional[Path]:
+        """Auto-detect XP12 Custom Data directory."""
+        for p in cls.DEFAULT_PATHS:
+            if (p / 'earth_awy.dat').exists():
+                return p
+        return None
+
+    def __init__(self, xp12_dir: Path):
+        self.xp12_dir = Path(xp12_dir)
+
+    def get_cycle_info(self) -> Optional[str]:
+        """Read AIRAC cycle from cycle_info.txt if present."""
+        info_file = self.xp12_dir / 'cycle_info.txt'
+        if not info_file.exists():
+            return None
+        try:
+            with open(info_file, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'AIRAC cycle' in line:
+                        return line.split(':', 1)[1].strip()
+        except Exception:
+            pass
+        return None
+
+    def parse_airways(self) -> Dict[str, str]:
+        """
+        Parse earth_awy.dat into {airway_name: "FIX1 FIX2 FIX3 ..."}.
+
+        Builds ordered fix sequences by collecting segment edges, constructing
+        an adjacency graph per airway, and walking the chain from an endpoint.
+        """
+        awy_file = self.xp12_dir / 'earth_awy.dat'
+        if not awy_file.exists():
+            logger.warning(f"XP12 earth_awy.dat not found at {awy_file}")
+            return {}
+
+        # Collect edges per airway
+        edges = defaultdict(set)
+        line_count = 0
+
+        with open(awy_file, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('I') or line.startswith('1100') or line.startswith('99'):
+                    continue
+
+                parts = line.split()
+                if len(parts) < 11:
+                    continue
+
+                fix1 = parts[0].strip()
+                fix2 = parts[3].strip()
+                awy_field = parts[10]
+                line_count += 1
+
+                for awy_name in awy_field.split('-'):
+                    awy_name = awy_name.strip()
+                    if awy_name:
+                        edges[awy_name].add((fix1, fix2))
+
+        logger.info(f"XP12: parsed {line_count} segments into {len(edges)} airways")
+
+        # Build ordered fix sequences
+        airways = {}
+        for awy_name, awy_edges in sorted(edges.items()):
+            sequence = self._build_fix_sequence(awy_edges)
+            if len(sequence) >= 2:
+                airways[awy_name] = ' '.join(sequence)
+
+        logger.info(f"XP12: built fix sequences for {len(airways)} airways")
+        return airways
+
+    @staticmethod
+    def _build_fix_sequence(edge_set: set) -> List[str]:
+        """
+        Build an ordered fix sequence from a set of (fix1, fix2) edges.
+        Airways are typically linear chains; we walk from an endpoint.
+        """
+        adj = defaultdict(set)
+        for a, b in edge_set:
+            adj[a].add(b)
+            adj[b].add(a)
+
+        # Start from an endpoint (degree 1) or any node
+        endpoints = [n for n in adj if len(adj[n]) == 1]
+        start = sorted(endpoints)[0] if endpoints else sorted(adj.keys())[0]
+
+        visited = set()
+        sequence = [start]
+        visited.add(start)
+        current = start
+
+        while True:
+            next_fix = None
+            for neighbor in adj[current]:
+                if neighbor not in visited:
+                    next_fix = neighbor
+                    break
+            if next_fix is None:
+                break
+            sequence.append(next_fix)
+            visited.add(next_fix)
+            current = next_fix
+
+        return sequence
 
 
 class NavDataTransformer:
@@ -1624,10 +1758,11 @@ class NASRNavDataUpdater:
     """Main orchestrator for NASR NavData updates."""
     
     def __init__(self, output_dir: str = 'assets/data', js_dir: str = 'assets/js',
-                 cache_dir: str = '.nasr_cache', force: bool = False, 
+                 cache_dir: str = '.nasr_cache', force: bool = False,
                  no_backup: bool = False, current_only: bool = False,
                  skip_playbook: bool = True, verbose: bool = False,
-                 dry_run: bool = False):
+                 dry_run: bool = False, xp12_path: str = None,
+                 skip_xp12: bool = False):
         self.output_dir = Path(output_dir)
         self.js_dir = Path(js_dir)
         self.cache_dir = Path(cache_dir)
@@ -1637,16 +1772,44 @@ class NASRNavDataUpdater:
         self.skip_playbook = skip_playbook
         self.verbose = verbose
         self.dry_run = dry_run
-        
+        self.skip_xp12 = skip_xp12
+
+        # Resolve XP12 Custom Data path (explicit > auto-detect)
+        if xp12_path:
+            self.xp12_path = Path(xp12_path)
+        elif not skip_xp12:
+            self.xp12_path = XP12Parser.find_xp12_path()
+        else:
+            self.xp12_path = None
+
         if verbose:
             logging.getLogger().setLevel(logging.DEBUG)
-        
+
         self.downloader = NASRDownloader(cache_dir, force)
         self.io = NavDataIO(self.output_dir)
         self.js_updater = JSFileUpdater(self.js_dir)
         self.merger = NavDataMerger()
         self.change_logger = ChangeLogger(self.output_dir / 'logs')
     
+    def _parse_xp12_airways(self) -> Dict[str, str]:
+        """Parse XP12 Navigraph airways if available."""
+        if self.skip_xp12 or not self.xp12_path:
+            if not self.skip_xp12:
+                logger.info("XP12: No Custom Data directory found (use --xp12-path to specify)")
+            return {}
+
+        awy_file = self.xp12_path / 'earth_awy.dat'
+        if not awy_file.exists():
+            logger.warning(f"XP12: earth_awy.dat not found at {awy_file}")
+            return {}
+
+        xp12_parser = XP12Parser(self.xp12_path)
+        cycle_info = xp12_parser.get_cycle_info()
+        if cycle_info:
+            logger.info(f"XP12: Navigraph AIRAC cycle {cycle_info}")
+
+        return xp12_parser.parse_airways()
+
     def run(self) -> bool:
         """Execute the full update process."""
         logger.info("Starting NASR NavData Update")
@@ -1767,7 +1930,29 @@ class NASRNavDataUpdater:
         new_cdrs = transformer.transform_cdrs(merged['cdrs'])
         new_dps = transformer.transform_dps(merged['dp_base'], merged['dp_routes'])
         new_stars = transformer.transform_stars(merged['star_base'], merged['star_routes'])
-        
+
+        # Merge XP12 Navigraph airways (international coverage)
+        xp12_airways = self._parse_xp12_airways()
+        if xp12_airways:
+            nasr_count = len(new_airways)
+            new_from_xp12 = 0
+            upgraded_from_xp12 = 0
+            for awy_name, xp12_fixes in xp12_airways.items():
+                if awy_name not in new_airways:
+                    # New international airway not in NASR
+                    new_airways[awy_name] = xp12_fixes
+                    new_from_xp12 += 1
+                else:
+                    # Both have it — keep the one with more fixes
+                    nasr_count_fixes = len(new_airways[awy_name].split())
+                    xp12_count_fixes = len(xp12_fixes.split())
+                    if xp12_count_fixes > nasr_count_fixes:
+                        new_airways[awy_name] = xp12_fixes
+                        upgraded_from_xp12 += 1
+            logger.info(f"XP12 merge: +{new_from_xp12} new, "
+                       f"{upgraded_from_xp12} upgraded, "
+                       f"{nasr_count} -> {len(new_airways)} total airways")
+
         if self.dry_run:
             logger.info("\n[DRY RUN] Skipping file writes")
             logger.info(f"  Would write {len(new_points)} points")
@@ -1909,11 +2094,15 @@ def main():
                        help='Enable debug output')
     parser.add_argument('--dry-run', action='store_true',
                        help='Parse only, don\'t write files')
-    
+    parser.add_argument('--xp12-path', default=None,
+                       help='Path to X-Plane 12 Custom Data directory (auto-detected if omitted)')
+    parser.add_argument('--skip-xp12', action='store_true',
+                       help='Skip merging XP12/Navigraph international airways')
+
     args = parser.parse_args()
-    
+
     skip_playbook = not args.include_playbook
-    
+
     updater = NASRNavDataUpdater(
         output_dir=args.output,
         js_dir=args.js_dir,
@@ -1923,7 +2112,9 @@ def main():
         current_only=args.current_only,
         skip_playbook=skip_playbook,
         verbose=args.verbose,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        xp12_path=args.xp12_path,
+        skip_xp12=args.skip_xp12
     )
     
     success = updater.run()
