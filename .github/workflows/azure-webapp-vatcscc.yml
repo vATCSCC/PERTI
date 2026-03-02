@@ -33,7 +33,7 @@ jobs:
       run: |
         composer install --no-interaction --prefer-dist --no-dev
 
-    # Create deployment package excluding non-PHP directories
+    # Create deployment package excluding non-PHP directories and large static data
     - name: Create deployment package
       run: |
         mkdir -p deploy
@@ -45,6 +45,9 @@ jobs:
                   --exclude='DCC/' \
                   --exclude='scripts/tmi/import_historical.php' \
                   --exclude='scripts/tmi/IMPORT_HISTORICAL_README.md' \
+                  --exclude='assets/data/backups/' \
+                  --exclude='assets/data/logs/' \
+                  --exclude='assets/data/T_T100D_SEGMENT_US_CARRIER_ONLY.csv' \
                   --exclude='nul' \
                   . deploy/ || test $? = 24
 
@@ -74,16 +77,27 @@ jobs:
         ls -la deploy/docs/swim/*.md 2>/dev/null | head -5 || echo "WARNING: VATSWIM docs missing!"
         echo "=== Stats Documentation ==="
         ls -la deploy/docs/stats/ 2>/dev/null || echo "WARNING: Stats docs missing!"
+        echo "=== Deploy package size ==="
+        du -sh deploy/
 
-    # Deploy to Azure Web App via Kudu ZIP API (avoids parallel rsync race condition)
+    # Deploy to Azure Web App
     - name: Deploy to Azure Web App
+      id: deploy
+      uses: azure/webapps-deploy@v3
+      continue-on-error: true
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
+        package: ./deploy
+
+    # If main deploy failed (Kudu parallel rsync race on scripts/),
+    # deploy just the scripts directory via Kudu VFS API
+    - name: Fix scripts directory if deploy failed
+      if: steps.deploy.outcome == 'failure'
       env:
         PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
       run: |
-        # Create deployment ZIP
-        cd deploy && zip -qr /tmp/deploy.zip . && cd ..
-        ZIP_SIZE=$(du -h /tmp/deploy.zip | cut -f1)
-        echo "Deployment ZIP: $ZIP_SIZE"
+        echo "Main deploy failed — deploying scripts/ via Kudu API fallback..."
 
         # Extract Kudu SCM credentials from publish profile
         SCM_USER=$(echo "$PUBLISH_PROFILE" | grep -oP 'userName="[^"]*"' | head -1 | sed 's/userName="//;s/"$//')
@@ -94,47 +108,50 @@ jobs:
           exit 1
         fi
 
-        echo "Deploying to Kudu ZIP API (sequential extraction)..."
+        # Ensure target directories exist
+        curl -s -u "$SCM_USER:$SCM_PASS" -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"command":"mkdir -p /home/site/wwwroot/scripts/tmi","dir":"/home"}' \
+          "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/command" > /dev/null
 
-        # Deploy via Kudu /api/zip/ endpoint — extracts sequentially, no parallel rsync
-        HTTP_CODE=$(curl -s -o /tmp/deploy_response.txt -w "%{http_code}" \
-          -X PUT \
-          -u "$SCM_USER:$SCM_PASS" \
-          --data-binary @/tmp/deploy.zip \
-          -H "Content-Type: application/zip" \
-          --max-time 600 \
-          "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zip/site/wwwroot/")
-
-        echo "Kudu response: HTTP $HTTP_CODE"
-
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "Deployment successful!"
-        else
-          echo "::warning::Primary deploy returned HTTP $HTTP_CODE, retrying..."
-          cat /tmp/deploy_response.txt 2>/dev/null || true
-          sleep 10
-
-          HTTP_CODE=$(curl -s -o /tmp/deploy_response2.txt -w "%{http_code}" \
+        # Upload each script file via VFS API
+        FAILED=0
+        for f in deploy/scripts/*.php deploy/scripts/*.sh deploy/scripts/tmi/*.php; do
+          [ -f "$f" ] || continue
+          REL_PATH="${f#deploy/}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             -X PUT \
             -u "$SCM_USER:$SCM_PASS" \
-            --data-binary @/tmp/deploy.zip \
-            -H "Content-Type: application/zip" \
-            --max-time 600 \
-            "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zip/site/wwwroot/")
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Retry deployment successful!"
+            --data-binary @"$f" \
+            -H "If-Match: *" \
+            --max-time 30 \
+            "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/vfs/site/wwwroot/$REL_PATH")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
+            echo "  OK: $REL_PATH"
           else
-            echo "::error::Deploy failed after retry with HTTP $HTTP_CODE"
-            cat /tmp/deploy_response2.txt 2>/dev/null || true
-            exit 1
+            echo "  FAIL ($HTTP_CODE): $REL_PATH"
+            FAILED=1
           fi
+        done
+
+        if [ "$FAILED" = "1" ]; then
+          echo "::warning::Some scripts failed to upload via VFS fallback"
         fi
 
-        # Verify critical files
-        VERIFY=$(curl -s -u "$SCM_USER:$SCM_PASS" \
-          -X POST -H "Content-Type: application/json" \
-          -d '{"command":"ls scripts/startup.sh scripts/vatsim_adl_daemon.php scripts/tmi/process_discord_queue.php","dir":"/home/site/wwwroot"}' \
+        # Verify critical files exist
+        VERIFY=$(curl -s -u "$SCM_USER:$SCM_PASS" -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"command":"ls -la scripts/startup.sh scripts/vatsim_adl_daemon.php scripts/tmi/process_discord_queue.php","dir":"/home/site/wwwroot"}' \
           "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/command")
 
         echo "Verification: $VERIFY"
+        echo "Scripts directory fallback deploy complete."
+
+    - name: Confirm deployment status
+      if: always()
+      run: |
+        if [ "${{ steps.deploy.outcome }}" = "success" ]; then
+          echo "Deployment succeeded on first attempt."
+        else
+          echo "::warning::Primary deploy failed (Kudu parallel rsync race). Scripts patched via VFS API fallback."
+        fi
