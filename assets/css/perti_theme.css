@@ -632,3 +632,23 @@ body.perti-dark {
   min-height: 25vh;
   padding: 1.5rem 0;
 }
+
+/* ============================================================================
+   Hibernation Mode
+   ============================================================================ */
+.nav-hibernated {
+  opacity: 0.45 !important;
+  font-style: italic !important;
+}
+.nav-hibernated:hover {
+  opacity: 0.65 !important;
+}
+.mobile-nav-header.nav-hibernated,
+.mobile-nav-link.nav-hibernated {
+  opacity: 0.45 !important;
+  font-style: italic !important;
+}
+.mobile-nav-header.nav-hibernated:hover,
+.mobile-nav-link.nav-hibernated:hover {
+  opacity: 0.65 !important;
+}

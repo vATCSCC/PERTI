@@ -11,6 +11,25 @@ echo "PERTI Daemon Startup - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "WWWROOT: $WWWROOT"
 echo "========================================"
 
+# =============================================================================
+# Hibernation Mode
+# When enabled, only core daemons start (ADL ingest, archival, monitoring).
+# All downstream processors (GIS, SWIM, scheduler, Discord, event sync) are
+# skipped. Set via Azure App Setting: HIBERNATION_MODE=true
+# See docs/HIBERNATION_RUNBOOK.md for full details.
+# =============================================================================
+HIBERNATION_MODE=${HIBERNATION_MODE:-0}
+if [ "$HIBERNATION_MODE" = "1" ] || [ "$HIBERNATION_MODE" = "true" ]; then
+    echo ""
+    echo "  *** HIBERNATION MODE ACTIVE ***"
+    echo "  Only core daemons will start: ADL ingest, archival, monitoring"
+    echo "  Paused: GIS daemons, SWIM, scheduler, Discord queue, event sync"
+    echo ""
+    HIBERNATION=1
+else
+    HIBERNATION=0
+fi
+
 # Configure nginx URL rewriting (Azure PHP 8 uses nginx, not Apache)
 # Per Azure docs: https://azureossd.github.io/2021/09/02/php-8-rewrite-rule/
 echo "Configuring nginx for extensionless URLs..."
@@ -30,104 +49,16 @@ echo "nginx reload failed - container may handle this"
 
 echo "nginx configured"
 
+# =============================================================================
+# CORE DAEMONS (always start, even in hibernation)
+# =============================================================================
+
 # Start the combined VATSIM ADL daemon (ingestion + ATIS + deferred ETA every 15s)
 # SP V9.2.0: trajectory always captured, ETA deferred to time-budget system
 echo "Starting vatsim_adl_daemon.php (combined ingestion + ATIS)..."
 nohup php "${WWWROOT}/scripts/vatsim_adl_daemon.php" >> /home/LogFiles/vatsim_adl.log 2>&1 &
 ADL_PID=$!
 echo "  vatsim_adl_daemon.php started (PID: $ADL_PID)"
-
-# =============================================================================
-# GIS Mode Switch
-# Set USE_GIS_DAEMONS=1 to use PostGIS for spatial operations (cost savings)
-# Set USE_GIS_DAEMONS=0 to use ADL-only mode (original behavior)
-#
-# REVIEW DATE: 2026-03-01
-# After 30 days of GIS mode, evaluate whether to:
-#   - Delete old ADL daemons (boundary_daemon.php, parse_queue_daemon.php)
-#   - Remove this else branch and USE_GIS_DAEMONS switch entirely
-#   - Remove ADL fallback code from GIS daemons
-# Check logs for GIS success rate: grep "GIS rate" /home/LogFiles/*.log
-# =============================================================================
-USE_GIS_DAEMONS=${USE_GIS_DAEMONS:-1}  # Default: use GIS daemons
-
-if [ "$USE_GIS_DAEMONS" = "1" ]; then
-    echo "GIS Mode: ENABLED (using PostGIS for spatial operations)"
-
-    # Start the GIS-based parse queue daemon (2-3x faster than ADL)
-    echo "Starting parse_queue_gis_daemon.php..."
-    nohup php "${WWWROOT}/adl/php/parse_queue_gis_daemon.php" --loop --batch=50 --interval=10 >> /home/LogFiles/parse_queue_gis.log 2>&1 &
-    PARSE_PID=$!
-    echo "  parse_queue_gis_daemon.php started (PID: $PARSE_PID)"
-
-    # Start the GIS-based boundary detection daemon (offloads spatial from ADL)
-    echo "Starting boundary_gis_daemon.php..."
-    nohup php "${WWWROOT}/adl/php/boundary_gis_daemon.php" --loop --interval=15 >> /home/LogFiles/boundary_gis.log 2>&1 &
-    BOUNDARY_PID=$!
-    echo "  boundary_gis_daemon.php started (PID: $BOUNDARY_PID)"
-
-    # Start the GIS-based crossing calculation daemon (trajectory-based crossing ETAs)
-    # Uses PostGIS line-polygon intersection for precise boundary crossing points/times
-    # Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, Tier 3 every 2min, Tier 4 every 5min
-    echo "Starting crossing_gis_daemon.php..."
-    nohup php "${WWWROOT}/adl/php/crossing_gis_daemon.php" --loop >> /home/LogFiles/crossing_gis.log 2>&1 &
-    CROSSING_PID=$!
-    echo "  crossing_gis_daemon.php started (PID: $CROSSING_PID)"
-else
-    echo "GIS Mode: DISABLED (using ADL-only for spatial operations)"
-
-    # Start the original ADL parse queue daemon
-    echo "Starting parse_queue_daemon.php..."
-    nohup php "${WWWROOT}/adl/php/parse_queue_daemon.php" --loop --batch=50 --interval=5 >> /home/LogFiles/parse_queue.log 2>&1 &
-    PARSE_PID=$!
-    echo "  parse_queue_daemon.php started (PID: $PARSE_PID)"
-
-    # Start the original ADL boundary detection daemon
-    echo "Starting boundary_daemon.php..."
-    nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home/LogFiles/boundary.log 2>&1 &
-    BOUNDARY_PID=$!
-    echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
-fi
-
-# Start the waypoint ETA daemon (tiered waypoint ETA calculation)
-# Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, etc.
-echo "Starting waypoint_eta_daemon.php..."
-nohup php "${WWWROOT}/adl/php/waypoint_eta_daemon.php" --loop >> /home/LogFiles/waypoint_eta.log 2>&1 &
-WAYPOINT_PID=$!
-echo "  waypoint_eta_daemon.php started (PID: $WAYPOINT_PID)"
-
-# Start the SWIM WebSocket server (real-time flight events on port 8090)
-echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
-nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
-WS_PID=$!
-echo "  swim_ws_server.php started (PID: $WS_PID)"
-
-# Start the SWIM sync daemon (syncs VATSIM_ADL to SWIM_API every 2 min)
-# Also handles data retention cleanup every 6 hours
-echo "Starting swim_sync_daemon.php (sync every 2min, cleanup every 6h)..."
-nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 --cleanup-interval=21600 >> /home/LogFiles/swim_sync.log 2>&1 &
-SWIM_SYNC_PID=$!
-echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
-
-# Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
-# Rate limited to 5 req/sec per SimTraffic API docs
-echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
-nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
-ST_POLL_PID=$!
-echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
-
-# Start the SWIM -> ADL reverse sync daemon (propagates ST times to ADL every 2 min)
-# Syncs SimTraffic data from swim_flights back to ADL normalized tables
-echo "Starting swim_adl_reverse_sync.php (reverse sync every 2min)..."
-nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interval=120 >> /home/LogFiles/swim_reverse_sync.log 2>&1 &
-REVERSE_SYNC_PID=$!
-echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
-
-# Start the unified scheduler daemon (splits, routes auto-activation)
-echo "Starting scheduler_daemon.php (checks every 60s)..."
-nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
-SCHED_PID=$!
-echo "  scheduler_daemon.php started (PID: $SCHED_PID)"
 
 # Start the archival daemon (trajectory tiering, changelog purge)
 # Runs every 60 min during off-peak (04:00-10:00 UTC), every 4h otherwise
@@ -143,21 +74,6 @@ nohup php "${WWWROOT}/scripts/monitoring_daemon.php" --loop >> /home/LogFiles/mo
 MON_PID=$!
 echo "  monitoring_daemon.php started (PID: $MON_PID)"
 
-# Start the Discord queue processor (async TMI Discord posting)
-# Processes pending Discord posts from tmi_discord_posts table
-# Rate limited to 10 posts/sec to avoid Discord API limits
-echo "Starting Discord queue processor (TMI async posting)..."
-nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=100 >> /home/LogFiles/discord_queue.log 2>&1 &
-DISCORD_Q_PID=$!
-echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
-
-# Start the PERTI events sync daemon (VATUSA, VATCAN, VATSIM events)
-# Syncs every 6 hours to populate perti_events table for TMI compliance & position logging
-echo "Starting event_sync_daemon.php (sync every 6h)..."
-nohup php "${WWWROOT}/scripts/event_sync_daemon.php" --loop --interval=21600 >> /home/LogFiles/event_sync.log 2>&1 &
-EVENT_SYNC_PID=$!
-echo "  event_sync_daemon.php started (PID: $EVENT_SYNC_PID)"
-
 # Start the ADL Archive daemon (daily trajectory archival to blob storage)
 # Default: 10:00 UTC (lowest VATSIM traffic - night in Americas, morning in Europe)
 # Override via ADL_ARCHIVE_HOUR_UTC env var (0-23)
@@ -171,6 +87,140 @@ if [ -n "$ADL_ARCHIVE_STORAGE_CONN" ]; then
 else
     echo "ADL Archive daemon SKIPPED (ADL_ARCHIVE_STORAGE_CONN not set)"
     ADL_ARCHIVE_PID="N/A"
+fi
+
+# =============================================================================
+# DOWNSTREAM DAEMONS (skipped in hibernation mode)
+# =============================================================================
+
+# Initialize PID variables for skipped daemons
+PARSE_PID="HIBERNATED"
+BOUNDARY_PID="HIBERNATED"
+CROSSING_PID="HIBERNATED"
+WAYPOINT_PID="HIBERNATED"
+WS_PID="HIBERNATED"
+SWIM_SYNC_PID="HIBERNATED"
+ST_POLL_PID="HIBERNATED"
+REVERSE_SYNC_PID="HIBERNATED"
+SCHED_PID="HIBERNATED"
+DISCORD_Q_PID="HIBERNATED"
+EVENT_SYNC_PID="HIBERNATED"
+
+if [ "$HIBERNATION" != "1" ]; then
+
+    # =============================================================================
+    # GIS Mode Switch
+    # Set USE_GIS_DAEMONS=1 to use PostGIS for spatial operations (cost savings)
+    # Set USE_GIS_DAEMONS=0 to use ADL-only mode (original behavior)
+    #
+    # REVIEW DATE: 2026-03-01
+    # After 30 days of GIS mode, evaluate whether to:
+    #   - Delete old ADL daemons (boundary_daemon.php, parse_queue_daemon.php)
+    #   - Remove this else branch and USE_GIS_DAEMONS switch entirely
+    #   - Remove ADL fallback code from GIS daemons
+    # Check logs for GIS success rate: grep "GIS rate" /home/LogFiles/*.log
+    # =============================================================================
+    USE_GIS_DAEMONS=${USE_GIS_DAEMONS:-1}  # Default: use GIS daemons
+
+    if [ "$USE_GIS_DAEMONS" = "1" ]; then
+        echo "GIS Mode: ENABLED (using PostGIS for spatial operations)"
+
+        # Start the GIS-based parse queue daemon (2-3x faster than ADL)
+        echo "Starting parse_queue_gis_daemon.php..."
+        nohup php "${WWWROOT}/adl/php/parse_queue_gis_daemon.php" --loop --batch=50 --interval=10 >> /home/LogFiles/parse_queue_gis.log 2>&1 &
+        PARSE_PID=$!
+        echo "  parse_queue_gis_daemon.php started (PID: $PARSE_PID)"
+
+        # Start the GIS-based boundary detection daemon (offloads spatial from ADL)
+        echo "Starting boundary_gis_daemon.php..."
+        nohup php "${WWWROOT}/adl/php/boundary_gis_daemon.php" --loop --interval=15 >> /home/LogFiles/boundary_gis.log 2>&1 &
+        BOUNDARY_PID=$!
+        echo "  boundary_gis_daemon.php started (PID: $BOUNDARY_PID)"
+
+        # Start the GIS-based crossing calculation daemon (trajectory-based crossing ETAs)
+        # Uses PostGIS line-polygon intersection for precise boundary crossing points/times
+        # Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, Tier 3 every 2min, Tier 4 every 5min
+        echo "Starting crossing_gis_daemon.php..."
+        nohup php "${WWWROOT}/adl/php/crossing_gis_daemon.php" --loop >> /home/LogFiles/crossing_gis.log 2>&1 &
+        CROSSING_PID=$!
+        echo "  crossing_gis_daemon.php started (PID: $CROSSING_PID)"
+    else
+        echo "GIS Mode: DISABLED (using ADL-only for spatial operations)"
+
+        # Start the original ADL parse queue daemon
+        echo "Starting parse_queue_daemon.php..."
+        nohup php "${WWWROOT}/adl/php/parse_queue_daemon.php" --loop --batch=50 --interval=5 >> /home/LogFiles/parse_queue.log 2>&1 &
+        PARSE_PID=$!
+        echo "  parse_queue_daemon.php started (PID: $PARSE_PID)"
+
+        # Start the original ADL boundary detection daemon
+        echo "Starting boundary_daemon.php..."
+        nohup php "${WWWROOT}/adl/php/boundary_daemon.php" --loop --interval=30 >> /home/LogFiles/boundary.log 2>&1 &
+        BOUNDARY_PID=$!
+        echo "  boundary_daemon.php started (PID: $BOUNDARY_PID)"
+    fi
+
+    # Start the waypoint ETA daemon (tiered waypoint ETA calculation)
+    # Tier 0 every 15s, Tier 1 every 30s, Tier 2 every 60s, etc.
+    echo "Starting waypoint_eta_daemon.php..."
+    nohup php "${WWWROOT}/adl/php/waypoint_eta_daemon.php" --loop >> /home/LogFiles/waypoint_eta.log 2>&1 &
+    WAYPOINT_PID=$!
+    echo "  waypoint_eta_daemon.php started (PID: $WAYPOINT_PID)"
+
+    # Start the SWIM WebSocket server (real-time flight events on port 8090)
+    echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
+    nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
+    WS_PID=$!
+    echo "  swim_ws_server.php started (PID: $WS_PID)"
+
+    # Start the SWIM sync daemon (syncs VATSIM_ADL to SWIM_API every 2 min)
+    # Also handles data retention cleanup every 6 hours
+    echo "Starting swim_sync_daemon.php (sync every 2min, cleanup every 6h)..."
+    nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 --cleanup-interval=21600 >> /home/LogFiles/swim_sync.log 2>&1 &
+    SWIM_SYNC_PID=$!
+    echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
+
+    # Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
+    # Rate limited to 5 req/sec per SimTraffic API docs
+    echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
+    nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
+    ST_POLL_PID=$!
+    echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
+
+    # Start the SWIM -> ADL reverse sync daemon (propagates ST times to ADL every 2 min)
+    # Syncs SimTraffic data from swim_flights back to ADL normalized tables
+    echo "Starting swim_adl_reverse_sync.php (reverse sync every 2min)..."
+    nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interval=120 >> /home/LogFiles/swim_reverse_sync.log 2>&1 &
+    REVERSE_SYNC_PID=$!
+    echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
+
+    # Start the unified scheduler daemon (splits, routes auto-activation)
+    echo "Starting scheduler_daemon.php (checks every 60s)..."
+    nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
+    SCHED_PID=$!
+    echo "  scheduler_daemon.php started (PID: $SCHED_PID)"
+
+    # Start the Discord queue processor (async TMI Discord posting)
+    # Processes pending Discord posts from tmi_discord_posts table
+    # Rate limited to 10 posts/sec to avoid Discord API limits
+    echo "Starting Discord queue processor (TMI async posting)..."
+    nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=100 >> /home/LogFiles/discord_queue.log 2>&1 &
+    DISCORD_Q_PID=$!
+    echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
+
+    # Start the PERTI events sync daemon (VATUSA, VATCAN, VATSIM events)
+    # Syncs every 6 hours to populate perti_events table for TMI compliance & position logging
+    echo "Starting event_sync_daemon.php (sync every 6h)..."
+    nohup php "${WWWROOT}/scripts/event_sync_daemon.php" --loop --interval=21600 >> /home/LogFiles/event_sync.log 2>&1 &
+    EVENT_SYNC_PID=$!
+    echo "  event_sync_daemon.php started (PID: $EVENT_SYNC_PID)"
+
+else
+    echo ""
+    echo "  Downstream daemons SKIPPED (hibernation mode)"
+    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, SWIM ws/sync,"
+    echo "           SimTraffic, reverse sync, scheduler, Discord queue, event sync"
+    echo ""
 fi
 
 # Run codebase/database indexer once at startup (generates agent_context.md for AI tools)
@@ -199,15 +249,23 @@ INDEXER_PID=$!
 echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
 
 echo "========================================"
-echo "All daemons started:"
-echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
-echo "  waypoint=$WAYPOINT_PID, crossing=${CROSSING_PID:-N/A}"
-echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
-echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
-echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
-echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
-echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
-echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
+if [ "$HIBERNATION" = "1" ]; then
+    echo "HIBERNATION MODE - Core daemons only:"
+    echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
+    echo "  adl_archive=$ADL_ARCHIVE_PID"
+    echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
+    echo "  All other daemons: HIBERNATED"
+else
+    echo "All daemons started:"
+    echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
+    echo "  waypoint=$WAYPOINT_PID, crossing=${CROSSING_PID:-N/A}"
+    echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
+    echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
+    echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
+    echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
+    echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
+    echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
+fi
 echo "========================================"
 
 # Configure OPcache for production performance
@@ -231,29 +289,38 @@ echo "  OPcache configured (128MB, revalidate every 60s)"
 # Default is only 5 workers which causes request queueing under load
 #
 # Memory calculation (for choosing max_children):
-#   - 9 background daemons: ~225MB
+#   - Background daemons: ~100MB (hibernation) to ~225MB (full)
 #   - nginx + OS overhead: ~250MB
 #   - PHP-FPM workers: ~50MB each
 #   - Safe formula: (TOTAL_RAM - 500MB) / 50MB = max_children
 #
 # Tier recommendations:
-#   B1/S1 (1.75GB): 25 workers  → (1750-500)/50 = 25
-#   B2/S2/P1v2 (3.5GB): 60 workers → (3500-500)/50 = 60 (use 50 for safety)
+#   B1/S1 (1.75GB): 20 workers (hibernation) / 25 workers (full)
+#   B2/S2/P1v2 (3.5GB): 40-60 workers
 #   B3/S3/P2v2+ (7GB+): 100+ workers
-#
-# Current: 40 workers (optimal for PremiumV2 P1v2 tier with 3.5GB RAM)
-# If on P2v2 (7GB) or P3v2 (14GB), can increase to 80-150
+if [ "$HIBERNATION" = "1" ]; then
+    FPM_MAX_CHILDREN=20
+    FPM_START=5
+    FPM_MIN_SPARE=3
+    FPM_MAX_SPARE=10
+else
+    FPM_MAX_CHILDREN=40
+    FPM_START=10
+    FPM_MIN_SPARE=5
+    FPM_MAX_SPARE=20
+fi
+
 echo "Configuring PHP-FPM workers..."
 FPM_CONF="/usr/local/etc/php-fpm.d/www.conf"
 if [ -f "$FPM_CONF" ]; then
-    sed -i 's/^pm.max_children = .*/pm.max_children = 40/' "$FPM_CONF"
-    sed -i 's/^pm.start_servers = .*/pm.start_servers = 10/' "$FPM_CONF"
-    sed -i 's/^pm.min_spare_servers = .*/pm.min_spare_servers = 5/' "$FPM_CONF"
-    sed -i 's/^pm.max_spare_servers = .*/pm.max_spare_servers = 20/' "$FPM_CONF"
+    sed -i "s/^pm.max_children = .*/pm.max_children = $FPM_MAX_CHILDREN/" "$FPM_CONF"
+    sed -i "s/^pm.start_servers = .*/pm.start_servers = $FPM_START/" "$FPM_CONF"
+    sed -i "s/^pm.min_spare_servers = .*/pm.min_spare_servers = $FPM_MIN_SPARE/" "$FPM_CONF"
+    sed -i "s/^pm.max_spare_servers = .*/pm.max_spare_servers = $FPM_MAX_SPARE/" "$FPM_CONF"
     # Enable status page for monitoring (access via /fpm-status)
     sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' "$FPM_CONF"
     grep -q '^pm.status_path' "$FPM_CONF" || echo 'pm.status_path = /fpm-status' >> "$FPM_CONF"
-    echo "  PHP-FPM configured: max_children=40, start=10, min_spare=5, max_spare=20"
+    echo "  PHP-FPM configured: max_children=$FPM_MAX_CHILDREN, start=$FPM_START, min_spare=$FPM_MIN_SPARE, max_spare=$FPM_MAX_SPARE"
     echo "  Status page enabled at /fpm-status"
 else
     echo "  WARNING: FPM config not found at $FPM_CONF"
