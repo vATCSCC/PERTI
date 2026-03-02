@@ -1647,6 +1647,7 @@
     "elementDeleted": "Element deleted",
     "elementType": "Element Type",
     "elementUpdated": "Element updated",
+    "elementsAdded": "{count} elements added",
     "error": {
       "deleteFailed": "Failed to delete element",
       "facilityRequired": "Facility is required",
@@ -1657,6 +1658,9 @@
     "filterByType": "TMI / Sub-Type",
     "filteredOut": "Filtered Out",
     "geographical": "Geographical",
+    "groupBy": "Group",
+    "groupByFacility": "Facility",
+    "groupByInitiative": "Initiative",
     "label": {
       "advzyNumber": "ADVZY Number",
       "affectedAreas": "Affected Areas",
@@ -1694,6 +1698,7 @@
     },
     "later": "Later",
     "legend": "Legend",
+    "multiFacilityHint": "Use / or , for multiple facilities",
     "level": {
       "activeTmi": "Active TMI",
       "advisory": "Advisory",

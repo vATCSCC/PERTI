@@ -21,6 +21,7 @@ class InitiativeTimeline {
         this.sortOrder = 'geographical';
         this.filteredOut = new Set();
         this.filteredOutTypes = new Set();
+        this.groupBy = 'facility'; // 'facility' or 'initiative'
         this.data = [];
         this.rowHeight = 32;
 
@@ -126,6 +127,10 @@ class InitiativeTimeline {
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="chronological"> ${PERTII18n.t('initiative.chronological')}</label>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="geographical" checked> ${PERTII18n.t('initiative.geographical')}</label>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-sort" value="alphabetical"> ${PERTII18n.t('initiative.alphabetical')}</label>
+                        <span class="dcccp-control-divider"></span>
+                        <span class="dcccp-control-label">${PERTII18n.t('initiative.groupBy')}:</span>
+                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-groupby" value="facility" checked> ${PERTII18n.t('initiative.groupByFacility')}</label>
+                        <label class="dcccp-radio"><input type="radio" name="${this.containerId}-groupby" value="initiative"> ${PERTII18n.t('initiative.groupByInitiative')}</label>
                     </div>
                     <div class="dcccp-controls-center">
                         <span class="dcccp-control-label">${PERTII18n.t('initiative.range')}:</span>
@@ -269,7 +274,8 @@ class InitiativeTimeline {
                                     <div class="row compact-row">
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.facility')} <span class="required">*</span></label>
-                                            <input type="text" class="form-control" id="${this.modalId}-tmi-facility" list="${this.modalId}-facilities" placeholder="ZDC, N90...">
+                                            <input type="text" class="form-control" id="${this.modalId}-tmi-facility" list="${this.modalId}-facilities" placeholder="ZDC or ZDC/ZNY">
+                                            <small class="form-text text-muted">${PERTII18n.t('initiative.multiFacilityHint')}</small>
                                         </div>
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">${PERTII18n.t('initiative.label.area')}</label>
@@ -618,6 +624,11 @@ class InitiativeTimeline {
             r.addEventListener('change', (e) => { this.sortOrder = e.target.value; this.renderTimeline(); });
         });
 
+        // Group by
+        wrapper.querySelectorAll(`input[name="${this.containerId}-groupby"]`).forEach(r => {
+            r.addEventListener('change', (e) => { this.groupBy = e.target.value; this.renderTimeline(); });
+        });
+
         // Range
         wrapper.querySelectorAll(`input[name="${this.containerId}-range"]`).forEach(r => {
             r.addEventListener('change', (e) => { this.timeRangeHours = parseInt(e.target.value); this.renderTimeline(); });
@@ -788,15 +799,17 @@ class InitiativeTimeline {
 
         const groups = {};
         data.forEach(i => {
-            const f = i.facility || PERTII18n.t('common.unknown');
-            if (!groups[f]) {groups[f] = [];}
-            groups[f].push(i);
+            const key = this.groupBy === 'initiative'
+                ? this.getInitiativeGroupKey(i)
+                : (i.facility || PERTII18n.t('common.unknown'));
+            if (!groups[key]) {groups[key] = [];}
+            groups[key].push(i);
         });
 
         const facilities = Object.keys(groups);
         if (this.sortOrder === 'chronological') {
             facilities.sort((a, b) => Math.min(...groups[a].map(i => this.parseUTC(i.start_datetime).getTime())) - Math.min(...groups[b].map(i => this.parseUTC(i.start_datetime).getTime())));
-        } else if (this.sortOrder === 'alphabetical') {
+        } else if (this.sortOrder === 'alphabetical' || (this.sortOrder === 'geographical' && this.groupBy === 'initiative')) {
             facilities.sort();
         } else {
             facilities.sort((a, b) => this.geoOrder(a) - this.geoOrder(b));
@@ -916,7 +929,10 @@ class InitiativeTimeline {
         const left = ((visibleStart - windowStart) / totalMs) * 100;
         const width = Math.max(0.5, ((visibleEnd - visibleStart) / totalMs) * 100);
 
-        const label = this.buildLabel(item);
+        let label = this.buildLabel(item);
+        if (this.groupBy === 'initiative') {
+            label = `${item.facility}: ${label}`;
+        }
 
         // CDW items are small markers centered, others stack in lanes
         let top;
@@ -1079,6 +1095,19 @@ class InitiativeTimeline {
     geoOrder(f) {
         const order = { 'NAS': 0, 'ZBW': 10, 'N90': 11, 'ZNY': 12, 'ZDC': 14, 'ZJX': 20, 'ZTL': 21, 'ZMA': 23, 'ZAU': 30, 'ZID': 32, 'ZMP': 33, 'ZKC': 34, 'ZME': 35, 'ZFW': 40, 'ZHU': 42, 'ZDV': 50, 'ZLC': 52, 'ZAB': 53, 'ZLA': 60, 'ZOA': 62, 'ZSE': 64, 'ZAN': 70, 'TJZS': 71 };
         return order[f] ?? 100;
+    }
+
+    /**
+     * Get the group key for an item when grouping by initiative.
+     * TMI categories group by their specific type (GDP, GS, MIT, etc.)
+     * Other categories group by their level name (VIP Movement, Space Operation, etc.)
+     */
+    getInitiativeGroupKey(item) {
+        const cat = this.levels[item.level]?.category || 'tmi';
+        if (cat === 'tmi') {
+            return item.tmi_type || 'TMI';
+        }
+        return this.levels[item.level]?.name || item.level;
     }
 
     showTooltip(event, id) {
@@ -1352,7 +1381,10 @@ class InitiativeTimeline {
 
             if (result.success) {
                 $(`#${this.modalId}`).modal('hide');
-                this.alert('success', isUpdate ? PERTII18n.t('initiative.elementUpdated') : PERTII18n.t('initiative.elementAdded'));
+                const addMsg = (result.count && result.count > 1)
+                    ? PERTII18n.t('initiative.elementsAdded', { count: result.count })
+                    : PERTII18n.t('initiative.elementAdded');
+                this.alert('success', isUpdate ? PERTII18n.t('initiative.elementUpdated') : addMsg);
                 this.loadData();
             } else {
                 this.alert('error', result.error || PERTII18n.t('initiative.error.saveFailed'));

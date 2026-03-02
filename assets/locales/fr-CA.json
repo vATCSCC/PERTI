@@ -1851,6 +1851,7 @@
     "elementDeleted": "Élément supprimé",
     "elementType": "Type d'élément",
     "elementUpdated": "Élément mis à jour",
+    "elementsAdded": "{count} éléments ajoutés",
     "error": {
       "deleteFailed": "Échec de la suppression de l'élément",
       "facilityRequired": "L'installation est requise",
@@ -1861,6 +1862,9 @@
     "filterByType": "TMI / Sous-type",
     "filteredOut": "Filtré",
     "geographical": "Géographique",
+    "groupBy": "Grouper",
+    "groupByFacility": "Installation",
+    "groupByInitiative": "Initiative",
     "label": {
       "advzyNumber": "Numéro ADVZY",
       "affectedAreas": "Zones affectées",
@@ -1902,6 +1906,7 @@
     },
     "later": "Plus tard",
     "legend": "Légende",
+    "multiFacilityHint": "Utilisez / ou , pour plusieurs installations",
     "level": {
       "activeTmi": "TMI actif",
       "advisory": "Avis",
