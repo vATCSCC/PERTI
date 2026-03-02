@@ -1076,12 +1076,14 @@ Step 2: Parse runway information using regex patterns:
     - "RWY(S)? (\d+[LRC]?)(,\s*(\d+[LRC]?))*"
     - Classify as arrival, departure, or both
 Step 3: Determine weather category (FAA flight rule mapping):
-    - VMC  ← VFR:  visibility > 5SM, ceiling > 3000ft
-    - LVMC ← MVFR: visibility 3-5SM or ceiling 1000-3000ft
-    - IMC  ← IFR:  visibility 1-3SM or ceiling 500-1000ft
-    - LIMC ← LIFR: visibility < 1SM or ceiling < 500ft
-    Note: VLIMC exists in rate-colors.js for manual rate configs but is NOT
-    produced by the ATIS parser. The parser maps only VFR/MVFR/IFR/LIFR.
+    - VMC  ← VFR:   visibility > 5SM, ceiling > 3000ft
+    - LVMC ← MVFR:  visibility 3-5SM or ceiling 1000-3000ft
+    - IMC  ← IFR:   visibility 1-3SM or ceiling 500-1000ft
+    - LIMC ← LIFR:  visibility < 1SM or ceiling < 500ft
+    - VLIMC ← VLIFR: very low IFR (sub-category of LIFR)
+    Note: All 5 categories are used in airport_config rates (AAR/ADR per
+    weather tier). The ATIS parser currently classifies 4 FAA categories
+    (VFR/MVFR/IFR/LIFR); VLIFR sub-classification is pending.
 Step 4: Match against airport_config presets:
     - Compare active runways to known configurations
     - Auto-detect configuration name (e.g., "West Plan", "South Flow")

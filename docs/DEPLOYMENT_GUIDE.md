@@ -785,14 +785,20 @@ adl/migrations/core/007_remove_flight_status.sql
 adl/migrations/boundaries/001_boundaries_schema.sql
 adl/migrations/boundaries/002_boundaries_log_fix.sql
 adl/migrations/boundaries/003_boundary_import_procedure.sql
+adl/migrations/boundaries/004_boundary_import_failures_log.sql
+adl/migrations/boundaries/005_widen_boundary_columns.sql
+adl/migrations/boundaries/006_fix_boundary_log_schema.sql
 adl/migrations/boundaries/007_integrate_boundary_detection.sql
 adl/migrations/boundaries/008_boundary_optimization.sql
 adl/migrations/boundaries/009_boundary_grid_lookup.sql
+adl/migrations/boundaries/009b_populate_all_boundary_grids.sql
 
 -- Planned crossings
 adl/migrations/crossings/001_planned_crossings_schema.sql
 adl/migrations/crossings/002_flight_core_crossing_columns.sql
+adl/migrations/crossings/003_populate_priority_region.sql
 adl/migrations/crossings/004_forecast_views.sql
+adl/migrations/crossings/DEPLOY_ALL_CROSSINGS.sql
 
 -- Demand functions
 adl/migrations/demand/001_demand_indexes.sql
@@ -832,6 +838,11 @@ adl/migrations/oooi/011_airport_connect_reference.sql
 -- Flight statistics
 adl/migrations/stats/001_flight_stats_schema.sql
 adl/migrations/stats/002_flight_stats_procedures.sql
+adl/migrations/stats/003_flight_stats_agent_jobs.sql
+adl/migrations/stats/004_flight_stats_carrier_domestic.sql
+adl/migrations/stats/004_flight_stats_trends.sql
+adl/migrations/stats/006_airport_groupings.sql
+adl/migrations/stats/011_extended_analytics.sql
 adl/migrations/stats/012_flight_phase_snapshot.sql
 
 -- Aircraft performance data
@@ -861,6 +872,7 @@ adl/migrations/weather/003_weather_refresh_integration.sql
 -- Wind data infrastructure (for wind-adjusted ETAs)
 adl/migrations/wind/001_wind_grid_schema.sql
 adl/migrations/wind/002_eta_wind_integration.sql
+adl/migrations/wind/003_wind_tiered_resolution.sql
 
 -- ARTCC topology and tier system
 adl/migrations/topology/001_artcc_topology_schema.sql
@@ -882,6 +894,13 @@ database/migrations/adl/002_create_perti_events.sql
 database/migrations/adl/004_create_event_position_log.sql
 database/migrations/adl/010_create_tmi_trajectory.sql
 database/migrations/adl/011_artcc_tier_lookup.sql
+database/migrations/adl/014_archive_tmi_aware.sql
+
+-- Archival system (required for archival_daemon.php)
+database/migrations/archive/ADL_Archive_FULL_DEPLOYMENT.sql
+
+-- Reroute tables (Azure SQL copy — MySQL copy is in Section 4.7)
+database/migrations/reroute/002_create_reroute_tables_sqlserver.sql
 ```
 
 ### 4.1.1 ADL Stored Procedures
@@ -912,6 +931,55 @@ adl/procedures/sp_ProcessZoneDetectionBatch_Tiered.sql
 
 -- SimBrief flight plan parsing
 adl/procedures/sp_ParseSimBriefData.sql
+
+-- Route distance calculation (used by parse queue daemon)
+adl/procedures/sp_RouteDistanceBatch.sql
+adl/procedures/fn_CalculateRouteDistanceRemaining.sql
+
+-- Boundary detection (used by boundary_gis_daemon)
+adl/procedures/sp_ProcessBoundaryDetectionBatch_v2.sql
+adl/procedures/sp_ProcessBoundaryAndCrossings_Background.sql
+
+-- Trajectory logging (used by archival daemon)
+adl/procedures/sp_LogTrajectory.sql
+
+-- Wind-adjusted ETAs (used by wind fetch service)
+adl/procedures/sp_UpdateFlightWindAdjustments_V2.sql
+adl/procedures/sp_GetFlightWindAdjustment.sql
+adl/procedures/fn_GetWindTierInterval.sql
+
+-- Zone/region detection (called by the main ingest SP)
+adl/procedures/sp_DetectZoneTransition.sql
+adl/procedures/sp_DetectRegionalFlight.sql
+adl/procedures/fn_DetectCurrentZone.sql
+
+-- Tier calculation functions (used by all tiered daemons)
+adl/procedures/fn_GetParseTier.sql
+adl/procedures/fn_GetTierIntervalSeconds.sql
+adl/procedures/fn_GetTrajectoryTier.sql
+adl/procedures/fn_GetAircraftPerformance.sql
+adl/procedures/fn_IsFlightRelevant.sql
+
+-- Inline table-valued function variants (performance optimization)
+adl/procedures/itvf_GetTierIntervalSeconds.sql
+adl/procedures/itvf_GetTrajectoryTier.sql
+adl/procedures/itvf_IsFlightRelevant.sql
+
+-- Crossing recalculation trigger
+adl/procedures/sp_TriggerCrossingRecalc.sql
+adl/procedures/sp_CalculatePlannedCrossingsBatch_v2.sql
+
+-- Airport geometry import
+adl/procedures/sp_ImportAirportGeometry.sql
+```
+
+#### 4.1.2 ADL Staging Table Types
+
+The ADL ingest daemon uses SQL Server Table-Valued Parameters (TVPs) for bulk INSERT operations. These type definitions must be created before the daemon can run:
+
+```
+adl/sql/adl_staging_tvp_types.sql
+adl/sql/adl_staging_pilots.sql
 ```
 
 > **Critical**: `sp_Adl_RefreshFromVatsim_Staged` is the heart of PERTI. It executes ~13 processing steps every 15 seconds: staging ingest → flight core MERGE → position update → route change detection → parse queue → aircraft enrichment → trajectory logging → ETA calculation → zone detection. If this SP fails, no flight data flows. Deploy it with the admin user, then grant `EXECUTE` to the app user.
@@ -960,7 +1028,12 @@ database/migrations/tmi/033_fix_advisory_number_race_condition.sql
 
 -- Delay tracking
 database/migrations/tmi/034_create_delay_tracking.sql
+
+-- External flow control integration (ECFMP)
+sql/migrations/20260117_add_flow_tables.sql
 ```
+
+> **Note**: `20260117_add_flow_tables.sql` creates `tmi_flow_providers`, `tmi_flow_measures`, `tmi_flow_events`, and `tmi_flow_event_participants` for integration with external flow control systems like ECFMP (European Collaborative Flow Management Programme). Skip if you only operate in US airspace.
 
 ### 4.3 SWIM_API (Azure SQL)
 
@@ -986,7 +1059,10 @@ database/migrations/swim/018_swim_simtraffic_api_key.sql
 database/migrations/swim/019_swim_fixm_column_names.sql
 database/migrations/swim/020_swim_acars_messages.sql
 database/migrations/swim/021_vnas_integration_schema.sql
+database/migrations/swim/022_swim_users.sql
 ```
+
+> **Note**: `022_swim_users.sql` creates the `swim_users` table needed for SWIM API self-service key management (`/swim-keys`). Without it, any VATSIM member login to the API key portal will fail.
 
 ### 4.4 VATSIM_REF (Azure SQL)
 
@@ -1005,10 +1081,26 @@ This creates the core reference tables: `nav_fixes`, `nav_procedures`, `airways`
 -- Ensure PostGIS extension is enabled first
 -- psql: CREATE EXTENSION IF NOT EXISTS postgis;
 
+-- Core schema and functions
 database/migrations/postgis/001_boundaries_schema.sql
 database/migrations/postgis/002_extended_functions.sql
 database/migrations/postgis/003_airports_table.sql
+
+-- Extended spatial functions (required by parse queue, boundary, and crossing daemons)
+scripts/postgis/004_route_expansion_functions.sql
+scripts/postgis/005_batch_route_functions.sql
+scripts/postgis/006_batch_boundary_detection.sql
+scripts/postgis/007_batch_sector_detection.sql
+scripts/postgis/008_trajectory_crossings.sql
+scripts/postgis/009_boundary_adjacency_network.sql
+scripts/postgis/009_tracon_crossings.sql
+scripts/postgis/010_proximity_tiers.sql
+scripts/postgis/011_validate_tiers.sql
+scripts/postgis/012_artcc_tier_matrix.sql
+scripts/postgis/013_brin_indexes.sql
 ```
+
+> **Important**: Scripts `004`-`013` create the PostGIS functions that the PHP daemons call. Without them, route parsing (`parse_queue_gis_daemon`), boundary detection (`boundary_gis_daemon`), and crossing prediction (`crossing_gis_daemon`) will fail. Run them in numeric order after `001-003`.
 
 The `airports` table in GIS has an auto-update trigger that resolves `parent_artcc` and `parent_tracon` via spatial containment against `artcc_boundaries` and `tracon_boundaries`. Import boundaries before airports.
 
