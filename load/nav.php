@@ -77,7 +77,7 @@ $nav_config = [
     'tools' => [
         'label' => __('nav.tools'),
         'items' => [
-            ['label' => __('nav.jatoc'), 'path' => './jatoc', 'hibernated' => $_h],
+            ['label' => __('nav.jatoc'), 'path' => './jatoc'],
             ['label' => __('nav.eventAar'), 'path' => './event-aar', 'hibernated' => $_h],
             ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish'],
             ['label' => __('nav.status'), 'path' => './status'],

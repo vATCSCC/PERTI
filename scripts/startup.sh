@@ -22,8 +22,8 @@ HIBERNATION_MODE=${HIBERNATION_MODE:-0}
 if [ "$HIBERNATION_MODE" = "1" ] || [ "$HIBERNATION_MODE" = "true" ]; then
     echo ""
     echo "  *** HIBERNATION MODE ACTIVE ***"
-    echo "  Only core daemons will start: ADL ingest, archival, monitoring"
-    echo "  Paused: GIS daemons, SWIM, scheduler, Discord queue, event sync"
+    echo "  Only core daemons will start: ADL ingest, archival, monitoring, Discord queue"
+    echo "  Paused: GIS daemons, SWIM, scheduler, event sync"
     echo ""
     HIBERNATION=1
 else
@@ -89,6 +89,15 @@ else
     ADL_ARCHIVE_PID="N/A"
 fi
 
+# Start the Discord queue processor (async TMI Discord posting)
+# Processes pending Discord posts from tmi_discord_posts table
+# Rate limited to 10 posts/sec to avoid Discord API limits
+# NOTE: Runs even in hibernation — TMI publishing remains active
+echo "Starting Discord queue processor (TMI async posting)..."
+nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=100 >> /home/LogFiles/discord_queue.log 2>&1 &
+DISCORD_Q_PID=$!
+echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
+
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
 # =============================================================================
@@ -103,7 +112,6 @@ SWIM_SYNC_PID="HIBERNATED"
 ST_POLL_PID="HIBERNATED"
 REVERSE_SYNC_PID="HIBERNATED"
 SCHED_PID="HIBERNATED"
-DISCORD_Q_PID="HIBERNATED"
 EVENT_SYNC_PID="HIBERNATED"
 
 if [ "$HIBERNATION" != "1" ]; then
@@ -200,14 +208,6 @@ if [ "$HIBERNATION" != "1" ]; then
     SCHED_PID=$!
     echo "  scheduler_daemon.php started (PID: $SCHED_PID)"
 
-    # Start the Discord queue processor (async TMI Discord posting)
-    # Processes pending Discord posts from tmi_discord_posts table
-    # Rate limited to 10 posts/sec to avoid Discord API limits
-    echo "Starting Discord queue processor (TMI async posting)..."
-    nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=100 >> /home/LogFiles/discord_queue.log 2>&1 &
-    DISCORD_Q_PID=$!
-    echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
-
     # Start the PERTI events sync daemon (VATUSA, VATCAN, VATSIM events)
     # Syncs every 6 hours to populate perti_events table for TMI compliance & position logging
     echo "Starting event_sync_daemon.php (sync every 6h)..."
@@ -219,7 +219,7 @@ else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
     echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, SWIM ws/sync,"
-    echo "           SimTraffic, reverse sync, scheduler, Discord queue, event sync"
+    echo "           SimTraffic, reverse sync, scheduler, event sync"
     echo ""
 fi
 
@@ -252,7 +252,7 @@ echo "========================================"
 if [ "$HIBERNATION" = "1" ]; then
     echo "HIBERNATION MODE - Core daemons only:"
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
-    echo "  adl_archive=$ADL_ARCHIVE_PID"
+    echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
     echo "  All other daemons: HIBERNATED"
 else

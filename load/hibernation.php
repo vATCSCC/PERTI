@@ -41,7 +41,6 @@ function _hibernation_track_hit($page, $type = 'page') {
 $_hibernated_pages = [
     'demand.php',
     'nod.php',
-    'jatoc.php',
     'review.php',
     'swim.php',
     'swim-doc.php',

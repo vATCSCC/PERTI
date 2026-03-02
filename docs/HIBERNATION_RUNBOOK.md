@@ -19,6 +19,7 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 | `archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
 | `adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage |
 | `monitoring_daemon.php` | 60s | System metrics collection |
+| `process_discord_queue.php` | Continuous | Async TMI Discord posting |
 
 ### Data Still Being Collected
 
@@ -45,7 +46,6 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 | `simtraffic_swim_poll.php` | SimTraffic polling |
 | `swim_adl_reverse_sync_daemon.php` | SWIM-to-ADL reverse sync |
 | `scheduler_daemon.php` | Splits/routes auto-activation |
-| `process_discord_queue.php` | Discord TMI posting |
 | `event_sync_daemon.php` | VATUSA/VATCAN event sync |
 
 ### ADL Daemon Features Disabled
@@ -54,7 +54,7 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 
 ### Web Pages (Redirect to /hibernation)
 
-`demand.php`, `nod.php`, `jatoc.php`, `review.php`, `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php`, `simulator.php`, `gdt.php`, `sua.php`, `event-aar.php`
+`demand.php`, `nod.php`, `review.php`, `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php`, `simulator.php`, `gdt.php`, `sua.php`, `event-aar.php`
 
 ### SWIM API
 

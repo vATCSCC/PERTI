@@ -201,9 +201,9 @@ include("load/i18n.php");
                 <ul class="feature-list">
                     <?php
                     $paused_keys = [
-                        'demandCharts', 'nodDisplay', 'gdtDisplay', 'jatocIncident',
+                        'demandCharts', 'nodDisplay', 'gdtDisplay',
                         'postEventReview', 'vatswimApi', 'atcSimulator', 'suaDisplay',
-                        'eventAarConfig', 'routeParsingBoundary', 'discordTmiPosting'
+                        'eventAarConfig', 'routeParsingBoundary'
                     ];
                     foreach ($paused_keys as $k): ?>
                     <li>
@@ -224,7 +224,7 @@ include("load/i18n.php");
                     $active_keys = [
                         'plansSheets', 'airportConfig', 'routeVisualization', 'playbookCdr',
                         'sectorSplits', 'navigationData', 'eventSchedule', 'tmiPublisher',
-                        'systemStatus', 'loginAuth'
+                        'discordTmiPosting', 'jatocIncident', 'systemStatus', 'loginAuth'
                     ];
                     foreach ($active_keys as $k): ?>
                     <li>

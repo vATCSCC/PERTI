@@ -26,7 +26,7 @@
 | **CIFP** | Coded Instrument Flight Procedures (DPs/STARs) |
 | **DP/STAR** | Departure Procedure / Standard Terminal Arrival Route |
 | **FIR** | Flight Information Region (international airspace boundary) |
-| **NOD** | North Atlantic Organized Track system display |
+| **NOD** | NAS Operations Dashboard |
 | **JATOC** | Joint Air Traffic Operations Center (incident management) |
 | **CID** | VATSIM Certificate ID (user identifier) |
 | **OOOI** | Out-Off-On-In (flight phase gate events) |
@@ -521,7 +521,7 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 | `review.php` | Post-event review/scoring |
 | `sheet.php` | Planning sheet view |
 | `gdt.php` | Ground Delay Table display |
-| `nod.php` | North Atlantic Organized Track display |
+| `nod.php` | NAS Operations Dashboard |
 | `status.php` | System status page |
 | `swim.php` | SWIM API info page |
 | `swim-doc.php` | SWIM API documentation viewer |
@@ -979,8 +979,10 @@ When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting):
 - **Core ADL ingest continues**: VATSIM Data API fetched every 15s, flights upserted, trajectories captured, deferred ETAs processed
 - **ATIS parsing disabled**: Controlled by `atis_enabled` config in ADL daemon, auto-disabled when `HIBERNATION_MODE=true`
 - **Archival & monitoring continue**: Trajectory tiering, blob archival, system metrics
-- **Downstream daemons paused**: GIS processors (parse/boundary/crossing/waypoint ETA), SWIM sync/WebSocket, SimTraffic, scheduler, Discord queue, event sync
-- **Hibernated pages redirect to `/hibernation`**: demand, nod, jatoc, review, swim, swim-doc, swim-docs, swim-keys, simulator, gdt, sua, event-aar
+- **Downstream daemons paused**: GIS processors (parse/boundary/crossing/waypoint ETA), SWIM sync/WebSocket, SimTraffic, scheduler, event sync
+- **Discord queue processor runs** even during hibernation (TMI publishing stays active)
+- **Hibernated pages redirect to `/hibernation`**: demand, nod, review, swim, swim-doc, swim-docs, swim-keys, simulator, gdt, sua, event-aar
+- **Active pages during hibernation**: plans, airport config, route, playbook, splits, navdata, schedule, tmi-publish, jatoc, status
 - **SWIM API returns HTTP 503** JSON for all `/api/swim/` endpoints
 - **Nav items** for paused pages show muted styling (`.nav-hibernated` class — italic, reduced opacity, snowflake icon)
 - **Azure resources downscaled**: App Service B1, MySQL B1ms, PostGIS B1ms, SWIM_API database paused
