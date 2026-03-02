@@ -166,38 +166,48 @@ function runArchival(mixed $conn, int $batchSize): array {
     $stepResult = runStep($conn, 'EXEC dbo.sp_Archive_CompletedFlights @debug = 0');
     $results['steps']['completed_flights'] = $stepResult;
 
-    // Step 2: TMI-aware trajectory archival (extracts high-res TMI data before downsampling)
-    logMsg("Step 2/5: TMI-aware trajectory archival (batch_size={$batchSize})...");
-    $stepResult = runStep($conn, "EXEC dbo.sp_ArchiveTrajectory_TmiAware @archive_threshold_hours = 1, @batch_size = {$batchSize}");
-    $results['steps']['trajectory_tmi_aware'] = $stepResult;
-    if ($stepResult['success'] && !empty($stepResult['output'])) {
-        $tmiResult = $stepResult['output'][0] ?? [];
-        logMsg("  TMI extraction: {$tmiResult['rows_to_tmi_table']} rows to TMI table, {$tmiResult['rows_to_archive']} to archive");
-    }
-
-    // Step 3: Compress warm to cold tier
-    logMsg("Step 3/5: Compressing warm tier to cold...");
-    $stepResult = runStep($conn, 'EXEC dbo.sp_Downsample_Trajectory_ToCold @debug = 0');
-    $results['steps']['trajectory_to_cold'] = $stepResult;
-
-    // Step 4: Purge old data (general)
-    logMsg("Step 4/5: Purging old data...");
-    $stepResult = runStep($conn, 'EXEC dbo.sp_Purge_OldData @debug = 0');
-    $results['steps']['purge'] = $stepResult;
-
-    // Step 5: Purge TMI trajectory (90-day retention) - run during off-peak only
-    $hour = (int)gmdate('G');
-    if ($hour >= 3 && $hour < 6) {
-        logMsg("Step 5/5: Purging TMI trajectory (90-day retention)...");
-        $stepResult = runStep($conn, 'EXEC dbo.sp_PurgeTmiTrajectory @retention_days = 90, @batch_size = 50000');
-        $results['steps']['purge_tmi'] = $stepResult;
-        if ($stepResult['success'] && !empty($stepResult['output'])) {
-            $purgeResult = $stepResult['output'][0] ?? [];
-            logMsg("  TMI purge: {$purgeResult['rows_purged']} rows deleted");
-        }
+    // Hibernation mode: skip trajectory tiering/purging to preserve full-resolution data (TMR)
+    $hibernating = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
+    if ($hibernating) {
+        logMsg("HIBERNATION: Skipping trajectory tiering and purge steps (preserving full-res data)");
+        $results['steps']['trajectory_tmi_aware'] = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
+        $results['steps']['trajectory_to_cold']   = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
+        $results['steps']['purge']                = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
+        $results['steps']['purge_tmi']            = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
     } else {
-        logMsg("Step 5/5: Skipping TMI purge (runs 03:00-06:00 UTC only)");
-        $results['steps']['purge_tmi'] = ['success' => true, 'skipped' => true];
+        // Step 2: TMI-aware trajectory archival (extracts high-res TMI data before downsampling)
+        logMsg("Step 2/5: TMI-aware trajectory archival (batch_size={$batchSize})...");
+        $stepResult = runStep($conn, "EXEC dbo.sp_ArchiveTrajectory_TmiAware @archive_threshold_hours = 1, @batch_size = {$batchSize}");
+        $results['steps']['trajectory_tmi_aware'] = $stepResult;
+        if ($stepResult['success'] && !empty($stepResult['output'])) {
+            $tmiResult = $stepResult['output'][0] ?? [];
+            logMsg("  TMI extraction: {$tmiResult['rows_to_tmi_table']} rows to TMI table, {$tmiResult['rows_to_archive']} to archive");
+        }
+
+        // Step 3: Compress warm to cold tier
+        logMsg("Step 3/5: Compressing warm tier to cold...");
+        $stepResult = runStep($conn, 'EXEC dbo.sp_Downsample_Trajectory_ToCold @debug = 0');
+        $results['steps']['trajectory_to_cold'] = $stepResult;
+
+        // Step 4: Purge old data (general)
+        logMsg("Step 4/5: Purging old data...");
+        $stepResult = runStep($conn, 'EXEC dbo.sp_Purge_OldData @debug = 0');
+        $results['steps']['purge'] = $stepResult;
+
+        // Step 5: Purge TMI trajectory (90-day retention) - run during off-peak only
+        $hour = (int)gmdate('G');
+        if ($hour >= 3 && $hour < 6) {
+            logMsg("Step 5/5: Purging TMI trajectory (90-day retention)...");
+            $stepResult = runStep($conn, 'EXEC dbo.sp_PurgeTmiTrajectory @retention_days = 90, @batch_size = 50000');
+            $results['steps']['purge_tmi'] = $stepResult;
+            if ($stepResult['success'] && !empty($stepResult['output'])) {
+                $purgeResult = $stepResult['output'][0] ?? [];
+                logMsg("  TMI purge: {$purgeResult['rows_purged']} rows deleted");
+            }
+        } else {
+            logMsg("Step 5/5: Skipping TMI purge (runs 03:00-06:00 UTC only)");
+            $results['steps']['purge_tmi'] = ['success' => true, 'skipped' => true];
+        }
     }
 
     // Check for any failures

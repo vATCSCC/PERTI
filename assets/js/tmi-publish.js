@@ -7633,8 +7633,13 @@
                 if (end) {$('#rr_valid_until').val(end);}
             }
 
+            // Suppress auto-calc during initial table population to preserve loaded values
+            this._suppressAutoCalc = true;
+
             // Populate routes table
             this.populateRoutesTable(this.rerouteData.routes || []);
+
+            this._suppressAutoCalc = false;
 
             // Populate facilities grid
             this.populateFacilitiesGrid(this.rerouteData.facilities || []);
@@ -7642,6 +7647,14 @@
             // Auto-generate include traffic if not provided
             if (!adv.includeTraffic) {
                 this.autoGenerateIncludeTraffic();
+            }
+
+            // Auto-fill constrained area if not provided
+            if (!adv.constrainedArea) {
+                const routes = this.collectRoutes();
+                const dests = new Set();
+                routes.forEach(r => { if (r.destination) {dests.add(r.destination.toUpperCase());} });
+                if (dests.size) {$('#rr_constrained_area').val(Array.from(dests).join('/'));}
             }
 
             // Auto-fill route name if not already set
@@ -7791,6 +7804,7 @@
                         </td>
                     </tr>
                 `);
+                this.onRoutesChanged();
                 return;
             }
 
@@ -7799,6 +7813,11 @@
                 // Normalize route string: strip dots between proc and trans
                 const normalizedRoute = self.normalizeRouteString(route.route || '');
 
+                // Extract leading origin and trailing destination from route string
+                const cleaned = self.extractOrigDestFromRoute(
+                    route.origin || '', route.destination || '', normalizedRoute
+                );
+
                 $tbody.append(`
                     <tr data-idx="${idx}">
                         <td class="text-center align-middle" style="padding: 0.15rem;">
@@ -7806,7 +7825,7 @@
                         </td>
                         <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-origin"
-                                   value="${self.escapeHtml(route.origin)}"
+                                   value="${self.escapeHtml(cleaned.origin)}"
                                    style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;">
                         </td>
                         <td style="padding: 0.15rem;">
@@ -7817,7 +7836,7 @@
                         </td>
                         <td style="padding: 0.15rem;">
                             <input type="text" class="form-control form-control-sm rr-route-dest"
-                                   value="${self.escapeHtml(route.destination)}"
+                                   value="${self.escapeHtml(cleaned.destination)}"
                                    style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem;">
                         </td>
                         <td style="padding: 0.15rem;">
@@ -7828,7 +7847,7 @@
                         </td>
                         <td style="padding: 0.15rem;">
                             <textarea class="form-control form-control-sm rr-route-string" rows="1"
-                                   style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem; resize: vertical; min-height: 26px;">${self.escapeHtml(normalizedRoute)}</textarea>
+                                   style="font-family: monospace; font-size: 0.7rem; padding: 0.15rem 0.25rem; resize: vertical; min-height: 26px;">${self.escapeHtml(cleaned.route)}</textarea>
                         </td>
                         <td style="padding: 0.15rem;">
                             <button class="btn btn-sm btn-outline-danger rr-remove-route py-0 px-1"
@@ -7839,6 +7858,9 @@
                     </tr>
                 `);
             });
+
+            // Recalculate derived fields from updated routes
+            this.onRoutesChanged();
         },
 
         /**
@@ -9872,6 +9894,14 @@
                         </tr>
                     `);
                 }
+                self.onRoutesChanged();
+            });
+
+            // Recalculate include traffic when origin/dest fields change
+            let routeChangeTimer = null;
+            $(document).on('input', '.rr-route-origin, .rr-route-dest', function() {
+                clearTimeout(routeChangeTimer);
+                routeChangeTimer = setTimeout(() => self.onRoutesChanged(), 400);
             });
 
             $(document).on('click', '.rr-draft-item', function(e) {
@@ -9896,6 +9926,75 @@
         },
 
         // Helper methods
+
+        /**
+         * Check if a token is a facility code (ARTCC, FIR, TRACON)
+         */
+        isFacilityCode: function(token) {
+            if (!token) {return false;}
+            const t = token.toUpperCase();
+            if (typeof FacilityHierarchy !== 'undefined') {
+                if (FacilityHierarchy.isArtcc(t)) {return true;}
+                if (FacilityHierarchy.isTracon && FacilityHierarchy.isTracon(t)) {return true;}
+            }
+            return /^Z[A-Z]{2}$/.test(t) || /^CZ[A-Z]{2}$/.test(t);
+        },
+
+        /**
+         * Check if a token looks like an airport code (ICAO 4-letter or FAA 3-letter)
+         */
+        isAirportCode: function(token) {
+            if (!token) {return false;}
+            const t = token.toUpperCase();
+            // ICAO: 4 letters starting with K, C, M, etc.
+            if (/^[A-Z]{4}$/.test(t)) {return true;}
+            // FAA: 3 alphanumeric chars (e.g., ORD, JFK, LAX)
+            if (/^[A-Z0-9]{3}$/.test(t) && !this.isFacilityCode(t)) {return true;}
+            return false;
+        },
+
+        /**
+         * Clean route tokens: extract leading origin and trailing destination from route string.
+         * Returns { origin, destination, route } with cleaned values.
+         */
+        extractOrigDestFromRoute: function(origin, destination, routeStr) {
+            if (!routeStr) {return { origin, destination, route: routeStr };}
+            const tokens = routeStr.toUpperCase().split(/\s+/).filter(Boolean);
+            if (tokens.length < 2) {return { origin, destination, route: routeStr };}
+
+            let newOrigin = (origin || '').toUpperCase();
+            let newDest = (destination || '').toUpperCase();
+            let changed = false;
+
+            // Extract leading facility/airport code as origin if origin is empty
+            if (!newOrigin && (this.isFacilityCode(tokens[0]) || this.isAirportCode(tokens[0]))) {
+                newOrigin = tokens.shift();
+                changed = true;
+            }
+            // Strip leading token if it matches the already-set origin
+            else if (newOrigin && tokens.length > 1 && tokens[0] === newOrigin) {
+                tokens.shift();
+                changed = true;
+            }
+
+            // Strip trailing token if it matches the destination
+            if (newDest && tokens.length > 1 && tokens[tokens.length - 1] === newDest) {
+                tokens.pop();
+                changed = true;
+            }
+            // Extract trailing airport code as destination if dest is empty
+            else if (!newDest && tokens.length > 1 && this.isAirportCode(tokens[tokens.length - 1])) {
+                newDest = tokens.pop();
+                changed = true;
+            }
+
+            return {
+                origin: newOrigin,
+                destination: newDest,
+                route: changed ? tokens.join(' ') : routeStr,
+            };
+        },
+
         escapeHtml: function(str) {
             return String(str || '')
                 .replace(/&/g, '&amp;')
@@ -9917,12 +10016,19 @@
         },
 
         autoGenerateIncludeTraffic: function() {
-            if (!this.rerouteData?.routes?.length) {return;}
+            // Use rerouteData if available, otherwise read live from table
+            let routes = [];
+            if (this.rerouteData?.routes?.length) {
+                routes = this.rerouteData.routes;
+            } else {
+                routes = this.collectRoutes();
+            }
+            if (!routes.length) {return;}
 
             const origins = new Set();
             const dests = new Set();
 
-            this.rerouteData.routes.forEach(r => {
+            routes.forEach(r => {
                 if (r.origin) {origins.add(r.origin.toUpperCase());}
                 if (r.destination) {dests.add(r.destination.toUpperCase());}
                 (r.originAirports || []).forEach(a => origins.add(a.toUpperCase()));
@@ -9948,6 +10054,30 @@
                 const destStr = Array.from(dests).map(toIcao).join('/');
 
                 $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
+            }
+        },
+
+        /**
+         * Called when routes are added, removed, or origin/dest fields change.
+         * Recalculates include traffic and constrained area from current table state.
+         */
+        onRoutesChanged: function() {
+            if (this._suppressAutoCalc) {return;}
+
+            const routes = this.collectRoutes();
+
+            // Recalculate include traffic
+            this.autoGenerateIncludeTraffic();
+
+            // Recalculate constrained area from unique destinations
+            const dests = new Set();
+            routes.forEach(r => {
+                if (r.destination) {dests.add(r.destination.toUpperCase());}
+            });
+            if (dests.size) {
+                $('#rr_constrained_area').val(Array.from(dests).join('/'));
+            } else {
+                $('#rr_constrained_area').val('');
             }
         },
     };
