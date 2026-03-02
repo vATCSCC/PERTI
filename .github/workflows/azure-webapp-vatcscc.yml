@@ -75,12 +75,20 @@ jobs:
         echo "=== Stats Documentation ==="
         ls -la deploy/docs/stats/ 2>/dev/null || echo "WARNING: Stats docs missing!"
 
-    # Deploy to Azure Web App
+    # Deploy to Azure Web App (with retry for Kudu parallel rsync race condition)
     - name: Deploy to Azure Web App
+      id: deploy
+      uses: azure/webapps-deploy@v3
+      continue-on-error: true
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
+        package: ./deploy
+
+    - name: Retry deploy on failure
+      if: steps.deploy.outcome == 'failure'
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        # or add this if you're targeting a *slot*:
-        # slot-name: 'perti-2025'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
         package: ./deploy
