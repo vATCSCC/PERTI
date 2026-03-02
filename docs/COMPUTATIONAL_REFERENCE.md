@@ -216,7 +216,7 @@ ATIS data is fetched from the same VATSIM JSON and processed at tiered intervals
 
 **ATIS parsing** extracts:
 - Active runways (arrival/departure/both)
-- Weather conditions (VMC/MVMC/IFC/LIFC)
+- Weather conditions (VMC/LVMC/IMC/LIMC/VLIMC)
 - Airport configuration (runway combination)
 - Wind information
 
