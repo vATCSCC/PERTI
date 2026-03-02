@@ -6,9 +6,11 @@ Downloads FAA NASR subscription data and updates navigation data files
 for route.js compatibility. Supports current + next AIRAC cycles with
 backwards compatibility (preserves old data with _OLD suffixes).
 
-Also merges international airways from X-Plane 12 / Navigraph data
-(earth_awy.dat) when available. XP12 Custom Data path is auto-detected
-or can be specified with --xp12-path.
+Also merges international data from X-Plane 12 / Navigraph when available:
+  - Airways (earth_awy.dat) with multi-region connected component detection
+  - Fixes/waypoints (earth_fix.dat) for international point coverage
+  - Navaids (earth_nav.dat) for international VOR/NDB/DME coverage
+XP12 Custom Data path is auto-detected or can be specified with --xp12-path.
 
 Usage:
     python3 nasr_navdata_updater.py [options]
@@ -1433,13 +1435,21 @@ class NavDataIO:
             writer.writerows(airports)
         logger.info(f"Wrote {len(airports)} airports to {filename}")
     
-    def write_airways_csv(self, filename: str, airways: Dict[str, str]):
-        """Write airways CSV (no header)."""
+    def write_airways_csv(self, filename: str, airways: Dict[str, str],
+                          extra_variants: List[Tuple[str, str]] = None):
+        """Write airways CSV (no header). Extra variants are additional regional entries."""
         filepath = self.data_dir / filename
+        count = 0
         with open(filepath, 'w', encoding='utf-8', newline='') as f:
             for awy_id, points in sorted(airways.items()):
                 f.write(f"{awy_id},{points}\n")
-        logger.info(f"Wrote {len(airways)} airways to {filename}")
+                count += 1
+            if extra_variants:
+                for awy_id, points in sorted(extra_variants, key=lambda x: x[0]):
+                    f.write(f"{awy_id},{points}\n")
+                    count += 1
+        variant_info = f" (+{len(extra_variants)} extra variants)" if extra_variants else ""
+        logger.info(f"Wrote {count} airway entries to {filename}{variant_info}")
     
     def write_cdrs_csv(self, filename: str, cdrs: Dict[str, str]):
         """Write CDRs CSV (no header)."""
@@ -1518,31 +1528,39 @@ class JSFileUpdater:
     def __init__(self, js_dir: Path):
         self.js_dir = Path(js_dir)
     
-    def update_awys_js(self, airways: Dict[str, str]):
+    def update_awys_js(self, airways: Dict[str, str],
+                       extra_variants: List[Tuple[str, str]] = None):
         """
-        Update awys.js from airways dictionary.
+        Update awys.js from airways dictionary + extra regional variants.
         Format: var awys = [["AWY_ID","POINT1 POINT2 ..."], ...]
         """
         filepath = self.js_dir / 'awys.js'
-        
-        # Build the array entries
+
+        # Build the array entries (primary from dict)
         entries = []
         for awy_id in sorted(airways.keys()):
             points = airways[awy_id]
-            # Escape any quotes in the data
             awy_id_escaped = awy_id.replace('"', '\\"')
             points_escaped = points.replace('"', '\\"')
             entries.append(f'["{awy_id_escaped}","{points_escaped}"]')
-        
+
+        # Append extra regional variants (duplicate names allowed)
+        if extra_variants:
+            for awy_id, points in sorted(extra_variants, key=lambda x: x[0]):
+                awy_id_escaped = awy_id.replace('"', '\\"')
+                points_escaped = points.replace('"', '\\"')
+                entries.append(f'["{awy_id_escaped}","{points_escaped}"]')
+
         # Add null terminator entry
         entries.append('["",null]')
-        
+
         js_content = f"var awys = [{','.join(entries)}]"
-        
+
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(js_content)
-        
-        logger.info(f"Wrote {len(airways)} airways to awys.js")
+
+        variant_info = f" (+{len(extra_variants)} extra variants)" if extra_variants else ""
+        logger.info(f"Wrote {len(airways)} airways to awys.js{variant_info}")
     
     def update_procs_js(self, dp_routes: List[Dict], star_routes: List[Dict]):
         """
@@ -2177,7 +2195,7 @@ class NASRNavDataUpdater:
         
         self.io.write_points_csv('points.csv', final_points)
         self.io.write_points_csv('navaids.csv', final_navaids)
-        self.io.write_airways_csv('awys.csv', final_airways)
+        self.io.write_airways_csv('awys.csv', final_airways, xp12_extra_airway_variants)
         self.io.write_cdrs_csv('cdrs.csv', final_cdrs)
         
         dp_fields = ['EFF_DATE', 'DP_NAME', 'DP_COMPUTER_CODE', 'ARTCC', 'ORIG_GROUP',
@@ -2193,7 +2211,7 @@ class NASRNavDataUpdater:
         # Update JavaScript files
         logger.info("\nUpdating JavaScript files...")
         self.js_dir.mkdir(parents=True, exist_ok=True)
-        self.js_updater.update_awys_js(final_airways)
+        self.js_updater.update_awys_js(final_airways, xp12_extra_airway_variants)
         self.js_updater.update_procs_js(final_dps, final_stars)
         
         # Generate change report
