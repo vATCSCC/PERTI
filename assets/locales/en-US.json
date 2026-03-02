@@ -1661,6 +1661,7 @@
     "groupBy": "Group",
     "groupByFacility": "Facility",
     "groupByInitiative": "Initiative",
+    "consolidate": "Consolidate",
     "label": {
       "advzyNumber": "ADVZY Number",
       "affectedAreas": "Affected Areas",

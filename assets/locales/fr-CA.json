@@ -1865,6 +1865,7 @@
     "groupBy": "Grouper",
     "groupByFacility": "Installation",
     "groupByInitiative": "Initiative",
+    "consolidate": "Consolider",
     "label": {
       "advzyNumber": "Numéro ADVZY",
       "affectedAreas": "Zones affectées",

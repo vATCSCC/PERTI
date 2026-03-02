@@ -22,6 +22,7 @@ class InitiativeTimeline {
         this.filteredOut = new Set();
         this.filteredOutTypes = new Set();
         this.groupBy = 'facility'; // 'facility' or 'initiative'
+        this.consolidate = false;
         this.data = [];
         this.rowHeight = 32;
 
@@ -131,6 +132,8 @@ class InitiativeTimeline {
                         <span class="dcccp-control-label">${PERTII18n.t('initiative.groupBy')}:</span>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-groupby" value="facility" checked> ${PERTII18n.t('initiative.groupByFacility')}</label>
                         <label class="dcccp-radio"><input type="radio" name="${this.containerId}-groupby" value="initiative"> ${PERTII18n.t('initiative.groupByInitiative')}</label>
+                        <span class="dcccp-control-divider"></span>
+                        <label class="dcccp-radio"><input type="checkbox" id="${this.containerId}-consolidate"> ${PERTII18n.t('initiative.consolidate')}</label>
                     </div>
                     <div class="dcccp-controls-center">
                         <span class="dcccp-control-label">${PERTII18n.t('initiative.range')}:</span>
@@ -629,6 +632,12 @@ class InitiativeTimeline {
             r.addEventListener('change', (e) => { this.groupBy = e.target.value; this.renderTimeline(); });
         });
 
+        // Consolidate
+        const consolidateCb = document.getElementById(`${this.containerId}-consolidate`);
+        if (consolidateCb) {
+            consolidateCb.addEventListener('change', (e) => { this.consolidate = e.target.checked; this.renderTimeline(); });
+        }
+
         // Range
         wrapper.querySelectorAll(`input[name="${this.containerId}-range"]`).forEach(r => {
             r.addEventListener('change', (e) => { this.timeRangeHours = parseInt(e.target.value); this.renderTimeline(); });
@@ -797,8 +806,11 @@ class InitiativeTimeline {
             return iEnd > windowStartMs && iStart < windowEndMs;
         });
 
+        this.displayData = this.consolidate ? this.consolidateItems(data) : data;
+        const displayData = this.displayData;
+
         const groups = {};
-        data.forEach(i => {
+        displayData.forEach(i => {
             const key = this.groupBy === 'initiative'
                 ? this.getInitiativeGroupKey(i)
                 : (i.facility || PERTII18n.t('common.unknown'));
@@ -809,7 +821,10 @@ class InitiativeTimeline {
         const facilities = Object.keys(groups);
         if (this.sortOrder === 'chronological') {
             facilities.sort((a, b) => Math.min(...groups[a].map(i => this.parseUTC(i.start_datetime).getTime())) - Math.min(...groups[b].map(i => this.parseUTC(i.start_datetime).getTime())));
-        } else if (this.sortOrder === 'alphabetical' || (this.sortOrder === 'geographical' && this.groupBy === 'initiative')) {
+        } else if (this.groupBy === 'initiative' && this.sortOrder === 'geographical') {
+            // Severity sort: Active > Expected > Probable > Possible, then alphabetical
+            facilities.sort((a, b) => this.initiativeSeverity(a, groups[a]) - this.initiativeSeverity(b, groups[b]) || a.localeCompare(b));
+        } else if (this.sortOrder === 'alphabetical') {
             facilities.sort();
         } else {
             facilities.sort((a, b) => this.geoOrder(a) - this.geoOrder(b));
@@ -859,8 +874,9 @@ class InitiativeTimeline {
             el.addEventListener('mouseleave', () => this.hideTooltip());
             el.addEventListener('click', () => {
                 if (this.hasPerm) {
-                    const clickItem = this.data.find(d => d.id == el.dataset.id);
-                    if (clickItem && clickItem.from_other_plan) return;
+                    const clickItem = (this.displayData || this.data).find(d => d.id == el.dataset.id);
+                    if (!clickItem || clickItem.from_other_plan) return;
+                    if (clickItem._ids && clickItem._ids.length > 1) return;
                     this.hideTooltip(); this.openEditModal(el.dataset.id);
                 }
             });
@@ -1098,6 +1114,51 @@ class InitiativeTimeline {
     }
 
     /**
+     * Severity order for initiative groups.
+     * Uses the highest-severity level found among items in the group.
+     * Active(1) > Expected(2) > Probable(3) > Possible(4) > Advisory(5) > Constraint(6) > others(10)
+     */
+    initiativeSeverity(key, items) {
+        const order = { 'Active': 1, 'Expected': 2, 'Probable': 3, 'Possible': 4, 'Advisory_Terminal': 5, 'Advisory_EnRoute': 5, 'Constraint_Terminal': 6, 'Constraint_EnRoute': 6, 'CDW': 7, 'Special_Event': 8, 'Space_Op': 8, 'VIP': 8, 'Staffing': 9, 'Misc': 10 };
+        let best = 100;
+        for (const i of items) {
+            const s = order[i.level] ?? 100;
+            if (s < best) best = s;
+        }
+        return best;
+    }
+
+    /**
+     * Consolidate items with identical details across facilities into merged rows.
+     * Returns a new array where matching items share a combined facility name (e.g. "ZDC/ZNY").
+     * Items are considered identical if all fields except facility, id, p_id, created_at,
+     * updated_at, created_by, from_other_plan, and source_plan_name match.
+     */
+    consolidateItems(data) {
+        const groups = {};
+        for (const item of data) {
+            const key = [
+                item.level, item.tmi_type || '', item.tmi_type_other || '',
+                item.cause || '', item.start_datetime, item.end_datetime,
+                item.notes || '', item.area || '', item.is_global,
+                item.advzy_number || '',
+            ].join('|');
+            if (!groups[key]) {
+                groups[key] = { ...item, _facilities: [item.facility], _ids: [item.id] };
+            } else {
+                if (!groups[key]._facilities.includes(item.facility)) {
+                    groups[key]._facilities.push(item.facility);
+                }
+                groups[key]._ids.push(item.id);
+            }
+        }
+        return Object.values(groups).map(g => {
+            g.facility = g._facilities.join('/');
+            return g;
+        });
+    }
+
+    /**
      * Get the group key for an item when grouping by initiative.
      * TMI categories group by their specific type (GDP, GS, MIT, etc.)
      * Other categories group by their level name (VIP Movement, Space Operation, etc.)
@@ -1111,7 +1172,7 @@ class InitiativeTimeline {
     }
 
     showTooltip(event, id) {
-        const item = this.data.find(d => d.id == id);
+        const item = this.displayData ? this.displayData.find(d => d.id == id) : this.data.find(d => d.id == id);
         if (!item) {return;}
         this.hideTooltip();
 
@@ -1199,10 +1260,10 @@ class InitiativeTimeline {
 
         this.resetModalFields();
 
-        const now = new Date();
-        const end = new Date(now.getTime() + 4 * 3600000);
-        document.getElementById(`${this.modalId}-start`).value = this.toInputFmt(now.toISOString());
-        document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(end.toISOString());
+        const defaultStart = this.eventStart || new Date();
+        const defaultEnd = this.eventEnd || new Date(defaultStart.getTime() + 4 * 3600000);
+        document.getElementById(`${this.modalId}-start`).value = this.toInputFmt(defaultStart.toISOString());
+        document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(defaultEnd.toISOString());
 
         this.updateFormSections();
         $(`#${this.modalId}`).modal('show');
