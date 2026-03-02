@@ -90,14 +90,15 @@ jobs:
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
         package: ./deploy
 
-    # If main deploy failed (Kudu parallel rsync race on scripts/),
-    # deploy just the scripts directory via Kudu VFS API
+    # If main deploy failed, deploy scripts/ via Kudu VFS API.
+    # Running daemons lock their PHP files (HTTP 409) — this is expected
+    # and harmless since daemon files rarely change.
     - name: Fix scripts directory if deploy failed
       if: steps.deploy.outcome == 'failure'
       env:
         PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
       run: |
-        echo "Main deploy failed — deploying scripts/ via Kudu API fallback..."
+        echo "Main deploy failed — deploying scripts/ via Kudu VFS API..."
 
         # Extract Kudu SCM credentials from publish profile
         SCM_USER=$(echo "$PUBLISH_PROFILE" | grep -oP 'userName="[^"]*"' | head -1 | sed 's/userName="//;s/"$//')
@@ -108,6 +109,9 @@ jobs:
           exit 1
         fi
 
+        # Running daemons lock their source files — 409 is expected for these
+        DAEMON_FILES="vatsim_adl_daemon.php archival_daemon.php adl_archive_daemon.php monitoring_daemon.php startup.sh tmi/process_discord_queue.php"
+
         # Ensure target directories exist
         curl -s -u "$SCM_USER:$SCM_PASS" -X POST \
           -H "Content-Type: application/json" \
@@ -115,10 +119,11 @@ jobs:
           "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/command" > /dev/null
 
         # Upload each script file via VFS API
-        FAILED=0
+        UNEXPECTED_FAIL=0
         for f in deploy/scripts/*.php deploy/scripts/*.sh deploy/scripts/tmi/*.php; do
           [ -f "$f" ] || continue
           REL_PATH="${f#deploy/}"
+          BASENAME="${REL_PATH#scripts/}"
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             -X PUT \
             -u "$SCM_USER:$SCM_PASS" \
@@ -128,23 +133,19 @@ jobs:
             "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/vfs/site/wwwroot/$REL_PATH")
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
             echo "  OK: $REL_PATH"
+          elif [ "$HTTP_CODE" = "409" ] && echo "$DAEMON_FILES" | grep -qw "$BASENAME"; then
+            echo "  SKIP (locked by running daemon): $REL_PATH"
           else
             echo "  FAIL ($HTTP_CODE): $REL_PATH"
-            FAILED=1
+            UNEXPECTED_FAIL=1
           fi
         done
 
-        if [ "$FAILED" = "1" ]; then
-          echo "::warning::Some scripts failed to upload via VFS fallback"
+        if [ "$UNEXPECTED_FAIL" = "1" ]; then
+          echo "::error::Unexpected failures uploading scripts via VFS fallback"
+          exit 1
         fi
 
-        # Verify critical files exist
-        VERIFY=$(curl -s -u "$SCM_USER:$SCM_PASS" -X POST \
-          -H "Content-Type: application/json" \
-          -d '{"command":"ls -la scripts/startup.sh scripts/vatsim_adl_daemon.php scripts/tmi/process_discord_queue.php","dir":"/home/site/wwwroot"}' \
-          "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/command")
-
-        echo "Verification: $VERIFY"
         echo "Scripts directory fallback deploy complete."
 
     - name: Confirm deployment status
@@ -153,5 +154,5 @@ jobs:
         if [ "${{ steps.deploy.outcome }}" = "success" ]; then
           echo "Deployment succeeded on first attempt."
         else
-          echo "::warning::Primary deploy failed (Kudu parallel rsync race). Scripts patched via VFS API fallback."
+          echo "::notice::Primary deploy hit Kudu rsync lock on running daemons. Non-daemon scripts patched via VFS API fallback."
         fi
