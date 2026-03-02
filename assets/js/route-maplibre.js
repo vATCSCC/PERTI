@@ -921,13 +921,12 @@ $(document).ready(function() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DATA LOADING
+    // DATA LOADING (async — all CSVs load in parallel, map init waits for all)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    $.ajax({
+    var _loadPoints = $.ajax({
         type: 'GET',
         url: 'assets/data/points.csv',
-        async: false,
     }).done(function(data) {
         const lines = data.split('\n');
         for (const line of lines) {
@@ -950,10 +949,9 @@ $(document).ready(function() {
     });
 
     // Load navaid magnetic variation data for FBD bearing correction
-    $.ajax({
+    var _loadMagvar = $.ajax({
         type: 'GET',
         url: 'assets/data/navaid_magvar.csv',
-        async: false,
     }).done(function(data) {
         let count = 0;
         for (const line of data.split('\n')) {
@@ -970,10 +968,9 @@ $(document).ready(function() {
         console.warn('[MAPLIBRE] navaid_magvar.csv not available; FBD will use uncorrected bearings');
     });
 
-    $.ajax({
+    var _loadCdrs = $.ajax({
         type: 'GET',
         url: 'assets/data/cdrs.csv',
-        async: false,
     }).done(function(data) {
         const lines = data.split('\n');
         lines.forEach(line => {
@@ -1013,10 +1010,9 @@ $(document).ready(function() {
         return result;
     }
 
-    $.ajax({
+    var _loadPlaybook = $.ajax({
         type: 'GET',
         url: 'assets/data/playbook_routes.csv',
-        async: false,
     }).done(function(data) {
         const lines = data.split(/\r?\n/);
         if (lines.length < 2) {return;}
@@ -7398,22 +7394,27 @@ $(document).ready(function() {
     // Allow deep links like /route.php?routes=... or /route.php?s=share-code
     var seedResult = seedRouteInputFromUrl();
 
+    // Wait for all CSV data to load before initializing the map
+    var _dataReady = $.when(_loadPoints, _loadMagvar, _loadCdrs, _loadPlaybook);
+
     if (USE_MAPLIBRE) {
         console.log('[MAPLIBRE] Feature flag enabled, initializing MapLibre GL JS');
-        // If seedResult is a Promise (?s= share code), auto-plot after load
-        if (seedResult && typeof seedResult.then === 'function') {
-            seedResult.then(function(seeded) {
-                setTimeout(function() {
-                    initMap();
-                    if (seeded) {
-                        // Auto-plot after map initializes
-                        setTimeout(function() { processAndDisplayRoutes(); }, 500);
-                    }
-                }, 100);
-            });
-        } else {
-            setTimeout(initMap, 100);
-        }
+        // Gate map init on both data loads and any URL seed resolution
+        _dataReady.always(function() {
+            console.log('[MAPLIBRE] All CSV data loaded, proceeding with map init');
+            if (seedResult && typeof seedResult.then === 'function') {
+                seedResult.then(function(seeded) {
+                    setTimeout(function() {
+                        initMap();
+                        if (seeded) {
+                            setTimeout(function() { processAndDisplayRoutes(); }, 500);
+                        }
+                    }, 100);
+                });
+            } else {
+                setTimeout(initMap, 100);
+            }
+        });
     } else {
         console.log('[MAPLIBRE] Feature flag disabled, Leaflet will be used');
     }
