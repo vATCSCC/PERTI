@@ -1206,6 +1206,7 @@
         $('.qualifier-btn').on('click', function() {
             // Toggle this button's selected state (no group exclusivity)
             $(this).toggleClass('btn-outline-secondary btn-primary active');
+            updateNtmlLivePreview(type);
         });
 
         // Facility auto-suggest cross-border detection
@@ -1225,6 +1226,118 @@
         // CONFIG form handlers
         if (type === 'CONFIG') {
             initConfigFormHandlers();
+        }
+
+        // Live NTML preview: update on any input/change within the form
+        let ntmlPreviewTimer = null;
+        $('#ntmlFormContainer').on('input change', 'input, select, textarea', function() {
+            clearTimeout(ntmlPreviewTimer);
+            ntmlPreviewTimer = setTimeout(() => updateNtmlLivePreview(type), 200);
+        });
+
+        // Initial preview
+        setTimeout(() => updateNtmlLivePreview(type), 100);
+    }
+
+    /**
+     * Update the live NTML preview by collecting current form data and formatting it
+     */
+    function updateNtmlLivePreview(type) {
+        const $preview = $('#ntml_preview');
+        if (!$preview.length) return;
+
+        // Collect form data (mirrors addNtmlToQueue logic without validation)
+        const ctlElement = ($('#ntml_ctl_element').val() || '').trim().toUpperCase();
+        const reqFacility = ($('#ntml_req_facility').val() || '').trim().toUpperCase();
+        const provFacility = ($('#ntml_prov_facility').val() || '').trim().toUpperCase();
+        const validFrom = ($('#ntml_valid_from').val() || '').trim();
+        const validUntil = ($('#ntml_valid_until').val() || '').trim();
+
+        const data = {
+            type: type,
+            ctl_element: ctlElement,
+            req_facility: reqFacility,
+            prov_facility: provFacility,
+            valid_from: validFrom,
+            valid_until: validUntil,
+        };
+
+        // Traffic flow
+        const trafficFlow = ($('#ntml_traffic_flow').val() || '').trim().toUpperCase();
+        if (trafficFlow) data.traffic_flow = trafficFlow;
+
+        // Qualifiers
+        const qualifiers = [];
+        $('.qualifier-btn.active').each(function() {
+            qualifiers.push($(this).data('qualifier'));
+        });
+        data.qualifiers = qualifiers;
+
+        // Filters
+        const altFilter = ($('#ntml_altitude_filter').val() || '').trim().toUpperCase();
+        if (altFilter) data.altitude_filter = altFilter;
+        const speedFilter = $('#ntml_speed_filter').val();
+        if (speedFilter) data.speed_filter = speedFilter;
+
+        // Type-specific data
+        switch(type) {
+            case 'MIT':
+            case 'MINIT':
+                data.value = $('#ntml_value').val();
+                data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                data.exclusions = ($('#ntml_exclusions').val() || 'NONE').trim().toUpperCase();
+                break;
+            case 'STOP':
+                data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                data.exclusions = ($('#ntml_exclusions').val() || 'NONE').trim().toUpperCase();
+                break;
+            case 'APREQ':
+                data.apreq_type = $('#ntml_apreq_type').val() || 'CFR';
+                data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                break;
+            case 'TBM':
+                data.meter_point = ($('#ntml_meter_point').val() || '').trim().toUpperCase();
+                data.freeze_horizon = $('#ntml_freeze_horizon').val();
+                data.participating = ($('#ntml_participating').val() || '').trim().toUpperCase();
+                data.reason_category = $('#ntml_reason_category').val() || 'VOLUME';
+                data.reason_cause = $('#ntml_reason_cause').val() || data.reason_category;
+                break;
+            case 'DELAY':
+                data.delay_type = $('#ntml_delay_type').val();
+                data.delay_minutes = $('#ntml_delay_minutes').val();
+                data.delay_trend = $('#ntml_delay_trend').val();
+                data.reason = $('#ntml_reason').val();
+                data.report_time = $('#ntml_report_time').val();
+                data.acft_count = $('#ntml_acft_count').val();
+                break;
+            case 'CONFIG':
+                data.weather = $('#ntml_weather').val();
+                data.config_name = $('#ntml_config_name').val();
+                data.arr_runways = ($('#ntml_arr_runways').val() || '').trim().toUpperCase();
+                data.dep_runways = ($('#ntml_dep_runways').val() || '').trim().toUpperCase();
+                data.aar = $('#ntml_aar').val();
+                data.aar_type = $('#ntml_aar_type').val();
+                data.adr = $('#ntml_adr').val();
+                data.valid_from = ($('#ntml_valid_from').val() || '').trim();
+                data.valid_until = ($('#ntml_valid_until').val() || '').trim();
+                break;
+            case 'CANCEL':
+                data.cancel_type = $('#ntml_cancel_type').val();
+                data.via_fix = ($('#ntml_via_fix').val() || '').trim().toUpperCase();
+                break;
+        }
+
+        try {
+            const message = formatNtmlMessage(type, data);
+            $preview.text(message);
+        } catch (e) {
+            $preview.text('(Preview will update as you fill in details)');
         }
     }
 
@@ -1868,13 +1981,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.includeTraffic')}</label>
-                            <select class="form-control" id="adv_include_traffic">
-                                <option value="ALL">${PERTII18n.t('tmiPublish.swap.allTraffic')}</option>
-                                <option value="EASTBOUND">${PERTII18n.t('tmiPublish.swap.eastboundOnly')}</option>
-                                <option value="WESTBOUND">${PERTII18n.t('tmiPublish.swap.westboundOnly')}</option>
-                                <option value="NORTHBOUND">${PERTII18n.t('tmiPublish.swap.northboundOnly')}</option>
-                                <option value="SOUTHBOUND">${PERTII18n.t('tmiPublish.swap.southboundOnly')}</option>
-                            </select>
+                            <input type="text" class="form-control text-uppercase" id="adv_include_traffic" value="ALL" placeholder="e.g., ALL, EASTBOUND, KJFK/KLGA DEPARTURES">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.swap.probExtension')}</label>
@@ -2480,11 +2587,14 @@
                 updateAdvisoryPreview();
             });
 
-            // Auto-map hotline address based on hotline name
+            // Auto-map hotline address based on hotline name and org
             $('#adv_hotline_name').on('change', function() {
                 const name = $(this).val() || '';
-                // Canada hotlines use VATCAN TeamSpeak
-                if (name.includes('Canada')) {
+                const orgCode = (window.PERTI_ORG && window.PERTI_ORG.code) || '';
+                if (orgCode === 'canoc') {
+                    // CANOC default: "VATCAN Discord, {HOTLINE NAME} voice channel"
+                    $('#adv_hotline_address').val('discord');
+                } else if (name.includes('Canada')) {
                     $('#adv_hotline_address').val('ts.vatcan.ca');
                 } else {
                     $('#adv_hotline_address').val('ts.vatusa.net');
@@ -2534,6 +2644,54 @@
                 } else {
                     $ta.prop('readonly', true).css('background', '#f8f9fa');
                     $(this).html('<i class="fas fa-lock-open mr-1"></i>' + PERTII18n.t('tmiPublish.form.editStructuredBody'));
+                }
+            });
+        }
+
+        // Auto-calculate FIR from airport for Canadian GS/GDP forms
+        if (type === 'GS' || type === 'GDP' || type === 'GS_CANCEL' || type === 'GDP_CANCEL') {
+            $('#adv_airport').on('input', function() {
+                const airport = ($(this).val() || '').toUpperCase().trim();
+                if (airport.length < 3) return;
+
+                // Canadian airport ICAO prefix → FIR mapping
+                const CANADA_AIRPORT_FIR = {
+                    'CYEG': 'CZEG', 'CYYC': 'CZEG', 'CYXE': 'CZEG', 'CYQR': 'CZEG',
+                    'CYYZ': 'CZYZ', 'CYOW': 'CZYZ', 'CYHM': 'CZYZ', 'CYXU': 'CZYZ',
+                    'CYUL': 'CZUL', 'CYQB': 'CZUL',
+                    'CYVR': 'CZVR', 'CYYJ': 'CZVR', 'CYLW': 'CZVR',
+                    'CYWG': 'CZWG', 'CYQT': 'CZWG',
+                    'CYQM': 'CZQM', 'CYHZ': 'CZQM', 'CYFC': 'CZQM', 'CYSJ': 'CZQM', 'CYYT': 'CZQM',
+                    'CYQX': 'CZQX', 'CYDF': 'CZQX',
+                };
+
+                // Exact match first
+                let fir = CANADA_AIRPORT_FIR[airport];
+
+                // Fallback: derive FIR from 2-letter province prefix
+                // Canadian ICAO airports: CY** or CZ**
+                if (!fir && airport.length === 4 && airport.startsWith('CY')) {
+                    const thirdChar = airport[2];
+                    // Regional heuristic based on 3rd character of ICAO code
+                    const charToFir = {
+                        'V': 'CZVR', // British Columbia
+                        'E': 'CZEG', // Alberta
+                        'X': 'CZEG', // Alberta/Sask
+                        'Q': 'CZUL', // Quebec (CYQ* varies)
+                        'W': 'CZWG', // Manitoba
+                        'Y': 'CZYZ', // Ontario (CYY* varies)
+                        'O': 'CZYZ', // Ontario
+                        'H': 'CZQM', // Maritime
+                        'S': 'CZQM', // Maritime
+                        'F': 'CZQM', // Maritime
+                        'D': 'CZQX', // Newfoundland
+                    };
+                    fir = charToFir[thirdChar];
+                }
+
+                if (fir && $('#adv_fir').length) {
+                    $('#adv_fir').val(fir);
+                    updateAdvisoryPreview();
                 }
             });
         }
@@ -3133,7 +3291,12 @@
         // Build different format based on action type
         if (action === 'ACTIVATION') {
             // Full boilerplate for Activation
-            lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted ? endFormatted + 'Z' : 'TBD'}`);
+            // When end time is empty, use "AND LATER"
+            if (endFormatted) {
+                lines.push(`EVENT TIME: ${startFormatted}Z - ${endFormatted}Z`);
+            } else {
+                lines.push(`EVENT TIME: ${startFormatted}Z AND LATER`);
+            }
 
             if (constrainedFacilities) {
                 lines.push(`CONSTRAINED FACILITIES: ${constrainedFacilities}`);
@@ -3144,8 +3307,14 @@
             // Main boilerplate paragraph - wrap at 68 chars
             let boilerplate = `THE ${hotlineName} IS BEING ACTIVATED TO ADDRESS ${reason} IN ${impactedArea || 'THE AFFECTED AREA'}.`;
 
-            // Location info
-            boilerplate += ` THE LOCATION IS ${hotlineAddress}.`;
+            // Location info - for CANOC, use dynamic Discord channel name
+            let displayAddress = hotlineAddress;
+            const orgCode = (window.PERTI_ORG && window.PERTI_ORG.code) || '';
+            if (orgCode === 'canoc' && hotlineAddressCode === 'discord') {
+                const rawName = $('#adv_hotline_name').val() || 'Hotline';
+                displayAddress = `VATCAN Discord, ${rawName.toUpperCase()} voice channel`;
+            }
+            boilerplate += ` THE LOCATION IS ${displayAddress}.`;
 
             // Participation info - handle long facility lists specially
             boilerplate += ` PARTICIPATION IS ${participation} FOR`;
@@ -3153,10 +3322,10 @@
             // Wrap the main boilerplate text at 68 characters
             lines.push(wrapText(boilerplate));
 
-            // Add wrapped facility list on separate lines
-            lines.push(wrapFacilityList(facilities));
+            // Add wrapped facility list on separate lines, ending with period
+            lines.push(wrapFacilityList(facilities) + '.');
 
-            // Standard closing - wrap separately
+            // Standard closing - wrap separately (new sentence)
             const closing = 'AFFECTED MAJOR UNDERLYING FACILITIES ARE STRONGLY ENCOURAGED TO ATTEND. ALL OTHER PARTICIPANTS ARE WELCOME TO JOIN. PLEASE MESSAGE THE NOM IF YOU HAVE ISSUES OR QUESTIONS.';
             lines.push(wrapText(closing));
 
@@ -3871,8 +4040,9 @@
                 previewText = entry.entryType;
             }
 
-            // Safe substring with length check
-            const displayText = previewText.length > 200 ? previewText.substring(0, 200) + '...' : previewText;
+            // For multi-line advisories, show collapsed by default with expand toggle
+            const isMultiLine = previewText.includes('\n') && previewText.length > 120;
+            const shortText = isMultiLine ? previewText.split('\n').slice(0, 2).join('\n') : previewText;
 
             // Safe orgs extraction
             const orgs = Array.isArray(entry.orgs) ? entry.orgs : ['vatcscc'];
@@ -3884,19 +4054,23 @@
             const submitBtnIcon = needsCoord ? 'fa-paper-plane' : 'fa-check';
             const submitBtnText = needsCoord ? PERTII18n.t('tmiPublish.queueItem.coord') : PERTII18n.t('tmiPublish.queueItem.pub');
 
+            const expandToggle = isMultiLine ? `<button class="btn btn-link btn-sm p-0 ml-1 queue-expand-toggle" data-index="${index}" style="font-size: 0.7rem;"><i class="fas fa-chevron-down"></i> Show full</button>` : '';
+
             html += `
-                <div class="queue-item p-3 border-left-4 ${typeClass} mb-2 bg-light rounded">
+                <div class="queue-item p-2 border-left-4 ${typeClass} mb-2 bg-light rounded">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
+                        <div class="flex-grow-1 mr-2" style="min-width: 0;">
                             <span class="badge ${typeBadge} mr-1">${escapeHtml(entryType.toUpperCase())}</span>
                             <span class="badge badge-secondary">${escapeHtml(entrySubType)}</span>
-                            ${needsCoord ? `<span class="badge badge-warning ml-1" title="${PERTII18n.t('tmiPublish.queueItem.requiresCoord')}">⚡</span>` : ''}
-                            <div class="mt-2 font-monospace small text-dark" style="white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${escapeHtml(displayText)}</div>
+                            ${needsCoord ? `<span class="badge badge-warning ml-1" title="${PERTII18n.t('tmiPublish.queueItem.requiresCoord')}">&#9889;</span>` : ''}
+                            ${expandToggle}
+                            <div class="mt-1 font-monospace text-dark queue-preview-short" data-index="${index}" style="white-space: pre-wrap; font-size: 0.72rem; max-height: 60px; overflow: hidden;">${escapeHtml(shortText)}</div>
+                            <div class="mt-1 font-monospace text-dark queue-preview-full" data-index="${index}" style="white-space: pre-wrap; font-size: 0.72rem; display: none;">${escapeHtml(previewText)}</div>
                             <div class="mt-1 small text-muted">
                                 <i class="fab fa-discord"></i> ${orgs.join(', ')}
                             </div>
                         </div>
-                        <div class="ml-2 d-flex flex-column">
+                        <div class="d-flex flex-column flex-shrink-0">
                             <button class="btn btn-sm ${submitBtnClass} mb-1" onclick="TMIPublisher.submitSingleEntry(${index})" title="${submitBtnTitle}">
                                 <i class="fas ${submitBtnIcon}"></i><span class="ml-1 d-none d-sm-inline">${submitBtnText}</span>
                             </button>
@@ -3913,6 +4087,23 @@
         });
 
         container.html(html);
+
+        // Wire up expand/collapse toggles for multi-line entries
+        container.find('.queue-expand-toggle').on('click', function() {
+            const idx = $(this).data('index');
+            const $short = container.find(`.queue-preview-short[data-index="${idx}"]`);
+            const $full = container.find(`.queue-preview-full[data-index="${idx}"]`);
+            const isExpanded = $full.is(':visible');
+            if (isExpanded) {
+                $full.hide();
+                $short.show();
+                $(this).html('<i class="fas fa-chevron-down"></i> Show full');
+            } else {
+                $short.hide();
+                $full.show();
+                $(this).html('<i class="fas fa-chevron-up"></i> Collapse');
+            }
+        });
     }
 
     function removeFromQueue(index) {
@@ -7540,6 +7731,12 @@
                 this.loadFromSessionStorage();
             }
 
+            // Set facility default from org config
+            const defaultFacility = window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC';
+            if (!$('#rr_facility').val()) {
+                $('#rr_facility').val(defaultFacility);
+            }
+
             // Bind events
             this.bindEvents();
 
@@ -7649,13 +7846,8 @@
                 this.autoGenerateIncludeTraffic();
             }
 
-            // Auto-fill constrained area if not provided
-            if (!adv.constrainedArea) {
-                const routes = this.collectRoutes();
-                const dests = new Set();
-                routes.forEach(r => { if (r.destination) {dests.add(r.destination.toUpperCase());} });
-                if (dests.size) {$('#rr_constrained_area').val(Array.from(dests).join('/'));}
-            }
+            // Auto-generate facilities included
+            this.autoGenerateFacilitiesIncluded();
 
             // Auto-fill route name if not already set
             if (!adv.name) {
@@ -7671,56 +7863,85 @@
         /**
          * Auto-fill route name based on playbook/CDR usage
          * Logic:
-         *   - 1 Playbook route: {Play name}
-         *   - Part of playbook route: {Play name}_PARTIAL
-         *   - 1 Playbook + additional routes: {Play name}_MOD
+         *   - All playbook routes present: {Play name}
+         *   - Only some playbook routes: {Play name}_PARTIAL
+         *   - Playbook + non-playbook routes mixed: {Play name}_MODIFIED
+         *   - Multiple playbooks: {Play name}_MULTI
          *   - Otherwise: let user define
          */
         autoFillRouteName: function() {
-            if (!this.rerouteData) {return;}
-
-            const procedures = this.rerouteData.procedures || [];
-            const routes = this.rerouteData.routes || [];
+            const procedures = (this.rerouteData && this.rerouteData.procedures) || [];
+            const originalRoutes = (this.rerouteData && this.rerouteData.routes) || [];
+            const liveRoutes = this.collectRoutes();
 
             // Extract playbook names from procedures
-            const playbookNames = procedures
-                .filter(p => p.startsWith('PB: '))
-                .map(p => p.slice(4).trim());
+            const playbookNames = [...new Set(
+                procedures
+                    .filter(p => p.startsWith('PB: '))
+                    .map(p => p.slice(4).trim()),
+            )];
 
             // Extract CDR codes from procedures
-            const cdrCodes = procedures
-                .filter(p => p.startsWith('CDR: '))
-                .map(p => p.slice(5).trim());
+            const cdrCodes = [...new Set(
+                procedures
+                    .filter(p => p.startsWith('CDR: '))
+                    .map(p => p.slice(5).trim()),
+            )];
+
+            // Also check individual routes for playbook/CDR info
+            originalRoutes.forEach(r => {
+                if (r.playbookName && !playbookNames.includes(r.playbookName)) {
+                    playbookNames.push(r.playbookName);
+                }
+                if (r.cdrCode && !cdrCodes.includes(r.cdrCode)) {
+                    cdrCodes.push(r.cdrCode);
+                }
+            });
+
+            // Count how many live routes are playbook-sourced vs not
+            const originalRouteCount = originalRoutes.length;
+            const liveRouteCount = liveRoutes.length;
+            const hasPlaybook = playbookNames.length > 0;
+
+            // Determine how many original playbook routes remain in live table
+            let pbRoutesRemaining = 0;
+            let nonPbRoutes = 0;
+            if (hasPlaybook && originalRouteCount > 0) {
+                // Compare live routes against original playbook routes
+                const origRouteStrings = new Set(originalRoutes.map(r => (r.route || '').toUpperCase().trim()));
+                liveRoutes.forEach(r => {
+                    const rStr = (r.route || '').toUpperCase().trim();
+                    if (origRouteStrings.has(rStr)) {
+                        pbRoutesRemaining++;
+                    } else {
+                        nonPbRoutes++;
+                    }
+                });
+            }
 
             let autoName = '';
 
             if (playbookNames.length === 1 && cdrCodes.length === 0) {
-                // Single playbook route
                 const pbName = playbookNames[0];
 
-                // Check if routes match full playbook or are partial
-                // For simplicity, if route count > 0, assume it's complete
-                // "Partial" would need more complex analysis of actual vs expected routes
-                autoName = pbName;
-
-                // If there are additional non-playbook routes, mark as _MOD
-                // This is a heuristic - if rawInput contains lines not starting with PB.
-                const rawInput = (this.rerouteData.rawInput || '').trim();
-                const lines = rawInput.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('['));
-                const pbLines = lines.filter(l => l.trim().toUpperCase().startsWith('PB.'));
-                const nonPbLines = lines.filter(l => !l.trim().toUpperCase().startsWith('PB.') && !l.trim().startsWith(';'));
-
-                if (nonPbLines.length > 0 && pbLines.length > 0) {
-                    autoName = pbName + '_MOD';
+                if (nonPbRoutes > 0) {
+                    // Mix of playbook + non-playbook routes
+                    autoName = pbName + '_MODIFIED';
+                } else if (pbRoutesRemaining < originalRouteCount && pbRoutesRemaining > 0) {
+                    // Only some playbook routes remain
+                    autoName = pbName + '_PARTIAL';
+                } else if (pbRoutesRemaining === 0 && liveRouteCount === 0) {
+                    // No routes left
+                    autoName = pbName;
+                } else {
+                    // All playbook routes present (or no original data to compare)
+                    autoName = pbName;
                 }
             } else if (playbookNames.length > 1) {
-                // Multiple playbook routes - use first one + _MULTI
                 autoName = playbookNames[0] + '_MULTI';
             } else if (cdrCodes.length === 1 && playbookNames.length === 0) {
-                // Single CDR code
                 autoName = cdrCodes[0];
             } else if (cdrCodes.length > 1 && playbookNames.length === 0) {
-                // Multiple CDR codes
                 autoName = cdrCodes[0] + '_MULTI';
             }
 
@@ -8372,10 +8593,11 @@
                 constrained_area: $('#rr_constrained_area').val() || '',
                 reason: $('#rr_reason').val() || 'WEATHER',
                 include_traffic: $('#rr_include_traffic').val() || '',
-                facilities_included: facilities.join('/'),
+                facilities_included: $('#rr_facilities_included').val() || facilities.join(' '),
                 valid_from: $('#rr_valid_from').val() || '',
                 valid_until: $('#rr_valid_until').val() || '',
                 time_basis: $('#rr_time_basis').val() || 'ETD',
+                airborne_filter: $('#rr_airborne_filter').val() || 'ALL',
                 prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                 remarks: $('#rr_remarks').val() || '',
                 restrictions: $('#rr_restrictions').val() || '',
@@ -8488,7 +8710,14 @@
             addLabeledField(lines, 'REASON', params.reason);
             addLabeledField(lines, 'INCLUDE TRAFFIC', params.include_traffic);
             addLabeledField(lines, 'FACILITIES INCLUDED', params.facilities_included);
-            lines.push('FLIGHT STATUS: ALL FLIGHTS');
+            // Map airborne filter to display text
+            const airborneMap = {
+                'ALL': 'ALL FLIGHTS',
+                'NOT_AIRBORNE': 'NOT AIRBORNE ONLY',
+                'AIRBORNE_ONLY': 'AIRBORNE ONLY',
+            };
+            const flightStatus = airborneMap[params.airborne_filter] || 'ALL FLIGHTS';
+            lines.push(`FLIGHT STATUS: ${flightStatus}`);
             lines.push(`VALID: ${params.time_basis} ${startStr} TO ${endStr}`);
             addLabeledField(lines, 'PROBABILITY OF EXTENSION', params.prob_extension);
             addLabeledField(lines, 'REMARKS', params.remarks);
@@ -8588,8 +8817,8 @@
                 const origItems = orig.trim() ? orig.trim().split(/[\s/]+/).filter(Boolean) : [];
                 const destItems = dest.trim() ? dest.trim().split(/[\s/]+/).filter(Boolean) : [];
 
-                // Chunk items to fit in column (using "/" separator for compact display)
-                const chunkItemsToFit = (items, maxLen, sep = '/') => {
+                // Chunk items to fit in column (using space separator)
+                const chunkItemsToFit = (items, maxLen, sep = ' ') => {
                     if (!items.length) {return [''];}
                     const chunks = [];
                     let current = [];
@@ -9648,10 +9877,11 @@
                     constrained_area: $('#rr_constrained_area').val() || '',
                     reason: $('#rr_reason').val() || 'WEATHER',
                     include_traffic: $('#rr_include_traffic').val() || '',
+                    facilities_included: $('#rr_facilities_included').val() || '',
                     valid_from: $('#rr_valid_from').val() || '',
                     valid_until: $('#rr_valid_until').val() || '',
                     time_basis: $('#rr_time_basis').val() || 'ETD',
-                    airborne_filter: $('#rr_airborne_filter').val() || 'NOT_AIRBORNE',
+                    airborne_filter: $('#rr_airborne_filter').val() || 'ALL',
                     prob_extension: $('#rr_prob_extension').val() || 'MEDIUM',
                     remarks: $('#rr_remarks').val() || '',
                     color: $('#rr_color').val() || '#e74c3c',
@@ -9897,12 +10127,15 @@
                 self.onRoutesChanged();
             });
 
-            // Recalculate include traffic when origin/dest fields change
+            // Recalculate include traffic, facilities, and route name when route fields change
             let routeChangeTimer = null;
-            $(document).on('input', '.rr-route-origin, .rr-route-dest', function() {
+            $(document).on('input', '.rr-route-origin, .rr-route-dest, .rr-route-string', function() {
                 clearTimeout(routeChangeTimer);
                 routeChangeTimer = setTimeout(() => self.onRoutesChanged(), 400);
             });
+
+            // "Auto" button to recalculate facilities included
+            $('#rr_recalc_facilities').on('click', () => self.autoGenerateFacilitiesIncluded());
 
             $(document).on('click', '.rr-draft-item', function(e) {
                 e.preventDefault();
@@ -10059,25 +10292,59 @@
 
         /**
          * Called when routes are added, removed, or origin/dest fields change.
-         * Recalculates include traffic and constrained area from current table state.
+         * Recalculates include traffic and facilities included from current table state.
          */
         onRoutesChanged: function() {
             if (this._suppressAutoCalc) {return;}
 
-            const routes = this.collectRoutes();
-
             // Recalculate include traffic
             this.autoGenerateIncludeTraffic();
 
-            // Recalculate constrained area from unique destinations
-            const dests = new Set();
+            // Recalculate facilities included
+            this.autoGenerateFacilitiesIncluded();
+
+            // Recalculate route name (handles _PARTIAL/_MODIFIED)
+            this.autoFillRouteName();
+        },
+
+        /**
+         * Auto-generate Facilities Included from route origins.
+         * Extracts unique ARTCC/FIR/TRACON codes from route origin fields.
+         */
+        autoGenerateFacilitiesIncluded: function() {
+            const routes = this.collectRoutes();
+            const facilities = new Set();
+
             routes.forEach(r => {
-                if (r.destination) {dests.add(r.destination.toUpperCase());}
+                // Extract from origin (may be slash or space separated)
+                const origTokens = (r.origin || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
+                origTokens.forEach(t => {
+                    if (this.isFacilityCode(t)) {facilities.add(t);}
+                });
+                // Also check destination for facilities (FIR-to-FIR routes)
+                const destTokens = (r.destination || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
+                destTokens.forEach(t => {
+                    if (this.isFacilityCode(t)) {facilities.add(t);}
+                });
+                // For airport origins, look up parent ARTCC if FacilityHierarchy available
+                origTokens.forEach(t => {
+                    if (this.isAirportCode(t) && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TO_ARTCC) {
+                        const artcc = FacilityHierarchy.AIRPORT_TO_ARTCC[t];
+                        if (artcc) {facilities.add(artcc);}
+                    }
+                });
+                destTokens.forEach(t => {
+                    if (this.isAirportCode(t) && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TO_ARTCC) {
+                        const artcc = FacilityHierarchy.AIRPORT_TO_ARTCC[t];
+                        if (artcc) {facilities.add(artcc);}
+                    }
+                });
             });
-            if (dests.size) {
-                $('#rr_constrained_area').val(Array.from(dests).join('/'));
+
+            if (facilities.size) {
+                $('#rr_facilities_included').val(Array.from(facilities).sort().join(' '));
             } else {
-                $('#rr_constrained_area').val('');
+                $('#rr_facilities_included').val('');
             }
         },
     };

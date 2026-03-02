@@ -98,9 +98,13 @@ USING (VALUES
     ('1stTier', '1st Tier', 'RADIAL', 2),
     ('2ndTier', '2nd Tier', 'RADIAL', 3),
     ('1stTier+Canada', '1st Tier + Canada', 'RADIAL', 4),
+    ('1stTier+US', '1st Tier + US', 'RADIAL', 5),
+    ('1stTier+Oceanic', '1st Tier + Oceanic', 'RADIAL', 6),
     ('6West', '6 West', 'REGIONAL', 10),
     ('10West', '10 West', 'REGIONAL', 11),
     ('12West', '12 West', 'REGIONAL', 12),
+    ('canWest', 'Canada West', 'REGIONAL', 13),
+    ('canEast', 'Canada East', 'REGIONAL', 14),
     ('eastCoast', 'East Coast', 'COASTAL', 20),
     ('westCoast', 'West Coast', 'COASTAL', 21),
     ('gulf', 'Gulf', 'COASTAL', 22)
@@ -133,8 +137,8 @@ USING (
         ('10WEST', '10 West', '10West', 'Ten western ARTCCs', 2),
         ('12WEST', '12 West', '12West', 'Twelve western/central ARTCCs', 3),
         ('EASTCOAST', 'East Coast', 'eastCoast', 'East coast corridor: ZBW, ZNY, ZDC, ZJX, ZMA', 4),
-        ('CANWEST', 'Canada West', NULL, 'Western Canadian FIRs: CZVR, CZEG', 7),
-        ('CANEAST', 'Canada East', NULL, 'Eastern Canadian FIRs: CZWG, CZYZ, CZUL, CZQM', 8),
+        ('CANWEST', 'Canada West', NULL, 'Western Canadian FIRs: CZVR, CZEG, CZWG', 7),
+        ('CANEAST', 'Canada East', NULL, 'Eastern Canadian FIRs: CZYZ, CZUL, CZQM, CZQX, CZQO', 8),
         ('WESTCOAST', 'West Coast', 'westCoast', 'West coast corridor: ZSE, ZOA, ZLA', 5),
         ('GULF', 'Gulf', 'gulf', 'Gulf region: ZJX, ZMA, ZHU', 6),
         ('ALL', 'All US ARTCCs', NULL, 'All 20 CONUS ARTCCs', 99),
@@ -258,7 +262,8 @@ INSERT INTO dbo.artcc_tier_group_members (tier_group_id, facility_id, display_or
 SELECT tg.tier_group_id, f.facility_id, v.display_order
 FROM (VALUES
     ('CANWEST', 'CZVR', 1),
-    ('CANWEST', 'CZEG', 2)
+    ('CANWEST', 'CZEG', 2),
+    ('CANWEST', 'CZWG', 3)
 ) AS v (group_code, facility_code, display_order)
 INNER JOIN dbo.artcc_tier_groups tg ON tg.tier_group_code = v.group_code
 INNER JOIN dbo.artcc_facilities f ON f.facility_code = v.facility_code;
@@ -267,10 +272,11 @@ INNER JOIN dbo.artcc_facilities f ON f.facility_code = v.facility_code;
 INSERT INTO dbo.artcc_tier_group_members (tier_group_id, facility_id, display_order)
 SELECT tg.tier_group_id, f.facility_id, v.display_order
 FROM (VALUES
-    ('CANEAST', 'CZWG', 1),
-    ('CANEAST', 'CZYZ', 2),
-    ('CANEAST', 'CZUL', 3),
-    ('CANEAST', 'CZQM', 4)
+    ('CANEAST', 'CZYZ', 1),
+    ('CANEAST', 'CZUL', 2),
+    ('CANEAST', 'CZQM', 3),
+    ('CANEAST', 'CZQX', 4),
+    ('CANEAST', 'CZQO', 5)
 ) AS v (group_code, facility_code, display_order)
 INNER JOIN dbo.artcc_tier_groups tg ON tg.tier_group_code = v.group_code
 INNER JOIN dbo.artcc_facilities f ON f.facility_code = v.facility_code;
@@ -589,7 +595,67 @@ INSERT INTO #FacilityConfigs VALUES
 -- ZTL
 ('ZTL', 'ZTLI', '(Internal)', 'internal', NULL, 1, 0),
 ('ZTL', 'ZTL1', '(1stTier)', '1stTier', NULL, 2, 1),
-('ZTL', 'ZTL2', '(2ndTier)', '2ndTier', NULL, 3, 0);
+('ZTL', 'ZTL2', '(2ndTier)', '2ndTier', NULL, 3, 0),
+
+-- ==========================================
+-- Canadian FIR Tier Configs
+-- Source: PostGIS boundary_adjacency (LINE + POLY = neighbor)
+-- 1stTier = Canadian neighbors only
+-- +US = Canadian + US neighbors
+-- +Oceanic = Canadian + US + Oceanic/International
+-- CanWest/CanEast = Regional group reference
+-- ==========================================
+
+-- CZVR (Vancouver) - neighbors: CZEG(POLY) | US: ZSE(POLY)
+('CZVR', 'CZVRI', '(Internal)', 'internal', NULL, 1, 0),
+('CZVR', 'CZVR1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZVR', 'CZVR1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZVR', 'CZVRW', '(CanWest)', 'canWest', 'CANWEST', 4, 0),
+
+-- CZEG (Edmonton) - neighbors: CZVR(POLY),CZWG(POLY),CZUL,CZYZ,CZQO,CZQM | US: ZLC,ZSE | Oceanic: BGGL,BIRD,NAT
+('CZEG', 'CZEGI', '(Internal)', 'internal', NULL, 1, 0),
+('CZEG', 'CZEG1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZEG', 'CZEG1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZEG', 'CZEG1O', '(1stTier+Oceanic)', '1stTier+Oceanic', NULL, 4, 0),
+('CZEG', 'CZEGW', '(CanWest)', 'canWest', 'CANWEST', 5, 0),
+
+-- CZWG (Winnipeg) - neighbors: CZEG(POLY),CZUL,CZYZ | US: ZMP,ZLC
+('CZWG', 'CZWGI', '(Internal)', 'internal', NULL, 1, 0),
+('CZWG', 'CZWG1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZWG', 'CZWG1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZWG', 'CZWGW', '(CanWest)', 'canWest', 'CANWEST', 4, 0),
+
+-- CZYZ (Toronto) - neighbors: CZUL,CZWG,CZEG | US: ZOB,ZMP,ZBW
+('CZYZ', 'CZYZI', '(Internal)', 'internal', NULL, 1, 0),
+('CZYZ', 'CZYZ1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZYZ', 'CZYZ1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZYZ', 'CZYZE', '(CanEast)', 'canEast', 'CANEAST', 4, 0),
+
+-- CZUL (Montreal) - neighbors: CZQM(POLY),CZQX(POLY),CZEG,CZYZ,CZWG,CZQO | US: ZBW | Oceanic: NAT
+('CZUL', 'CZULI', '(Internal)', 'internal', NULL, 1, 0),
+('CZUL', 'CZUL1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZUL', 'CZUL1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZUL', 'CZUL1O', '(1stTier+Oceanic)', '1stTier+Oceanic', NULL, 4, 0),
+('CZUL', 'CZULE', '(CanEast)', 'canEast', 'CANEAST', 5, 0),
+
+-- CZQM (Moncton) - neighbors: CZUL(POLY),CZQO(POLY),CZQX,CZEG | US: ZBW | Oceanic: BIRD,BGGL,NAT
+('CZQM', 'CZQMI', '(Internal)', 'internal', NULL, 1, 0),
+('CZQM', 'CZQM1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZQM', 'CZQM1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZQM', 'CZQM1O', '(1stTier+Oceanic)', '1stTier+Oceanic', NULL, 4, 0),
+('CZQM', 'CZQME', '(CanEast)', 'canEast', 'CANEAST', 5, 0),
+
+-- CZQX (Gander Domestic) - neighbors: CZUL(POLY),CZQM | US: ZBW
+('CZQX', 'CZQXI', '(Internal)', 'internal', NULL, 1, 0),
+('CZQX', 'CZQX1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZQX', 'CZQX1U', '(1stTier+US)', '1stTier+US', NULL, 3, 0),
+('CZQX', 'CZQXE', '(CanEast)', 'canEast', 'CANEAST', 4, 0),
+
+-- CZQO (Gander Oceanic/Arctic) - neighbors: CZQM(POLY),CZUL,CZEG | Oceanic: EGGX,BIRD,LPPO,BGGL,NAT
+('CZQO', 'CZQOI', '(Internal)', 'internal', NULL, 1, 0),
+('CZQO', 'CZQO1', '(1stTier)', '1stTier', NULL, 2, 1),
+('CZQO', 'CZQO1O', '(1stTier+Oceanic)', '1stTier+Oceanic', NULL, 3, 0),
+('CZQO', 'CZQOE', '(CanEast)', 'canEast', 'CANEAST', 4, 0);
 
 -- Insert into facility_tier_configs
 INSERT INTO dbo.facility_tier_configs (facility_id, config_code, config_label, tier_type_id, tier_group_id, display_order, is_default)
@@ -799,7 +865,87 @@ INSERT INTO #ConfigMembers VALUES
 ('ZTL1', 'ZTL', 1), ('ZTL1', 'ZID', 2), ('ZTL1', 'ZDC', 3), ('ZTL1', 'ZJX', 4), ('ZTL1', 'ZME', 5), ('ZTL1', 'ZHU', 6),
 -- ZTL 2nd Tier
 ('ZTL2', 'ZTL', 1), ('ZTL2', 'ZID', 2), ('ZTL2', 'ZDC', 3), ('ZTL2', 'ZJX', 4), ('ZTL2', 'ZME', 5), ('ZTL2', 'ZHU', 6),
-('ZTL2', 'ZAB', 7), ('ZTL2', 'ZFW', 8), ('ZTL2', 'ZKC', 9), ('ZTL2', 'ZAU', 10), ('ZTL2', 'ZOB', 11), ('ZTL2', 'ZNY', 12), ('ZTL2', 'ZBW', 13), ('ZTL2', 'ZMA', 14);
+('ZTL2', 'ZAB', 7), ('ZTL2', 'ZFW', 8), ('ZTL2', 'ZKC', 9), ('ZTL2', 'ZAU', 10), ('ZTL2', 'ZOB', 11), ('ZTL2', 'ZNY', 12), ('ZTL2', 'ZBW', 13), ('ZTL2', 'ZMA', 14),
+
+-- ==========================================
+-- Canadian FIR Config Members
+-- Source: PostGIS boundary_adjacency (LINE + POLY adjacencies)
+-- ==========================================
+
+-- CZVR Internal
+('CZVRI', 'CZVR', 1),
+-- CZVR 1st Tier (Canadian neighbors only)
+('CZVR1', 'CZVR', 1), ('CZVR1', 'CZEG', 2),
+-- CZVR 1st Tier + US
+('CZVR1U', 'CZVR', 1), ('CZVR1U', 'CZEG', 2),
+('CZVR1U', 'ZSE', 3),
+
+-- CZEG Internal
+('CZEGI', 'CZEG', 1),
+-- CZEG 1st Tier (Canadian neighbors only)
+('CZEG1', 'CZEG', 1), ('CZEG1', 'CZVR', 2), ('CZEG1', 'CZWG', 3), ('CZEG1', 'CZUL', 4), ('CZEG1', 'CZYZ', 5), ('CZEG1', 'CZQM', 6), ('CZEG1', 'CZQO', 7),
+-- CZEG 1st Tier + US
+('CZEG1U', 'CZEG', 1), ('CZEG1U', 'CZVR', 2), ('CZEG1U', 'CZWG', 3), ('CZEG1U', 'CZUL', 4), ('CZEG1U', 'CZYZ', 5), ('CZEG1U', 'CZQM', 6), ('CZEG1U', 'CZQO', 7),
+('CZEG1U', 'ZLC', 8), ('CZEG1U', 'ZSE', 9),
+-- CZEG 1st Tier + Oceanic
+('CZEG1O', 'CZEG', 1), ('CZEG1O', 'CZVR', 2), ('CZEG1O', 'CZWG', 3), ('CZEG1O', 'CZUL', 4), ('CZEG1O', 'CZYZ', 5), ('CZEG1O', 'CZQM', 6), ('CZEG1O', 'CZQO', 7),
+('CZEG1O', 'ZLC', 8), ('CZEG1O', 'ZSE', 9),
+('CZEG1O', 'BGGL', 10), ('CZEG1O', 'BIRD', 11),
+
+-- CZWG Internal
+('CZWGI', 'CZWG', 1),
+-- CZWG 1st Tier (Canadian neighbors only)
+('CZWG1', 'CZWG', 1), ('CZWG1', 'CZEG', 2), ('CZWG1', 'CZYZ', 3), ('CZWG1', 'CZUL', 4),
+-- CZWG 1st Tier + US
+('CZWG1U', 'CZWG', 1), ('CZWG1U', 'CZEG', 2), ('CZWG1U', 'CZYZ', 3), ('CZWG1U', 'CZUL', 4),
+('CZWG1U', 'ZMP', 5), ('CZWG1U', 'ZLC', 6),
+
+-- CZYZ Internal
+('CZYZI', 'CZYZ', 1),
+-- CZYZ 1st Tier (Canadian neighbors only)
+('CZYZ1', 'CZYZ', 1), ('CZYZ1', 'CZWG', 2), ('CZYZ1', 'CZUL', 3), ('CZYZ1', 'CZEG', 4),
+-- CZYZ 1st Tier + US
+('CZYZ1U', 'CZYZ', 1), ('CZYZ1U', 'CZWG', 2), ('CZYZ1U', 'CZUL', 3), ('CZYZ1U', 'CZEG', 4),
+('CZYZ1U', 'ZOB', 5), ('CZYZ1U', 'ZMP', 6), ('CZYZ1U', 'ZBW', 7),
+
+-- CZUL Internal
+('CZULI', 'CZUL', 1),
+-- CZUL 1st Tier (Canadian neighbors only)
+('CZUL1', 'CZUL', 1), ('CZUL1', 'CZEG', 2), ('CZUL1', 'CZYZ', 3), ('CZUL1', 'CZWG', 4), ('CZUL1', 'CZQM', 5), ('CZUL1', 'CZQX', 6), ('CZUL1', 'CZQO', 7),
+-- CZUL 1st Tier + US
+('CZUL1U', 'CZUL', 1), ('CZUL1U', 'CZEG', 2), ('CZUL1U', 'CZYZ', 3), ('CZUL1U', 'CZWG', 4), ('CZUL1U', 'CZQM', 5), ('CZUL1U', 'CZQX', 6), ('CZUL1U', 'CZQO', 7),
+('CZUL1U', 'ZBW', 8),
+-- CZUL 1st Tier + Oceanic
+('CZUL1O', 'CZUL', 1), ('CZUL1O', 'CZEG', 2), ('CZUL1O', 'CZYZ', 3), ('CZUL1O', 'CZWG', 4), ('CZUL1O', 'CZQM', 5), ('CZUL1O', 'CZQX', 6), ('CZUL1O', 'CZQO', 7),
+('CZUL1O', 'ZBW', 8),
+('CZUL1O', 'NAT', 9),
+
+-- CZQM Internal
+('CZQMI', 'CZQM', 1),
+-- CZQM 1st Tier (Canadian neighbors only)
+('CZQM1', 'CZQM', 1), ('CZQM1', 'CZUL', 2), ('CZQM1', 'CZQX', 3), ('CZQM1', 'CZQO', 4), ('CZQM1', 'CZEG', 5),
+-- CZQM 1st Tier + US
+('CZQM1U', 'CZQM', 1), ('CZQM1U', 'CZUL', 2), ('CZQM1U', 'CZQX', 3), ('CZQM1U', 'CZQO', 4), ('CZQM1U', 'CZEG', 5),
+('CZQM1U', 'ZBW', 6),
+-- CZQM 1st Tier + Oceanic
+('CZQM1O', 'CZQM', 1), ('CZQM1O', 'CZUL', 2), ('CZQM1O', 'CZQX', 3), ('CZQM1O', 'CZQO', 4), ('CZQM1O', 'CZEG', 5),
+('CZQM1O', 'ZBW', 6), ('CZQM1O', 'BIRD', 7), ('CZQM1O', 'BGGL', 8),
+
+-- CZQX Internal
+('CZQXI', 'CZQX', 1),
+-- CZQX 1st Tier (Canadian neighbors only)
+('CZQX1', 'CZQX', 1), ('CZQX1', 'CZUL', 2), ('CZQX1', 'CZQM', 3),
+-- CZQX 1st Tier + US
+('CZQX1U', 'CZQX', 1), ('CZQX1U', 'CZUL', 2), ('CZQX1U', 'CZQM', 3),
+('CZQX1U', 'ZBW', 4),
+
+-- CZQO Internal
+('CZQOI', 'CZQO', 1),
+-- CZQO 1st Tier (Canadian neighbors only)
+('CZQO1', 'CZQO', 1), ('CZQO1', 'CZUL', 2), ('CZQO1', 'CZQM', 3), ('CZQO1', 'CZEG', 4),
+-- CZQO 1st Tier + Oceanic
+('CZQO1O', 'CZQO', 1), ('CZQO1O', 'CZUL', 2), ('CZQO1O', 'CZQM', 3), ('CZQO1O', 'CZEG', 4),
+('CZQO1O', 'EGGX', 5), ('CZQO1O', 'BIRD', 6), ('CZQO1O', 'LPPO', 7), ('CZQO1O', 'BGGL', 8);
 
 -- Insert into facility_tier_config_members (only for configs without tier_group_id)
 INSERT INTO dbo.facility_tier_config_members (config_id, facility_id, display_order)

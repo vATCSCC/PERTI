@@ -606,12 +606,12 @@
         'CANWEST': {
             name: 'Canada West',
             description: 'Western Canadian FIRs',
-            artccs: ['CZVR', 'CZEG'],
+            artccs: ['CZVR', 'CZEG', 'CZWG'],
         },
         'CANEAST': {
             name: 'Canada East',
             description: 'Eastern Canadian FIRs',
-            artccs: ['CZWG', 'CZYZ', 'CZUL', 'CZQM'],
+            artccs: ['CZYZ', 'CZUL', 'CZQM', 'CZQX', 'CZQO'],
         },
         // ECFMP FABs (Functional Airspace Blocks)
         'UK_IRELAND': {

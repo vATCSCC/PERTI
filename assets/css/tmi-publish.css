@@ -150,6 +150,58 @@
 }
 
 /* ===========================================
+   NTML Form Compact Layout
+   =========================================== */
+#ntmlFormContainer .form-group,
+#ntmlFormContainer .mb-3 {
+    margin-bottom: 0.4rem !important;
+}
+
+#ntmlFormContainer .form-control {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    height: auto;
+}
+
+#ntmlFormContainer .form-label,
+#ntmlFormContainer label {
+    margin-bottom: 0.1rem;
+    font-size: 0.72rem;
+}
+
+#ntmlFormContainer .card-body {
+    padding: 0.6rem;
+}
+
+#ntmlFormContainer .row.mb-3 {
+    margin-bottom: 0.35rem !important;
+}
+
+#ntmlFormContainer .qualifier-btn {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+}
+
+#ntmlFormContainer .qualifier-group {
+    margin-bottom: 0.25rem !important;
+}
+
+.ntml-preview {
+    font-family: var(--tmi-mono, 'Courier New', monospace);
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin: 0;
+    min-height: 80px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+/* ===========================================
    Advisory Type Cards
    =========================================== */
 .advisory-type-card {

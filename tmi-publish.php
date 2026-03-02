@@ -550,7 +550,7 @@ $perm = true;
                                 </div>
                                 <div class="form-group col-md-2">
                                     <label class="tmi-label mb-0"><?= __('tmiPublish.page.facility') ?></label>
-                                    <input type="text" class="form-control" id="rr_facility" value="<?= htmlspecialchars($org_info_header['display_name'] ?? 'DCC') ?>">
+                                    <input type="text" class="form-control" id="rr_facility" value="">
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label class="tmi-label mb-0"><?= __('tmiPublish.page.routeName') ?></label>
@@ -635,10 +635,23 @@ $perm = true;
                                 <div class="form-group col-md-3">
                                     <label class="tmi-label mb-0"><?= __('tmiPublish.page.airborneFilter') ?></label>
                                     <select class="form-control" id="rr_airborne_filter">
-                                        <option value="NOT_AIRBORNE" selected><?= __('tmiPublish.page.notAirborneOnly') ?></option>
-                                        <option value="ALL"><?= __('tmiPublish.page.allFlights') ?></option>
+                                        <option value="ALL" selected><?= __('tmiPublish.page.allFlights') ?></option>
+                                        <option value="NOT_AIRBORNE"><?= __('tmiPublish.page.notAirborneOnly') ?></option>
                                         <option value="AIRBORNE_ONLY"><?= __('tmiPublish.page.airborneOnly') ?></option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group col-md-12">
+                                    <label class="tmi-label mb-0">FACILITIES INCLUDED
+                                        <button type="button" class="btn btn-link btn-sm p-0 ml-2" id="rr_recalc_facilities"
+                                                title="Recalculate from routes" style="font-size: 0.7rem;">
+                                            <i class="fas fa-sync-alt"></i> Auto
+                                        </button>
+                                    </label>
+                                    <input type="text" class="form-control" id="rr_facilities_included"
+                                           placeholder="Auto-calculated from route origins (e.g., ZAU ZDV ZBW)">
                                 </div>
                             </div>
 
