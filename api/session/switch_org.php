@@ -67,8 +67,15 @@ if ($cid) {
     $_SESSION['ORG_CODE'] = $target_org;
     $_SESSION['ORG_PRIVILEGED'] = false;
     $_SESSION['ORG_GLOBAL'] = false;
-    $_SESSION['ORG_ALL'] = [$target_org];
     $_SESSION['PERTI_LOCALE'] = $org_row['default_locale'] ?? 'en-US';
+
+    // Preserve all active orgs so user can switch back
+    $all_orgs_stmt = mysqli_query($conn_sqli, "SELECT org_code FROM organizations WHERE is_active = 1 AND org_code != 'global' ORDER BY org_code");
+    $all_active = [];
+    if ($all_orgs_stmt) {
+        while ($r = mysqli_fetch_assoc($all_orgs_stmt)) { $all_active[] = $r['org_code']; }
+    }
+    $_SESSION['ORG_ALL'] = !empty($all_active) ? $all_active : [$target_org];
 
     // Clear cached org info
     unset($_SESSION['ORG_INFO_' . $target_org]);

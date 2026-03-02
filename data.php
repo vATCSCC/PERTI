@@ -30,6 +30,30 @@ include("sessions/handler.php");
     }
 
     $plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
+
+    // Org scope: make all active orgs available so the switcher shows for public users
+    $plan_org_code = $plan_info['org_code'] ?? null;
+    if (!isset($_SESSION['VATSIM_CID']) || empty($_SESSION['VATSIM_CID'])) {
+        // Load all active orgs for the switcher
+        $all_active_orgs = [];
+        $org_result = $conn_sqli->query("SELECT org_code FROM organizations WHERE is_active = 1 AND org_code != 'global' ORDER BY org_code");
+        if ($org_result) {
+            while ($r = $org_result->fetch_assoc()) {
+                $all_active_orgs[] = $r['org_code'];
+            }
+        }
+        if (!empty($all_active_orgs)) {
+            $_SESSION['ORG_ALL'] = $all_active_orgs;
+        }
+
+        // Auto-detect org from plan if not already set by user
+        if ($plan_org_code && (!isset($_SESSION['ORG_CODE']) || $_SESSION['ORG_CODE'] === 'vatcscc')) {
+            $_SESSION['ORG_CODE'] = $plan_org_code;
+            // Cache org display info
+            require_once 'load/org_context.php';
+            if ($conn_sqli) { get_org_info($conn_sqli); }
+        }
+    }
 ?>
 
 <!DOCTYPE html>

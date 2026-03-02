@@ -1141,7 +1141,7 @@ class InitiativeTimeline {
             if (pct >= 0 && pct <= 100) {
                 startEl.style.display = 'block';
                 startEl.style.left = `${pct}%`;
-                startEl.querySelector('.dcccp-event-marker-label').textContent = `START ${fmtZ(this.eventStart)}`;
+                startEl.querySelector('.dcccp-event-marker-label').textContent = PERTII18n.t('initiative.eventStartLabel', { time: fmtZ(this.eventStart) });
             } else {
                 startEl.style.display = 'none';
             }
@@ -1154,7 +1154,7 @@ class InitiativeTimeline {
             if (pct >= 0 && pct <= 100) {
                 endEl.style.display = 'block';
                 endEl.style.left = `${pct}%`;
-                endEl.querySelector('.dcccp-event-marker-label').textContent = `END ${fmtZ(this.eventEnd)}`;
+                endEl.querySelector('.dcccp-event-marker-label').textContent = PERTII18n.t('initiative.eventEndLabel', { time: fmtZ(this.eventEnd) });
             } else {
                 endEl.style.display = 'none';
             }

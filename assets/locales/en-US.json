@@ -1643,6 +1643,8 @@
     },
     "earlier": "Earlier",
     "editElement": "Edit Element",
+    "eventStartLabel": "START {time}",
+    "eventEndLabel": "END {time}",
     "elementAdded": "Element added",
     "elementDeleted": "Element deleted",
     "elementType": "Element Type",

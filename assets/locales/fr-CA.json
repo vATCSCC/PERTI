@@ -1847,6 +1847,8 @@
     },
     "earlier": "Plus tôt",
     "editElement": "Modifier l'élément",
+    "eventStartLabel": "DÉBUT {time}",
+    "eventEndLabel": "FIN {time}",
     "elementAdded": "Élément ajouté",
     "elementDeleted": "Élément supprimé",
     "elementType": "Type d'élément",
