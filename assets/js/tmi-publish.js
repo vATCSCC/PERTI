@@ -1498,7 +1498,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.facility')}</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
+                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="${window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'}">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.validFromUtc')}</label>
@@ -1549,7 +1549,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.page.facility')}</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="DCC">
+                            <input type="text" class="form-control text-uppercase" id="adv_facility" value="${window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.form.subject')}</label>
@@ -3196,7 +3196,7 @@
         if (action === 'TERMINATION') {
             lines.push(buildTerminationFooter(endDateTime));
         } else {
-            lines.push(buildAdvisoryFooter(num, 'DCC'));
+            lines.push(buildAdvisoryFooter(num, window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'));
         }
 
         return lines.join('\n');
@@ -3283,7 +3283,7 @@
         }
 
         lines.push(``);
-        lines.push(buildAdvisoryFooter(num, 'DCC'));
+        lines.push(buildAdvisoryFooter(num, window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'));
 
         return lines.join('\n');
     }
@@ -3315,7 +3315,8 @@
     // Build TMI ID in format: {OI}.RR{SOURCE}{ADVZY #}
     function buildTmiId(advNum, facility) {
         const oi = getUserOI();
-        const source = (facility || 'DCC').toUpperCase();
+        const defaultFac = window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC';
+        const source = (facility || defaultFac).toUpperCase();
         return `${oi}.RR${source}${advNum}`;
     }
 
@@ -3349,7 +3350,7 @@
         // Only include TMI ID for Reroutes
         const lines = [];
         if (includeTmiId) {
-            const tmiId = buildTmiId(advNum || '001', facility || 'DCC');
+            const tmiId = buildTmiId(advNum || '001', facility || (window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'));
             lines.push(`TMI ID: ${tmiId}`);
         }
         lines.push(`${timestamp}-${endTimestamp}`);
@@ -7609,7 +7610,7 @@
             const adv = this.rerouteData.advisory || {};
 
             // Basic info
-            $('#rr_facility').val(adv.facility || 'DCC');
+            $('#rr_facility').val(adv.facility || (window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC'));
             $('#rr_name').val(adv.name || '');
             $('#rr_route_type').val(adv.routeType || 'ROUTE');
             $('#rr_compliance').val(adv.compliance || 'RQD');
@@ -8373,7 +8374,8 @@
             const advNumRaw = (params.advisory_number || '001').toString().replace(/^ADVZY\s+/i, '').trim();
             const advDigits = advNumRaw.replace(/\D/g, '');
             const advNum = (advDigits || advNumRaw || '001').padStart(3, '0');
-            const facility = (params.facility || 'DCC').toString().trim().toUpperCase() || 'DCC';
+            const defaultFac = window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC';
+            const facility = (params.facility || defaultFac).toString().trim().toUpperCase() || defaultFac;
             const MAX_LINE = 68;
             const now = new Date();
             const headerDate = (now.getUTCMonth() + 1).toString().padStart(2, '0') + '/' +
@@ -8509,6 +8511,23 @@
             if (!routes || !routes.length) {
                 return 'ORIG       DEST       ROUTE\n----       ----       -----\n(No routes specified)';
             }
+
+            // Auto-extract facility codes from route start when origin is empty
+            const isFac = (t) => {
+                if (typeof FacilityHierarchy !== 'undefined') {
+                    if (FacilityHierarchy.isArtcc(t)) return true;
+                    if (FacilityHierarchy.isTracon && FacilityHierarchy.isTracon(t)) return true;
+                }
+                return /^Z[A-Z]{2}$/.test(t) || /^CZ[A-Z]{2}$/.test(t);
+            };
+            routes = routes.map(r => {
+                if (r.origin) return r;
+                const tokens = (r.route || '').toUpperCase().split(/\s+/).filter(Boolean);
+                if (tokens.length > 1 && isFac(tokens[0])) {
+                    return { ...r, origin: tokens.shift(), route: tokens.join(' ') };
+                }
+                return r;
+            });
 
             // Calculate column widths based on content (including filters)
             let maxOrigLen = 4, maxDestLen = 4;
@@ -8724,15 +8743,37 @@
                 return null;
             };
 
+            // Helper: detect facility codes (ARTCC/FIR/TRACON) at start of route
+            const isFacilityCode = (token) => {
+                if (!token) return false;
+                if (typeof FacilityHierarchy !== 'undefined') {
+                    if (FacilityHierarchy.isArtcc(token)) return true;
+                    if (FacilityHierarchy.isTracon && FacilityHierarchy.isTracon(token)) return true;
+                }
+                // Fallback pattern: US ARTCCs (Z + 2 letters), Canadian FIRs (CZ + 2 letters)
+                return /^Z[A-Z]{2}$/.test(token) || /^CZ[A-Z]{2}$/.test(token);
+            };
+
             // Tokenize all routes for comparison
-            const tokenizedRoutes = routes.map(r => ({
-                ...r,
-                tokens: (r.route || '').toUpperCase().split(/\s+/).filter(Boolean),
-                origDisplay: (r.origin || '').toUpperCase(),
-                destDisplay: (r.destination || '').toUpperCase(),
-                origFilter: (r.originFilter || '').toUpperCase(),
-                destFilter: (r.destFilter || '').toUpperCase(),
-            }));
+            const tokenizedRoutes = routes.map(r => {
+                const tokens = (r.route || '').toUpperCase().split(/\s+/).filter(Boolean);
+                let origDisplay = (r.origin || '').toUpperCase();
+                const destDisplay = (r.destination || '').toUpperCase();
+
+                // Auto-extract facility code from route start if origin is empty
+                if (!origDisplay && tokens.length > 1 && isFacilityCode(tokens[0])) {
+                    origDisplay = tokens.shift();
+                }
+
+                return {
+                    ...r,
+                    tokens,
+                    origDisplay,
+                    destDisplay,
+                    origFilter: (r.originFilter || '').toUpperCase(),
+                    destFilter: (r.destFilter || '').toUpperCase(),
+                };
+            });
 
             // Find MULTIPLE pivot waypoints - different route groups may have different pivots
             // E.g., JFK routes converge at MCI, PHL routes converge at STL

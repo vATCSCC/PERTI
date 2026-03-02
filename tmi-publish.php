@@ -550,7 +550,7 @@ $perm = true;
                                 </div>
                                 <div class="form-group col-md-2">
                                     <label class="tmi-label mb-0"><?= __('tmiPublish.page.facility') ?></label>
-                                    <input type="text" class="form-control" id="rr_facility" value="DCC">
+                                    <input type="text" class="form-control" id="rr_facility" value="<?= htmlspecialchars($org_info_header['display_name'] ?? 'DCC') ?>">
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label class="tmi-label mb-0"><?= __('tmiPublish.page.routeName') ?></label>
