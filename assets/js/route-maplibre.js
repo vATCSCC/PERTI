@@ -547,7 +547,7 @@ $(document).ready(function() {
                     (previousPointData[2] + nextPointData[2]) / 2];
             }
             const errorMap = pointList.map(p =>
-                Math.abs(centerPosition[1] - p[1]) + Math.abs(centerPosition[2] - p[2]));
+                distanceToPoint(centerPosition[1], centerPosition[2], p[1], p[2]));
             const idx = errorMap.indexOf(Math.min(...errorMap));
             return confirmReasonableDistance(pointList[idx], previousPointData, nextPointData);
         }

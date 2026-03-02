@@ -355,6 +355,9 @@
         sectorLow: true,
         sectorHigh: true,
         sectorSuperhigh: true,
+        playOrigin: true,
+        playDest: true,
+        playTraversed: true,
     };
     // Cache last clauses so toggles can reapply without re-parsing
     var lastHighlightClauses = [];
@@ -525,9 +528,10 @@
         var destArr = Array.from(destCodes);
         var travArr = Array.from(travCodes);
 
-        map.setFilter('artcc-play-origin', origArr.length ? ['in', 'ICAOCODE'].concat(origArr) : ['in', 'ICAOCODE', '']);
-        map.setFilter('artcc-play-dest', destArr.length ? ['in', 'ICAOCODE'].concat(destArr) : ['in', 'ICAOCODE', '']);
-        map.setFilter('artcc-play-traversed', travArr.length ? ['in', 'ICAOCODE'].concat(travArr) : ['in', 'ICAOCODE', '']);
+        var emptyFilter = ['in', 'ICAOCODE', ''];
+        map.setFilter('artcc-play-origin', (highlightToggles.playOrigin && origArr.length) ? ['in', 'ICAOCODE'].concat(origArr) : emptyFilter);
+        map.setFilter('artcc-play-dest', (highlightToggles.playDest && destArr.length) ? ['in', 'ICAOCODE'].concat(destArr) : emptyFilter);
+        map.setFilter('artcc-play-traversed', (highlightToggles.playTraversed && travArr.length) ? ['in', 'ICAOCODE'].concat(travArr) : emptyFilter);
     }
 
     // =========================================================================
@@ -2052,7 +2056,14 @@
             var key = $(this).data('hl-toggle');
             if (highlightToggles.hasOwnProperty(key)) {
                 highlightToggles[key] = this.checked;
-                updateMapHighlights(lastHighlightClauses);
+                // Play-specific toggles re-apply play highlights
+                if (key === 'playOrigin' || key === 'playDest' || key === 'playTraversed') {
+                    if (activePlayData) {
+                        updatePlayHighlights(activePlayData, activePlayData.routes || []);
+                    }
+                } else {
+                    updateMapHighlights(lastHighlightClauses);
+                }
             }
         });
 

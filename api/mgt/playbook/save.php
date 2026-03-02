@@ -51,7 +51,7 @@ $status        = in_array($body['status'] ?? '', ['active', 'draft', 'archived']
 $airac_cycle   = trim($body['airac_cycle'] ?? '');
 $facilities_involved = trim($body['facilities_involved'] ?? '');
 $impacted_area = trim($body['impacted_area'] ?? '');
-$source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC']) ? $body['source'] : 'DCC';
+$source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC', 'CADENA']) ? $body['source'] : 'DCC';
 $remarks       = trim($body['remarks'] ?? '');
 $org_code      = isset($body['org_code']) && $body['org_code'] !== '' ? $body['org_code'] : null;
 $routes        = isset($body['routes']) && is_array($body['routes']) ? $body['routes'] : [];
@@ -318,8 +318,8 @@ if (!empty($routes)) {
          dest_airports, dest_tracons, dest_artccs,
          traversed_artccs, traversed_tracons,
          traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-         sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         remarks, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -334,6 +334,7 @@ if (!empty($routes)) {
         $da = trim($r['dest_airports'] ?? '');
         $dt = trim($r['dest_tracons'] ?? '');
         $dar = trim($r['dest_artccs'] ?? '');
+        $remarks_r = trim($r['remarks'] ?? '');
 
         if ($rs === '') continue;
 
@@ -345,12 +346,12 @@ if (!empty($routes)) {
         $trav_sec_high = $tf['sectors_high'];
         $trav_sec_superhigh = $tf['sectors_superhigh'];
 
-        $route_stmt->bind_param('issssssssssssssssi',
+        $route_stmt->bind_param('isssssssssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
             $oa, $ot, $oar, $da, $dt, $dar,
             $traversed, $trav_tracons,
             $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
-            $sort);
+            $remarks_r, $sort);
         $route_stmt->execute();
         $sort++;
     }
