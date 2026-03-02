@@ -1507,6 +1507,7 @@
       "usDcc": "DCC US",
       "usDccHint": "vATCSCC ADVZY ... DCC",
       "usLocalTimes": "Heures locales US",
+      "canadaLocalTimes": "Heures locales Canada",
       "viewFlightListTooltip": "Voir la liste des vols GS",
       "viewOptions": "Options d’affichage",
       "westTooltip": "Ouest",
@@ -2282,6 +2283,7 @@
       "updateTypeResolution": "Résolution",
       "updateTypeStatusChange": "Changement de statut",
       "usLocal": "Heure locale US",
+      "canadaLocal": "Heure locale Canada",
       "userProfile": "Profil utilisateur",
       "utc": "UTC",
       "vatusaEvents": "Événements VATUSA",
@@ -4361,6 +4363,7 @@
       "totalFlights": "Total des vols",
       "trafficManagement": "Gestion du trafic",
       "usLocalTimes": "Heures locales US",
+      "canadaLocalTimes": "Heures locales Canada",
       "wakeTurbulence": "Catégorie de turbulence de sillage",
       "weightClass": "Classe de poids",
       "width": "Largeur"

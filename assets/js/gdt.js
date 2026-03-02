@@ -6856,6 +6856,8 @@
         const clockMtn = document.getElementById('tmi_clock_mtn');
         const clockCent = document.getElementById('tmi_clock_cent');
         const clockEast = document.getElementById('tmi_clock_east');
+        const clockAtl = document.getElementById('tmi_clock_atl');
+        const clockNfl = document.getElementById('tmi_clock_nfl');
 
         if (clockPac && clockMtn && clockCent && clockEast) {
             const updateLocalClocks = function() {
@@ -6877,13 +6879,15 @@
                     }
                 }
 
-                clockGuam.textContent = formatLocalTime(now, 'Pacific/Guam');
-                clockHi.textContent = formatLocalTime(now, 'Pacific/Honolulu');
-                clockAk.textContent = formatLocalTime(now, 'America/Anchorage');
-                clockPac.textContent = formatLocalTime(now, 'America/Los_Angeles');
-                clockMtn.textContent = formatLocalTime(now, 'America/Denver');
-                clockCent.textContent = formatLocalTime(now, 'America/Chicago');
-                clockEast.textContent = formatLocalTime(now, 'America/New_York');
+                if (clockGuam) clockGuam.textContent = formatLocalTime(now, 'Pacific/Guam');
+                if (clockHi) clockHi.textContent = formatLocalTime(now, 'Pacific/Honolulu');
+                if (clockAk) clockAk.textContent = formatLocalTime(now, 'America/Anchorage');
+                if (clockPac) clockPac.textContent = formatLocalTime(now, 'America/Los_Angeles');
+                if (clockMtn) clockMtn.textContent = formatLocalTime(now, 'America/Denver');
+                if (clockCent) clockCent.textContent = formatLocalTime(now, 'America/Chicago');
+                if (clockEast) clockEast.textContent = formatLocalTime(now, 'America/New_York');
+                if (clockAtl) clockAtl.textContent = formatLocalTime(now, 'America/Halifax');
+                if (clockNfl) clockNfl.textContent = formatLocalTime(now, 'America/St_Johns');
             };
             updateLocalClocks();
             setInterval(updateLocalClocks, 1000);

@@ -2,6 +2,8 @@
 include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
+include("load/org_context.php");
+$is_canoc = (get_org_code() === 'canoc');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -444,12 +446,38 @@ include("load/i18n.php");
                 </div>
             </div>
 
-            <!-- Current Time (US Time Zones) -->
+            <!-- Current Time (Local Time Zones) -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-local h-100">
                     <div class="card-body">
-                        <div class="perti-info-label mb-1"><?= __('gdt.page.usLocalTimes') ?></div>
+                        <div class="perti-info-label mb-1"><?= __($is_canoc ? 'gdt.page.canadaLocalTimes' : 'gdt.page.usLocalTimes') ?></div>
                         <div class="perti-clock-grid">
+                            <?php if ($is_canoc): ?>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">PT</div>
+                                <div id="tmi_clock_pac" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">MT</div>
+                                <div id="tmi_clock_mtn" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">CT</div>
+                                <div id="tmi_clock_cent" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">ET</div>
+                                <div id="tmi_clock_east" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">AT</div>
+                                <div id="tmi_clock_atl" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <div class="perti-clock-item">
+                                <div class="perti-clock-tz">NL</div>
+                                <div id="tmi_clock_nfl" class="perti-clock-display perti-clock-display-md"></div>
+                            </div>
+                            <?php else: ?>
                             <div class="perti-clock-item">
                                 <div class="perti-clock-tz">GM</div>
                                 <div id="tmi_clock_guam" class="perti-clock-display perti-clock-display-md"></div>
@@ -478,6 +506,7 @@ include("load/i18n.php");
                                 <div class="perti-clock-tz">ET</div>
                                 <div id="tmi_clock_east" class="perti-clock-display perti-clock-display-md"></div>
                             </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -513,6 +542,7 @@ include("load/i18n.php");
                 </div>
             </div>
 
+            <?php if (!$is_canoc): ?>
             <!-- Domestic Flight Counts -->
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
@@ -546,6 +576,7 @@ include("load/i18n.php");
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Spacer -->
             <div class="col"></div>

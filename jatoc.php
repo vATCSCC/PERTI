@@ -8,6 +8,14 @@
  */
 include("load/config.php");
 include("load/i18n.php");
+// Resume existing session for org-scoped UI (does not create sessions for anonymous visitors)
+$is_canoc = false;
+if (session_status() === PHP_SESSION_NONE && !empty($_COOKIE[session_name()])) {
+    session_start();
+}
+if (isset($_SESSION) && ($_SESSION['ORG_CODE'] ?? '') === 'canoc') {
+    $is_canoc = true;
+}
 
 // Start session before output so JATOC_CONFIG can read login state
 if (session_status() == PHP_SESSION_NONE) {
@@ -235,14 +243,23 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
             <div class="col-auto px-1">
                 <div class="card shadow-sm perti-info-card h-100">
                     <div class="card-body py-2 px-3">
-                        <div class="perti-info-label mb-1"><?= __('jatoc.page.usLocal') ?></div>
+                        <div class="perti-info-label mb-1"><?= __($is_canoc ? 'jatoc.page.canadaLocal' : 'jatoc.page.usLocal') ?></div>
                         <div class="perti-clock-grid">
+                            <?php if ($is_canoc): ?>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">PT</div><div id="jatoc_clock_pac" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">MT</div><div id="jatoc_clock_mtn" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">CT</div><div id="jatoc_clock_cent" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">ET</div><div id="jatoc_clock_east" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">AT</div><div id="jatoc_clock_atl" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <div class="perti-clock-item"><div class="perti-clock-tz">NL</div><div id="jatoc_clock_nfl" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <?php else: ?>
                             <div class="perti-clock-item"><div class="perti-clock-tz">HI</div><div id="jatoc_clock_hi" class="perti-clock-display perti-clock-display-md"></div></div>
                             <div class="perti-clock-item"><div class="perti-clock-tz">AK</div><div id="jatoc_clock_ak" class="perti-clock-display perti-clock-display-md"></div></div>
                             <div class="perti-clock-item"><div class="perti-clock-tz">PT</div><div id="jatoc_clock_pac" class="perti-clock-display perti-clock-display-md"></div></div>
                             <div class="perti-clock-item"><div class="perti-clock-tz">MT</div><div id="jatoc_clock_mtn" class="perti-clock-display perti-clock-display-md"></div></div>
                             <div class="perti-clock-item"><div class="perti-clock-tz">CT</div><div id="jatoc_clock_cent" class="perti-clock-display perti-clock-display-md"></div></div>
                             <div class="perti-clock-item"><div class="perti-clock-tz">ET</div><div id="jatoc_clock_east" class="perti-clock-display perti-clock-display-md"></div></div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

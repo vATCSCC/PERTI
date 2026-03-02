@@ -1,6 +1,8 @@
 <?php /* route.php - merged groups_v4 + updated_v3 (header comment added) */
 include("sessions/handler.php");
 include("load/i18n.php");
+include("load/org_context.php");
+$is_canoc = (get_org_code() === 'canoc');
 ?>
 
 
@@ -1395,12 +1397,38 @@ include('load/nav.php');
                     </div>
                 </div>
 
-                <!-- Current Time (US Time Zones) -->
+                <!-- Current Time (Local Time Zones) -->
                 <div class="col-auto px-1">
                     <div class="card shadow-sm perti-info-card perti-card-local h-100">
                         <div class="card-body">
-                            <div class="perti-info-label mb-1"><?= __('route.page.usLocalTimes') ?></div>
+                            <div class="perti-info-label mb-1"><?= __($is_canoc ? 'route.page.canadaLocalTimes' : 'route.page.usLocalTimes') ?></div>
                             <div class="perti-clock-grid">
+                                <?php if ($is_canoc): ?>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">PT</div>
+                                    <div id="route_clock_pac" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">MT</div>
+                                    <div id="route_clock_mtn" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">CT</div>
+                                    <div id="route_clock_cent" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">ET</div>
+                                    <div id="route_clock_east" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">AT</div>
+                                    <div id="route_clock_atl" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <div class="perti-clock-item">
+                                    <div class="perti-clock-tz">NL</div>
+                                    <div id="route_clock_nfl" class="perti-clock-display perti-clock-display-md"></div>
+                                </div>
+                                <?php else: ?>
                                 <div class="perti-clock-item">
                                     <div class="perti-clock-tz">GM</div>
                                     <div id="route_clock_guam" class="perti-clock-display perti-clock-display-md"></div>
@@ -1429,6 +1457,7 @@ include('load/nav.php');
                                     <div class="perti-clock-tz">ET</div>
                                     <div id="route_clock_east" class="perti-clock-display perti-clock-display-md"></div>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -1464,6 +1493,7 @@ include('load/nav.php');
                     </div>
                 </div>
 
+                <?php if (!$is_canoc): ?>
                 <!-- Domestic Flight Counts -->
                 <div class="col-auto px-1">
                     <div class="card shadow-sm perti-info-card perti-card-domestic h-100">
@@ -1497,6 +1527,7 @@ include('load/nav.php');
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
             </div>
         </div>
@@ -2698,6 +2729,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var clockMtn = document.getElementById("route_clock_mtn");
     var clockCent = document.getElementById("route_clock_cent");
     var clockEast = document.getElementById("route_clock_east");
+    var clockAtl = document.getElementById("route_clock_atl");
+    var clockNfl = document.getElementById("route_clock_nfl");
 
     if (clockPac && clockMtn && clockCent && clockEast) {
         var updateLocalClocks = function() {
@@ -2724,6 +2757,8 @@ document.addEventListener('DOMContentLoaded', function () {
             clockMtn.textContent = formatLocalTime(now, 'America/Denver');
             clockCent.textContent = formatLocalTime(now, 'America/Chicago');
             clockEast.textContent = formatLocalTime(now, 'America/New_York');
+            if (clockAtl) clockAtl.textContent = formatLocalTime(now, 'America/Halifax');
+            if (clockNfl) clockNfl.textContent = formatLocalTime(now, 'America/St_Johns');
         };
         updateLocalClocks();
         setInterval(updateLocalClocks, 1000);

@@ -2169,7 +2169,11 @@
                         inputPlaceholder: t('playbook.customCategoryPlaceholder'),
                         showCancelButton: true,
                         confirmButtonText: t('common.ok'),
-                        cancelButtonText: t('common.cancel')
+                        cancelButtonText: t('common.cancel'),
+                        didOpen: function() {
+                            // Prevent Bootstrap modal from stealing focus from SweetAlert2 input
+                            $(document).off('focusin.bs.modal');
+                        }
                     }).then(function(result) {
                         if (result.isConfirmed && result.value) {
                             var custom = result.value.trim();
