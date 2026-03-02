@@ -3128,8 +3128,9 @@
         };
         const hotlineAddress = addressMap[hotlineAddressCode] || hotlineAddressCode;
 
+        const orgFacility = window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC';
         const lines = [
-            buildAdvisoryHeader(num, 'DCC', `HOTLINE ${action}`),
+            buildAdvisoryHeader(num, orgFacility, `HOTLINE ${action}`),
         ];
 
         // Build different format based on action type
@@ -3244,8 +3245,9 @@
         const startTime = String(startHour).padStart(2, '0') + startMin;
         const endTime = String(endHour).padStart(2, '0') + endMin;
 
+        const swapFacility = window.AdvisoryConfig ? AdvisoryConfig.getFacility() : 'DCC';
         const lines = [
-            buildAdvisoryHeader(num, 'DCC', `SWAP ${swapType}`),
+            buildAdvisoryHeader(num, swapFacility, `SWAP ${swapType}`),
         ];
 
         if (impactedArea) {
@@ -3289,9 +3291,10 @@
         return lines.join('\n');
     }
 
-    // Standard advisory header per FAA format
+    // Standard advisory header - org prefix from AdvisoryConfig
     function buildAdvisoryHeader(advNum, facility, type) {
-        return `vATCSCC ADVZY ${advNum} ${facility} ${getUtcDateMmDdYyyy()} ${type}`;
+        const prefix = window.AdvisoryConfig ? AdvisoryConfig.getPrefix() : 'vATCSCC';
+        return `${prefix} ADVZY ${advNum} ${facility} ${getUtcDateMmDdYyyy()} ${type}`;
     }
 
     // Get user operating initials - from config or extract from name
@@ -8457,7 +8460,8 @@
             const lines = [];
             const routeType = params.route_type || 'ROUTE';
             const compliance = params.compliance || 'RQD';
-            lines.push(`vATCSCC ADVZY ${advNum} ${facility} ${headerDate} ${routeType} ${compliance}`);
+            const orgPrefix = window.AdvisoryConfig ? AdvisoryConfig.getPrefix() : 'vATCSCC';
+            lines.push(`${orgPrefix} ADVZY ${advNum} ${facility} ${headerDate} ${routeType} ${compliance}`);
             addLabeledField(lines, 'NAME', params.name);
             addLabeledField(lines, 'CONSTRAINED AREA', params.constrained_area);
             addLabeledField(lines, 'REASON', params.reason);
