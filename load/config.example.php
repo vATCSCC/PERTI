@@ -257,6 +257,13 @@ if (!defined("SQL_USERNAME")) {
     define("TMI_STAGING_REQUIRED", true);       // Require staging before production
     define("TMI_APPROVAL_REACTIONS", true);     // Enable reaction-based approvals
     define("TMI_CROSS_BORDER_AUTO_DETECT", true); // Auto-detect cross-border TMIs
+
+    // Hibernation Mode - pauses downstream processing daemons and disables select pages
+    // Also set HIBERNATION_MODE=true as Azure App Setting for startup.sh daemon control
+    define("HIBERNATION_MODE", env('HIBERNATION_MODE', false));
 }
+
+// Hibernation mode check (page redirects + SWIM API 503)
+include_once(__DIR__ . '/hibernation.php');
 
 ?>

@@ -76,7 +76,8 @@ $config = [
     'critical_sp_ms'  => 10000,  // Critical if SP takes >10s
 
     // ATIS processing with dynamic tiered intervals
-    'atis_enabled'    => true,
+    // Automatically disabled in hibernation mode
+    'atis_enabled'    => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
 
     // Tier intervals (in 15-second cycles)
     // Tier 0: every 15s (1 cycle)  - METAR update time / bad weather ASPM82

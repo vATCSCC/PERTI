@@ -41,11 +41,14 @@ $filepath = "";
 // ============================================================================
 // To add a new page: Add an entry to the appropriate group below
 // Options per item:
-//   'label'    => Display text (required)
-//   'path'     => URL path (required)
-//   'perm'     => true = requires login (optional, default: false)
-//   'external' => true = opens in new tab (optional, default: false)
+//   'label'      => Display text (required)
+//   'path'       => URL path (required)
+//   'perm'       => true = requires login (optional, default: false)
+//   'external'   => true = opens in new tab (optional, default: false)
+//   'hibernated' => true = visually muted, page redirects to /hibernation
 // ============================================================================
+
+$_h = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
 
 $nav_config = [
     // Dropdown: Planning Tools
@@ -56,16 +59,16 @@ $nav_config = [
             ['label' => __('nav.configs'), 'path' => './airport_config'],
             ['label' => __('nav.routes'), 'path' => './route'],
             ['label' => __('nav.playbook'), 'path' => './playbook'],
-            ['label' => __('nav.simulator'), 'path' => './simulator'],
+            ['label' => __('nav.simulator'), 'path' => './simulator', 'hibernated' => $_h],
         ]
     ],
     // Dropdown: Data & Analysis
     'data' => [
         'label' => __('nav.data'),
         'items' => [
-            ['label' => __('nav.nod'), 'path' => './nod'],
-            ['label' => __('nav.gdt'), 'path' => './gdt'],
-            ['label' => __('nav.demand'), 'path' => './demand'],
+            ['label' => __('nav.nod'), 'path' => './nod', 'hibernated' => $_h],
+            ['label' => __('nav.gdt'), 'path' => './gdt', 'hibernated' => $_h],
+            ['label' => __('nav.demand'), 'path' => './demand', 'hibernated' => $_h],
             ['label' => __('nav.splits'), 'path' => './splits'],
             ['label' => __('nav.navdata'), 'path' => './navdata'],
         ]
@@ -74,8 +77,8 @@ $nav_config = [
     'tools' => [
         'label' => __('nav.tools'),
         'items' => [
-            ['label' => __('nav.jatoc'), 'path' => './jatoc'],
-            ['label' => __('nav.eventAar'), 'path' => './event-aar'],
+            ['label' => __('nav.jatoc'), 'path' => './jatoc', 'hibernated' => $_h],
+            ['label' => __('nav.eventAar'), 'path' => './event-aar', 'hibernated' => $_h],
             ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish'],
             ['label' => __('nav.status'), 'path' => './status'],
         ]
@@ -86,17 +89,18 @@ $nav_config = [
         'perm' => true,
         'items' => [
             ['label' => __('nav.schedule'), 'path' => './schedule'],
-            ['label' => __('nav.sua'), 'path' => './sua'],
+            ['label' => __('nav.sua'), 'path' => './sua', 'hibernated' => $_h],
         ]
     ],
     // Dropdown: SWIM API
     'swim' => [
         'label' => __('nav.swim'),
+        'hibernated' => $_h,
         'items' => [
-            ['label' => __('nav.overview'), 'path' => './swim'],
-            ['label' => __('nav.apiKeys'), 'path' => './swim-keys'],
-            ['label' => __('nav.apiDocs'), 'path' => './docs/swim/', 'external' => true],
-            ['label' => __('nav.technicalDocs'), 'path' => './swim-docs'],
+            ['label' => __('nav.overview'), 'path' => './swim', 'hibernated' => $_h],
+            ['label' => __('nav.apiKeys'), 'path' => './swim-keys', 'hibernated' => $_h],
+            ['label' => __('nav.apiDocs'), 'path' => './docs/swim/', 'external' => true, 'hibernated' => $_h],
+            ['label' => __('nav.technicalDocs'), 'path' => './swim-docs', 'hibernated' => $_h],
         ]
     ],
     // Dropdown: About
@@ -118,7 +122,11 @@ if (!function_exists('render_nav_item')) {
     function render_nav_item($item, $filepath) {
         $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
         $path = $filepath . $item['path'];
-        return '<a class="dropdown-item" href="' . $path . '"' . $target . '>' . $item['label'] . '</a>';
+        $hibernated = !empty($item['hibernated']);
+        $class = 'dropdown-item' . ($hibernated ? ' nav-hibernated' : '');
+        $title = $hibernated ? ' title="' . htmlspecialchars(__('nav.hibernationTooltip')) . '"' : '';
+        $icon = $hibernated ? ' <i class="fas fa-snowflake fa-xs" style="opacity:0.5"></i>' : '';
+        return '<a class="' . $class . '" href="' . $path . '"' . $target . $title . '>' . $item['label'] . $icon . '</a>';
     }
 }
 
@@ -132,9 +140,12 @@ if (!function_exists('render_standalone_link')) {
 
 if (!function_exists('render_dropdown')) {
     function render_dropdown($key, $group, $filepath, $perm = false) {
+        $group_hibernated = !empty($group['hibernated']);
         $html = '<li class="nav-item dropdown">';
-        $html .= '<a class="nav-link dropdown-toggle" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $toggle_class = 'nav-link dropdown-toggle' . ($group_hibernated ? ' nav-hibernated' : '');
+        $html .= '<a class="' . $toggle_class . '" href="#" id="nav-' . $key . '" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
         $html .= $group['label'];
+        if ($group_hibernated) $html .= ' <i class="fas fa-snowflake fa-xs" style="opacity:0.5"></i>';
         $html .= '</a>';
         $html .= '<div class="dropdown-menu" aria-labelledby="nav-' . $key . '">';
         foreach ($group['items'] as $item) {
@@ -289,9 +300,10 @@ if (!function_exists('render_dropdown')) {
 
                 // Render as collapsible section or standalone link
                 if (isset($group['items'])): ?>
+                    <?php $group_hib = !empty($group['hibernated']); ?>
                     <li class="mobile-nav-section">
-                        <a class="mobile-nav-header" data-toggle="collapse" href="#mobile-<?= $key ?>" role="button" aria-expanded="false" aria-controls="mobile-<?= $key ?>">
-                            <?= $group['label'] ?>
+                        <a class="mobile-nav-header<?= $group_hib ? ' nav-hibernated' : '' ?>" data-toggle="collapse" href="#mobile-<?= $key ?>" role="button" aria-expanded="false" aria-controls="mobile-<?= $key ?>">
+                            <?= $group['label'] ?><?= $group_hib ? ' <i class="fas fa-snowflake fa-xs" style="opacity:0.5"></i>' : '' ?>
                             <i class="fas fa-chevron-down"></i>
                         </a>
                         <div class="collapse" id="mobile-<?= $key ?>">
@@ -301,8 +313,11 @@ if (!function_exists('render_dropdown')) {
                                 if ($item_requires_perm && !$perm) continue;
 
                                 $target = isset($item['external']) && $item['external'] ? ' target="_blank"' : '';
+                                $item_hib = !empty($item['hibernated']);
+                                $item_hib_class = $item_hib ? ' nav-hibernated' : '';
+                                $item_hib_icon = $item_hib ? ' <i class="fas fa-snowflake fa-xs" style="opacity:0.5"></i>' : '';
                             ?>
-                                <a class="mobile-nav-link" href="<?= $filepath . $item['path'] ?>"<?= $target ?>><?= $item['label'] ?></a>
+                                <a class="mobile-nav-link<?= $item_hib_class ?>" href="<?= $filepath . $item['path'] ?>"<?= $target ?>><?= $item['label'] ?><?= $item_hib_icon ?></a>
                             <?php endforeach; ?>
                         </div>
                     </li>
