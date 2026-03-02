@@ -1,527 +1,872 @@
-# PERTI Codebase Reorganization - Complete Implementation Catalog
+# PERTI Codebase Reorganization Catalog
 
-> **Generated:** 2026-01-21
-> **Purpose:** Catalog of ALL changes required to reorganize the codebase without breaking dependencies
+> **Audit Date:** 2026-03-01
+> **Scope:** 1,732 tracked files across the entire repository
+> **Supersedes:** January 2026 Reorganization Catalog (8 phases, 528 lines)
+> **Status:** Document only — no files have been moved
 
 ---
 
 ## Table of Contents
 
-1. [Critical Files - DO NOT MOVE](#1-critical-files---do-not-move)
-2. [Phase 1: Quick Wins (No Dependencies)](#2-phase-1-quick-wins-no-dependencies)
-3. [Phase 2: Documentation Cleanup](#3-phase-2-documentation-cleanup)
-4. [Phase 3: Root Markdown File Migration](#4-phase-3-root-markdown-file-migration)
-5. [Phase 4: Scripts Directory Reorganization](#5-phase-4-scripts-directory-reorganization)
-6. [Phase 5: JavaScript Reorganization](#6-phase-5-javascript-reorganization)
-7. [Phase 6: Discord Integration Consolidation](#7-phase-6-discord-integration-consolidation)
-8. [Phase 7: SWIM File Renaming](#8-phase-7-swim-file-renaming)
-9. [Phase 8: GDT Documentation Consolidation](#9-phase-8-gdt-documentation-consolidation)
-10. [Reference Update Checklist](#10-reference-update-checklist)
+1. [Executive Summary](#1-executive-summary)
+2. [Critical Files — DO NOT MOVE](#2-critical-files--do-not-move)
+3. [Tier 1: Quick Wins (Zero Dependencies)](#3-tier-1-quick-wins-zero-dependencies)
+4. [Tier 2: Root File Organization](#4-tier-2-root-file-organization)
+5. [Tier 3: Scripts Directory Reorganization](#5-tier-3-scripts-directory-reorganization)
+6. [Tier 4: API Directory Issues](#6-tier-4-api-directory-issues)
+7. [Tier 5: load/ Directory Separation](#7-tier-5-load-directory-separation)
+8. [Tier 6: JavaScript Organization (Deferred)](#8-tier-6-javascript-organization-deferred)
+9. [Tier 7: Architectural Issues (Long-term)](#9-tier-7-architectural-issues-long-term)
+10. [Code Quality Issues](#10-code-quality-issues)
+11. [Appendix A: Root-Level File Inventory](#appendix-a-root-level-file-inventory)
+12. [Appendix B: Critical Daemon References in startup.sh](#appendix-b-critical-daemon-references-in-startupsh)
+13. [Appendix C: JS Script Tag Reference Map](#appendix-c-js-script-tag-reference-map)
+14. [Verification Checklist](#verification-checklist)
 
 ---
 
-## 1. Critical Files - DO NOT MOVE
+## 1. Executive Summary
 
-These files have hardcoded dependencies in deployment, startup scripts, or core application logic. Moving them would require extensive refactoring.
+### Codebase Snapshot (March 2026)
+
+| Metric | Count |
+|--------|-------|
+| Total tracked files | 1,732 |
+| Root-level tracked files | 80 |
+| `docs/` files | 121 |
+| `database/migrations/` files | 144 |
+| `adl/migrations/` files | 164 |
+| `sql/migrations/` files | 1 |
+| `assets/js/` files | 60 |
+| `scripts/` root-level files | 66 |
+| Test/debug/diagnostic files | 37 |
+| Discord-related files | 44 (across 5 directories) |
+
+### Root-Level File Breakdown by Extension
+
+| Extension | Count | Notes |
+|-----------|-------|-------|
+| `.php` | 31 | Core pages — most belong here |
+| `.md` | 22 | Most should be in `docs/` |
+| `.py` | 5 | Should be in `scripts/` |
+| `.json` | 5 | `package.json`, `package-lock.json`, `composer.json`, `composer.lock`, `.eslintrc.json` |
+| `.yml` | 2 | Stale Azure Pipelines configs |
+| `.js` | 2 | `advisory-templates.js`, `.eslint-perti-rules.js` |
+| Other | 13 | `.sln`, `.bat`, `.sh`, `.toml`, `.ini`, `.conf`, `.deployment`, `.ostype`, `default`, `composer`, `.gitignore`, `.gitattributes`, `LICENSE` |
+
+### Key Findings Not in the January 2026 Catalog
+
+- `.venv/` Python virtualenv exists on disk but is NOT in `.gitignore`
+- SQL injection vulnerability in `data.php` (lines 15, 32, 50)
+- `artifacts/swimclient/VatSim.Swim.Client.1.0.0.nupkg` — binary tracked in git
+- 2 backup files (`_bu.php`) committed to git
+- 37 test/debug/diagnostic files scattered across the codebase
+- Duplicate Ground Stop implementation (6 legacy + 10 new files)
+- 6 class files sitting in `api/` tree instead of `lib/`
+- 3 migration locations (`database/migrations/`, `adl/migrations/`, `sql/migrations/`)
+- Stale Azure Pipelines configs tracked in git (project uses GitHub Actions)
+
+---
+
+## 2. Critical Files — DO NOT MOVE
+
+These files have hardcoded dependencies in deployment, startup scripts, Azure configuration, or core application logic. Moving them would break the application.
 
 | File | Reason | Referenced By |
 |------|--------|---------------|
-| `load/config.php` | Core configuration - all PHP files depend on this | 50+ PHP files |
-| `load/connect.php` | Database connection - triggers swim_sync | All API endpoints |
-| `load/input.php` | Input validation | connect.php line 16 |
-| `load/header.php` | Page layout | All root PHP pages |
-| `load/footer.php` | Page layout, global JS | All root PHP pages |
-| `load/nav.php` | Navigation config | All authenticated pages |
-| `load/nav_public.php` | Public navigation | Public pages |
-| `sessions/handler.php` | Session management | All pages line 3 |
-| `scripts/startup.sh` | Azure daemon launcher | GitHub workflow line 59 |
-| `scripts/vatsim_adl_daemon.php` | Main data daemon | startup.sh line 36 |
-| `scripts/scheduler_daemon.php` | Scheduler daemon | startup.sh line 74 |
-| `scripts/swim_ws_server.php` | WebSocket server | startup.sh line 61, composer.json |
-| `scripts/swim_sync_daemon.php` | SWIM sync daemon | startup.sh line 68 |
-| `scripts/swim_sync.php` | Sync functions | swim_sync_daemon.php, load/connect.php |
-| `scripts/atis_parser.php` | ATIS parsing | vatsim_adl_daemon.php, api/adl/atis-debug.php |
-| `adl/php/waypoint_eta_daemon.php` | ETA daemon | startup.sh line 55, GitHub workflow line 61 |
-| `composer.json` | PSR-4 autoload paths | Azure pipelines, vendor loading |
-| `nginx-site.conf` | Web server config | Azure deployment |
-| `api/swim/v1/ws/` | WebSocket classes | composer.json autoload |
+| `load/config.php` | Core configuration — all PHP files depend on this | 50+ PHP files via `include` |
+| `load/connect.php` | Database connections (lazy-loaded getters) | All API endpoints |
+| `load/input.php` | Input validation for PHP 8.2+ | `connect.php` line 16 |
+| `load/header.php` | HTML head (CSS/JS CDN includes) | All root PHP pages |
+| `load/footer.php` | Page footer, global JS includes | All root PHP pages |
+| `load/nav.php` | Navigation bar (authenticated) | All authenticated pages |
+| `load/nav_public.php` | Navigation bar (public) | Public pages |
+| `load/hibernation.php` | Hibernation redirect logic | Multiple pages, SWIM API |
+| `sessions/handler.php` | Session management | All pages (line 3 pattern) |
+| `scripts/startup.sh` | Azure daemon launcher | GitHub Actions workflow, Azure App Service |
+| `scripts/vatsim_adl_daemon.php` | Main ADL ingest daemon | `startup.sh` |
+| `scripts/scheduler_daemon.php` | Scheduler daemon | `startup.sh` |
+| `scripts/swim_ws_server.php` | WebSocket server | `startup.sh`, `composer.json` |
+| `scripts/swim_sync_daemon.php` | SWIM sync daemon | `startup.sh` |
+| `scripts/swim_sync.php` | Sync functions | `swim_sync_daemon.php`, `load/connect.php` |
+| `scripts/swim_cleanup.php` | SWIM cleanup | `swim_sync_daemon.php` |
+| `scripts/swim_ws_events.php` | WS event definitions | `swim_ws_server.php` |
+| `scripts/archival_daemon.php` | Archival daemon | `startup.sh` |
+| `scripts/monitoring_daemon.php` | Monitoring daemon | `startup.sh` |
+| `scripts/atis_parser.php` | ATIS parsing | `vatsim_adl_daemon.php`, `api/adl/atis-debug.php` |
+| `scripts/zone_daemon.php` | Zone detection daemon | `startup.sh` |
+| `scripts/event_sync_daemon.php` | Event sync daemon | `startup.sh` |
+| `scripts/adl_archive_daemon.php` | ADL archive daemon | `startup.sh` |
+| `scripts/simtraffic_swim_poll.php` | SimTraffic polling | `startup.sh` |
+| `scripts/swim_adl_reverse_sync_daemon.php` | Reverse sync daemon | `startup.sh` |
+| `scripts/tmi/process_discord_queue.php` | Discord queue processor | `startup.sh` |
+| `adl/php/parse_queue_gis_daemon.php` | GIS parse daemon | `startup.sh` |
+| `adl/php/boundary_gis_daemon.php` | Boundary detection daemon | `startup.sh` |
+| `adl/php/crossing_gis_daemon.php` | Crossing calculation daemon | `startup.sh` |
+| `adl/php/waypoint_eta_daemon.php` | Waypoint ETA daemon | `startup.sh`, GitHub Actions |
+| `composer.json` | PSR-4 autoload paths | Azure deployment, vendor loading |
+| `nginx-site.conf` | Web server config | Azure deployment, `startup.sh` |
+| `php.ini` | PHP configuration | Azure PHP-FPM |
+| `api/swim/v1/ws/` (directory) | WebSocket classes | `composer.json` autoload |
+| `.github/workflows/azure-webapp-vatcscc.yml` | CI/CD deployment | GitHub Actions |
 
 ---
 
-## 2. Phase 1: Quick Wins (No Dependencies)
+## 3. Tier 1: Quick Wins (Zero Dependencies)
 
-These changes have zero dependencies and can be done immediately.
+These changes have no code dependencies and can be done immediately without risk.
 
-### 2.1 Delete `nul` File
-```
-Action: DELETE
-File: nul
-Dependencies: None
-```
+### 3.1 Add `.venv/` to `.gitignore`
 
-### 2.2 Update .gitignore
+The `.venv/` Python virtualenv directory exists on disk but is NOT in `.gitignore`. While it currently has 0 tracked files, it should be explicitly excluded to prevent accidental commits.
+
 ```
-Action: EDIT
-File: .gitignore
-Add lines:
-  nul
-  .claude/settings.local.json
+Action: EDIT .gitignore
+Add: .venv/
 ```
 
-### 2.3 Delete Duplicate Aviation Standards Reference
+### 3.2 Delete Stale Root Files
+
+These files are tracked in git but serve no active purpose:
+
+| File | Reason to Delete |
+|------|------------------|
+| `azure-pipelines.yml` | Project uses GitHub Actions, not Azure Pipelines |
+| `azure-pipelines-1.yml` | Duplicate stale pipeline config |
+| `global.json` | .NET SDK version pin — no .NET code in active use |
+| `PERTI.sln` | Visual Studio solution file — not used (PHP project) |
+| `run_atis_daemon.bat` | Windows batch file — app runs on Azure Linux |
+| `PLAN.md` | Stale planning doc |
+| `.ostype` | Build artifact |
+| `.deployment` | Azure Kudu deployment config — superseded by GitHub Actions |
+| `oryx-manifest.toml` | Azure Oryx build manifest — auto-generated |
+
+### 3.3 Delete Backup Files
+
+| File | Reason |
+|------|--------|
+| `api/data/plans/term_inits_bu.php` | Backup copy of `term_inits.php` — use git history instead |
+| `api/mgt/schedule/delete_bu.php` | Backup copy of delete endpoint |
+
+### 3.4 Delete Stale Load Test Results
+
+| File | Reason |
+|------|--------|
+| `scripts/tmi/load_test_results_2026-01-28_063851.json` | Test output — should not be in source control |
+| `scripts/tmi/load_test_results_2026-01-28_155924.json` | Test output — should not be in source control |
+
+### 3.5 Delete Debug Data File
+
+| File | Reason |
+|------|--------|
+| `adl/php/weather_debug.json` | Debug data committed to git |
+
+### 3.6 Consolidate Lone Migration File
+
+`sql/migrations/` contains exactly 1 file: `20260117_add_flow_tables.sql`
+
 ```
-Action: DELETE
-File: docs/swim/Aviation_Standards_Cross_Reference.md
-Keep: docs/swim/Aviation_Data_Standards_Cross_Reference.md
-Dependencies: None (duplicate file)
+Action: MOVE sql/migrations/20260117_add_flow_tables.sql → database/migrations/tmi/20260117_add_flow_tables.sql
+Then: DELETE empty sql/migrations/ and sql/ directories
 ```
+
+### 3.7 Gitignore Binary Artifacts
+
+`artifacts/swimclient/VatSim.Swim.Client.1.0.0.nupkg` is a NuGet binary package tracked in git.
+
+```
+Action: Add to .gitignore: artifacts/
+Action: git rm --cached artifacts/swimclient/VatSim.Swim.Client.1.0.0.nupkg
+```
+
+### 3.8 Archive SWIM Session Transition Documents
+
+These are internal session notes from January 2026 development sprints:
+
+| File | Action |
+|------|--------|
+| `docs/swim/SWIM_Session_Transition_20260115.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_AOCTelemetry.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_Phase1Complete.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_Phase2Complete.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_Phase2Start.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_SDKComplete.md` | Move to `docs/swim/archive/` |
+| `docs/swim/SWIM_Session_Transition_20260116_v2.md` | Move to `docs/swim/archive/` |
+
+**Dependencies:** None (internal session notes, not referenced by code)
 
 ---
 
-## 3. Phase 2: Documentation Cleanup
+## 4. Tier 2: Root File Organization
 
-### 3.1 Archive SWIM Session Transition Documents
+### 4.1 Root Markdown Files → `docs/`
 
-**Action:** Move to `docs/swim/archive/`
+22 markdown files at the root level should be in `docs/` subdirectories. For each move, any cross-references in other docs must be updated.
 
-| File | New Location |
-|------|--------------|
-| `docs/swim/SWIM_Session_Transition_20260115.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_AOCTelemetry.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_Phase1Complete.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_Phase2Complete.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_Phase2Start.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_SDKComplete.md` | `docs/swim/archive/` |
-| `docs/swim/SWIM_Session_Transition_20260116_v2.md` | `docs/swim/archive/` |
+| Current Location | Proposed Destination | Category |
+|-----------------|---------------------|----------|
+| `advisory_builder_alignment_v1.md` | `docs/advisory/advisory_builder_alignment_v1.md` | Advisory |
+| `advisory_formatting_spec_for_claude_code.md` | `docs/advisory/formatting_spec.md` | Advisory |
+| `assistant_codebase_index_v18.md` | `docs/archive/assistant_codebase_index_v18.md` | Archive |
+| `CODE_FIXES_INVENTORY.md` | `docs/archive/CODE_FIXES_INVENTORY.md` | Archive |
+| `CODE_INCONSISTENCIES.md` | `docs/archive/CODE_INCONSISTENCIES.md` | Archive |
+| `CODE_INCONSISTENCIES_EXPLAINED.md` | `docs/archive/CODE_INCONSISTENCIES_EXPLAINED.md` | Archive |
+| `CODE_PATTERNS_CATALOG.md` | `docs/CODE_PATTERNS_CATALOG.md` | Reference |
+| `CODING_STANDARDS.md` | `docs/CODING_STANDARDS.md` | Reference |
+| `DEPENDENCY_MAP.md` | `docs/DEPENDENCY_MAP.md` | Reference |
+| `eta_enhancement_transition_summary.md` | `docs/archive/eta_enhancement_transition_summary.md` | Archive |
+| `GDT_Incremental_Migration.md` | `docs/gdt/archive/GDT_Incremental_Migration.md` | GDT archive |
+| `GDT_Phase1_Transition.md` | `docs/gdt/archive/GDT_Phase1_Transition.md` | GDT archive |
+| `GDT_Unified_Design_Document_v1.1.md` | `docs/gdt/GDT_Unified_Design_Document.md` | GDT |
+| `NAMING_CONVENTIONS.md` | `docs/NAMING_CONVENTIONS.md` | Reference |
+| `ORPHANED_FILES.md` | `docs/ORPHANED_FILES.md` | Reference |
+| `PERTI_MIGRATION_TRACKER.md` | `docs/PERTI_MIGRATION_TRACKER.md` | Reference |
+| `STYLING_GUIDE.md` | `docs/STYLING_GUIDE.md` | Reference |
+| `TMI_Documentation_Index.md` | `docs/tmi/INDEX.md` | TMI |
 
-**Dependencies:** None (internal session notes)
+**Keep at root** (standard convention):
+- `README.md` — Project README
+- `CLAUDE.md` — AI assistant instructions
+- `SECURITY.md` — Security policy
+- `LICENSE` — License file
 
----
+### 4.2 Reference Updates Required for Root Markdown Moves
 
-## 4. Phase 3: Root Markdown File Migration
+When moving GDT docs, update these cross-references:
 
-### 4.1 Files to Move
-
-| Current Location | New Location | References to Update |
-|-----------------|--------------|---------------------|
-| `advisory_builder_alignment_v1.md` | `docs/advisory/advisory_builder_alignment_v1.md` | None found |
-| `advisory_formatting_spec_for_claude_code.md` | `docs/advisory/formatting_spec.md` | See 4.2 |
-| `assistant_codebase_index_v18.md` | `docs/archive/assistant_codebase_index_v18.md` | See 4.2 |
-| `eta_enhancement_transition_summary.md` | `docs/archive/eta_enhancement_transition_summary.md` | None found |
-| `GDT_Incremental_Migration.md` | `docs/gdt/archive/GDT_Incremental_Migration.md` | See 4.2 |
-| `GDT_Phase1_Transition.md` | `docs/gdt/archive/GDT_Phase1_Transition.md` | See 4.2 |
-| `GDT_Unified_Design_Document_v1.1.md` | `docs/gdt/GDT_Unified_Design_Document.md` | See 4.2 |
-| `NTML_Advisory_Formatting_Spec.md` | `docs/advisory/NTML_Formatting_Spec.md` | See 4.2 |
-| `NTML_Advisory_Formatting_Transition.md` | `docs/archive/NTML_Advisory_Formatting_Transition.md` | See 4.2 |
-| `TMI_Documentation_Index.md` | `docs/tmi/INDEX.md` | See 4.2 |
-
-### 4.2 Reference Updates Required
-
-#### File: `advisory_formatting_spec_for_claude_code.md`
-After moving to `docs/advisory/formatting_spec.md`, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| (self) | 6 | `NTML_Advisory_Formatting_Spec.md` | `NTML_Formatting_Spec.md` |
-
-#### File: `assistant_codebase_index_v18.md`
-After moving to `docs/archive/`, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| `README.md` | 295 | `assistant_codebase_index_v17.md` | `docs/archive/assistant_codebase_index_v18.md` |
-
-#### File: `GDT_Unified_Design_Document_v1.1.md`
-After consolidation, update these files:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
+| File to Edit | Line(s) | Old Reference | New Reference |
+|--------------|---------|---------------|---------------|
 | `docs/tmi/GDT_Session_20260121.md` | 253 | `GDT_Unified_Design_Document_v1.1.md` | `../gdt/GDT_Unified_Design_Document.md` |
-| `docs/tmi/GDT_API_Documentation.md` | 328 | `GDT_Unified_Design_Document_v1.md` | `../gdt/GDT_Unified_Design_Document.md` |
+| `docs/tmi/GDT_API_Documentation.md` | 328-331 | `GDT_Unified_Design_Document_v1.md`, `GDT_Phase1_Transition.md` | Updated paths |
 | `docs/GDT_GS_Transition_Summary_20260110.md` | 87, 163 | `docs/GDT_Unified_Design_Document_v1.md` | `gdt/GDT_Unified_Design_Document.md` |
 | `docs/STATUS.md` | 628 | `docs/GDT_Unified_Design_Document_v1.md` | `docs/gdt/GDT_Unified_Design_Document.md` |
 | `docs/tmi/ARCHITECTURE.md` | 403 | `GDT_Unified_Design_Document_v1.md` | `../gdt/GDT_Unified_Design_Document.md` |
 | `docs/tmi/GS_Eligibility_Fix_Transition.md` | 286 | `/GDT_Unified_Design_Document_v1.md` | `/docs/gdt/GDT_Unified_Design_Document.md` |
+| `README.md` | 295 | `assistant_codebase_index_v17.md` | `docs/archive/assistant_codebase_index_v18.md` |
 
-#### File: `GDT_Phase1_Transition.md`
-After moving, update:
+When moving TMI_Documentation_Index.md:
 
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| `docs/tmi/GDT_API_Documentation.md` | 329 | `GDT_Phase1_Transition.md` | `../gdt/archive/GDT_Phase1_Transition.md` |
-
-#### File: `GDT_Incremental_Migration.md`
-After moving, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| `TMI_Documentation_Index.md` | 134 | `GDT_Incremental_Migration.md` | `docs/gdt/archive/GDT_Incremental_Migration.md` |
-
-#### File: `NTML_Advisory_Formatting_Spec.md`
-After moving to `docs/advisory/`, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| `advisory_formatting_spec_for_claude_code.md` | 6 | `NTML_Advisory_Formatting_Spec.md` | `docs/advisory/NTML_Formatting_Spec.md` |
-| `NTML_Advisory_Formatting_Transition.md` | 24-25 | `NTML_Advisory_Formatting_Spec.md` | `docs/advisory/NTML_Formatting_Spec.md` |
-| `docs/tmi/NTML_Discord_Parser_Alignment_20260117.md` | 183 | `NTML_Advisory_Formatting_Spec.md` | `../advisory/NTML_Formatting_Spec.md` |
-
-#### File: `NTML_Advisory_Formatting_Transition.md`
-After moving, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
-| `TMI_Documentation_Index.md` | 13, 132 | `NTML_Advisory_Formatting_Transition.md` | `docs/archive/NTML_Advisory_Formatting_Transition.md` |
-
-#### File: `TMI_Documentation_Index.md`
-After moving to `docs/tmi/INDEX.md`, update:
-
-| File to Edit | Line | Old Reference | New Reference |
-|--------------|------|---------------|---------------|
+| File to Edit | Line(s) | Old Reference | New Reference |
+|--------------|---------|---------------|---------------|
 | `docs/tmi/GDT_API_Documentation.md` | 331 | `TMI_Documentation_Index.md` | `INDEX.md` |
 | `docs/tmi/NTML_Discord_Parser_Alignment_20260117.md` | 184 | `TMI_Documentation_Index.md` | `INDEX.md` |
 
+### 4.3 Root Python Scripts → `scripts/`
+
+| Current Location | Proposed Destination | Purpose |
+|-----------------|---------------------|---------|
+| `airac_full_update.py` | `scripts/navdata/airac_full_update.py` | AIRAC cycle data update |
+| `nasr_navdata_updater.py` | `scripts/navdata/nasr_navdata_updater.py` | FAA NASR import |
+| `escape_desert_analysis.py` | `scripts/analysis/escape_desert_analysis.py` | One-off event analysis |
+| `mit_analysis_final.py` | `scripts/analysis/mit_analysis_final.py` | MIT analysis |
+| `mit_trajectory_analysis.py` | `scripts/analysis/mit_trajectory_analysis.py` | MIT trajectory analysis |
+
+**Note:** `airac_full_update.py` and `nasr_navdata_updater.py` may be referenced in operational docs or wiki. Grep before moving.
+
+### 4.4 Root JavaScript File
+
+| Current Location | Proposed Destination | Notes |
+|-----------------|---------------------|-------|
+| `advisory-templates.js` | `assets/js/config/advisory-templates.js` | No `<script>` tag found in PHP pages — verify if loaded dynamically |
+
+### 4.5 Investigate Before Moving
+
+| File | Question |
+|------|----------|
+| `playbook.php` | Root-level PHP page — is it active or orphaned? Not in `load/nav.php` navigation |
+| `startup.sh` (root) | How does this relate to `scripts/startup.sh`? Which is authoritative? |
+| `default` | nginx config file at root — is this used by Azure deployment or redundant with `nginx-site.conf`? |
+
 ---
 
-## 5. Phase 4: Scripts Directory Reorganization
+## 5. Tier 3: Scripts Directory Reorganization
 
-### 5.1 CRITICAL WARNING
+The `scripts/` directory has **66 files at root level** mixing daemons, utilities, migrations, SQL scripts, test files, and analysis scripts. Well-organized subdirectories already exist for some features.
 
-**DO NOT MOVE these scripts** - they are referenced in startup.sh with absolute paths:
-- `vatsim_adl_daemon.php`
-- `scheduler_daemon.php`
-- `swim_ws_server.php`
-- `swim_sync_daemon.php`
-- `archival_daemon.php`
-- `monitoring_daemon.php`
-- `atis_parser.php`
-- `swim_sync.php`
-- `swim_cleanup.php`
-- `swim_ws_events.php`
-- `startup.sh`
-- `zone_daemon.php`
+### 5.1 Existing Subdirectories (Well-Organized)
 
-### 5.2 Safe to Reorganize (Utility Scripts)
+These are already properly structured:
 
-These scripts are not referenced in startup or deployment and can be moved:
+| Subdirectory | Files | Purpose |
+|-------------|-------|---------|
+| `scripts/tmi/` | 15+ | TMI processing, parsers, tests |
+| `scripts/tmi_compliance/` | Multi | TMI compliance analyzer (Python) |
+| `scripts/statsim/` | Multi | Statistical simulation |
+| `scripts/playbook/` | Multi | CDR/playbook route parsing |
+| `scripts/bada/` | Multi | BADA performance data |
+| `scripts/openap/` | Multi | OpenAP performance data |
+| `scripts/vatsim_atis/` | Multi | ATIS fetcher |
+| `scripts/navdata/` | Multi | Navigation data import |
+| `scripts/adl_archive/` | Multi | ADL archival utilities |
+| `scripts/postgis/` | Multi | PostGIS boundary scripts |
+| `scripts/discord/` | 2 | Discord test scripts |
+| `scripts/indexer/` | Multi | Search indexer |
 
-**Create `scripts/migrations/`:**
-| Current Location | New Location |
-|-----------------|--------------|
-| `scripts/export_config_data.php` | `scripts/migrations/export_config_data.php` |
-| `scripts/export_sql.php` | `scripts/migrations/export_sql.php` |
-| `scripts/export_config_to_sql.php` | `scripts/migrations/export_config_to_sql.php` |
-| `scripts/migrate_config_data.php` | `scripts/migrations/migrate_config_data.php` |
-| `scripts/migrate_public_routes.php` | `scripts/migrations/migrate_public_routes.php` |
-| `scripts/run_migration.php` | `scripts/migrations/run_migration.php` |
-| `scripts/import_rw_rates.php` | `scripts/migrations/import_rw_rates.php` |
+### 5.2 Daemons at Root — DO NOT MOVE
 
-**Update required in each moved file:**
-Change `require_once $baseDir . '/load/config.php'` to use `__DIR__ . '/../../load/config.php'`
+These scripts are referenced by `scripts/startup.sh` with relative paths. See [Appendix B](#appendix-b-critical-daemon-references-in-startupsh) for the complete list.
 
-**Create `scripts/diagnostics/`:**
-| Current Location | New Location |
-|-----------------|--------------|
-| `scripts/analyze_mysql_runways.php` | `scripts/diagnostics/analyze_mysql_runways.php` |
-| `scripts/analyze_monitoring.php` | `scripts/diagnostics/analyze_monitoring.php` |
+### 5.3 Proposed Reorganization for Non-Daemon Files
 
-**Create `scripts/testing/`:**
-| Current Location | New Location |
-|-----------------|--------------|
-| `scripts/test_atis_parser.php` | `scripts/testing/test_atis_parser.php` |
-| `scripts/swim_load_test.php` | `scripts/testing/swim_load_test.php` |
+**Create `scripts/maintenance/`** — data migration and export utilities:
 
-**Update for test_atis_parser.php after move:**
+| Current Location | Notes |
+|-----------------|-------|
+| `scripts/export_config_data.php` | Config data export |
+| `scripts/export_sql.php` | SQL export |
+| `scripts/export_config_to_sql.php` | Config to SQL converter |
+| `scripts/export_perti_events.php` | Events export |
+| `scripts/migrate_config_data.php` | Config migration |
+| `scripts/migrate_division_events.php` | Event migration |
+| `scripts/migrate_php82.php` | PHP 8.2 compatibility migration |
+| `scripts/import_rw_rates.php` | Rate import |
+| `scripts/run_migration.php` | Migration runner |
+| `scripts/fix_input_php.php` | Input fix utility |
+| `scripts/refresh_vatsim_boundaries.php` | Boundary refresh |
+| `scripts/sync_division_events.php` | Division event sync |
+| `scripts/sync_perti_events.php` | PERTI event sync |
+| `scripts/deploy_sp_optimizations.php` | SP deployment |
+| `scripts/convert_config_csv_to_sql.ps1` | CSV converter |
+
+**Path update required:** Change `require_once $baseDir . '/load/config.php'` to `__DIR__ . '/../../load/config.php'` in each moved file.
+
+**Create `scripts/sql/`** — standalone SQL scripts:
+
+| Current Location | Notes |
+|-----------------|-------|
+| `scripts/analyze_runway_data.sql` | Runway analysis |
+| `scripts/backfill_ata_utc.sql` | ATA backfill |
+| `scripts/check_batch_version.sql` | Batch version check |
+| `scripts/cleanup_non_airports.sql` | Data cleanup |
+| `scripts/clear_config_data.sql` | Config clear |
+| `scripts/config_data_migration.sql` | Config migration SQL |
+| `scripts/diagnose_flight_counts.sql` | Diagnostic query |
+| `scripts/eta_accuracy_diagnostic.sql` | ETA diagnostic |
+| `scripts/eta_accuracy_report.sql` | ETA report |
+| `scripts/eta_diagnostic.sql` | ETA diagnostic |
+| `scripts/fix_config_migration.sql` | Config fix |
+| `scripts/parse_runway_data.sql` | Runway parsing |
+| `scripts/prefile_batch_trace.sql` | Prefile trace |
+| `scripts/prefile_eta_debug.sql` | Prefile debug |
+| `scripts/timing_accuracy_analysis.sql` | Timing analysis |
+
+**Create `scripts/testing/`** — test and load test scripts:
+
+| Current Location | Notes |
+|-----------------|-------|
+| `scripts/test_atis_parser.php` | ATIS parser test (refs `../atis_parser.php` — update path) |
+| `scripts/test_daemons.ps1` | Daemon test (PowerShell) |
+| `scripts/test_daemons.sh` | Daemon test (bash) |
+| `scripts/test_multi_discord.php` | Discord test |
+| `scripts/test_swim_eta.php` | SWIM ETA test |
+| `scripts/test_trajectory_crossings.php` | Trajectory test |
+| `scripts/swim_load_test.php` | SWIM load test |
+| `scripts/prefile_update_test.sql` | Prefile test SQL |
+
+**Create `scripts/analysis/`** — one-off analysis scripts:
+
+| Current Location | Notes |
+|-----------------|-------|
+| `scripts/analyze_monitoring.php` | Monitoring analysis |
+| `scripts/analyze_mysql_runways.php` | Runway analysis |
+| `scripts/brightline_sno_export.py` | Event export |
+| `scripts/ese_to_geojson.py` | Sector file converter |
+| `scripts/build_sector_boundaries.py` | Boundary builder |
+| `scripts/update_playbook_routes.py` | Playbook updater |
+| `scripts/statsim_scraper.js` | Stats scraper |
+| `scripts/merge_sua_data.js` | SUA merger (JS) |
+| `scripts/merge_sua_data.php` | SUA merger (PHP) |
+| `scripts/transform_sua_geojson.js` | SUA transformer |
+
+---
+
+## 6. Tier 4: API Directory Issues
+
+### 6.1 Class Files in `api/` Tree
+
+These files define reusable classes but live in the API endpoint tree instead of `lib/`:
+
+| Current Location | Proposed Destination | Referenced By |
+|-----------------|---------------------|---------------|
+| `api/adl/AdlQueryHelper.php` | `lib/AdlQueryHelper.php` | `api/adl/current.php`, `api/adl/flight.php`, other ADL endpoints |
+| `api/stats/StatsHelper.php` | `lib/StatsHelper.php` | `api/stats/*.php` |
+| `api/tmi/AdvisoryNumber.php` | `lib/AdvisoryNumber.php` | `api/tmi/advisories.php` |
+| `api/tmi/helpers.php` | `lib/TMIHelpers.php` | Multiple TMI endpoints |
+| `api/jatoc/auth.php` | `lib/JATOCAuth.php` | `api/jatoc/*.php` |
+| `api/jatoc/datetime.php` | `lib/JATOCDateTime.php` | `api/jatoc/*.php` |
+| `api/jatoc/validators.php` | `lib/JATOCValidators.php` | `api/jatoc/*.php` |
+| `api/swim/v1/auth.php` | `lib/SWIMAuth.php` | `api/swim/v1/*.php` |
+
+**Note:** `api/swim/v1/ws/WebSocketServer.php`, `ClientConnection.php`, and `SubscriptionManager.php` are already in `composer.json` PSR-4 autoload — DO NOT MOVE without updating autoload config.
+
+### 6.2 Duplicate Ground Stop Code
+
+Two parallel implementations exist:
+
+**Legacy (flat files):** `api/tmi/`
+| File | Purpose |
+|------|---------|
+| `gs_apply.php` | Apply ground stop |
+| `gs_apply_ctd.php` | Apply CTD |
+| `gs_preview.php` | Preview |
+| `gs_purge_all.php` | Purge all |
+| `gs_purge_local.php` | Purge local |
+| `gs_simulate.php` | Simulate |
+
+**New (subdirectory):** `api/tmi/gs/`
+| File | Purpose |
+|------|---------|
+| `create.php` | Create ground stop |
+| `activate.php` | Activate |
+| `extend.php` | Extend |
+| `purge.php` | Purge |
+| `get.php` | Get details |
+| `list.php` | List active |
+| `flights.php` | Flight list |
+| `demand.php` | Demand data |
+| `model.php` | Data model |
+| `common.php` | Shared utilities |
+
+**Recommendation:** Determine which set is active (check `gdt.js` AJAX calls), deprecate the other, then delete after verification.
+
+### 6.3 API Naming Inconsistencies
+
+The API tree uses three different naming conventions:
+
+| Convention | Examples |
+|-----------|----------|
+| PascalCase | `AdvisoryNumber.php`, `AdlQueryHelper.php`, `StatsHelper.php` |
+| kebab-case | `public-routes.php`, `cleanup-queue.php`, `atis-debug.php` |
+| snake_case | `gs_apply.php`, `snapshot_history.php`, `rate_history.php` |
+
+**Recommendation:** Standardize on kebab-case for endpoints (REST convention), PascalCase for class files. This is a large change — defer unless doing a major API refactor.
+
+### 6.4 Oddities
+
+| File | Issue |
+|------|-------|
+| `api/data/plans.l.php` | Unusual `.l.php` extension — the `l` likely means "list" |
+| `api/test/swim_reroute_test.php` | Test endpoint checked into production code |
+| `api/cron.php` | Cron trigger in API root — consider moving to `cron/` |
+
+---
+
+## 7. Tier 5: load/ Directory Separation
+
+The `load/` directory mixes 5 different concerns in 22 tracked files:
+
+### 7.1 Current Contents by Category
+
+**Configuration (keep in load/):**
+| File | Purpose |
+|------|---------|
+| `config.example.php` | Configuration template |
+| `connect.php` | Database connections |
+| `input.php` | Input validation |
+| `swim_config.php` | SWIM configuration |
+| `perti_constants.php` | Application constants |
+| `airport_aliases.php` | Airport alias mapping |
+| `org_context.php` | Organization context |
+| `hibernation.php` | Hibernation mode logic |
+| `i18n.php` | PHP i18n helpers |
+
+**Page Templates (keep in load/):**
+| File | Purpose |
+|------|---------|
+| `header.php` | HTML head |
+| `footer.php` | Page footer |
+| `nav.php` | Auth navigation |
+| `nav_public.php` | Public navigation |
+| `breadcrumb.php` | Breadcrumb component |
+| `gdp_section.php` | GDP section partial |
+| `coordination_log.php` | Coordination log partial |
+
+**Discord Integration (already in subdirectory):**
+| File | Purpose |
+|------|---------|
+| `discord/DiscordAPI.php` | Discord API client |
+| `discord/MultiDiscordAPI.php` | Multi-org Discord |
+| `discord/TMIDiscord.php` | TMI Discord logic |
+| `discord/DiscordMessageParser.php` | Message formatting |
+| `discord/DiscordWebhookHandler.php` | Webhook processing |
+
+**Services (could move to lib/services/):**
+| File | Purpose |
+|------|---------|
+| `services/GISService.php` | PostGIS spatial queries |
+
+### 7.2 Recommendation
+
+The current structure is functional. The only candidate for relocation is `services/GISService.php` → `lib/services/GISService.php` to consolidate utility classes. **Low priority.**
+
+---
+
+## 8. Tier 6: JavaScript Organization (Deferred)
+
+### 8.1 Current State
+
+60 tracked files in `assets/js/`:
+- **48 files** at root level (flat structure)
+- **3 subdirectories**: `lib/` (9 files), `config/` (5 files), `plugins/` (2 files)
+
+### 8.2 Naming Inconsistency
+
+| Convention | Count | Examples |
+|-----------|-------|----------|
+| kebab-case | 28 | `tmi-publish.js`, `adl-service.js`, `route-maplibre.js` |
+| snake_case | 8 | `tmi_compliance.js`, `initiative_timeline.js`, `statsim_rates.js` |
+| camelCase | 0 | — |
+
+### 8.3 Proposed Feature Subdirectories
+
+If reorganized, the JS files could be grouped:
+
+| Subdirectory | Files |
+|-------------|-------|
+| `assets/js/tmi/` | `tmi-gdp.js`, `tmi-active-display.js`, `tmi-publish.js`, `tmi_compliance.js`, `advisory-config.js`, `gdp.js`, `gdt.js` |
+| `assets/js/weather/` | `weather_radar.js`, `weather_radar_integration.js`, `weather_impact.js`, `weather_hazards.js` |
+| `assets/js/map/` | `route-maplibre.js`, `route-symbology.js`, `fir-scope.js`, `fir-integration.js`, `plan-splits-map.js` |
+| `assets/js/plan/` | `plan.js`, `plan-tables.js`, `sheet.js`, `review.js`, `schedule.js` |
+| `assets/js/data/` | `facility-hierarchy.js`, `awys.js`, `cycle.js`, `procs.js`, `procs_enhanced.js`, `navdata.js` |
+| `assets/js/reroute/` | `reroute.js`, `public-routes.js`, `playbook.js`, `playbook-cdr-search.js`, `playbook-dcc-loader.js` |
+
+### 8.4 WARNING: High Risk
+
+**Every JS file move requires updating `<script src>` tags in PHP files.** See [Appendix C](#appendix-c-js-script-tag-reference-map) for the complete reference map. This affects 15+ PHP pages with 40+ script tags.
+
+**Recommendation:** Defer unless implementing a build system (Vite, webpack) that would abstract file paths.
+
+---
+
+## 9. Tier 7: Architectural Issues (Long-term)
+
+### 9.1 Discord Integration Spread
+
+Discord-related files span 5+ locations:
+
+| Location | Files | Purpose |
+|----------|-------|---------|
+| `load/discord/` | 5 | PHP utility classes |
+| `api/discord/` | 5 | REST API endpoints |
+| `api/nod/discord.php`, `discord-post.php` | 2 | NOD Discord posting |
+| `scripts/discord/` | 2 | Test scripts |
+| `scripts/tmi/process_discord_queue.php` | 1 | Queue processor |
+| `discord-bot/` | 5 | Node.js Gateway bot |
+
+**Total:** 44 Discord-related tracked files. The current separation (utilities in `load/`, endpoints in `api/`, bot in `discord-bot/`) follows the project's conventions. **No action recommended** — consolidation would require rewriting include paths in 11+ files.
+
+### 9.2 Authentication Pattern Scatter
+
+Three distinct auth patterns coexist:
+
+| Pattern | Used By | Mechanism |
+|---------|---------|-----------|
+| Session-based | All PHP pages, plan API | `sessions/handler.php` → `$_SESSION['VATSIM_CID']` |
+| SWIM API key | `api/swim/v1/` | `X-API-Key` header → `swim_api_keys` table |
+| Discord bot key | `api/mgt/tmi/coordinate.php` | `X-API-Key` header (separate key) |
+
+**Recommendation:** Document the patterns but don't unify — each serves a different authentication context.
+
+### 9.3 Migration File Locations
+
+Migration SQL files exist in three locations:
+
+| Location | Files | Database Target |
+|----------|-------|-----------------|
+| `database/migrations/` | 144 | Mixed (MySQL, Azure SQL, PostGIS) |
+| `adl/migrations/` | 164 | Azure SQL (VATSIM_ADL primarily) |
+| `sql/migrations/` | 1 | Stale (consolidate per Tier 1, Section 3.6) |
+
+The split between `database/migrations/` and `adl/migrations/` is intentional — ADL migrations grew as a semi-autonomous subsystem. **Consider consolidating** by moving `adl/migrations/` contents into `database/migrations/adl/` as a future effort.
+
+### 9.4 Documentation Sprawl
+
+121 docs files, many of which are session transition summaries or superseded design docs:
+
+| Category | Count | Action |
+|----------|-------|--------|
+| Active reference docs | ~30 | Keep |
+| SWIM session transitions | 8 | Archive (see Tier 1, Section 3.8) |
+| TMI session/transition docs | ~15 | Consider archiving |
+| Plan design docs (`docs/plans/`) | 17 | Keep as design record |
+| Discord thread exports (`docs/discord-threads/`) | 13 | Consider moving to wiki or archiving |
+
+---
+
+## 10. Code Quality Issues
+
+These are not file-move items but were discovered during the audit and should be addressed.
+
+### 10.1 SQL Injection in `data.php`
+
+**Severity: HIGH**
+
 ```php
-// Line 13: Change from
-require_once(__DIR__ . '/atis_parser.php');
-// To
-require_once(__DIR__ . '/../atis_parser.php');
+// Line 15: Unsanitized user input
+$uri = explode('?', $_SERVER['REQUEST_URI']);
+$id = $uri[1];
+
+// Line 32: Direct interpolation into SQL
+$plan_info = $conn_sqli->query("SELECT * FROM p_plans WHERE id=$id")->fetch_assoc();
+
+// Line 50: Direct echo into JavaScript (XSS)
+var plan_id = <?= $id ?>;
+```
+
+**Fix:** Use parameterized query and cast to int:
+```php
+$id = (int)($uri[1] ?? 0);
+```
+
+### 10.2 Scattered Test/Debug Endpoints
+
+37 test, debug, and diagnostic files are tracked in git. These should not be deployed to production:
+
+**API endpoints (accessible via HTTP):**
+| File | Risk |
+|------|------|
+| `api/adl/atis-debug.php` | Exposes ATIS parsing internals |
+| `api/adl/demand/debug.php` | Exposes demand calculation internals |
+| `api/adl/diagnose.php` | Diagnostic data |
+| `api/adl/diagnostic.php` | Diagnostic data |
+| `api/splits/debug.php` | Splits debug data |
+| `api/splits/test.php` | Test endpoint |
+| `api/stats/boundary_debug.php` | Boundary debug |
+| `api/stats/snapshot_debug.php` | Snapshot debug |
+| `api/test/swim_reroute_test.php` | SWIM reroute test |
+
+**Recommendation:** Either:
+1. Add `.htaccess` rules to block debug endpoints in production, OR
+2. Gate these endpoints behind admin authentication, OR
+3. Remove from deployment (add to `.github/workflows/azure-webapp-vatcscc.yml` exclude list)
+
+**Script test files (not HTTP-accessible, lower risk):**
+See `scripts/test_*.php`, `scripts/tmi/test_*.php`, `scripts/tmi/load_test_*.php` — 28 files total.
+
+### 10.3 Duplicate Aviation Standards Reference
+
+| File | Action |
+|------|--------|
+| `docs/swim/Aviation_Standards_Cross_Reference.md` | DELETE (duplicate) |
+| `docs/swim/Aviation_Data_Standards_Cross_Reference.md` | KEEP (canonical) |
+
+---
+
+## Appendix A: Root-Level File Inventory
+
+Complete listing of all 80 tracked files at root level with recommended disposition.
+
+### Keep (Core Application)
+
+| File | Purpose |
+|------|---------|
+| `index.php` | Home page |
+| `plan.php` | PERTI plan detail |
+| `schedule.php` | Event schedule |
+| `demand.php` | ADL demand charts |
+| `splits.php` | Sector split tool |
+| `route.php` | Route visualization |
+| `review.php` | Post-event review |
+| `sheet.php` | Planning sheet |
+| `gdt.php` | Ground Delay Table |
+| `nod.php` | North Atlantic display |
+| `status.php` | System status |
+| `swim.php` | SWIM API info |
+| `swim-doc.php` | SWIM doc viewer |
+| `swim-docs.php` | SWIM docs hub |
+| `swim-keys.php` | API key management |
+| `jatoc.php` | JATOC incidents |
+| `tmi-publish.php` | TMI publishing |
+| `sua.php` | SUA display |
+| `event-aar.php` | Event AAR config |
+| `airport_config.php` | Airport config editor |
+| `fmds-comparison.php` | FMDS comparison |
+| `data.php` | Planning data view |
+| `simulator.php` | ATC simulator |
+| `navdata.php` | Navigation data |
+| `transparency.php` | About page |
+| `privacy.php` | Privacy policy |
+| `healthcheck.php` | Health check |
+| `hibernation.php` | Hibernation info page |
+| `logout.php` | Session destroy |
+
+### Keep (Standard Config)
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Project README |
+| `CLAUDE.md` | AI assistant instructions |
+| `SECURITY.md` | Security policy |
+| `LICENSE` | License |
+| `.gitignore` | Git exclusions |
+| `.gitattributes` | Git attributes |
+| `composer.json` | PHP autoload/dependencies |
+| `package.json` | Node.js dependencies (for SUA merge scripts) |
+| `package-lock.json` | Node.js lockfile |
+| `nginx-site.conf` | Web server config |
+| `php.ini` | PHP config |
+| `composer` | Composer binary |
+| `.eslintrc.json` | ESLint config |
+| `.eslint-perti-rules.js` | Custom ESLint rules |
+| `.php-cs-fixer.php` | PHP CS Fixer config |
+
+### Move to `docs/`
+
+See [Section 4.1](#41-root-markdown-files--docs) — 22 markdown files.
+
+### Move to `scripts/`
+
+See [Section 4.3](#43-root-python-scripts--scripts) — 5 Python files.
+
+### Move to `assets/js/`
+
+| File | Destination |
+|------|-------------|
+| `advisory-templates.js` | `assets/js/config/advisory-templates.js` |
+
+### Delete
+
+See [Section 3.2](#32-delete-stale-root-files) — 9 stale files.
+
+### Investigate
+
+| File | Question |
+|------|----------|
+| `playbook.php` | Active page or orphaned? Not in navigation. |
+| `startup.sh` | Root copy vs `scripts/startup.sh` — which is canonical? |
+| `default` | Nginx config — redundant with `nginx-site.conf`? |
+
+---
+
+## Appendix B: Critical Daemon References in startup.sh
+
+`scripts/startup.sh` launches these daemons with relative paths. DO NOT MOVE without updating startup.sh.
+
+```
+scripts/vatsim_adl_daemon.php
+scripts/archival_daemon.php
+scripts/monitoring_daemon.php
+scripts/swim_ws_server.php
+scripts/swim_sync_daemon.php
+scripts/simtraffic_swim_poll.php
+scripts/swim_adl_reverse_sync_daemon.php
+scripts/scheduler_daemon.php
+scripts/event_sync_daemon.php
+scripts/adl_archive_daemon.php
+scripts/zone_daemon.php
+scripts/tmi/process_discord_queue.php
+adl/php/parse_queue_gis_daemon.php
+adl/php/boundary_gis_daemon.php
+adl/php/crossing_gis_daemon.php
+adl/php/waypoint_eta_daemon.php
+```
+
+Supporting files loaded by daemons (also immovable):
+```
+scripts/atis_parser.php          → loaded by vatsim_adl_daemon.php
+scripts/swim_sync.php            → loaded by swim_sync_daemon.php
+scripts/swim_cleanup.php         → loaded by swim_sync_daemon.php
+scripts/swim_ws_events.php       → loaded by swim_ws_server.php
+scripts/swim_adl_reverse_sync.php → loaded by swim_adl_reverse_sync_daemon.php
 ```
 
 ---
 
-## 6. Phase 5: JavaScript Reorganization
+## Appendix C: JS Script Tag Reference Map
 
-### 6.1 Files That CANNOT Be Moved
+Every JavaScript file and the PHP page(s) that load it via `<script src>` tags. This map MUST be updated if any JS file is moved.
 
-All JavaScript files in `/assets/js/` are loaded via `<script>` tags with hardcoded paths. Moving ANY file requires updating the corresponding PHP page.
-
-### 6.2 If Reorganizing, Update These PHP Files
-
-**For each JS file moved, update the `<script src="">` tag in:**
-
-| JS File | PHP File(s) | Line(s) |
-|---------|-------------|---------|
-| `advisory-config.js` | `advisory-builder.php` | 828 |
-| | `gdt.php` | 1719 |
-| | `plan.php` | 2352 |
-| | `route.php` | 2447 |
-| `advisory-builder.js` | `advisory-builder.php` | 829 |
-| `demand.js` | `demand.php` | 808 |
-| | `gdt.php` | 1685 |
-| `config/phase-colors.js` | `demand.php` | 20 |
-| | `gdt.php` | 1681 |
-| | `nod.php` | 1817 |
-| | `route.php` | 2450 |
-| | `status.php` | 2012 |
-| `config/rate-colors.js` | `demand.php` | 22 |
-| | `gdt.php` | 1683 |
-| `config/filter-colors.js` | `demand.php` | 24 |
-| | `nod.php` | 1819 |
-| | `route.php` | 2452 |
-| `fir-scope.js` | `gdt.php` | 1721 |
-| `fir-integration.js` | `gdt.php` | 1722 |
-| `gdt.js` | `gdt.php` | 1723 |
-| `gdp.js` | `gdt.php` | 1724 |
-| `jatoc.js` | `jatoc.php` | 1598 |
-| `jatoc-facility-patch.js` | `jatoc.php` | 1599 |
-| `nod.js` | `nod.php` | 1822 |
-| `nod-demand-layer.js` | `nod.php` | 1825 |
-| `ntml.js` | `ntml.php` | 486 |
-| `plan.js` | `plan.php` | 2355 |
-| `initiative_timeline.js` | `plan.php` | 2358 |
-| `reroute.js` | `reroutes.php` | 377 |
-| `review.js` | `review.php` | 821 |
-| `statsim_rates.js` | `review.php` | 362 |
-| `awys.js` | `route.php` | 2455 |
-| `procs_enhanced.js` | `route.php` | 2456 |
-| `route-symbology.js` | `route.php` | 2457 |
-| `public-routes.js` | `route.php` | 2461 |
-| `playbook-cdr-search.js` | `route.php` | 2462 |
-| `route-maplibre.js` | `route.php` | 2466 (dynamic) |
-| `route.js` | `route.php` | 2468 (dynamic) |
-| `leaflet.textpath.js` | `route.php` | 42 (dynamic) |
-| `schedule.js` | `schedule.php` | 222 |
-| `sheet.js` | `sheet.php` | 453 |
-| `splits.js` | `splits.php` | 3157 |
-| `sua.js` | `sua.php` | 782 |
-| `plugins/datetimepicker.js` | `load/footer.php` | 6 |
-| `theme.min.js` | `load/footer.php` | 10 |
-
-### 6.3 Recommendation
-
-**DO NOT reorganize JavaScript files** unless you're prepared to update 40+ script tag references across 15+ PHP files. The risk of breaking the application outweighs the organizational benefit.
-
----
-
-## 7. Phase 6: Discord Integration Consolidation
-
-### 7.1 Current Structure
-```
-/load/discord/
-  ├── DiscordAPI.php
-  ├── DiscordWebhookHandler.php
-  ├── DiscordMessageParser.php
-  └── TMIDiscord.php
-
-/api/discord/
-  ├── messages.php
-  ├── webhook.php
-  ├── channels.php
-  ├── reactions.php
-  └── announcements.php
-
-/api/nod/discord.php
-/api/nod/discord-post.php
-
-/scripts/discord/
-  ├── test_ntml_live.php
-  └── test_tmi_discord.php
-```
-
-### 7.2 If Consolidating to `/integrations/discord/`
-
-**Files that require these Discord classes:**
-
-| File | Line | Requires |
-|------|------|----------|
-| `api/discord/messages.php` | 20 | `/load/discord/DiscordAPI.php` |
-| `api/discord/webhook.php` | 24-25 | `/load/discord/DiscordWebhookHandler.php`, `DiscordMessageParser.php` |
-| `api/discord/channels.php` | 17 | `/load/discord/DiscordAPI.php` |
-| `api/discord/reactions.php` | 18 | `/load/discord/DiscordAPI.php` |
-| `api/discord/announcements.php` | 16 | `/load/discord/DiscordAPI.php` |
-| `api/nod/discord.php` | 30-32 | All three Discord classes |
-| `api/mgt/ntml/post.php` | ~52-54 | `DiscordAPI.php`, `TMIDiscord.php` |
-| `api/test/ntml_discord_test.php` | 42-43 | `DiscordAPI.php`, `TMIDiscord.php` |
-| `scripts/discord/test_tmi_discord.php` | 15 | `TMIDiscord.php` |
-| `scripts/discord/test_ntml_live.php` | 18 | `TMIDiscord.php` |
-| `scripts/tmi/test_advisory_format.php` | 13 | `TMIDiscord.php` |
-
-### 7.3 Recommendation
-
-**Keep Discord classes in `/load/discord/`** - this is the PHP convention for shared libraries. Moving them would require updating 11+ files with relative path changes.
-
-If you still want to consolidate test scripts:
-```
-Move:
-  scripts/discord/test_ntml_live.php → scripts/testing/discord/test_ntml_live.php
-  scripts/discord/test_tmi_discord.php → scripts/testing/discord/test_tmi_discord.php
-
-Update in each:
-  require_once __DIR__ . '/../../load/discord/TMIDiscord.php'
-  → require_once __DIR__ . '/../../../load/discord/TMIDiscord.php'
-```
-
----
-
-## 8. Phase 7: SWIM File Renaming
-
-### 8.1 Proposed Renames
-
-| Current | Proposed | Purpose Clarification |
-|---------|----------|----------------------|
-| `swim.php` | Keep as-is | Main SWIM overview page |
-| `swim-doc.php` | `swim-doc-viewer.php` | Single document viewer |
-| `swim-docs.php` | `swim-doc-index.php` | Documentation index/hub |
-| `swim-keys.php` | `swim-api-keys.php` | API key management |
-
-### 8.2 References to Update for Each Rename
-
-#### If renaming `swim-keys.php` → `swim-api-keys.php`:
-
-| File | Line | Change |
-|------|------|--------|
-| `load/nav.php` | 95 | `'./swim-keys'` → `'./swim-api-keys'` |
-| `load/nav_public.php` | 72 | `'./swim-keys'` → `'./swim-api-keys'` |
-| `swim.php` | 352 | `href="swim-keys"` → `href="swim-api-keys"` |
-| `swim.php` | 412 | `href="swim-keys"` → `href="swim-api-keys"` |
-| `swim.php` | 754 | `href="swim-keys"` → `href="swim-api-keys"` |
-| `swim.php` | 804 | `href="swim-keys"` → `href="swim-api-keys"` |
-| `swim-docs.php` | 212 | `href="swim-keys"` → `href="swim-api-keys"` |
-| `swim-keys.php` (self) | 538, 603, 644 | AJAX `$.post('swim-keys.php'` → `$.post('swim-api-keys.php'` |
-| `docs/swim/VATSWIM_Release_Documentation.md` | 159, 1813 | URL references |
-| `docs/swim/VATSWIM_Announcement.md` | 25, 34, 300, 301 | URL references |
-| `docs/swim/openapi.yaml` | 29 | URL reference |
-| `docs/swim/index.html` | 161 | URL reference |
-| `integrations/flight-sim/msfs/vatswim_config.ini.example` | 7 | URL reference |
-| `integrations/virtual-airlines/phpvms7/README.md` | 112 | URL reference |
-
-#### If renaming `swim-docs.php` → `swim-doc-index.php`:
-
-| File | Line | Change |
-|------|------|--------|
-| `load/nav.php` | 97 | `'./swim-docs'` → `'./swim-doc-index'` |
-| `load/nav_public.php` | 74 | `'./swim-docs'` → `'./swim-doc-index'` |
-| `swim-doc.php` | 87 | `header('Location: swim-docs')` → `header('Location: swim-doc-index')` |
-| `swim-doc.php` | 435 | `href="swim-docs"` → `href="swim-doc-index"` |
-| `swim-doc.php` | 449 | `href="swim-docs"` → `href="swim-doc-index"` |
-| `docs/swim/VATSWIM_Announcement.md` | 300 | URL reference |
-| Multiple integration READMEs | Various | `swim/docs` references |
-
-#### If renaming `swim-doc.php` → `swim-doc-viewer.php`:
-
-| File | Line | Change |
-|------|------|--------|
-| `swim-docs.php` | 245, 262, 269, 276, 293, 300, 307, 314, 321, 394, 417, 423, 429 | All `href="swim-doc?file=..."` → `href="swim-doc-viewer?file=..."` |
-| `.github/workflows/azure-webapp-vatcscc.yml` | 48 | Comment reference |
-
-### 8.3 Recommendation
-
-**Risk vs. Benefit:** Renaming SWIM files requires updating 30+ references across code and documentation. The current names work. Consider this LOW PRIORITY.
-
----
-
-## 9. Phase 8: GDT Documentation Consolidation
-
-### 9.1 Consolidation Plan
-
-**Keep as primary:**
-- `docs/gdt/GDT_Unified_Design_Document.md` (merged from v1 and v1.1)
-
-**Archive (move to `docs/gdt/archive/`):**
-- `GDT_Phase1_Transition.md`
-- `GDT_Incremental_Migration.md`
-- `docs/GDT_Unified_Design_Document_v1.md` (after merging)
-- `docs/GDT_GS_Transition_Summary_20260110.md`
-
-**Keep in place (API documentation):**
-- `docs/tmi/GDT_API_Documentation.md`
-- `docs/tmi/GDT_API_Development_Session.md`
-- `docs/tmi/GDT_Session_20260121.md`
-- `docs/tmi/GDT_REBUILD_DESIGN.md`
-
-**Update wiki:**
-- `wiki/GDT-Ground-Delay-Tool.md` - update to point to consolidated doc
-
-### 9.2 All References to Update
-
-See [Phase 3 Section 4.2](#42-reference-updates-required) for complete list of 27 references across 12 files.
-
----
-
-## 10. Reference Update Checklist
-
-### 10.1 Navigation Files (Update for ANY page rename)
-
-- [ ] `load/nav.php` - Lines 49-108
-- [ ] `load/nav_public.php` - Lines 35-85
-
-### 10.2 Documentation Index Files (Update for doc moves)
-
-- [ ] `README.md` - Line 295
-- [ ] `TMI_Documentation_Index.md` - Lines 10-134
-- [ ] `assistant_codebase_index_v18.md` - Lines 1295-1601
-- [ ] `docs/STATUS.md` - Lines 628-629
-- [ ] `docs/tmi/ARCHITECTURE.md` - Line 403
-
-### 10.3 Cross-Reference Documents
-
-- [ ] `docs/tmi/GDT_API_Documentation.md` - Lines 328-331
-- [ ] `docs/tmi/GDT_Session_20260121.md` - Lines 80-81, 144-146, 253
-- [ ] `docs/tmi/GDT_API_Development_Session.md` - Lines 69, 145-146
-- [ ] `docs/tmi/NTML_Discord_Parser_Alignment_20260117.md` - Lines 183-184
-- [ ] `docs/GDT_GS_Transition_Summary_20260110.md` - Lines 87, 163
-- [ ] `docs/tmi/GS_Eligibility_Fix_Transition.md` - Line 286
-
-### 10.4 External Documentation (Update URLs carefully)
-
-- [ ] `docs/swim/VATSWIM_Release_Documentation.md` - Lines 159, 1813
-- [ ] `docs/swim/VATSWIM_Announcement.md` - Lines 25, 34, 300, 301
-- [ ] `docs/swim/openapi.yaml` - Line 29
-- [ ] `docs/swim/index.html` - Line 161
-- [ ] `sdk/php/README.md` - Line 318
-- [ ] `sdk/cpp/README.md` - Line 274
-- [ ] `sdk/php/composer.json` - Line 13
-- [ ] `integrations/*/README.md` files - Various lines
-
-### 10.5 Deployment Files (CRITICAL - Test thoroughly)
-
-- [ ] `azure-pipelines.yml`
-- [ ] `azure-pipelines-1.yml`
-- [ ] `.github/workflows/azure-webapp-vatcscc.yml`
-- [ ] `composer.json` - Lines 12, 16-17
-- [ ] `scripts/startup.sh` - All daemon paths
-
----
-
-## Implementation Order
-
-1. **Phase 1** - Quick wins (delete nul, update .gitignore) - 5 minutes
-2. **Phase 2** - Archive SWIM session docs - 10 minutes
-3. **Phase 3** - Move root markdown files + update references - 1 hour
-4. **Phase 4** - Reorganize safe scripts + update paths - 30 minutes
-5. **Phase 8** - GDT doc consolidation + update references - 1 hour
-
-**SKIP or DEFER:**
-- Phase 5 (JavaScript) - Too many hardcoded references
-- Phase 6 (Discord) - Current structure is functional
-- Phase 7 (SWIM renames) - Low benefit, high risk
+| JS File | PHP File(s) |
+|---------|-------------|
+| `assets/js/lib/i18n.js` | `load/footer.php` (global) |
+| `assets/js/lib/dialog.js` | `load/footer.php` (global) |
+| `assets/js/lib/datetime.js` | `load/footer.php` (global) |
+| `assets/js/lib/logger.js` | `load/footer.php` (global) |
+| `assets/js/lib/colors.js` | `load/footer.php` (global) |
+| `assets/js/lib/deeplink.js` | Multiple pages |
+| `assets/js/lib/perti.js` | `load/footer.php` (global) |
+| `assets/js/plugins/datetimepicker.js` | `load/footer.php` |
+| `assets/js/theme.min.js` | `load/footer.php` |
+| `assets/js/config/phase-colors.js` | `demand.php`, `gdt.php`, `nod.php`, `route.php`, `status.php` |
+| `assets/js/config/rate-colors.js` | `demand.php`, `gdt.php` |
+| `assets/js/config/filter-colors.js` | `demand.php`, `nod.php`, `route.php` |
+| `assets/js/config/constants.js` | Multiple pages |
+| `assets/js/config/facility-roles.js` | `splits.php` |
+| `assets/js/adl-service.js` | `demand.php`, `gdt.php`, `nod.php`, `route.php` |
+| `assets/js/adl-refresh-utils.js` | `demand.php`, `gdt.php` |
+| `assets/js/advisory-config.js` | `gdt.php`, `plan.php`, `route.php` |
+| `assets/js/awys.js` | `route.php` |
+| `assets/js/cycle.js` | `navdata.php` |
+| `assets/js/demand.js` | `demand.php`, `gdt.php` |
+| `assets/js/facility-hierarchy.js` | `splits.php`, `plan.php` |
+| `assets/js/fir-scope.js` | `gdt.php` |
+| `assets/js/fir-integration.js` | `gdt.php` |
+| `assets/js/gdt.js` | `gdt.php` |
+| `assets/js/gdp.js` | `gdt.php` |
+| `assets/js/initiative_timeline.js` | `plan.php` |
+| `assets/js/jatoc.js` | `jatoc.php` |
+| `assets/js/jatoc-facility-patch.js` | `jatoc.php` |
+| `assets/js/navdata.js` | `navdata.php` |
+| `assets/js/nod.js` | `nod.php` |
+| `assets/js/nod-demand-layer.js` | `nod.php` |
+| `assets/js/plan.js` | `plan.php` |
+| `assets/js/plan-tables.js` | `plan.php`, `data.php` |
+| `assets/js/plan-splits-map.js` | `plan.php`, `data.php` |
+| `assets/js/playbook.js` | `route.php` |
+| `assets/js/playbook-cdr-search.js` | `route.php` |
+| `assets/js/playbook-dcc-loader.js` | `route.php` |
+| `assets/js/procs.js` | `route.php` |
+| `assets/js/procs_enhanced.js` | `route.php` |
+| `assets/js/public-routes.js` | `route.php` |
+| `assets/js/reroute.js` | `route.php` |
+| `assets/js/review.js` | `review.php` |
+| `assets/js/route-maplibre.js` | `route.php` |
+| `assets/js/route-symbology.js` | `route.php` |
+| `assets/js/schedule.js` | `schedule.php` |
+| `assets/js/sheet.js` | `sheet.php`, `data.php` |
+| `assets/js/splits.js` | `splits.php` |
+| `assets/js/statsim_rates.js` | `review.php` |
+| `assets/js/sua.js` | `sua.php` |
+| `assets/js/tmi_compliance.js` | `tmi-publish.php` |
+| `assets/js/tmi-active-display.js` | `gdt.php`, `tmi-publish.php` |
+| `assets/js/tmi-gdp.js` | `gdt.php` |
+| `assets/js/tmi-publish.js` | `tmi-publish.php` |
+| `assets/js/tmr_report.js` | `review.php` |
+| `assets/js/weather_hazards.js` | `route.php` |
+| `assets/js/weather_impact.js` | `route.php`, `demand.php` |
+| `assets/js/weather_radar.js` | `route.php`, `nod.php` |
+| `assets/js/weather_radar_integration.js` | `route.php` |
+| `assets/js/plugins/snow.js` | `load/footer.php` (seasonal) |
 
 ---
 
 ## Verification Checklist
 
-After each phase, verify:
+After implementing changes at any tier, verify:
 
-- [ ] Site loads without errors
-- [ ] Navigation works (all menu items)
-- [ ] API endpoints respond
+- [ ] Site loads without errors at `https://perti.vatcscc.org`
+- [ ] Navigation works (all menu items resolve)
+- [ ] API endpoints respond (spot-check 3-4 endpoints)
 - [ ] No 404 errors in browser console
-- [ ] Run: `git status` to review all changes
-- [ ] Run: `grep -r "OLD_FILENAME"` to find missed references
+- [ ] `git status` shows only intended changes
+- [ ] `grep -r "OLD_FILENAME" --include="*.php" --include="*.js" --include="*.md"` finds no stale references
+- [ ] Daemons start correctly (check `/home/LogFiles/` after deployment)
+- [ ] `composer dump-autoload` runs without errors (if lib/ files moved)
+
+### Per-Tier Verification
+
+| Tier | Additional Checks |
+|------|-------------------|
+| Tier 1 | `.gitignore` updated, `git status` clean, no untracked `.venv/` warning |
+| Tier 2 | All moved markdown files accessible from new paths, cross-references updated |
+| Tier 3 | Scripts that reference `__DIR__` paths still work, daemons unaffected |
+| Tier 4 | `composer dump-autoload` if PSR-4 classes moved, API endpoints respond |
+| Tier 5 | No changes recommended |
+| Tier 6 | Every PHP page loads its JS files (no 404s in Network tab) |
+| Tier 7 | Document only — no verification needed |
 
 ---
 
-*End of Reorganization Catalog*
+*End of Reorganization Catalog — March 2026 Audit*
