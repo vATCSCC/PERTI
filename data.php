@@ -54,6 +54,8 @@ include("sessions/handler.php");
             if ($conn_sqli) { get_org_info($conn_sqli); }
         }
     }
+    require_once 'load/org_context.php';
+    $is_global_scope = (get_org_code() === 'global');
 ?>
 
 <!DOCTYPE html>
@@ -133,7 +135,7 @@ include('load/nav_public.php');
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                     <li><a class="nav-link active rounded" data-toggle="tab" href="#overview">Overview</a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing">DCC Staffing</a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing"><?= __($is_global_scope ? 'plan.tabs.tmuStaffing' : 'plan.tabs.dccStaffing') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#t_staffing">Terminal Staffing</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#configs">Field Configurations</a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_staffing">En-Route Staffing</a></li>
@@ -237,7 +239,7 @@ include('load/nav_public.php');
                         </div>
                     </div>
 
-                    <!-- Tab: DCC Staffing -->
+                    <!-- Tab: DCC/TMU Staffing -->
                     <div class="tab-pane fade" id="dcc_staffing">
                         <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccFacility"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 

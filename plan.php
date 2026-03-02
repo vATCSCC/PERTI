@@ -38,7 +38,8 @@ include("sessions/handler.php");
 
     require_once('load/org_context.php');
     $plan_org_code = $plan_info['org_code'] ?? null;
-    $org_mismatch = ($plan_org_code !== null && $plan_org_code !== get_org_code());
+    $org_mismatch = ($plan_org_code !== null && $plan_org_code !== get_org_code() && !is_org_global());
+    $is_global_scope = (get_org_code() === 'global');
 ?>
 
 <!DOCTYPE html>
@@ -194,7 +195,7 @@ if ($org_mismatch):
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                     <li><a class="nav-link active rounded" data-toggle="tab" href="#overview"><?= __('plan.tabs.overview') ?></a></li>
                     <hr>
-                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing"><?= __('plan.tabs.dccStaffing') ?></a></li>
+                    <li><a class="nav-link rounded" data-toggle="tab" href="#dcc_staffing"><?= __($is_global_scope ? 'plan.tabs.tmuStaffing' : 'plan.tabs.dccStaffing') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#historical"><?= __('plan.tabs.historical') ?></a></li>
                     <li><a class="nav-link rounded" data-toggle="tab" href="#forecast"><?= __('plan.tabs.forecast') ?></a></li>
                     <hr>
@@ -345,16 +346,16 @@ if ($org_mismatch):
                         </div>
                     </div>
 
-                    <!-- Tab: DCC Staffing -->
+                    <!-- Tab: DCC/TMU Staffing -->
                     <div class="tab-pane fade" id="dcc_staffing">
-                        
+
                         <?php if ($perm == true) { ?>
                             <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#add_dccstaffingModal"><i class="fas fa-plus"></i> <?= __('plan.dcc.addPersonnel') ?></button>
 
                             <hr>
                         <?php } ?>
 
-                        <h4><b><?= __('plan.dcc.dccPersonnel') ?></b></h4>
+                        <h4><b><?= __($is_global_scope ? 'plan.dcc.tmuPersonnel' : 'plan.dcc.dccPersonnel') ?></b></h4>
                         <button class="btn btn-sm btn-outline-secondary plan-group-toggle mb-2" data-table="dccPersonnel"><i class="fas fa-list"></i> <?= __('plan.tables.flatView') ?></button>
 
                         <table class="table table-striped table-bordered">
