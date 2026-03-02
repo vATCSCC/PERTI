@@ -75,20 +75,66 @@ jobs:
         echo "=== Stats Documentation ==="
         ls -la deploy/docs/stats/ 2>/dev/null || echo "WARNING: Stats docs missing!"
 
-    # Deploy to Azure Web App (with retry for Kudu parallel rsync race condition)
+    # Deploy to Azure Web App via Kudu ZIP API (avoids parallel rsync race condition)
     - name: Deploy to Azure Web App
-      id: deploy
-      uses: azure/webapps-deploy@v3
-      continue-on-error: true
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
-        package: ./deploy
+      env:
+        PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
+      run: |
+        # Create deployment ZIP
+        cd deploy && zip -qr /tmp/deploy.zip . && cd ..
+        ZIP_SIZE=$(du -h /tmp/deploy.zip | cut -f1)
+        echo "Deployment ZIP: $ZIP_SIZE"
 
-    - name: Retry deploy on failure
-      if: steps.deploy.outcome == 'failure'
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_VATCSCC }}
-        package: ./deploy
+        # Extract Kudu SCM credentials from publish profile
+        SCM_USER=$(echo "$PUBLISH_PROFILE" | grep -oP 'userName="[^"]*"' | head -1 | sed 's/userName="//;s/"$//')
+        SCM_PASS=$(echo "$PUBLISH_PROFILE" | grep -oP 'userPWD="[^"]*"' | head -1 | sed 's/userPWD="//;s/"$//')
+
+        if [ -z "$SCM_USER" ] || [ -z "$SCM_PASS" ]; then
+          echo "::error::Failed to extract Kudu credentials from publish profile"
+          exit 1
+        fi
+
+        echo "Deploying to Kudu ZIP API (sequential extraction)..."
+
+        # Deploy via Kudu /api/zip/ endpoint — extracts sequentially, no parallel rsync
+        HTTP_CODE=$(curl -s -o /tmp/deploy_response.txt -w "%{http_code}" \
+          -X PUT \
+          -u "$SCM_USER:$SCM_PASS" \
+          --data-binary @/tmp/deploy.zip \
+          -H "Content-Type: application/zip" \
+          --max-time 600 \
+          "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zip/site/wwwroot/")
+
+        echo "Kudu response: HTTP $HTTP_CODE"
+
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "Deployment successful!"
+        else
+          echo "::warning::Primary deploy returned HTTP $HTTP_CODE, retrying..."
+          cat /tmp/deploy_response.txt 2>/dev/null || true
+          sleep 10
+
+          HTTP_CODE=$(curl -s -o /tmp/deploy_response2.txt -w "%{http_code}" \
+            -X PUT \
+            -u "$SCM_USER:$SCM_PASS" \
+            --data-binary @/tmp/deploy.zip \
+            -H "Content-Type: application/zip" \
+            --max-time 600 \
+            "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zip/site/wwwroot/")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Retry deployment successful!"
+          else
+            echo "::error::Deploy failed after retry with HTTP $HTTP_CODE"
+            cat /tmp/deploy_response2.txt 2>/dev/null || true
+            exit 1
+          fi
+        fi
+
+        # Verify critical files
+        VERIFY=$(curl -s -u "$SCM_USER:$SCM_PASS" \
+          -X POST -H "Content-Type: application/json" \
+          -d '{"command":"ls scripts/startup.sh scripts/vatsim_adl_daemon.php scripts/tmi/process_discord_queue.php","dir":"/home/site/wwwroot"}' \
+          "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/command")
+
+        echo "Verification: $VERIFY"
