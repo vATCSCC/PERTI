@@ -311,6 +311,9 @@ if ($org_mismatch):
                                 <h4><b><?= __('plan.overview.resources') ?></b></h4>
                                 <ul>
                                     <li><a href="https://perti.vatcscc.org/nod" target="_blank"><?= __('plan.overview.resourceNod') ?></a> <?= __('plan.overview.resourceNodDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/playbook" target="_blank"><?= __('plan.overview.resourcePlaybook') ?></a> <?= __('plan.overview.resourcePlaybookDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/route" target="_blank"><?= __('plan.overview.resourceRoute') ?></a> <?= __('plan.overview.resourceRouteDesc') ?></li>
+                                    <li><a href="https://perti.vatcscc.org/airport_config" target="_blank"><?= __('plan.overview.resourceAirportConfig') ?></a> <?= __('plan.overview.resourceAirportConfigDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/splits" target="_blank"><?= __('plan.overview.resourceSplits') ?></a> <?= __('plan.overview.resourceSplitsDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/gdt" target="_blank"><?= __('plan.overview.resourceGdt') ?></a> <?= __('plan.overview.resourceGdtDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/jatoc" target="_blank"><?= __('plan.overview.resourceJatoc') ?></a> <?= __('plan.overview.resourceJatocDesc') ?></li>
