@@ -2364,7 +2364,11 @@ $(document).ready(function() {
                 if (i < expandedTokens.length - 1) {
                     let dataForCurrentFix;
                     if (countOccurrencesOfPointName(pointName) === 1) {dataForCurrentFix = getPointByName(pointName);}
-                    nextPointData = getPointByName(expandedTokens[i + 1], previousPointData, dataForCurrentFix);
+                    // Look ahead, skipping unresolvable tokens (airway names)
+                    for (let la = i + 1; la < expandedTokens.length && la <= i + 3; la++) {
+                        nextPointData = getPointByName(expandedTokens[la], previousPointData, dataForCurrentFix);
+                        if (nextPointData) {break;}
+                    }
                 }
 
                 if (pointName.length === 6 && /\d/.test(pointName)) {
@@ -4637,7 +4641,11 @@ $(document).ready(function() {
                 const tok = expandedTokens[i].toUpperCase();
                 let nextData;
                 if (i < expandedTokens.length - 1) {
-                    nextData = getPointByName(expandedTokens[i + 1], prevData);
+                    // Look ahead, skipping unresolvable tokens (airway names)
+                    for (let la = i + 1; la < expandedTokens.length && la <= i + 3; la++) {
+                        nextData = getPointByName(expandedTokens[la], prevData);
+                        if (nextData) {break;}
+                    }
                 }
                 const pointData = getPointByName(tok, prevData, nextData);
                 if (pointData && pointData.length >= 3) {
@@ -7865,6 +7873,7 @@ $(document).ready(function() {
                 for (let j = i + 1; j < tokens.length && j < i + 3; j++) {
                     let nextName = tokens[j].toUpperCase();
                     if (/^[JQTV]\d+$/i.test(nextName)) {continue;}
+                    if (/^[A-Z]{1,2}\d{1,4}$/.test(nextName) && awyIndexMap[nextName]) {continue;}
                     if (/^[NMFSA]\d{3,4}$/.test(nextName)) {continue;}
                     if (nextName.includes('.')) {nextName = nextName.split('.')[0];}
 
