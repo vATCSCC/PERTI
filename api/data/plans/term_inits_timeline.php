@@ -177,7 +177,16 @@ switch ($method) {
             exit;
         }
 
-        $facility = $conn_sqli->real_escape_string(trim($input['facility']));
+        // Parse multi-facility input (supports /, -, and , delimiters)
+        $raw_facility = trim($input['facility']);
+        $facility_list = preg_split('/[\\/,\\-]+/', $raw_facility);
+        $facility_list = array_values(array_filter(array_map('trim', $facility_list), function($f) { return strlen($f) >= 2; }));
+        if (empty($facility_list)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid facility']);
+            exit;
+        }
+
         $area = isset($input['area']) ? $conn_sqli->real_escape_string(trim($input['area'])) : null;
         $tmi_type = $conn_sqli->real_escape_string(trim($input['tmi_type']));
         $tmi_type_other = isset($input['tmi_type_other']) ? $conn_sqli->real_escape_string(trim($input['tmi_type_other'])) : null;
@@ -195,34 +204,39 @@ switch ($method) {
             echo json_encode(['error' => 'Invalid level']);
             exit;
         }
-        
+
         if (!in_array($tmi_type, $tmi_types)) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid TMI type: ' . $tmi_type]);
             exit;
         }
-        
-        $sql = "INSERT INTO p_terminal_init_timeline 
-                (p_id, facility, area, tmi_type, tmi_type_other, cause, start_datetime, end_datetime, level, notes, is_global, advzy_number, created_by) 
+
+        $sql = "INSERT INTO p_terminal_init_timeline
+                (p_id, facility, area, tmi_type, tmi_type_other, cause, start_datetime, end_datetime, level, notes, is_global, advzy_number, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
+
         $stmt = $conn_sqli->prepare($sql);
         if (!$stmt) {
             http_response_code(500);
             echo json_encode(['error' => 'Prepare failed: ' . $conn_sqli->error]);
             exit;
         }
-        
-        $stmt->bind_param("isssssssssiss", $p_id, $facility, $area, $tmi_type, $tmi_type_other, $cause, $start_datetime, $end_datetime, $level, $notes, $is_global, $advzy_number, $cid);
-        
-        if ($stmt->execute()) {
-            $new_id = $conn_sqli->insert_id;
-            echo json_encode(['success' => true, 'id' => $new_id]);
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Insert failed: ' . $stmt->error]);
+
+        $ids = [];
+        foreach ($facility_list as $fac) {
+            $fac_esc = $conn_sqli->real_escape_string($fac);
+            $stmt->bind_param("isssssssssiss", $p_id, $fac_esc, $area, $tmi_type, $tmi_type_other, $cause, $start_datetime, $end_datetime, $level, $notes, $is_global, $advzy_number, $cid);
+            if ($stmt->execute()) {
+                $ids[] = $conn_sqli->insert_id;
+            } else {
+                http_response_code(500);
+                echo json_encode(['error' => 'Insert failed: ' . $stmt->error]);
+                $stmt->close();
+                exit;
+            }
         }
         $stmt->close();
+        echo json_encode(['success' => true, 'id' => $ids[0], 'ids' => $ids, 'count' => count($ids)]);
         break;
         
     case 'PUT':

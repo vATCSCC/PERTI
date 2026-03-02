@@ -56,6 +56,15 @@
     cursor: pointer;
 }
 
+.dcccp-control-divider {
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    background: var(--gray-400);
+    margin: 0 8px;
+    vertical-align: middle;
+}
+
 /* Filter Box */
 .dcccp-filter-box {
     display: flex;
