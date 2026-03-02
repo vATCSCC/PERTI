@@ -352,10 +352,8 @@
     background: var(--level-cdw);
     border: 2px solid var(--level-cdw-border);
     border-radius: 0;
-    top: 50%;
-    transform: translateY(-50%);
 }
-.dcccp-item.level-CDW:hover { transform: translateY(-50%) scale(1.2); }
+.dcccp-item.level-CDW:hover { transform: scale(1.2); }
 .dcccp-item.level-CDW .dcccp-item-text { display: none; }
 
 /* Possible TMI */
@@ -455,6 +453,58 @@
     background: var(--status-info-base);
     z-index: 50;
     pointer-events: none;
+}
+
+/* Event Start/End Markers */
+.dcccp-event-marker {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    z-index: 45;
+    pointer-events: none;
+}
+
+.dcccp-event-start-marker {
+    background: repeating-linear-gradient(
+        to bottom,
+        var(--status-success-text, #28a745) 0px,
+        var(--status-success-text, #28a745) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+}
+
+.dcccp-event-end-marker {
+    background: repeating-linear-gradient(
+        to bottom,
+        var(--status-danger-text, #dc3545) 0px,
+        var(--status-danger-text, #dc3545) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+}
+
+.dcccp-event-marker-label {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    padding: 1px 4px;
+    border-radius: 2px;
+    line-height: 1.2;
+}
+
+.dcccp-event-start-marker .dcccp-event-marker-label {
+    color: #fff;
+    background: var(--status-success-text, #28a745);
+}
+
+.dcccp-event-end-marker .dcccp-event-marker-label {
+    color: #fff;
+    background: var(--status-danger-text, #dc3545);
 }
 
 /* Time Axis */

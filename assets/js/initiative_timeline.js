@@ -218,6 +218,8 @@ class InitiativeTimeline {
                         <div class="dcccp-grid-lines" id="${this.containerId}-grid"></div>
                         <div class="dcccp-timeline-rows" id="${this.containerId}-rows"></div>
                         <div class="dcccp-now-line" id="${this.containerId}-now" style="display:none;"></div>
+                        <div class="dcccp-event-marker dcccp-event-start-marker" id="${this.containerId}-event-start" style="display:none;"><span class="dcccp-event-marker-label">EVENT START</span></div>
+                        <div class="dcccp-event-marker dcccp-event-end-marker" id="${this.containerId}-event-end" style="display:none;"><span class="dcccp-event-marker-label">EVENT END</span></div>
                     </div>
                 </div>
                 
@@ -855,6 +857,7 @@ class InitiativeTimeline {
             rowsEl.innerHTML = `<div class="dcccp-no-data">${PERTII18n.t('initiative.noData')}</div>`;
             this.renderTimeAxis(startTime, endTime);
             this.updateNowLine(startTime, totalMs);
+            this.renderEventMarkers(startTime, totalMs);
             return;
         }
 
@@ -905,6 +908,7 @@ class InitiativeTimeline {
         this.renderGridLines(startTime, endTime);
         this.renderTimeAxis(startTime, endTime);
         this.updateNowLine(startTime, totalMs);
+        this.renderEventMarkers(startTime, totalMs);
     }
 
     /**
@@ -914,10 +918,14 @@ class InitiativeTimeline {
     assignLanes(items) {
         if (!items.length) {return {};}
 
-        // Sort by start time
-        const sorted = [...items].sort((a, b) =>
-            this.parseUTC(a.start_datetime).getTime() - this.parseUTC(b.start_datetime).getTime(),
-        );
+        // Sort by severity first (Active > Expected > Probable > Possible), then start time
+        const sevOrder = { 'Active': 1, 'Expected': 2, 'Probable': 3, 'Possible': 4, 'Advisory_Terminal': 5, 'Advisory_EnRoute': 5, 'Constraint_Terminal': 6, 'Constraint_EnRoute': 6, 'CDW': 7, 'Special_Event': 8, 'Space_Op': 8, 'VIP': 8, 'Staffing': 9, 'Misc': 10 };
+        const sorted = [...items].sort((a, b) => {
+            const sa = sevOrder[a.level] ?? 100;
+            const sb = sevOrder[b.level] ?? 100;
+            if (sa !== sb) return sa - sb;
+            return this.parseUTC(a.start_datetime).getTime() - this.parseUTC(b.start_datetime).getTime();
+        });
 
         // Track end times for each lane
         const laneEndTimes = [];
@@ -970,12 +978,12 @@ class InitiativeTimeline {
             label = `${item.facility}: ${label}`;
         }
 
-        // CDW items are small markers centered, others stack in lanes
+        // Each lane is 26px tall (20px item + 6px gap), starting at 4px
+        // CDW items are 14px tall, offset +3px to center within the 20px lane slot
         let top;
         if (item.level === 'CDW') {
-            top = '50%';
+            top = `${4 + lane * 26 + 3}px`;
         } else {
-            // Each lane is 26px tall (20px item + 6px gap), starting at 4px
             top = `${4 + lane * 26}px`;
         }
 
@@ -1121,6 +1129,40 @@ class InitiativeTimeline {
         el.style.left = `${pct}%`;
     }
 
+    renderEventMarkers(startTime, totalMs) {
+        const startEl = document.getElementById(`${this.containerId}-event-start`);
+        const endEl = document.getElementById(`${this.containerId}-event-end`);
+        if (!startEl || !endEl) {return;}
+
+        const fmtZ = d => `${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}Z`;
+
+        if (this.eventStart) {
+            const pct = ((this.eventStart.getTime() - startTime.getTime()) / totalMs) * 100;
+            if (pct >= 0 && pct <= 100) {
+                startEl.style.display = 'block';
+                startEl.style.left = `${pct}%`;
+                startEl.querySelector('.dcccp-event-marker-label').textContent = `START ${fmtZ(this.eventStart)}`;
+            } else {
+                startEl.style.display = 'none';
+            }
+        } else {
+            startEl.style.display = 'none';
+        }
+
+        if (this.eventEnd) {
+            const pct = ((this.eventEnd.getTime() - startTime.getTime()) / totalMs) * 100;
+            if (pct >= 0 && pct <= 100) {
+                endEl.style.display = 'block';
+                endEl.style.left = `${pct}%`;
+                endEl.querySelector('.dcccp-event-marker-label').textContent = `END ${fmtZ(this.eventEnd)}`;
+            } else {
+                endEl.style.display = 'none';
+            }
+        } else {
+            endEl.style.display = 'none';
+        }
+    }
+
     startNowLineUpdater() {
         setInterval(() => {
             const { startTime, endTime } = this.getTimelineBounds();
@@ -1174,6 +1216,7 @@ class InitiativeTimeline {
             }
         }
         return Object.values(groups).map(g => {
+            g._facilities.sort();
             g.facility = g._facilities.join('/');
             return g;
         });
