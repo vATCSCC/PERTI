@@ -153,7 +153,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     .update-header .type { text-align: left; }
     .update-header .author { text-align: center; color: #60a5fa; }
     .update-header .time { text-align: right; }
-    .update-content { color: #e2e8f0; font-size: 0.8rem; white-space: pre-wrap; font-family: 'Courier New', monospace; }
+    .update-content { color: #e2e8f0; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; font-family: 'Courier New', monospace; }
     .priority-text { color: #f87171 !important; font-weight: 700 !important; }
     
     #detailsRemarks { background-color: #1e293b; border: 1px solid #475569; padding: 8px; border-radius: 4px; min-height: 50px; color: #f1f5f9; font-family: 'Courier New', monospace; font-size: 0.85rem; }

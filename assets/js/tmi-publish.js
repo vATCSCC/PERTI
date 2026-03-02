@@ -8246,8 +8246,8 @@
 
             // Convert back to array
             const grouped = Object.values(routeGroups).map(g => ({
-                origin: Array.from(g.origins).sort().join('/'),
-                destination: Array.from(g.destinations).sort().join('/'),
+                origin: Array.from(g.origins).sort().join(' '),
+                destination: Array.from(g.destinations).sort().join(' '),
                 route: g.route,
                 originFilter: Array.from(g.originFilters).sort().join(' '),
                 destFilter: Array.from(g.destFilters).sort().join(' '),
@@ -9193,8 +9193,8 @@
                     let labelPart = '';
                     while (labelIdx < labelWords.length) {
                         const word = labelWords[labelIdx];
-                        // Use "/" as separator for airport codes (compact format)
-                        const sep = labelPart ? '/' : '';
+                        // Use space as separator for airport codes (readable column alignment)
+                        const sep = labelPart ? ' ' : '';
                         const addition = sep + word;
                         if (labelPart.length + addition.length <= labelCol - 2) { // Leave 2 chars padding
                             labelPart += addition;
@@ -9377,8 +9377,8 @@
                     let labelPart = '';
                     while (labelIdx < labelWords.length) {
                         const word = labelWords[labelIdx];
-                        // Use "/" as separator for airport codes (compact format)
-                        const sep = labelPart ? '/' : '';
+                        // Use space as separator for airport codes (readable column alignment)
+                        const sep = labelPart ? ' ' : '';
                         const addition = sep + word;
                         if (labelPart.length + addition.length <= labelWidth - 2) {
                             labelPart += addition;
@@ -10293,8 +10293,8 @@
                         // Only prepend K for 3-letter FAA airport codes
                         return a.startsWith('K') ? a : 'K' + a;
                     };
-                const originStr = Array.from(origins).map(toIcao).join('/');
-                const destStr = Array.from(dests).map(toIcao).join('/');
+                const originStr = Array.from(origins).map(toIcao).join(' ');
+                const destStr = Array.from(dests).map(toIcao).join(' ');
 
                 $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
             }
