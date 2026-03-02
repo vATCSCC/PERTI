@@ -1634,13 +1634,45 @@ $perm = true;
                             <option value="CZWG">CZWG - Winnipeg FIR</option>
                             <option value="CZYZ">CZYZ - Toronto FIR</option>
                         </optgroup>
+                        <optgroup label="European FIRs (ECFMP)">
+                            <option value="EGTT">EGTT - London FIR</option>
+                            <option value="EGPX">EGPX - Scottish FIR</option>
+                            <option value="LFFF">LFFF - Paris FIR</option>
+                            <option value="LFBB">LFBB - Bordeaux FIR</option>
+                            <option value="EDGG">EDGG - Langen FIR</option>
+                            <option value="EDWW">EDWW - Bremen FIR</option>
+                            <option value="EDMM">EDMM - München FIR</option>
+                            <option value="EHAA">EHAA - Amsterdam FIR</option>
+                            <option value="EBBU">EBBU - Brussels FIR</option>
+                            <option value="LSAS">LSAS - Swiss FIR</option>
+                            <option value="LOVV">LOVV - Wien FIR</option>
+                            <option value="LIMM">LIMM - Milano FIR</option>
+                            <option value="LIRR">LIRR - Roma FIR</option>
+                            <option value="LECM">LECM - Madrid FIR</option>
+                            <option value="LECB">LECB - Barcelona FIR</option>
+                            <option value="LPPC">LPPC - Lisboa FIR</option>
+                            <option value="EISN">EISN - Shannon FIR</option>
+                            <option value="EKDK">EKDK - Copenhagen FIR</option>
+                            <option value="ESAA">ESAA - Sweden FIR</option>
+                            <option value="EFIN">EFIN - Finland FIR</option>
+                            <option value="ENOR">ENOR - Norway FIR</option>
+                            <option value="EPWW">EPWW - Warszawa FIR</option>
+                            <option value="LKAA">LKAA - Praha FIR</option>
+                            <option value="LHCC">LHCC - Budapest FIR</option>
+                            <option value="LRBB">LRBB - Bucharest FIR</option>
+                            <option value="LTAA">LTAA - Ankara FIR</option>
+                            <option value="LGGG">LGGG - Athinai FIR</option>
+                            <option value="BIRD">BIRD - Reykjavik FIR</option>
+                        </optgroup>
                         <optgroup label="International">
                             <option value="MMEX">MMEX - Mexico</option>
                             <option value="MUFH">MUFH - Havana FIR</option>
                             <option value="TJSJ">TJSJ - San Juan CERAP</option>
                         </optgroup>
-                        <optgroup label="Command Center">
+                        <optgroup label="Command Centers">
                             <option value="DCC">DCC - ATCSCC</option>
+                            <option value="NOC">NOC - CANOC</option>
+                            <option value="ECFMP">ECFMP - ECFMP</option>
                         </optgroup>
                     </select>
                 </div>

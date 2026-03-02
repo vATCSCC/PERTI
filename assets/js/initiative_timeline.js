@@ -892,8 +892,12 @@ class InitiativeTimeline {
                 if (this.hasPerm) {
                     const clickItem = (this.displayData || this.data).find(d => d.id == el.dataset.id);
                     if (!clickItem || clickItem.from_other_plan) return;
-                    if (clickItem._ids && clickItem._ids.length > 1) return;
-                    this.hideTooltip(); this.openEditModal(el.dataset.id);
+                    this.hideTooltip();
+                    if (clickItem._ids && clickItem._ids.length > 1) {
+                        this.openConsolidatedEditModal(clickItem);
+                    } else {
+                        this.openEditModal(el.dataset.id);
+                    }
                 }
             });
         });
@@ -1262,7 +1266,14 @@ class InitiativeTimeline {
         tip.style.left = `${left}px`;
         tip.style.top = `${top}px`;
 
-        tip.querySelector('.dcccp-tooltip-edit-btn')?.addEventListener('click', () => { this.hideTooltip(); this.openEditModal(id); });
+        tip.querySelector('.dcccp-tooltip-edit-btn')?.addEventListener('click', () => {
+            this.hideTooltip();
+            if (item._ids && item._ids.length > 1) {
+                this.openConsolidatedEditModal(item);
+            } else {
+                this.openEditModal(id);
+            }
+        });
         this.tooltip = tip;
     }
 
@@ -1270,6 +1281,10 @@ class InitiativeTimeline {
 
     showAddModal() {
         if (!this.hasPerm) {return;}
+
+        // Clear consolidated state
+        this._consolidatedIds = null;
+        this._consolidatedFacilities = null;
 
         document.getElementById(`${this.modalId}-id`).value = '';
         document.getElementById(`${this.modalId}-title`).textContent = PERTII18n.t('initiative.addElement');
@@ -1289,6 +1304,10 @@ class InitiativeTimeline {
     openEditModal(id) {
         const item = this.data.find(d => d.id == id);
         if (!item) {return;}
+
+        // Clear consolidated state
+        this._consolidatedIds = null;
+        this._consolidatedFacilities = null;
 
         document.getElementById(`${this.modalId}-id`).value = item.id;
         document.getElementById(`${this.modalId}-title`).textContent = PERTII18n.t('initiative.editElement');
@@ -1357,6 +1376,95 @@ class InitiativeTimeline {
         document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(item.end_datetime);
         document.getElementById(`${this.modalId}-notes`).value = item.notes || '';
         document.getElementById(`${this.modalId}-global`).checked = item.is_global == 1;
+
+        $(`#${this.modalId}`).modal('show');
+    }
+
+    /**
+     * Open edit modal for a consolidated (multi-facility) item.
+     * Populates shared fields from the first underlying item.
+     * On save, updates ALL underlying items with the new shared data.
+     */
+    openConsolidatedEditModal(consolidated) {
+        if (!consolidated._ids || !consolidated._ids.length) return;
+
+        // Use first underlying item for data, but mark as consolidated edit
+        const firstItem = this.data.find(d => d.id == consolidated._ids[0]);
+        if (!firstItem) return;
+
+        // Store consolidated IDs for the save handler
+        this._consolidatedIds = consolidated._ids;
+        this._consolidatedFacilities = consolidated._facilities || [];
+
+        document.getElementById(`${this.modalId}-id`).value = 'consolidated';
+        document.getElementById(`${this.modalId}-title`).textContent =
+            PERTII18n.t('initiative.editElement') + ` (${consolidated._facilities.join('/')})`;
+        document.getElementById(`${this.modalId}-delete`).style.display = 'inline-block';
+
+        document.getElementById(`${this.modalId}-level`).value = firstItem.level;
+        this.updateFormSections();
+
+        const cat = this.levels[firstItem.level]?.category || 'tmi';
+
+        // Populate category-specific fields (same logic as openEditModal, but facility shows combined)
+        switch (cat) {
+            case 'tmi':
+                document.getElementById(`${this.modalId}-tmi-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-tmi-area`).value = firstItem.area || '';
+                document.getElementById(`${this.modalId}-tmi-type`).value = firstItem.tmi_type || 'GS';
+                document.getElementById(`${this.modalId}-tmi-other`).value = firstItem.tmi_type_other || '';
+                document.getElementById(`${this.modalId}-tmi-cause`).value = firstItem.cause || '';
+                document.getElementById(`${this.modalId}-advzy-number`).value = firstItem.advzy_number || '';
+                if (firstItem.tmi_type === 'Other') {
+                    document.getElementById(`${this.modalId}-tmi-other-wrap`).style.display = 'block';
+                    document.getElementById(`${this.modalId}-tmi-cause-wrap`).style.display = 'none';
+                }
+                break;
+            case 'vip':
+                document.getElementById(`${this.modalId}-vip-type`).value = firstItem.tmi_type || 'VIP Movement';
+                document.getElementById(`${this.modalId}-vip-callsign`).value = firstItem.tmi_type_other || '';
+                document.getElementById(`${this.modalId}-vip-origin`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-vip-dest`).value = firstItem.area || '';
+                break;
+            case 'space':
+                document.getElementById(`${this.modalId}-space-type`).value = firstItem.tmi_type || 'Rocket Launch';
+                document.getElementById(`${this.modalId}-space-mission`).value = firstItem.cause || '';
+                document.getElementById(`${this.modalId}-space-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-space-areas`).value = firstItem.area || '';
+                break;
+            case 'staffing':
+                document.getElementById(`${this.modalId}-staff-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-staff-area`).value = firstItem.area || '';
+                document.getElementById(`${this.modalId}-staff-shift`).value = firstItem.tmi_type || 'Day';
+                document.getElementById(`${this.modalId}-staff-trigger`).value = firstItem.cause || '';
+                break;
+            case 'cdw':
+                document.getElementById(`${this.modalId}-cdw-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-cdw-decision`).value = firstItem.cause || '';
+                break;
+            case 'event':
+                document.getElementById(`${this.modalId}-event-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-event-name`).value = firstItem.cause || '';
+                break;
+            case 'misc':
+                document.getElementById(`${this.modalId}-misc-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-misc-desc`).value = firstItem.cause || '';
+                break;
+            case 'constraint':
+                document.getElementById(`${this.modalId}-constraint-facility`).value = consolidated.facility || '';
+                document.getElementById(`${this.modalId}-constraint-type`).value = firstItem.tmi_type || 'Weather';
+                document.getElementById(`${this.modalId}-constraint-other`).value = firstItem.tmi_type_other || '';
+                document.getElementById(`${this.modalId}-constraint-impact`).value = firstItem.cause || '';
+                if (firstItem.tmi_type === 'Other') {
+                    document.getElementById(`${this.modalId}-constraint-other-wrap`).style.display = 'block';
+                }
+                break;
+        }
+
+        document.getElementById(`${this.modalId}-start`).value = this.toInputFmt(firstItem.start_datetime);
+        document.getElementById(`${this.modalId}-end`).value = this.toInputFmt(firstItem.end_datetime);
+        document.getElementById(`${this.modalId}-notes`).value = firstItem.notes || '';
+        document.getElementById(`${this.modalId}-global`).checked = firstItem.is_global == 1;
 
         $(`#${this.modalId}`).modal('show');
     }
@@ -1445,7 +1553,60 @@ class InitiativeTimeline {
         if (!data.facility) { this.alert('error', PERTII18n.t('initiative.error.facilityRequired')); return; }
         if (!data.start_datetime || !data.end_datetime) { this.alert('error', PERTII18n.t('initiative.error.timesRequired')); return; }
 
+        // Handle consolidated edit: update each underlying item with its original facility
+        if (id === 'consolidated' && this._consolidatedIds && this._consolidatedIds.length > 1) {
+            this.saveConsolidatedItems(data);
+            return;
+        }
+
         this.saveItem(data, !!id);
+    }
+
+    async saveConsolidatedItems(data) {
+        const ids = this._consolidatedIds;
+        const facilities = this._consolidatedFacilities;
+        if (!ids || !ids.length) return;
+
+        let successCount = 0;
+        let lastError = null;
+
+        for (let i = 0; i < ids.length; i++) {
+            const itemData = { ...data, id: ids[i] };
+            // Restore each item's original facility
+            if (facilities[i]) {
+                itemData.facility = facilities[i];
+            }
+            try {
+                const resp = await fetch(this.apiEndpoint, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(itemData),
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    lastError = result.error;
+                }
+            } catch (e) {
+                lastError = e.message;
+            }
+        }
+
+        this._consolidatedIds = null;
+        this._consolidatedFacilities = null;
+
+        if (successCount === ids.length) {
+            $(`#${this.modalId}`).modal('hide');
+            this.alert('success', PERTII18n.t('initiative.elementUpdated') + ` (${successCount})`);
+            this.loadData();
+        } else if (successCount > 0) {
+            $(`#${this.modalId}`).modal('hide');
+            this.alert('warning', `${successCount}/${ids.length} updated` + (lastError ? ': ' + lastError : ''));
+            this.loadData();
+        } else {
+            this.alert('error', lastError || PERTII18n.t('initiative.error.saveFailed'));
+        }
     }
 
     async saveItem(data, isUpdate) {
@@ -1475,21 +1636,60 @@ class InitiativeTimeline {
     handleDelete() {
         const id = document.getElementById(`${this.modalId}-id`).value;
         if (!id) {return;}
+
+        const isConsolidated = (id === 'consolidated' && this._consolidatedIds && this._consolidatedIds.length > 1);
+        const deleteAction = () => {
+            if (isConsolidated) {
+                this.deleteConsolidatedItems();
+            } else {
+                this.deleteItem(id);
+            }
+        };
+
+        const confirmText = isConsolidated
+            ? PERTII18n.t('initiative.confirmDelete') + ` (${this._consolidatedIds.length})`
+            : PERTII18n.t('initiative.confirmDelete');
+
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: PERTII18n.t('common.confirm'),
-                text: PERTII18n.t('initiative.confirmDelete'),
+                text: confirmText,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc3545',
                 confirmButtonText: PERTII18n.t('common.yesDelete'),
                 cancelButtonText: PERTII18n.t('common.cancel'),
             }).then(result => {
-                if (result.isConfirmed) {this.deleteItem(id);}
+                if (result.isConfirmed) {deleteAction();}
             });
-        } else if (confirm(PERTII18n.t('initiative.confirmDelete'))) {
-            this.deleteItem(id);
+        } else if (confirm(confirmText)) {
+            deleteAction();
         }
+    }
+
+    async deleteConsolidatedItems() {
+        const ids = this._consolidatedIds;
+        if (!ids || !ids.length) return;
+
+        let successCount = 0;
+        for (const cid of ids) {
+            try {
+                const resp = await fetch(`${this.apiEndpoint}?id=${cid}`, { method: 'DELETE' });
+                const result = await resp.json();
+                if (result.success) successCount++;
+            } catch (e) { /* continue */ }
+        }
+
+        this._consolidatedIds = null;
+        this._consolidatedFacilities = null;
+        $(`#${this.modalId}`).modal('hide');
+
+        if (successCount === ids.length) {
+            this.alert('success', PERTII18n.t('initiative.elementDeleted') + ` (${successCount})`);
+        } else {
+            this.alert('warning', `${successCount}/${ids.length} deleted`);
+        }
+        this.loadData();
     }
 
     async deleteItem(id) {

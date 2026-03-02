@@ -308,7 +308,12 @@ if ($org_mismatch):
                                     <li><a href="https://perti.vatcscc.org/splits" target="_blank"><?= __('plan.overview.resourceSplits') ?></a> <?= __('plan.overview.resourceSplitsDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/gdt" target="_blank"><?= __('plan.overview.resourceGdt') ?></a> <?= __('plan.overview.resourceGdtDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/jatoc" target="_blank"><?= __('plan.overview.resourceJatoc') ?></a> <?= __('plan.overview.resourceJatocDesc') ?></li>
+                                    <?php if ($plan_org_code === 'canoc'): ?>
+                                    <li>VATCAN Discord <a href="https://discord.com/channels/567549256357904405/823308502696722432" target="_blank">#can-ntml</a> and <a href="https://discord.com/channels/567549256357904405/823309153036402738" target="_blank">#can-advisories</a> for CANOC TMI data logging.</li>
+                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for VATUSA TMI data logging.</li>
+                                    <?php else: ?>
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> <?= __('plan.overview.resourceDiscord') ?></li>
+                                    <?php endif; ?>
                                     <?php if (stripos($plan_info['hotline'], 'Canada') !== false): ?>
                                     <li>VATCAN <a href="ts3server://ts.vatcan.ca" target="_blank">TeamSpeak</a>, <span class="text-danger"><b>TMU Hang</b></span> <?= __('plan.overview.resourceHotlineVatcan') ?>
                                         <ul><li><?= __('plan.overview.resourceCredentials') ?></li>
@@ -321,8 +326,10 @@ if ($org_mismatch):
                                         <li>The vATCSCC Discord, <?= $plan_info['hotline']; ?> <?= __('plan.overview.resourceSecondaryBackup') ?></li></ul></li>
                                     <?php endif; ?>
                                     <li><?= __('plan.overview.resourceGroupFlights') ?> <a href="https://bit.ly/NTML_Entry" target="_blank"><?= __('plan.overview.resourceGroupFlightsLink') ?></a>.</li>
+                                    <?php if ($plan_org_code !== 'canoc'): ?>
                                     <li><?= __('plan.overview.resourceCallsigns') ?> <a href="https://www.vatusa.net/info/policies/authorized-tmu-callsigns" target="_blank"><?= __('plan.overview.resourceCallsignsLink') ?></a>.</li>
                                     <li><a href="https://bit.l/vATCSCC_Transgression_Reporting_Form" target="_blank"><?= __('plan.overview.resourceTransgression') ?></a> <?= __('plan.overview.resourceTransgressionDesc') ?></li>
+                                    <?php endif; ?>
                                 </ul>
 
                             </div>

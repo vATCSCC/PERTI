@@ -8,7 +8,6 @@ if (session_status() == PHP_SESSION_NONE) {
 // Session Start (E)
 
 include("../../../load/config.php");
-define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
 // Check Perms
@@ -44,6 +43,49 @@ header('Content-Type: application/json');
 $rows = [];
 $query = $conn_sqli->query("SELECT * FROM p_configs WHERE p_id='$p_id'");
 
+// Weather code to string mapping
+$weatherMap = [1 => 'VMC', 2 => 'LVMC', 3 => 'IMC', 4 => 'LIMC'];
+
+// Pre-load ADL rates for autofill if ADL connection available
+$adlRates = [];
+$conn_adl = function_exists('get_conn_adl') ? get_conn_adl() : null;
+
+if ($perm && $conn_adl) {
+    // Collect unique airports from plan configs
+    $planAirports = [];
+    $tempQuery = $conn_sqli->query("SELECT DISTINCT airport FROM p_configs WHERE p_id='$p_id'");
+    while ($r = $tempQuery->fetch_assoc()) {
+        $planAirports[] = $r['airport'];
+    }
+
+    if (!empty($planAirports)) {
+        // Build parameterized query for all plan airports
+        $placeholders = implode(',', array_fill(0, count($planAirports), '?'));
+        $sql = "SELECT s.airport_icao, s.arr_runways, s.dep_runways,
+                       r.vatsim_vmc_aar, r.vatsim_lvmc_aar, r.vatsim_imc_aar, r.vatsim_limc_aar,
+                       r.vatsim_vmc_adr, r.vatsim_lvmc_adr, r.vatsim_imc_adr, r.vatsim_limc_adr
+                FROM dbo.vw_airport_config_summary s
+                JOIN dbo.vw_airport_config_rates r ON s.config_id = r.config_id
+                WHERE s.airport_icao IN ($placeholders) AND s.is_active = 1";
+
+        $stmt = sqlsrv_query($conn_adl, $sql, $planAirports);
+        if ($stmt) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $icao = $row['airport_icao'];
+                $arr = $row['arr_runways'] ?? '';
+                $dep = $row['dep_runways'] ?? '';
+                $key = strtoupper($icao) . '|' . strtoupper(trim($arr)) . '|' . strtoupper(trim($dep));
+                $adlRates[$key] = $row;
+                // Also store airport-only fallback (first config found)
+                if (!isset($adlRates[$icao])) {
+                    $adlRates[$icao] = $row;
+                }
+            }
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+}
+
 if ($query) {
     while ($data = mysqli_fetch_assoc($query)) {
         $row = [
@@ -60,23 +102,23 @@ if ($query) {
             'autofill_adr' => 0,
         ];
 
-        if ($perm) {
-            $c_fc = $conn_sqli->query("SELECT COUNT(*) AS 'total', vmc_aar, lvmc_aar, imc_aar, limc_aar, vmc_adr, imc_adr FROM config_data WHERE airport='{$data['airport']}' AND arr='{$data['arrive']}' AND dep='{$data['depart']}'")->fetch_assoc();
-            if ($c_fc['total'] > 0) {
+        if ($perm && !empty($adlRates)) {
+            $airport = strtoupper($data['airport']);
+            $arrive = strtoupper(trim($data['arrive'] ?? ''));
+            $depart = strtoupper(trim($data['depart'] ?? ''));
+            $key = $airport . '|' . $arrive . '|' . $depart;
+            $weatherCode = (int)$data['weather'];
+            $weatherStr = $weatherMap[$weatherCode] ?? 'VMC';
+
+            // Try exact match (airport + arrive + depart), then airport-only fallback
+            $rates = $adlRates[$key] ?? $adlRates[$airport] ?? null;
+
+            if ($rates) {
                 $row['has_autofill'] = true;
-                if ($data['weather'] == 1) {
-                    $row['autofill_aar'] = $c_fc['vmc_aar'];
-                    $row['autofill_adr'] = $c_fc['vmc_adr'];
-                } elseif ($data['weather'] == 2) {
-                    $row['autofill_aar'] = $c_fc['lvmc_aar'];
-                    $row['autofill_adr'] = $c_fc['vmc_adr'];
-                } elseif ($data['weather'] == 3) {
-                    $row['autofill_aar'] = $c_fc['imc_aar'];
-                    $row['autofill_adr'] = $c_fc['imc_adr'];
-                } elseif ($data['weather'] == 4) {
-                    $row['autofill_aar'] = $c_fc['limc_aar'];
-                    $row['autofill_adr'] = $c_fc['imc_adr'];
-                }
+                $aarCol = 'vatsim_' . strtolower($weatherStr) . '_aar';
+                $adrCol = 'vatsim_' . strtolower($weatherStr) . '_adr';
+                $row['autofill_aar'] = $rates[$aarCol] ?? 0;
+                $row['autofill_adr'] = $rates[$adrCol] ?? 0;
             }
         }
 

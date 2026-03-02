@@ -3153,12 +3153,41 @@ function opsPlanUpdateMessage() {
         }
     }
 
-    // HEADER + NARRATIVE (no blank lines around narrative)
+    // Build event start/end as ISO strings for filtering timeline items
+    let eventStartISO = null;
+    let eventEndISO = null;
+    if (startDate && startTime) {
+        const st = startTime.padStart(4, '0');
+        eventStartISO = startDate + 'T' + st.substring(0,2) + ':' + st.substring(2,4) + ':00Z';
+    }
+    if (endDate && endTime) {
+        const et = endTime.padStart(4, '0');
+        eventEndISO = endDate + 'T' + et.substring(0,2) + ':' + et.substring(2,4) + ':00Z';
+    } else if (eventStartISO) {
+        // Default to 6 hours after start if no end specified
+        var tmpDt = new Date(eventStartISO);
+        eventEndISO = new Date(tmpDt.getTime() + 6 * 3600000).toISOString();
+    }
+
+    // HEADER + NARRATIVE + GOALS (no blank lines around narrative)
     const headerLines = [];
     headerLines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + opsPlanUpper(headerAdvNum) + ' ' + AdvisoryConfig.getFacility() + ' ' + headerDate + ' OPERATIONS PLAN');
     headerLines.push('EVENT TIME: ' + opsPlanUpper((startDay || '__') + '/' + (startTime || '____') + ' - ' + (endDay || '__') + '/' + (endTime || '____')));
     headerLines.push('____________________________________________________________________');
     headerLines.push(opsPlanUpper(narrative || '[Add narrative here]'));
+
+    // Auto-add operational goals as bulleted items
+    const goalTexts = [];
+    $('#goals_table tr').each(function() {
+        const txt = ($(this).find('td:first').text() || '').trim();
+        if (txt) { goalTexts.push(txt); }
+    });
+    if (goalTexts.length) {
+        goalTexts.forEach(function(g) {
+            headerLines.push('  - ' + opsPlanUpper(g));
+        });
+    }
+
     headerLines.push('____________________________________________________________________');
 
     // STAFFING
@@ -3216,14 +3245,24 @@ function opsPlanUpdateMessage() {
         staffingLines.push(PERTII18n.t('plan.opsPlan.none'));
     }
 
+    // Helper: Check if a timeline item overlaps the event period
+    function opsPlanOverlapsEvent(item) {
+        if (!eventStartISO || !eventEndISO) return true; // No event period defined, include all
+        var itemStart = item.start_datetime ? String(item.start_datetime).replace(' ', 'T') : null;
+        var itemEnd = item.end_datetime ? String(item.end_datetime).replace(' ', 'T') : null;
+        if (!itemStart || !itemEnd) return true; // Missing times, include by default
+        // Overlap: item starts before event ends AND item ends after event starts
+        return itemStart < eventEndISO && itemEnd > eventStartISO;
+    }
+
     // TERMINAL CONSTRAINTS (from timeline)
     const termConstraintLines = [];
     termConstraintLines.push(PERTII18n.t('plan.opsPlan.terminalConstraints'));
 
-    // Get terminal constraints from timeline
+    // Get terminal constraints from timeline (filtered to event period)
     const termTimelineData = (window.termInitTimeline && window.termInitTimeline.data) ? window.termInitTimeline.data : [];
     const termConstraints = termTimelineData.filter(function(item) {
-        return item.level === 'Constraint_Terminal';
+        return item.level === 'Constraint_Terminal' && opsPlanOverlapsEvent(item);
     });
 
     termConstraints.sort(function(a, b) {
@@ -3254,10 +3293,10 @@ function opsPlanUpdateMessage() {
     const enrouteConstraintLines = [];
     enrouteConstraintLines.push(PERTII18n.t('plan.opsPlan.enRouteConstraints'));
 
-    // Get enroute constraints from timeline
+    // Get enroute constraints from timeline (filtered to event period)
     const enrouteTimelineData = (window.enrouteInitTimeline && window.enrouteInitTimeline.data) ? window.enrouteInitTimeline.data : [];
     const enrouteConstraints = enrouteTimelineData.filter(function(item) {
-        return item.level === 'Constraint_EnRoute';
+        return item.level === 'Constraint_EnRoute' && opsPlanOverlapsEvent(item);
     });
 
     enrouteConstraints.sort(function(a, b) {
@@ -3335,13 +3374,13 @@ function opsPlanUpdateMessage() {
         return (a.end_datetime || '').localeCompare(b.end_datetime || '');
     }
 
-    // Helper: Build TMI lines from timeline data
+    // Helper: Build TMI lines from timeline data (filtered to event period)
     function buildTmiLinesFromTimeline(timelineData, levelFilter) {
         const result = [];
         if (!timelineData || !Array.isArray(timelineData)) {return result;}
 
         const filtered = timelineData.filter(function(item) {
-            return levelFilter.indexOf(item.level) !== -1;
+            return levelFilter.indexOf(item.level) !== -1 && opsPlanOverlapsEvent(item);
         });
 
         // Sort by: start time, probability (Active>Expected>Probable>Possible>CDW), cause, facility, end time
@@ -3367,13 +3406,13 @@ function opsPlanUpdateMessage() {
         return result;
     }
 
-    // Helper: Build Advisory lines from timeline data
+    // Helper: Build Advisory lines from timeline data (filtered to event period)
     function buildAdvisoryLinesFromTimeline(timelineData, levelFilter) {
         const result = [];
         if (!timelineData || !Array.isArray(timelineData)) {return result;}
 
         const filtered = timelineData.filter(function(item) {
-            return levelFilter.indexOf(item.level) !== -1;
+            return levelFilter.indexOf(item.level) !== -1 && opsPlanOverlapsEvent(item);
         });
 
         filtered.sort(opsPlanCompareTimeline);
@@ -3403,13 +3442,13 @@ function opsPlanUpdateMessage() {
         return result;
     }
 
-    // Helper: Build VIP/Space/Special Event lines from timeline data
+    // Helper: Build VIP/Space/Special Event lines from timeline data (filtered to event period)
     function buildSpecialLinesFromTimeline(timelineData, levelFilter) {
         const result = [];
         if (!timelineData || !Array.isArray(timelineData)) {return result;}
 
         const filtered = timelineData.filter(function(item) {
-            return levelFilter.indexOf(item.level) !== -1;
+            return levelFilter.indexOf(item.level) !== -1 && opsPlanOverlapsEvent(item);
         });
 
         filtered.sort(opsPlanCompareTimeline);
@@ -3671,6 +3710,16 @@ function openOpsPlanModal() {
     // Default advisory date from event date if empty
     if ($('#opsAdvDate').val().trim() === '' && typeof PERTI_EVENT_DATE !== 'undefined' && PERTI_EVENT_DATE) {
         $('#opsAdvDate').val(opsPlanFormatMmDdYyyy(PERTI_EVENT_DATE));
+    }
+
+    // Auto-populate advisory number from API (peek, no reservation)
+    if ($('#opsAdvNum').val().trim() === '') {
+        $.get('api/mgt/tmi/advisory-number.php?peek=1').done(function(resp) {
+            if (resp && resp.success && resp.sequence) {
+                $('#opsAdvNum').val(String(resp.sequence).padStart(3, '0'));
+                opsPlanUpdateMessage();
+            }
+        });
     }
 
     // Default Ops Plan event times from PERTI fields / event defaults if empty
