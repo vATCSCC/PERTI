@@ -1303,6 +1303,10 @@ const SplitsController = {
             this.disableMapSectorSelection();
             this.disableSplitMapSelection();
             this.updateMapWithActiveConfigs();
+
+            // Clean up side-panel mode
+            document.getElementById('config-modal').classList.remove('side-panel-mode');
+            document.body.classList.remove('side-panel-active');
         });
 
         // Config modal shown: enable editing mode
@@ -3475,7 +3479,7 @@ const SplitsController = {
             .map(c => c.dataset.sector);
         this._areaEditingArtcc = artcc;
 
-        // Show High/Low/Superhigh sectors with outlines only (no fill) for selection
+        // Show High/Low/Superhigh sectors with low-opacity fill + lines for selection
         const sectorLayers = ['high', 'low', 'superhigh'];
         sectorLayers.forEach(layer => {
             const checkbox = document.getElementById(`layer-${layer}`);
@@ -3484,14 +3488,16 @@ const SplitsController = {
                 this.toggleLayerVisibility(layer, true);
             }
 
-            // Set to outline-only mode for selection
             const fillBtn = document.querySelector(`.layer-fill-btn[data-layer="${layer}"]`);
             const lineBtn = document.querySelector(`.layer-line-btn[data-layer="${layer}"]`);
 
-            // Turn off fill
-            if (fillBtn && fillBtn.classList.contains('active')) {
-                fillBtn.classList.remove('active');
-                this.toggleLayerFill(layer, false);
+            // Enable fill with low opacity for easy clicking
+            if (!fillBtn || !fillBtn.classList.contains('active')) {
+                if (fillBtn) fillBtn.classList.add('active');
+                this.toggleLayerFill(layer, true);
+            }
+            if (this.map.getLayer(`${layer}-fill`)) {
+                this.map.setPaintProperty(`${layer}-fill`, 'fill-opacity', 0.15);
             }
 
             // Turn on lines
@@ -4475,7 +4481,7 @@ const SplitsController = {
         this.mapSelectionMode = 'preset';
         this.mapSelectionColor = position.color || '#4dabf7';
 
-        // Show High/Low/Superhigh sectors with outlines only (no fill) for selection
+        // Show High/Low/Superhigh sectors with low-opacity fill + lines for selection
         const sectorLayers = ['high', 'low', 'superhigh'];
         sectorLayers.forEach(layer => {
             const checkbox = document.getElementById(`layer-${layer}`);
@@ -4484,14 +4490,16 @@ const SplitsController = {
                 this.toggleLayerVisibility(layer, true);
             }
 
-            // Set to outline-only mode for selection
             const fillBtn = document.querySelector(`.layer-fill-btn[data-layer="${layer}"]`);
             const lineBtn = document.querySelector(`.layer-line-btn[data-layer="${layer}"]`);
 
-            // Turn off fill
-            if (fillBtn && fillBtn.classList.contains('active')) {
-                fillBtn.classList.remove('active');
-                this.toggleLayerFill(layer, false);
+            // Enable fill with low opacity for easy clicking
+            if (!fillBtn || !fillBtn.classList.contains('active')) {
+                if (fillBtn) fillBtn.classList.add('active');
+                this.toggleLayerFill(layer, true);
+            }
+            if (this.map.getLayer(`${layer}-fill`)) {
+                this.map.setPaintProperty(`${layer}-fill`, 'fill-opacity', 0.15);
             }
 
             // Turn on lines
@@ -4808,11 +4816,31 @@ const SplitsController = {
         document.getElementById('config-next-btn').style.display = this.currentStep < 3 ? 'inline-block' : 'none';
         document.getElementById('config-save-btn').style.display = this.currentStep === 3 ? 'inline-block' : 'none';
 
-        // Update step-specific content
+        // Side panel mode for Step 2 (map visible while configuring splits)
         if (this.currentStep === 2) {
+            document.getElementById('config-modal').classList.add('side-panel-mode');
+            document.body.classList.add('side-panel-active');
             this.loadSectorGridForConfig();
-        } else if (this.currentStep === 3) {
-            this.populateReviewStep();
+
+            // Enable sector layers with low-opacity fill for visibility
+            this.enableSectorLayersForSidePanel();
+        } else {
+            document.getElementById('config-modal').classList.remove('side-panel-mode');
+            document.body.classList.remove('side-panel-active');
+
+            // Clean up map selection state when leaving Step 2
+            if (this.mapSelectionMode === 'split') {
+                this.disableSplitMapSelection();
+            }
+
+            if (this.currentStep === 3) {
+                this.populateReviewStep();
+            }
+        }
+
+        // Trigger map resize after layout change
+        if (this.map) {
+            setTimeout(() => this.map.resize(), 100);
         }
     },
 
@@ -5255,24 +5283,31 @@ const SplitsController = {
     },
 
     enableMapSectorSelection(highlightColor) {
-        // Show High/Low/Superhigh sectors if not already visible
-        const showHigh = document.getElementById('layer-high');
-        const showLow = document.getElementById('layer-low');
-        const showSuperhigh = document.getElementById('layer-superhigh');
+        // Show High/Low/Superhigh sectors with fill for clickability
+        ['high', 'low', 'superhigh'].forEach(layer => {
+            const checkbox = document.getElementById(`layer-${layer}`);
+            if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+                this.toggleLayerVisibility(layer, true);
+            }
 
-        // Turn on all sector layers for selection
-        if (showHigh && !showHigh.checked) {
-            showHigh.checked = true;
-            this.toggleLayerVisibility('high', true);
-        }
-        if (showLow && !showLow.checked) {
-            showLow.checked = true;
-            this.toggleLayerVisibility('low', true);
-        }
-        if (showSuperhigh && !showSuperhigh.checked) {
-            showSuperhigh.checked = true;
-            this.toggleLayerVisibility('superhigh', true);
-        }
+            // Enable fill with low opacity for easy clicking
+            const fillBtn = document.querySelector(`.layer-fill-btn[data-layer="${layer}"]`);
+            if (!fillBtn || !fillBtn.classList.contains('active')) {
+                if (fillBtn) fillBtn.classList.add('active');
+                this.toggleLayerFill(layer, true);
+            }
+            if (this.map && this.map.getLayer(`${layer}-fill`)) {
+                this.map.setPaintProperty(`${layer}-fill`, 'fill-opacity', 0.15);
+            }
+
+            // Enable lines
+            const lineBtn = document.querySelector(`.layer-line-btn[data-layer="${layer}"]`);
+            if (lineBtn && !lineBtn.classList.contains('active')) {
+                lineBtn.classList.add('active');
+                this.toggleLayerLine(layer, true);
+            }
+        });
 
         // Store state for map click handling
         this.mapSelectionMode = 'split';
@@ -5281,8 +5316,38 @@ const SplitsController = {
         // Update map with selection overlay
         this.updateMapSelectionOverlay();
 
-        // Show selection mode indicator
-        this.showMapSelectionIndicator(PERTII18n.t('splits.mapSelection.clickToSelect'), highlightColor);
+        // Show selection mode indicator (only if not in side-panel mode where map is always visible)
+        if (!this.isSidePanelMode()) {
+            this.showMapSelectionIndicator(PERTII18n.t('splits.mapSelection.clickToSelect'), highlightColor);
+        }
+    },
+
+    enableSectorLayersForSidePanel() {
+        // Show sector layers with low-opacity fill when side panel is active
+        ['high', 'low', 'superhigh'].forEach(layer => {
+            const checkbox = document.getElementById(`layer-${layer}`);
+            if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+                this.toggleLayerVisibility(layer, true);
+            }
+            const fillBtn = document.querySelector(`.layer-fill-btn[data-layer="${layer}"]`);
+            const lineBtn = document.querySelector(`.layer-line-btn[data-layer="${layer}"]`);
+            if (!fillBtn || !fillBtn.classList.contains('active')) {
+                if (fillBtn) fillBtn.classList.add('active');
+                this.toggleLayerFill(layer, true);
+            }
+            if (this.map && this.map.getLayer(`${layer}-fill`)) {
+                this.map.setPaintProperty(`${layer}-fill`, 'fill-opacity', 0.15);
+            }
+            if (lineBtn && !lineBtn.classList.contains('active')) {
+                lineBtn.classList.add('active');
+                this.toggleLayerLine(layer, true);
+            }
+        });
+    },
+
+    isSidePanelMode() {
+        return document.getElementById('config-modal')?.classList.contains('side-panel-mode');
     },
 
     enableSplitMapSelection() {
@@ -5293,18 +5358,21 @@ const SplitsController = {
 
         const split = this.currentConfig.splits[this.editingSplitIndex];
         const artcc = this.currentConfig.artcc;
+        const inSidePanel = this.isSidePanelMode();
 
         // Track that we're hiding modal for map selection
         this._mapSelectionSourceModal = 'config';
 
-        // Hide modal to see map
-        $('#config-modal').modal('hide');
+        // Only hide modal if not already in side-panel mode
+        if (!inSidePanel) {
+            $('#config-modal').modal('hide');
+        }
 
         // Enable map selection
         this.mapSelectionMode = 'split';
         this.mapSelectionColor = split.color;
 
-        // Show High/Low/Superhigh sectors with outlines only (no fill) for selection
+        // Show High/Low/Superhigh sectors with low-opacity fill + lines for selection
         const sectorLayers = ['high', 'low', 'superhigh'];
         sectorLayers.forEach(layer => {
             const checkbox = document.getElementById(`layer-${layer}`);
@@ -5313,14 +5381,16 @@ const SplitsController = {
                 this.toggleLayerVisibility(layer, true);
             }
 
-            // Set to outline-only mode for selection
             const fillBtn = document.querySelector(`.layer-fill-btn[data-layer="${layer}"]`);
             const lineBtn = document.querySelector(`.layer-line-btn[data-layer="${layer}"]`);
 
-            // Turn off fill
-            if (fillBtn && fillBtn.classList.contains('active')) {
-                fillBtn.classList.remove('active');
-                this.toggleLayerFill(layer, false);
+            // Enable fill with low opacity for easy clicking
+            if (!fillBtn || !fillBtn.classList.contains('active')) {
+                if (fillBtn) fillBtn.classList.add('active');
+                this.toggleLayerFill(layer, true);
+            }
+            if (this.map.getLayer(`${layer}-fill`)) {
+                this.map.setPaintProperty(`${layer}-fill`, 'fill-opacity', 0.15);
             }
 
             // Turn on lines
@@ -5338,8 +5408,10 @@ const SplitsController = {
         // Update overlay
         this.updateMapSelectionOverlay();
 
-        // Show floating indicator with done/cancel buttons
-        this.showSplitMapSelectionIndicator(split);
+        // Show floating indicator only when modal is hidden (not in side-panel mode)
+        if (!inSidePanel) {
+            this.showSplitMapSelectionIndicator(split);
+        }
     },
 
     showSplitMapSelectionIndicator(split) {
@@ -5384,11 +5456,15 @@ const SplitsController = {
     },
 
     finishSplitMapSelection() {
+        const wasSidePanel = this.isSidePanelMode();
+
         // Disable map mode
         this.disableSplitMapSelection();
 
-        // Re-open modal
-        $('#config-modal').modal('show');
+        // Re-open modal only if it was hidden (not in side-panel mode)
+        if (!wasSidePanel) {
+            $('#config-modal').modal('show');
+        }
 
         // Refresh the sector grid
         setTimeout(() => {
@@ -5398,8 +5474,12 @@ const SplitsController = {
     },
 
     cancelSplitMapSelection() {
+        const wasSidePanel = this.isSidePanelMode();
         this.disableSplitMapSelection();
-        $('#config-modal').modal('show');
+
+        if (!wasSidePanel) {
+            $('#config-modal').modal('show');
+        }
     },
 
     disableSplitMapSelection() {
@@ -5539,7 +5619,7 @@ const SplitsController = {
             });
 
             if (assignedElsewhere) {
-                // Flash warning on the floating indicator
+                // Flash warning on the floating indicator or use toast in side-panel mode
                 const indicator = document.getElementById('split-map-selection-indicator');
                 if (indicator) {
                     const textEl = indicator.querySelector('.indicator-text');
@@ -5548,6 +5628,8 @@ const SplitsController = {
                         textEl.innerHTML = `⚠️ <span style="color:#ff6b6b">${PERTII18n.t('splits.mapSelection.sectorAssignedElsewhere')}</span>`;
                         setTimeout(() => { textEl.innerHTML = original; }, 1500);
                     }
+                } else {
+                    PERTIDialog.toast(PERTII18n.t('splits.mapSelection.sectorAssignedElsewhere'), 'warning');
                 }
                 return true;
             }
