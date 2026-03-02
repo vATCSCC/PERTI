@@ -504,17 +504,18 @@ class XP12Parser:
             pass
         return None
 
-    def parse_airways(self) -> Dict[str, str]:
+    def parse_airways(self) -> List[Tuple[str, str]]:
         """
-        Parse earth_awy.dat into {airway_name: "FIX1 FIX2 FIX3 ..."}.
+        Parse earth_awy.dat into list of (airway_name, "FIX1 FIX2 FIX3 ...") tuples.
 
-        Builds ordered fix sequences by collecting segment edges, constructing
-        an adjacency graph per airway, and walking the chain from an endpoint.
+        Returns multiple entries for same-name airways that have disconnected
+        regional variants (e.g., UT939 in Hong Kong vs Europe). Each connected
+        component of the edge graph becomes a separate entry.
         """
         awy_file = self.xp12_dir / 'earth_awy.dat'
         if not awy_file.exists():
             logger.warning(f"XP12 earth_awy.dat not found at {awy_file}")
-            return {}
+            return []
 
         # Collect edges per airway
         edges = defaultdict(set)
@@ -542,49 +543,153 @@ class XP12Parser:
 
         logger.info(f"XP12: parsed {line_count} segments into {len(edges)} airways")
 
-        # Build ordered fix sequences
-        airways = {}
-        for awy_name, awy_edges in sorted(edges.items()):
-            sequence = self._build_fix_sequence(awy_edges)
-            if len(sequence) >= 2:
-                airways[awy_name] = ' '.join(sequence)
+        # Build ordered fix sequences (one per connected component)
+        airways = []
+        multi_component_count = 0
+        for awy_name in sorted(edges.keys()):
+            sequences = self._build_fix_sequences(edges[awy_name])
+            if len(sequences) > 1:
+                multi_component_count += 1
+            for seq in sequences:
+                airways.append((awy_name, ' '.join(seq)))
 
-        logger.info(f"XP12: built fix sequences for {len(airways)} airways")
+        logger.info(f"XP12: built {len(airways)} airway variants "
+                    f"({multi_component_count} airways had multiple regional components)")
         return airways
 
-    @staticmethod
-    def _build_fix_sequence(edge_set: set) -> List[str]:
+    def parse_fixes(self) -> List[Tuple[str, float, float]]:
         """
-        Build an ordered fix sequence from a set of (fix1, fix2) edges.
-        Airways are typically linear chains; we walk from an endpoint.
+        Parse earth_fix.dat into list of (fix_name, lat, lon) tuples.
+
+        XP12 earth_fix.dat format:
+            LAT LON FIX_NAME TYPE REGION ...
+        """
+        fix_file = self.xp12_dir / 'earth_fix.dat'
+        if not fix_file.exists():
+            logger.warning(f"XP12 earth_fix.dat not found at {fix_file}")
+            return []
+
+        fixes = []
+        with open(fix_file, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('I') or line.startswith('1200') or line.startswith('99'):
+                    continue
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                try:
+                    lat = float(parts[0])
+                    lon = float(parts[1])
+                    fix_name = parts[2].strip()
+                    if fix_name and -90 <= lat <= 90 and -180 <= lon <= 180:
+                        fixes.append((fix_name, lat, lon))
+                except (ValueError, IndexError):
+                    continue
+
+        logger.info(f"XP12: parsed {len(fixes)} fixes from earth_fix.dat")
+        return fixes
+
+    def parse_navaids(self) -> List[Tuple[str, float, float]]:
+        """
+        Parse earth_nav.dat into list of (navaid_name, lat, lon) tuples.
+
+        XP12 earth_nav.dat format:
+            TYPE LAT LON ELEV FREQ RANGE MAGVAR NAME TYPE REGION FULL_NAME
+        Type codes: 2=NDB, 3=VOR, 12=DME, 13=TACAN (we want all)
+        """
+        nav_file = self.xp12_dir / 'earth_nav.dat'
+        if not nav_file.exists():
+            logger.warning(f"XP12 earth_nav.dat not found at {nav_file}")
+            return []
+
+        navaids = []
+        seen = set()  # Deduplicate by name+coords (VOR and DME often paired)
+        with open(nav_file, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('I') or line.startswith('1200') or line.startswith('99'):
+                    continue
+                parts = line.split()
+                if len(parts) < 8:
+                    continue
+                try:
+                    nav_type = int(parts[0])
+                    if nav_type not in (2, 3, 12, 13):
+                        continue
+                    lat = float(parts[1])
+                    lon = float(parts[2])
+                    name = parts[7].strip()
+                    if not name or not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                        continue
+                    key = f"{name}_{lat:.4f}_{lon:.4f}"
+                    if key not in seen:
+                        seen.add(key)
+                        navaids.append((name, lat, lon))
+                except (ValueError, IndexError):
+                    continue
+
+        logger.info(f"XP12: parsed {len(navaids)} unique navaids from earth_nav.dat")
+        return navaids
+
+    @staticmethod
+    def _build_fix_sequences(edge_set: set) -> List[List[str]]:
+        """
+        Build ordered fix sequences from a set of (fix1, fix2) edges.
+        Returns one sequence per connected component — handles same-name
+        airways that exist in different geographic regions.
         """
         adj = defaultdict(set)
         for a, b in edge_set:
             adj[a].add(b)
             adj[b].add(a)
 
-        # Start from an endpoint (degree 1) or any node
-        endpoints = [n for n in adj if len(adj[n]) == 1]
-        start = sorted(endpoints)[0] if endpoints else sorted(adj.keys())[0]
-
+        all_nodes = set(adj.keys())
         visited = set()
-        sequence = [start]
-        visited.add(start)
-        current = start
+        sequences = []
 
-        while True:
-            next_fix = None
-            for neighbor in adj[current]:
-                if neighbor not in visited:
-                    next_fix = neighbor
+        while all_nodes - visited:
+            # BFS to find connected component
+            remaining = all_nodes - visited
+            seed = min(remaining)
+            component = set()
+            queue = [seed]
+            while queue:
+                node = queue.pop(0)
+                if node in component:
+                    continue
+                component.add(node)
+                for neighbor in adj[node]:
+                    if neighbor not in component:
+                        queue.append(neighbor)
+            visited |= component
+
+            # Find endpoints (degree 1 within component) for chain start
+            component_adj = {n: adj[n] & component for n in component}
+            endpoints = [n for n in component if len(component_adj[n]) == 1]
+            chain_start = sorted(endpoints)[0] if endpoints else sorted(component)[0]
+
+            # Walk chain from endpoint
+            chain_visited = set()
+            sequence = [chain_start]
+            chain_visited.add(chain_start)
+            current = chain_start
+            while True:
+                next_fix = None
+                for neighbor in component_adj[current]:
+                    if neighbor not in chain_visited:
+                        next_fix = neighbor
+                        break
+                if next_fix is None:
                     break
-            if next_fix is None:
-                break
-            sequence.append(next_fix)
-            visited.add(next_fix)
-            current = next_fix
+                sequence.append(next_fix)
+                chain_visited.add(next_fix)
+                current = next_fix
 
-        return sequence
+            if len(sequence) >= 2:
+                sequences.append(sequence)
+
+        return sequences
 
 
 class NavDataTransformer:
@@ -1791,24 +1896,40 @@ class NASRNavDataUpdater:
         self.merger = NavDataMerger()
         self.change_logger = ChangeLogger(self.output_dir / 'logs')
     
-    def _parse_xp12_airways(self) -> Dict[str, str]:
-        """Parse XP12 Navigraph airways if available."""
+    def _get_xp12_parser(self) -> Optional['XP12Parser']:
+        """Get XP12 parser if available."""
         if self.skip_xp12 or not self.xp12_path:
             if not self.skip_xp12:
                 logger.info("XP12: No Custom Data directory found (use --xp12-path to specify)")
-            return {}
-
-        awy_file = self.xp12_path / 'earth_awy.dat'
-        if not awy_file.exists():
-            logger.warning(f"XP12: earth_awy.dat not found at {awy_file}")
-            return {}
+            return None
 
         xp12_parser = XP12Parser(self.xp12_path)
         cycle_info = xp12_parser.get_cycle_info()
         if cycle_info:
             logger.info(f"XP12: Navigraph AIRAC cycle {cycle_info}")
+        return xp12_parser
 
-        return xp12_parser.parse_airways()
+    def _parse_xp12_airways(self) -> List[Tuple[str, str]]:
+        """Parse XP12 Navigraph airways if available. Returns list of (name, fixes) tuples."""
+        parser = self._get_xp12_parser()
+        if not parser:
+            return []
+        awy_file = self.xp12_path / 'earth_awy.dat'
+        if not awy_file.exists():
+            logger.warning(f"XP12: earth_awy.dat not found at {awy_file}")
+            return []
+        return parser.parse_airways()
+
+    def _parse_xp12_points(self) -> List[Tuple[str, float, float]]:
+        """Parse XP12 Navigraph fixes and navaids. Returns combined list of (name, lat, lon)."""
+        parser = self._get_xp12_parser()
+        if not parser:
+            return []
+        fixes = parser.parse_fixes()
+        navaids = parser.parse_navaids()
+        combined = fixes + navaids
+        logger.info(f"XP12: {len(fixes)} fixes + {len(navaids)} navaids = {len(combined)} total points")
+        return combined
 
     def run(self) -> bool:
         """Execute the full update process."""
@@ -1931,27 +2052,64 @@ class NASRNavDataUpdater:
         new_dps = transformer.transform_dps(merged['dp_base'], merged['dp_routes'])
         new_stars = transformer.transform_stars(merged['star_base'], merged['star_routes'])
 
-        # Merge XP12 Navigraph airways (international coverage)
+        # Merge XP12 Navigraph data (international coverage)
+        xp12_extra_airway_variants = []  # additional regional variants for same-name airways
         xp12_airways = self._parse_xp12_airways()
         if xp12_airways:
             nasr_count = len(new_airways)
             new_from_xp12 = 0
             upgraded_from_xp12 = 0
-            for awy_name, xp12_fixes in xp12_airways.items():
+            extra_variants = 0
+            # Group XP12 entries by name (may have multiple variants per name)
+            xp12_by_name = defaultdict(list)
+            for awy_name, xp12_fixes in xp12_airways:
+                xp12_by_name[awy_name].append(xp12_fixes)
+
+            for awy_name, variants in xp12_by_name.items():
+                # Sort variants by fix count descending (best first)
+                variants.sort(key=lambda f: len(f.split()), reverse=True)
+                best_variant = variants[0]
+
                 if awy_name not in new_airways:
-                    # New international airway not in NASR
-                    new_airways[awy_name] = xp12_fixes
+                    # New international airway not in NASR — use best variant as primary
+                    new_airways[awy_name] = best_variant
                     new_from_xp12 += 1
                 else:
-                    # Both have it — keep the one with more fixes
+                    # Both have it — keep the one with more fixes as primary
                     nasr_count_fixes = len(new_airways[awy_name].split())
-                    xp12_count_fixes = len(xp12_fixes.split())
+                    xp12_count_fixes = len(best_variant.split())
                     if xp12_count_fixes > nasr_count_fixes:
-                        new_airways[awy_name] = xp12_fixes
+                        new_airways[awy_name] = best_variant
                         upgraded_from_xp12 += 1
+
+                # Store additional variants (beyond the primary) for multi-variant output
+                for v in variants[1:]:
+                    if len(v.split()) >= 2:
+                        xp12_extra_airway_variants.append((awy_name, v))
+                        extra_variants += 1
+
             logger.info(f"XP12 merge: +{new_from_xp12} new, "
                        f"{upgraded_from_xp12} upgraded, "
-                       f"{nasr_count} -> {len(new_airways)} total airways")
+                       f"{extra_variants} extra regional variants, "
+                       f"{nasr_count} -> {len(new_airways)} primary airways")
+
+        # Merge XP12 Navigraph fixes/navaids into points
+        xp12_points = self._parse_xp12_points()
+        if xp12_points:
+            existing_point_names = {p[0] for p in new_points}
+            xp12_new = 0
+            xp12_extra = 0
+            for name, lat, lon in xp12_points:
+                if name not in existing_point_names:
+                    new_points.append((name, lat, lon))
+                    existing_point_names.add(name)
+                    xp12_new += 1
+                else:
+                    # Add as extra entry (getPointByName supports multiple per name)
+                    new_points.append((name, lat, lon))
+                    xp12_extra += 1
+            logger.info(f"XP12 points merge: +{xp12_new} new unique, "
+                       f"+{xp12_extra} additional regional entries")
 
         if self.dry_run:
             logger.info("\n[DRY RUN] Skipping file writes")

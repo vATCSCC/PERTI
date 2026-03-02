@@ -719,8 +719,15 @@
             }
 
             state.map.addSource('incident-fill', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-            state.map.addLayer({ id: 'incident-fill', type: 'fill', source: 'incident-fill', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.3 } });
-            state.map.addLayer({ id: 'incident-outline', type: 'line', source: 'incident-fill', paint: { 'line-color': ['get', 'color'], 'line-width': 2 } });
+            state.map.addLayer({ id: 'incident-fill', type: 'fill', source: 'incident-fill', paint: {
+                'fill-color': ['get', 'color'],
+                'fill-opacity': ['case', ['get', 'isPrimary'], 0.35, 0.15]
+            } });
+            state.map.addLayer({ id: 'incident-outline', type: 'line', source: 'incident-fill', paint: {
+                'line-color': ['get', 'color'],
+                'line-width': ['case', ['get', 'isPrimary'], 2.5, 1],
+                'line-opacity': ['case', ['get', 'isPrimary'], 1, 0.6]
+            } });
 
             state.map.addSource('incident-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
             state.map.addLayer({ id: 'incident-points', type: 'circle', source: 'incident-points', paint: { 'circle-radius': 10, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } });
@@ -770,6 +777,30 @@
         });
     }
 
+    // Find a boundary feature matching a facility code
+    function findBoundaryFeature(code) {
+        const fac = code.toUpperCase();
+        // Try ARTCC boundaries first
+        if (state.boundaryData.artcc?.features) {
+            const feature = state.boundaryData.artcc.features.find(f => {
+                const p = f.properties || {};
+                const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name].filter(Boolean).map(s => String(s).toUpperCase());
+                return ids.some(id => id === fac || id === 'K' + fac || id.startsWith(fac + '_') || id.endsWith('_' + fac));
+            });
+            if (feature) return feature;
+        }
+        // Try TRACON boundaries
+        if (state.boundaryData.tracon?.features) {
+            const feature = state.boundaryData.tracon.features.find(f => {
+                const p = f.properties || {};
+                const ids = [p.id, p.sector, p.label, p.name, p.prefix].filter(Boolean).map(s => String(s).toUpperCase());
+                return ids.some(id => id === fac || id.includes(fac));
+            });
+            if (feature) return feature;
+        }
+        return null;
+    }
+
     function updateMapIncidents(incidents) {
         if (!state.map || !state.map.loaded()) {return;}
         const fillFeatures = [], pointFeatures = [];
@@ -784,27 +815,25 @@
             const fac = (inc.facility || '').toUpperCase();
             let matched = false;
 
+            // Primary facility — try type-specific match first
             if (facType === 'ARTCC' && state.boundaryData.artcc?.features) {
-                // Try multiple property names for ARTCC matching
                 const feature = state.boundaryData.artcc.features.find(f => {
                     const p = f.properties || {};
-                    // Common ARTCC property patterns
                     const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name].filter(Boolean).map(s => String(s).toUpperCase());
                     return ids.some(id => id === fac || id === 'K' + fac || id.startsWith(fac + '_') || id.endsWith('_' + fac));
                 });
                 if (feature) {
-                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac } });
+                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac, isPrimary: true } });
                     matched = true;
                 }
             } else if (facType === 'TRACON' && state.boundaryData.tracon?.features) {
-                // Try multiple property names for TRACON matching
                 const feature = state.boundaryData.tracon.features.find(f => {
                     const p = f.properties || {};
                     const ids = [p.id, p.sector, p.label, p.name, p.prefix].filter(Boolean).map(s => String(s).toUpperCase());
                     return ids.some(id => id === fac || id.includes(fac));
                 });
                 if (feature) {
-                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac } });
+                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac, isPrimary: true } });
                     matched = true;
                 }
             }
@@ -817,6 +846,23 @@
                 } else {
                     console.log('[JATOC] No coords for facility:', fac, facType);
                 }
+            }
+
+            // Affected facilities — map each one as a secondary boundary
+            if (inc.affected_facilities) {
+                const codes = inc.affected_facilities.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+                codes.forEach(code => {
+                    if (code === fac) return; // skip primary, already mapped
+                    const feature = findBoundaryFeature(code);
+                    if (feature) {
+                        fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: code, isPrimary: false } });
+                    } else {
+                        const coords = getAirportCoords(code);
+                        if (coords) {
+                            pointFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: coords }, properties: { color, incidentId: inc.id, facility: code } });
+                        }
+                    }
+                });
             }
         });
 

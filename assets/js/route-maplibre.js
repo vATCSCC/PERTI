@@ -620,6 +620,7 @@ $(document).ready(function() {
             return;
         }
         const startTime = performance.now();
+        let variantCount = 0;
         for (let i = 0; i < awys.length; i++) {
             const row = awys[i];
             if (!Array.isArray(row) || row.length < 2 || !row[0] || !row[1]) {continue;}
@@ -630,10 +631,12 @@ $(document).ready(function() {
                 const fix = fixes[j].toUpperCase();
                 if (!(fix in fixPosMap)) {fixPosMap[fix] = j;}
             }
-            awyIndexMap[airwayId] = { fixes, fixPosMap };
+            if (!awyIndexMap[airwayId]) {awyIndexMap[airwayId] = [];}
+            awyIndexMap[airwayId].push({ fixes, fixPosMap });
+            variantCount++;
         }
         awyIndexBuilt = true;
-        console.log('[MAPLIBRE] Airway index built:', Object.keys(awyIndexMap).length, 'airways in',
+        console.log('[MAPLIBRE] Airway index built:', Object.keys(awyIndexMap).length, 'airways (' + variantCount + ' variants) in',
             (performance.now() - startTime).toFixed(1) + 'ms');
     }
 
@@ -652,20 +655,23 @@ $(document).ready(function() {
             if (i > 0 && i < split_route.length - 1) {
                 const prevTok = split_route[i - 1].toUpperCase();
                 const nextTok = split_route[i + 1].toUpperCase();
-                const airwayData = awyIndexMap[pointUpper];
+                const variants = awyIndexMap[pointUpper];
 
-                if (airwayData) {
-                    const { fixes, fixPosMap } = airwayData;
-                    const fromIdx = fixPosMap[prevTok];
-                    const toIdx = fixPosMap[nextTok];
-
-                    if (fromIdx !== undefined && toIdx !== undefined && Math.abs(fromIdx - toIdx) > 1) {
-                        const middleFixes = fromIdx < toIdx
-                            ? fixes.slice(fromIdx + 1, toIdx)
-                            : fixes.slice(toIdx + 1, fromIdx).reverse();
-                        expandedTokens.push(...middleFixes);
-                        continue;
+                if (variants) {
+                    let expanded = false;
+                    for (const { fixes, fixPosMap } of variants) {
+                        const fromIdx = fixPosMap[prevTok];
+                        const toIdx = fixPosMap[nextTok];
+                        if (fromIdx !== undefined && toIdx !== undefined && Math.abs(fromIdx - toIdx) > 1) {
+                            const middleFixes = fromIdx < toIdx
+                                ? fixes.slice(fromIdx + 1, toIdx)
+                                : fixes.slice(toIdx + 1, fromIdx).reverse();
+                            expandedTokens.push(...middleFixes);
+                            expanded = true;
+                            break;
+                        }
                     }
+                    if (expanded) {continue;}
                 }
             }
             expandedTokens.push(point);

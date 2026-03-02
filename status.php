@@ -143,6 +143,7 @@ $apiHealth = [
 
 $overallStatus = 'operational';
 $statusIssues = [];
+$isHibernating = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
 
 // -----------------------------------------------------------------------------
 // MySQL Connection Check
@@ -1283,6 +1284,11 @@ if ($liveData['queue_failed_1h'] > 50) {
     $overallStatus = 'degraded';
 }
 
+// Override overall status for hibernation mode
+if ($isHibernating) {
+    $overallStatus = 'hibernation';
+}
+
 // Calculate total runtime
 $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
@@ -1315,6 +1321,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .status-page-header.critical {
             border-bottom-color: var(--status-error);
+        }
+
+        .status-page-header.hibernation {
+            border-bottom-color: #5dade2;
         }
 
         .status-timestamp {
@@ -1350,6 +1360,12 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
             background: rgba(247, 79, 120, 0.2);
             color: var(--status-error);
             border: 1px solid var(--status-error);
+        }
+
+        .status-overall.hibernation {
+            background: rgba(93, 173, 226, 0.2);
+            color: #5dade2;
+            border: 1px solid #5dade2;
         }
 
         .status-section {
@@ -1467,6 +1483,39 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
         .status-badge.removed { background: #333; color: #fff; text-decoration: line-through; }
         .status-badge.pending { background: #e9ecef; color: #666; border: 1px dashed #aaa; }
         .status-badge.unknown { background: #6c757d; color: #fff; }
+        .status-badge.paused { background: #5dade2; color: #fff; }
+
+        .hibernation-banner {
+            background: linear-gradient(135deg, #1a2744 0%, #1a3355 100%);
+            border: 1px solid rgba(93, 173, 226, 0.3);
+            border-radius: 8px;
+            padding: 16px 24px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .hibernation-banner .hib-icon {
+            font-size: 2rem;
+            color: #5dade2;
+            opacity: 0.8;
+        }
+        .hibernation-banner .hib-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #5dade2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .hibernation-banner .hib-desc {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 2px;
+        }
+        .hibernation-banner .hib-link {
+            margin-left: auto;
+            white-space: nowrap;
+        }
 
         .timing-info {
             font-family: 'Inconsolata', monospace;
@@ -1579,6 +1628,10 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
 
         .auto-refresh-indicator.degraded .dot {
             background: var(--status-warning);
+        }
+
+        .auto-refresh-indicator.hibernation .dot {
+            background: #5dade2;
         }
 
         @keyframes pulse {
@@ -2282,7 +2335,11 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-3">
-                    <?php if ($overallStatus === 'operational'): ?>
+                    <?php if ($overallStatus === 'hibernation'): ?>
+                        <span class="status-overall hibernation">
+                            <i class="fas fa-snowflake mr-2"></i>HIBERNATION MODE
+                        </span>
+                    <?php elseif ($overallStatus === 'operational'): ?>
                         <span class="status-overall operational">
                             <i class="fas fa-check-circle mr-2"></i><?= __('statusPage.allOperational') ?>
                         </span>
@@ -2314,6 +2371,17 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                     <li><?= htmlspecialchars($issue) ?></li>
                 <?php endforeach; ?>
             </ul>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($isHibernating): ?>
+        <div class="hibernation-banner">
+            <div class="hib-icon"><i class="fas fa-snowflake"></i></div>
+            <div>
+                <div class="hib-title">Hibernation Mode Active</div>
+                <div class="hib-desc">Core ADL ingest (15s), archival, and monitoring are running. All downstream processing (ATIS, GIS, SWIM sync, boundary detection) is paused. Azure resources are downscaled.</div>
+            </div>
+            <a href="/hibernation" class="hib-link btn btn-sm btn-outline-info">Details</a>
         </div>
         <?php endif; ?>
 
@@ -2653,7 +2721,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                             <tr>
                                 <td>
                                     <div class="component-name">Azure SQL (SWIM)</div>
-                                    <div class="component-desc">VATSWIM API data</div>
+                                    <div class="component-desc">VATSWIM API data<?php if ($isHibernating): ?> <span style="color: #5dade2; font-style: italic;">&mdash; API returns 503 during hibernation</span><?php endif; ?></div>
                                 </td>
                                 <td>
                                     <?php if ($liveData['swim_connected']): ?>
@@ -2920,7 +2988,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                 <div class="tree-item">
                                     <span class="tree-icon database" style="color: #10b981;"><i class="fas fa-broadcast-tower"></i></span>
                                     <span class="tree-label">Azure SQL (VATSWIM)</span>
-                                    <span class="status-badge <?= $liveData['swim_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['swim_connected'] ? 'UP' : 'N/A' ?></span>
+                                    <?php if ($isHibernating): ?><span class="status-badge paused tree-status">503</span><?php else: ?><span class="status-badge <?= $liveData['swim_connected'] ? 'up' : 'warning' ?> tree-status"><?= $liveData['swim_connected'] ? 'UP' : 'N/A' ?></span><?php endif; ?>
                                 </div>
                                 <div class="tree-node">
                                     <div class="tree-item">
@@ -2980,62 +3048,62 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-python"></i></span>
                                         <span class="tree-label">atis_daemon.py</span>
-                                        <span class="status-badge running tree-status">15s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">15s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">parse_queue_daemon.php</span>
-                                        <span class="status-badge running tree-status">5s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">5s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">waypoint_eta_daemon.php</span>
-                                        <span class="status-badge running tree-status">15s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">15s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">boundary_daemon.php</span>
-                                        <span class="status-badge running tree-status">30s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">30s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">zone_daemon.php</span>
-                                        <span class="status-badge running tree-status">15s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">15s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file"><i class="fab fa-php"></i></span>
                                         <span class="tree-label">import_weather_alerts.php</span>
-                                        <span class="status-badge scheduled tree-status">5m</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge scheduled tree-status">5m</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #333;">
                                         <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #3b82f6;">parse_queue_gis_daemon.php</span>
-                                        <span class="status-badge running tree-status">5s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">5s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #3b82f6;">boundary_gis_daemon.php</span>
-                                        <span class="status-badge running tree-status">15s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">15s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file" style="color: #3b82f6;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #3b82f6;">crossing_gis_daemon.php</span>
-                                        <span class="status-badge running tree-status">30s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">30s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #333;">
                                         <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #10b981;">swim_sync_daemon.php</span>
-                                        <span class="status-badge running tree-status">15s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">15s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #10b981;">swim_adl_reverse_sync_daemon.php</span>
-                                        <span class="status-badge running tree-status">30s</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">30s</span><?php endif; ?>
                                     </div>
                                     <div class="tree-item">
                                         <span class="tree-icon file" style="color: #10b981;"><i class="fab fa-php"></i></span>
                                         <span class="tree-label" style="color: #10b981;">swim_ws_server.php</span>
-                                        <span class="status-badge running tree-status">WS</span>
+                                        <?php if ($isHibernating): ?><span class="status-badge paused tree-status">PAUSED</span><?php else: ?><span class="status-badge running tree-status">WS</span><?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -3139,7 +3207,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="component-desc"><?= __('statusPage.runwayAssignments') ?></div>
                                 </td>
                                 <td class="timing-info">15s</td>
-                                <td><span class="status-badge running"><?= __('statusPage.running') ?></span></td>
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge running"><?= __('statusPage.running') ?></span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3147,9 +3215,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="component-desc"><?= number_format($liveData['queue_pending']) ?> <?= __('status.pending') ?></div>
                                 </td>
                                 <td class="timing-info">5s</td>
-                                <td><span class="status-badge <?= $liveData['queue_pending'] > 500 ? 'warning' : 'running' ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['queue_pending'] > 500 ? 'warning' : 'running' ?>">
                                     <?= $liveData['queue_pending'] > 500 ? __('statusPage.backlog') : __('statusPage.running') ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3157,7 +3225,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="component-desc"><?= $liveData['weather_alerts_active'] ?> <?= __('statusPage.activeAlerts') ?></div>
                                 </td>
                                 <td class="timing-info">5m</td>
-                                <td><span class="status-badge scheduled"><?= __('statusPage.scheduled') ?></span></td>
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge scheduled"><?= __('statusPage.scheduled') ?></span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3165,9 +3233,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="component-desc"><?= number_format($liveData['trajectories_1h']) ?>/hr</div>
                                 </td>
                                 <td class="timing-info"><?= __('statusPage.continuous') ?></td>
-                                <td><span class="status-badge <?= $liveData['trajectories_1h'] > 0 ? 'complete' : 'scheduled' ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['trajectories_1h'] > 0 ? 'complete' : 'scheduled' ?>">
                                     <?= $liveData['trajectories_1h'] > 0 ? __('status.active') : __('statusPage.idle') ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3175,7 +3243,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     <div class="component-desc"><?= number_format($liveData['zone_transitions_1h']) ?> <?= __('statusPage.transitionsPerHr') ?></div>
                                 </td>
                                 <td class="timing-info"><?= __('statusPage.continuous') ?></td>
-                                <td><span class="status-badge complete"><?= __('status.active') ?></span></td>
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge complete"><?= __('status.active') ?></span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3190,9 +3258,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                 </td>
                                 <td class="timing-info"><?= $liveData['last_boundary_detection'] ?? __('common.na') ?></td>
-                                <td><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['boundary_crossings_1h'] > 0 ? 'complete' : ($liveData['boundary_pending'] > 0 ? 'warning' : 'scheduled') ?>">
                                     <?= $liveData['boundary_crossings_1h'] > 0 ? __('status.active') : ($liveData['boundary_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <tr>
                                 <td>
@@ -3206,9 +3274,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                 </td>
                                 <td class="timing-info"><?= $liveData['last_crossing_calc'] ?? __('common.na') ?></td>
-                                <td><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['planned_crossings_1h'] > 0 ? 'complete' : ($liveData['crossings_pending'] > 0 ? 'warning' : 'scheduled') ?>">
                                     <?= $liveData['planned_crossings_1h'] > 0 ? __('status.active') : ($liveData['crossings_pending'] > 0 ? __('status.pending') : __('statusPage.idle')) ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <!-- GIS-based Processing (PostGIS) -->
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
@@ -3221,9 +3289,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                 </td>
                                 <td class="timing-info">5s</td>
-                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
                                     <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
                                 <td>
@@ -3236,9 +3304,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                 </td>
                                 <td class="timing-info">15s</td>
-                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
                                     <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                             <tr style="background: linear-gradient(to right, rgba(59,130,246,0.08), transparent);">
                                 <td>
@@ -3249,9 +3317,9 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                                     </div>
                                 </td>
                                 <td class="timing-info">30s</td>
-                                <td><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
+                                <td><?php if ($isHibernating): ?><span class="status-badge paused">PAUSED</span><?php else: ?><span class="status-badge <?= $liveData['gis_connected'] ? 'running' : 'warning' ?>">
                                     <?= $liveData['gis_connected'] ? __('statusPage.running') : __('statusPage.offline') ?>
-                                </span></td>
+                                </span><?php endif; ?></td>
                             </tr>
                         </tbody>
                     </table>
