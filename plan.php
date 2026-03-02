@@ -136,6 +136,12 @@ include("sessions/handler.php");
             if (endDate && endTime) {
                 endTime = endTime.padStart(4, '0');
                 PERTI_EVENT_END_ISO = endDate + 'T' + endTime.substring(0,2) + ':' + endTime.substring(2,4) + ':00Z';
+                // If end is before start (cross-midnight) and no explicit end date, bump 1 day
+                if (!PERTI_EVENT_END_DATE && PERTI_EVENT_START_ISO && PERTI_EVENT_END_ISO < PERTI_EVENT_START_ISO) {
+                    var tmp = new Date(PERTI_EVENT_END_ISO);
+                    tmp.setUTCDate(tmp.getUTCDate() + 1);
+                    PERTI_EVENT_END_ISO = tmp.toISOString();
+                }
             } else if (PERTI_EVENT_START_ISO) {
                 // Default to 6 hours after start if no end time specified
                 var startDt = new Date(PERTI_EVENT_START_ISO);
@@ -309,8 +315,8 @@ if ($org_mismatch):
                                     <li><a href="https://perti.vatcscc.org/gdt" target="_blank"><?= __('plan.overview.resourceGdt') ?></a> <?= __('plan.overview.resourceGdtDesc') ?></li>
                                     <li><a href="https://perti.vatcscc.org/jatoc" target="_blank"><?= __('plan.overview.resourceJatoc') ?></a> <?= __('plan.overview.resourceJatocDesc') ?></li>
                                     <?php if ($plan_org_code === 'canoc'): ?>
-                                    <li>VATCAN Discord <a href="https://discord.com/channels/567549256357904405/823308502696722432" target="_blank">#can-ntml</a> and <a href="https://discord.com/channels/567549256357904405/823309153036402738" target="_blank">#can-advisories</a> for CANOC TMI data logging.</li>
-                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> for VATUSA TMI data logging.</li>
+                                    <li>VATCAN Discord <a href="https://discord.com/channels/567549256357904405/823308502696722432" target="_blank">#can-ntml</a> and <a href="https://discord.com/channels/567549256357904405/823309153036402738" target="_blank">#can-advisories</a> <?= __('plan.overview.resourceDiscordCanoc') ?></li>
+                                    <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> <?= __('plan.overview.resourceDiscordVatusa') ?></li>
                                     <?php else: ?>
                                     <li>vATCSCC Discord <a href="https://discord.com/channels/358264961233059843/358295136398082048/" target="_blank">#ntml</a> and <a href="https://discord.com/channels/358264961233059843/358300240236773376/" target="_blank">#advisories</a> <?= __('plan.overview.resourceDiscord') ?></li>
                                     <?php endif; ?>

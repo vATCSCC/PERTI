@@ -3121,6 +3121,8 @@
       "resourceCallsignsLink": "this policy",
       "resourceCredentials": "Any credentials in use will be posted in the #advisories channel in the vATCSCC Discord.",
       "resourceDiscord": "for TMI data logging.",
+      "resourceDiscordCanoc": "for CANOC TMI data logging.",
+      "resourceDiscordVatusa": "for VATUSA TMI data logging.",
       "resourceGdt": "PERTI Ground Delay Tool (GDT)",
       "resourceGdtDesc": "for ground delay program/ground stop management.",
       "resourceGroupFlights": "Post any known virtual airline/group flight entries into",

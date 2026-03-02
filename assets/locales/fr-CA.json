@@ -3351,6 +3351,8 @@
       "resourceCallsignsLink": "cette politique",
       "resourceCredentials": "Identifiants disponibles sur le Discord CANOC.",
       "resourceDiscord": "pour la journalisation des données IGC.",
+      "resourceDiscordCanoc": "pour la journalisation des données IGC du CANOC.",
+      "resourceDiscordVatusa": "pour la journalisation des données IGC du VATUSA.",
       "resourceGdt": "Outil de retard au sol PERTI (GDT)",
       "resourceGdtDesc": "pour la gestion des programmes de retard au sol et arrêts au sol.",
       "resourceGroupFlights": "Publiez toute entrée de vol de groupe ou de compagnie aérienne virtuelle dans",
