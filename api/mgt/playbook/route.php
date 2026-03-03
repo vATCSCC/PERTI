@@ -74,6 +74,7 @@ if ($action === 'add') {
     $da = trim($body['dest_airports'] ?? '');
     $dt = trim($body['dest_tracons'] ?? '');
     $dar = trim($body['dest_artccs'] ?? '');
+    $remarks_r = trim($body['remarks'] ?? '');
     $sort = (int)($body['sort_order'] ?? 0);
 
     if ($rs === '') {
@@ -85,11 +86,11 @@ if ($action === 'add') {
     $stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
          origin_airports, origin_tracons, origin_artccs,
-         dest_airports, dest_tracons, dest_artccs, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->bind_param('isssssssssssi',
+         dest_airports, dest_tracons, dest_artccs, remarks, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $stmt->bind_param('issssssssssssi',
         $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
-        $oa, $ot, $oar, $da, $dt, $dar, $sort);
+        $oa, $ot, $oar, $da, $dt, $dar, $remarks_r, $sort);
     $stmt->execute();
     $new_route_id = (int)$conn_sqli->insert_id;
     $stmt->close();
@@ -139,21 +140,22 @@ if ($action === 'add') {
     $da = trim($body['dest_airports'] ?? ($old['dest_airports'] ?? ''));
     $dt = trim($body['dest_tracons'] ?? ($old['dest_tracons'] ?? ''));
     $dar = trim($body['dest_artccs'] ?? ($old['dest_artccs'] ?? ''));
+    $remarks_r = trim($body['remarks'] ?? ($old['remarks'] ?? ''));
 
     $stmt = $conn_sqli->prepare("UPDATE playbook_routes SET
         route_string=?, origin=?, origin_filter=?, dest=?, dest_filter=?,
         origin_airports=?, origin_tracons=?, origin_artccs=?,
-        dest_airports=?, dest_tracons=?, dest_artccs=?
+        dest_airports=?, dest_tracons=?, dest_artccs=?, remarks=?
         WHERE route_id=?");
-    $stmt->bind_param('sssssssssssi',
+    $stmt->bind_param('ssssssssssssi',
         $rs, $orig, $orig_filter, $dst, $dst_filter,
-        $oa, $ot, $oar, $da, $dt, $dar, $route_id);
+        $oa, $ot, $oar, $da, $dt, $dar, $remarks_r, $route_id);
     $stmt->execute();
     $stmt->close();
 
     // Log field-level changes
     $fields = ['route_string' => $rs, 'origin' => $orig, 'origin_filter' => $orig_filter,
-               'dest' => $dst, 'dest_filter' => $dst_filter];
+               'dest' => $dst, 'dest_filter' => $dst_filter, 'remarks' => $remarks_r];
     $cl = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, route_id, action, field_name, old_value, new_value, airac_cycle, changed_by) VALUES (?, ?, 'route_updated', ?, ?, ?, ?, ?)");
     foreach ($fields as $fn => $nv) {
         $ov = $old[$fn] ?? '';
