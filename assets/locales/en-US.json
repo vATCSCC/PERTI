@@ -90,6 +90,7 @@
     "status": "Status",
     "submit": "Submit",
     "success": "Success",
+    "toggle": "Toggle",
     "unknown": "Unknown",
     "unknownError": "Unknown error",
     "update": "Update",
@@ -1644,6 +1645,8 @@
     },
     "earlier": "Earlier",
     "editElement": "Edit Element",
+    "eventEndFallback": "EVENT END",
+    "eventStartFallback": "EVENT START",
     "eventStartLabel": "START {time}",
     "eventEndLabel": "END {time}",
     "elementAdded": "Element added",
@@ -1754,6 +1757,11 @@
       "Rocket Launch": "Rocket Launch"
     },
     "timeTo": "to",
+    "tooltip": {
+      "centerOnNow": "Center on current time",
+      "nextPeriod": "Next period",
+      "previousPeriod": "Previous period"
+    },
     "tmiTypeLabel": {
       "AFP": "AFP",
       "APREQ": "APREQ",
@@ -3791,6 +3799,8 @@
     "addedRoute": "Route added",
     "addedRoutes": "{count} routes added",
     "adl": {
+      "live": "LIVE",
+      "liveFlights": "Live Flights",
       "mapNotInitialized": "Please wait for the map to initialize.",
       "shown": "{count} shown",
       "total": "{count} total"
@@ -3832,9 +3842,11 @@
       "destAirport": "Destination Airport",
       "editTitle": "Edit Color Rule",
       "enterValuesAndColor": "Enter values and select a color",
+      "evaluatedInOrder": "Custom Color Rules (evaluated in order)",
       "examples": "Examples",
       "field": "Field",
       "namedColors": "Named Colors",
+      "noRulesDefined": "No custom rules defined",
       "originAirport": "Origin Airport",
       "quickColors": "Quick Colors",
       "values": "Values",
@@ -5898,7 +5910,9 @@
     "filedRouteLabel": "Filed Route:",
     "filedShort": "F:",
     "filterEndHourTitle": "Filter by end hour",
+    "filterMaxPlaceholder": "Max",
     "filterMaxTitle": "Filter by maximum value",
+    "filterMinPlaceholder": "Min",
     "filterMinTitle": "Filter by minimum value",
     "filterStartHourTitle": "Filter by start hour",
     "filteredCount": "{count} filtered",
@@ -5939,6 +5953,7 @@
     "gapImpactIncomplete": "Incomplete compliance calculations",
     "gapImpactMissing": "Missing flights in TMI crossing analysis",
     "gapImpactUnderreported": "Underreported traffic counts",
+    "gapsCoverage": "Data: {pct}% trajectory coverage",
     "gapsLabel": "Gaps: {times}",
     "groundStopCount": "{count} ground stop",
     "groundStopCountPlural": "{count} ground stops",
