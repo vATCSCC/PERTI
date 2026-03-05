@@ -292,7 +292,7 @@
 
         var chainIndicator = '';
         if (p.parent_program_id) {
-            chainIndicator = '<span class="badge badge-info ml-1" style="font-size:0.55rem;" title="Transitioned from program #' + p.parent_program_id + '">CHAIN</span>';
+            chainIndicator = '<span class="badge badge-info ml-1" style="font-size:0.55rem;" title="' + PERTII18n.t('gdt.dashboard.transitionedFrom', {id: p.parent_program_id}) + '">' + PERTII18n.t('gdt.dashboard.chainBadge') + '</span>';
         }
 
         return '<div class="gdt-program-card" data-program-id="' + p.program_id + '" onclick="loadProgramFromDashboard(' + p.program_id + ');">' +

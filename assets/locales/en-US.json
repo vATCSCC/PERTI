@@ -560,6 +560,7 @@
     "privacyPolicy": "Privacy Policy"
   },
   "gdp": {
+    "bucketMinutes": "{bucket} min",
     "button": {
       "applying": "Applying...",
       "loadAarComingSoon": "Load AAR - Coming Soon",
@@ -726,12 +727,14 @@
       "cancelProgramText": "This will cancel the program and release all controlled flights.",
       "cancelProgramTitle": "Cancel Program #{id}?",
       "cancelled": "Cancelled",
+      "chainBadge": "CHAIN",
       "delayMinutes": "{delay} min",
       "deleteFailed": "Delete failed",
       "deleteText": "This will permanently delete this draft/proposed program.",
       "deleteTitle": "Delete {label}?",
       "deleted": "Deleted",
       "draftLocal": "Draft (Local)",
+      "transitionedFrom": "Transitioned from program #{id}",
       "extendFailed": "Extension failed",
       "extending": "Extending...",
       "flightsCount": "{count} flights",
@@ -5953,12 +5956,12 @@
     "gapImpactIncomplete": "Incomplete compliance calculations",
     "gapImpactMissing": "Missing flights in TMI crossing analysis",
     "gapImpactUnderreported": "Underreported traffic counts",
-    "gapsCoverage": "Data: {pct}% trajectory coverage",
     "gapsLabel": "Gaps: {times}",
     "groundStopCount": "{count} ground stop",
     "groundStopCountPlural": "{count} ground stops",
     "groundStopLabel": "Ground Stop",
     "groundStops": "Ground Stops",
+    "lowConfidenceTooltip": "Low confidence: sparse trajectory data",
     "gs": {
       "avgGsDelay": "Avg GS Delay",
       "avgHold": "Avg Hold",

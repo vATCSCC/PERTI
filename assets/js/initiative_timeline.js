@@ -200,14 +200,14 @@ class InitiativeTimeline {
                 
                 <!-- Time Navigation -->
                 <div class="dcccp-time-nav">
-                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-prev" title="Previous period">
+                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-prev" title="${PERTII18n.t('initiative.tooltip.previousPeriod')}">
                         <i class="fas fa-chevron-left"></i> ${PERTII18n.t('initiative.earlier')}
                     </button>
-                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-now" title="Center on current time">
+                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-now" title="${PERTII18n.t('initiative.tooltip.centerOnNow')}">
                         <i class="fas fa-crosshairs"></i> ${PERTII18n.t('initiative.now')}
                     </button>
                     <span class="dcccp-nav-label" id="${this.containerId}-nav-label"></span>
-                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-next" title="Next period">
+                    <button class="dcccp-nav-btn" id="${this.containerId}-nav-next" title="${PERTII18n.t('initiative.tooltip.nextPeriod')}">
                         ${PERTII18n.t('initiative.later')} <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -218,8 +218,8 @@ class InitiativeTimeline {
                         <div class="dcccp-grid-lines" id="${this.containerId}-grid"></div>
                         <div class="dcccp-timeline-rows" id="${this.containerId}-rows"></div>
                         <div class="dcccp-now-line" id="${this.containerId}-now" style="display:none;"></div>
-                        <div class="dcccp-event-marker dcccp-event-start-marker" id="${this.containerId}-event-start" style="display:none;"><span class="dcccp-event-marker-label">EVENT START</span></div>
-                        <div class="dcccp-event-marker dcccp-event-end-marker" id="${this.containerId}-event-end" style="display:none;"><span class="dcccp-event-marker-label">EVENT END</span></div>
+                        <div class="dcccp-event-marker dcccp-event-start-marker" id="${this.containerId}-event-start" style="display:none;"><span class="dcccp-event-marker-label">${PERTII18n.t('initiative.eventStartFallback')}</span></div>
+                        <div class="dcccp-event-marker dcccp-event-end-marker" id="${this.containerId}-event-end" style="display:none;"><span class="dcccp-event-marker-label">${PERTII18n.t('initiative.eventEndFallback')}</span></div>
                     </div>
                 </div>
                 

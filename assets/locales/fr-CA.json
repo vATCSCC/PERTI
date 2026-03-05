@@ -89,6 +89,7 @@
     "status": "Statut",
     "submit": "Soumettre",
     "success": "Succès",
+    "toggle": "Basculer",
     "unknown": "Inconnu",
     "unknownError": "Erreur inconnue",
     "update": "Mettre à jour",
@@ -579,6 +580,7 @@
     "privacyPolicy": "Politique de confidentialité"
   },
   "gdp": {
+    "bucketMinutes": "{bucket} min",
     "button": {
       "applying": "Application en cours...",
       "loadAarComingSoon": "Charger AAR - Bientôt disponible",
@@ -777,12 +779,14 @@
       "cancelProgramText": "Ceci annulera le programme et libérera tous les vols contrôlés.",
       "cancelProgramTitle": "Annuler le programme #{id} ?",
       "cancelled": "Annulé",
+      "chainBadge": "CHAÎNE",
       "delayMinutes": "{delay} min",
       "deleteFailed": "Échec de la suppression",
       "deleteText": "Ceci supprimera définitivement ce programme brouillon/proposé.",
       "deleteTitle": "Supprimer {label} ?",
       "deleted": "Supprimé",
       "draftLocal": "Brouillon (local)",
+      "transitionedFrom": "Transition depuis le programme #{id}",
       "extendFailed": "Échec de la prolongation",
       "extending": "Prolongation...",
       "flightsCount": "{count} vols",
@@ -1848,6 +1852,8 @@
     },
     "earlier": "Plus tôt",
     "editElement": "Modifier l'élément",
+    "eventEndFallback": "FIN ÉVÉNEMENT",
+    "eventStartFallback": "DÉBUT ÉVÉNEMENT",
     "eventStartLabel": "DÉBUT {time}",
     "eventEndLabel": "FIN {time}",
     "elementAdded": "Élément ajouté",
@@ -1962,6 +1968,11 @@
       "Rocket Launch": "Lancement de fusée"
     },
     "timeTo": "à",
+    "tooltip": {
+      "centerOnNow": "Centrer sur l'heure actuelle",
+      "nextPeriod": "Période suivante",
+      "previousPeriod": "Période précédente"
+    },
     "tmiTypeLabel": {
       "AFP": "AFP",
       "APREQ": "APREQ",
@@ -4053,6 +4064,8 @@
     "addedRoute": "Route ajoutée",
     "addedRoutes": "{count} routes ajoutées",
     "adl": {
+      "live": "EN DIRECT",
+      "liveFlights": "Vols en direct",
       "mapNotInitialized": "Veuillez attendre l'initialisation de la carte.",
       "shown": "{count} affichés",
       "total": "{count} au total"
@@ -4094,9 +4107,11 @@
       "destAirport": "Aéroport de destination",
       "editTitle": "Modifier la règle de couleur",
       "enterValuesAndColor": "Entrez les valeurs et sélectionnez une couleur",
+      "evaluatedInOrder": "Règles de couleur personnalisées (évaluées dans l'ordre)",
       "examples": "Exemples",
       "field": "Champ",
       "namedColors": "Couleurs nommées",
+      "noRulesDefined": "Aucune règle personnalisée définie",
       "originAirport": "Aéroport d'origine",
       "quickColors": "Couleurs rapides",
       "values": "Valeurs",
@@ -6259,7 +6274,9 @@
     "filedRouteLabel": "Route déposée :",
     "filedShort": "F:",
     "filterEndHourTitle": "Filtrer par heure de fin",
+    "filterMaxPlaceholder": "Max",
     "filterMaxTitle": "Filtrer par valeur maximale",
+    "filterMinPlaceholder": "Min",
     "filterMinTitle": "Filtrer par valeur minimale",
     "filterStartHourTitle": "Filtrer par heure de début",
     "filteredCount": "{count} filtrés",
@@ -6305,6 +6322,7 @@
     "groundStopCountPlural": "{count} arrêts au sol",
     "groundStopLabel": "Arrêt au sol",
     "groundStops": "Arrêt au sols",
+    "lowConfidenceTooltip": "Faible confiance : données de trajectoire éparses",
     "gs": {
       "avgGsDelay": "Retard GS moyen",
       "avgHold": "Attente moyenne",

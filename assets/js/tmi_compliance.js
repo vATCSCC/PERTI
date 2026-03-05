@@ -632,8 +632,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         </select>
                         <div class="input-group input-group-sm" style="width:auto;">
                             <div class="input-group-prepend"><span class="input-group-text">${PERTII18n.t('tmiCompliance.value')}</span></div>
-                            <input type="number" id="tmi_filter_min_value" class="form-control" style="width:70px;" placeholder="Min" title="${PERTII18n.t('tmiCompliance.filterMinTitle')}" value="${this.filters.minValue}">
-                            <input type="number" id="tmi_filter_max_value" class="form-control" style="width:70px;" placeholder="Max" title="${PERTII18n.t('tmiCompliance.filterMaxTitle')}" value="${this.filters.maxValue}">
+                            <input type="number" id="tmi_filter_min_value" class="form-control" style="width:70px;" placeholder="${PERTII18n.t('tmiCompliance.filterMinPlaceholder')}" title="${PERTII18n.t('tmiCompliance.filterMinTitle')}" value="${this.filters.minValue}">
+                            <input type="number" id="tmi_filter_max_value" class="form-control" style="width:70px;" placeholder="${PERTII18n.t('tmiCompliance.filterMaxPlaceholder')}" title="${PERTII18n.t('tmiCompliance.filterMaxTitle')}" value="${this.filters.maxValue}">
                         </div>
                         <div class="input-group input-group-sm" style="width:auto;">
                             <div class="input-group-prepend"><span class="input-group-text">${PERTII18n.t('tmiCompliance.hourZ')}</span></div>
@@ -7032,12 +7032,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 </div>
 
                 <div class="tmi-discord-copy mt-2">
-                    ${mitCount > 0 ? '<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="Copy NTML summary for Discord"><i class="fas fa-copy"></i> Copy NTML for Discord</button>' : ''}
-                    ${gsCount > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="Copy GS summary for Discord"><i class="fas fa-copy"></i> Copy GS for Discord</button>' : ''}
+                    ${mitCount > 0 ? `<button class="btn btn-sm btn-outline-secondary mr-2" onclick="TMICompliance.copyNtmlSummary()" title="${PERTII18n.t('tmiCompliance.copyNtmlForDiscordTitle')}"><i class="fas fa-copy"></i> ${PERTII18n.t('tmiCompliance.copyNtmlForDiscord')}</button>` : ''}
+                    ${gsCount > 0 ? `<button class="btn btn-sm btn-outline-secondary" onclick="TMICompliance.copyGsSummary()" title="${PERTII18n.t('tmiCompliance.copyGsForDiscordTitle')}"><i class="fas fa-copy"></i> ${PERTII18n.t('tmiCompliance.copyGsForDiscord')}</button>` : ''}
                 </div>
 
                 <div class="tmi-data-quality">
-                    Data: ${trajCoverage}% trajectory coverage${gapInfo}
+                    ${PERTII18n.t('tmiCompliance.dataQualityLabel', {pct: trajCoverage})}${gapInfo}
                 </div>
             </div>
         `;
@@ -7953,7 +7953,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const altStr = altFt >= 18000 ? `FL${Math.round(altFt / 100)}` : altFt > 0 ? `${Math.round(altFt).toLocaleString()}` : '-';
                 const distStr = e.dist_to_dest_nm != null ? `${e.dist_to_dest_nm}` : '-';
                 const gsStr = e.avg_groundspeed_kts ? `${Math.round(e.avg_groundspeed_kts)}` : '-';
-                const warnIcon = e.low_confidence ? ' <i class="fas fa-exclamation-triangle text-warning" title="Low confidence: sparse trajectory data"></i>' : '';
+                const warnIcon = e.low_confidence ? ` <i class="fas fa-exclamation-triangle text-warning" title="${PERTII18n.t('tmiCompliance.lowConfidenceTooltip')}"></i>` : '';
                 tableHtml += `<tr>
                     <td><strong>${e.callsign}</strong></td>
                     <td>${e.dept || '-'}</td>
@@ -9381,8 +9381,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="fa-row fa-row-filter">
                     <i class="fas fa-filter fa-row-icon"></i>
-                    <span class="fa-row-label">${flowFilterStats.matched} of ${flowFilterStats.total} flights</span>
-                    <span class="fa-filter-badge" title="Filtered by ${flowFilterStats.matchField} matching ${airports}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
+                    <span class="fa-row-label">${PERTII18n.t('tmiCompliance.flowFilterLabel', {matched: flowFilterStats.matched, total: flowFilterStats.total})}</span>
+                    <span class="fa-filter-badge" title="${PERTII18n.t('tmiCompliance.flowFilterTitle', {field: flowFilterStats.matchField, airports: airports})}"><i class="fas fa-plane-arrival"></i> ${airports}</span>
                 </div>`;
         }
 
@@ -9398,14 +9398,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="fa-row fa-row-streams">
                     <i class="fas fa-water fa-row-icon"></i>
-                    <span class="fa-row-label">${streams.length} stream${streams.length !== 1 ? 's' : ''}</span>
+                    <span class="fa-row-label">${streams.length !== 1 ? PERTII18n.t('tmiCompliance.streamCountPlural', {count: streams.length}) : PERTII18n.t('tmiCompliance.streamCount', {count: streams.length})}</span>
                     <span class="fa-stream-badges">${badges}</span>
                 </div>`;
         }
 
         // ── Branches row ──
         if (branchData?.error) {
-            const errMsg = branchData.timeout ? 'Branch analysis timed out' : 'Branch analysis unavailable';
+            const errMsg = branchData.timeout ? PERTII18n.t('tmiCompliance.branchTimedOut') : PERTII18n.t('tmiCompliance.branchUnavailable');
             html += `
                 <div class="fa-row fa-row-branches">
                     <i class="fas fa-code-branch fa-row-icon"></i>
@@ -9419,15 +9419,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const ungrouped = branchData.ungrouped_flights || 0;
 
             // Summary stats
-            let statsText = `${branchCount} branch${branchCount !== 1 ? 'es' : ''}`;
-            if (phase1 && phase1 !== branchCount) statsText += ` from ${phase1} corridor${phase1 !== 1 ? 's' : ''}`;
-            statsText += `, ${totalFlights} flights`;
-            if (ungrouped > 0) statsText += ` (${ungrouped} ungrouped)`;
+            let statsText = branchCount !== 1 ? PERTII18n.t('tmiCompliance.branchSummaryPlural', {count: branchCount}) : PERTII18n.t('tmiCompliance.branchSummary', {count: branchCount});
+            if (phase1 && phase1 !== branchCount) statsText += ` ${phase1 !== 1 ? PERTII18n.t('tmiCompliance.fromCorridorsPlural', {count: phase1}) : PERTII18n.t('tmiCompliance.fromCorridors', {count: phase1})}`;
+            statsText += `, ${PERTII18n.t('tmiCompliance.flightsSuffix', {count: totalFlights})}`;
+            if (ungrouped > 0) statsText += ` ${PERTII18n.t('tmiCompliance.ungroupedSuffix', {count: ungrouped})}`;
 
             // Filter badge
             let filterBadge = '';
             if (bf && bf.rejected > 0) {
-                filterBadge = `<span class="fa-filter-badge" title="Bearing filter: ±${bf.filter_deg}° from ${bf.median_bearing}° median"><i class="fas fa-filter"></i> ${bf.rejected} filtered</span>`;
+                filterBadge = `<span class="fa-filter-badge" title="${PERTII18n.t('tmiCompliance.bearingFilterTitle', {deg: bf.filter_deg, median: bf.median_bearing})}"><i class="fas fa-filter"></i> ${PERTII18n.t('tmiCompliance.filteredCount', {count: bf.rejected})}</span>`;
             }
 
             // Determine if branch list is expanded (Branches button active)
@@ -9443,8 +9443,8 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             // Branch list (expanded when Branches layer toggle is active)
             if (branchState?.corridors?.length > 0) {
                 html += `
-                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">All</button>
-                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">None</button>
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', true)">${PERTII18n.t('common.all')}</button>
+                    <button class="branch-select-btn" onclick="TMICompliance.selectAllBranches('${mapId}', false)">${PERTII18n.t('common.none')}</button>
                 </div>
                 <div class="fa-branch-list" id="${mapId}_fa_branch_list" style="${isExpanded ? '' : 'display:none'}">`;
 
@@ -9477,7 +9477,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     const compClass = bc.compliancePct >= 98 ? 'excellent' : bc.compliancePct >= 90 ? 'good' : bc.compliancePct >= 80 ? 'warn' : bc.compliancePct >= 65 ? 'poor' : 'bad';
                     const color = this.branchComplianceColor(bc.compliancePct);
                     const subClass = bc.isSubBranch ? ' branch-item-sub' : '';
-                    const subIcon = bc.isSubBranch ? '<i class="fas fa-level-up-alt fa-rotate-90" style="font-size:0.65em; opacity:0.6; margin-right:3px" title="Sub-branch"></i>' : '';
+                    const subIcon = bc.isSubBranch ? `<i class="fas fa-level-up-alt fa-rotate-90" style="font-size:0.65em; opacity:0.6; margin-right:3px" title="${PERTII18n.t('tmiCompliance.subBranchTitle')}"></i>` : '';
 
                     html += `
                     <label class="branch-item${subClass}" title="${bc.longName}">

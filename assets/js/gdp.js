@@ -1739,7 +1739,7 @@ const GDP = (function() {
             const count = buckets[bucket] || 0;
             const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${bucket} min</td><td class="text-right">${count}</td><td class="text-right">${pct}%</td>`;
+            tr.innerHTML = `<td>${PERTII18n.t('gdp.bucketMinutes', {bucket: bucket})}</td><td class="text-right">${count}</td><td class="text-right">${pct}%</td>`;
             tbody.appendChild(tr);
         });
     }

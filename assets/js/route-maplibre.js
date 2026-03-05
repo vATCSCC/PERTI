@@ -3918,16 +3918,16 @@ $(document).ready(function() {
 
             let html = `
                 <div class="color-rules-header d-flex justify-content-between align-items-center mb-2">
-                    <small class="text-muted">Custom Color Rules (evaluated in order)</small>
+                    <small class="text-muted">${PERTII18n.t('route.colorRule.evaluatedInOrder')}</small>
                     <button type="button" class="btn btn-sm btn-outline-success" id="adl_add_color_rule">
-                        <i class="fas fa-plus"></i> Add
+                        <i class="fas fa-plus"></i> ${PERTII18n.t('common.add')}
                     </button>
                 </div>
                 <div class="color-rules-list" id="adl_color_rules_list">
             `;
 
             if (state.colorRules.length === 0) {
-                html += '<div class="text-muted small">No custom rules defined</div>';
+                html += '<div class="text-muted small">' + PERTII18n.t('route.colorRule.noRulesDefined') + '</div>';
             } else {
                 state.colorRules.forEach((rule, idx) => {
                     const color = parseColor(rule.color) || '#6c757d';
@@ -3937,9 +3937,9 @@ $(document).ready(function() {
                             <span class="rule-text flex-grow-1 small text-truncate" title="${rule.field}: ${rule.values.join(' ')}">
                                 <strong>${rule.field}</strong>: ${rule.values.join(', ')}
                             </span>
-                            <button type="button" class="btn btn-xs btn-link text-info p-0 mx-1 rule-edit" data-idx="${idx}" title="Edit"><i class="fas fa-edit"></i></button>
-                            <button type="button" class="btn btn-xs btn-link text-warning p-0 mx-1 rule-toggle" data-idx="${idx}" title="Toggle"><i class="fas fa-${rule.enabled === false ? 'eye-slash' : 'eye'}"></i></button>
-                            <button type="button" class="btn btn-xs btn-link text-danger p-0 rule-delete" data-idx="${idx}" title="Delete"><i class="fas fa-times"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-info p-0 mx-1 rule-edit" data-idx="${idx}" title="${PERTII18n.t('common.edit')}"><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-warning p-0 mx-1 rule-toggle" data-idx="${idx}" title="${PERTII18n.t('common.toggle')}"><i class="fas fa-${rule.enabled === false ? 'eye-slash' : 'eye'}"></i></button>
+                            <button type="button" class="btn btn-xs btn-link text-danger p-0 rule-delete" data-idx="${idx}" title="${PERTII18n.t('common.delete')}"><i class="fas fa-times"></i></button>
                         </div>
                     `;
                 });
@@ -5178,7 +5178,7 @@ $(document).ready(function() {
             const el = $('#adl_refresh_status');
             if (!el.length) {return;}
             if (status === 'Error') {
-                el.html('<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error</span>');
+                el.html('<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ' + PERTII18n.t('common.error') + '</span>');
                 return;
             }
             if (state.lastRefresh) {
@@ -5192,10 +5192,10 @@ $(document).ready(function() {
             if (!badge.length) {return;}
             if (state.enabled) {
                 badge.removeClass('badge-dark').addClass('badge-success live');
-                badge.html('<i class="fas fa-plane mr-1"></i> LIVE');
+                badge.html('<i class="fas fa-plane mr-1"></i> ' + PERTII18n.t('route.adl.live'));
             } else {
                 badge.removeClass('badge-success live').addClass('badge-dark');
-                badge.html('<i class="fas fa-plane mr-1"></i> Live Flights');
+                badge.html('<i class="fas fa-plane mr-1"></i> ' + PERTII18n.t('route.adl.liveFlights'));
             }
         }
 
@@ -7200,7 +7200,7 @@ $(document).ready(function() {
             Swal.fire({
                 icon: 'warning',
                 title: PERTII18n.t('route.page.shareNoRoutes'),
-                confirmButtonText: 'OK'
+                confirmButtonText: PERTII18n.t('common.ok')
             });
             return;
         }
@@ -7231,7 +7231,7 @@ $(document).ready(function() {
                             icon: 'success',
                             title: PERTII18n.t('route.page.shareLinkCopied'),
                             text: data.url,
-                            confirmButtonText: 'OK'
+                            confirmButtonText: PERTII18n.t('common.ok')
                         });
                     });
                 } else {

@@ -81,6 +81,7 @@
       "programRevisionHtml": "Programme {programId} revision {revision}",
       "rateRequired": "Programme rate is required",
       "returnedToActive": "Returned to active programme parameters.",
+      "transitionedFrom": "Transitioned from programme #{id}",
       "whatIfModeText": "Enter what-if mode to test parameter changes without affecting the active programme."
     },
     "dataSource": {
