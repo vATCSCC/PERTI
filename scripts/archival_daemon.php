@@ -161,20 +161,23 @@ function runArchival(mixed $conn, int $batchSize): array {
         'error' => null,
     ];
 
-    // Step 1: Archive completed flights
-    logMsg("Step 1/5: Archiving completed flights...");
-    $stepResult = runStep($conn, 'EXEC dbo.sp_Archive_CompletedFlights @debug = 0');
-    $results['steps']['completed_flights'] = $stepResult;
-
-    // Hibernation mode: skip trajectory tiering/purging to preserve full-resolution data (TMR)
+    // Hibernation mode: skip ALL archival steps to preserve source data for backfill.
+    // sp_Archive_CompletedFlights CASCADE-deletes position/plan/trajectory/waypoints
+    // from core tables — we must keep those intact for post-hibernation GIS reprocessing.
     $hibernating = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
     if ($hibernating) {
-        logMsg("HIBERNATION: Skipping trajectory tiering and purge steps (preserving full-res data)");
+        logMsg("HIBERNATION: Skipping ALL archival steps (preserving core table data for backfill)");
+        $results['steps']['completed_flights']    = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
         $results['steps']['trajectory_tmi_aware'] = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
         $results['steps']['trajectory_to_cold']   = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
         $results['steps']['purge']                = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
         $results['steps']['purge_tmi']            = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
     } else {
+        // Step 1: Archive completed flights (CASCADE-deletes from core tables)
+        logMsg("Step 1/5: Archiving completed flights...");
+        $stepResult = runStep($conn, 'EXEC dbo.sp_Archive_CompletedFlights @debug = 0');
+        $results['steps']['completed_flights'] = $stepResult;
+
         // Step 2: TMI-aware trajectory archival (extracts high-res TMI data before downsampling)
         logMsg("Step 2/5: TMI-aware trajectory archival (batch_size={$batchSize})...");
         $stepResult = runStep($conn, "EXEC dbo.sp_ArchiveTrajectory_TmiAware @archive_threshold_hours = 1, @batch_size = {$batchSize}");
