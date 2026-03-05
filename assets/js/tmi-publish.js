@@ -1338,7 +1338,7 @@
             const message = formatNtmlMessage(type, data);
             $preview.text(message);
         } catch (e) {
-            $preview.text('(Preview will update as you fill in details)');
+            $preview.text(PERTII18n.t('tmiPublish.preview.willUpdate'));
         }
     }
 
@@ -1793,8 +1793,8 @@
                                 <select class="form-control mb-1" id="adv_constrained_select" multiple size="4">
                                     ${buildFacilityOptions()}
                                 </select>
-                                <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities" 
-                                       placeholder="Or type: ZNY, ZBW, ZDC" 
+                                <input type="text" class="form-control text-uppercase" id="adv_constrained_facilities"
+                                       placeholder="${PERTII18n.t('tmiPublish.form.constrainedFacilitiesPlaceholder')}"
                                        data-linked-select="adv_constrained_select">
                                 <small class="text-muted">${PERTII18n.t('tmiPublish.hotlineForm.selectOrTypeHint')}</small>
                             </div>
@@ -1805,8 +1805,8 @@
                                 <select class="form-control mb-1" id="adv_attend_select" multiple size="4">
                                     ${buildFacilityOptions()}
                                 </select>
-                                <input type="text" class="form-control text-uppercase" id="adv_facilities" 
-                                       placeholder="Or type: ZNY, ZBW, ZDC, ZOB" 
+                                <input type="text" class="form-control text-uppercase" id="adv_facilities"
+                                       placeholder="${PERTII18n.t('tmiPublish.form.facilitiesToAttendPlaceholder')}"
                                        data-linked-select="adv_attend_select">
                                 <small class="text-muted">${PERTII18n.t('tmiPublish.hotlineForm.selectOrTypeHint')}</small>
                             </div>
@@ -2132,11 +2132,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.additionalDepFacilities')}</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_addl_dep" placeholder="Space-separated, e.g. CZYZ CZUL">
+                            <input type="text" class="form-control text-uppercase" id="adv_addl_dep" placeholder="${PERTII18n.t('tmiPublish.gdpForm.additionalDepPlaceholder')}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">${PERTII18n.t('tmiPublish.gdpForm.exemptDepFacilities')}</label>
-                            <input type="text" class="form-control text-uppercase" id="adv_exempt_dep" placeholder="Space-separated, e.g. CZQX">
+                            <input type="text" class="form-control text-uppercase" id="adv_exempt_dep" placeholder="${PERTII18n.t('tmiPublish.gdpForm.exemptDepPlaceholder')}">
                         </div>
                     </div>
 
@@ -4249,7 +4249,7 @@
         });
 
         if (!response || !response.success) {
-            throw new Error(response?.error || 'Unknown error occurred');
+            throw new Error(response?.error || PERTII18n.t('common.unknownError'));
         }
 
         return response;
@@ -4345,7 +4345,7 @@
     function showDuplicateConfigPrompt(airport, existingConfig, type) {
         const existingTime = existingConfig.validFrom ?
             new Date(existingConfig.validFrom).toLocaleString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false }) + 'Z' :
-            'Unknown time';
+            PERTII18n.t('common.unknownTime');
         const existingStatus = existingConfig.status || 'ACTIVE';
         const titleText = typeof PERTII18n !== 'undefined'
             ? PERTII18n.t('tmiPublish.duplicateConfig.title')
@@ -5396,7 +5396,7 @@
         };
 
         // Show loading
-        PERTIDialog.loading('tmiPublish.submit.submitting', 'Posting entries to Discord');
+        PERTIDialog.loading('tmiPublish.submit.submitting', PERTII18n.t('tmiPublish.submit.loadingSubtitle'));
 
         return new Promise((resolve, reject) => {
             $.ajax({
@@ -5418,7 +5418,7 @@
                         return;
                     }
 
-                    const errorMsg = response.error || 'Unknown error occurred';
+                    const errorMsg = response.error || PERTII18n.t('common.unknownError');
                     PERTIDialog.error('tmiPublish.submit.failed', null, {}, {
                         text: errorMsg,
                     });
@@ -6838,13 +6838,13 @@
         };
 
         const labels = isRouteLike ? {
-            controlElement: 'Route Name',
-            requestingFacility: 'Constrained Area',
-            providingFacility: 'Facilities Included',
-            restrictionValue: 'Include Traffic',
-            unit: 'Reason',
-            restrictionText: 'Advisory Text',
-            ntmlTextHint: 'This is the advisory text that facilities will see',
+            controlElement: PERTII18n.t('tmiPublish.editProposal.routeLike.controlElement'),
+            requestingFacility: PERTII18n.t('tmiPublish.editProposal.routeLike.requestingFacility'),
+            providingFacility: PERTII18n.t('tmiPublish.editProposal.routeLike.providingFacility'),
+            restrictionValue: PERTII18n.t('tmiPublish.editProposal.routeLike.restrictionValue'),
+            unit: PERTII18n.t('tmiPublish.editProposal.routeLike.unit'),
+            restrictionText: PERTII18n.t('tmiPublish.editProposal.routeLike.restrictionText'),
+            ntmlTextHint: PERTII18n.t('tmiPublish.editProposal.routeLike.ntmlTextHint'),
         } : {
             controlElement: PERTII18n.t('tmiPublish.editProposal.controlElement'),
             requestingFacility: PERTII18n.t('tmiPublish.editProposal.requestingFacility'),
@@ -6942,7 +6942,7 @@
                     <div class="form-group mb-2">
                         <label class="small font-weight-bold">${PERTII18n.t('tmiPublish.editProposal.editReason')}</label>
                         <input type="text" id="editPropReason" class="form-control form-control-sm"
-                               placeholder="Why is this proposal being edited?" required>
+                               placeholder="${PERTII18n.t('tmiPublish.editProposal.editReasonPlaceholder')}" required>
                     </div>
                 </div>
             `,

@@ -93,6 +93,7 @@
     "toggle": "Toggle",
     "unknown": "Unknown",
     "unknownError": "Unknown error",
+    "unknownTime": "Unknown time",
     "update": "Update",
     "view": "View",
     "warning": "Warning",
@@ -2433,6 +2434,8 @@
       "elementDeleted": "Element removed",
       "feaActive": "Monitoring as FEA",
       "feaCreate": "Monitor as FEA",
+      "configNamePrompt": "Configuration name:",
+      "confirmDeleteNamed": "Delete configuration \"{name}\"?",
       "fixPlaceholder": "Enter fix name...",
       "gateColorTitle": "Gate color",
       "gateName": "Gate name",
@@ -2448,6 +2451,7 @@
       "noMemberFixes": "No member fixes",
       "noProcedures": "No procedures configured",
       "noRoutes": "No routes configured",
+      "procedurePlaceholder": "Enter procedure name...",
       "procedures": "Procedures",
       "removeFea": "Remove FEA",
       "routePlaceholder": "Enter route string...",
@@ -6543,7 +6547,17 @@
       "unit": "Unit",
       "updatingProposal": "Updating proposal and restarting coordination",
       "validFromUtc": "Valid From (UTC)",
-      "validUntilUtc": "Valid Until (UTC)"
+      "validUntilUtc": "Valid Until (UTC)",
+      "editReasonPlaceholder": "Why is this proposal being edited?",
+      "routeLike": {
+        "controlElement": "Route Name",
+        "requestingFacility": "Constrained Area",
+        "providingFacility": "Facilities Included",
+        "restrictionValue": "Include Traffic",
+        "unit": "Reason",
+        "restrictionText": "Advisory Text",
+        "ntmlTextHint": "This is the advisory text that facilities will see"
+      }
     },
     "enableProdMode": {
       "confirm": "Enable Production",
@@ -6590,6 +6604,7 @@
       "configDetails": "Configuration Details",
       "configPreset": "Config Preset",
       "constrainedFacilities": "Constrained Facilities",
+      "constrainedFacilitiesPlaceholder": "Or type: ZNY, ZBW, ZDC",
       "dateTimeZulu": "Date/Time (Zulu/UTC)",
       "delayDetails": "Delay Details",
       "delayMinutes": "Delay Minutes",
@@ -6604,6 +6619,7 @@
       "exclusions": "Exclusions",
       "exclusionsHint": "Use comma-separated values, e.g., PROPS, MIL",
       "facilitiesToAttend": "Facilities to Attend",
+      "facilitiesToAttendPlaceholder": "Or type: ZNY, ZBW, ZDC, ZOB",
       "freeFormAdvisory": "Free-Form Advisory",
       "freezeHorizon": "Freeze Horizon (min)",
       "freezeHorizonHint": "Minutes before meter point",
@@ -6652,6 +6668,8 @@
     "gdpDetails": "Ground Delay Program Details",
     "gdpForm": {
       "additionalDepFacilities": "Additional DEP Facilities",
+      "additionalDepPlaceholder": "Space-separated, e.g. CZYZ CZUL",
+      "exemptDepPlaceholder": "Space-separated, e.g. CZQX",
       "adlTime": "ADL Time",
       "airport": "Airport",
       "airportPlaceholder": "e.g. KJFK",
@@ -6958,7 +6976,8 @@
     },
     "pageTitle": "TMI Publisher",
     "preview": {
-      "selectType": "Select an advisory type to begin..."
+      "selectType": "Select an advisory type to begin...",
+      "willUpdate": "(Preview will update as you fill in details)"
     },
     "privilegeRequired": "DCC/CANOC/ECFMP privilege required for direct publish",
     "profile": {
@@ -7219,6 +7238,7 @@
       "failed": "Submit Failed",
       "results": "Submission Results",
       "submitting": "Submitting...",
+      "loadingSubtitle": "Posting entries to Discord",
       "title": "Submit for Coordination"
     },
     "submitComplete": "Submit Complete",

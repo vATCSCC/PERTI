@@ -7155,9 +7155,9 @@
         // Remove any existing add forms
         document.querySelectorAll('.nod-flow-add-form').forEach(f => f.remove());
 
-        const placeholder = elementType === 'FIX' ? 'Enter fix name...'
-            : elementType === 'PROCEDURE' ? 'Enter procedure name...'
-            : 'Enter route string...';
+        const placeholder = elementType === 'FIX' ? PERTII18n.t('nod.flows.fixPlaceholder')
+            : elementType === 'PROCEDURE' ? PERTII18n.t('nod.flows.procedurePlaceholder')
+            : PERTII18n.t('nod.flows.routePlaceholder');
 
         const form = document.createElement('div');
         form.className = 'nod-flow-add-form';
@@ -7425,7 +7425,7 @@
     async function createFlowConfig() {
         if (!state.flows.facility) return;
 
-        const name = prompt('Configuration name:');
+        const name = prompt(PERTII18n.t('nod.flows.configNamePrompt'));
         if (!name || !name.trim()) return;
 
         try {
@@ -7507,7 +7507,7 @@
         const config = state.flows.activeConfig;
         if (!config) return;
 
-        if (!confirm('Delete configuration "' + config.config_name + '"?')) return;
+        if (!confirm(PERTII18n.t('nod.flows.confirmDeleteNamed', { name: config.config_name }))) return;
 
         try {
             await fetch(`api/nod/flows/configs.php?config_id=${config.config_id}`, { method: 'DELETE' });

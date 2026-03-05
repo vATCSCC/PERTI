@@ -92,6 +92,7 @@
     "toggle": "Basculer",
     "unknown": "Inconnu",
     "unknownError": "Erreur inconnue",
+    "unknownTime": "Heure inconnue",
     "update": "Mettre à jour",
     "view": "Voir",
     "warning": "Avertissement",
@@ -2663,6 +2664,8 @@
       "elementDeleted": "Élément retiré",
       "feaActive": "Surveillance FEA active",
       "feaCreate": "Surveiller comme FEA",
+      "configNamePrompt": "Nom de la configuration :",
+      "confirmDeleteNamed": "Supprimer la configuration « {name} » ?",
       "fixPlaceholder": "Entrer le nom du fix...",
       "gateColorTitle": "Couleur de la porte",
       "gateName": "Nom de la porte",
@@ -2678,6 +2681,7 @@
       "noMemberFixes": "Aucun fix membre",
       "noProcedures": "Aucune procédure configurée",
       "noRoutes": "Aucune route configurée",
+      "procedurePlaceholder": "Entrer le nom de la procédure...",
       "procedures": "Procédures",
       "removeFea": "Retirer FEA",
       "routePlaceholder": "Entrer la chaîne de route...",
@@ -6909,7 +6913,17 @@
       "unit": "Unité",
       "updatingProposal": "Mise à jour de la proposition et relance de la coordination",
       "validFromUtc": "Valide depuis (UTC)",
-      "validUntilUtc": "Valide jusqu'à (UTC)"
+      "validUntilUtc": "Valide jusqu'à (UTC)",
+      "editReasonPlaceholder": "Pourquoi cette proposition est-elle modifiée ?",
+      "routeLike": {
+        "controlElement": "Nom de la route",
+        "requestingFacility": "Zone contrainte",
+        "providingFacility": "Installations incluses",
+        "restrictionValue": "Inclure le trafic",
+        "unit": "Raison",
+        "restrictionText": "Texte de l'avis",
+        "ntmlTextHint": "C'est le texte de l'avis que les installations verront"
+      }
     },
     "enableProdMode": {
       "confirm": "Activer Production",
@@ -6956,6 +6970,7 @@
       "configDetails": "Détails de la configuration",
       "configPreset": "Préréglage de configuration",
       "constrainedFacilities": "Installations contraintes",
+      "constrainedFacilitiesPlaceholder": "Ou saisir : ZNY, ZBW, ZDC",
       "dateTimeZulu": "Date/Heure (Zulu/UTC)",
       "delayDetails": "Détails du retard",
       "delayMinutes": "Minutes de retard",
@@ -6970,6 +6985,7 @@
       "exclusions": "Exclusions",
       "exclusionsHint": "Utilisez des valeurs séparées par des virgules, p. ex. PROPS, MIL",
       "facilitiesToAttend": "Installations participantes",
+      "facilitiesToAttendPlaceholder": "Ou saisir : ZNY, ZBW, ZDC, ZOB",
       "freeFormAdvisory": "Avis de forme libre",
       "freezeHorizon": "Horizon de gel (min)",
       "freezeHorizonHint": "Minutes avant le point de régulation",
@@ -7018,6 +7034,8 @@
     "gdpDetails": "Détails du programme de retard au sol",
     "gdpForm": {
       "additionalDepFacilities": "Installations DEP supplémentaires",
+      "additionalDepPlaceholder": "Séparés par des espaces, ex. CZYZ CZUL",
+      "exemptDepPlaceholder": "Séparés par des espaces, ex. CZQX",
       "adlTime": "Heure ADL",
       "airport": "Aéroport",
       "airportPlaceholder": "ex. CYYZ",
@@ -7329,7 +7347,8 @@
     },
     "pageTitle": "Publication TMI",
     "preview": {
-      "selectType": "Sélectionnez un type d'avis pour commencer..."
+      "selectType": "Sélectionnez un type d'avis pour commencer...",
+      "willUpdate": "(L'aperçu se mettra à jour au fur et à mesure)"
     },
     "privilegeRequired": "Privilège DCC/CANOC/ECFMP requis pour la publication directe",
     "profile": {
@@ -7590,6 +7609,7 @@
       "failed": "Échec de la soumission",
       "results": "Résultats de la soumission",
       "submitting": "Soumission...",
+      "loadingSubtitle": "Publication des entrées sur Discord",
       "title": "Soumettre pour coordination"
     },
     "submitComplete": "Soumission terminée",
