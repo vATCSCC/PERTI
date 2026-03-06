@@ -38,11 +38,15 @@ try {
 
         // Lifecycle status filter (supports both old and new column names)
         if (!empty($_GET['status']) || !empty($_GET['lifecycle_status'])) {
-            $statusVal = $_GET['lifecycle_status'] ?? $_GET['status'];
-            // Try new column first, fallback to old
-            $where[] = '(lifecycle_status = ? OR incident_status = ?)';
-            $params[] = $statusVal;
-            $params[] = $statusVal;
+            $rawStatus = $_GET['lifecycle_status'] ?? $_GET['status'];
+            $statusVals = is_array($rawStatus) ? $rawStatus : explode(',', (string)$rawStatus);
+            $statusVals = array_values(array_filter(array_map('trim', $statusVals), function($s) { return $s !== ''; }));
+            if (!empty($statusVals)) {
+                // Try new column first, fallback to old
+                $placeholders = implode(',', array_fill(0, count($statusVals), '?'));
+                $where[] = "(lifecycle_status IN ($placeholders) OR incident_status IN ($placeholders))";
+                $params = array_merge($params, $statusVals, $statusVals);
+            }
         }
 
         // Facility type filter

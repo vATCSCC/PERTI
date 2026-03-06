@@ -85,6 +85,8 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     /* Filter bar */
     .filter-bar { background-color: #1e293b; padding: 10px; border-radius: 4px; margin-bottom: 10px; margin-top: 15px; }
     .filter-bar label { color: #94a3b8; }
+    .filter-status-multi { min-height: 92px; padding: 4px; }
+    .filter-status-multi option { padding: 2px 6px; }
     .btn-jatoc { background-color: #1e40af; border-color: #1e40af; color: white; font-size: 0.8rem; }
     .btn-jatoc:hover { background-color: #1e3a8a; color: white; }
     .btn-jatoc-success { background-color: #166534; border-color: #166534; color: white; font-size: 0.8rem; }
@@ -196,9 +198,25 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
     /* Details modal */
-    .details-grid { display: grid; grid-template-columns: 90px 1fr 80px 1fr; gap: 4px 8px; font-size: 0.8rem; background: #1e293b; padding: 10px; border-radius: 4px; }
+    .details-grid {
+        display: grid;
+        grid-template-columns: 90px minmax(0, 1fr) 80px minmax(0, 1fr);
+        gap: 4px 8px;
+        font-size: 0.8rem;
+        background: #1e293b;
+        padding: 10px;
+        border-radius: 4px;
+    }
     .details-grid .label { color: #94a3b8; }
-    .details-grid .value { color: #f1f5f9; }
+    .details-grid .value {
+        color: #f1f5f9;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    @media (max-width: 991.98px) {
+        .details-grid { grid-template-columns: 90px minmax(0, 1fr); }
+    }
     .action-buttons { display: flex; flex-direction: column; gap: 6px; }
     .action-buttons .btn { font-size: 0.8rem; padding: 6px 10px; }
     .update-form-section { background: #1e293b; padding: 10px; border-radius: 0 0 4px 4px; margin-bottom: 10px; }
@@ -384,10 +402,9 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     <!-- Full Width Filter & Events Table -->
     <div class="filter-bar">
         <div class="row align-items-end">
-            <div class="col"><label class="small mb-0"><?= __('jatoc.page.lifecycle') ?></label><select id="filterStatus" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ACTIVE" selected><?= __('jatoc.page.active') ?></option><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
-            <div class="col"><label class="small mb-0"><?= __('jatoc.page.facType') ?></label><select id="filterFacilityType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="FACILITY"><?= __('jatoc.page.facTypeFacility') ?></option><option value="ARTCC"><?= __('jatoc.page.facTypeArtcc') ?></option><option value="TRACON"><?= __('jatoc.page.facTypeTracon') ?></option><option value="ATCT"><?= __('jatoc.page.facTypeAtct') ?></option></select></div>
+            <div class="col"><label class="small mb-0"><?= __('jatoc.page.lifecycle') ?></label><select id="filterStatus" class="form-control form-control-sm form-control-dark filter-status-multi" multiple><option value="ACTIVE" selected><?= __('jatoc.page.active') ?></option><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.incType') ?></label><select id="filterIncidentType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option></select></div>
-            <div class="col"><label class="small mb-0"><?= __('jatoc.page.facility') ?></label><input type="text" id="filterFacility" class="form-control form-control-sm form-control-dark" placeholder="ZTL"></div>
+            <div class="col"><label class="small mb-0"><?= __('jatoc.page.colName') ?></label><input type="text" id="filterFacility" class="form-control form-control-sm form-control-dark" placeholder="<?= __('jatoc.page.nameFilterPlaceholder') ?>"></div>
             <div class="col-auto"><button class="btn btn-sm btn-jatoc" onclick="JATOC.applyFilters()" style="height:31px"><i class="fas fa-filter"></i> <?= __('jatoc.page.filter') ?></button></div>
             <div class="col-auto"><button class="btn btn-sm btn-outline-info" onclick="JATOC.showRetrieveModal()" style="height:31px"><i class="fas fa-search"></i> <?= __('jatoc.page.retrieve') ?></button></div>
             <div class="col-auto"><button class="btn btn-sm btn-jatoc-success" onclick="JATOC.showCreateModal()" style="height:31px"><i class="fas fa-plus"></i> <?= __('jatoc.page.new') ?></button></div>
@@ -399,7 +416,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
         <table class="events-table" id="eventsTable">
             <thead><tr>
                 <th data-sort="incident_number"><?= __('jatoc.page.colIncNum') ?> <i class="fas fa-sort sort-icon"></i></th>
-                <th data-sort="facility"><?= __('jatoc.page.colFacility') ?> <i class="fas fa-sort sort-icon"></i></th>
+                <th data-sort="facility"><?= __('jatoc.page.colName') ?> <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="incident_type"><?= __('jatoc.page.colIncType') ?> <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="trigger_code"><?= __('jatoc.page.colTrigger') ?> <i class="fas fa-sort sort-icon"></i></th>
                 <th data-sort="paged"><?= __('jatoc.page.colPaged') ?> <i class="fas fa-sort sort-icon"></i></th>
@@ -521,9 +538,8 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                 <form id="incidentForm">
                     <input type="hidden" id="incidentId">
                     <div class="row">
-                        <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incFacility') ?></label><input type="text" id="incidentFacility" class="form-control form-control-dark" placeholder="<?= __('jatoc.page.incFacilityPlaceholder') ?>" required></div>
-                        <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incType2') ?></label><select id="incidentFacilityType" class="form-control form-control-dark"><option value=""><?= __('jatoc.page.incSelect') ?></option><option value="FACILITY"><?= __('jatoc.page.facTypeFacility') ?></option><option value="ARTCC"><?= __('jatoc.page.facTypeArtcc') ?></option><option value="TRACON"><?= __('jatoc.page.facTypeTracon') ?></option><option value="ATCT"><?= __('jatoc.page.facTypeAtct') ?></option></select></div>
-                        <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incidentType') ?></label><select id="incidentStatus" class="form-control form-control-dark" required><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option><option value="OTHER"><?= __('jatoc.page.other') ?></option></select></div>
+                        <div class="col-md-6"><label class="small text-muted"><?= __('jatoc.page.incName') ?></label><input type="text" id="incidentFacility" class="form-control form-control-dark" placeholder="<?= __('jatoc.page.incNamePlaceholder') ?>" required></div>
+                        <div class="col-md-6"><label class="small text-muted"><?= __('jatoc.page.incidentType') ?></label><select id="incidentStatus" class="form-control form-control-dark" required><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option><option value="OTHER"><?= __('jatoc.page.other') ?></option></select></div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.trigger') ?></label><select id="incidentTrigger" class="form-control form-control-dark"><option value=""><?= __('jatoc.page.incSelect') ?></option><option value="A"><?= __('jatoc.page.triggerA') ?></option><option value="B"><?= __('jatoc.page.triggerB') ?></option><option value="D"><?= __('jatoc.page.triggerD') ?></option><option value="E"><?= __('jatoc.page.triggerE') ?></option><option value="F"><?= __('jatoc.page.triggerF') ?></option><option value="H"><?= __('jatoc.page.triggerH') ?></option><option value="J"><?= __('jatoc.page.triggerJ') ?></option><option value="K"><?= __('jatoc.page.triggerK') ?></option><option value="M"><?= __('jatoc.page.triggerM') ?></option><option value="Q"><?= __('jatoc.page.triggerQ') ?></option><option value="R"><?= __('jatoc.page.triggerR') ?></option><option value="S"><?= __('jatoc.page.triggerS') ?></option><option value="T"><?= __('jatoc.page.triggerT') ?></option><option value="U"><?= __('jatoc.page.triggerU') ?></option><option value="V"><?= __('jatoc.page.triggerV') ?></option><option value="W"><?= __('jatoc.page.triggerW') ?></option></select></div>
@@ -531,7 +547,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.lifecycleLabel') ?></label><select id="incidentIncidentStatus" class="form-control form-control-dark"><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="ACTIVE"><?= __('jatoc.page.active') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
                     </div>
                     <div class="mt-2">
-                        <label class="small text-muted">Affected Facilities</label>
+                        <label class="small text-muted"><?= __('jatoc.page.affectedFacilities') ?></label>
                         <div class="mb-1" id="pseudoFacilityButtons" style="display:flex; flex-wrap:wrap; gap:4px;">
                             <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="USA">USA</button>
                             <button type="button" class="btn btn-xs pseudo-fac-btn" data-region="CAN">CAN</button>
@@ -572,8 +588,8 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                 <div class="row">
                     <div class="col-lg-8">
                         <div class="details-grid mb-2">
-                            <div class="label"><?= __('jatoc.page.detailsFacility') ?></div><div class="value" id="detailsFacility">-</div>
-                            <div class="label">Affected</div><div class="value" id="detailsAffectedFacilities" style="display:none;max-height:60px;overflow-y:auto;gap:2px;flex-wrap:wrap"></div>
+                            <div class="label"><?= __('jatoc.page.detailsName') ?></div><div class="value" id="detailsFacility">-</div>
+                            <div class="label"><?= __('jatoc.page.detailsAffected') ?></div><div class="value" id="detailsAffectedFacilities" style="display:flex;max-height:60px;overflow-y:auto;gap:2px;flex-wrap:wrap;align-items:flex-start">-</div>
                             <div class="label"><?= __('jatoc.page.detailsIncType') ?></div><div class="value" id="detailsStatus">-</div>
                             <div class="label"><?= __('jatoc.page.detailsTrigger') ?></div><div class="value" id="detailsTrigger">-</div>
                             <div class="label"><?= __('jatoc.page.detailsPaged') ?></div><div class="value" id="detailsPaged">-</div>
@@ -644,8 +660,8 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                         <input type="text" id="retrieveReportNum" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.reportNumPlaceholder') ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="small text-muted"><?= __('jatoc.page.facility') ?></label>
-                        <input type="text" id="retrieveFacility" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.facilityPlaceholder') ?>">
+                        <label class="small text-muted"><?= __('jatoc.page.colName') ?></label>
+                        <input type="text" id="retrieveFacility" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.nameFilterPlaceholder') ?>">
                     </div>
                 </div>
                 <div class="row mb-3">

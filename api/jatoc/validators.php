@@ -62,7 +62,7 @@ class JatocValidators {
     }
 
     /**
-     * Validate incident name (free-text, 1-128 characters)
+     * Validate incident name (free-text, 1-255 characters)
      *
      * @param mixed $value Incident name to validate
      * @param bool $required Whether field is required
@@ -74,8 +74,8 @@ class JatocValidators {
         }
 
         $value = trim($value);
-        if (strlen($value) > 128) {
-            return 'Incident name must not exceed 128 characters';
+        if (strlen($value) > 255) {
+            return 'Incident name must not exceed 255 characters';
         }
 
         return null;

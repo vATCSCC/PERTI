@@ -186,9 +186,47 @@
         OCE:  { label: 'Oceania', facilities: ['YMMM','YBBB','NZZO','NFFF','AGGG','PGUM','NTTT'] },
     };
 
-    // Build a flat set of all known facility codes for wildcard matching
+    // Build a flat set of known facility codes for wildcard matching.
+    // Includes pseudo-regions, static facility lists, and loaded boundary IDs.
     const ALL_KNOWN_FACILITIES = new Set();
-    Object.values(PSEUDO_FACILITIES).forEach(r => r.facilities.forEach(f => ALL_KNOWN_FACILITIES.add(f)));
+
+    function addKnownFacilityCode(code) {
+        const c = String(code || '').trim().toUpperCase();
+        if (c) ALL_KNOWN_FACILITIES.add(c);
+    }
+
+    function collectKnownFromBoundaries(src) {
+        if (!src?.features) return;
+        src.features.forEach(feat => {
+            const p = feat.properties || {};
+            [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label, p.prefix].forEach(v => {
+                if (v == null) return;
+                const upper = String(v).trim().toUpperCase();
+                if (!upper) return;
+                addKnownFacilityCode(upper);
+                // Many labels are "CODE Name"; keep the leading token for matching.
+                if (upper.includes(' ')) addKnownFacilityCode(upper.split(/\s+/)[0]);
+            });
+        });
+    }
+
+    function rebuildKnownFacilities() {
+        ALL_KNOWN_FACILITIES.clear();
+        Object.values(PSEUDO_FACILITIES).forEach(r => (r.facilities || []).forEach(addKnownFacilityCode));
+        Object.values(FACILITIES).forEach(list => {
+            if (!Array.isArray(list)) return;
+            list.forEach(item => {
+                if (typeof item === 'string') {
+                    addKnownFacilityCode(item);
+                } else if (item && typeof item === 'object') {
+                    addKnownFacilityCode(item.code || item.id || item.icao || item.name || '');
+                }
+            });
+        });
+        collectKnownFromBoundaries(state.boundaryData.artcc);
+        collectKnownFromBoundaries(state.boundaryData.tracon);
+    }
+    rebuildKnownFacilities();
 
     /**
      * Expand a glob pattern (using * as wildcard) against known facilities.
@@ -197,7 +235,9 @@
      */
     function expandFacilityGlob(pattern) {
         if (!pattern.includes('*')) return [];
-        const re = new RegExp('^' + pattern.replace(/\*/g, '.') + '$');
+        const upper = String(pattern).trim().toUpperCase();
+        const escaped = upper.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('^' + escaped.replace(/\*/g, '[A-Z0-9-]*') + '$');
         return [...ALL_KNOWN_FACILITIES].filter(f => re.test(f)).sort();
     }
 
@@ -345,7 +385,7 @@
                             const expanded = expandFacilityGlob(c);
                             if (expanded.length > 0) {
                                 expanded.forEach(f => addFacilityTag(f));
-                            } else {
+                            } else if (!c.includes('*')) {
                                 addFacilityTag(c);
                             }
                         });
@@ -756,6 +796,7 @@
                 const traconIds = traconRes.features.slice(0, 5).map(f => JSON.stringify(f.properties));
                 console.log('[JATOC] TRACON sample properties:', traconIds);
             }
+            rebuildKnownFacilities();
         } catch (e) { console.log('[JATOC] Boundaries error:', e); }
     }
 
@@ -1105,7 +1146,19 @@
         const previousIncidents = state.incidents ? state.incidents.slice() : [];
 
         try {
-            const filters = { status: document.getElementById('filterStatus').value, incidentType: document.getElementById('filterIncidentType').value, facility: document.getElementById('filterFacility').value };
+            const statusEl = document.getElementById('filterStatus');
+            const selectedStatuses = statusEl
+                ? [...statusEl.selectedOptions].map(o => o.value).filter(Boolean)
+                : [];
+            const filters = {
+                incidentType: document.getElementById('filterIncidentType').value,
+                facility: document.getElementById('filterFacility').value
+            };
+            if (selectedStatuses.length === 1) {
+                filters.status = selectedStatuses[0];
+            } else if (selectedStatuses.length > 1) {
+                filters.status = selectedStatuses.join(',');
+            }
             Object.keys(filters).forEach(k => { if (!filters[k]) {delete filters[k];} });
             const r = await api('incidents.php', 'GET', filters);
             const newIncidents = r.data || [];
@@ -1396,7 +1449,7 @@
     }
 
     // ========== UTILITIES ==========
-    function formatTime(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(5, 16).replace('T', ' ') + 'Z'; } catch { return dt; } }
+    function formatTime(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z'; } catch { return dt; } }
     function formatTimeISO(dt) { if (!dt) {return '-';} try { const d = new Date(dt.includes('Z') ? dt : dt + 'Z'); return d.toISOString().slice(0, 19).replace('T', ' ') + 'Z'; } catch { return dt; } }
     function formatStatus(s) { return (s || '').replace('_', ' '); }
     function calcDuration(startStr, endStr) { if (!startStr) {return '-';} try { const start = new Date(startStr.includes('Z') ? startStr : startStr + 'Z'); const end = endStr ? new Date(endStr.includes('Z') ? endStr : endStr + 'Z') : new Date(); const diffMs = end.getTime() - start.getTime(); if (diffMs < 0) {return PERTII18n.t('jatoc.duration.zeroMinutes');} const mins = Math.floor(diffMs / 60000); if (mins < 60) {return PERTII18n.t('jatoc.duration.minutes', { value: mins });} return PERTII18n.t('jatoc.duration.hoursMinutes', { hours: Math.floor(mins / 60), minutes: mins % 60 }); } catch { return '-'; } }
