@@ -154,6 +154,10 @@ $SWIM_DATA_AUTHORITY = [
 
     // CDM milestone data - vACDM primary, CDM Plugin and vATCSCC can override
     'cdm'           => ['VACDM', true]
+
+    // TODO: Uncomment when migration 024 is deployed and controller data is ready
+    // // Controller data - vNAS primary, VATSIM datafeed fallback
+    // 'controller'    => ['VNAS', true]
 ];
 
 /**
@@ -279,6 +283,13 @@ $SWIM_SOURCE_PRIORITY = [
         'cdm_plugin' => 2,  // CDM Plugin (departure sequencing)
         'vatcscc'    => 3,  // PERTI manual/automated CDM
     ],
+
+    // TODO: Uncomment when migration 024 is deployed and controller data is ready
+    // // Controller data (positions, sectors, roles)
+    // 'controller' => [
+    //     'vnas'       => 1,  // vNAS controller feed (ERAM/STARS enrichment)
+    //     'vatsim'     => 2,  // VATSIM datafeed (basic controller info)
+    // ],
 ];
 
 /**
@@ -479,6 +490,8 @@ $SWIM_CACHE_TTL = [
     'metering'       => 5,
     'reference'      => 300,
     'stats'          => 60
+    // TODO: Uncomment when migration 024 is deployed and controller data is ready
+    // 'controllers_list' => 5
 ];
 
 /**
@@ -529,8 +542,10 @@ $SWIM_SUPPORTED_FORMATS = [
     'flights'   => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
     'metering'  => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
     'positions' => ['json', 'fixm', 'xml', 'geojson', 'csv', 'kml', 'ndjson'],
-    'reference' => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
-    'default'   => ['json', 'fixm', 'xml', 'ndjson']
+    'reference'    => ['json', 'fixm', 'xml', 'csv', 'ndjson'],
+    // TODO: Uncomment when migration 024 is deployed and controller data is ready
+    // 'controllers'  => ['json', 'fixm', 'xml', 'geojson', 'csv', 'ndjson'],
+    'default'      => ['json', 'fixm', 'xml', 'ndjson']
 ];
 
 /**
@@ -562,6 +577,8 @@ $SWIM_DATA_RETENTION = [
     'telemetry'         => 1,
     'tmi_history'       => 365,
     'audit_log'         => 90
+    // TODO: Uncomment when migration 024 is deployed and controller data is ready
+    // 'controller_sessions' => 90
 ];
 
 /**

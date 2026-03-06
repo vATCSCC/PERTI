@@ -241,11 +241,20 @@ if [ "$HIBERNATION" != "1" ]; then
     VACDM_PID=$!
     echo "  vacdm_poll_daemon.php started (PID: $VACDM_PID)"
 
+    # Start the vNAS controller feed polling daemon
+    # Polls https://live.env.vnas.vatsim.net/data-feed/controllers.json every 60s
+    # Upserts into swim_controllers + enriches with ERAM/STARS sector data
+    # TODO: Uncomment when migration 024 is deployed and controller data is ready
+    # echo "Starting vnas_controller_poll.php (polling every 60s)..."
+    # nohup php "${WWWROOT}/scripts/vnas_controller_poll.php" --loop --interval=60 >> /home/LogFiles/vnas_ctrl_poll.log 2>&1 &
+    # VNAS_CTRL_PID=$!
+    # echo "  vnas_controller_poll.php started (PID: $VNAS_CTRL_PID)"
+
 else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
     echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, SWIM ws/sync,"
-    echo "           SimTraffic, reverse sync, scheduler, event sync, CDM, vACDM"
+    echo "           SimTraffic, reverse sync, scheduler, event sync, CDM, vACDM, vNAS ctrl"
     echo ""
 fi
 
