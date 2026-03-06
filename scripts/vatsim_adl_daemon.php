@@ -75,6 +75,15 @@ $config = [
     'warn_sp_ms'      => 5000,   // Warn if SP takes >5s
     'critical_sp_ms'  => 10000,  // Critical if SP takes >10s
 
+    // TMI → ADL sync (propagates GDP/AFP/GS control data to ADL for SWIM + dashboards)
+    // Automatically disabled in hibernation mode (no active TMI programs)
+    'tmi_sync_enabled'  => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
+    'tmi_sync_interval' => 4,  // every 4 cycles = 60s
+    'tmi_db_server'     => defined('TMI_SQL_HOST') ? TMI_SQL_HOST : null,
+    'tmi_db_name'       => defined('TMI_SQL_DATABASE') ? TMI_SQL_DATABASE : null,
+    'tmi_db_user'       => defined('TMI_SQL_USERNAME') ? TMI_SQL_USERNAME : null,
+    'tmi_db_pass'       => defined('TMI_SQL_PASSWORD') ? TMI_SQL_PASSWORD : null,
+
     // ATIS processing with dynamic tiered intervals
     // Automatically disabled in hibernation mode
     'atis_enabled'    => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
@@ -291,6 +300,35 @@ function getConnection(array $config) {
         throw new Exception("SQL connection failed: " . json_encode($errors));
     }
     
+    return $conn;
+}
+
+/**
+ * Connect to VATSIM_TMI database (read-only) for TMI→ADL sync.
+ * Returns null if TMI config is missing (graceful degradation).
+ */
+function getTmiConnection(array $config) {
+    if (!$config['tmi_db_server'] || !$config['tmi_db_name']) {
+        return null;
+    }
+
+    $conn = sqlsrv_connect($config['tmi_db_server'], [
+        "Database"                => $config['tmi_db_name'],
+        "Uid"                     => $config['tmi_db_user'],
+        "PWD"                     => $config['tmi_db_pass'],
+        "Encrypt"                 => true,
+        "TrustServerCertificate"  => false,
+        "LoginTimeout"            => 15,
+        "ConnectionPooling"       => true,
+        "MultipleActiveResultSets" => false,
+        "ApplicationIntent"       => "ReadOnly",
+    ]);
+
+    if ($conn === false) {
+        logWarn("TMI connection failed", ['errors' => sqlsrv_errors()]);
+        return null;
+    }
+
     return $conn;
 }
 
@@ -1819,6 +1857,366 @@ function shouldRunInlineSwim(array $config, int $run, ?int &$heartbeatAge = null
     return $heartbeatAge > $staleSec;
 }
 
+// ============================================================================
+// TMI → ADL SYNC (Cross-database: VATSIM_TMI → VATSIM_ADL)
+// Propagates GDP/AFP/GS control data so SWIM, dashboards, and compliance
+// tools see current TMI state. Handles multi-program precedence (FAA model).
+// ============================================================================
+
+/**
+ * Sync active TMI flight control records from VATSIM_TMI to VATSIM_ADL.
+ *
+ * For each active flight: determines the controlling program (GS wins,
+ * otherwise MAX ctd_utc), updates adl_flight_tmi + adl_flight_times,
+ * and cleans up flights no longer under any active program.
+ *
+ * @param resource $conn_adl  VATSIM_ADL connection (read-write)
+ * @param resource $conn_tmi  VATSIM_TMI connection (read-only)
+ * @return array{synced: int, cleaned: int, ms: int}|null
+ */
+function executeDeferredTMISync($conn_adl, $conn_tmi): ?array {
+    $start = microtime(true);
+
+    // ── Step 1: Fetch all active control records from TMI ────────────────
+    $tmiSql = "
+        SELECT fc.flight_uid, fc.control_id, fc.program_id, fc.slot_id,
+               fc.ctd_utc, fc.cta_utc, fc.octd_utc, fc.octa_utc,
+               fc.ctl_type, fc.ctl_prgm, fc.ctl_elem,
+               fc.ctl_exempt, fc.program_delay_min, fc.delay_capped,
+               fc.gs_held, fc.gs_release_utc,
+               fc.is_popup, fc.is_recontrol, fc.ecr_pending,
+               fc.sl_hold, fc.subbable,
+               p.program_type, p.ctl_element AS program_ctl_element
+        FROM dbo.tmi_flight_control fc
+        INNER JOIN dbo.tmi_programs p ON fc.program_id = p.program_id
+        WHERE p.is_active = 1
+          AND fc.flight_uid IS NOT NULL
+    ";
+
+    $tmiStmt = sqlsrv_query($conn_tmi, $tmiSql, [], ['QueryTimeout' => 15]);
+    if ($tmiStmt === false) {
+        $errors = sqlsrv_errors();
+        logWarn("TMI sync: failed to query TMI", ['errors' => $errors]);
+        return null;
+    }
+
+    // Collect all records grouped by flight_uid
+    $flightRecords = []; // flight_uid => [record, ...]
+    while ($row = sqlsrv_fetch_array($tmiStmt, SQLSRV_FETCH_ASSOC)) {
+        $fuid = (int)$row['flight_uid'];
+        $flightRecords[$fuid][] = $row;
+    }
+    sqlsrv_free_stmt($tmiStmt);
+
+    if (empty($flightRecords)) {
+        // No active TMI flights — still need to run cleanup
+        return executeTmiSyncCleanup($conn_adl, [], $start);
+    }
+
+    // ── Step 2: Compute controlling program per flight ───────────────────
+    // FAA model: GS wins, otherwise MAX(ctd_utc), fallback MAX(control_id)
+    $syncRows = [];
+    foreach ($flightRecords as $fuid => $records) {
+        $controlling = null;
+        $effectiveCtd = null;
+
+        if (count($records) === 1) {
+            // Single program — straightforward
+            $controlling = $records[0];
+            $effectiveCtd = $controlling['ctd_utc'];
+        } else {
+            // Multi-program: determine controlling record
+            $gsRecord = null;
+            $maxCtdRecord = null;
+            $maxCtd = null;
+            $maxControlId = null;
+            $fallbackRecord = null;
+
+            foreach ($records as $rec) {
+                // Track effective CTD (MAX across all programs)
+                $ctd = $rec['ctd_utc'];
+                if ($ctd !== null) {
+                    $ctdStr = ($ctd instanceof DateTimeInterface) ? $ctd->format('Y-m-d H:i:s') : (string)$ctd;
+                    if ($effectiveCtd === null || $ctdStr > $effectiveCtd) {
+                        $effectiveCtd = $ctdStr;
+                    }
+                }
+
+                // GS always wins
+                if ((int)($rec['gs_held'] ?? 0) === 1) {
+                    $gsRecord = $rec;
+                }
+
+                // Track MAX ctd_utc
+                if ($ctd !== null) {
+                    if ($maxCtd === null || $ctdStr > $maxCtd) {
+                        $maxCtd = $ctdStr;
+                        $maxCtdRecord = $rec;
+                    }
+                }
+
+                // Fallback: MAX control_id (most recently assigned)
+                $cid = (int)$rec['control_id'];
+                if ($maxControlId === null || $cid > $maxControlId) {
+                    $maxControlId = $cid;
+                    $fallbackRecord = $rec;
+                }
+            }
+
+            $controlling = $gsRecord ?? $maxCtdRecord ?? $fallbackRecord;
+        }
+
+        if ($controlling === null) continue;
+
+        // Format effective CTD for EDCT
+        $effCtdFormatted = null;
+        if ($effectiveCtd !== null) {
+            $effCtdFormatted = ($effectiveCtd instanceof DateTimeInterface)
+                ? $effectiveCtd->format('Y-m-d H:i:s')
+                : (string)$effectiveCtd;
+        }
+
+        $syncRows[$fuid] = [
+            'flight_uid'        => $fuid,
+            'ctl_type'          => $controlling['ctl_type'],
+            'ctl_element'       => $controlling['ctl_elem'],  // ctl_elem → ctl_element
+            'ctl_prgm'          => $controlling['ctl_prgm'],
+            'program_id'        => $controlling['program_id'],
+            'slot_id'           => $controlling['slot_id'],
+            'ctd_utc'           => $controlling['ctd_utc'],
+            'cta_utc'           => $controlling['cta_utc'],
+            'edct_utc'          => $effCtdFormatted,  // MAX(ctd_utc) across all programs
+            'octd_utc'          => $controlling['octd_utc'],
+            'octa_utc'          => $controlling['octa_utc'],
+            'program_delay_min' => $controlling['program_delay_min'],
+            'delay_capped'      => $controlling['delay_capped'],
+            'gs_held'           => $controlling['gs_held'],
+            'gs_release_utc'    => $controlling['gs_release_utc'],
+            'is_popup'          => $controlling['is_popup'],
+            'is_recontrol'      => $controlling['is_recontrol'],
+            'ecr_pending'       => $controlling['ecr_pending'],
+            'sl_hold'           => $controlling['sl_hold'],
+            'subbable'          => $controlling['subbable'],
+            'ctl_exempt'        => $controlling['ctl_exempt'],
+        ];
+    }
+
+    // ── Step 3: Create temp table on ADL and batch INSERT ────────────────
+    $createSql = "
+        CREATE TABLE #TmiSync (
+            flight_uid BIGINT PRIMARY KEY,
+            ctl_type NVARCHAR(8), ctl_element NVARCHAR(8), ctl_prgm NVARCHAR(64),
+            program_id INT, slot_id BIGINT,
+            ctd_utc DATETIME2(0), cta_utc DATETIME2(0), edct_utc DATETIME2(0),
+            octd_utc DATETIME2(0), octa_utc DATETIME2(0),
+            program_delay_min INT, delay_capped BIT,
+            gs_held BIT, gs_release_utc DATETIME2(0),
+            is_popup BIT, is_recontrol BIT, ecr_pending BIT,
+            sl_hold BIT, subbable BIT,
+            ctl_exempt BIT
+        )
+    ";
+
+    $createStmt = sqlsrv_query($conn_adl, $createSql);
+    if ($createStmt === false) {
+        logWarn("TMI sync: failed to create temp table", ['errors' => sqlsrv_errors()]);
+        return null;
+    }
+    sqlsrv_free_stmt($createStmt);
+
+    // Batch INSERT in chunks of 50
+    $chunks = array_chunk(array_values($syncRows), 50);
+    $insertedCount = 0;
+
+    foreach ($chunks as $chunk) {
+        $values = [];
+        $params = [];
+        foreach ($chunk as $row) {
+            $values[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $params[] = $row['flight_uid'];
+            $params[] = $row['ctl_type'];
+            $params[] = $row['ctl_element'];
+            $params[] = $row['ctl_prgm'];
+            $params[] = $row['program_id'];
+            $params[] = $row['slot_id'];
+            $params[] = formatDatetimeParam($row['ctd_utc']);
+            $params[] = formatDatetimeParam($row['cta_utc']);
+            $params[] = $row['edct_utc'];
+            $params[] = formatDatetimeParam($row['octd_utc']);
+            $params[] = formatDatetimeParam($row['octa_utc']);
+            $params[] = $row['program_delay_min'];
+            $params[] = $row['delay_capped'];
+            $params[] = $row['gs_held'];
+            $params[] = formatDatetimeParam($row['gs_release_utc']);
+            $params[] = $row['is_popup'];
+            $params[] = $row['is_recontrol'];
+            $params[] = $row['ecr_pending'];
+            $params[] = $row['sl_hold'];
+            $params[] = $row['subbable'];
+            $params[] = $row['ctl_exempt'];
+        }
+
+        $insertSql = "INSERT INTO #TmiSync VALUES " . implode(', ', $values);
+        $insertStmt = sqlsrv_query($conn_adl, $insertSql, $params);
+        if ($insertStmt !== false) {
+            $insertedCount += count($chunk);
+            sqlsrv_free_stmt($insertStmt);
+        } else {
+            logWarn("TMI sync: batch insert failed", ['errors' => sqlsrv_errors()]);
+        }
+    }
+
+    if ($insertedCount === 0) {
+        // All batch inserts failed — still run cleanup for ended programs
+        $result = executeTmiSyncCleanup($conn_adl, [], $start);
+        $dropStmt = sqlsrv_query($conn_adl, "DROP TABLE #TmiSync");
+        if ($dropStmt !== false) sqlsrv_free_stmt($dropStmt);
+        return $result;
+    }
+
+    // ── Step 4: Ensure adl_flight_tmi rows exist, then UPDATE ────────────
+    $ensureSql = "
+        INSERT INTO dbo.adl_flight_tmi (flight_uid)
+        SELECT s.flight_uid FROM #TmiSync s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM dbo.adl_flight_tmi t WHERE t.flight_uid = s.flight_uid
+        )
+    ";
+    $ensureStmt = sqlsrv_query($conn_adl, $ensureSql);
+    if ($ensureStmt !== false) sqlsrv_free_stmt($ensureStmt);
+
+    $updateSql = "
+        UPDATE t SET
+            t.ctl_type = s.ctl_type,
+            t.ctl_element = s.ctl_element,
+            t.ctl_prgm = s.ctl_prgm,
+            t.program_id = s.program_id,
+            t.slot_id = s.slot_id,
+            t.ctd_utc = s.ctd_utc,
+            t.cta_utc = s.cta_utc,
+            t.edct_utc = s.edct_utc,
+            t.octd_utc = s.octd_utc,
+            t.octa_utc = s.octa_utc,
+            t.program_delay_min = s.program_delay_min,
+            t.delay_capped = s.delay_capped,
+            t.gs_held = s.gs_held,
+            t.gs_release_utc = s.gs_release_utc,
+            t.is_popup = s.is_popup,
+            t.is_recontrol = s.is_recontrol,
+            t.ecr_pending = s.ecr_pending,
+            t.sl_hold = s.sl_hold,
+            t.subbable = s.subbable,
+            t.ctl_exempt = s.ctl_exempt,
+            t.tmi_updated_utc = SYSUTCDATETIME()
+        FROM dbo.adl_flight_tmi t
+        INNER JOIN #TmiSync s ON t.flight_uid = s.flight_uid
+    ";
+    $updateStmt = sqlsrv_query($conn_adl, $updateSql);
+    $synced = 0;
+    if ($updateStmt !== false) {
+        $synced = sqlsrv_rows_affected($updateStmt) ?? 0;
+        sqlsrv_free_stmt($updateStmt);
+    }
+
+    // ── Step 5: Mirror control times to adl_flight_times ─────────────────
+    $timesSql = "
+        UPDATE ft SET
+            ft.ctd_utc = s.ctd_utc,
+            ft.cta_utc = s.cta_utc,
+            ft.edct_utc = s.edct_utc
+        FROM dbo.adl_flight_times ft
+        INNER JOIN #TmiSync s ON ft.flight_uid = s.flight_uid
+    ";
+    $timesStmt = sqlsrv_query($conn_adl, $timesSql);
+    if ($timesStmt !== false) sqlsrv_free_stmt($timesStmt);
+
+    // ── Step 6: Cleanup stale TMI data ───────────────────────────────────
+    $result = executeTmiSyncCleanup($conn_adl, array_keys($syncRows), $start, $synced);
+
+    // Drop temp table
+    $dropStmt = sqlsrv_query($conn_adl, "DROP TABLE #TmiSync");
+    if ($dropStmt !== false) sqlsrv_free_stmt($dropStmt);
+
+    return $result;
+}
+
+/**
+ * Format a datetime value (DateTime object or string) for SQL parameterized query.
+ */
+function formatDatetimeParam($value): ?string {
+    if ($value === null) return null;
+    if ($value instanceof DateTimeInterface) return $value->format('Y-m-d H:i:s');
+    return (string)$value;
+}
+
+/**
+ * Clear TMI columns for flights no longer in any active program.
+ *
+ * @param resource $conn_adl ADL connection
+ * @param int[] $activeFuids Flight UIDs still under active TMI control
+ * @param float $start Timer start for elapsed ms
+ * @param int $synced Count of synced rows (passed through to result)
+ * @return array{synced: int, cleaned: int, ms: int}
+ */
+function executeTmiSyncCleanup($conn_adl, array $activeFuids, float $start, int $synced = 0): array {
+    // Find flights in ADL that have program_id but are NOT in the active set.
+    // Use OUTPUT to capture affected flight_uids for targeted times cleanup (I2 fix).
+    $cleanupSql = "
+        UPDATE t SET
+            t.ctl_type = NULL, t.ctl_element = NULL, t.ctl_prgm = NULL,
+            t.program_id = NULL, t.slot_id = NULL,
+            t.ctd_utc = NULL, t.cta_utc = NULL, t.edct_utc = NULL,
+            t.octd_utc = NULL, t.octa_utc = NULL,
+            t.program_delay_min = NULL, t.delay_capped = 0,
+            t.gs_held = 0, t.gs_release_utc = NULL,
+            t.is_popup = 0, t.is_recontrol = 0, t.ecr_pending = 0,
+            t.sl_hold = 0, t.subbable = 1,
+            t.ctl_exempt = 0,
+            t.tmi_updated_utc = SYSUTCDATETIME()
+        OUTPUT inserted.flight_uid
+        FROM dbo.adl_flight_tmi t
+        WHERE t.program_id IS NOT NULL
+    ";
+
+    // If there are active flights, exclude them from cleanup
+    if (!empty($activeFuids)) {
+        $cleanupSql .= " AND NOT EXISTS (SELECT 1 FROM #TmiSync s WHERE s.flight_uid = t.flight_uid)";
+    }
+
+    $cleanupStmt = sqlsrv_query($conn_adl, $cleanupSql);
+    $cleaned = 0;
+    $cleanedFuids = [];
+    if ($cleanupStmt !== false) {
+        while ($row = sqlsrv_fetch_array($cleanupStmt, SQLSRV_FETCH_ASSOC)) {
+            $cleanedFuids[] = (int)$row['flight_uid'];
+            $cleaned++;
+        }
+        sqlsrv_free_stmt($cleanupStmt);
+    }
+
+    // Clear adl_flight_times only for the specific flights that were just cleaned
+    if ($cleaned > 0) {
+        $chunks = array_chunk($cleanedFuids, 100);
+        foreach ($chunks as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $timesCleanSql = "
+                UPDATE dbo.adl_flight_times
+                SET ctd_utc = NULL, cta_utc = NULL, edct_utc = NULL
+                WHERE flight_uid IN ({$placeholders})
+                  AND (ctd_utc IS NOT NULL OR cta_utc IS NOT NULL OR edct_utc IS NOT NULL)
+            ";
+            $timesCleanStmt = sqlsrv_query($conn_adl, $timesCleanSql, $chunk);
+            if ($timesCleanStmt !== false) sqlsrv_free_stmt($timesCleanStmt);
+        }
+    }
+
+    return [
+        'synced'  => $synced,
+        'cleaned' => $cleaned,
+        'ms'      => round((microtime(true) - $start) * 1000),
+    ];
+}
+
 function executeSwimSync($conn_adl, $conn_swim): ?array {
     static $syncScriptLoaded = false;
 
@@ -1997,6 +2395,9 @@ function runDaemon(array $config): void {
             ]);
         }
     }
+
+    // TMI connection (lazy — connects on first sync cycle, not at startup)
+    $conn_tmi = null;
 
     // Stats
     $stats = [
@@ -2197,6 +2598,33 @@ function runDaemon(array $config): void {
             $deferredResult = null;
             if ($config['defer_expensive']) {
                 $deferredResult = executeDeferredProcessing($conn, $config, $stats, $cycleStart);
+            }
+
+            // 4e. TMI → ADL sync (every 60s)
+            // Propagates GDP/AFP/GS control data from VATSIM_TMI to VATSIM_ADL
+            // so SWIM API, dashboards, and compliance tools see current state.
+            $tmiSyncResult = null;
+            if ($config['tmi_sync_enabled'] && ($stats['runs'] % $config['tmi_sync_interval'] === 0)) {
+                // Lazy connect / reconnect TMI
+                if ($conn_tmi === null || $conn_tmi === false) {
+                    $conn_tmi = getTmiConnection($config);
+                    if ($conn_tmi) {
+                        logInfo("TMI database connected (read-only)");
+                    }
+                }
+                if ($conn_tmi) {
+                    try {
+                        $tmiSyncResult = executeDeferredTMISync($conn, $conn_tmi);
+                        if ($tmiSyncResult !== null && ($tmiSyncResult['synced'] > 0 || $tmiSyncResult['cleaned'] > 0)) {
+                            logInfo("TMI sync: {$tmiSyncResult['synced']} synced, {$tmiSyncResult['cleaned']} cleaned ({$tmiSyncResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("TMI sync error: " . $e->getMessage());
+                        // Force reconnect next cycle
+                        @sqlsrv_close($conn_tmi);
+                        $conn_tmi = null;
+                    }
+                }
             }
 
             // 5. Process ATIS (with dynamic tiered intervals)
@@ -2493,6 +2921,12 @@ function runDaemon(array $config): void {
                 }
             }
 
+            if ($tmiSyncResult !== null && ($tmiSyncResult['synced'] > 0 || $tmiSyncResult['cleaned'] > 0)) {
+                $logContext['tmi'] = $tmiSyncResult['synced'];
+                $logContext['tmi_clean'] = $tmiSyncResult['cleaned'];
+                $logContext['tmi_ms'] = $tmiSyncResult['ms'];
+            }
+
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);
 
             // V8.9: Log step timings when slow (>5s)
@@ -2620,6 +3054,9 @@ function runDaemon(array $config): void {
         'failures'   => $stats['failures'],
     ]);
     
+    if ($conn_tmi) {
+        @sqlsrv_close($conn_tmi);
+    }
     if ($conn) {
         safeCloseConnection($conn);
     }

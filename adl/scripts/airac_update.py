@@ -851,6 +851,48 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
 
 
 # ==============================================================================
+# Sync REF -> PostGIS
+# ==============================================================================
+
+def sync_ref_to_postgis(dry_run: bool = False) -> Dict[str, int]:
+    """
+    Sync reference data from VATSIM_REF to VATSIM_GIS (PostGIS).
+
+    Delegates to scripts/postgis/sync_ref_to_postgis.py which handles
+    nav_fixes, airways, airway_segments, and area_centers.
+    """
+    print("\n" + "=" * 60)
+    print("Syncing: VATSIM_REF -> VATSIM_GIS (PostGIS)")
+    print("=" * 60)
+
+    import subprocess
+    sync_script = Path(__file__).parent.parent.parent / "scripts" / "postgis" / "sync_ref_to_postgis.py"
+
+    if not sync_script.exists():
+        print(f"  WARNING: PostGIS sync script not found: {sync_script}")
+        return {}
+
+    cmd = [sys.executable, str(sync_script)]
+    if dry_run:
+        cmd.append("--dry-run")
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=False,
+            text=True,
+            cwd=str(sync_script.parent),
+        )
+        if result.returncode != 0:
+            print(f"  PostGIS sync failed with exit code {result.returncode}")
+            return {"status": "FAILED"}
+        return {"status": "SUCCESS"}
+    except Exception as e:
+        print(f"  ERROR running PostGIS sync: {e}")
+        return {"status": "FAILED"}
+
+
+# ==============================================================================
 # Main
 # ==============================================================================
 
@@ -864,6 +906,8 @@ def main():
                         help='Only sync REF -> ADL (skip CSV import)')
     parser.add_argument('--skip-sync', action='store_true',
                         help='Skip REF -> ADL sync after import')
+    parser.add_argument('--skip-postgis', action='store_true',
+                        help='Skip REF -> PostGIS sync after import')
     parser.add_argument('--dry-run', action='store_true',
                         help='Preview without making changes')
     args = parser.parse_args()
@@ -916,6 +960,11 @@ def main():
         sync_results = sync_ref_to_adl(dry_run=args.dry_run)
         results['sync'] = sync_results
 
+    # Sync to PostGIS
+    if not args.skip_sync and not args.skip_postgis and not args.dry_run:
+        postgis_results = sync_ref_to_postgis(dry_run=args.dry_run)
+        results['postgis'] = postgis_results
+
     # Summary
     duration = (datetime.now() - start_time).total_seconds()
 
@@ -928,6 +977,9 @@ def main():
             print(f"\nSync to VATSIM_ADL:")
             for t, count in data.items():
                 print(f"  {t}: {count:,} rows")
+        elif table == 'postgis':
+            status = data.get('status', 'UNKNOWN')
+            print(f"\nSync to PostGIS: {status}")
         else:
             print(f"{table}: {data['inserted']:,} inserted, {data['errors']} errors")
 

@@ -604,32 +604,12 @@ BEGIN
                 v_idx := v_idx + 2;
             ELSE
                 -- Airway expansion failed (from/to fixes not found on airway).
-                -- For fast-path airways (J/Q/V/T routes): these are unambiguously airway
-                -- designators, never real waypoint names. If expansion fails, our airway
-                -- data is incomplete — skip the token rather than risk resolving a
-                -- same-named nav_fix in the wrong hemisphere (e.g., T295 = Siberian NDB).
-                -- For table-verified airways: the token could legitimately be a waypoint
-                -- that also exists in the airways table, so try resolve_waypoint fallback.
-                IF NOT v_is_fast_path_airway THEN
-                    SELECT rw.fix_id, rw.lat, rw.lon, rw.source
-                    INTO v_wp
-                    FROM resolve_waypoint(v_part, v_prev_lat, v_prev_lon) rw
-                    LIMIT 1;
-
-                    IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
-                        v_seq := v_seq + 1;
-                        waypoint_seq := v_seq;
-                        waypoint_id := v_wp.fix_id;
-                        lat := v_wp.lat;
-                        lon := v_wp.lon;
-                        waypoint_type := v_wp.source;
-                        RETURN NEXT;
-                        v_prev_fix := v_part;
-                        v_prev_lat := v_wp.lat;
-                        v_prev_lon := v_wp.lon;
-                    END IF;
-                END IF;
-
+                -- Whether fast-path (J/Q/V/T) or table-verified, if a token is confirmed
+                -- as an airway name in context (between two fixes), never fall back to
+                -- resolve_waypoint. Airway names like UT22, UT41 match real nav_fixes
+                -- in wrong hemispheres (e.g., Utah waypoints), causing massive route jumps.
+                -- Just skip the airway token and let the next token (exit fix) be processed
+                -- normally in the next iteration.
                 v_idx := v_idx + 1;
             END IF;
         ELSE

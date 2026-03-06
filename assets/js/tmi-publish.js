@@ -8603,7 +8603,7 @@
                 constrained_area: $('#rr_constrained_area').val() || '',
                 reason: $('#rr_reason').val() || 'WEATHER',
                 include_traffic: $('#rr_include_traffic').val() || '',
-                facilities_included: $('#rr_facilities_included').val() || facilities.join(' '),
+                facilities_included: $('#rr_facilities_included').val() || facilities.join('/'),
                 valid_from: $('#rr_valid_from').val() || '',
                 valid_until: $('#rr_valid_until').val() || '',
                 time_basis: $('#rr_time_basis').val() || 'ETD',
@@ -10293,8 +10293,8 @@
                         // Only prepend K for 3-letter FAA airport codes
                         return a.startsWith('K') ? a : 'K' + a;
                     };
-                const originStr = Array.from(origins).map(toIcao).join(' ');
-                const destStr = Array.from(dests).map(toIcao).join(' ');
+                const originStr = Array.from(origins).map(toIcao).join('/');
+                const destStr = Array.from(dests).map(toIcao).join('/');
 
                 $('#rr_include_traffic').val(`${originStr} DEPARTURES TO ${destStr}`);
             }
@@ -10352,7 +10352,7 @@
             });
 
             if (facilities.size) {
-                $('#rr_facilities_included').val(Array.from(facilities).sort().join(' '));
+                $('#rr_facilities_included').val(Array.from(facilities).sort().join('/'));
             } else {
                 $('#rr_facilities_included').val('');
             }
