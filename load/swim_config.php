@@ -103,6 +103,10 @@ $SWIM_DATA_SOURCES = [
     'VFDS'            => 'vfds',             // vFDS (vEDST, TDLS, departure sequencing)
     'VEDST'           => 'vedst',            // vEDST - Enhanced Departure Sequencing Tool
     'VATIS'           => 'vatis',            // vATIS correlation (runway, weather)
+
+    // CDM sources (A-CDM milestone data)
+    'VACDM'           => 'vacdm',            // vACDM instances (TOBT/TSAT/TTOT)
+    'CDM_PLUGIN'      => 'cdm_plugin',       // CDM Plugin (departure sequencing)
 ];
 
 /**
@@ -146,7 +150,10 @@ $SWIM_DATA_AUTHORITY = [
     'schedule'      => ['VIRTUAL_AIRLINE', true],
 
     // Airline-specific data
-    'airline'       => ['VIRTUAL_AIRLINE', false]
+    'airline'       => ['VIRTUAL_AIRLINE', false],
+
+    // CDM milestone data - vACDM primary, CDM Plugin and vATCSCC can override
+    'cdm'           => ['VACDM', true]
 ];
 
 /**
@@ -265,6 +272,13 @@ $SWIM_SOURCE_PRIORITY = [
         'vatcscc'    => 3,  // PERTI manual entry
         'vnas'       => 4,  // vNAS runway data
     ],
+
+    // CDM milestone data (TOBT/TSAT/TTOT/ASAT/EXOT)
+    'cdm' => [
+        'vacdm'      => 1,  // vACDM instances are primary CDM source
+        'cdm_plugin' => 2,  // CDM Plugin (departure sequencing)
+        'vatcscc'    => 3,  // PERTI manual/automated CDM
+    ],
 ];
 
 /**
@@ -315,8 +329,14 @@ $SWIM_FIELD_MERGE_BEHAVIOR = [
     'ertd_utc'         => 'variable',   // T7 - Earliest Runway Time of Departure
     'erta_utc'         => 'variable',   // T8 - Earliest Runway Time of Arrival
 
-    // CDM target times - immutable (vATCSCC only)
-    'tobt_utc'         => 'immutable',  // Target Off-Block Time (CDM pushback target)
+    // CDM milestone times - variable (TOBT/TSAT/TTOT can change, ASAT set once)
+    'tobt_utc'                       => 'variable',    // Target Off-Block Time (pilot can update)
+    'target_off_block_time'          => 'variable',    // SWIM column: TOBT
+    'target_startup_approval_time'   => 'variable',    // SWIM column: TSAT
+    'target_takeoff_time'            => 'variable',    // SWIM column: TTOT
+    'target_landing_time'            => 'variable',    // SWIM column: TLDT
+    'actual_startup_approval_time'   => 'once',        // SWIM column: ASAT (set once at pushback)
+    'expected_taxi_out_time'         => 'variable',    // SWIM column: EXOT minutes
 
     // TMI fields - immutable (only vATCSCC can set)
     'gs_held'          => 'immutable',
@@ -398,10 +418,18 @@ $SWIM_FIELD_AUTHORITY_MAP = [
     'edct_utc'          => 'tmi',       // Expected Departure Clearance Time
     'ctd_utc'           => 'tmi',       // Controlled Time of Departure
     'cta_utc'           => 'tmi',       // Controlled Time of Arrival
-    'tobt_utc'          => 'tmi',       // Target Off-Block Time (CDM)
     'slot_time_utc'     => 'tmi',
     'program_id'        => 'tmi',
     'delay_minutes'     => 'tmi',
+
+    // CDM milestone fields - cdm authority (vACDM primary)
+    'tobt_utc'                       => 'cdm',   // ADL column: Target Off-Block Time
+    'target_off_block_time'          => 'cdm',   // SWIM column: TOBT
+    'target_startup_approval_time'   => 'cdm',   // SWIM column: TSAT
+    'target_takeoff_time'            => 'cdm',   // SWIM column: TTOT
+    'target_landing_time'            => 'cdm',   // SWIM column: TLDT
+    'actual_startup_approval_time'   => 'cdm',   // SWIM column: ASAT
+    'expected_taxi_out_time'         => 'cdm',   // SWIM column: EXOT
 
     // Metering fields - metering authority (SimTraffic primary)
     'sequence'          => 'metering',
@@ -746,6 +774,7 @@ function swim_should_accept_update($field, $incoming_source, $incoming_timestamp
         'metering'   => 'metering',
         'tmi'        => 'times',
         'adl'        => 'times',
+        'cdm'        => 'cdm',           // CDM milestones use cdm priority
     ];
     $priority_group = $priority_group_map[$authority_group] ?? 'times';
 

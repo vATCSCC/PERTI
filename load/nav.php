@@ -68,6 +68,7 @@ $nav_config = [
         'items' => [
             ['label' => __('nav.nod'), 'path' => './nod', 'hibernated' => $_h],
             ['label' => __('nav.gdt'), 'path' => './gdt', 'hibernated' => $_h],
+            ['label' => __('nav.cdm'), 'path' => './cdm', 'hibernated' => $_h],
             ['label' => __('nav.demand'), 'path' => './demand', 'hibernated' => $_h],
             ['label' => __('nav.splits'), 'path' => './splits'],
             ['label' => __('nav.navdata'), 'path' => './navdata'],

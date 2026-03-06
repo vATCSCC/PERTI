@@ -22,8 +22,8 @@ HIBERNATION_MODE=${HIBERNATION_MODE:-0}
 if [ "$HIBERNATION_MODE" = "1" ] || [ "$HIBERNATION_MODE" = "true" ]; then
     echo ""
     echo "  *** HIBERNATION MODE ACTIVE ***"
-    echo "  Only core daemons will start: ADL ingest, archival, monitoring, Discord queue"
-    echo "  Paused: GIS daemons, SWIM, scheduler, event sync"
+    echo "  Only core daemons will start: ADL ingest, archival, monitoring, Discord queue, ECFMP"
+    echo "  Paused: GIS daemons, SWIM, scheduler, event sync, CDM"
     echo ""
     HIBERNATION=1
 else
@@ -98,6 +98,14 @@ nohup php "${WWWROOT}/scripts/tmi/process_discord_queue.php" --batch=50 --delay=
 DISCORD_Q_PID=$!
 echo "  process_discord_queue.php started (PID: $DISCORD_Q_PID)"
 
+# Start the ECFMP flow measure polling daemon (external ATFM data)
+# Polls ECFMP API every 5 minutes for flow measures affecting VATSIM airspace
+# NOTE: Runs even in hibernation — external flow data should always be captured
+echo "Starting ECFMP flow measure polling daemon..."
+nohup php "${WWWROOT}/scripts/ecfmp_poll_daemon.php" --loop --interval=300 >> /home/LogFiles/ecfmp_poll.log 2>&1 &
+ECFMP_PID=$!
+echo "  ecfmp_poll_daemon.php started (PID: $ECFMP_PID)"
+
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
 # =============================================================================
@@ -113,6 +121,8 @@ ST_POLL_PID="HIBERNATED"
 REVERSE_SYNC_PID="HIBERNATED"
 SCHED_PID="HIBERNATED"
 EVENT_SYNC_PID="HIBERNATED"
+CDM_PID="HIBERNATED"
+VACDM_PID="HIBERNATED"
 
 if [ "$HIBERNATION" != "1" ]; then
 
@@ -215,11 +225,27 @@ if [ "$HIBERNATION" != "1" ]; then
     EVENT_SYNC_PID=$!
     echo "  event_sync_daemon.php started (PID: $EVENT_SYNC_PID)"
 
+    # Start the CDM daemon (A-CDM milestone computation + compliance + delivery)
+    # 60-second cycle: readiness detection, TSAT/TTOT computation, EDCT compliance,
+    # airport status snapshots, message delivery, trigger evaluation, data purge
+    echo "Starting cdm_daemon.php (CDM cycle every 60s)..."
+    nohup php "${WWWROOT}/scripts/cdm_daemon.php" --loop >> /home/LogFiles/cdm_daemon.log 2>&1 &
+    CDM_PID=$!
+    echo "  cdm_daemon.php started (PID: $CDM_PID)"
+
+    # Start the vACDM polling daemon (polls vACDM instances for CDM milestones)
+    # Discovers providers from tmi_flow_providers where provider_code='VACDM'
+    # Per-provider circuit breaker, 2-min poll interval
+    echo "Starting vacdm_poll_daemon.php (polling every 2min)..."
+    nohup php "${WWWROOT}/scripts/vacdm_poll_daemon.php" --loop --interval=120 >> /home/LogFiles/vacdm_poll.log 2>&1 &
+    VACDM_PID=$!
+    echo "  vacdm_poll_daemon.php started (PID: $VACDM_PID)"
+
 else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
     echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, SWIM ws/sync,"
-    echo "           SimTraffic, reverse sync, scheduler, event sync"
+    echo "           SimTraffic, reverse sync, scheduler, event sync, CDM, vACDM"
     echo ""
 fi
 
@@ -253,6 +279,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "HIBERNATION MODE - Core daemons only:"
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
+    echo "  ecfmp=$ECFMP_PID"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
     echo "  All other daemons: HIBERNATED"
 else
@@ -263,6 +290,7 @@ else
     echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
     echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
+    echo "  ecfmp=$ECFMP_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 fi

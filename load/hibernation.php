@@ -48,6 +48,7 @@ $_hibernated_pages = [
     'swim-keys.php',
     'simulator.php',
     'gdt.php',
+    'cdm.php',
     'sua.php',
     'event-aar.php',
 ];

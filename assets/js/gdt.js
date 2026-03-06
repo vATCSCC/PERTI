@@ -48,6 +48,9 @@
         transition: 'api/gdt/programs/transition.php',
         purge: 'api/gdt/programs/purge.php',
         get: 'api/gdt/programs/get.php',
+        compress: 'api/gdt/programs/compress.php',
+        reoptimize: 'api/gdt/programs/reoptimize.php',
+        fairness: 'api/gdt/programs/fairness.php',
         flights: 'api/gdt/flights/list.php',
         demand: 'api/gdt/demand/hourly.php',
     };
@@ -286,6 +289,11 @@
             }
             actions += '<button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); dashboardRemodel(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.remodelTitle') + '">' + PERTII18n.t('gdt.dashboard.action.remodel') + '</button>';
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardCancel(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.cancelTitle') + '">' + PERTII18n.t('gdt.dashboard.action.cancel') + '</button>';
+            // Compress and Re-opt buttons for GDP/AFP only (not GS)
+            if (typeLabel !== 'GS') {
+                actions += '<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); dashboardCompress(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.compressTitle') + '"><i class="fas fa-compress-arrows-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.compress') + '</button>';
+                actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardReoptimize(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.reoptimizeTitle') + '"><i class="fas fa-sync-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.reoptimize') + '</button>';
+            }
         } else if (p.status === 'PROPOSED' || p.status === 'MODELING' || p.status === 'PENDING_COORD') {
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.deleteTitle') + '"><i class="fas fa-trash-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.delete') + '</button>';
         }
@@ -324,6 +332,7 @@
                 '<div><span class="gdt-card-metric-value' + avgDelayClass + '">' + avgDelay + '</span> ' + PERTII18n.t('gdt.dashboard.metric.avgDelay') + '</div>' +
                 (maxDelay > 0 ? '<div><span class="gdt-card-metric-value' + maxDelayClass + '">' + maxDelay + '</span> max</div>' : '') +
             '</div>' +
+            buildObservabilityRow(p, typeLabel) +
             (actions ? '<div class="gdt-card-actions">' + actions + '</div>' : '') +
         '</div>';
     }
@@ -1507,6 +1516,118 @@
     // Expose dashboard functions to global scope (needed by onclick handlers in HTML)
     window.toggleDashboard = toggleDashboard;
     window.toggleTimeline = toggleTimeline;
+    // ========================================================================
+    // Observability Metrics Row (Phase 4)
+    // ========================================================================
+
+    function buildObservabilityRow(p, typeLabel) {
+        // Only show for GDP/AFP programs (not GS)
+        if (typeLabel === 'GS') return '';
+
+        var popups = p.popup_flights || 0;
+        var reoptCycle = p.reopt_cycle || 0;
+        var reservePct = p.reserve_pct || 0;
+        var reversalPct = p.reversal_pct ? parseFloat(p.reversal_pct).toFixed(1) : '0.0';
+        var gamingFlags = p.gaming_flags_count || 0;
+
+        // Color-code reversals: green <15%, yellow 15-25%, red >25%
+        var revClass = '';
+        var revVal = parseFloat(reversalPct);
+        if (revVal > 25) revClass = ' text-danger';
+        else if (revVal > 15) revClass = ' text-warning';
+        else if (revVal > 0) revClass = ' text-success';
+
+        var gamingClass = gamingFlags > 0 ? ' text-warning' : '';
+
+        return '<div class="gdt-card-metrics" style="margin-top:1px;font-size:0.6rem;opacity:0.85;">' +
+            '<div><span class="gdt-card-metric-value">' + popups + '</span> ' + PERTII18n.t('gdt.dashboard.metric.popups') + '</div>' +
+            '<div><span class="gdt-card-metric-value">' + reoptCycle + '</span> ' + PERTII18n.t('gdt.dashboard.metric.reoptCycle') + '</div>' +
+            '<div><span class="gdt-card-metric-value">' + reservePct + '%</span> ' + PERTII18n.t('gdt.dashboard.metric.reserve') + '</div>' +
+            '<div><span class="gdt-card-metric-value' + revClass + '">' + reversalPct + '%</span> ' + PERTII18n.t('gdt.dashboard.metric.reversals') + '</div>' +
+            (gamingFlags > 0 ? '<div><span class="gdt-card-metric-value' + gamingClass + '">' + gamingFlags + '</span> ' + PERTII18n.t('gdt.dashboard.metric.gamingFlags') + '</div>' : '') +
+        '</div>';
+    }
+
+    // ========================================================================
+    // Dashboard Compress & Re-optimize Actions (Phase 4)
+    // ========================================================================
+
+    function dashboardCompress(programId) {
+        Swal.fire({
+            title: PERTII18n.t('gdt.dashboard.compressTitle'),
+            text: PERTII18n.t('gdt.dashboard.compressText', { id: programId }),
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            confirmButtonText: PERTII18n.t('gdt.dashboard.action.compress')
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                Swal.fire({ title: PERTII18n.t('gdt.dashboard.compressing'), allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                $.ajax({
+                    url: GS_API.compress,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ program_id: programId }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            var d = resp.data || {};
+                            var msg = PERTII18n.t('gdt.dashboard.compressResult', {
+                                compressed: d.slots_compressed || 0,
+                                saved: d.delay_saved_min || 0
+                            });
+                            Swal.fire(PERTII18n.t('gdt.dashboard.compressComplete'), msg, 'success');
+                            loadActiveProgramsDashboard();
+                        } else {
+                            Swal.fire(PERTII18n.t('common.error'), resp.message || PERTII18n.t('gdt.dashboard.compressFailed'), 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.compressFailed'), 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    function dashboardReoptimize(programId) {
+        Swal.fire({
+            title: PERTII18n.t('gdt.dashboard.reoptimizeTitle'),
+            text: PERTII18n.t('gdt.dashboard.reoptimizeText', { id: programId }),
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#17a2b8',
+            confirmButtonText: PERTII18n.t('gdt.dashboard.action.reoptimize')
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                Swal.fire({ title: PERTII18n.t('gdt.dashboard.reoptimizing'), allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                $.ajax({
+                    url: GS_API.reoptimize,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ program_id: programId }),
+                    success: function(resp) {
+                        if (resp.status === 'ok') {
+                            var d = resp.data || {};
+                            var msg = PERTII18n.t('gdt.dashboard.reoptimizeResult', {
+                                popups: d.popups_assigned || 0,
+                                compressed: d.slots_compressed || 0,
+                                saved: d.delay_saved_min || 0,
+                                reserves: d.reserves_converted || 0
+                            });
+                            Swal.fire(PERTII18n.t('gdt.dashboard.reoptimizeComplete'), msg, 'success');
+                            loadActiveProgramsDashboard();
+                        } else {
+                            Swal.fire(PERTII18n.t('common.error'), resp.message || PERTII18n.t('gdt.dashboard.reoptimizeFailed'), 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire(PERTII18n.t('common.error'), PERTII18n.t('gdt.dashboard.reoptimizeFailed'), 'error');
+                    }
+                });
+            }
+        });
+    }
+
     window.loadProgramFromDashboard = loadProgramFromDashboard;
     window.resetAndNewProgram = resetAndNewProgram;
     window.dashboardExtend = dashboardExtend;
@@ -1514,6 +1635,8 @@
     window.dashboardTransition = dashboardTransition;
     window.dashboardCancel = dashboardCancel;
     window.dashboardDelete = dashboardDelete;
+    window.dashboardCompress = dashboardCompress;
+    window.dashboardReoptimize = dashboardReoptimize;
     window.submitExtend = submitExtend;
     window.submitRevise = submitRevise;
     window.submitTransitionPropose = submitTransitionPropose;

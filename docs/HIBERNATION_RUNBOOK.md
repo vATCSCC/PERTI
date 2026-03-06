@@ -233,3 +233,129 @@ This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE`
 1. Check `load/hibernation.php` — the SWIM API 503 is triggered by `HIBERNATION_MODE`
 2. Verify SWIM_API database is resumed and accessible
 3. Verify `swim_sync_daemon.php` is running
+
+---
+
+## Data Recovery & Backfill
+
+### What Happens to Data During Hibernation
+
+During hibernation, core ADL ingest continues (positions, plans, trajectories) but GIS
+enrichment daemons are paused. This means flights that flew during hibernation have:
+
+| Data | Status | Recoverable? |
+|------|--------|-------------|
+| Positions (lat/lon/alt) | Captured every 15s | While in core tables |
+| Flight plans (route string) | Captured | While in core tables |
+| Trajectories (full-res) | Captured, tiering skipped | While in core tables |
+| Times (ETD/ETA/OOOI) | Captured | While in core tables |
+| Route parsing (waypoints, geometry) | **NOT processed** | Yes, via backfill |
+| Boundary detection (ARTCC/TRACON) | **NOT processed** | Yes, via backfill |
+| Crossing predictions | **NOT processed** | Yes, via backfill |
+| Waypoint ETAs | **NOT processed** | Active flights only |
+| ATIS data | **NOT captured** | Unrecoverable |
+| SWIM API sync | **NOT running** | Yes, via full sync |
+
+### Critical: Archive Deletes Source Data
+
+`sp_Archive_CompletedFlights` runs during hibernation and **CASCADE-deletes all source
+data** (position, plan, trajectory, waypoints) from core tables 2 hours after a flight
+completes. The archive table only keeps a denormalized summary (~50 columns).
+
+This means: **flights that completed more than 2 hours ago are already gone from core
+tables and cannot be backfilled.** Only currently active flights and very recently
+completed flights are recoverable.
+
+### Backfill Procedure
+
+Run the backfill script **immediately after un-hibernating** (after Step 4 above):
+
+#### Step 1: Extend Archive Grace Period
+
+Prevent the archive SP from deleting flights before the backfill pipeline can process them:
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=0 --delay-hours=24
+```
+
+This sets `COMPLETED_FLIGHT_DELAY_HOURS` to 24 (from the default 2), giving the pipeline
+24 hours to process flights before archival deletes them.
+
+#### Step 2: Run Diagnostic
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=0
+```
+
+Check the output for:
+- How many flights are in core tables (vs already archived)
+- Route parse status distribution
+- Boundary detection coverage gaps
+- Missing crossing predictions
+
+#### Step 3: Queue Route Parsing
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=1 --include-inactive
+```
+
+This inserts unparsed flights into `adl_parse_queue`. The `parse_queue_gis_daemon` (now
+running after un-hibernation) processes the queue automatically. Wait for the daemon to
+drain the queue before proceeding to Phase 3.
+
+Monitor progress: `tail -f /home/LogFiles/parse_queue_gis.log`
+
+#### Step 4: Backfill Boundary Detection
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=2 --include-inactive --batch=100
+```
+
+Runs PostGIS `detect_boundaries_and_sectors_batch()` for all flights with position data
+but no ARTCC assignment. Can run in parallel with the parse queue daemon.
+
+#### Step 5: Backfill Crossing Predictions
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=3 --include-inactive --batch=50
+```
+
+Requires parsed routes (Phase 1 queue must be drained first). Runs PostGIS
+`calculate_crossing_etas()` for each flight with waypoints but no crossings.
+
+#### Step 6: Waypoint ETA + SWIM Sync
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=4
+php scripts/backfill/hibernation_recovery.php --phase=5
+```
+
+Phase 4 uses the existing SP (active flights only). Phase 5 resets the SWIM sync marker
+to trigger a full resync on the next daemon cycle.
+
+#### Step 7: Reset Archive Delay
+
+After the backfill pipeline has caught up (check Phase 0 diagnostic again):
+
+```bash
+php scripts/backfill/hibernation_recovery.php --delay-hours=2 --phase=0
+```
+
+### Dry Run Mode
+
+All phases support `--dry-run` to preview what would be done without making changes:
+
+```bash
+php scripts/backfill/hibernation_recovery.php --phase=all --dry-run
+```
+
+### Options Reference
+
+| Option | Description |
+|--------|-------------|
+| `--phase=N\|all` | Phase 0-5 or `all` to run 1-5 sequentially |
+| `--dry-run` | Preview only, no writes |
+| `--batch=N` | GIS batch size (default: 100) |
+| `--delay-hours=N` | Set archive delay in `adl_archive_config` |
+| `--include-inactive` | Process inactive flights too (default: active only for phases 2-4) |
+| `--verbose` | Extra logging detail |

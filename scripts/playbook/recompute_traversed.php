@@ -95,8 +95,17 @@ while ($row = $result->fetch_assoc()) {
     $fullRoute = $rs;
     $origEndpoint = extractEndpoint($row['origin'] ?? '', $row['origin_airports'] ?? '', $oar);
     $destEndpoint = extractEndpoint($row['dest'] ?? '', $row['dest_airports'] ?? '', $dar);
-    if ($origEndpoint) $fullRoute = $origEndpoint . ' ' . $fullRoute;
-    if ($destEndpoint) $fullRoute = $fullRoute . ' ' . $destEndpoint;
+    // Don't prepend/append if route already starts/ends with the endpoint (avoids
+    // duplicate tokens like "ZLA ZLA TRM..." that cause mid-route misresolution)
+    $routeParts = preg_split('/\s+/', $fullRoute);
+    $firstToken = strtoupper($routeParts[0] ?? '');
+    $lastToken = strtoupper($routeParts[count($routeParts) - 1] ?? '');
+    if ($origEndpoint && $origEndpoint !== $firstToken) {
+        $fullRoute = $origEndpoint . ' ' . $fullRoute;
+    }
+    if ($destEndpoint && $destEndpoint !== $lastToken) {
+        $fullRoute = $fullRoute . ' ' . $destEndpoint;
+    }
 
     $artccs = [];
     $tracons = [];
@@ -127,15 +136,20 @@ while ($row = $result->fetch_assoc()) {
         }
     }
 
-    // Merge origin/dest ARTCCs (skip UNKN)
+    // Merge origin ARTCCs BEFORE GIS results, dest ARTCCs AFTER.
+    // array_unique() preserves first occurrence, so insertion order matters:
+    // origin → GIS spatial → destination gives correct traversal ordering.
+    $origin_list = [];
     foreach (explode(',', $oar) as $a) {
         $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $artccs[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN') $origin_list[] = $a;
     }
+    $dest_list = [];
     foreach (explode(',', $dar) as $a) {
         $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $artccs[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN') $dest_list[] = $a;
     }
+    $artccs = array_merge($origin_list, $artccs, $dest_list);
 
     $trav_artccs = implode(',', array_unique(array_filter($artccs)));
     $trav_tracons = implode(',', array_unique(array_filter($tracons)));
