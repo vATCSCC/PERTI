@@ -27,15 +27,18 @@
  *   php hibernation_recovery.php --phase=4                    Waypoint ETA
  *   php hibernation_recovery.php --phase=5                    SWIM full sync
  *   php hibernation_recovery.php --phase=all                  Run phases 1-5
- *   php hibernation_recovery.php --phase=0 --dry-run          Preview only
+ *   php hibernation_recovery.php --phase=auto                 Full pipeline with queue wait
+ *   php hibernation_recovery.php --phase=auto --dry-run       Preview auto pipeline
  *
  * Options:
- *   --phase=N|all       Phase number (0-5) or 'all' to run 1-5 sequentially
+ *   --phase=N|all|auto  Phase number (0-5), 'all' (1-5 sequential), or 'auto' (full pipeline)
  *   --dry-run           Show what would be done without writing changes
  *   --batch=N           Batch size for GIS operations (default: 100)
  *   --delay-hours=N     Extend archive delay before backfill (writes to adl_archive_config)
  *   --include-inactive  Process inactive flights (default: active only for phases 2-4)
  *   --verbose           Extra logging detail
+ *   --queue-timeout=N   Minutes to wait for parse queue drain in auto mode (default: 240)
+ *   --queue-poll=N      Seconds between parse queue polls in auto mode (default: 30)
  *
  * @package PERTI
  * @subpackage Backfill
@@ -55,17 +58,22 @@ $opts = getopt('', [
     'delay-hours:',
     'include-inactive',
     'verbose',
+    'queue-timeout:',
+    'queue-poll:',
 ]);
 
 $phase          = $opts['phase']        ?? null;
 $dryRun         = isset($opts['dry-run']);
 $batchSize      = (int)($opts['batch'] ?? 100);
 $delayHours     = isset($opts['delay-hours']) ? (int)$opts['delay-hours'] : null;
+$queueTimeout   = (int)($opts['queue-timeout'] ?? 240);   // minutes
+$queuePoll      = (int)($opts['queue-poll'] ?? 30);        // seconds
 $includeInactive = isset($opts['include-inactive']);
 $verbose        = isset($opts['verbose']);
 
 if ($phase === null) {
-    fwrite(STDERR, "Usage: php hibernation_recovery.php --phase=0|1|2|3|4|5|all [--dry-run] [--batch=N]\n");
+    fwrite(STDERR, "Usage: php hibernation_recovery.php --phase=0|1|2|3|4|5|all|auto [--dry-run] [--batch=N]\n");
+    fwrite(STDERR, "  auto = full pipeline: Phase 0→1→[wait for parse queue]→2→3→4→5\n");
     exit(1);
 }
 
@@ -933,6 +941,59 @@ function extendArchiveDelay(int $hours, bool $dryRun): void {
 }
 
 // =====================================================================
+// PARSE QUEUE MONITOR (for --phase=auto)
+// =====================================================================
+function waitForParseQueue(int $timeoutMinutes, int $pollSeconds): bool {
+    $deadline = time() + ($timeoutMinutes * 60);
+    $startTime = time();
+    $iteration = 0;
+
+    while (time() < $deadline) {
+        $stats = adlQuery("
+            SELECT
+                COUNT(CASE WHEN status = 'PENDING' THEN 1 END) AS pending,
+                COUNT(CASE WHEN status = 'PROCESSING' THEN 1 END) AS processing,
+                COUNT(CASE WHEN status = 'COMPLETE' THEN 1 END) AS complete,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed
+            FROM dbo.adl_parse_queue WITH (NOLOCK)
+        ");
+
+        if (empty($stats)) {
+            logErr("Failed to query parse queue status");
+            sleep($pollSeconds);
+            continue;
+        }
+
+        $pending    = (int)($stats[0]['pending'] ?? 0);
+        $processing = (int)($stats[0]['processing'] ?? 0);
+        $complete   = (int)($stats[0]['complete'] ?? 0);
+        $failed     = (int)($stats[0]['failed'] ?? 0);
+        $remaining  = $pending + $processing;
+
+        $elapsed = round((time() - $startTime) / 60, 1);
+        $iteration++;
+
+        if ($remaining === 0) {
+            logMsg("  Parse queue drained! ({$complete} complete, {$failed} failed, {$elapsed} min elapsed)");
+            return true;
+        }
+
+        // Estimate throughput from complete count growth
+        $rate = $iteration > 1 && $elapsed > 0
+            ? round($complete / $elapsed)
+            : 0;
+        $etaMin = $rate > 0 ? round($remaining / $rate) : '?';
+
+        logMsg("  Queue: {$remaining} remaining ({$pending} pending, {$processing} in-flight) | {$complete} done, {$failed} failed | ~{$rate}/min | ETA ~{$etaMin}min | {$elapsed}min elapsed");
+
+        sleep($pollSeconds);
+    }
+
+    logMsg("  WARNING: Parse queue did not drain within {$timeoutMinutes} minutes");
+    return false;
+}
+
+// =====================================================================
 // MAIN
 // =====================================================================
 logMsg("Hibernation Recovery Script");
@@ -947,28 +1008,75 @@ if ($delayHours !== null) {
 
 $startTime = microtime(true);
 
-if ($phase === '0' || $phase === 'all') {
+if ($phase === 'auto') {
+    // Full automated pipeline with parse queue wait between Phase 1 and 2
+    logMsg("");
+    logMsg("=== AUTO MODE: Full backfill pipeline ===");
+    logMsg("Sequence: Phase 0 → 1 → [wait for parse queue] → 2 → 3 → 4 → 5");
+    logMsg("Queue timeout: {$queueTimeout} min | Poll interval: {$queuePoll}s");
+    logMsg("");
+
     phase0_diagnostic();
-}
-
-if ($phase === '1' || $phase === 'all') {
     phase1_routeParsing($dryRun, $includeInactive);
-}
 
-if ($phase === '2' || $phase === 'all') {
+    if (!$dryRun) {
+        logPhaseHeader('1→2', 'WAITING FOR PARSE QUEUE');
+        logMsg("Phase 1 queued routes for parsing. The parse_queue_gis_daemon must");
+        logMsg("process them before Phase 3 can compute crossings on the new routes.");
+        logMsg("Polling parse queue every {$queuePoll}s (timeout: {$queueTimeout} min)...");
+        logMsg("");
+
+        // Check if parse daemon is likely running
+        $pidFile = sys_get_temp_dir() . '/adl_parse_queue_gis_daemon.pid';
+        if (!file_exists($pidFile)) {
+            logMsg("WARNING: Parse daemon PID file not found at {$pidFile}");
+            logMsg("The parse_queue_gis_daemon may not be running.");
+            logMsg("Start it with: php adl/php/parse_queue_gis_daemon.php --loop --batch=200");
+            logMsg("Or use run_backfill.sh which starts it automatically.");
+            logMsg("");
+        }
+
+        $drained = waitForParseQueue($queueTimeout, $queuePoll);
+        if (!$drained) {
+            logMsg("");
+            logMsg("WARNING: Parse queue did not fully drain. Proceeding with Phases 2-5.");
+            logMsg("Flights still in queue won't have crossings. Re-run Phase 3 later.");
+        }
+        logMsg("");
+    } else {
+        logMsg("[DRY RUN] Would wait for parse queue to drain here.");
+    }
+
     phase2_boundaryDetection($dryRun, $batchSize, $includeInactive);
-}
-
-if ($phase === '3' || $phase === 'all') {
     phase3_crossingPrediction($dryRun, $batchSize, $includeInactive);
-}
-
-if ($phase === '4' || $phase === 'all') {
     phase4_waypointEta($dryRun, $batchSize);
-}
-
-if ($phase === '5' || $phase === 'all') {
     phase5_swimSync($dryRun);
+
+} else {
+    // Individual phase or 'all' (sequential without queue wait)
+    if ($phase === '0' || $phase === 'all') {
+        phase0_diagnostic();
+    }
+
+    if ($phase === '1' || $phase === 'all') {
+        phase1_routeParsing($dryRun, $includeInactive);
+    }
+
+    if ($phase === '2' || $phase === 'all') {
+        phase2_boundaryDetection($dryRun, $batchSize, $includeInactive);
+    }
+
+    if ($phase === '3' || $phase === 'all') {
+        phase3_crossingPrediction($dryRun, $batchSize, $includeInactive);
+    }
+
+    if ($phase === '4' || $phase === 'all') {
+        phase4_waypointEta($dryRun, $batchSize);
+    }
+
+    if ($phase === '5' || $phase === 'all') {
+        phase5_swimSync($dryRun);
+    }
 }
 
 $elapsed = round(microtime(true) - $startTime, 1);
