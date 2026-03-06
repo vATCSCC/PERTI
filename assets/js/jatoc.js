@@ -141,7 +141,7 @@
     };
 
     const LAYER_CONFIG = {
-        'artcc': { layerIds: ['artcc-line'], labelKey: 'jatoc.layers.artccBoundaries', defaultOn: true },
+        'artcc': { layerIds: ['artcc-line', 'artcc-labels'], labelKey: 'jatoc.layers.artccBoundaries', defaultOn: true },
         'tracon': { layerIds: ['tracon-line'], labelKey: 'jatoc.layers.traconBoundaries', defaultOn: false },
         'incidents': { layerIds: ['incident-fill', 'incident-outline', 'incident-points'], labelKey: 'jatoc.layers.activeIncidents', defaultOn: true },
         'weather': { layerIds: ['weather-radar-layer'], labelKey: 'jatoc.layers.weatherRadar', defaultOn: false },
@@ -711,6 +711,11 @@
             if (state.boundaryData.artcc) {
                 state.map.addSource('artcc', { type: 'geojson', data: state.boundaryData.artcc });
                 state.map.addLayer({ id: 'artcc-line', type: 'line', source: 'artcc', paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
+
+                // Add ARTCC/FIR labels via shared utility
+                if (typeof PERTIArtccLabels !== 'undefined') {
+                    PERTIArtccLabels.addToMap(state.map, state.boundaryData.artcc, { visible: true });
+                }
             }
 
             if (state.boundaryData.tracon) {

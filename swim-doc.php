@@ -98,6 +98,18 @@ $allowed_files = [
     'Simulator_VATSWIM_Integration' => [
         'title' => 'Simulator Integration',
         'description' => 'Flight simulator plugin integration guide'
+    ],
+    'VATSWIM_Connector_Guide' => [
+        'title' => 'Connector Guide',
+        'description' => 'Unified guide for integrating external data sources with VATSWIM'
+    ],
+    'vACDM_VATSWIM_Integration' => [
+        'title' => 'vACDM Integration',
+        'description' => 'A-CDM departure milestone integration with vACDM'
+    ],
+    'ECFMP_VATSWIM_Integration' => [
+        'title' => 'ECFMP Integration',
+        'description' => 'European flow management data integration via ECFMP'
     ]
 ];
 

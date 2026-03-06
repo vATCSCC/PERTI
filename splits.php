@@ -3213,6 +3213,7 @@ input[type="datetime-local"] {
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
 <script src="assets/js/splits.js<?= _v('assets/js/splits.js') ?>"></script>
 
 <?php require_once 'load/footer.php'; ?>

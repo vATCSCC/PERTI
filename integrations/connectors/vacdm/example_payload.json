@@ -1,0 +1,23 @@
+{
+  "updates": [
+    {
+      "callsign": "BAW123",
+      "gufi": "VAT-20260306-BAW123-EGLL-KJFK",
+      "airport": "EGLL",
+      "tobt": "2026-03-06T14:30:00Z",
+      "tsat": "2026-03-06T14:35:00Z",
+      "ttot": "2026-03-06T14:40:00Z",
+      "asat": "2026-03-06T14:36:00Z",
+      "exot": 5,
+      "readiness_state": "READY",
+      "source": "VACDM"
+    },
+    {
+      "callsign": "DLH456",
+      "airport": "EDDM",
+      "tobt": "2026-03-06T15:00:00Z",
+      "readiness_state": "BOARDING",
+      "source": "VACDM"
+    }
+  ]
+}

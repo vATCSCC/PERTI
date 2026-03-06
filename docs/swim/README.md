@@ -218,7 +218,14 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 
 | Document | Description |
 |----------|-------------|
+| [Connector Guide](/swim-doc?file=VATSWIM_Connector_Guide) | Unified guide for integrating external data sources |
 | [API Documentation](/swim-doc?file=VATSWIM_API_Documentation) | Full API reference |
+| [vACDM Integration](/swim-doc?file=vACDM_VATSWIM_Integration) | A-CDM departure milestone integration |
+| [ECFMP Integration](/swim-doc?file=ECFMP_VATSWIM_Integration) | European flow management data integration |
+| [SimTraffic Integration](/swim-doc?file=SimTraffic_VATSWIM_Integration) | SimTraffic metering integration |
+| [vNAS Integration](/swim-doc?file=vNAS_VATSWIM_Integration) | vNAS ERAM/STARS push integration |
+| [ACARS Integration](/swim-doc?file=ACARS_VATSWIM_Integration) | ACARS OOOI and datalink integration |
+| [Simulator Integration](/swim-doc?file=Simulator_VATSWIM_Integration) | Flight simulator plugin integration |
 | [Implementation Tracker](/swim-doc?file=SWIM_TODO) | Current status |
 | [AOC Telemetry Transition](/swim-doc?file=SWIM_Session_Transition_20260116_AOCTelemetry) | Latest changes |
 | [OpenAPI Spec](/docs/swim/openapi.yaml) | REST API spec (import into Postman) |

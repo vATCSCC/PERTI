@@ -65,48 +65,33 @@ function ecfmp_log(string $message, string $level = 'INFO'): void {
 }
 
 // ============================================================================
-// Circuit Breaker (file-based, same pattern as simtraffic_swim_poll.php)
+// Circuit Breaker (shared class)
 // ============================================================================
 
-function ecfmp_read_state(): array {
-    if (!file_exists(ECFMP_STATE_FILE)) {
-        return ['errors' => [], 'cooldown_until' => 0];
-    }
-    $data = json_decode(file_get_contents(ECFMP_STATE_FILE), true);
-    return is_array($data) ? $data : ['errors' => [], 'cooldown_until' => 0];
-}
+require_once __DIR__ . '/../lib/connectors/CircuitBreaker.php';
 
-function ecfmp_write_state(array $state): void {
-    @file_put_contents(ECFMP_STATE_FILE, json_encode($state), LOCK_EX);
-}
+$ecfmp_circuit_breaker = new \PERTI\Lib\Connectors\CircuitBreaker(
+    ECFMP_STATE_FILE,
+    ECFMP_CIRCUIT_WINDOW,
+    ECFMP_CIRCUIT_MAX_ERRORS,
+    ECFMP_CIRCUIT_COOLDOWN
+);
 
 function ecfmp_is_circuit_open(): bool {
-    $state = ecfmp_read_state();
-    if ($state['cooldown_until'] > time()) {
-        return true;
-    }
-    // Prune errors outside window
-    $cutoff = time() - ECFMP_CIRCUIT_WINDOW;
-    $recent = array_filter($state['errors'], fn($t) => $t > $cutoff);
-    return count($recent) >= ECFMP_CIRCUIT_MAX_ERRORS;
+    global $ecfmp_circuit_breaker;
+    return $ecfmp_circuit_breaker->isOpen();
 }
 
 function ecfmp_record_error(): void {
-    $state = ecfmp_read_state();
-    $state['errors'][] = time();
-    // Prune old errors
-    $cutoff = time() - ECFMP_CIRCUIT_WINDOW;
-    $state['errors'] = array_values(array_filter($state['errors'], fn($t) => $t > $cutoff));
-    // Trip if threshold exceeded
-    if (count($state['errors']) >= ECFMP_CIRCUIT_MAX_ERRORS) {
-        $state['cooldown_until'] = time() + ECFMP_CIRCUIT_COOLDOWN;
+    global $ecfmp_circuit_breaker;
+    if ($ecfmp_circuit_breaker->recordError()) {
         ecfmp_log("Circuit breaker tripped — cooldown " . ECFMP_CIRCUIT_COOLDOWN . "s", 'WARN');
     }
-    ecfmp_write_state($state);
 }
 
 function ecfmp_reset_circuit(): void {
-    ecfmp_write_state(['errors' => [], 'cooldown_until' => 0]);
+    global $ecfmp_circuit_breaker;
+    $ecfmp_circuit_breaker->reset();
 }
 
 // ============================================================================

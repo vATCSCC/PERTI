@@ -566,6 +566,11 @@ function loadBoundaryLayers() {
                 },
             }, 'sua-area-fill'); // Insert below SUA fill layer
 
+            // Add ARTCC/FIR labels via shared utility
+            if (config.id === 'artcc' && typeof PERTIArtccLabels !== 'undefined') {
+                PERTIArtccLabels.addToMap(suaMap, data, { visible: config.visible });
+            }
+
             console.log('Loaded boundary layer:', config.id, '- features:', data.features ? data.features.length : 0);
         }).fail(function() {
             console.warn('Failed to load boundary layer:', config.id);
@@ -582,6 +587,11 @@ function toggleBoundaryLayer(layerId, visible) {
 
     if (suaMap.getLayer(mapLayerId)) {
         suaMap.setLayoutProperty(mapLayerId, 'visibility', visible ? 'visible' : 'none');
+    }
+
+    // Toggle ARTCC labels along with ARTCC boundary
+    if (layerId === 'artcc' && typeof PERTIArtccLabels !== 'undefined') {
+        PERTIArtccLabels.toggle(suaMap, visible);
     }
 }
 

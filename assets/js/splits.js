@@ -405,23 +405,10 @@ const SplitsController = {
                     },
                 }, 'sectors-fill');
 
-                this.map.addLayer({
-                    id: 'artcc-labels',
-                    type: 'symbol',
-                    source: 'artcc-source',
-                    layout: {
-                        'text-field': ['coalesce', ['get', 'id'], ['get', 'name'], ['get', 'ID']],
-                        'text-size': 14,
-                        'text-font': ['Noto Sans Bold'],
-                        'text-anchor': 'center',
-                        'text-allow-overlap': false,
-                    },
-                    paint: {
-                        'text-color': '#FF00FF',
-                        'text-halo-color': '#000',
-                        'text-halo-width': 2,
-                    },
-                });
+                // Add ARTCC/FIR labels via shared utility
+                if (typeof PERTIArtccLabels !== 'undefined') {
+                    PERTIArtccLabels.addToMap(this.map, this.geoJsonCache.artcc, { visible: true });
+                }
 
                 console.log('[SPLITS] ARTCC layers added successfully');
             } catch (err) {

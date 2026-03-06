@@ -621,21 +621,11 @@
                 },
             });
 
-            state.map.addLayer({
-                id: 'artcc-labels',
-                type: 'symbol',
-                source: 'artcc-source',
-                layout: {
-                    'text-field': ['get', 'id'],
-                    'text-size': 12,
-                    'text-anchor': 'center',
-                },
-                paint: {
-                    'text-color': '#4a9eff',
-                    'text-halo-color': '#000',
-                    'text-halo-width': 1,
-                },
-            });
+        }
+
+        // Add ARTCC/FIR labels via shared utility (fetches artcc.json independently)
+        if (typeof PERTIArtccLabels !== 'undefined') {
+            PERTIArtccLabels.loadAndAdd(state.map, { visible: state.layers.artcc !== false });
         }
 
         // =========================================

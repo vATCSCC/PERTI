@@ -116,11 +116,9 @@ function simtraffic_poll_to_swim($debug = false) {
                 if ($data === null) {
                     // API error
                     $stats['api_errors']++;
-                    record_error();
+                    $tripped = record_error();
 
-                    // Check if we should trip circuit breaker
-                    if (should_trip_circuit()) {
-                        trip_circuit();
+                    if ($tripped) {
                         if ($debug) echo "Circuit breaker tripped!\n";
                         break 2;  // Exit both loops
                     }
@@ -524,50 +522,25 @@ function cache_simtraffic($callsign, $data, $ttl) {
     file_put_contents($file, json_encode($data));
 }
 
-// === CIRCUIT BREAKER ===
+// === CIRCUIT BREAKER (shared class) ===
 
-function get_circuit_state() {
-    if (!file_exists(ST_POLL_STATE_FILE)) {
-        return ['errors' => [], 'cooldown_until' => null];
-    }
-    return json_decode(file_get_contents(ST_POLL_STATE_FILE), true) ?? ['errors' => [], 'cooldown_until' => null];
-}
+require_once __DIR__ . '/../lib/connectors/CircuitBreaker.php';
 
-function save_circuit_state($state) {
-    file_put_contents(ST_POLL_STATE_FILE, json_encode($state));
-}
+$st_circuit_breaker = new \PERTI\Lib\Connectors\CircuitBreaker(
+    ST_POLL_STATE_FILE,
+    ST_POLL_CIRCUIT_WINDOW,
+    ST_POLL_CIRCUIT_MAX_ERRORS,
+    ST_POLL_CIRCUIT_COOLDOWN
+);
 
 function is_circuit_open() {
-    $state = get_circuit_state();
-    if (!empty($state['cooldown_until']) && $state['cooldown_until'] > time()) {
-        return true;
-    }
-    return false;
+    global $st_circuit_breaker;
+    return $st_circuit_breaker->isOpen();
 }
 
 function record_error() {
-    $state = get_circuit_state();
-    $now = time();
-
-    // Clean old errors outside window
-    $state['errors'] = array_filter($state['errors'] ?? [], function($ts) use ($now) {
-        return ($now - $ts) <= ST_POLL_CIRCUIT_WINDOW;
-    });
-
-    $state['errors'][] = $now;
-    save_circuit_state($state);
-}
-
-function should_trip_circuit() {
-    $state = get_circuit_state();
-    return count($state['errors'] ?? []) >= ST_POLL_CIRCUIT_MAX_ERRORS;
-}
-
-function trip_circuit() {
-    $state = get_circuit_state();
-    $state['cooldown_until'] = time() + ST_POLL_CIRCUIT_COOLDOWN;
-    $state['errors'] = [];
-    save_circuit_state($state);
+    global $st_circuit_breaker;
+    return $st_circuit_breaker->recordError();
 }
 
 // === CLI RUNNER ===
