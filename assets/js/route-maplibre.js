@@ -1713,12 +1713,12 @@ $(document).ready(function() {
         graphic_map.addSource('filtered-airways', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'filtered-airways-lines', type: 'line', source: 'filtered-airways',
-            paint: { 'line-color': '#ffffff', 'line-width': 1, 'line-opacity': 0.25 },
+            paint: { 'line-color': '#00e5ff', 'line-width': 2.5, 'line-opacity': 0.85 },
         });
         graphic_map.addLayer({
             id: 'filtered-airways-labels', type: 'symbol', source: 'filtered-airways',
-            layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 10 },
-            paint: { 'text-color': '#ffffff', 'text-halo-color': '#000000', 'text-halo-width': 1, 'text-opacity': 0.5 },
+            layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 11, 'text-allow-overlap': false },
+            paint: { 'text-color': '#00e5ff', 'text-halo-color': '#000000', 'text-halo-width': 1.5, 'text-opacity': 0.9 },
         });
 
         graphic_map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
