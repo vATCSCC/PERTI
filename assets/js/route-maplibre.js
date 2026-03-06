@@ -671,7 +671,12 @@ $(document).ready(function() {
                             break;
                         }
                     }
-                    if (expanded) {continue;}
+                    // Skip confirmed airway tokens whether expanded or not.
+                    // If expansion failed (entry/exit fixes on different segments),
+                    // don't let the airway name fall through to fix resolution where
+                    // it could match a same-named waypoint in the wrong hemisphere
+                    // (e.g., UT22/UT41 matching Utah waypoints).
+                    continue;
                 }
             }
             expandedTokens.push(point);
