@@ -571,6 +571,9 @@ class SwimFormat {
             case 'flights':
             case 'positions':
                 return array_merge($base, ['geojson', 'csv', 'kml']);
+            // TODO: Uncomment when migration 024 is deployed and controller data is ready
+            // case 'controllers':
+            //     return array_merge($base, ['geojson', 'csv']);
             case 'metering':
             case 'reference':
                 return array_merge($base, ['csv']);

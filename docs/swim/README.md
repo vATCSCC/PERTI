@@ -158,9 +158,12 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `/jatoc/incidents` | GET | JATOC incident records |
 | `/splits/presets` | GET | Runway configuration presets |
 | `/fea` | GET | Flow Evaluation Areas |
+| `/controllers` | GET | Active ATC controllers (with vNAS enrichment) |
+| `/controllers?summary=true` | GET | Facility staffing summary |
 | `/ingest/adl` | POST | Ingest flight data (write access) |
 | `/ingest/track` | POST | High-freq position updates (write access) |
 | `/ingest/metering` | POST | TBFM metering data (write access) |
+| `/ingest/vnas/controllers` | POST | vNAS controller enrichment (write access) |
 | `/ws` | WS | Real-time WebSocket |
 
 ---
@@ -176,6 +179,9 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `flight.positions` | Position batch |
 | `tmi.issued` | GS/GDP issued |
 | `tmi.released` | TMI ended |
+| `controller.connected` | ATC controller logged on |
+| `controller.disconnected` | ATC controller logged off |
+| `controller.positions` | Controller position batch |
 | `system.heartbeat` | Server keepalive |
 
 ### Filters
