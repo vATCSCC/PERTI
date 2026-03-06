@@ -39,6 +39,7 @@
  *   --verbose           Extra logging detail
  *   --queue-timeout=N   Minutes to wait for parse queue drain in auto mode (default: 240)
  *   --queue-poll=N      Seconds between parse queue polls in auto mode (default: 30)
+ *   --throttle=MODE     Resource metering: adaptive (default), fixed, or off
  *
  * @package PERTI
  * @subpackage Backfill
@@ -60,6 +61,7 @@ $opts = getopt('', [
     'verbose',
     'queue-timeout:',
     'queue-poll:',
+    'throttle:',
 ]);
 
 $phase          = $opts['phase']        ?? null;
@@ -70,6 +72,7 @@ $queueTimeout   = (int)($opts['queue-timeout'] ?? 240);   // minutes
 $queuePoll      = (int)($opts['queue-poll'] ?? 30);        // seconds
 $includeInactive = isset($opts['include-inactive']);
 $verbose        = isset($opts['verbose']);
+$throttleMode   = $opts['throttle'] ?? '';
 
 if ($phase === null) {
     fwrite(STDERR, "Usage: php hibernation_recovery.php --phase=0|1|2|3|4|5|all|auto [--dry-run] [--batch=N]\n");
@@ -86,6 +89,9 @@ if (!$conn_adl) {
 
 $gis = GISService::getInstance();
 $gisAvailable = $gis && $gis->isConnected();
+
+require_once __DIR__ . '/ResourceMeter.php';
+$meter = new ResourceMeter($conn_adl, $throttleMode, $batchSize);
 
 // ----- Logging Utilities -----
 function logMsg(string $msg): void {
@@ -448,7 +454,7 @@ function phase1_routeParsing(bool $dryRun, bool $includeInactive): void {
 // =====================================================================
 // PHASE 2: BOUNDARY DETECTION
 // =====================================================================
-function phase2_boundaryDetection(bool $dryRun, int $batchSize, bool $includeInactive): void {
+function phase2_boundaryDetection(bool $dryRun, int $batchSize, bool $includeInactive, ResourceMeter $meter): void {
     global $gis, $gisAvailable;
 
     logPhaseHeader(2, 'BOUNDARY DETECTION');
@@ -492,8 +498,15 @@ function phase2_boundaryDetection(bool $dryRun, int $batchSize, bool $includeIna
     $lastUid = 0;
 
     while ($processed < $totalCount) {
+        // Resource metering: throttle and adapt batch size
+        $meterResult = $meter->preBatch();
+        $effectiveBatch = $meterResult['batchSize'];
+        if ($meter->shouldLogMetrics()) {
+            logMsg("  " . $meter->formatMetrics());
+        }
+
         $flights = adlQuery("
-            SELECT TOP ({$batchSize})
+            SELECT TOP ({$effectiveBatch})
                 c.flight_uid,
                 p.lat,
                 p.lon,
@@ -575,10 +588,10 @@ function phase2_boundaryDetection(bool $dryRun, int $batchSize, bool $includeIna
 
         $processed += count($flights);
         $pct = round(($processed / $totalCount) * 100);
-        logMsg("  Boundary: {$processed}/{$totalCount} processed ({$pct}%), {$updated} updated, {$errors} errors");
+        logMsg("  Boundary: {$processed}/{$totalCount} processed ({$pct}%), {$updated} updated, {$errors} errors | delay={$meterResult['delay_ms']}ms");
 
         // Safety: if we got fewer than batch size, we're done
-        if (count($flights) < $batchSize) break;
+        if (count($flights) < $effectiveBatch) break;
     }
 
     logMsg("Boundary detection complete: {$updated} flights updated, {$errors} errors.");
@@ -587,7 +600,7 @@ function phase2_boundaryDetection(bool $dryRun, int $batchSize, bool $includeIna
 // =====================================================================
 // PHASE 3: CROSSING PREDICTION
 // =====================================================================
-function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeInactive): void {
+function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeInactive, ResourceMeter $meter): void {
     global $gis, $gisAvailable;
 
     logPhaseHeader(3, 'CROSSING PREDICTION');
@@ -635,9 +648,16 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
     $lastUid = 0;
 
     while ($processed < $totalCount) {
+        // Resource metering: throttle and adapt batch size
+        $meterResult = $meter->preBatch();
+        $effectiveBatch = $meterResult['batchSize'];
+        if ($meter->shouldLogMetrics()) {
+            logMsg("  " . $meter->formatMetrics());
+        }
+
         // Fetch batch of flights
         $flights = adlQuery("
-            SELECT TOP ({$batchSize})
+            SELECT TOP ({$effectiveBatch})
                 c.flight_uid,
                 p.lat AS current_lat,
                 p.lon AS current_lon,
@@ -714,7 +734,7 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
         }
 
         if (empty($batchInput)) {
-            if (count($flights) < $batchSize) break;
+            if (count($flights) < $effectiveBatch) break;
             continue;
         }
 
@@ -725,7 +745,7 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
             logErr("Batch crossing error: " . $e->getMessage());
             $errors += count($batchInput);
             $processed += count($batchInput);
-            if (count($flights) < $batchSize) break;
+            if (count($flights) < $effectiveBatch) break;
             continue;
         }
 
@@ -779,9 +799,9 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
         $processed += count($flightMap) - count($batchResults);
 
         $pct = $totalCount > 0 ? round(($processed / $totalCount) * 100) : 100;
-        logMsg("  Crossings: {$processed}/{$totalCount} ({$pct}%), {$flightsWithCrossings} with crossings, {$totalCrossings} total");
+        logMsg("  Crossings: {$processed}/{$totalCount} ({$pct}%), {$flightsWithCrossings} with crossings, {$totalCrossings} total | delay={$meterResult['delay_ms']}ms");
 
-        if (count($flights) < $batchSize) break;
+        if (count($flights) < $effectiveBatch) break;
     }
 
     logMsg("Crossing prediction complete: {$flightsWithCrossings} flights, {$totalCrossings} crossings, {$errors} errors.");
@@ -790,7 +810,7 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
 // =====================================================================
 // PHASE 4: WAYPOINT ETA
 // =====================================================================
-function phase4_waypointEta(bool $dryRun, int $batchSize): void {
+function phase4_waypointEta(bool $dryRun, int $batchSize, ResourceMeter $meter): void {
     logPhaseHeader(4, 'WAYPOINT ETA');
 
     // Waypoint ETA only makes sense for active flights (ETAs relative to now)
@@ -825,12 +845,18 @@ function phase4_waypointEta(bool $dryRun, int $batchSize): void {
     $totalWaypoints = 0;
 
     for ($tier = 0; $tier <= 4; $tier++) {
+        // Resource metering: throttle between tiers
+        $meterResult = $meter->preBatch();
+        if ($meter->shouldLogMetrics()) {
+            logMsg("  " . $meter->formatMetrics());
+        }
+
         $rows = adlQuery("
             EXEC dbo.sp_CalculateWaypointETABatch_Tiered
                 @tier = ?,
                 @max_flights = ?,
                 @debug = 0
-        ", [$tier, $batchSize]);
+        ", [$tier, $meterResult['batchSize']]);
 
         if ($rows) {
             $r = $rows[0];
@@ -1000,6 +1026,7 @@ logMsg("Hibernation Recovery Script");
 logMsg("Phase: {$phase} | Dry run: " . ($dryRun ? 'YES' : 'no') . " | Batch: {$batchSize}");
 logMsg("GIS available: " . ($gisAvailable ? 'YES' : 'NO'));
 logMsg("Include inactive: " . ($includeInactive ? 'YES' : 'no'));
+logMsg("Throttle: {$meter->getMode()}");
 
 // Extend archive delay if requested
 if ($delayHours !== null) {
@@ -1047,9 +1074,9 @@ if ($phase === 'auto') {
         logMsg("[DRY RUN] Would wait for parse queue to drain here.");
     }
 
-    phase2_boundaryDetection($dryRun, $batchSize, $includeInactive);
-    phase3_crossingPrediction($dryRun, $batchSize, $includeInactive);
-    phase4_waypointEta($dryRun, $batchSize);
+    phase2_boundaryDetection($dryRun, $batchSize, $includeInactive, $meter);
+    phase3_crossingPrediction($dryRun, $batchSize, $includeInactive, $meter);
+    phase4_waypointEta($dryRun, $batchSize, $meter);
     phase5_swimSync($dryRun);
 
 } else {
@@ -1063,15 +1090,15 @@ if ($phase === 'auto') {
     }
 
     if ($phase === '2' || $phase === 'all') {
-        phase2_boundaryDetection($dryRun, $batchSize, $includeInactive);
+        phase2_boundaryDetection($dryRun, $batchSize, $includeInactive, $meter);
     }
 
     if ($phase === '3' || $phase === 'all') {
-        phase3_crossingPrediction($dryRun, $batchSize, $includeInactive);
+        phase3_crossingPrediction($dryRun, $batchSize, $includeInactive, $meter);
     }
 
     if ($phase === '4' || $phase === 'all') {
-        phase4_waypointEta($dryRun, $batchSize);
+        phase4_waypointEta($dryRun, $batchSize, $meter);
     }
 
     if ($phase === '5' || $phase === 'all') {
