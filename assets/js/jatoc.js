@@ -162,7 +162,7 @@
 
     const STATUS_COLORS = {
         'ATC_ZERO': '#dc2626', 'ATC_ALERT': '#f59e0b', 'ATC_LIMITED': '#3b82f6',
-        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#6b7280',
+        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#fef08a',
     };
 
     const OPS_LEVEL_COLORS = {

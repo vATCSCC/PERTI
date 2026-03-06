@@ -30,7 +30,7 @@ CREATE OR REPLACE FUNCTION get_artcc_at_point(
     p_lon DECIMAL(11,6)
 )
 RETURNS TABLE (
-    artcc_code VARCHAR(4),
+    artcc_code VARCHAR(20),
     artcc_name VARCHAR(64),
     is_oceanic BOOLEAN
 ) AS $$
@@ -46,6 +46,7 @@ BEGIN
         COALESCE(ab.is_oceanic, FALSE)
     FROM artcc_boundaries ab
     WHERE ST_Contains(ab.geom, point_geom)
+      AND NOT ab.is_subsector
     ORDER BY
         COALESCE(ab.is_oceanic, FALSE),  -- Prefer non-oceanic
         ST_Area(ab.geom)                  -- Then smallest area (most specific)
@@ -75,7 +76,7 @@ RETURNS TABLE (
     lat DECIMAL(10,6),
     lon DECIMAL(11,6),
     altitude INT,
-    artcc_code VARCHAR(4),
+    artcc_code VARCHAR(20),
     artcc_name VARCHAR(64),
     tracon_code VARCHAR(16),
     tracon_name VARCHAR(64),
@@ -110,11 +111,12 @@ BEGIN
         tracon_name := NULL;
         is_oceanic := FALSE;
 
-        -- Find containing ARTCC (prefer non-oceanic, smallest area)
+        -- Find containing ARTCC (prefer non-oceanic, smallest area, exclude sub-areas)
         SELECT ab.artcc_code, ab.fir_name, COALESCE(ab.is_oceanic, FALSE)
         INTO v_artcc
         FROM artcc_boundaries ab
         WHERE ST_Contains(ab.geom, v_point)
+          AND NOT ab.is_subsector
         ORDER BY COALESCE(ab.is_oceanic, FALSE), ST_Area(ab.geom)
         LIMIT 1;
 
@@ -158,7 +160,7 @@ RETURNS TABLE (
     lat DECIMAL(10,6),
     lon DECIMAL(11,6),
     altitude INT,
-    artcc_code VARCHAR(4),
+    artcc_code VARCHAR(20),
     artcc_name VARCHAR(64),
     tracon_code VARCHAR(16),
     tracon_name VARCHAR(64),
@@ -180,7 +182,7 @@ BEGIN
         FROM jsonb_array_elements(p_flights) AS f
     ),
     artcc_matches AS (
-        -- Find ARTCC for each flight (with ranking for best match)
+        -- Find ARTCC for each flight (exclude sub-areas)
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
             f.flat,
@@ -191,6 +193,7 @@ BEGIN
             COALESCE(ab.is_oceanic, FALSE) AS is_oceanic
         FROM flights f
         LEFT JOIN artcc_boundaries ab ON ST_Contains(ab.geom, f.point_geom)
+            AND NOT ab.is_subsector
         ORDER BY f.fuid, COALESCE(ab.is_oceanic, FALSE), ST_Area(ab.geom) NULLS LAST
     ),
     tracon_matches AS (
