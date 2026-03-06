@@ -2139,6 +2139,7 @@
       "activeIncidentsMap": "Carte des incidents actifs",
       "addUpdate": "Ajouter une mise à jour",
       "addUpdateBtn": "Ajouter la mise à jour",
+      "addFacilityPlaceholder": "ZTL, ED**, KZ*...",
       "airportAuthority": "Autorité aéroportuaire",
       "airportIcao": "AÉROPORT OACI *",
       "airportIcaoHint": "Entrer le code OACI de l’aéroport que vous représentez",

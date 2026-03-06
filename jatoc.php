@@ -547,7 +547,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                         </div>
                         <div id="affectedFacilitiesTags" style="display:flex; flex-wrap:wrap; gap:3px; max-height:80px; overflow-y:auto; padding:4px 0; min-height:24px;"></div>
                         <div style="display:flex; gap:6px; align-items:center;">
-                            <input type="text" id="addFacilityInput" class="form-control form-control-dark form-control-sm" placeholder="Add facility code..." style="max-width:160px; font-size:0.75rem;">
+                            <input type="text" id="addFacilityInput" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.addFacilityPlaceholder') ?>" style="max-width:160px; font-size:0.75rem;">
                             <a href="#" id="clearAllFacilities" class="small text-muted" style="white-space:nowrap; font-size:0.7rem;">Clear All</a>
                             <span id="affectedFacilityCount" class="small text-muted ml-auto" style="font-size:0.7rem;"></span>
                         </div>
