@@ -10,9 +10,14 @@
  *   - Waypoint ETAs (per-fix arrival time estimates)
  *   - SWIM API sync (full refresh)
  *
- * IMPORTANT: sp_Archive_CompletedFlights runs during hibernation and CASCADE-deletes
- * all source data (position, plan, trajectory, waypoints) 2 hours after a flight
- * completes. Only flights still in core tables can be backfilled.
+ * NOTE: As of March 2026, archival_daemon.php skips ALL archival steps during
+ * hibernation (including sp_Archive_CompletedFlights which CASCADE-deletes source
+ * data). All flights remain in core tables and are available for backfill.
+ *
+ * IMPORTANT: Phase 1 only queues routes for parsing — the parse_queue_gis_daemon
+ * must run to actually parse them. Run Phase 1, wait for the parse daemon to drain
+ * the queue, THEN run Phases 2-4 for best results. Or use --phase=all which runs
+ * sequentially (but newly-parsed routes won't have crossings until Phase 3 re-runs).
  *
  * Usage:
  *   php hibernation_recovery.php --phase=0                    Diagnostic
@@ -323,6 +328,37 @@ function phase0_diagnostic(): void {
         logMsg("  (SWIM_API connection not available)");
     }
 
+    // 11. Backfill chain feasibility
+    logMsg("");
+    logMsg("--- Backfill Chain Feasibility ---");
+    $rows = adlQuery("
+        SELECT
+            SUM(CASE WHEN fp.parse_status IS NULL OR fp.parse_status IN ('PENDING','FAILED','PARTIAL') THEN 1 ELSE 0 END) AS unparsed,
+            SUM(CASE WHEN (fp.parse_status IS NULL OR fp.parse_status IN ('PENDING','FAILED','PARTIAL'))
+                      AND fp.fp_route IS NOT NULL AND fp.fp_route != '' THEN 1 ELSE 0 END) AS parseable,
+            SUM(CASE WHEN (fp.parse_status IS NULL OR fp.parse_status IN ('PENDING','FAILED','PARTIAL'))
+                      AND (fp.fp_route IS NULL OR fp.fp_route = '') THEN 1 ELSE 0 END) AS no_route_permanent,
+            SUM(CASE WHEN fp.parse_status = 'COMPLETE' THEN 1 ELSE 0 END) AS already_parsed,
+            COUNT(*) AS total
+        FROM dbo.adl_flight_core c
+        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+    ");
+    if ($rows) {
+        $r = $rows[0];
+        logMsg("  Parseable (have fp_route):      {$r['parseable']}");
+        logMsg("  Already parsed (COMPLETE):       {$r['already_parsed']}");
+        logMsg("  Permanently unparsable (no route): {$r['no_route_permanent']}");
+    }
+
+    logMsg("");
+    logMsg("--- Recommended Backfill Sequence ---");
+    logMsg("  1. Run Phase 1 (--phase=1 --include-inactive) to queue routes");
+    logMsg("  2. Start parse_queue_gis_daemon — wait for queue to drain");
+    logMsg("  3. Run Phase 2 (--phase=2 --include-inactive) for boundary detection");
+    logMsg("  4. Run Phase 3 (--phase=3 --include-inactive) for crossing prediction");
+    logMsg("  5. Run Phase 4 (--phase=4) for waypoint ETAs (active flights only)");
+    logMsg("  6. Run Phase 5 (--phase=5) for SWIM full sync");
+
     logMsg("");
     logMsg("Diagnostic complete.");
 }
@@ -591,7 +627,7 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
     $lastUid = 0;
 
     while ($processed < $totalCount) {
-        // Fetch batch of flights with their waypoints
+        // Fetch batch of flights
         $flights = adlQuery("
             SELECT TOP ({$batchSize})
                 c.flight_uid,
@@ -619,89 +655,120 @@ function phase3_crossingPrediction(bool $dryRun, int $batchSize, bool $includeIn
         if (empty($flights)) break;
         $lastUid = end($flights)['flight_uid'];
 
-        // For each flight, get waypoints and compute crossings
+        // Fetch waypoints for entire batch in one query (much faster than per-flight)
+        $uids = array_column($flights, 'flight_uid');
+        $uidPlaceholders = implode(',', $uids);
+        $allWaypoints = adlQuery("
+            SELECT flight_uid, fix_name, lat, lon, sequence_num, cum_dist_nm
+            FROM dbo.adl_flight_waypoints
+            WHERE flight_uid IN ({$uidPlaceholders})
+            ORDER BY flight_uid, sequence_num ASC
+        ");
+
+        // Group waypoints by flight_uid
+        $waypointsByFlight = [];
+        foreach ($allWaypoints as $wp) {
+            $waypointsByFlight[$wp['flight_uid']][] = $wp;
+        }
+
+        // Build batch input for calculateCrossingsBatch()
+        $batchInput = [];
+        $flightMap = [];
         foreach ($flights as $f) {
             $uid = $f['flight_uid'];
-
-            // Get waypoints
-            $waypoints = adlQuery("
-                SELECT fix_name, lat, lon, sequence_num, cum_dist_nm
-                FROM dbo.adl_flight_waypoints
-                WHERE flight_uid = ?
-                ORDER BY sequence_num ASC
-            ", [$uid]);
-
-            if (count($waypoints) < 2) {
+            $wps = $waypointsByFlight[$uid] ?? [];
+            if (count($wps) < 2) {
                 $processed++;
                 continue;
             }
 
-            // Format waypoints for GISService
-            $wpArray = array_map(function($wp) {
-                return [
-                    'lat'          => (float)$wp['lat'],
-                    'lon'          => (float)$wp['lon'],
-                    'sequence_num' => (int)$wp['sequence_num'],
-                ];
-            }, $waypoints);
-
-            // Use last_seen_utc as reference time for inactive flights
             $refTime = ($f['last_seen_utc'] instanceof DateTime)
                 ? $f['last_seen_utc']->format('Y-m-d H:i:s')
                 : gmdate('Y-m-d H:i:s');
 
-            $gs = max((int)$f['groundspeed_kts'], 100); // Floor at 100kts
+            $batchInput[] = [
+                'flight_uid'     => (int)$uid,
+                'waypoints'      => array_map(function($wp) {
+                    return [
+                        'lat'          => (float)$wp['lat'],
+                        'lon'          => (float)$wp['lon'],
+                        'sequence_num' => (int)$wp['sequence_num'],
+                        'fix_name'     => $wp['fix_name'],
+                    ];
+                }, $wps),
+                'current_lat'    => (float)$f['current_lat'],
+                'current_lon'    => (float)$f['current_lon'],
+                'dist_flown_nm'  => (float)$f['dist_flown_nm'],
+                'groundspeed_kts'=> max((int)$f['groundspeed_kts'], 100),
+                'current_time'   => $refTime,
+            ];
+            $flightMap[$uid] = true;
+        }
 
-            try {
-                $crossings = $gis->calculateCrossingEtas(
-                    $wpArray,
-                    (float)$f['current_lat'],
-                    (float)$f['current_lon'],
-                    (float)$f['dist_flown_nm'],
-                    $gs,
-                    $refTime
-                );
-            } catch (\Exception $e) {
-                logVerbose("Crossing error for flight {$uid}: " . $e->getMessage());
-                $errors++;
+        if (empty($batchInput)) {
+            if (count($flights) < $batchSize) break;
+            continue;
+        }
+
+        // Use batch method — single PostGIS round-trip for entire batch
+        try {
+            $batchResults = $gis->calculateCrossingsBatch($batchInput);
+        } catch (\Exception $e) {
+            logErr("Batch crossing error: " . $e->getMessage());
+            $errors += count($batchInput);
+            $processed += count($batchInput);
+            if (count($flights) < $batchSize) break;
+            continue;
+        }
+
+        // Write results to ADL
+        foreach ($batchResults as $uid => $crossings) {
+            if (empty($crossings)) {
                 $processed++;
                 continue;
             }
 
-            if (!empty($crossings)) {
-                // Delete any existing crossings for this flight (shouldn't exist, but safety)
-                adlExec("DELETE FROM dbo.adl_flight_planned_crossings WHERE flight_uid = ?", [$uid]);
+            // Delete any existing (shouldn't exist, but safety)
+            adlExec("DELETE FROM dbo.adl_flight_planned_crossings WHERE flight_uid = ?", [$uid]);
 
-                // Insert crossings
-                $order = 0;
-                foreach ($crossings as $c) {
-                    $order++;
-                    $etaUtc = $c['eta_utc'] ?? null;
-
-                    adlExec("
-                        INSERT INTO dbo.adl_flight_planned_crossings
-                            (flight_uid, crossing_source, boundary_code, boundary_type,
-                             crossing_type, crossing_order, planned_entry_utc,
-                             entry_lat, entry_lon, calculated_at, calculation_tier)
-                        VALUES (?, 'BACKFILL', ?, ?, ?, ?, ?, ?, ?, GETUTCDATE(), 99)
-                    ", [
-                        $uid,
-                        $c['boundary_code'] ?? '',
-                        $c['boundary_type'] ?? 'ARTCC',
-                        $c['crossing_type'] ?? 'ENTRY',
-                        $order,
-                        $etaUtc,
-                        $c['crossing_lat'] ?? null,
-                        $c['crossing_lon'] ?? null,
-                    ]);
+            $order = 0;
+            foreach ($crossings as $c) {
+                $order++;
+                // Convert eta_utc string to DateTime for sqlsrv (matches daemon pattern)
+                $etaParam = null;
+                if (!empty($c['eta_utc'])) {
+                    try {
+                        $etaParam = new DateTime($c['eta_utc']);
+                    } catch (\Exception $e) {
+                        $etaParam = null;
+                    }
                 }
 
-                $flightsWithCrossings++;
-                $totalCrossings += $order;
+                adlExec("
+                    INSERT INTO dbo.adl_flight_planned_crossings
+                        (flight_uid, crossing_source, boundary_code, boundary_type,
+                         crossing_type, crossing_order, planned_entry_utc,
+                         entry_lat, entry_lon, calculated_at, calculation_tier)
+                    VALUES (?, 'BACKFILL', ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME(), 99)
+                ", [
+                    $uid,
+                    $c['boundary_code'] ?? '',
+                    $c['boundary_type'] ?? 'ARTCC',
+                    $c['crossing_type'] ?? 'ENTRY',
+                    $order,
+                    $etaParam,
+                    $c['crossing_lat'] ?? null,
+                    $c['crossing_lon'] ?? null,
+                ]);
             }
 
+            $flightsWithCrossings++;
+            $totalCrossings += $order;
             $processed++;
         }
+
+        // Count flights in batch that had no crossings
+        $processed += count($flightMap) - count($batchResults);
 
         $pct = $totalCount > 0 ? round(($processed / $totalCount) * 100) : 100;
         logMsg("  Crossings: {$processed}/{$totalCount} ({$pct}%), {$flightsWithCrossings} with crossings, {$totalCrossings} total");
