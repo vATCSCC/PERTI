@@ -60,6 +60,13 @@ try {
     } elseif ($method === 'PUT') {
         $input = json_decode(file_get_contents('php://input'), true);
 
+        if (array_key_exists('facility_type', $input)) {
+            $normalizedFacilityType = JatocValidators::normalizeFacilityType($input['facility_type']);
+            if ($normalizedFacilityType !== null) {
+                $input['facility_type'] = $normalizedFacilityType;
+            }
+        }
+
         // Validate input
         $errors = JatocValidators::incidentUpdate($input);
         if ($errors) {
@@ -68,10 +75,8 @@ try {
             exit;
         }
 
-        // Org-scope: validate facility if being changed
-        if (!empty($input['facility'])) {
-            require_facility_scope(strtoupper($input['facility']), $conn_sqli, $conn_adl);
-        }
+        // Note: facility field is now a free-text incident name, not a facility code.
+        // Org-scope check is no longer applicable to this field.
 
         // Get current values for comparison
         $oldStmt = sqlsrv_query($conn_adl, "SELECT * FROM jatoc_incidents WHERE id = ?", [$id]);
@@ -85,7 +90,7 @@ try {
 
         // Track field changes (support both old and new column names)
         $trackFields = [
-            'facility' => 'Facility',
+            'facility' => 'Name',
             'facility_type' => 'Type',
             'status' => 'Incident Type',
             'incident_type' => 'Incident Type',

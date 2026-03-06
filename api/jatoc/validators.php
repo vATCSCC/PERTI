@@ -10,22 +10,72 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/datetime.php';
 
 class JatocValidators {
+    /**
+     * Normalize facility type to canonical enum key.
+     *
+     * Accepts both enum keys (e.g. ARTCC) and legacy/display labels
+     * (e.g. "ARTCC/FIR/ACC", "Facility", "Multiple Facility Types").
+     *
+     * @param mixed $value Facility type value
+     * @return string|null Canonical key or null when not recognized
+     */
+    public static function normalizeFacilityType($value) {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $upper = strtoupper($raw);
+        $aliases = [
+            'FACILITY' => 'FACILITY',
+            'ARTCC' => 'ARTCC',
+            'ARTCC/FIR/ACC' => 'ARTCC',
+            'ARTCC/FIR' => 'ARTCC',
+            'TRACON' => 'TRACON',
+            'ATCT' => 'ATCT',
+            'LOCAL' => 'ATCT',
+            'TOWER' => 'ATCT',
+            'SECTOR' => 'SECTOR',
+            'COMBINED' => 'COMBINED',
+            'FIR' => 'FIR',
+            'MULTIPLE' => 'MULTIPLE',
+            'MULTIPLE FACILITY TYPES' => 'MULTIPLE',
+            'MULTIPLE FACILITY TYPE' => 'MULTIPLE',
+            'MULTIPLE FACILITIES' => 'MULTIPLE'
+        ];
+
+        if (isset($aliases[$upper])) {
+            return $aliases[$upper];
+        }
+
+        foreach (JATOC_FACILITY_TYPES as $key => $label) {
+            if (strcasecmp($raw, (string)$label) === 0) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
 
     /**
-     * Validate facility code (2-8 alphanumeric characters)
+     * Validate incident name (free-text, 1-128 characters)
      *
-     * @param mixed $value Facility code to validate
+     * @param mixed $value Incident name to validate
      * @param bool $required Whether field is required
      * @return string|null Error message or null if valid
      */
-    public static function facilityCode($value, $required = true) {
-        if (empty($value)) {
-            return $required ? 'Facility code is required' : null;
+    public static function incidentName($value, $required = true) {
+        if (empty($value) || trim($value) === '') {
+            return $required ? 'Incident name is required' : null;
         }
 
-        $value = strtoupper(trim($value));
-        if (!preg_match('/^[A-Z0-9]{2,8}$/', $value)) {
-            return 'Facility code must be 2-8 alphanumeric characters';
+        $value = trim($value);
+        if (strlen($value) > 128) {
+            return 'Incident name must not exceed 128 characters';
         }
 
         return null;
@@ -100,7 +150,8 @@ class JatocValidators {
             return $required ? 'Facility type is required' : null;
         }
 
-        if (!array_key_exists($value, JATOC_FACILITY_TYPES)) {
+        $normalized = self::normalizeFacilityType($value);
+        if ($normalized === null) {
             return 'Invalid facility type. Must be one of: ' . implode(', ', array_keys(JATOC_FACILITY_TYPES));
         }
 
@@ -240,7 +291,7 @@ class JatocValidators {
         $errors = [];
 
         // Required fields
-        if ($err = self::facilityCode($data['facility'] ?? null, true)) $errors[] = $err;
+        if ($err = self::incidentName($data['facility'] ?? null, true)) $errors[] = $err;
         if ($err = self::datetime($data['start_utc'] ?? null, true)) $errors[] = $err;
 
         // Check for incident type (support both old 'status' and new 'incident_type' field names)
@@ -271,7 +322,7 @@ class JatocValidators {
 
         // Only validate fields that are present
         if (isset($data['facility'])) {
-            if ($err = self::facilityCode($data['facility'], true)) $errors[] = $err;
+            if ($err = self::incidentName($data['facility'], true)) $errors[] = $err;
         }
 
         // Check for incident type (support both field names)

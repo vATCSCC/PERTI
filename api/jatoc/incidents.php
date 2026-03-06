@@ -177,6 +177,13 @@ try {
     } elseif ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
 
+        if (array_key_exists('facility_type', $input)) {
+            $normalizedFacilityType = JatocValidators::normalizeFacilityType($input['facility_type']);
+            if ($normalizedFacilityType !== null) {
+                $input['facility_type'] = $normalizedFacilityType;
+            }
+        }
+
         // Validate input
         $errors = JatocValidators::incidentCreate($input);
         if ($errors) {
@@ -185,10 +192,8 @@ try {
             exit;
         }
 
-        // Org-scope: validate facility is within org's jurisdiction
-        if (!empty($input['facility'])) {
-            require_facility_scope(strtoupper($input['facility']), $conn_sqli, $conn_adl);
-        }
+        // Note: facility field is now a free-text incident name, not a facility code.
+        // Org-scope check is no longer applicable to this field.
 
         // Get trigger description from centralized config
         $triggerCode = $input['trigger_code'] ?? null;
@@ -225,7 +230,7 @@ try {
 
         $params = [
             $incidentNumber,
-            strtoupper($input['facility']),
+            trim($input['facility']),
             $input['facility_type'] ?? null,
             $incidentType,           // Old column
             $incidentType,           // New column

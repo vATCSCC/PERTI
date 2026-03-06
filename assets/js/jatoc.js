@@ -230,6 +230,28 @@
         return 'Multiple';
     }
 
+    function toFacilityTypeApiKey(type) {
+        if (!type) return null;
+        const map = {
+            'FACILITY': 'FACILITY',
+            'ARTCC': 'ARTCC',
+            'TRACON': 'TRACON',
+            'ATCT': 'ATCT',
+            'SECTOR': 'SECTOR',
+            'MULTIPLE': 'MULTIPLE',
+            'COMBINED': 'COMBINED',
+            'FIR': 'FIR',
+            'ARTCC/FIR/ACC': 'ARTCC',
+            'ARTCC/FIR': 'ARTCC',
+            'SECTORIZED': 'SECTOR',
+            'MULTIPLE FACILITY TYPES': 'MULTIPLE',
+            'MULTIPLE FACILITY TYPE': 'MULTIPLE',
+            'MULTIPLE FACILITIES': 'MULTIPLE'
+        };
+        const normalized = String(type).trim().toUpperCase();
+        return map[normalized] || null;
+    }
+
     // Affected facilities tag state
     const affectedFacilitiesSet = new Set();
 
@@ -959,7 +981,10 @@
         if (method === 'GET' && data) {url += '?' + new URLSearchParams(data).toString();}
         const res = await fetch(url, opts);
         const result = await res.json();
-        if (!res.ok) {throw new Error(result.error || PERTII18n.t('jatoc.error.apiError'));}
+        if (!res.ok) {
+            const validationError = Array.isArray(result.errors) ? result.errors.join('; ') : '';
+            throw new Error(result.error || validationError || PERTII18n.t('jatoc.error.apiError'));
+        }
         return result;
     }
 
@@ -1195,7 +1220,19 @@
     async function saveIncident() {
         const id = document.getElementById('incidentId').value;
         const affFacs = getAffectedFacilities();
-        const data = { facility: document.getElementById('incidentFacility').value, facility_type: deriveFacilityType(affFacs ? affFacs.split(',').map(c => c.trim()).filter(Boolean) : []), status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, affected_facilities: affFacs, created_by: getUserAuthorString() };
+        const derivedType = deriveFacilityType(affFacs ? affFacs.split(',').map(c => c.trim()).filter(Boolean) : []);
+        const data = {
+            facility: document.getElementById('incidentFacility').value,
+            facility_type: toFacilityTypeApiKey(derivedType),
+            status: document.getElementById('incidentStatus').value,
+            trigger_code: document.getElementById('incidentTrigger').value || null,
+            paged: document.getElementById('incidentPaged').value === '1',
+            incident_status: document.getElementById('incidentIncidentStatus').value,
+            start_utc: document.getElementById('incidentStartUtc').value,
+            remarks: document.getElementById('incidentRemarks').value || null,
+            affected_facilities: affFacs,
+            created_by: getUserAuthorString()
+        };
         if (!data.facility || !data.status || !data.start_utc) { alert(PERTII18n.t('jatoc.incidents.fillRequired')); return; }
         try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
