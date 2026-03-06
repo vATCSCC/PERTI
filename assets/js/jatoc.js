@@ -691,6 +691,7 @@
             container: 'jatoc-map',
             style: {
                 version: 8,
+                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
                 sources: { 'carto': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'], tileSize: 256 } },
                 layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
             },

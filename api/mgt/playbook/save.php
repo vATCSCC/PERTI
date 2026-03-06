@@ -257,6 +257,21 @@ if ($play_id > 0) {
         exit;
     }
 
+    // Check for duplicate play name (same normalized name + source, different play_id)
+    if ($play_name_norm !== ($old['play_name_norm'] ?? '')) {
+        $dup_stmt = $conn_sqli->prepare("SELECT play_id FROM playbook_plays WHERE play_name_norm = ? AND source = ? AND play_id != ?");
+        $old_source = $old['source'] ?? '';
+        $dup_stmt->bind_param('ssi', $play_name_norm, $old_source, $play_id);
+        $dup_stmt->execute();
+        if ($dup_stmt->get_result()->num_rows > 0) {
+            $dup_stmt->close();
+            http_response_code(409);
+            echo json_encode(['error' => "A play named \"$play_name\" already exists"]);
+            exit;
+        }
+        $dup_stmt->close();
+    }
+
     // Update play
     $stmt = $conn_sqli->prepare("UPDATE playbook_plays SET
         play_name=?, play_name_norm=?, display_name=?, description=?, category=?,

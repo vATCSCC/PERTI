@@ -19,6 +19,20 @@ window.PERTIArtccLabels = (function() {
     const LAYER_ID  = 'artcc-labels';
 
     /**
+     * Pick a bold font that works with the map's glyph server.
+     * CartoDB → Open Sans Bold; demotiles/protomaps → Noto Sans Bold.
+     */
+    function pickFont(map) {
+        try {
+            var glyphs = (map.getStyle() || {}).glyphs || '';
+            if (glyphs.indexOf('cartocdn') !== -1 || glyphs.indexOf('openmaptiles') !== -1) {
+                return ['Open Sans Bold', 'Arial Unicode MS Bold'];
+            }
+        } catch (e) { /* style not ready */ }
+        return ['Noto Sans Bold'];
+    }
+
+    /**
      * Build a point FeatureCollection from artcc polygon features.
      * Deduplicates by ICAOCODE, strips K-prefix for US ARTCCs.
      */
@@ -68,7 +82,7 @@ window.PERTIArtccLabels = (function() {
             source: SOURCE_ID,
             layout: {
                 'text-field': ['get', 'displayCode'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-font': opts.font || pickFont(map),
                 'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18],
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,

@@ -8582,7 +8582,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     layout: {
                         'text-field': ['get', 'name'],
                         'text-size': 12,
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-font': ['Noto Sans Bold'],
                         'text-anchor': 'center',
                         'text-allow-overlap': true,
                     },
