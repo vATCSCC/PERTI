@@ -201,6 +201,35 @@
         return [...ALL_KNOWN_FACILITIES].filter(f => re.test(f)).sort();
     }
 
+    // ========== FACILITY TYPE AUTO-DERIVATION ==========
+    function findInBoundarySource(code, sourceKey) {
+        const src = state.boundaryData[sourceKey];
+        if (!src?.features) return false;
+        const uc = code.toUpperCase();
+        return src.features.some(f => {
+            const p = f.properties || {};
+            const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label].filter(Boolean).map(s => String(s).toUpperCase());
+            return ids.some(id => id === uc);
+        });
+    }
+
+    function classifyFacilityCode(code) {
+        code = (code || '').toUpperCase().trim();
+        if (!code) return 'Facility';
+        if (findInBoundarySource(code, 'artcc')) return 'ARTCC/FIR/ACC';
+        if (findInBoundarySource(code, 'tracon')) return 'TRACON';
+        if (code.includes('-')) return 'Sector';
+        if (/^[A-Z]{4}$/.test(code) && getAirportCoords(code)) return 'ATCT';
+        return 'Facility';
+    }
+
+    function deriveFacilityType(codes) {
+        if (!codes || codes.length === 0) return null;
+        const types = new Set(codes.map(c => classifyFacilityCode(c)));
+        if (types.size === 1) return [...types][0];
+        return 'Multiple';
+    }
+
     // Affected facilities tag state
     const affectedFacilitiesSet = new Set();
 
@@ -810,7 +839,7 @@
     // Find a boundary feature matching a facility code
     function findBoundaryFeature(code) {
         const fac = code.toUpperCase();
-        // Try ARTCC boundaries first
+        // Try ARTCC boundaries — exact match on codes/names
         if (state.boundaryData.artcc?.features) {
             const feature = state.boundaryData.artcc.features.find(f => {
                 const p = f.properties || {};
@@ -818,6 +847,14 @@
                 return ids.some(id => id === fac || id === 'K' + fac || id.startsWith(fac + '_') || id.endsWith('_' + fac));
             });
             if (feature) return feature;
+            // Fuzzy: FIRname contains the search term (e.g. "AME" in "AME ARTCC")
+            if (fac.length >= 3) {
+                const fuzzy = state.boundaryData.artcc.features.find(f => {
+                    const name = String(f.properties?.FIRname || '').toUpperCase();
+                    return name.startsWith(fac + ' ') || name === fac;
+                });
+                if (fuzzy) return fuzzy;
+            }
         }
         // Try TRACON boundaries
         if (state.boundaryData.tracon?.features) {
@@ -841,51 +878,14 @@
         }).forEach(inc => {
             const incidentType = inc.incident_type || inc.status;
             const color = STATUS_COLORS[incidentType] || '#6b7280';
-            const facType = (inc.facility_type || '').toUpperCase();
-            const fac = (inc.facility || '').toUpperCase();
-            let matched = false;
 
-            // Primary facility — try type-specific match first
-            if (facType === 'ARTCC' && state.boundaryData.artcc?.features) {
-                const feature = state.boundaryData.artcc.features.find(f => {
-                    const p = f.properties || {};
-                    const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name].filter(Boolean).map(s => String(s).toUpperCase());
-                    return ids.some(id => id === fac || id === 'K' + fac || id.startsWith(fac + '_') || id.endsWith('_' + fac));
-                });
-                if (feature) {
-                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac, isPrimary: true } });
-                    matched = true;
-                }
-            } else if (facType === 'TRACON' && state.boundaryData.tracon?.features) {
-                const feature = state.boundaryData.tracon.features.find(f => {
-                    const p = f.properties || {};
-                    const ids = [p.id, p.sector, p.label, p.name, p.prefix].filter(Boolean).map(s => String(s).toUpperCase());
-                    return ids.some(id => id === fac || id.includes(fac));
-                });
-                if (feature) {
-                    fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: fac, isPrimary: true } });
-                    matched = true;
-                }
-            }
-
-            // Fallback to point marker using centroid coordinates
-            if (!matched) {
-                const coords = getAirportCoords(fac);
-                if (coords) {
-                    pointFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: coords }, properties: { color, incidentId: inc.id, facility: fac } });
-                } else {
-                    console.log('[JATOC] No coords for facility:', fac, facType);
-                }
-            }
-
-            // Affected facilities — map each one as a secondary boundary
+            // ONLY map affected_facilities — the name field is not geographic
             if (inc.affected_facilities) {
                 const codes = inc.affected_facilities.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
-                codes.forEach(code => {
-                    if (code === fac) return; // skip primary, already mapped
+                codes.forEach((code, idx) => {
                     const feature = findBoundaryFeature(code);
                     if (feature) {
-                        fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: code, isPrimary: false } });
+                        fillFeatures.push({ ...feature, properties: { ...feature.properties, color, incidentId: inc.id, facility: code, isPrimary: idx === 0 } });
                     } else {
                         const coords = getAirportCoords(code);
                         if (coords) {
@@ -934,7 +934,21 @@
         var normalized = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
             ? PERTI.normalizeIcao(fac)
             : (fac && !fac.startsWith('K') ? 'K' + fac : fac);
-        return coords[normalized] || null;
+        if (coords[normalized]) return coords[normalized];
+        // Fallback: search boundary features for label_lat/label_lon
+        for (const src of [state.boundaryData.artcc, state.boundaryData.tracon]) {
+            if (!src?.features) continue;
+            const f = src.features.find(feat => {
+                const p = feat.properties || {};
+                const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label, p.prefix]
+                    .filter(Boolean).map(s => String(s).toUpperCase());
+                return ids.some(id => id === fac || id.startsWith(fac + ' '));
+            });
+            if (f?.properties?.label_lon != null && f?.properties?.label_lat != null) {
+                return [parseFloat(f.properties.label_lon), parseFloat(f.properties.label_lat)];
+            }
+        }
+        return null;
     }
 
     // ========== API ==========
@@ -1066,7 +1080,7 @@
         const previousIncidents = state.incidents ? state.incidents.slice() : [];
 
         try {
-            const filters = { status: document.getElementById('filterStatus').value, facilityType: document.getElementById('filterFacilityType').value, incidentType: document.getElementById('filterIncidentType').value, facility: document.getElementById('filterFacility').value };
+            const filters = { status: document.getElementById('filterStatus').value, incidentType: document.getElementById('filterIncidentType').value, facility: document.getElementById('filterFacility').value };
             Object.keys(filters).forEach(k => { if (!filters[k]) {delete filters[k];} });
             const r = await api('incidents.php', 'GET', filters);
             const newIncidents = r.data || [];
@@ -1103,7 +1117,7 @@
             const isHidden = state.hiddenIncidents.has(i.id);
             return `<tr>
                 <td class="incident-number">${i.incident_number || '-'}</td>
-                <td><strong>${i.facility}</strong>${i.affected_facilities ? ` <span class="badge badge-info" style="font-size:0.6rem;vertical-align:middle" title="${esc(i.affected_facilities)}">(+${i.affected_facilities.split(',').length})</span>` : ''}${i.facility_type ? `<br><small class="text-muted">${i.facility_type}</small>` : ''}</td>
+                <td>${esc(i.facility)}${i.affected_facilities ? ` <span class="badge badge-info" style="font-size:0.6rem;vertical-align:middle" title="${esc(i.affected_facilities)}">(${i.affected_facilities.split(',').length})</span>` : ''}<br><small class="text-muted">${(() => { const af = i.affected_facilities; if (!af) return ''; const codes = af.split(',').map(c => c.trim()).filter(Boolean); return deriveFacilityType(codes) || ''; })()}</small></td>
                 <td><span class="status-badge ${sc}">${formatStatus(incidentType)}</span></td>
                 <td class="trigger-col">${esc(triggerText)}</td>
                 <td class="${i.paged ? 'paged-yes' : 'paged-no'}">${i.paged ? PERTII18n.t('jatoc.incidents.pagedYes') : PERTII18n.t('jatoc.incidents.pagedNo')}</td>
@@ -1164,10 +1178,9 @@
             const i = r.data;
             const incidentType = i.incident_type || i.status;
             const lifecycleStatus = i.lifecycle_status || i.incident_status;
-            document.getElementById('incidentModalTitle').textContent = PERTII18n.t('jatoc.incidents.editFacility', { facility: i.facility });
+            document.getElementById('incidentModalTitle').textContent = PERTII18n.t('jatoc.incidents.editIncident', { name: i.facility });
             document.getElementById('incidentId').value = i.id;
             document.getElementById('incidentFacility').value = i.facility || '';
-            document.getElementById('incidentFacilityType').value = i.facility_type || '';
             document.getElementById('incidentStatus').value = incidentType || '';
             document.getElementById('incidentTrigger').value = i.trigger_code || '';
             document.getElementById('incidentPaged').value = i.paged ? '1' : '0';
@@ -1181,7 +1194,8 @@
 
     async function saveIncident() {
         const id = document.getElementById('incidentId').value;
-        const data = { facility: document.getElementById('incidentFacility').value, facility_type: document.getElementById('incidentFacilityType').value || null, status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, affected_facilities: getAffectedFacilities(), created_by: getUserAuthorString() };
+        const affFacs = getAffectedFacilities();
+        const data = { facility: document.getElementById('incidentFacility').value, facility_type: deriveFacilityType(affFacs ? affFacs.split(',').map(c => c.trim()).filter(Boolean) : []), status: document.getElementById('incidentStatus').value, trigger_code: document.getElementById('incidentTrigger').value || null, paged: document.getElementById('incidentPaged').value === '1', incident_status: document.getElementById('incidentIncidentStatus').value, start_utc: document.getElementById('incidentStartUtc').value, remarks: document.getElementById('incidentRemarks').value || null, affected_facilities: affFacs, created_by: getUserAuthorString() };
         if (!data.facility || !data.status || !data.start_utc) { alert(PERTII18n.t('jatoc.incidents.fillRequired')); return; }
         try { if (id) { data.updated_by = getUserAuthorString(); await api('incident.php?id=' + id, 'PUT', data); } else {await api('incidents.php', 'POST', data);} $('#incidentModal').modal('hide'); loadIncidents(); } catch (e) { alert(PERTII18n.t('jatoc.error.generic', { message: e.message })); }
     }
@@ -1194,15 +1208,15 @@
             const lifecycleStatus = i.lifecycle_status || i.incident_status;
             state.currentIncident = i;
             document.getElementById('detailsIncNum').textContent = i.incident_number || '-';
-            document.getElementById('detailsFacility').textContent = `${i.facility} (${i.facility_type || '?'})`;
+            document.getElementById('detailsFacility').textContent = i.facility || '-';
             const affFacEl = document.getElementById('detailsAffectedFacilities');
             if (affFacEl) {
                 if (i.affected_facilities) {
-                    affFacEl.innerHTML = i.affected_facilities.split(',').map(f => `<span class="facility-tag">${esc(f.trim())}</span>`).join('');
-                    affFacEl.style.display = '';
+                    const codes = i.affected_facilities.split(',').map(f => f.trim()).filter(Boolean);
+                    const derivedType = deriveFacilityType(codes);
+                    affFacEl.innerHTML = codes.map(f => `<span class="facility-tag">${esc(f)}</span>`).join('') + (derivedType ? ` <small class="text-muted ml-2">(${derivedType})</small>` : '');
                 } else {
-                    affFacEl.innerHTML = '';
-                    affFacEl.style.display = 'none';
+                    affFacEl.innerHTML = '<span class="text-muted">-</span>';
                 }
             }
             document.getElementById('detailsStatus').innerHTML = `<span class="status-badge status-${incidentType.toLowerCase().replace('_','-')}">${formatStatus(incidentType)}</span>`;
