@@ -2646,7 +2646,12 @@ $(document).ready(function() {
             if (dist > 100) {
                 try {
                     const arc = turf.greatCircle(turf.point(coords[0]), turf.point(coords[1]), { npoints: 50 });
-                    coords = arc.geometry.coordinates;
+                    if (arc.geometry.type === 'MultiLineString') {
+                        // Antimeridian crossing — flatten line segments
+                        coords = [].concat(...arc.geometry.coordinates);
+                    } else {
+                        coords = arc.geometry.coordinates;
+                    }
                 } catch (e) {}
             }
         }

@@ -218,6 +218,20 @@ while (($line = fgets($handle)) !== false) {
         }
     }
 
+    // Post-validate first fix: if it's >10° from the second fix, re-resolve
+    // using the second fix as proximity context. This prevents the first fix
+    // on an airway from resolving to the wrong hemisphere when it has no
+    // prior context (e.g., CUN on UT11 → Alaska instead of Cancun).
+    if (isset($resolved[0]) && isset($resolved[1])) {
+        $d = abs($resolved[0][0] - $resolved[1][0]) + abs($resolved[0][1] - $resolved[1][1]);
+        if ($d > 10) {
+            $reResolved = resolveFix($fixes[0], $resolved[1][0], $resolved[1][1]);
+            if ($reResolved) {
+                $resolved[0] = $reResolved;
+            }
+        }
+    }
+
     // Insert segments between consecutive resolved fixes
     $seqNum = 0;
     for ($i = 0; $i < $fixCount - 1; $i++) {
