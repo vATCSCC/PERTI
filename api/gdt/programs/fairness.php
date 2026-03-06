@@ -103,47 +103,8 @@ $start_utc = $program['start_utc'] ?? null;
 $end_utc = $program['end_utc'] ?? null;
 
 // ============================================================================
-// Step 1: Compute Filing-Order Reversals (SQL Server SP)
-// ============================================================================
-
-$reversal_sql = "
-    DECLARE @reversal_count INT, @reversal_pct DECIMAL(5,2), @eligible_pairs INT;
-    EXEC dbo.sp_TMI_ComputeReversals
-        @program_id = ?,
-        @reversal_count = @reversal_count OUTPUT,
-        @reversal_pct = @reversal_pct OUTPUT,
-        @eligible_pairs = @eligible_pairs OUTPUT;
-    SELECT
-        @reversal_count AS reversal_count,
-        @reversal_pct AS reversal_pct,
-        @eligible_pairs AS eligible_pairs;
-";
-
-$reversal_stmt = sqlsrv_query($conn_tmi, $reversal_sql, [$program_id]);
-
-$reversal_count = 0;
-$reversal_pct = 0.0;
-$eligible_pairs = 0;
-
-if ($reversal_stmt !== false) {
-    $rev_row = sqlsrv_fetch_array($reversal_stmt, SQLSRV_FETCH_ASSOC);
-    if ($rev_row) {
-        $reversal_count = (int)($rev_row['reversal_count'] ?? 0);
-        $reversal_pct = round((float)($rev_row['reversal_pct'] ?? 0), 2);
-        $eligible_pairs = (int)($rev_row['eligible_pairs'] ?? 0);
-    }
-    sqlsrv_free_stmt($reversal_stmt);
-} else {
-    $errors = filter_sqlsrv_errors();
-    respond_json(500, [
-        'status' => 'error',
-        'message' => 'Failed to compute reversal metrics',
-        'errors' => $errors
-    ]);
-}
-
-// ============================================================================
-// Step 2: Populate filing_time_utc for flights missing it (cross-DB bridge)
+// Step 1: Populate filing_time_utc for flights missing it (cross-DB bridge)
+// Must run BEFORE reversal computation so the SP sees populated filing times.
 // ============================================================================
 
 $missing_result = fetch_all($conn_tmi,
@@ -185,6 +146,46 @@ if ($missing_result['success'] && count($missing_result['data']) > 0) {
             }
         }
     }
+}
+
+// ============================================================================
+// Step 2: Compute Filing-Order Reversals (SQL Server SP)
+// ============================================================================
+
+$reversal_sql = "
+    DECLARE @reversal_count INT, @reversal_pct DECIMAL(5,2), @eligible_pairs BIGINT;
+    EXEC dbo.sp_TMI_ComputeReversals
+        @program_id = ?,
+        @reversal_count = @reversal_count OUTPUT,
+        @reversal_pct = @reversal_pct OUTPUT,
+        @eligible_pairs = @eligible_pairs OUTPUT;
+    SELECT
+        @reversal_count AS reversal_count,
+        @reversal_pct AS reversal_pct,
+        @eligible_pairs AS eligible_pairs;
+";
+
+$reversal_stmt = sqlsrv_query($conn_tmi, $reversal_sql, [$program_id]);
+
+$reversal_count = 0;
+$reversal_pct = 0.0;
+$eligible_pairs = 0;
+
+if ($reversal_stmt !== false) {
+    $rev_row = sqlsrv_fetch_array($reversal_stmt, SQLSRV_FETCH_ASSOC);
+    if ($rev_row) {
+        $reversal_count = (int)($rev_row['reversal_count'] ?? 0);
+        $reversal_pct = round((float)($rev_row['reversal_pct'] ?? 0), 2);
+        $eligible_pairs = (int)($rev_row['eligible_pairs'] ?? 0);
+    }
+    sqlsrv_free_stmt($reversal_stmt);
+} else {
+    $errors = filter_sqlsrv_errors();
+    respond_json(500, [
+        'status' => 'error',
+        'message' => 'Failed to compute reversal metrics',
+        'errors' => $errors
+    ]);
 }
 
 // ============================================================================
@@ -258,16 +259,14 @@ if (count($controlled_flights) > 0 && $start_utc !== null) {
     $uid_chunks = array_chunk($uids, 100);
     foreach ($uid_chunks as $chunk) {
         $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-        $params = array_merge($chunk, [$start_iso]);
         $dest_sql = "
             SELECT DISTINCT flight_uid
             FROM dbo.adl_flight_changelog
             WHERE flight_uid IN ({$placeholders})
               AND field_name = 'fp_dest_icao'
               AND new_value = ?
-              AND changed_utc >= ?
+              AND change_utc >= ?
         ";
-        // Append ctl_element and start time
         $params = $chunk;
         $params[] = $ctl_element;
         $params[] = $start_iso;

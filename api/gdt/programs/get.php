@@ -100,9 +100,9 @@ if ($include_slots) {
             bin_date,
             bin_hour,
             bin_quarter,
-            created_at,
-            assigned_at,
-            updated_at
+            created_utc,
+            assigned_utc,
+            modified_utc
         FROM dbo.tmi_slots
         WHERE program_id = ?
         ORDER BY slot_index ASC
@@ -133,10 +133,10 @@ if ($include_counts) {
     $flight_counts_result = fetch_one($conn_tmi, "
         SELECT 
             COUNT(*) AS total_flights,
-            SUM(CASE WHEN is_exempt = 1 THEN 1 ELSE 0 END) AS exempt_flights,
-            SUM(CASE WHEN is_gs_hold = 1 THEN 1 ELSE 0 END) AS gs_held_flights,
+            SUM(CASE WHEN ctl_exempt = 1 THEN 1 ELSE 0 END) AS exempt_flights,
+            SUM(CASE WHEN gs_held = 1 THEN 1 ELSE 0 END) AS gs_held_flights,
             SUM(CASE WHEN is_popup = 1 THEN 1 ELSE 0 END) AS popup_flights,
-            SUM(CASE WHEN is_ecr = 1 THEN 1 ELSE 0 END) AS ecr_flights,
+            SUM(CASE WHEN ecr_pending = 1 THEN 1 ELSE 0 END) AS ecr_flights,
             AVG(CAST(program_delay_min AS FLOAT)) AS avg_delay_min,
             MAX(program_delay_min) AS max_delay_min,
             SUM(CAST(program_delay_min AS BIGINT)) AS total_delay_min
