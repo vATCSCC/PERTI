@@ -1,0 +1,35 @@
+{
+  "mode": "push",
+  "flights": [
+    {
+      "callsign": "UAL123",
+      "gufi": "VAT-20260306-UAL123-KORD-KJFK",
+      "departure_afld": "KORD",
+      "arrival_afld": "KJFK",
+      "departure": {
+        "push_time": "2026-03-06T14:30:00Z",
+        "taxi_time": "2026-03-06T14:35:00Z",
+        "sequence_time": "2026-03-06T14:38:00Z",
+        "holdshort_time": "2026-03-06T14:40:00Z",
+        "runway_time": "2026-03-06T14:42:00Z",
+        "takeoff_time": "2026-03-06T14:45:00Z",
+        "edct": "2026-03-06T14:40:00Z"
+      },
+      "arrival": {
+        "eta": "2026-03-06T17:15:00Z",
+        "eta_mf": "2026-03-06T17:00:00Z",
+        "eta_vertex": "2026-03-06T16:45:00Z",
+        "on_time": null,
+        "metering_fix": "CAMRN",
+        "rwy_assigned": "31L",
+        "arrived": false
+      },
+      "status": {
+        "departed": true,
+        "arrived": false,
+        "in_artcc": "ZOB",
+        "delay_value": 5
+      }
+    }
+  ]
+}

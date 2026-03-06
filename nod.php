@@ -2200,6 +2200,9 @@ window.addEventListener('resize', updateNavbarHeight);
 <!-- Filter Colors Configuration -->
 <script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
 
+<!-- ARTCC Labels Utility -->
+<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
+
 <!-- NOD Module -->
 <script src="assets/js/nod.js<?= _v('assets/js/nod.js') ?>"></script>
 

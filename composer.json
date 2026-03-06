@@ -9,7 +9,9 @@
     },
     "autoload": {
         "psr-4": {
-            "PERTI\\SWIM\\WebSocket\\": "api/swim/v1/ws/"
+            "PERTI\\SWIM\\WebSocket\\": "api/swim/v1/ws/",
+            "PERTI\\Lib\\Connectors\\": "lib/connectors/",
+            "PERTI\\Lib\\Connectors\\Sources\\": "lib/connectors/sources/"
         }
     },
     "scripts": {

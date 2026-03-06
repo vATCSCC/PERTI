@@ -125,10 +125,9 @@ function vacdm_poll_all($debug = false) {
 
         } catch (Exception $e) {
             $stats['api_errors']++;
-            vacdm_record_error($pid);
+            $tripped = vacdm_record_error($pid);
 
-            if (vacdm_should_trip($pid)) {
-                vacdm_trip_circuit($pid);
+            if ($tripped) {
                 if ($debug) echo "  [{$name}] Circuit breaker tripped!\n";
             }
 
@@ -407,47 +406,31 @@ function update_provider_sync_status($conn_tmi, $provider_id, $status, $message 
     if ($stmt !== false) sqlsrv_free_stmt($stmt);
 }
 
-// === PER-PROVIDER CIRCUIT BREAKER ===
+// === PER-PROVIDER CIRCUIT BREAKER (shared class) ===
 
-function vacdm_state_file($provider_id) {
-    return VACDM_STATE_DIR . "circuit_{$provider_id}.json";
-}
+require_once __DIR__ . '/../lib/connectors/CircuitBreaker.php';
 
-function get_vacdm_circuit_state($provider_id) {
-    $file = vacdm_state_file($provider_id);
-    if (!file_exists($file)) {
-        return ['errors' => [], 'cooldown_until' => null];
+$vacdm_circuit_breakers = [];
+
+function get_vacdm_circuit_breaker($provider_id) {
+    global $vacdm_circuit_breakers;
+    if (!isset($vacdm_circuit_breakers[$provider_id])) {
+        $vacdm_circuit_breakers[$provider_id] = new \PERTI\Lib\Connectors\CircuitBreaker(
+            VACDM_STATE_DIR . "circuit_{$provider_id}.json",
+            VACDM_CIRCUIT_WINDOW,
+            VACDM_CIRCUIT_MAX_ERRORS,
+            VACDM_CIRCUIT_COOLDOWN
+        );
     }
-    return json_decode(file_get_contents($file), true) ?? ['errors' => [], 'cooldown_until' => null];
-}
-
-function save_vacdm_circuit_state($provider_id, $state) {
-    file_put_contents(vacdm_state_file($provider_id), json_encode($state), LOCK_EX);
+    return $vacdm_circuit_breakers[$provider_id];
 }
 
 function is_vacdm_circuit_open($provider_id) {
-    $state = get_vacdm_circuit_state($provider_id);
-    return !empty($state['cooldown_until']) && $state['cooldown_until'] > time();
+    return get_vacdm_circuit_breaker($provider_id)->isOpen();
 }
 
 function vacdm_record_error($provider_id) {
-    $state = get_vacdm_circuit_state($provider_id);
-    $now = time();
-    $state['errors'] = array_values(array_filter($state['errors'] ?? [], function($ts) use ($now) {
-        return ($now - $ts) <= VACDM_CIRCUIT_WINDOW;
-    }));
-    $state['errors'][] = $now;
-    save_vacdm_circuit_state($provider_id, $state);
-}
-
-function vacdm_should_trip($provider_id) {
-    $state = get_vacdm_circuit_state($provider_id);
-    return count($state['errors'] ?? []) >= VACDM_CIRCUIT_MAX_ERRORS;
-}
-
-function vacdm_trip_circuit($provider_id) {
-    $state = ['errors' => [], 'cooldown_until' => time() + VACDM_CIRCUIT_COOLDOWN];
-    save_vacdm_circuit_state($provider_id, $state);
+    return get_vacdm_circuit_breaker($provider_id)->recordError();
 }
 
 // === CLI RUNNER ===

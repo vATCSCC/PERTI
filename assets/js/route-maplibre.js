@@ -1323,6 +1323,8 @@ $(document).ready(function() {
             paint: { 'line-color': artccLine, 'line-width': 1.5 },
         });
 
+        // 4-labels. ARTCC/FIR Labels — placeholder; populated when artcc.json loads below
+
         // 4a. ARTCC Search Highlight fills (playbook search integration)
         graphic_map.addLayer({
             id: 'artcc-search-include', type: 'fill', source: 'artcc',
@@ -1384,7 +1386,23 @@ $(document).ready(function() {
         loadGeoJsonData('high-splits', 'assets/geojson/high.json');
         loadGeoJsonData('low-splits', 'assets/geojson/low.json');
         loadGeoJsonData('superhigh-splits', 'assets/geojson/superhigh.json');
-        loadGeoJsonData('artcc', 'assets/geojson/artcc.json');
+        // Load ARTCC boundaries + add label centroids via shared utility
+        fetch('assets/geojson/artcc.json')
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('[MAPLIBRE] Loaded artcc - features:', data.features ? data.features.length : 'N/A');
+                if (graphic_map.getSource('artcc')) {
+                    graphic_map.getSource('artcc').setData(data);
+                }
+                if (typeof PERTIArtccLabels !== 'undefined') {
+                    PERTIArtccLabels.addToMap(graphic_map, data, { visible: false });
+                }
+            })
+            .catch(err => console.error('[MAPLIBRE] Failed to load artcc:', err));
+
         loadNavaidsData();
 
         console.log('[MAPLIBRE] Static layers added in nod.js order');
@@ -2061,6 +2079,7 @@ $(document).ready(function() {
         'cells': { layerIds: ['weather-cells-layer'], label: PERTII18n.t('route.layer.wxRadar') },
         'sigmets': { layerIds: ['sigmets-fill'], label: PERTII18n.t('route.layer.sigmets') },
         'sua': { layerIds: ['sua-fill', 'sua-outline'], label: PERTII18n.t('route.layer.activeSuaTfr'), onEnable: loadSuaData },
+        'artcc_labels': { layerIds: ['artcc-labels'], label: PERTII18n.t('route.layer.artccLabels') },
         'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
     };
 

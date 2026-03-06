@@ -1,0 +1,41 @@
+{
+  "_note": "ECFMP is READ-only from VATSWIM. This shows the response format from VATSWIM's flow endpoints.",
+
+  "flow_events_response": {
+    "success": true,
+    "data": [
+      {
+        "event_id": 42,
+        "provider_code": "ECFMP",
+        "ecfmp_event_id": 12345,
+        "name": "EUROCONTROL Flow Event - EGLL Arrival",
+        "start_utc": "2026-03-06T14:00:00Z",
+        "end_utc": "2026-03-06T18:00:00Z",
+        "fir_codes": ["EGTT", "EGPX"],
+        "status": "active"
+      }
+    ]
+  },
+
+  "flow_measures_response": {
+    "success": true,
+    "data": [
+      {
+        "measure_id": 99,
+        "event_id": 42,
+        "ecfmp_measure_id": 67890,
+        "measure_type": "MINIMUM_DEPARTURE_INTERVAL",
+        "value": 10,
+        "unit": "minutes",
+        "affected_firs": ["EGTT"],
+        "filters": {
+          "airport_arrival": ["EGLL"],
+          "level_above": 240
+        },
+        "start_utc": "2026-03-06T14:00:00Z",
+        "end_utc": "2026-03-06T18:00:00Z",
+        "status": "active"
+      }
+    ]
+  }
+}

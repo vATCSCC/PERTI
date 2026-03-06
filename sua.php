@@ -778,6 +778,8 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <!-- MapLibre Draw (Mapbox GL Draw compatible) -->
 <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js" crossorigin=""></script>
+<!-- ARTCC Labels Utility -->
+<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
 
 <script src="assets/js/sua.js<?= _v('assets/js/sua.js') ?>"></script>
 

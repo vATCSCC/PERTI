@@ -3985,6 +3985,7 @@
     "layer": {
       "activeSuaTfr": "Active SUA/TFR",
       "allNavaids": "All Navaids",
+      "artccLabels": "ARTCC/FIR Labels",
       "highSplits": "High Splits",
       "lowSplits": "Low Splits",
       "routeFixLabels": "Route Fix Labels",

@@ -1,0 +1,29 @@
+{
+  "facility_id": "ZDC",
+  "system_type": "ERAM",
+  "timestamp": "2026-03-06T15:30:00.000Z",
+  "tracks": [
+    {
+      "callsign": "UAL123",
+      "gufi": "VAT-20260306-UAL123-KORD-KJFK",
+      "beacon_code": "1234",
+      "position": {
+        "latitude": 40.6413,
+        "longitude": -73.7781,
+        "altitude_ft": 35000,
+        "altitude_type": "barometric",
+        "ground_speed_kts": 450,
+        "track_deg": 270,
+        "vertical_rate_fpm": -500
+      },
+      "track_quality": {
+        "source": "radar",
+        "mode_c": true,
+        "mode_s": true,
+        "ads_b": false,
+        "position_quality": 9
+      },
+      "timestamp": "2026-03-06T15:30:00.000Z"
+    }
+  ]
+}
