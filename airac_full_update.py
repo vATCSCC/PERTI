@@ -6,6 +6,7 @@ Performs the complete AIRAC update process:
   Step 1: Download FAA NASR data and update CSV/JS files
   Step 2: Scrape FAA Playbook and update playbook_routes.csv
   Step 3: Import all data to VATSIM_REF and sync to VATSIM_ADL
+  Step 4: Sync reference data to PostGIS (VATSIM_GIS)
 
 Usage:
     python airac_full_update.py                   # Full update
@@ -13,12 +14,14 @@ Usage:
     python airac_full_update.py --step 1          # Run only step 1 (NASR)
     python airac_full_update.py --step 2          # Run only step 2 (Playbook)
     python airac_full_update.py --step 3          # Run only step 3 (Database)
+    python airac_full_update.py --step 4          # Run only step 4 (PostGIS)
     python airac_full_update.py --skip-playbook   # Skip playbook scrape
     python airac_full_update.py --skip-database   # Skip database import
 
 Requirements:
     - Python 3.8+
     - pyodbc (for database import)
+    - psycopg2 (for PostGIS sync)
     - Internet access (for FAA data download)
 
 Run from project root directory.
@@ -41,6 +44,7 @@ SCRIPTS = {
     'nasr': SCRIPT_DIR / "nasr_navdata_updater.py",
     'playbook': SCRIPT_DIR / "scripts" / "update_playbook_routes.py",
     'database': SCRIPT_DIR / "adl" / "scripts" / "airac_update.py",
+    'postgis': SCRIPT_DIR / "scripts" / "postgis" / "sync_ref_to_postgis.py",
 }
 
 
@@ -174,6 +178,26 @@ def step3_database_import(dry_run: bool = False, table: str = None) -> bool:
     return run_step("Database Import", SCRIPTS['database'], args, dry_run)
 
 
+def step4_postgis_sync(dry_run: bool = False) -> bool:
+    """
+    Step 4: Sync reference data to PostGIS (VATSIM_GIS).
+
+    Syncs:
+      - nav_fixes       (270K+ rows with spatial geometry)
+      - airways          (16K+ airways)
+      - airway_segments  (91K+ segments with proximity-disambiguated coordinates)
+      - area_centers     (ARTCC/TRACON center points)
+    """
+    print("\n" + "=" * 70)
+    print("  STEP 4: PostGIS Reference Data Sync")
+    print("=" * 70)
+    print("  Syncs VATSIM_REF -> VATSIM_GIS (PostGIS)")
+    print("  Tables: nav_fixes, airways, airway_segments, area_centers")
+    print()
+
+    return run_step("PostGIS Sync", SCRIPTS['postgis'], dry_run=dry_run)
+
+
 # ==============================================================================
 # Main
 # ==============================================================================
@@ -185,11 +209,12 @@ def print_banner():
     print("            AIRAC FULL UPDATE - Master Script")
     print("=" * 70)
     print()
-    print("  This script performs the complete AIRAC update in three steps:")
+    print("  This script performs the complete AIRAC update in four steps:")
     print()
     print("    1. NASR Update     - Download FAA navdata, update CSVs")
     print("    2. Playbook Update - Scrape FAA playbook, update routes")
     print("    3. Database Import - Import to VATSIM_REF, sync to VATSIM_ADL")
+    print("    4. PostGIS Sync    - Sync ref data to VATSIM_GIS (PostGIS)")
     print()
 
 
@@ -204,6 +229,7 @@ Examples:
   python airac_full_update.py --step 1          # Only run NASR update
   python airac_full_update.py --step 2          # Only run Playbook update
   python airac_full_update.py --step 3          # Only run Database import
+  python airac_full_update.py --step 4          # Only run PostGIS sync
   python airac_full_update.py --skip-playbook   # Skip playbook (faster)
   python airac_full_update.py --skip-database   # Only update local files
   python airac_full_update.py --force           # Force re-download of NASR data
@@ -217,8 +243,8 @@ After running, don't forget to:
 
     parser.add_argument('--dry-run', action='store_true',
                         help='Preview without making changes')
-    parser.add_argument('--step', type=int, choices=[1, 2, 3],
-                        help='Run only a specific step (1=NASR, 2=Playbook, 3=Database)')
+    parser.add_argument('--step', type=int, choices=[1, 2, 3, 4],
+                        help='Run only a specific step (1=NASR, 2=Playbook, 3=Database, 4=PostGIS)')
     parser.add_argument('--skip-playbook', action='store_true',
                         help='Skip playbook update (Step 2)')
     parser.add_argument('--skip-database', action='store_true',
@@ -247,6 +273,7 @@ After running, don't forget to:
     run_step1 = args.step is None or args.step == 1
     run_step2 = (args.step is None or args.step == 2) and not args.skip_playbook
     run_step3 = (args.step is None or args.step == 3) and not args.skip_database
+    run_step4 = (args.step is None or args.step == 4) and not args.skip_database
 
     # Step 1: NASR Update + XP12 merge
     if run_step1:
@@ -266,6 +293,13 @@ After running, don't forget to:
     if run_step3:
         success = step3_database_import(args.dry_run, args.table)
         results['Database Import'] = 'SUCCESS' if success else 'FAILED'
+
+    # Step 4: PostGIS Sync
+    if run_step4:
+        success = step4_postgis_sync(args.dry_run)
+        results['PostGIS Sync'] = 'SUCCESS' if success else 'FAILED'
+        if not success and args.step is None:
+            print("\n  WARNING: PostGIS sync failed, continuing...")
 
     # Summary
     elapsed = time.time() - start_time

@@ -47,22 +47,83 @@ if (!file_exists($awysFile)) {
 
 // ============================================================================
 // Load fix coordinates into memory for segment geometry
+// Stores ALL coordinates per fix name to support proximity disambiguation
+// (matches the approach used by route-maplibre.js getPointByName)
 // ============================================================================
 echo "Loading fix coordinates from nav_fixes...\n";
-$fixCoords = [];
+$fixCoords = [];  // name => [[lat,lon], [lat,lon], ...]
 $fixSql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes";
 $fixStmt = sqlsrv_query($conn, $fixSql);
 if ($fixStmt === false) {
     echo "WARNING: Could not load fix coordinates. Segments will not have geometry.\n";
 } else {
+    $totalRows = 0;
     while ($row = sqlsrv_fetch_array($fixStmt, SQLSRV_FETCH_ASSOC)) {
-        $fixCoords[strtoupper($row['fix_name'])] = [
-            'lat' => $row['lat'],
-            'lon' => $row['lon']
-        ];
+        $name = strtoupper(trim($row['fix_name']));
+        if (!isset($fixCoords[$name])) $fixCoords[$name] = [];
+        $fixCoords[$name][] = [(float)$row['lat'], (float)$row['lon']];
+        $totalRows++;
     }
     sqlsrv_free_stmt($fixStmt);
-    echo "  Loaded " . count($fixCoords) . " fix coordinates.\n";
+    $dupes = 0;
+    foreach ($fixCoords as $locs) { if (count($locs) > 1) $dupes++; }
+    echo "  Loaded $totalRows rows, " . count($fixCoords) . " unique names ($dupes with duplicates).\n";
+}
+
+// Load airports as fallback (3-letter codes like IPL, JLI)
+$airportCoords = [];
+$aptStmt = sqlsrv_query($conn, "SELECT ICAO_ID, ARPT_ID, LAT_DECIMAL, LONG_DECIMAL FROM dbo.apts WHERE LAT_DECIMAL IS NOT NULL");
+if ($aptStmt) {
+    while ($row = sqlsrv_fetch_array($aptStmt, SQLSRV_FETCH_ASSOC)) {
+        $lat = (float)$row['LAT_DECIMAL'];
+        $lon = (float)$row['LONG_DECIMAL'];
+        if ($row['ICAO_ID']) $airportCoords[strtoupper(trim($row['ICAO_ID']))] = [$lat, $lon];
+        if ($row['ARPT_ID']) $airportCoords[strtoupper(trim($row['ARPT_ID']))] = [$lat, $lon];
+    }
+    sqlsrv_free_stmt($aptStmt);
+    echo "  Loaded " . count($airportCoords) . " airport coordinates.\n";
+}
+
+// Load area centers as fallback (ZLA, ZDC, etc.)
+$centerCoords = [];
+$ctrStmt = sqlsrv_query($conn, "SELECT center_code, lat, lon FROM dbo.area_centers WHERE lat IS NOT NULL");
+if ($ctrStmt) {
+    while ($row = sqlsrv_fetch_array($ctrStmt, SQLSRV_FETCH_ASSOC)) {
+        $centerCoords[strtoupper(trim($row['center_code']))] = [(float)$row['lat'], (float)$row['lon']];
+    }
+    sqlsrv_free_stmt($ctrStmt);
+    echo "  Loaded " . count($centerCoords) . " area center coordinates.\n";
+}
+
+/**
+ * Resolve a fix name to coordinates with proximity disambiguation.
+ * When multiple locations exist for the same name, picks the closest
+ * to the previous waypoint's position (same approach as route-maplibre.js).
+ */
+function resolveFix($name, $prevLat, $prevLon) {
+    global $fixCoords, $airportCoords, $centerCoords;
+    $name = strtoupper(trim($name));
+
+    if (isset($fixCoords[$name])) {
+        $locs = $fixCoords[$name];
+        if (count($locs) === 1) return $locs[0];
+        if ($prevLat !== null) {
+            $best = $locs[0];
+            $bestDist = PHP_FLOAT_MAX;
+            $cosLat = cos(deg2rad($prevLat));
+            foreach ($locs as $loc) {
+                $d = ($loc[0] - $prevLat) ** 2 + (($loc[1] - $prevLon) * $cosLat) ** 2;
+                if ($d < $bestDist) { $bestDist = $d; $best = $loc; }
+            }
+            return $best;
+        }
+        return $locs[0];
+    }
+    if (isset($airportCoords[$name])) return $airportCoords[$name];
+    if (strlen($name) === 3 && ctype_alpha($name) && isset($airportCoords['K' . $name]))
+        return $airportCoords['K' . $name];
+    if (isset($centerCoords[$name])) return $centerCoords[$name];
+    return null;
 }
 
 // ============================================================================
@@ -144,41 +205,52 @@ while (($line = fgets($handle)) !== false) {
     
     $totalAirways++;
     
-    // Insert segments
+    // Resolve all fix coordinates with proximity chaining
+    $resolved = [];
+    $prevLat = null;
+    $prevLon = null;
+    for ($i = 0; $i < $fixCount; $i++) {
+        $coord = resolveFix($fixes[$i], $prevLat, $prevLon);
+        if ($coord) {
+            $resolved[$i] = $coord;
+            $prevLat = $coord[0];
+            $prevLon = $coord[1];
+        }
+    }
+
+    // Insert segments between consecutive resolved fixes
+    $seqNum = 0;
     for ($i = 0; $i < $fixCount - 1; $i++) {
+        if (!isset($resolved[$i]) || !isset($resolved[$i + 1])) continue;
+
         $fromFix = strtoupper($fixes[$i]);
         $toFix = strtoupper($fixes[$i + 1]);
-        
-        $fromCoord = $fixCoords[$fromFix] ?? null;
-        $toCoord = $fixCoords[$toFix] ?? null;
-        
-        if (!$fromCoord || !$toCoord) continue;
-        
-        $fromLat = $fromCoord['lat'];
-        $fromLon = $fromCoord['lon'];
-        $toLat = $toCoord['lat'];
-        $toLon = $toCoord['lon'];
-        
+        $fromLat = $resolved[$i][0];
+        $fromLon = $resolved[$i][1];
+        $toLat = $resolved[$i + 1][0];
+        $toLon = $resolved[$i + 1][1];
+
         // Calculate approximate distance (nm)
         $dLat = deg2rad($toLat - $fromLat);
         $dLon = deg2rad($toLon - $fromLon);
         $avgLat = deg2rad(($fromLat + $toLat) / 2);
         $distNm = sqrt(pow($dLat * 60 * 180 / M_PI, 2) + pow($dLon * 60 * 180 / M_PI * cos($avgLat), 2));
         $distNm = round($distNm, 2);
-        
+
         // Calculate course (approximate)
         $course = rad2deg(atan2(sin(deg2rad($toLon - $fromLon)) * cos(deg2rad($toLat)),
             cos(deg2rad($fromLat)) * sin(deg2rad($toLat)) - sin(deg2rad($fromLat)) * cos(deg2rad($toLat)) * cos(deg2rad($toLon - $fromLon))));
         $course = (int)(($course + 360) % 360);
-        
+
+        $seqNum++;
         $insertSegmentSql = "
-            INSERT INTO dbo.airway_segments 
+            INSERT INTO dbo.airway_segments
             (airway_id, airway_name, sequence_num, from_fix, to_fix, from_lat, from_lon, to_lat, to_lon, distance_nm, course_deg)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
-        $segParams = [$airwayId, $airwayName, $i + 1, $fromFix, $toFix, $fromLat, $fromLon, $toLat, $toLon, $distNm, $course];
+        $segParams = [$airwayId, $airwayName, $seqNum, $fromFix, $toFix, $fromLat, $fromLon, $toLat, $toLon, $distNm, $course];
         $segStmt = sqlsrv_query($conn, $insertSegmentSql, $segParams);
-        
+
         if ($segStmt !== false) {
             $totalSegments++;
             sqlsrv_free_stmt($segStmt);
