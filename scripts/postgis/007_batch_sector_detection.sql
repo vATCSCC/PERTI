@@ -177,7 +177,7 @@ RETURNS TABLE (
     lat DECIMAL(10,6),
     lon DECIMAL(11,6),
     altitude INT,
-    artcc_code VARCHAR(4),
+    artcc_code VARCHAR(20),
     artcc_name VARCHAR(64),
     tracon_code VARCHAR(16),
     tracon_name VARCHAR(64),
@@ -201,7 +201,7 @@ BEGIN
             ), 4326) AS point_geom
         FROM jsonb_array_elements(p_flights) AS f
     ),
-    -- ARTCC detection (prefer non-oceanic, smallest area)
+    -- ARTCC detection (prefer non-oceanic, smallest area, exclude sub-areas)
     artcc_matches AS (
         SELECT DISTINCT ON (f.fuid)
             f.fuid,
@@ -210,6 +210,7 @@ BEGIN
             COALESCE(ab.is_oceanic, FALSE) AS is_oceanic
         FROM flights f
         LEFT JOIN artcc_boundaries ab ON ST_Contains(ab.geom, f.point_geom)
+            AND NOT ab.is_subsector
         ORDER BY f.fuid, COALESCE(ab.is_oceanic, FALSE), ST_Area(ab.geom) NULLS LAST
     ),
     -- TRACON detection (smallest area - no altitude filter)

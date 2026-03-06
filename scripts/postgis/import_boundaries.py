@@ -81,12 +81,13 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
         INSERT INTO artcc_boundaries (
             artcc_code, fir_name, icao_code, vatsim_region, vatsim_division,
             vatsim_subdiv, floor_altitude, ceiling_altitude, is_oceanic,
-            label_lat, label_lon, geom
+            label_lat, label_lon, parent_fir, is_subsector, geom
         ) VALUES %s
     """
 
     rows = []
     us_artccs = set()  # Track US ARTCCs for filtering
+    sub_count = 0
 
     for feature in geojson.get("features", []):
         props = feature.get("properties", {})
@@ -96,20 +97,23 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
         artcc_code = props.get("ICAOCODE") or props.get("FIRname", "")
         fir_name = props.get("FIRname", "")
 
-        # Skip non-US ARTCCs if you only want CONUS (optional filter)
-        # US ARTCCs start with 'Z' or 'P' (ZNY, ZLA, PHNL, etc.)
-        # Uncomment to filter:
-        # if not artcc_code.startswith(('Z', 'P', 'C')):  # US + Canada
-        #     continue
+        # Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
+        is_sub_area = bool(props.get("is_sub_area")) or ("-" in artcc_code)
+        parent_fir = (
+            props.get("parent_fir")
+            or (artcc_code.split("-")[0] if is_sub_area else None)
+        )
+        if is_sub_area:
+            sub_count += 1
 
         # Track US ARTCCs (3-char codes starting with Z)
         if len(artcc_code) == 3 and artcc_code.startswith('Z'):
             us_artccs.add(artcc_code)
 
         row = (
-            artcc_code[:4] if artcc_code else "UNK",
+            artcc_code[:20] if artcc_code else "UNK",
             fir_name[:64] if fir_name else None,
-            props.get("ICAOCODE", "")[:4] or None,
+            props.get("ICAOCODE", "")[:20] or None,
             props.get("VATSIM Reg", "")[:16] or None,
             props.get("VATSIM Div", "")[:16] or None,
             props.get("VATSIM Sub", "")[:16] or None,
@@ -118,6 +122,8 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
             bool(props.get("oceanic", 0)),
             props.get("label_lat"),
             props.get("label_lon"),
+            parent_fir,
+            is_sub_area,
             json.dumps(geom),  # Pass as GeoJSON string
         )
         rows.append(row)
@@ -125,13 +131,13 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
     if not dry_run and rows:
         # Use execute_values with a template that converts GeoJSON to geometry
         template = """(
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)
         )"""
         execute_values(cursor, insert_sql, rows, template=template, page_size=100)
         conn.commit()
 
-    print(f"  Imported {len(rows)} ARTCC boundaries")
+    print(f"  Imported {len(rows)} ARTCC boundaries ({sub_count} sub-areas, {len(rows) - sub_count} FIRs)")
     print(f"  US ARTCCs found: {sorted(us_artccs)}")
 
     cursor.close()

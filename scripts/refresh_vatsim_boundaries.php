@@ -181,10 +181,13 @@ function transformVatspyToArtcc($sourceData) {
         }
         
         // Map VATSpy properties to ARTCC schema
+        $artccCode = $props['id'] ?? 'Unknown';
+        $isSubArea = (strpos($artccCode, '-') !== false);
+
         $newProps = [
             'fid' => $fid++,
-            'FIRname' => $props['id'] ?? 'Unknown',
-            'ICAOCODE' => $props['id'] ?? null,
+            'FIRname' => $artccCode,
+            'ICAOCODE' => $artccCode,
             'VATSIM Reg' => $props['region'] ?? null,
             'VATSIM Div' => $props['division'] ?? null,
             'VATSIM Sub' => $props['id'] ?? null,
@@ -196,6 +199,9 @@ function transformVatspyToArtcc($sourceData) {
             'oceanic' => isset($props['oceanic']) ? (int)$props['oceanic'] : 0,
             'label_lat' => isset($props['label_lat']) ? (float)$props['label_lat'] : null,
             'label_lon' => isset($props['label_lon']) ? (float)$props['label_lon'] : null,
+            // Hierarchy classification
+            'is_sub_area' => $isSubArea,
+            'parent_fir' => $isSubArea ? substr($artccCode, 0, strpos($artccCode, '-')) : null,
         ];
         
         $features[] = [

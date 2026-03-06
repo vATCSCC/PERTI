@@ -393,7 +393,7 @@ function importBoundary($conn, $data, $runId, $category) {
             echo "    DEBUG $boundaryCode: WKT length=$wktLength, points=$pointCount, type={$geometry['type']}\n";
         }
         
-        $sql = "EXEC sp_ImportBoundary 
+        $sql = "EXEC sp_ImportBoundary
                 @boundary_type = ?,
                 @boundary_code = ?,
                 @boundary_name = ?,
@@ -413,8 +413,9 @@ function importBoundary($conn, $data, $runId, $category) {
                 @shape_area = ?,
                 @source_object_id = ?,
                 @source_fid = ?,
-                @source_file = ?;";
-        
+                @source_file = ?,
+                @parent_fir = ?;";
+
         $params = [
             $data['boundary_type'], $data['boundary_code'], $data['boundary_name'] ?? null,
             $data['parent_artcc'] ?? null, $data['sector_number'] ?? null, $data['icao_code'] ?? null,
@@ -422,7 +423,8 @@ function importBoundary($conn, $data, $runId, $category) {
             $data['is_oceanic'] ?? 0, $data['floor_altitude'] ?? null, $data['ceiling_altitude'] ?? null,
             $data['label_lat'] ?? null, $data['label_lon'] ?? null, $wkt,
             $data['shape_length'] ?? null, $data['shape_area'] ?? null,
-            $data['source_object_id'] ?? null, $data['source_fid'] ?? null, $data['source_file'] ?? null
+            $data['source_object_id'] ?? null, $data['source_fid'] ?? null, $data['source_file'] ?? null,
+            $data['parent_fir'] ?? null
         ];
         
         $stmt = sqlsrv_query($conn, $sql, $params);
@@ -486,9 +488,17 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
     
     foreach ($geojson['features'] as $i => $feature) {
         $props = $feature['properties'];
+        $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
+
+        // Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
+        $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
+        $parentFir = $isSubArea
+            ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
+            : null;
+
         $result = importBoundary($conn, [
-            'boundary_type' => 'ARTCC',
-            'boundary_code' => $props['ICAOCODE'] ?? $props['FIRname'],
+            'boundary_type' => $isSubArea ? 'ARTCC_SUB' : 'ARTCC',
+            'boundary_code' => $boundaryCode,
             'boundary_name' => $props['FIRname'],
             'icao_code' => $props['ICAOCODE'] ?? null,
             'vatsim_region' => $props['VATSIM Reg'] ?? null,
@@ -501,7 +511,8 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
             'label_lon' => $props['label_lon'] ?? null,
             'geometry' => $feature['geometry'],
             'source_fid' => $props['fid'] ?? null,
-            'source_file' => 'artcc.json'
+            'source_file' => 'artcc.json',
+            'parent_fir' => $parentFir,
         ], $runId, 'artcc');
         
         if ($result) $stats['artcc']['imported']++;

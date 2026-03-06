@@ -78,7 +78,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     .status-atc-alert { background-color: #f59e0b; color: black; }
     .status-atc-limited { background-color: #3b82f6; color: white; }
     .status-non-responsive { background-color: #8b5cf6; color: white; }
-    .status-other { background-color: #6b7280; color: white; }
+    .status-other { background-color: #fef9c3; color: #713f12; }
     .paged-yes { color: #4ade80; font-weight: 700; font-size: 0.75rem; }
     .paged-no { color: #64748b; font-size: 0.75rem; }
 
@@ -385,7 +385,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     <div class="filter-bar">
         <div class="row align-items-end">
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.lifecycle') ?></label><select id="filterStatus" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ACTIVE" selected><?= __('jatoc.page.active') ?></option><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
-            <div class="col"><label class="small mb-0"><?= __('jatoc.page.facType') ?></label><select id="filterFacilityType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ARTCC">ARTCC</option><option value="TRACON">TRACON</option><option value="ATCT">ATCT</option></select></div>
+            <div class="col"><label class="small mb-0"><?= __('jatoc.page.facType') ?></label><select id="filterFacilityType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="FACILITY"><?= __('jatoc.page.facTypeFacility') ?></option><option value="ARTCC"><?= __('jatoc.page.facTypeArtcc') ?></option><option value="TRACON"><?= __('jatoc.page.facTypeTracon') ?></option><option value="ATCT"><?= __('jatoc.page.facTypeAtct') ?></option></select></div>
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.incType') ?></label><select id="filterIncidentType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option></select></div>
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.facility') ?></label><input type="text" id="filterFacility" class="form-control form-control-sm form-control-dark" placeholder="ZTL"></div>
             <div class="col-auto"><button class="btn btn-sm btn-jatoc" onclick="JATOC.applyFilters()" style="height:31px"><i class="fas fa-filter"></i> <?= __('jatoc.page.filter') ?></button></div>
@@ -522,7 +522,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                     <input type="hidden" id="incidentId">
                     <div class="row">
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incFacility') ?></label><input type="text" id="incidentFacility" class="form-control form-control-dark" placeholder="<?= __('jatoc.page.incFacilityPlaceholder') ?>" required></div>
-                        <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incType2') ?></label><select id="incidentFacilityType" class="form-control form-control-dark"><option value=""><?= __('jatoc.page.incSelect') ?></option><option value="ARTCC">ARTCC</option><option value="TRACON">TRACON</option><option value="ATCT">ATCT</option></select></div>
+                        <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incType2') ?></label><select id="incidentFacilityType" class="form-control form-control-dark"><option value=""><?= __('jatoc.page.incSelect') ?></option><option value="FACILITY"><?= __('jatoc.page.facTypeFacility') ?></option><option value="ARTCC"><?= __('jatoc.page.facTypeArtcc') ?></option><option value="TRACON"><?= __('jatoc.page.facTypeTracon') ?></option><option value="ATCT"><?= __('jatoc.page.facTypeAtct') ?></option></select></div>
                         <div class="col-md-4"><label class="small text-muted"><?= __('jatoc.page.incidentType') ?></label><select id="incidentStatus" class="form-control form-control-dark" required><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option><option value="OTHER"><?= __('jatoc.page.other') ?></option></select></div>
                     </div>
                     <div class="row mt-2">
@@ -547,7 +547,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
                         </div>
                         <div id="affectedFacilitiesTags" style="display:flex; flex-wrap:wrap; gap:3px; max-height:80px; overflow-y:auto; padding:4px 0; min-height:24px;"></div>
                         <div style="display:flex; gap:6px; align-items:center;">
-                            <input type="text" id="addFacilityInput" class="form-control form-control-dark form-control-sm" placeholder="Add facility code..." style="max-width:160px; font-size:0.75rem;">
+                            <input type="text" id="addFacilityInput" class="form-control form-control-dark form-control-sm" placeholder="<?= __('jatoc.page.addFacilityPlaceholder') ?>" style="max-width:160px; font-size:0.75rem;">
                             <a href="#" id="clearAllFacilities" class="small text-muted" style="white-space:nowrap; font-size:0.7rem;">Clear All</a>
                             <span id="affectedFacilityCount" class="small text-muted ml-auto" style="font-size:0.7rem;"></span>
                         </div>

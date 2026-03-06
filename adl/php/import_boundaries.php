@@ -62,9 +62,17 @@ class BoundaryImporter {
         
         foreach ($geojson['features'] as $i => $feature) {
             $props = $feature['properties'];
+            $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
+
+            // Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
+            $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
+            $parentFir = $isSubArea
+                ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
+                : null;
+
             $result = $this->importBoundary([
-                'boundary_type' => 'ARTCC',
-                'boundary_code' => $props['ICAOCODE'] ?? $props['FIRname'],
+                'boundary_type' => $isSubArea ? 'ARTCC_SUB' : 'ARTCC',
+                'boundary_code' => $boundaryCode,
                 'boundary_name' => $props['FIRname'],
                 'icao_code' => $props['ICAOCODE'],
                 'vatsim_region' => $props['VATSIM Reg'] ?? null,
@@ -77,7 +85,8 @@ class BoundaryImporter {
                 'label_lon' => $props['label_lon'],
                 'geometry' => $feature['geometry'],
                 'source_fid' => $props['fid'],
-                'source_file' => 'artcc.json'
+                'source_file' => 'artcc.json',
+                'parent_fir' => $parentFir,
             ]);
             
             if ($result) {
@@ -265,7 +274,7 @@ class BoundaryImporter {
             $wkt = $this->geojsonToWkt($data['geometry']);
             
             $sql = "DECLARE @boundary_id INT;
-                EXEC sp_ImportBoundary 
+                EXEC sp_ImportBoundary
                     @boundary_type = :boundary_type,
                     @boundary_code = :boundary_code,
                     @boundary_name = :boundary_name,
@@ -286,11 +295,12 @@ class BoundaryImporter {
                     @source_object_id = :source_object_id,
                     @source_fid = :source_fid,
                     @source_file = :source_file,
+                    @parent_fir = :parent_fir,
                     @boundary_id = @boundary_id OUTPUT;
                 SELECT @boundary_id as boundary_id;";
-            
+
             $stmt = $this->pdo->prepare($sql);
-            
+
             $stmt->bindValue(':boundary_type', $data['boundary_type']);
             $stmt->bindValue(':boundary_code', $data['boundary_code']);
             $stmt->bindValue(':boundary_name', $data['boundary_name'] ?? null);
@@ -311,7 +321,8 @@ class BoundaryImporter {
             $stmt->bindValue(':source_object_id', $data['source_object_id'] ?? null);
             $stmt->bindValue(':source_fid', $data['source_fid'] ?? null);
             $stmt->bindValue(':source_file', $data['source_file'] ?? null);
-            
+            $stmt->bindValue(':parent_fir', $data['parent_fir'] ?? null);
+
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             

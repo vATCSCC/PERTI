@@ -162,7 +162,7 @@
 
     const STATUS_COLORS = {
         'ATC_ZERO': '#dc2626', 'ATC_ALERT': '#f59e0b', 'ATC_LIMITED': '#3b82f6',
-        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#6b7280',
+        'NON_RESPONSIVE': '#8b5cf6', 'OTHER': '#fef08a',
     };
 
     const OPS_LEVEL_COLORS = {
@@ -185,6 +185,21 @@
         ASIA: { label: 'Asia', facilities: ['VABF','VECF','VIDF','VOMF','VCCF','VTBB','VLVT','VVHN','WMFC','WSJC','WIIF','RPHI','VHHK','ZBPE','ZSHA','ZGZU','RJJJ','RKRR','RCAA'] },
         OCE:  { label: 'Oceania', facilities: ['YMMM','YBBB','NZZO','NFFF','AGGG','PGUM','NTTT'] },
     };
+
+    // Build a flat set of all known facility codes for wildcard matching
+    const ALL_KNOWN_FACILITIES = new Set();
+    Object.values(PSEUDO_FACILITIES).forEach(r => r.facilities.forEach(f => ALL_KNOWN_FACILITIES.add(f)));
+
+    /**
+     * Expand a glob pattern (using * as wildcard) against known facilities.
+     * Examples: ED** → EDGG,EDMM,EDUU,EDWW  |  KZL* → KZLA,KZLC (if they exist)
+     * Returns matched codes array, or empty if no wildcards present.
+     */
+    function expandFacilityGlob(pattern) {
+        if (!pattern.includes('*')) return [];
+        const re = new RegExp('^' + pattern.replace(/\*/g, '.') + '$');
+        return [...ALL_KNOWN_FACILITIES].filter(f => re.test(f)).sort();
+    }
 
     // Affected facilities tag state
     const affectedFacilitiesSet = new Set();
@@ -272,8 +287,17 @@
                     e.preventDefault();
                     const val = addInput.value.trim().toUpperCase();
                     if (val) {
-                        // Support comma-separated entry
-                        val.split(',').forEach(c => { c = c.trim(); if (c) addFacilityTag(c); });
+                        // Support comma-separated entry with wildcard expansion
+                        val.split(',').forEach(c => {
+                            c = c.trim();
+                            if (!c) return;
+                            const expanded = expandFacilityGlob(c);
+                            if (expanded.length > 0) {
+                                expanded.forEach(f => addFacilityTag(f));
+                            } else {
+                                addFacilityTag(c);
+                            }
+                        });
                         addInput.value = '';
                     }
                 }

@@ -49,17 +49,20 @@ switch ($action) {
     /**
      * List boundaries by type
      * GET /api/adl/boundaries.php?action=list&type=ARTCC
+     * GET /api/adl/boundaries.php?action=list&type=ARTCC&include_sub=1  (includes ARTCC_SUB)
      */
     case 'list':
         $type = has_get('type') ? get_upper('type') : null;
         $artcc = has_get('artcc') ? get_upper('artcc') : null;
-        
-        $sql = "SELECT 
+        $includeSub = has_get('include_sub') ? (int)get_input('include_sub') : 0;
+
+        $sql = "SELECT
             boundary_id,
             boundary_type,
             boundary_code,
             boundary_name,
             parent_artcc,
+            parent_fir,
             sector_number,
             icao_code,
             vatsim_region,
@@ -69,20 +72,26 @@ switch ($action) {
             ceiling_altitude,
             label_lat,
             label_lon,
-            shape_area
+            shape_area,
+            CASE WHEN boundary_type = 'ARTCC_SUB' THEN 1 ELSE 0 END as is_sub_area
         FROM adl_boundary WHERE is_active = 1";
-        
+
         $params = [];
         if ($type) {
-            $sql .= " AND boundary_type = ?";
-            $params[] = $type;
+            if ($type === 'ARTCC' && $includeSub) {
+                $sql .= " AND boundary_type IN ('ARTCC', 'ARTCC_SUB')";
+            } else {
+                $sql .= " AND boundary_type = ?";
+                $params[] = $type;
+            }
         }
         if ($artcc) {
-            $sql .= " AND (parent_artcc = ? OR boundary_code = ?)";
+            $sql .= " AND (parent_artcc = ? OR parent_fir = ? OR boundary_code = ?)";
+            $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
         }
-        
+
         $sql .= " ORDER BY boundary_type, boundary_code";
         
         $stmt = sqlsrv_query($conn, $sql, $params);
@@ -101,17 +110,20 @@ switch ($action) {
     /**
      * Get GeoJSON for map display
      * GET /api/adl/boundaries.php?action=geojson&type=ARTCC
+     * GET /api/adl/boundaries.php?action=geojson&type=ARTCC&include_sub=1
      */
     case 'geojson':
         $type = has_get('type') ? get_upper('type') : null;
         $artcc = has_get('artcc') ? get_upper('artcc') : null;
-        
-        $sql = "SELECT 
+        $includeSub = has_get('include_sub') ? (int)get_input('include_sub') : 0;
+
+        $sql = "SELECT
             boundary_id,
             boundary_type,
             boundary_code,
             boundary_name,
             parent_artcc,
+            parent_fir,
             sector_number,
             icao_code,
             vatsim_region,
@@ -122,16 +134,21 @@ switch ($action) {
             label_lat,
             label_lon,
             boundary_geography.STAsText() as geometry_wkt
-        FROM adl_boundary 
+        FROM adl_boundary
         WHERE is_active = 1";
-        
+
         $params = [];
         if ($type) {
-            $sql .= " AND boundary_type = ?";
-            $params[] = $type;
+            if ($type === 'ARTCC' && $includeSub) {
+                $sql .= " AND boundary_type IN ('ARTCC', 'ARTCC_SUB')";
+            } else {
+                $sql .= " AND boundary_type = ?";
+                $params[] = $type;
+            }
         }
         if ($artcc) {
-            $sql .= " AND (parent_artcc = ? OR boundary_code = ?)";
+            $sql .= " AND (parent_artcc = ? OR parent_fir = ? OR boundary_code = ?)";
+            $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
         }
@@ -151,6 +168,8 @@ switch ($action) {
                     'boundary_code' => $row['boundary_code'],
                     'boundary_name' => $row['boundary_name'],
                     'parent_artcc' => $row['parent_artcc'],
+                    'parent_fir' => $row['parent_fir'],
+                    'is_sub_area' => ($row['boundary_type'] === 'ARTCC_SUB'),
                     'sector_number' => $row['sector_number'],
                     'icao_code' => $row['icao_code'],
                     'vatsim_region' => $row['vatsim_region'],
