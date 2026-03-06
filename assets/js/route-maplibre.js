@@ -2712,23 +2712,38 @@ $(document).ready(function() {
         const airwayNames = filterVal.split(' ').filter(Boolean);
         if (!awyIndexBuilt) {buildAirwayIndex();}
 
+        // Use map viewport to filter globally-duplicated airways
+        const bounds = graphic_map.getBounds();
+        const bWest = bounds.getWest(), bEast = bounds.getEast();
+        const bSouth = bounds.getSouth(), bNorth = bounds.getNorth();
+
         const features = [];
         airwayNames.forEach(name => {
             const variants = awyIndexMap[name];
             if (!variants) {return;}
             variants.forEach(variant => {
                 const coords = [];
-                variant.fixes.forEach(fixName => {
-                    const pt = getPointByName(fixName);
-                    if (pt && pt.length >= 3) {coords.push([pt[2], pt[1]]);}
-                });
-                if (coords.length >= 2) {
-                    features.push({
-                        type: 'Feature',
-                        properties: { name },
-                        geometry: { type: 'LineString', coordinates: coords },
-                    });
+                let prevPt = null;
+                // Resolve fixes sequentially with context so duplicated names
+                // disambiguate to the same geographic region
+                for (let i = 0; i < variant.fixes.length; i++) {
+                    const nextFixName = variant.fixes[i + 1];
+                    const nextHint = nextFixName ? getPointByName(nextFixName) : null;
+                    const pt = getPointByName(variant.fixes[i], prevPt, nextHint);
+                    if (pt && pt.length >= 3) {
+                        coords.push([pt[2], pt[1]]);
+                        prevPt = pt;
+                    }
                 }
+                if (coords.length < 2) {return;}
+                // Only include variants that intersect the current map viewport
+                const inView = coords.some(c => c[0] >= bWest && c[0] <= bEast && c[1] >= bSouth && c[1] <= bNorth);
+                if (!inView) {return;}
+                features.push({
+                    type: 'Feature',
+                    properties: { name },
+                    geometry: { type: 'LineString', coordinates: coords },
+                });
             });
         });
 
