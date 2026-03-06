@@ -2706,39 +2706,65 @@ $(document).ready(function() {
         });
     }
 
+    function resolveVariantFixes(variant) {
+        const fixes = variant.fixes;
+        const resolved = new Array(fixes.length);
+
+        // Pass 1: find an unambiguous anchor fix (only 1 occurrence in DB)
+        let anchorIdx = -1;
+        for (let i = 0; i < fixes.length; i++) {
+            if (countOccurrencesOfPointName(fixes[i]) === 1) {
+                resolved[i] = getPointByName(fixes[i]);
+                if (resolved[i]) {anchorIdx = i; break;}
+            }
+        }
+
+        // If no unambiguous fix, just use the first resolvable fix as anchor
+        if (anchorIdx === -1) {
+            for (let i = 0; i < fixes.length; i++) {
+                resolved[i] = getPointByName(fixes[i]);
+                if (resolved[i]) {anchorIdx = i; break;}
+            }
+        }
+        if (anchorIdx === -1) {return null;}
+
+        // Pass 2: walk forward from anchor with sequential context
+        for (let i = anchorIdx + 1; i < fixes.length; i++) {
+            resolved[i] = getPointByName(fixes[i], resolved[i - 1], null);
+        }
+        // Walk backward from anchor
+        for (let i = anchorIdx - 1; i >= 0; i--) {
+            resolved[i] = getPointByName(fixes[i], null, resolved[i + 1]);
+        }
+
+        // Build coords and check coherence (skip if any segment > 3000km)
+        const coords = [];
+        for (let i = 0; i < fixes.length; i++) {
+            const pt = resolved[i];
+            if (pt && pt.length >= 3) {
+                if (coords.length > 0) {
+                    const prev = coords[coords.length - 1];
+                    if (distanceToPoint(prev[1], prev[0], pt[1], pt[2]) > 3000) {return null;}
+                }
+                coords.push([pt[2], pt[1]]);
+            }
+        }
+        return coords.length >= 2 ? coords : null;
+    }
+
     function updateFilteredAirways() {
         if (!mapReady || !graphic_map) {return;}
         const filterVal = ($('#filter').val() || '').toUpperCase();
         const airwayNames = filterVal.split(' ').filter(Boolean);
         if (!awyIndexBuilt) {buildAirwayIndex();}
 
-        // Use map viewport to filter globally-duplicated airways
-        const bounds = graphic_map.getBounds();
-        const bWest = bounds.getWest(), bEast = bounds.getEast();
-        const bSouth = bounds.getSouth(), bNorth = bounds.getNorth();
-
         const features = [];
         airwayNames.forEach(name => {
             const variants = awyIndexMap[name];
             if (!variants) {return;}
             variants.forEach(variant => {
-                const coords = [];
-                let prevPt = null;
-                // Resolve fixes sequentially with context so duplicated names
-                // disambiguate to the same geographic region
-                for (let i = 0; i < variant.fixes.length; i++) {
-                    const nextFixName = variant.fixes[i + 1];
-                    const nextHint = nextFixName ? getPointByName(nextFixName) : null;
-                    const pt = getPointByName(variant.fixes[i], prevPt, nextHint);
-                    if (pt && pt.length >= 3) {
-                        coords.push([pt[2], pt[1]]);
-                        prevPt = pt;
-                    }
-                }
-                if (coords.length < 2) {return;}
-                // Only include variants that intersect the current map viewport
-                const inView = coords.some(c => c[0] >= bWest && c[0] <= bEast && c[1] >= bSouth && c[1] <= bNorth);
-                if (!inView) {return;}
+                const coords = resolveVariantFixes(variant);
+                if (!coords) {return;}
                 features.push({
                     type: 'Feature',
                     properties: { name },
