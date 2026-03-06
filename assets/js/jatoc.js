@@ -715,7 +715,7 @@
 
                 // Add ARTCC/FIR labels via shared utility
                 if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(state.map, state.boundaryData.artcc, { visible: true });
+                    PERTIArtccLabels.addToMap(state.map, { source: 'artcc', visible: true });
                 }
             }
 

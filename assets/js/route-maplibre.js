@@ -1398,7 +1398,7 @@ $(document).ready(function() {
                     graphic_map.getSource('artcc').setData(data);
                 }
                 if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(graphic_map, data, { visible: false });
+                    PERTIArtccLabels.addToMap(graphic_map, { source: 'artcc', visible: false });
                 }
             })
             .catch(err => console.error('[MAPLIBRE] Failed to load artcc:', err));

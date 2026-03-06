@@ -1,26 +1,24 @@
 /**
  * ARTCC/FIR Label Utility for MapLibre GL maps.
  *
- * Adds ARTCC/FIR code labels centered on each boundary polygon.
- * Uses label_lat/label_lon from the artcc.json GeoJSON properties.
+ * Adds a symbol layer on an existing ARTCC polygon source to render
+ * facility code labels at each polygon centroid (MapLibre native placement).
  *
  * Usage:
- *   PERTIArtccLabels.addToMap(map, artccGeoJsonData, { visible: false });
- *   PERTIArtccLabels.toggle(map, true);  // show
- *   PERTIArtccLabels.toggle(map, false); // hide
+ *   PERTIArtccLabels.addToMap(map, { source: 'artcc', visible: false });
+ *   PERTIArtccLabels.toggle(map, true);
  *
- * Or load + add in one call (fetches artcc.json if data not available):
+ * Or load artcc.json + add source + labels in one call:
  *   PERTIArtccLabels.loadAndAdd(map, { visible: true });
  */
 window.PERTIArtccLabels = (function() {
     'use strict';
 
-    const SOURCE_ID = 'artcc-label-points';
-    const LAYER_ID  = 'artcc-labels';
+    var LAYER_ID = 'artcc-labels';
+    var DEFAULT_SOURCE = 'artcc-label-src';
 
     /**
      * Pick a bold font that works with the map's glyph server.
-     * CartoDB → Open Sans Bold; demotiles/protomaps → Noto Sans Bold.
      */
     function pickFont(map) {
         try {
@@ -33,55 +31,40 @@ window.PERTIArtccLabels = (function() {
     }
 
     /**
-     * Build a point FeatureCollection from artcc polygon features.
-     * Deduplicates by ICAOCODE, strips K-prefix for US ARTCCs.
+     * MapLibre expression: strips K-prefix for US ARTCCs (KZLA→ZLA),
+     * passes through all other ICAO codes unchanged.
      */
-    function buildLabelPoints(artccData) {
-        const seen = {};
-        const features = [];
-        (artccData.features || []).forEach(function(f) {
-            var props = f.properties || {};
-            var code = props.ICAOCODE || '';
-            var lat  = props.label_lat;
-            var lon  = props.label_lon;
-            if (!code || lat == null || lon == null || seen[code]) return;
-            seen[code] = true;
-            // Display code: strip K-prefix for US ARTCCs (KZLA→ZLA)
-            var displayCode = code;
-            if (code.length === 4 && code.charAt(0) === 'K') {
-                displayCode = code.substring(1);
-            }
-            features.push({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [lon, lat] },
-                properties: { code: code, displayCode: displayCode },
-            });
-        });
-        return { type: 'FeatureCollection', features: features };
-    }
+    var displayCodeExpr = [
+        'case',
+        ['all',
+            ['==', ['length', ['get', 'ICAOCODE']], 4],
+            ['==', ['slice', ['get', 'ICAOCODE'], 0, 1], 'K']
+        ],
+        ['slice', ['get', 'ICAOCODE'], 1],
+        ['get', 'ICAOCODE']
+    ];
 
     /**
-     * Add ARTCC label source + layer to a MapLibre map.
+     * Add ARTCC label symbol layer on an existing polygon source.
      * @param {maplibregl.Map} map
-     * @param {Object} artccGeoJsonData - Parsed artcc.json FeatureCollection
      * @param {Object} [opts]
-     * @param {boolean} [opts.visible=false] - Initial visibility
+     * @param {string} [opts.source] - Source ID of the ARTCC polygon data
+     * @param {boolean} [opts.visible=false]
      */
-    function addToMap(map, artccGeoJsonData, opts) {
+    function addToMap(map, opts) {
         opts = opts || {};
+        var sourceId = opts.source || DEFAULT_SOURCE;
         var visible = opts.visible === true;
 
-        if (map.getSource(SOURCE_ID)) return; // Already added
+        if (map.getLayer(LAYER_ID)) return;
+        if (!map.getSource(sourceId)) return;
 
-        var labelData = buildLabelPoints(artccGeoJsonData);
-
-        map.addSource(SOURCE_ID, { type: 'geojson', data: labelData });
         map.addLayer({
             id: LAYER_ID,
             type: 'symbol',
-            source: SOURCE_ID,
+            source: sourceId,
             layout: {
-                'text-field': ['get', 'displayCode'],
+                'text-field': displayCodeExpr,
                 'text-font': opts.font || pickFont(map),
                 'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18],
                 'text-allow-overlap': false,
@@ -96,14 +79,10 @@ window.PERTIArtccLabels = (function() {
                 'text-opacity': 0.7,
             },
         });
-
-        console.log('[ARTCC-LABELS] Added', labelData.features.length, 'labels to map');
     }
 
     /**
      * Toggle ARTCC label visibility.
-     * @param {maplibregl.Map} map
-     * @param {boolean} visible
      */
     function toggle(map, visible) {
         if (map.getLayer(LAYER_ID)) {
@@ -112,16 +91,26 @@ window.PERTIArtccLabels = (function() {
     }
 
     /**
-     * Fetch artcc.json and add labels to map in one call.
-     * @param {maplibregl.Map} map
-     * @param {Object} [opts]
-     * @param {boolean} [opts.visible=false]
+     * Fetch artcc.json, add as source if needed, then add label layer.
+     * For pages that don't already load ARTCC boundary data.
      */
     function loadAndAdd(map, opts) {
+        opts = opts || {};
+        var sourceId = opts.source || DEFAULT_SOURCE;
+
+        if (map.getSource(sourceId)) {
+            addToMap(map, opts);
+            return;
+        }
+
         fetch('assets/geojson/artcc.json')
             .then(function(r) { return r.ok ? r.json() : null; })
             .then(function(data) {
-                if (data) addToMap(map, data, opts);
+                if (!data) return;
+                if (!map.getSource(sourceId)) {
+                    map.addSource(sourceId, { type: 'geojson', data: data });
+                }
+                addToMap(map, { source: sourceId, visible: opts.visible, font: opts.font });
             })
             .catch(function(err) {
                 console.warn('[ARTCC-LABELS] Failed to load artcc.json:', err);
@@ -129,9 +118,7 @@ window.PERTIArtccLabels = (function() {
     }
 
     return {
-        SOURCE_ID: SOURCE_ID,
         LAYER_ID: LAYER_ID,
-        buildLabelPoints: buildLabelPoints,
         addToMap: addToMap,
         toggle: toggle,
         loadAndAdd: loadAndAdd,

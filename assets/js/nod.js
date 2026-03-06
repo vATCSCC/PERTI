@@ -623,9 +623,9 @@
 
         }
 
-        // Add ARTCC/FIR labels via shared utility (fetches artcc.json independently)
+        // Add ARTCC/FIR labels via shared utility on existing polygon source
         if (typeof PERTIArtccLabels !== 'undefined') {
-            PERTIArtccLabels.loadAndAdd(state.map, { visible: state.layers.artcc !== false });
+            PERTIArtccLabels.addToMap(state.map, { source: 'artcc-source', visible: state.layers.artcc !== false });
         }
 
         // =========================================

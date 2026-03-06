@@ -566,9 +566,9 @@ function loadBoundaryLayers() {
                 },
             }, 'sua-area-fill'); // Insert below SUA fill layer
 
-            // Add ARTCC/FIR labels via shared utility
+            // Add ARTCC/FIR labels via shared utility on existing polygon source
             if (config.id === 'artcc' && typeof PERTIArtccLabels !== 'undefined') {
-                PERTIArtccLabels.addToMap(suaMap, data, { visible: config.visible });
+                PERTIArtccLabels.addToMap(suaMap, { source: 'boundary-artcc', visible: config.visible });
             }
 
             console.log('Loaded boundary layer:', config.id, '- features:', data.features ? data.features.length : 0);

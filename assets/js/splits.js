@@ -405,9 +405,9 @@ const SplitsController = {
                     },
                 }, 'sectors-fill');
 
-                // Add ARTCC/FIR labels via shared utility
+                // Add ARTCC/FIR labels via shared utility on existing polygon source
                 if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(this.map, this.geoJsonCache.artcc, { visible: true });
+                    PERTIArtccLabels.addToMap(this.map, { source: 'artcc-source', visible: true });
                 }
 
                 console.log('[SPLITS] ARTCC layers added successfully');
