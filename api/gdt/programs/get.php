@@ -144,9 +144,20 @@ if ($include_counts) {
         WHERE program_id = ?
     ", [$program_id]);
     
+    // Gaming flag breakdown
+    $gaming_counts_result = fetch_one($conn_tmi, "
+        SELECT
+            SUM(CASE WHEN gaming_flag = 'MULTI_FILING' THEN 1 ELSE 0 END) AS multi_filing,
+            SUM(CASE WHEN gaming_flag = 'DEST_SWITCH' THEN 1 ELSE 0 END) AS dest_switch,
+            SUM(CASE WHEN gaming_flag = 'LATE_STRATEGIC' THEN 1 ELSE 0 END) AS late_strategic
+        FROM dbo.tmi_flight_control
+        WHERE program_id = ? AND gaming_flag IS NOT NULL
+    ", [$program_id]);
+
     $response_data['counts'] = [
         'slots' => $slot_counts_result['success'] ? $slot_counts_result['data'] : null,
-        'flights' => $flight_counts_result['success'] ? $flight_counts_result['data'] : null
+        'flights' => $flight_counts_result['success'] ? $flight_counts_result['data'] : null,
+        'gaming' => $gaming_counts_result['success'] ? $gaming_counts_result['data'] : null
     ];
 }
 

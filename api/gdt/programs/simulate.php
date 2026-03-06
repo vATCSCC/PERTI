@@ -4,11 +4,12 @@
  * 
  * POST /api/gdt/programs/simulate.php
  * 
- * Generates slots and runs RBS (Ration By Schedule) algorithm to assign
- * flights to slots. This is the core modeling step before activation.
- * 
+ * Generates slots and runs FPFS+RBD (First-Planned-First-Served with
+ * Ration-By-Distance tiebreaker) algorithm to assign flights to slots.
+ * This is the core modeling step before activation.
+ *
  * For GDP programs: Generates slots, queries matching flights from ADL,
- * and runs sp_TMI_AssignFlightsRBS.
+ * and runs sp_TMI_AssignFlightsFPFS.
  * 
  * For GS programs: Queries matching flights and runs sp_TMI_ApplyGroundStop.
  * 
@@ -350,7 +351,10 @@ $flights_sql = "
         ete_minutes,
         ac_cat AS aircraft_type,
         phase,
-        gs_flag
+        gs_flag,
+        -- Distance to destination for RBD tiebreaker (FPFS algorithm)
+        -- Airborne: actual remaining distance; pre-departure: GCD from origin
+        COALESCE(dist_to_dest_nm, gcd_nm) AS dist_to_dest_nm
     FROM dbo.vw_adl_flights
     {$where_sql}
     ORDER BY eta_runway_utc ASC, flight_uid ASC
@@ -427,7 +431,8 @@ foreach ($adl_flights as $flight) {
         'aircraft_type' => $flight['aircraft_type'],
         'flight_status' => $flight['phase'] ?? null,
         'is_exempt' => $is_exempt ? 1 : 0,
-        'exempt_reason' => $exempt_reason
+        'exempt_reason' => $exempt_reason,
+        'dist_to_dest_nm' => $flight['dist_to_dest_nm'] ?? null
     ];
 }
 
@@ -459,7 +464,8 @@ if (count($flights_for_sp) > 0) {
             aircraft_type NVARCHAR(8),
             flight_status NVARCHAR(16),
             is_exempt BIT,
-            exempt_reason NVARCHAR(32)
+            exempt_reason NVARCHAR(32),
+            dist_to_dest_nm FLOAT
         );
     ";
     
@@ -473,30 +479,35 @@ if (count($flights_for_sp) > 0) {
     }
     sqlsrv_free_stmt($temp_stmt);
     
-    // Insert flights in batches
-    foreach ($flights_for_sp as $f) {
-        $ins_sql = "
-            INSERT INTO #FlightList (flight_uid, callsign, eta_utc, etd_utc, dep_airport, arr_airport, dep_center, arr_center, carrier, aircraft_type, flight_status, is_exempt, exempt_reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ";
-        $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, [
-            $f['flight_uid'],
-            $f['callsign'],
-            $f['eta_utc'],
-            $f['etd_utc'],
-            $f['dep_airport'],
-            $f['arr_airport'],
-            $f['dep_center'],
-            $f['arr_center'],
-            $f['carrier'],
-            $f['aircraft_type'],
-            $f['flight_status'],
-            $f['is_exempt'],
-            $f['exempt_reason']
-        ]);
+    // Insert flights in batches of 50 (700 params per batch, well under sqlsrv limits)
+    $batch_size = 50;
+    $cols = 'flight_uid, callsign, eta_utc, etd_utc, dep_airport, arr_airport, dep_center, arr_center, carrier, aircraft_type, flight_status, is_exempt, exempt_reason, dist_to_dest_nm';
+    $chunks = array_chunk($flights_for_sp, $batch_size);
+
+    foreach ($chunks as $batch) {
+        $value_rows = [];
+        $batch_params = [];
+        foreach ($batch as $f) {
+            $value_rows[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $batch_params[] = $f['flight_uid'];
+            $batch_params[] = $f['callsign'];
+            $batch_params[] = $f['eta_utc'];
+            $batch_params[] = $f['etd_utc'];
+            $batch_params[] = $f['dep_airport'];
+            $batch_params[] = $f['arr_airport'];
+            $batch_params[] = $f['dep_center'];
+            $batch_params[] = $f['arr_center'];
+            $batch_params[] = $f['carrier'];
+            $batch_params[] = $f['aircraft_type'];
+            $batch_params[] = $f['flight_status'];
+            $batch_params[] = $f['is_exempt'];
+            $batch_params[] = $f['exempt_reason'];
+            $batch_params[] = $f['dist_to_dest_nm'];
+        }
+        $ins_sql = "INSERT INTO #FlightList ({$cols}) VALUES " . implode(', ', $value_rows);
+        $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $batch_params);
         if ($ins_stmt === false) {
-            // Log but continue
-            error_log("Failed to insert flight: " . json_encode(sqlsrv_errors()));
+            error_log("Failed to batch-insert flights: " . json_encode(sqlsrv_errors()));
         } else {
             sqlsrv_free_stmt($ins_stmt);
         }
@@ -575,10 +586,12 @@ if (count($flights_for_sp) > 0) {
         ];
         $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $ins_params);
         if ($ins_stmt === false) {
+            $err = sqlsrv_errors();
+            sqlsrv_query($conn_tmi, "IF OBJECT_ID('tempdb..#FlightList') IS NOT NULL DROP TABLE #FlightList");
             respond_json(500, [
                 'status' => 'error',
                 'message' => 'Failed to insert GS flight control records',
-                'errors' => sqlsrv_errors()
+                'errors' => $err
             ]);
         }
         sqlsrv_free_stmt($ins_stmt);
@@ -611,14 +624,14 @@ if (count($flights_for_sp) > 0) {
         if ($drop_stmt !== false) sqlsrv_free_stmt($drop_stmt);
 
     } else {
-        // GDP/AFP path: use stored procedure for RBS slot assignment
+        // GDP/AFP path: use FPFS+RBD stored procedure for slot assignment
         $exec_sql = "
             DECLARE @assigned_count INT, @exempt_count INT;
 
             DECLARE @flights dbo.FlightListType;
             INSERT INTO @flights SELECT * FROM #FlightList;
 
-            EXEC dbo.sp_TMI_AssignFlightsRBS
+            EXEC dbo.sp_TMI_AssignFlightsFPFS
                 @program_id = ?,
                 @flights = @flights,
                 @assigned_count = @assigned_count OUTPUT,
@@ -632,10 +645,13 @@ if (count($flights_for_sp) > 0) {
         $exec_stmt = sqlsrv_query($conn_tmi, $exec_sql, [$program_id]);
 
         if ($exec_stmt === false) {
+            $err = sqlsrv_errors();
+            // #FlightList is dropped inside exec_sql, but if it failed before that:
+            sqlsrv_query($conn_tmi, "IF OBJECT_ID('tempdb..#FlightList') IS NOT NULL DROP TABLE #FlightList");
             respond_json(500, [
                 'status' => 'error',
                 'message' => 'Failed to execute assignment procedure',
-                'errors' => sqlsrv_errors()
+                'errors' => $err
             ]);
         }
 
@@ -646,18 +662,42 @@ if (count($flights_for_sp) > 0) {
         }
         sqlsrv_free_stmt($exec_stmt);
 
-        // Update program metrics for GDP path (same as GS path does)
-        execute_query($conn_tmi, "
-            UPDATE dbo.tmi_programs
-            SET total_flights = (SELECT COUNT(*) FROM dbo.tmi_flight_control WHERE program_id = ?),
-                controlled_flights = (SELECT ISNULL(SUM(CASE WHEN ctl_exempt = 0 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
-                exempt_flights = (SELECT ISNULL(SUM(CASE WHEN ctl_exempt = 1 THEN 1 ELSE 0 END), 0) FROM dbo.tmi_flight_control WHERE program_id = ?),
-                avg_delay_min = (SELECT ISNULL(AVG(CAST(program_delay_min AS DECIMAL(8,2))), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
-                max_delay_min = (SELECT ISNULL(MAX(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
-                total_delay_min = (SELECT ISNULL(SUM(program_delay_min), 0) FROM dbo.tmi_flight_control WHERE program_id = ? AND ctl_exempt = 0),
-                updated_at = SYSUTCDATETIME()
-            WHERE program_id = ?
-        ", [$program_id, $program_id, $program_id, $program_id, $program_id, $program_id, $program_id]);
+        // Note: sp_TMI_AssignFlightsFPFS already updates tmi_programs metrics
+        // (excluding UNASSIGNED flights from delay averages via slot_id IS NOT NULL)
+
+        // Populate filing_time_utc from ADL (cross-DB bridge for fairness metrics)
+        // filing_time_utc = adl_flight_core.first_seen_utc (best proxy on VATSIM)
+        if (!$dry_run) {
+            $missing_ft = fetch_all($conn_tmi,
+                "SELECT control_id, flight_uid FROM dbo.tmi_flight_control
+                 WHERE program_id = ? AND filing_time_utc IS NULL AND flight_uid IS NOT NULL",
+                [$program_id]
+            );
+            if ($missing_ft['success'] && count($missing_ft['data']) > 0) {
+                $ft_uids = array_column($missing_ft['data'], 'flight_uid');
+                $ft_map = [];
+                foreach ($missing_ft['data'] as $row) {
+                    $ft_map[$row['flight_uid']] = $row['control_id'];
+                }
+                foreach (array_chunk($ft_uids, 100) as $chunk) {
+                    $ph = implode(',', array_fill(0, count($chunk), '?'));
+                    $adl_ft = fetch_all($conn_adl,
+                        "SELECT flight_uid, first_seen_utc FROM dbo.adl_flight_core WHERE flight_uid IN ({$ph})",
+                        $chunk
+                    );
+                    if ($adl_ft['success']) {
+                        foreach ($adl_ft['data'] as $r) {
+                            if ($r['first_seen_utc'] !== null && isset($ft_map[$r['flight_uid']])) {
+                                execute_query($conn_tmi,
+                                    "UPDATE dbo.tmi_flight_control SET filing_time_utc = ? WHERE control_id = ?",
+                                    [$r['first_seen_utc'], $ft_map[$r['flight_uid']]]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 } // end if (count($flights_for_sp) > 0)
 

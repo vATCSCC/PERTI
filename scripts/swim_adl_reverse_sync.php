@@ -2,26 +2,28 @@
 /**
  * SWIM to ADL Reverse Sync
  *
- * Propagates SimTraffic flight times from SWIM back to ADL normalized tables.
- * This enables the new architecture where SimTraffic times flow through VATSWIM first.
+ * Propagates SimTraffic flight times and CDM milestones from SWIM back to ADL.
+ * This enables the new architecture where external data flows through VATSWIM first.
  *
  * Flow: SimTraffic API -> SWIM Ingest -> swim_flights -> THIS SCRIPT -> ADL tables
+ * Flow: vACDM/CDM Plugin -> CDM Ingest -> swim_flights -> THIS SCRIPT -> ADL tables
  *
  * Target ADL tables:
- *   - adl_flight_times: OOOI times, ETAs, controlled times
+ *   - adl_flight_times: OOOI times, ETAs, controlled times, CDM milestones
  *   - adl_flight_tmi: Metering delay, sequence, etc.
  *   - adl_flight_plan: Arrival runway, metering fix
  *
  * Features:
  *   - Delta sync: Only processes flights updated since last sync
- *   - Source tracking: Records SimTraffic as the source
+ *   - Source tracking: Records SimTraffic/CDM source as the source
+ *   - CDM freshness check: Only updates if SWIM data is newer than ADL
  *   - Idempotent: Safe to run multiple times
  *
  * @package PERTI
  * @subpackage SWIM
- * @version 2.0.0
+ * @version 3.0.0
  * @since 2026-01-27
- * @updated 2026-01-27 - FIXM cutover: SWIM uses FIXM columns, ADL keeps legacy columns
+ * @updated 2026-03-05 - Added CDM milestone reverse sync with freshness check
  */
 
 // Can be run standalone or included
@@ -31,8 +33,9 @@ if (!defined('PERTI_LOADED')) {
     require_once __DIR__ . '/../load/connect.php';
 }
 
-// Sync state file for tracking last sync time
+// Sync state files for tracking last sync time
 define('REVERSE_SYNC_STATE_FILE', sys_get_temp_dir() . '/perti_swim_adl_reverse_sync.json');
+define('CDM_REVERSE_SYNC_STATE_FILE', sys_get_temp_dir() . '/perti_swim_adl_cdm_reverse_sync.json');
 
 /**
  * Main reverse sync function
@@ -170,14 +173,20 @@ function swim_adl_reverse_sync($force = false) {
             save_last_reverse_sync_time($latestSync);
         }
 
+        // Step 5: Run CDM reverse sync
+        $cdm_result = swim_adl_cdm_reverse_sync($force);
+        $stats['cdm_checked'] = $cdm_result['stats']['flights_checked'] ?? 0;
+        $stats['cdm_synced'] = $cdm_result['stats']['flights_synced'] ?? 0;
+
         $stats['duration_ms'] = round((microtime(true) - $stats['start_time']) * 1000);
 
         return [
             'success' => true,
             'message' => sprintf(
-                'Reverse sync: %d flights, %d times, %d tmi, %d plan updated in %dms',
+                'Reverse sync: %d flights, %d times, %d tmi, %d plan updated, %d CDM synced in %dms',
                 $stats['flights_synced'], $stats['times_updated'],
-                $stats['tmi_updated'], $stats['plan_updated'], $stats['duration_ms']
+                $stats['tmi_updated'], $stats['plan_updated'],
+                $stats['cdm_synced'], $stats['duration_ms']
             ),
             'stats' => $stats
         ];
@@ -430,6 +439,220 @@ function sync_flight_to_adl($conn_adl, $swimFlight) {
         'tmi_updated' => $tmi_updated,
         'plan_updated' => $plan_updated
     ];
+}
+
+/**
+ * CDM Reverse Sync: Propagates CDM milestone data from swim_flights to adl_flight_times
+ *
+ * Handles TOBT/TSAT/TTOT/TLDT/ASAT/EXOT fields written by vACDM, CDM Plugin, or vATCSCC.
+ * Includes freshness check: only updates if swim_flights.cdm_updated_at > adl_flight_times.cdm_updated_utc
+ *
+ * @param bool $force Force full sync (ignore last sync time)
+ * @return array ['success' => bool, 'stats' => array]
+ */
+function swim_adl_cdm_reverse_sync($force = false) {
+    global $conn_adl, $conn_swim;
+
+    $stats = [
+        'flights_checked' => 0,
+        'flights_synced' => 0,
+        'skipped_stale' => 0,
+        'not_found' => 0,
+        'errors' => 0
+    ];
+
+    if (!$conn_adl || !$conn_swim) {
+        return ['success' => false, 'stats' => $stats];
+    }
+
+    try {
+        // Get last CDM sync time
+        $lastSync = $force ? null : get_cdm_reverse_sync_time();
+        $lastSyncStr = $lastSync ? $lastSync->format('Y-m-d H:i:s') : '2000-01-01 00:00:00';
+
+        // Query SWIM for CDM-updated flights (any cdm_source, not just simtraffic)
+        $sql = "
+            SELECT
+                sf.flight_uid,
+                sf.callsign,
+                sf.fp_dept_icao,
+                sf.fp_dest_icao,
+                -- CDM milestone times
+                sf.target_off_block_time,
+                sf.target_startup_approval_time,
+                sf.target_takeoff_time,
+                sf.target_landing_time,
+                sf.actual_startup_approval_time,
+                sf.expected_taxi_out_time,
+                -- CDM tracking
+                sf.cdm_source,
+                sf.cdm_updated_at
+            FROM dbo.swim_flights sf
+            WHERE sf.cdm_source IS NOT NULL
+              AND sf.cdm_updated_at > ?
+              AND sf.is_active = 1
+            ORDER BY sf.cdm_updated_at ASC
+        ";
+
+        $stmt = sqlsrv_query($conn_swim, $sql, [$lastSyncStr]);
+        if ($stmt === false) {
+            return ['success' => false, 'stats' => $stats];
+        }
+
+        $flights = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $flights[] = $row;
+        }
+        sqlsrv_free_stmt($stmt);
+
+        $stats['flights_checked'] = count($flights);
+
+        if (count($flights) === 0) {
+            return ['success' => true, 'stats' => $stats];
+        }
+
+        // Batch lookup: get current cdm_updated_utc from ADL for freshness check
+        $flight_uids = array_column($flights, 'flight_uid');
+        $adl_cdm_times = [];
+
+        // Process in chunks of 500 to avoid parameter limits
+        foreach (array_chunk($flight_uids, 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $adl_sql = "SELECT flight_uid, cdm_updated_utc FROM dbo.adl_flight_times WHERE flight_uid IN ({$placeholders})";
+            $adl_stmt = sqlsrv_query($conn_adl, $adl_sql, $chunk);
+            if ($adl_stmt !== false) {
+                while ($row = sqlsrv_fetch_array($adl_stmt, SQLSRV_FETCH_ASSOC)) {
+                    $adl_cdm_times[$row['flight_uid']] = $row['cdm_updated_utc'];
+                }
+                sqlsrv_free_stmt($adl_stmt);
+            }
+        }
+
+        $latestSync = null;
+
+        foreach ($flights as $swimFlight) {
+            try {
+                $uid = $swimFlight['flight_uid'];
+                $swim_updated = $swimFlight['cdm_updated_at'];
+
+                // Freshness check: skip if ADL already has newer or equal CDM data
+                if (isset($adl_cdm_times[$uid]) && $adl_cdm_times[$uid] !== null) {
+                    $adl_ts = ($adl_cdm_times[$uid] instanceof DateTime)
+                        ? $adl_cdm_times[$uid]
+                        : new DateTime($adl_cdm_times[$uid]);
+                    $swim_ts = ($swim_updated instanceof DateTime)
+                        ? $swim_updated
+                        : new DateTime($swim_updated);
+
+                    if ($adl_ts >= $swim_ts) {
+                        $stats['skipped_stale']++;
+                        continue;
+                    }
+                } elseif (!isset($adl_cdm_times[$uid]) && !array_key_exists($uid, $adl_cdm_times)) {
+                    // Flight doesn't exist in adl_flight_times at all
+                    $stats['not_found']++;
+                    continue;
+                }
+
+                // Build CDM update for adl_flight_times
+                $updates = [];
+                $params = [];
+
+                if ($swimFlight['target_off_block_time']) {
+                    $updates[] = 'tobt_utc = ?';
+                    $params[] = format_datetime($swimFlight['target_off_block_time']);
+                }
+                if ($swimFlight['target_startup_approval_time']) {
+                    $updates[] = 'tsat_utc = ?';
+                    $params[] = format_datetime($swimFlight['target_startup_approval_time']);
+                }
+                if ($swimFlight['target_takeoff_time']) {
+                    $updates[] = 'ttot_utc = ?';
+                    $params[] = format_datetime($swimFlight['target_takeoff_time']);
+                }
+                if ($swimFlight['target_landing_time']) {
+                    $updates[] = 'tldt_utc = ?';
+                    $params[] = format_datetime($swimFlight['target_landing_time']);
+                }
+                if ($swimFlight['actual_startup_approval_time']) {
+                    $updates[] = 'asat_utc = ?';
+                    $params[] = format_datetime($swimFlight['actual_startup_approval_time']);
+                }
+                if ($swimFlight['expected_taxi_out_time'] !== null) {
+                    $updates[] = 'exot_minutes = ?';
+                    $params[] = intval($swimFlight['expected_taxi_out_time']);
+                }
+                if ($swimFlight['cdm_source']) {
+                    $updates[] = 'cdm_source = ?';
+                    $params[] = $swimFlight['cdm_source'];
+                }
+                if ($swimFlight['cdm_updated_at']) {
+                    $updates[] = 'cdm_updated_utc = ?';
+                    $params[] = format_datetime($swimFlight['cdm_updated_at']);
+                }
+
+                if (!empty($updates)) {
+                    $params[] = $uid;
+                    $update_sql = "UPDATE dbo.adl_flight_times SET " . implode(', ', $updates) . " WHERE flight_uid = ?";
+                    $upd_stmt = sqlsrv_query($conn_adl, $update_sql, $params);
+                    if ($upd_stmt !== false) {
+                        $rows = sqlsrv_rows_affected($upd_stmt);
+                        sqlsrv_free_stmt($upd_stmt);
+                        if ($rows > 0) {
+                            $stats['flights_synced']++;
+                        }
+                    }
+                }
+
+                // Track latest sync time
+                if ($swim_updated) {
+                    $syncTime = ($swim_updated instanceof DateTime) ? $swim_updated : new DateTime($swim_updated);
+                    if (!$latestSync || $syncTime > $latestSync) {
+                        $latestSync = $syncTime;
+                    }
+                }
+
+            } catch (Exception $e) {
+                $stats['errors']++;
+                error_log('CDM reverse sync error for ' . ($swimFlight['callsign'] ?? '?') . ': ' . $e->getMessage());
+            }
+        }
+
+        if ($latestSync) {
+            save_cdm_reverse_sync_time($latestSync);
+        }
+
+        return ['success' => true, 'stats' => $stats];
+
+    } catch (Exception $e) {
+        error_log('CDM reverse sync error: ' . $e->getMessage());
+        return ['success' => false, 'stats' => $stats];
+    }
+}
+
+/**
+ * Get last CDM reverse sync time from state file
+ */
+function get_cdm_reverse_sync_time() {
+    if (!file_exists(CDM_REVERSE_SYNC_STATE_FILE)) {
+        return null;
+    }
+    $state = json_decode(file_get_contents(CDM_REVERSE_SYNC_STATE_FILE), true);
+    if (!$state || empty($state['last_sync_utc'])) {
+        return null;
+    }
+    return new DateTime($state['last_sync_utc'], new DateTimeZone('UTC'));
+}
+
+/**
+ * Save last CDM reverse sync time to state file
+ */
+function save_cdm_reverse_sync_time(DateTime $time) {
+    $state = [
+        'last_sync_utc' => $time->format('Y-m-d H:i:s'),
+        'updated_at' => (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s')
+    ];
+    file_put_contents(CDM_REVERSE_SYNC_STATE_FILE, json_encode($state, JSON_PRETTY_PRINT));
 }
 
 /**

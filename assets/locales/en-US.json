@@ -49,6 +49,81 @@
       "weather": "Weather"
     }
   },
+  "cdm": {
+    "page": {
+      "title": "CDM Dashboard"
+    },
+    "autoRefresh": "Auto-refresh 15s",
+    "lastUpdate": "Updated",
+    "summary": {
+      "readiness": "Pilots Reporting",
+      "compliant": "Compliant",
+      "atRisk": "At-Risk",
+      "nonCompliant": "Non-Compliant",
+      "messages": "Pending Messages",
+      "airports": "Airports Controlled"
+    },
+    "readiness": {
+      "title": "Pilot Readiness",
+      "states": {
+        "planning": "Planning",
+        "boarding": "Boarding",
+        "ready": "Ready",
+        "taxiing": "Taxiing",
+        "cancelled": "Cancelled"
+      }
+    },
+    "compliance": {
+      "title": "EDCT Compliance",
+      "tolerance": "Tolerance: -5 to +15 min",
+      "statuses": {
+        "pending": "Pending",
+        "compliant": "Compliant",
+        "noncompliant": "Non-Compliant",
+        "exempt": "Exempt",
+        "atrisk": "At-Risk"
+      }
+    },
+    "messages": {
+      "title": "Message Queue"
+    },
+    "airport": {
+      "title": "Airport CDM Status",
+      "controlled": "TMI",
+      "ready": "Ready",
+      "boarding": "Boarding",
+      "taxiing": "Taxiing",
+      "held": "Held",
+      "planning": "Planning",
+      "avgTaxi": "Avg taxi {minutes}m"
+    },
+    "table": {
+      "callsign": "Callsign",
+      "dep": "DEP",
+      "arr": "ARR",
+      "state": "State",
+      "tobt": "TOBT",
+      "source": "Source",
+      "type": "Type",
+      "channel": "Channel",
+      "status": "Status",
+      "ack": "ACK",
+      "time": "Time",
+      "complianceType": "Type",
+      "risk": "Risk",
+      "delta": "Delta",
+      "evaluated": "Eval"
+    },
+    "empty": {
+      "readiness": "No readiness reports",
+      "compliance": "No compliance records",
+      "airports": "No airport status data",
+      "messages": "No pending messages"
+    },
+    "error": {
+      "fetchFailed": "CDM data fetch failed"
+    }
+  },
   "common": {
     "add": "Add",
     "all": "All",
@@ -715,6 +790,10 @@
         "extendTitle": "Extend end time",
         "remodel": "Re-model",
         "remodelTitle": "What-If re-model",
+        "compress": "Compress",
+        "compressTitle": "Run slot compression",
+        "reoptimize": "Re-opt",
+        "reoptimizeTitle": "Re-optimize slot assignments",
         "revise": "Revise",
         "reviseTitle": "Revise parameters",
         "transitionTitle": "Transition to GDP"
@@ -729,6 +808,12 @@
       "cancelProgramTitle": "Cancel Program #{id}?",
       "cancelled": "Cancelled",
       "chainBadge": "CHAIN",
+      "compressComplete": "Compression Complete",
+      "compressFailed": "Compression failed",
+      "compressResult": "Compressed {compressed} slots, saved {saved} min of delay.",
+      "compressText": "Run slot compression on program #{id}? This fills gaps left by cancelled or exempt flights.",
+      "compressTitle": "Compress Program?",
+      "compressing": "Compressing...",
       "delayMinutes": "{delay} min",
       "deleteFailed": "Delete failed",
       "deleteText": "This will permanently delete this draft/proposed program.",
@@ -747,7 +832,12 @@
         "avgDelay": "avg delay",
         "controlled": "controlled",
         "exempt": "exempt",
+        "gamingFlags": "gaming flags",
         "maxDelay": "max delay",
+        "popups": "popups",
+        "reoptCycle": "reopt cycle",
+        "reserve": "reserve",
+        "reversals": "reversals",
         "total": "total"
       },
       "newEndTimeRequired": "New end time is required",
@@ -771,6 +861,12 @@
       "proposeFailed": "Proposal failed",
       "proposing": "Proposing...",
       "rateRequired": "Program rate is required",
+      "reoptimizeComplete": "Re-optimization Complete",
+      "reoptimizeFailed": "Re-optimization failed",
+      "reoptimizeResult": "{popups} popups assigned, {compressed} slots compressed, {saved} min saved, {reserves} reserves converted.",
+      "reoptimizeText": "Re-optimize slot assignments for program #{id}? This runs FPFS + RBD with current flight data.",
+      "reoptimizeTitle": "Re-optimize Program?",
+      "reoptimizing": "Re-optimizing...",
       "returnedToActive": "Returned to active program parameters.",
       "reviseFailed": "Revision failed",
       "revising": "Revising...",
@@ -2197,6 +2293,7 @@
     "admin": "Admin",
     "apiDocs": "API Docs",
     "apiKeys": "API Keys",
+    "cdm": "CDM",
     "configs": "Configs",
     "data": "Data",
     "demand": "Demand",

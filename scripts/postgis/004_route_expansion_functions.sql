@@ -27,28 +27,75 @@
 -- Input: Fix identifier (e.g., 'BNA', 'KDFW', 'ZBW')
 -- Output: fix_id, lat, lon, source (nav_fix, airport, airport_faa, airport_k, area_center)
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION resolve_waypoint(p_fix_name VARCHAR)
+-- Drop old single-param version so callers resolve to the new multi-param version with defaults
+DROP FUNCTION IF EXISTS resolve_waypoint(VARCHAR);
+
+CREATE OR REPLACE FUNCTION resolve_waypoint(
+    p_fix_name VARCHAR,
+    p_prev_lat DECIMAL(10,7) DEFAULT NULL,
+    p_prev_lon DECIMAL(11,7) DEFAULT NULL,
+    p_next_lat DECIMAL(10,7) DEFAULT NULL,
+    p_next_lon DECIMAL(11,7) DEFAULT NULL
+)
 RETURNS TABLE (
     fix_id VARCHAR,
     lat DECIMAL(10,7),
     lon DECIMAL(11,7),
     source VARCHAR(20)
 ) AS $$
+DECLARE
+    v_ref_lat DECIMAL(10,7);
+    v_ref_lon DECIMAL(11,7);
+    v_has_context BOOLEAN := FALSE;
 BEGIN
+    -- Compute reference point for proximity disambiguation
+    -- Strategy: both prev+next → midpoint, one side → that side, neither → no filtering
+    IF p_prev_lat IS NOT NULL AND p_next_lat IS NOT NULL THEN
+        v_ref_lat := (p_prev_lat + p_next_lat) / 2.0;
+        v_ref_lon := (p_prev_lon + p_next_lon) / 2.0;
+        v_has_context := TRUE;
+    ELSIF p_prev_lat IS NOT NULL THEN
+        v_ref_lat := p_prev_lat;
+        v_ref_lon := p_prev_lon;
+        v_has_context := TRUE;
+    ELSIF p_next_lat IS NOT NULL THEN
+        v_ref_lat := p_next_lat;
+        v_ref_lon := p_next_lon;
+        v_has_context := TRUE;
+    END IF;
+
     -- Try nav_fixes first (most common - waypoints, VORs, NDBs)
-    RETURN QUERY
-    SELECT
-        nf.fix_name::VARCHAR AS fix_id,
-        nf.lat,
-        nf.lon,
-        'nav_fix'::VARCHAR AS source
-    FROM nav_fixes nf
-    WHERE nf.fix_name = p_fix_name
-    LIMIT 1;
+    -- With context: ORDER BY proximity to pick the closest duplicate
+    IF v_has_context THEN
+        RETURN QUERY
+        SELECT
+            nf.fix_name::VARCHAR AS fix_id,
+            nf.lat,
+            nf.lon,
+            'nav_fix'::VARCHAR AS source
+        FROM nav_fixes nf
+        WHERE nf.fix_name = p_fix_name
+          AND nf.lat IS NOT NULL
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(nf.lon, nf.lat), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(v_ref_lon, v_ref_lat), 4326)::geography
+        )
+        LIMIT 1;
+    ELSE
+        RETURN QUERY
+        SELECT
+            nf.fix_name::VARCHAR AS fix_id,
+            nf.lat,
+            nf.lon,
+            'nav_fix'::VARCHAR AS source
+        FROM nav_fixes nf
+        WHERE nf.fix_name = p_fix_name
+        LIMIT 1;
+    END IF;
 
     IF FOUND THEN RETURN; END IF;
 
-    -- Try airports by ICAO code (e.g., KJFK, KLAX)
+    -- Try airports by ICAO code (e.g., KJFK, KLAX) — globally unique, no proximity needed
     RETURN QUERY
     SELECT
         a.icao_id::VARCHAR AS fix_id,
@@ -62,15 +109,33 @@ BEGIN
     IF FOUND THEN RETURN; END IF;
 
     -- Try airports by FAA code (e.g., DFW, JFK - 3-letter codes)
-    RETURN QUERY
-    SELECT
-        a.icao_id::VARCHAR AS fix_id,
-        a.lat,
-        a.lon,
-        'airport_faa'::VARCHAR AS source
-    FROM airports a
-    WHERE a.arpt_id = p_fix_name
-    LIMIT 1;
+    -- With context: proximity ordering for potential international duplicates
+    IF v_has_context THEN
+        RETURN QUERY
+        SELECT
+            a.icao_id::VARCHAR AS fix_id,
+            a.lat,
+            a.lon,
+            'airport_faa'::VARCHAR AS source
+        FROM airports a
+        WHERE a.arpt_id = p_fix_name
+          AND a.lat IS NOT NULL
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(a.lon, a.lat), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(v_ref_lon, v_ref_lat), 4326)::geography
+        )
+        LIMIT 1;
+    ELSE
+        RETURN QUERY
+        SELECT
+            a.icao_id::VARCHAR AS fix_id,
+            a.lat,
+            a.lon,
+            'airport_faa'::VARCHAR AS source
+        FROM airports a
+        WHERE a.arpt_id = p_fix_name
+        LIMIT 1;
+    END IF;
 
     IF FOUND THEN RETURN; END IF;
 
@@ -103,7 +168,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION resolve_waypoint(VARCHAR) IS 'Resolves a fix/airport identifier to lat/lon coordinates';
+COMMENT ON FUNCTION resolve_waypoint(VARCHAR, DECIMAL, DECIMAL, DECIMAL, DECIMAL) IS 'Resolves a fix/airport identifier to lat/lon coordinates with optional proximity disambiguation';
 
 -- -----------------------------------------------------------------------------
 -- 2. expand_airway - Expand airway between two fixes
@@ -111,10 +176,15 @@ COMMENT ON FUNCTION resolve_waypoint(VARCHAR) IS 'Resolves a fix/airport identif
 -- Input: Airway name (e.g., 'J86'), from_fix (e.g., 'LOWGN'), to_fix (e.g., 'BNA')
 -- Output: Ordered list of waypoints along the airway
 -- -----------------------------------------------------------------------------
+-- Drop old 3-param version so callers resolve to the new 5-param version with defaults
+DROP FUNCTION IF EXISTS expand_airway(VARCHAR, VARCHAR, VARCHAR);
+
 CREATE OR REPLACE FUNCTION expand_airway(
     p_airway VARCHAR,
     p_from_fix VARCHAR,
-    p_to_fix VARCHAR
+    p_to_fix VARCHAR,
+    p_context_lat DECIMAL(10,7) DEFAULT NULL,
+    p_context_lon DECIMAL(11,7) DEFAULT NULL
 )
 RETURNS TABLE (
     seq INT,
@@ -126,24 +196,67 @@ DECLARE
     v_from_seq INT;
     v_to_seq INT;
     v_airway_id INT;
+    v_candidate RECORD;
 BEGIN
-    -- Get airway ID
-    SELECT a.airway_id INTO v_airway_id
-    FROM airways a
-    WHERE a.airway_name = p_airway
-    LIMIT 1;
+    -- Find the correct airway variant by preferring the one where BOTH entry
+    -- and exit fixes exist. This prevents cross-hemisphere mismatches when
+    -- airways share names across regions (e.g., J107 in US vs J107 in Europe).
+    v_airway_id := NULL;
+    FOR v_candidate IN
+        SELECT DISTINCT a.airway_id
+        FROM airways a
+        WHERE a.airway_name = p_airway
+    LOOP
+        PERFORM 1 FROM airway_segments s
+        WHERE s.airway_id = v_candidate.airway_id
+          AND (s.from_fix = p_from_fix OR s.to_fix = p_from_fix);
+        IF FOUND THEN
+            PERFORM 1 FROM airway_segments s
+            WHERE s.airway_id = v_candidate.airway_id
+              AND (s.from_fix = p_to_fix OR s.to_fix = p_to_fix);
+            IF FOUND THEN
+                v_airway_id := v_candidate.airway_id;
+                EXIT;
+            END IF;
+        END IF;
+
+        IF v_airway_id IS NULL THEN
+            PERFORM 1 FROM airway_segments s
+            WHERE s.airway_id = v_candidate.airway_id
+              AND (s.from_fix = p_from_fix OR s.to_fix = p_from_fix);
+            IF FOUND THEN
+                v_airway_id := v_candidate.airway_id;
+            END IF;
+        END IF;
+    END LOOP;
 
     IF v_airway_id IS NULL THEN
-        -- Airway not found, return empty
         RETURN;
     END IF;
 
-    -- Find sequence numbers for from/to fixes
-    -- Check both from_fix and to_fix columns since direction can vary
-    SELECT MIN(s.sequence_num) INTO v_from_seq
-    FROM airway_segments s
-    WHERE s.airway_id = v_airway_id
-      AND (s.from_fix = p_from_fix OR s.to_fix = p_from_fix);
+    -- Find sequence numbers for from/to fixes.
+    -- When context coordinates are available, use proximity to pick the correct
+    -- segment when a fix name appears multiple times on the same airway
+    -- (e.g., DPR at both South Dakota and Faro, Portugal on J107).
+    IF p_context_lat IS NOT NULL THEN
+        SELECT s.sequence_num INTO v_from_seq
+        FROM airway_segments s
+        WHERE s.airway_id = v_airway_id
+          AND (s.from_fix = p_from_fix OR s.to_fix = p_from_fix)
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(
+                CASE WHEN s.from_fix = p_from_fix THEN s.from_lon ELSE s.to_lon END,
+                CASE WHEN s.from_fix = p_from_fix THEN s.from_lat ELSE s.to_lat END
+            ), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(p_context_lon, p_context_lat), 4326)::geography
+        )
+        LIMIT 1;
+    ELSE
+        SELECT MIN(s.sequence_num) INTO v_from_seq
+        FROM airway_segments s
+        WHERE s.airway_id = v_airway_id
+          AND (s.from_fix = p_from_fix OR s.to_fix = p_from_fix);
+    END IF;
 
     SELECT MAX(s.sequence_num) INTO v_to_seq
     FROM airway_segments s
@@ -151,8 +264,27 @@ BEGIN
       AND (s.from_fix = p_to_fix OR s.to_fix = p_to_fix);
 
     IF v_from_seq IS NULL OR v_to_seq IS NULL THEN
-        -- Fixes not found on airway, return empty
         RETURN;
+    END IF;
+
+    -- Distance sanity check: if context is available, verify the matched from_fix
+    -- is within 2500km (~1350nm) of the previous waypoint. This catches cases where
+    -- a fix name exists on the airway but in the wrong hemisphere (e.g., DPR on J107
+    -- matching Faro, Portugal instead of Dupree, South Dakota).
+    IF p_context_lat IS NOT NULL THEN
+        PERFORM 1
+        FROM airway_segments s
+        WHERE s.airway_id = v_airway_id AND s.sequence_num = v_from_seq
+          AND ST_Distance(
+            ST_SetSRID(ST_MakePoint(
+                CASE WHEN s.from_fix = p_from_fix THEN s.from_lon ELSE s.to_lon END,
+                CASE WHEN s.from_fix = p_from_fix THEN s.from_lat ELSE s.to_lat END
+            ), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(p_context_lon, p_context_lat), 4326)::geography
+          ) < 2500000; -- 2500km
+        IF NOT FOUND THEN
+            RETURN; -- from_fix is too far from route context
+        END IF;
     END IF;
 
     -- Handle forward or reverse traversal
@@ -198,7 +330,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION expand_airway(VARCHAR, VARCHAR, VARCHAR) IS 'Expands an airway between two fixes to ordered waypoints';
+COMMENT ON FUNCTION expand_airway(VARCHAR, VARCHAR, VARCHAR, DECIMAL, DECIMAL) IS 'Expands an airway between two fixes to ordered waypoints';
 
 -- -----------------------------------------------------------------------------
 -- 2b. resolve_fbd_waypoint - Resolve a Fix/Bearing/Distance token
@@ -348,6 +480,8 @@ DECLARE
     v_idx INT;
     v_part TEXT;
     v_prev_fix TEXT := NULL;
+    v_prev_lat DECIMAL(10,7) := NULL;
+    v_prev_lon DECIMAL(11,7) := NULL;
     v_seq INT := 0;
     v_is_airway BOOLEAN;
     v_next_fix TEXT;
@@ -359,6 +493,13 @@ DECLARE
     v_fbd_next_lat DECIMAL(10,7);
     v_fbd_next_lon DECIMAL(11,7);
     v_fbd_next_wp RECORD;
+    v_seq_before_airway INT;
+    v_is_endpoint BOOLEAN;
+    v_is_fast_path_airway BOOLEAN;
+    v_lookahead_idx INT;
+    v_lookahead_token TEXT;
+    v_next_wp_lat DECIMAL(10,7);
+    v_next_wp_lon DECIMAL(11,7);
 BEGIN
     -- Split route string into parts
     v_parts := regexp_split_to_array(TRIM(p_route_string), '\s+');
@@ -376,16 +517,11 @@ BEGIN
         -- Check for FBD (Fix/Bearing/Distance) tokens like BDR228018
         -- Must come BEFORE airway check to avoid misclassification
         IF v_part ~ '^[A-Z]{2,5}\d{6}$' THEN
-            -- Get previous fix coords for disambiguation
-            v_fbd_prev_lat := NULL;
-            v_fbd_prev_lon := NULL;
+            -- Use tracked previous fix coords (no need to re-resolve)
+            v_fbd_prev_lat := v_prev_lat;
+            v_fbd_prev_lon := v_prev_lon;
             v_fbd_next_lat := NULL;
             v_fbd_next_lon := NULL;
-
-            IF v_seq > 0 THEN
-                SELECT rw.lat, rw.lon INTO v_fbd_prev_lat, v_fbd_prev_lon
-                FROM resolve_waypoint(v_prev_fix) rw LIMIT 1;
-            END IF;
 
             -- Look ahead to next token for disambiguation context
             IF v_idx < array_length(v_parts, 1) THEN
@@ -414,14 +550,24 @@ BEGIN
                 waypoint_type := 'fbd';
                 RETURN NEXT;
                 v_prev_fix := v_part;
+                v_prev_lat := v_fbd_wp.lat;
+                v_prev_lon := v_fbd_wp.lon;
             END IF;
 
             v_idx := v_idx + 1;
             CONTINUE;
         END IF;
 
-        -- Check if this is an airway (J/Q/V/T followed by number, or named airways like A1, B5)
-        v_is_airway := v_part ~ '^[JQVT]\d+$' OR v_part ~ '^[A-Z]{1,2}\d{1,3}$';
+        -- Check if this is an airway
+        -- Fast-path: J/Q/V/T routes are unambiguous airway designators
+        v_is_fast_path_airway := v_part ~ '^[JQVT]\d+$';
+        v_is_airway := v_is_fast_path_airway;
+
+        -- For broader pattern (A1, B5, PR1, etc.), verify against airways table
+        -- to avoid misclassifying real waypoint names that match the pattern
+        IF NOT v_is_airway AND v_part ~ '^[A-Z]{1,2}\d{1,3}$' THEN
+            SELECT EXISTS(SELECT 1 FROM airways WHERE airway_name = v_part) INTO v_is_airway;
+        END IF;
 
         IF v_is_airway AND v_prev_fix IS NOT NULL AND v_idx < array_length(v_parts, 1) THEN
             -- This is an airway - expand it
@@ -432,10 +578,13 @@ BEGIN
                 v_next_fix := split_part(v_next_fix, '.', 1);
             END IF;
 
+            -- Track seq before expansion to detect empty result
+            v_seq_before_airway := v_seq;
+
             -- Expand airway (skip first fix as it was already added)
             FOR v_airway_wp IN
                 SELECT ea.seq, ea.fix_id, ea.lat, ea.lon
-                FROM expand_airway(v_part, v_prev_fix, v_next_fix) ea
+                FROM expand_airway(v_part, v_prev_fix, v_next_fix, v_prev_lat, v_prev_lon) ea
                 WHERE ea.seq > 1
             LOOP
                 v_seq := v_seq + 1;
@@ -446,10 +595,43 @@ BEGIN
                 waypoint_type := 'airway_' || v_part;
                 RETURN NEXT;
                 v_prev_fix := v_airway_wp.fix_id;
+                v_prev_lat := v_airway_wp.lat;
+                v_prev_lon := v_airway_wp.lon;
             END LOOP;
 
-            -- Skip the airway and next fix (already processed via expansion)
-            v_idx := v_idx + 2;
+            IF v_seq > v_seq_before_airway THEN
+                -- Airway expansion succeeded — skip airway + exit fix (already processed)
+                v_idx := v_idx + 2;
+            ELSE
+                -- Airway expansion failed (from/to fixes not found on airway).
+                -- For fast-path airways (J/Q/V/T routes): these are unambiguously airway
+                -- designators, never real waypoint names. If expansion fails, our airway
+                -- data is incomplete — skip the token rather than risk resolving a
+                -- same-named nav_fix in the wrong hemisphere (e.g., T295 = Siberian NDB).
+                -- For table-verified airways: the token could legitimately be a waypoint
+                -- that also exists in the airways table, so try resolve_waypoint fallback.
+                IF NOT v_is_fast_path_airway THEN
+                    SELECT rw.fix_id, rw.lat, rw.lon, rw.source
+                    INTO v_wp
+                    FROM resolve_waypoint(v_part, v_prev_lat, v_prev_lon) rw
+                    LIMIT 1;
+
+                    IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
+                        v_seq := v_seq + 1;
+                        waypoint_seq := v_seq;
+                        waypoint_id := v_wp.fix_id;
+                        lat := v_wp.lat;
+                        lon := v_wp.lon;
+                        waypoint_type := v_wp.source;
+                        RETURN NEXT;
+                        v_prev_fix := v_part;
+                        v_prev_lat := v_wp.lat;
+                        v_prev_lon := v_wp.lon;
+                    END IF;
+                END IF;
+
+                v_idx := v_idx + 1;
+            END IF;
         ELSE
             -- Direct waypoint/fix
             -- Strip procedure notation (e.g., "KDFW.LOWGN5" -> "KDFW")
@@ -457,10 +639,58 @@ BEGIN
                 v_part := split_part(v_part, '.', 1);
             END IF;
 
-            -- Resolve waypoint
+            -- For first/last token: check area_centers FIRST (ARTCC endpoint bookending).
+            -- This prevents nav_fixes shadows like ZLA (Slovak NDB) from overriding
+            -- ZLA (Los Angeles Center) when used as a route bookend.
+            v_is_endpoint := (v_idx = 1 OR v_idx = array_length(v_parts, 1));
+
+            IF v_is_endpoint THEN
+                SELECT ac.center_code::VARCHAR AS fix_id, ac.lat, ac.lon, 'area_center'::VARCHAR(20) AS source
+                INTO v_wp
+                FROM area_centers ac
+                WHERE ac.center_code = v_part
+                LIMIT 1;
+
+                IF v_wp.fix_id IS NOT NULL THEN
+                    v_seq := v_seq + 1;
+                    waypoint_seq := v_seq;
+                    waypoint_id := v_wp.fix_id;
+                    lat := v_wp.lat;
+                    lon := v_wp.lon;
+                    waypoint_type := v_wp.source;
+                    RETURN NEXT;
+                    v_prev_fix := v_part;
+                    v_prev_lat := v_wp.lat;
+                    v_prev_lon := v_wp.lon;
+                    v_idx := v_idx + 1;
+                    CONTINUE;
+                END IF;
+            END IF;
+
+            -- Lookahead: find next non-airway token for proximity context
+            v_next_wp_lat := NULL;
+            v_next_wp_lon := NULL;
+            FOR v_lookahead_idx IN (v_idx + 1)..COALESCE(array_length(v_parts, 1), 0) LOOP
+                v_lookahead_token := v_parts[v_lookahead_idx];
+                IF v_lookahead_token IS NULL OR v_lookahead_token = '' THEN CONTINUE; END IF;
+                -- Skip obvious airway tokens
+                IF v_lookahead_token ~ '^[JQVT]\d+$' THEN CONTINUE; END IF;
+                -- Skip FBD tokens
+                IF v_lookahead_token ~ '^[A-Z]{2,5}\d{6}$' THEN CONTINUE; END IF;
+                -- Strip procedure notation
+                IF v_lookahead_token LIKE '%.%' THEN
+                    v_lookahead_token := split_part(v_lookahead_token, '.', 1);
+                END IF;
+                -- Resolve without context (avoid circular dependency)
+                SELECT rw.lat, rw.lon INTO v_next_wp_lat, v_next_wp_lon
+                FROM resolve_waypoint(v_lookahead_token) rw LIMIT 1;
+                EXIT; -- Use first resolvable non-airway token
+            END LOOP;
+
+            -- Resolve waypoint with proximity context from previous + lookahead
             SELECT rw.fix_id, rw.lat, rw.lon, rw.source
             INTO v_wp
-            FROM resolve_waypoint(v_part) rw
+            FROM resolve_waypoint(v_part, v_prev_lat, v_prev_lon, v_next_wp_lat, v_next_wp_lon) rw
             LIMIT 1;
 
             IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
@@ -472,6 +702,8 @@ BEGIN
                 waypoint_type := v_wp.source;
                 RETURN NEXT;
                 v_prev_fix := v_part;
+                v_prev_lat := v_wp.lat;
+                v_prev_lon := v_wp.lon;
             END IF;
 
             v_idx := v_idx + 1;
