@@ -3955,6 +3955,8 @@
       "quickColors": "Quick Colors",
       "values": "Values",
       "valuesHint": "Comma-separated values",
+      "colorPlaceholder": "blue, #ff6600, or color name",
+      "valuesPlaceholder": "AAL DAL UAL or B76* or KATL KJFK",
       "weightClass": "Weight Class"
     },
     "confirmClearOverrides": "Clear all color/style overrides?",
@@ -4037,6 +4039,13 @@
     "noMatchingRoutes": "No matching routes found",
     "opacity": "Opacity",
     "overlays": "Overlays",
+    "popup": {
+      "airway": "Airway",
+      "copied": "Copied!",
+      "copyFailed": "Failed",
+      "routeAhead": "Route Ahead",
+      "routeBehind": "Route Behind"
+    },
     "page": {
       "actions": "Actions",
       "active": "active",

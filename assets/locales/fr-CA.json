@@ -2958,7 +2958,12 @@
       "unassigned": "Non assigné",
       "unknownRoute": "Route inconnue",
       "viewInJatoc": "Voir dans JATOC →",
-      "weightClass": "Classe de masse"
+      "weightClass": "Classe de masse",
+      "airway": "Voie aérienne",
+      "copied": "Copié !",
+      "copyFailed": "Échec",
+      "routeAhead": "Route à parcourir",
+      "routeBehind": "Route parcourue"
     },
     "time": {
       "ufn": "UFN"
@@ -4120,7 +4125,9 @@
       "quickColors": "Couleurs rapides",
       "values": "Valeurs",
       "valuesHint": "Valeurs séparées par des virgules",
-      "weightClass": "Classe de poids"
+      "weightClass": "Classe de poids",
+      "colorPlaceholder": "bleu, #ff6600 ou nom de couleur",
+      "valuesPlaceholder": "AAL DAL UAL ou B76* ou KATL KJFK"
     },
     "confirmClearOverrides": "Effacer tous les remplacements de couleur/style ?",
     "confirmResetDefaults": "Réinitialiser les paramètres d'affichage par défaut ?",

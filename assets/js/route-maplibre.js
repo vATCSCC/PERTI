@@ -3096,7 +3096,7 @@ $(document).ready(function() {
 
             const content = `
                 <div style="font-family: 'Inconsolata', monospace; font-weight: bold;">
-                    ${props.name || 'Airway'}
+                    ${props.name || PERTII18n.t('route.popup.airway')}
                 </div>
             `;
             new maplibregl.Popup({ closeButton: true, closeOnClick: true })
@@ -3117,7 +3117,7 @@ $(document).ready(function() {
                 <div class="flight-route-popup" style="font-family: 'Inconsolata', monospace; font-size: 12px;">
                     <div style="font-weight: bold; color: ${props.color || '#fff'};">${props.callsign}</div>
                     <div style="color: var(--dark-text-subtle); margin-top: 4px;">
-                        ${isAhead ? 'Route Ahead' : 'Route Behind'}
+                        ${isAhead ? PERTII18n.t('route.popup.routeAhead') : PERTII18n.t('route.popup.routeBehind')}
                     </div>
                 </div>
             `;
@@ -4058,7 +4058,7 @@ $(document).ready(function() {
                                 <div class="form-group mb-2">
                                     <label class="small mb-1">${PERTII18n.t('route.colorRule.values')} <span class="text-muted">(${PERTII18n.t('route.colorRule.valuesHint')})</span></label>
                                     <input type="text" class="form-control form-control-sm" id="rule_values" 
-                                        placeholder="AAL DAL UAL or B76* or KATL KJFK" 
+                                        placeholder="${PERTII18n.t('route.colorRule.valuesPlaceholder')}" 
                                         value="${rule.values.join(' ')}">
                                     <small class="text-muted">${PERTII18n.t('route.colorRule.examples')}</small>
                                 </div>
@@ -4066,7 +4066,7 @@ $(document).ready(function() {
                                     <label class="small mb-1">${PERTII18n.t('route.colorRule.color')}</label>
                                     <div class="d-flex align-items-center">
                                         <input type="text" class="form-control form-control-sm mr-2" id="rule_color" 
-                                            placeholder="blue, #ff6600, or color name" 
+                                            placeholder="${PERTII18n.t('route.colorRule.colorPlaceholder')}" 
                                             value="${rule.color}" style="flex:1;">
                                         <input type="color" class="form-control form-control-sm" id="rule_color_picker" 
                                             value="${parseColor(rule.color) || '#4e79a7'}" style="width:40px;padding:2px;">
@@ -5330,7 +5330,7 @@ $(document).ready(function() {
                         navigator.clipboard.writeText(routeText).then(() => {
                             // Visual feedback
                             const originalHtml = this.innerHTML;
-                            this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                            this.innerHTML = '<i class="fas fa-check"></i> ' + PERTII18n.t('route.popup.copied');
                             this.classList.remove('btn-outline-info');
                             this.classList.add('btn-success');
                             setTimeout(() => {
@@ -5349,9 +5349,9 @@ $(document).ready(function() {
                             textarea.select();
                             try {
                                 document.execCommand('copy');
-                                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                                this.innerHTML = '<i class="fas fa-check"></i> ' + PERTII18n.t('route.popup.copied');
                             } catch (e) {
-                                this.innerHTML = '<i class="fas fa-times"></i> Failed';
+                                this.innerHTML = '<i class="fas fa-times"></i> ' + PERTII18n.t('route.popup.copyFailed');
                             }
                             document.body.removeChild(textarea);
                         });
@@ -5546,7 +5546,7 @@ $(document).ready(function() {
 
             // Add 'Custom Rules' option to color dropdown if not present
             if ($('#adl_color_by option[value="custom"]').length === 0) {
-                $('#adl_color_by').append('<option value="custom">Custom Rules</option>');
+                $('#adl_color_by').append('<option value="custom">' + PERTII18n.t('route.colorRule.customRules') + '</option>');
             }
 
             // Inject color rules container if not present
