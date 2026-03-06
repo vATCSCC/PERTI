@@ -2714,20 +2714,22 @@ $(document).ready(function() {
 
         const features = [];
         airwayNames.forEach(name => {
-            const airwayData = awyIndexMap[name];
-            if (!airwayData) {return;}
-            const coords = [];
-            airwayData.fixes.forEach(fixName => {
-                const pt = getPointByName(fixName);
-                if (pt && pt.length >= 3) {coords.push([pt[2], pt[1]]);}
-            });
-            if (coords.length >= 2) {
-                features.push({
-                    type: 'Feature',
-                    properties: { name },
-                    geometry: { type: 'LineString', coordinates: coords },
+            const variants = awyIndexMap[name];
+            if (!variants) {return;}
+            variants.forEach(variant => {
+                const coords = [];
+                variant.fixes.forEach(fixName => {
+                    const pt = getPointByName(fixName);
+                    if (pt && pt.length >= 3) {coords.push([pt[2], pt[1]]);}
                 });
-            }
+                if (coords.length >= 2) {
+                    features.push({
+                        type: 'Feature',
+                        properties: { name },
+                        geometry: { type: 'LineString', coordinates: coords },
+                    });
+                }
+            });
         });
 
         graphic_map.getSource('filtered-airways').setData({ type: 'FeatureCollection', features });
