@@ -893,6 +893,8 @@ const DEMAND_STATE = {
     legendVisible: localStorage.getItem('demand_legend_visible') !== 'false', // default true
     // ECharts legend selected state (preserved across auto-refresh)
     legendSelected: {},
+    // DataZoom slider positions (preserved across auto-refresh)
+    dataZoomState: null,
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -2596,8 +2598,9 @@ function renderChart(data) {
         return;
     }
 
-    // Capture legend selected state before replacing chart options
+    // Capture legend and dataZoom state before replacing chart options
     DEMAND_STATE.legendSelected = captureLegendSelected();
+    DEMAND_STATE.dataZoomState = captureDataZoomState();
 
     // Hide loading indicator
     DEMAND_STATE.chart.hideLoading();
@@ -3022,8 +3025,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         return;
     }
 
-    // Capture legend selected state before replacing chart options
+    // Capture legend and dataZoom state before replacing chart options
     DEMAND_STATE.legendSelected = captureLegendSelected();
+    DEMAND_STATE.dataZoomState = captureDataZoomState();
 
     DEMAND_STATE.chart.hideLoading();
 
@@ -5080,6 +5084,11 @@ function renderCurrentView() {
  * Provides horizontal (time) and vertical (demand) sliders
  */
 function getDataZoomConfig() {
+    var saved = DEMAND_STATE.dataZoomState;
+    var xStart = (saved && saved[0]) ? saved[0].start : 0;
+    var xEnd   = (saved && saved[0]) ? saved[0].end   : 100;
+    var yStart = (saved && saved[1]) ? saved[1].start : 0;
+    var yEnd   = (saved && saved[1]) ? saved[1].end   : 100;
     return [
         {
             // Horizontal slider (time axis)
@@ -5087,8 +5096,8 @@ function getDataZoomConfig() {
             xAxisIndex: 0,
             bottom: 10,
             height: 30,
-            start: 0,
-            end: 100,
+            start: xStart,
+            end: xEnd,
             borderColor: '#adb5bd',
             backgroundColor: '#f8f9fa',
             fillerColor: 'rgba(0, 123, 255, 0.2)',
@@ -5125,8 +5134,8 @@ function getDataZoomConfig() {
             yAxisIndex: 0,
             right: 5,
             width: 25,
-            start: 0,
-            end: 100,
+            start: yStart,
+            end: yEnd,
             borderColor: '#adb5bd',
             backgroundColor: '#f8f9fa',
             fillerColor: 'rgba(40, 167, 69, 0.2)',
@@ -5145,6 +5154,9 @@ function getDataZoomConfig() {
             textStyle: {
                 color: '#333',
                 fontSize: 10,
+            },
+            labelFormatter: function(value) {
+                return Math.round(value);
             },
             brushSelect: false,
             z: 100,                       // Ensure slider is above tooltip elements
@@ -5198,6 +5210,22 @@ function captureLegendSelected() {
         return Object.assign({}, option.legend[0].selected);
     }
     return {};
+}
+
+/**
+ * Capture the current ECharts dataZoom slider positions before re-render.
+ * Preserves slider start/end percentages across auto-refreshes.
+ */
+function captureDataZoomState() {
+    if (!DEMAND_STATE.chart) return null;
+    var option = DEMAND_STATE.chart.getOption();
+    if (option && option.dataZoom && option.dataZoom.length >= 2) {
+        return [
+            { start: Math.round(option.dataZoom[0].start), end: Math.round(option.dataZoom[0].end) },
+            { start: Math.round(option.dataZoom[1].start), end: Math.round(option.dataZoom[1].end) },
+        ];
+    }
+    return null;
 }
 
 /**
