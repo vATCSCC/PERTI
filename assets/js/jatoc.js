@@ -1100,20 +1100,22 @@
             const eventDate = new Date(e.date);
             const day = String(eventDate.getUTCDate()).padStart(2, '0');
             const time = e.time || 'TBD';
-            const etStr = day + '/' + (time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD');
-            let utcStr = '';
+            const etHHMM = time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD';
+            const etLine = day + '/' + etHHMM + (etHHMM !== 'TBD' ? 'ET' : '');
+            let utcLine = '';
             let status = 'future';
             if (e.time && e.time !== 'TBD') {
                 const [h, m] = e.time.split(':').map(Number);
                 const utcH = (h + etOffset) % 24;
                 const utcDay = (h + etOffset) >= 24 ? eventDate.getUTCDate() + 1 : eventDate.getUTCDate();
-                utcStr = ` (${String(utcDay).padStart(2,'0')}/${String(utcH).padStart(2,'0')}${String(m).padStart(2,'0')}Z)`;
+                utcLine = String(utcDay).padStart(2,'0') + '/' + String(utcH).padStart(2,'0') + String(m).padStart(2,'0') + 'Z';
                 const eventTime = new Date(eventDate);
                 eventTime.setUTCHours(h + etOffset, m, 0, 0);
                 if (eventTime < now) {status = 'past';}
                 else if (eventTime < new Date(now.getTime() + 3600000)) {status = 'active';}
             }
-            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${etStr}${utcStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || PERTII18n.t('jatoc.events.event'))}</span></div>`;
+            const timeDisplay = utcLine ? `${etLine}\n${utcLine}` : etLine;
+            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${timeDisplay}</span><span class="ops-calendar-event">${esc(e.details || e.location || PERTII18n.t('jatoc.events.event'))}</span></div>`;
         }).join('');
     }
 

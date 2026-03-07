@@ -150,7 +150,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     .ops-calendar-row { display: flex; padding: 3px 6px; border-bottom: 1px solid #334155; font-size: 0.7rem; }
     .ops-calendar-row.past { opacity: 0.5; }
     .ops-calendar-row.active { background: rgba(34, 197, 94, 0.2); border-left: 3px solid #22c55e; }
-    .ops-calendar-time { width: 55px; color: #94a3b8; font-family: monospace; font-size: 0.65rem; }
+    .ops-calendar-time { width: 68px; min-width: 68px; color: #94a3b8; font-family: monospace; font-size: 0.65rem; line-height: 1.3; white-space: pre-line; }
     .ops-calendar-event { flex: 1; color: #e2e8f0; font-size: 0.7rem; }
     
     .vatusa-section { background: #1e293b; border-radius: 0 0 4px 4px; max-height: 130px; overflow-y: auto; padding: 6px; }
