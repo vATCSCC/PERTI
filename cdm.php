@@ -31,7 +31,7 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
          * ========================================= */
 
         .cdm-container {
-            padding: 1rem 1.5rem;
+            padding: 5.5rem 1.5rem 1rem;
             max-width: 1600px;
             margin: 0 auto;
         }
@@ -51,18 +51,36 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
             font-size: 1.1rem;
         }
 
+        .cdm-page-header > div:last-child {
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
         .cdm-page-header .cdm-timestamp {
             font-size: 0.75rem;
             color: #888;
         }
 
         /* Summary cards row */
+        #cdm-summary-row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        #cdm-summary-row > .col-2 {
+            display: flex;
+        }
+
         .cdm-summary-card {
             text-align: center;
-            padding: 0.75rem;
+            padding: 0.75rem 0.5rem;
             border-radius: 4px;
             background: #f8f9fa;
             border: 1px solid #dee2e6;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .cdm-summary-card .cdm-summary-value {
@@ -77,6 +95,7 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
             letter-spacing: 0.05em;
             color: #666;
             margin-top: 2px;
+            white-space: nowrap;
         }
 
         /* Section cards */
@@ -217,6 +236,21 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
             color: #888;
         }
 
+        /* Main content row - equal height columns */
+        .cdm-content-row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .cdm-content-row > [class*="col-"] {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cdm-content-row .cdm-section:last-child {
+            flex: 1;
+        }
+
         /* Empty state */
         .cdm-empty {
             text-align: center;
@@ -274,37 +308,37 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
 
     <!-- Summary Row -->
     <div class="row mb-3" id="cdm-summary-row">
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value" id="summary-readiness">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.readiness') ?></div>
             </div>
         </div>
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value text-success" id="summary-compliant">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.compliant') ?></div>
             </div>
         </div>
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value text-warning" id="summary-at-risk">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.atRisk') ?></div>
             </div>
         </div>
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value text-danger" id="summary-non-compliant">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.nonCompliant') ?></div>
             </div>
         </div>
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value" id="summary-messages">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.messages') ?></div>
             </div>
         </div>
-        <div class="col">
+        <div class="col-2">
             <div class="cdm-summary-card">
                 <div class="cdm-summary-value" id="summary-airports">-</div>
                 <div class="cdm-summary-label"><?= __('cdm.summary.airports') ?></div>
@@ -313,7 +347,7 @@ if (defined('HIBERNATION_MODE') && HIBERNATION_MODE) {
     </div>
 
     <!-- Main Content Row -->
-    <div class="row">
+    <div class="row cdm-content-row">
 
         <!-- Left Column: Readiness + Messages -->
         <div class="col-lg-6">
